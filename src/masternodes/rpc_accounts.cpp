@@ -1459,6 +1459,16 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                             {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
                             {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from {CustomTxType}"},
+                            {"txtypes", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "Filter multiple transaction types, supported letter from {CustomTxType}",
+                                 {
+                                         {
+                                             "Transaction Type",
+                                             RPCArg::Type::STR,
+                                             RPCArg::Optional::OMITTED,
+                                             "letter from {CustomTxType}",
+                                         },
+                                 }
+                            },
                        },
                    },
                },
@@ -1484,7 +1494,8 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     bool noRewards = false;
     std::string tokenFilter;
-    auto txType = CustomTxType::None;
+    std::set<CustomTxType> txTypes{};
+    bool hasTxFilter = false;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1493,6 +1504,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
+                {"txtypes", UniValueType(UniValue::VOBJ)},
             }, true, true);
 
         noRewards = optionsObj["no_rewards"].getBool();
@@ -1501,10 +1513,27 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             tokenFilter = optionsObj["token"].get_str();
         }
 
-        if (!optionsObj["txtype"].isNull()) {
+        if (!optionsObj["txtypes"].isNull()) {
+            hasTxFilter = true;
+            const auto types = optionsObj["txtypes"].get_array().getValues();
+            if (!types.empty()) {
+                for (const auto& type : types) {
+                    auto str = type.get_str();
+                    if (str.size() == 1) {
+                        txTypes.insert(CustomTxCodeToType(str[0]));
+                    } else {
+                        txTypes.insert(FromString(str));
+                    }
+                }
+            }
+        }
+        else if (!optionsObj["txtype"].isNull()) {
+            hasTxFilter = true;
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
-                txType = CustomTxCodeToType(str[0]);
+                txTypes.insert(CustomTxCodeToType(str[0]));
+            } else {
+                txTypes.insert(FromString(str));
             }
         }
     }
@@ -1522,7 +1551,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     std::set<uint256> txs;
-    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -1558,7 +1587,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
         }
 
-        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+        if (hasTxFilter && txTypes.find(CustomTxCodeToType(value.category)) == txTypes.end()) {
             return true;
         }
 
