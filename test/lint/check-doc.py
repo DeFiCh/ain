@@ -28,6 +28,7 @@ SET_DOC_OPTIONAL = set([
     '-help',
     '-dbcrashratio',
     '-forcecompactdb',
+    '-leveldbchecksum',
     '-interrupt-block',
     '-stop-block',
     '-mocknet',
@@ -35,7 +36,6 @@ SET_DOC_OPTIONAL = set([
     '-mocknet-blocktime',
     '-checkpoints-file',
     '-negativeinterest',
-    '-leveldbchecksum'
     ])
 
 

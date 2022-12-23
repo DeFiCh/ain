@@ -131,22 +131,9 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     options = GetOptions(nCacheSize);
     options.create_if_missing = true;
 
-    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", "auto");
-    if(leveldbchecksum == "false"){
-        // set to true by default for all versions above 1.16 of LevelDB in GetOptions()
-        options.paranoid_checks = false;
-    }
-    else if (leveldbchecksum == "true") {
-        readoptions.verify_checksums = true;
-        iteroptions.verify_checksums = true;
-    }
-    else {
-        if (leveldbchecksum != "auto")
-            LogPrint(BCLog::LEVELDB, "leveldbchecksum value not in 'true|false|value'. Falling back to default value 'auto'\n");
-        auto isMN = gArgs.IsArgSet("-masternode_operator");
-        readoptions.verify_checksums = isMN;
-        iteroptions.verify_checksums = isMN;
-    }
+    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", true);
+    readoptions.verify_checksums = leveldbchecksum;
+    iteroptions.verify_checksums = leveldbchecksum;
 
     if (fMemory) {
         penv = leveldb::NewMemEnv(leveldb::Env::Default());
