@@ -1412,6 +1412,14 @@ public:
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
 
+        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
+
+        if (!toAddressEnabled && !obj.to.empty())
+            return Res::Err("Mint tokens to address is not enabled");
+
         // check auth and increase balance of token's owner
         for (const auto &[tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= fortCanningCrunchHeight &&
@@ -1431,8 +1439,17 @@ public:
                 if (!minted)
                     return minted;
 
-                CalculateOwnerRewards(*mintable.val);
-                auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, amount});
+                CScript mintTo{*mintable.val};
+                if (!obj.to.empty()) {
+                    CTxDestination destination;
+                    if (ExtractDestination(obj.to, destination) && IsValidDestination(destination))
+                        mintTo = obj.to;
+                    else
+                        return Res::Err("Invalid \'to\' address provided");
+                }
+
+                CalculateOwnerRewards(mintTo);
+                auto res = mnview.AddBalance(mintTo, CTokenAmount{tokenId, amount});
                 if (!res)
                     return res;
 

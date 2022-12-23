@@ -191,6 +191,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"members", DFIPKeys::Members},
              {"gov-payout", DFIPKeys::CFPPayout},
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
+             {"mint-tokens-to-address", DFIPKeys::MintTokens},
          }},
         {AttributeTypes::Governance,
          {
@@ -264,6 +265,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::Members, "members"},
              {DFIPKeys::CFPPayout, "gov-payout"},
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
+             {DFIPKeys::MintTokens, "mint-tokens-to-address"},
          }},
         {AttributeTypes::Live,
          {
@@ -585,6 +587,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::ConsortiumEnabled, VerifyBool},
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
+                 {DFIPKeys::MintTokens, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -802,7 +805,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::MNSetRewardAddress && typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
-                    typeKey != DFIPKeys::EmissionUnusedFund) {
+                    typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {
@@ -1502,7 +1505,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
+                if (attrV0->typeId == ParamIDs::Feature && attrV0->key == DFIPKeys::MintTokens) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralEpilogueHeight) {
+                        return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
                     attrV0->key == DFIPKeys::Members) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
