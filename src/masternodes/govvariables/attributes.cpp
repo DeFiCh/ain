@@ -205,7 +205,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"voc_approval_threshold", GovernanceKeys::VOCApprovalThreshold},
              {"quorum", GovernanceKeys::Quorum},
              {"voting_period", GovernanceKeys::VotingPeriod},
-             {"cfo_max_cycles", GovernanceKeys::CFPMaxCycles},
+             {"cfp_max_cycles", GovernanceKeys::CFPMaxCycles},
          }},
     };
     return keys;
