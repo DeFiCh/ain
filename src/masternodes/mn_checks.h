@@ -489,6 +489,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     uint32_t height,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+bool IsTestNetwork();
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
