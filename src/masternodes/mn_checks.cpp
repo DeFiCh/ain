@@ -1415,6 +1415,7 @@ public:
 
         CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
         const auto attributes = mnview.GetAttributes();
+        assert(attributes);
         const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
 
         if (!toAddressEnabled && !obj.to.empty())
