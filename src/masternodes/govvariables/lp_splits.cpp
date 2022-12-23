@@ -13,12 +13,13 @@ bool LP_SPLITS::IsEmpty() const {
 }
 
 Res LP_SPLITS::Import(const UniValue &val) {
-    Require(val.isObject(),
-            "object of {poolId: rate,... } expected");  /// throw here? cause "AmountFromValue" can throw!
+    if (!val.isObject())
+        return Res::Err("object of {poolId: rate,... } expected");  /// throw here? cause "AmountFromValue" can throw!
 
     for (const std::string &key : val.getKeys()) {
-        auto id = DCT_ID::FromString(key);
-        Require(id);
+        const auto id = DCT_ID::FromString(key);
+        if (!id)
+            return std::move(id);
         splits.emplace(*id.val, AmountFromValue(val[key]));  // todo: AmountFromValue
     }
     return Res::Ok();
@@ -34,17 +35,18 @@ UniValue LP_SPLITS::Export() const {
 
 Res LP_SPLITS::Validate(const CCustomCSView &mnview) const {
     CAmount total{0};
-    for (const auto &[poolId, amount] : splits) {
-        Require(mnview.HasPoolPair(poolId), "pool with id=%s not found", poolId.ToString());
+    for (const auto &kv : splits) {
+        if (!mnview.HasPoolPair(kv.first))
+            return Res::Err("pool with id=%s not found", kv.first.ToString());
 
-        Require(amount >= 0 && amount <= COIN,
-                "wrong percentage for pool with id=%s, value = %s",
-                poolId.ToString(),
-                std::to_string(amount));
+        if (kv.second < 0 || kv.second > COIN)
+            return Res::Err(
+                "wrong percentage for pool with id=%s, value = %s", kv.first.ToString(), std::to_string(kv.second));
 
-        total += amount;
+        total += kv.second;
     }
-    Require(total == COIN, "total = %d vs expected %d", total, COIN);
+    if (total != COIN)
+        return Res::Err("total = %d vs expected %d", total, COIN);
 
     return Res::Ok();
 }

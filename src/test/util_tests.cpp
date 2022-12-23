@@ -1572,23 +1572,4 @@ BOOST_AUTO_TEST_CASE(test_Capitalize)
     BOOST_CHECK_EQUAL(Capitalize("\x00\xfe\xff"), "\x00\xfe\xff");
 }
 
-BOOST_AUTO_TEST_CASE(test_VerifyRes)
-{
-    auto testFunRes = []() {
-        Require(false, "Error");
-        return Res::Ok();
-    };
-    auto testFunCode = []() {
-        Require(Res::Err("Error"), 22, "Error Code");
-        return Res::Ok();
-    };
-    auto res = testFunRes();
-    BOOST_CHECK_EQUAL(res.ok, false);
-    BOOST_CHECK_EQUAL(res.msg, "Error");
-    auto resCode = testFunCode();
-    BOOST_CHECK_EQUAL(resCode.ok, false);
-    BOOST_CHECK_EQUAL(resCode.code, 22u);
-    BOOST_CHECK_EQUAL(resCode.msg, "Error Code");
-}
-
 BOOST_AUTO_TEST_SUITE_END()
