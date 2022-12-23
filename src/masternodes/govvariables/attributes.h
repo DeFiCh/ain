@@ -99,6 +99,7 @@ enum GovernanceKeys : uint8_t {
     Quorum                  = 'j',
     VotingPeriod            = 'k',
     VOCEmergencyQuorum      = 'l',
+    CFPMaxCycles            = 'm',
 };
 
 enum TokenKeys : uint8_t {

@@ -4430,8 +4430,13 @@ public:
         if (obj.contextHash.size() > MAX_PROP_CONTEXT_SIZE)
             return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
 
-        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+        auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
+        auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
+
+        if (obj.nCycles < 1 || obj.nCycles > maxCycles )
+            return Res::Err("proposal cycles can be between 1 and %d", maxCycles);
 
         if ((obj.options & CPropOption::Emergency)) {
             if (obj.nCycles != 1) {
