@@ -101,9 +101,6 @@ std::optional<CPropObject> CPropsView::GetProp(const CPropId &propId) {
 }
 
 Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
-    if (cycle < 1 || cycle > MAX_CYCLES)
-        return Res::Err("Cycle out of range");
-
     auto key    = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
     if (!pcycle)
