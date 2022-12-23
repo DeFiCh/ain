@@ -53,12 +53,12 @@ Res CPropsView::CreateProp(const CPropId &propId, uint32_t height, const CCreate
     bool emergency = prop.options & CPropOption::Emergency;
     auto type      = static_cast<CPropType>(prop.type);
 
-    prop.creationHeight     = height;
-    prop.votingPeriod       = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
-    prop.approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop.quorum             = GetQuorumFromAttributes(type, emergency);
-    prop.fee                = fee;
-    prop.feeBurnAmount      = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
+    prop.creationHeight    = height;
+    prop.votingPeriod      = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
+    prop.approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop.quorum            = GetQuorumFromAttributes(type, emergency);
+    prop.fee               = fee;
+    prop.feeBurnAmount     = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
@@ -120,8 +120,8 @@ Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
     bool emergency = prop->options & CPropOption::Emergency;
     auto type      = static_cast<CPropType>(prop->type);
 
-    prop->approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop->quorum             = GetQuorumFromAttributes(type, emergency);
+    prop->approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop->quorum            = GetQuorumFromAttributes(type, emergency);
     WriteBy<ByType>(propId, *prop);
 
     return Res::Ok();
