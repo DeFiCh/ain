@@ -660,21 +660,19 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
     }
 
-    CCreatePoolPairMessage poolPairMsg;
+    CPoolPairMessage poolPairMsg;
     poolPairMsg.idTokenA     = idtokenA;
     poolPairMsg.idTokenB     = idtokenB;
     poolPairMsg.commission   = commission;
     poolPairMsg.status       = status;
     poolPairMsg.ownerAddress = ownerAddress;
-    poolPairMsg.pairSymbol = pairSymbol;
-
-    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        poolPairMsg.rewards = rewards;
-    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg;
+    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair) << poolPairMsg << pairSymbol;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        metadata << rewards;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
