@@ -1504,7 +1504,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
-                {"txtypes", UniValueType(UniValue::VOBJ)},
+                {"txtypes", UniValueType(UniValue::VARR)},
             }, true, true);
 
         noRewards = optionsObj["no_rewards"].getBool();
@@ -1539,7 +1539,6 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     std::set<CScript> accountSet{CScript{}};
-//    CScript owner;
     bool isMine = false;
     isminetype filter = ISMINE_ALL;
 
