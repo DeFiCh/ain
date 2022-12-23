@@ -105,7 +105,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
         v++;
         return v;
     };
-    
+
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
     options.write_buffer_size = ceil_power_of_two(std::min(static_cast<size_t>(64)
@@ -132,6 +132,11 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     syncoptions.sync = true;
     options = GetOptions(nCacheSize);
     options.create_if_missing = true;
+
+    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", true);
+    readoptions.verify_checksums = leveldbchecksum;
+    iteroptions.verify_checksums = leveldbchecksum;
+
     if (fMemory) {
         penv = leveldb::NewMemEnv(leveldb::Env::Default());
         options.env = penv;

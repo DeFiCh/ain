@@ -943,6 +943,20 @@ void InitParameterInteraction()
         if (gArgs.SoftSetBoolArg("-whitelistrelay", true))
             LogPrintf("%s: parameter interaction: -whitelistforcerelay=1 -> setting -whitelistrelay=1\n", __func__);
     }
+
+    // Parse leveldb checksum
+    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", "auto");
+    if (leveldbchecksum == "true"){
+        gArgs.SoftSetBoolArg("-leveldbchecksum", true);
+    } else if (leveldbchecksum == "false") {
+        gArgs.SoftSetBoolArg("-leveldbchecksum", false);
+    } else {
+        if (leveldbchecksum != "auto"){
+            InitWarning("Invalid value for -leveldbchecksum, setting default value -> 'auto'");
+        }
+        if (gArgs.SoftSetBoolArg("-leveldbchecksum", gArgs.IsArgSet("-masternode_operator")))
+                LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
+    }
 }
 
 /**
