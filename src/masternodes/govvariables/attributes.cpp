@@ -206,6 +206,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"voc_approval_threshold", GovernanceKeys::VOCApprovalThreshold},
              {"quorum", GovernanceKeys::Quorum},
              {"voting_period", GovernanceKeys::VotingPeriod},
+             {"cfp_max_cycles", GovernanceKeys::CFPMaxCycles},
          }},
     };
     return keys;
@@ -299,6 +300,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {GovernanceKeys::VOCApprovalThreshold, "voc_approval_threshold"},
              {GovernanceKeys::Quorum, "quorum"},
              {GovernanceKeys::VotingPeriod, "voting_period"},
+             {GovernanceKeys::CFPMaxCycles, "cfp_max_cycles"},
          }},
     };
     return keys;
@@ -610,6 +612,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {GovernanceKeys::VOCApprovalThreshold, VerifyPct},
                  {GovernanceKeys::Quorum, VerifyPct},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
+                 {GovernanceKeys::CFPMaxCycles, VerifyUInt32},
              }},
     };
     return parsers;
@@ -822,7 +825,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
                     typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
                     typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
-                    typeKey != GovernanceKeys::VotingPeriod)
+                    typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             } else {
                 return Res::Err("Unsupported Governance ID");
