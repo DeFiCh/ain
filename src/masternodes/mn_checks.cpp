@@ -1411,10 +1411,14 @@ public:
         const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
-        const auto grandCentralNextHeight   = static_cast<uint32_t>(consensus.GrandCentralNextHeight);
+        const auto grandCentralNextHeight   = static_cast<uint32_t>(consensus.GrandCentralEpilogueHeight);
 
-        if (height < grandCentralNextHeight && !obj.to.empty())
-            return Res::Err("Recipient provided before Grand Central Next");
+        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
+        const auto attributes = mnview.GetAttributes();
+        const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
+
+        if (!toAddressEnabled && !obj.to.empty())
+            return Res::Err("Mint tokens to address is not enabled");
 
         // check auth and increase balance of token's owner
         for (const auto &[tokenId, amount] : obj.balances) {
