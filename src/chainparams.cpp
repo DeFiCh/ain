@@ -395,7 +395,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralEpilogueHeight = 1438200;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
