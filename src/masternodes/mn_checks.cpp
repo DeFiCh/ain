@@ -2329,7 +2329,7 @@ public:
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            if (((Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET) && height >= 1250000) ||
+            if ((IsTestNetwork() && height >= 1250000) ||
                 Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
             } else {
@@ -3776,7 +3776,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
 
     // disable ICX orders for all networks other than testnet
     if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        ((Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET) && static_cast<int>(height) >= 1250000)) {
+        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
         return false;
     }
 
@@ -4707,4 +4707,8 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 
     // Store GovVariable set by height
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
+}
+
+bool IsTestNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
