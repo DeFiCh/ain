@@ -7,7 +7,8 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_equal
 
 class TokensMultisigOwnerTest(DefiTestFramework):
     def set_test_params(self):
@@ -98,7 +99,11 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         assert_equal(signed_rawtx_1['complete'], True)
 
         # Send should fail as transaction is invalid
-        assert_raises_rpc_error(-26, "tx must have at least one input from the owner", self.nodes[0].sendrawtransaction, signed_rawtx_1['hex'])
+        try:
+            self.nodes[0].sendrawtransaction(signed_rawtx_1['hex'])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("tx must have at least one input from the owner" in errorString)
 
         # Test that multisig TXs can change names
         rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_1,"vout":vout_1}], [{"data":name_change_1},{owner_1:0.9999}])
@@ -181,7 +186,11 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         assert_equal(signed_rawtx_1['complete'], False)
 
         # Try to send partially signed multisig, expect failure
-        assert_raises_rpc_error(-26, "Signature must be zero for failed CHECK(MULTI)SIG operation", self.nodes[0].sendrawtransaction, signed_rawtx_1['hex'])
+        try:
+            self.nodes[0].sendrawtransaction(signed_rawtx_1['hex'])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Signature must be zero for failed CHECK(MULTI)SIG operation" in errorString)
 
         # Add second signate and try again
         signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(signed_rawtx_1['hex'], [owner_2_privkey], [{"txid":txid_1,"vout":vout_4,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])

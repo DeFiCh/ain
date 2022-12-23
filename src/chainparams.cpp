@@ -139,6 +139,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
+        consensus.GrandCentralNextHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -394,6 +395,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
+        consensus.GrandCentralNextHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -605,6 +607,7 @@ public:
         consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
         consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
         consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralNextHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -807,6 +810,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 10000000;
         consensus.FortCanningEpilogueHeight = 10000000;
         consensus.GrandCentralHeight = 10000000;
+        consensus.GrandCentralNextHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1048,6 +1052,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
+    UpdateHeightValidation("Grand Central Next", "-grandcentralnextheight", consensus.GrandCentralNextHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1155,7 +1160,9 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
+    if (!file.good()) {
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
+    }
 
     ClearCheckpoints(params);
 
@@ -1167,13 +1174,19 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", trimmed);
+        }
 
         uint256 hash;
-        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
 
         int32_t height;
-        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
+        if (!ParseInt32(heightStr, &height)) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }
