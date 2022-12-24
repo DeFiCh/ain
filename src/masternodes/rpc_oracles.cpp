@@ -47,7 +47,7 @@ namespace {
         currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
         if (token.empty() || currency.empty()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s/%s is empty", oraclefields::Token, oraclefields::Currency).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s/%s is empty", oraclefields::Token, oraclefields::Currency));
         }
 
         return std::make_pair(token, currency);
@@ -853,14 +853,8 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
     });
 
     static const uint64_t minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
-
-    if (numLiveOracles < minimumLiveOracles) {
-        return Res::Err("no live oracles for specified request");
-    }
-
-    if (sumWeights == 0) {
-        return Res::Err("all live oracles which meet specified request, have zero weight");
-    }
+    Require(numLiveOracles >= minimumLiveOracles, "no live oracles for specified request");
+    Require(sumWeights > 0, "all live oracles which meet specified request, have zero weight");
 
     ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
 
