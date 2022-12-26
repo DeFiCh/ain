@@ -97,11 +97,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install Dependencies
-      run: sudo apt-get update && sudo apt-get install -y wget
-
     - name: Download Snapshot
-      run: wget https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz
+      run: aria2c -x16 -s16 https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz
 
     - name: Create datadir
       run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz
