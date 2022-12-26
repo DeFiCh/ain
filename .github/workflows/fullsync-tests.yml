@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be formatted as multiple start block, such as "350000 50000 750000"'
+        description: 'Optionally restrict to specific block ranges. Should be formatted as multiple start block, such as "350000 50000 750000". Defaults to all block ranges'
         required: false
 
 jobs:
