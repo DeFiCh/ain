@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-binaries:
-    runs-on: [self-hosted, linux, x64, server-2]
+    runs-on: [self-hosted, linux, x64, builder]
     steps:
     - uses: actions/checkout@v3
       with:
