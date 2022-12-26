@@ -1,5 +1,10 @@
 name: Full Sync Tests
 on:
+  pull_request:
+    branches:
+      - master
+      - epic/*
+    types: [labeled, opened, reopened, synchronize]
   workflow_dispatch:
     inputs:
       block_ranges:
@@ -9,6 +14,7 @@ on:
 jobs:
   build-binaries:
     runs-on: [self-hosted, linux, x64, builder]
+    if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -42,6 +48,7 @@ jobs:
 
   generate-matrix:
       runs-on: [self-hosted, linux, x64]
+      if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
 
       # Add "id-token" with the intended permissions.
       permissions:
