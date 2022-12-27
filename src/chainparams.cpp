@@ -139,7 +139,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
-        consensus.GrandCentralEpilogueHeight = 2574000;
+        consensus.GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
