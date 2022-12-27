@@ -36,7 +36,7 @@ public:
                      const Consensus::Params &consensus);
 
 protected:
-    Res HasAuth(const CScript &auth) const;
+    bool HasAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
