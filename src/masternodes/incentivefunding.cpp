@@ -15,7 +15,9 @@ CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account
 
 Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CAmount amount) {
     // deny negative values on db level!
-    Require(amount >= 0, "negative amount");
+    if (amount < 0) {
+        return Res::Err("negative amount");
+    }
     WriteBy<ById>(static_cast<unsigned char>(account), amount);
     return Res::Ok();
 }
@@ -33,17 +35,20 @@ Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CA
     if (amount == 0) {
         return Res::Ok();
     }
-    auto sum = SafeAdd(amount, GetCommunityBalance(account));
-    Require(sum);
-    return SetCommunityBalance(account, sum);
+    auto res = SafeAdd(amount, GetCommunityBalance(account));
+    return !res.ok ? res : SetCommunityBalance(account, *res.val);
 }
 
 Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount) {
     if (amount == 0) {
         return Res::Ok();
     }
-    Require(amount > 0, "negative amount");
+    if (amount < 0) {
+        return Res::Err("negative amount");
+    }
     CAmount oldBalance = GetCommunityBalance(account);
-    Require(oldBalance >= amount, "Amount %d is less than %d", oldBalance, amount);
+    if (oldBalance < amount) {
+        return Res::Err("Amount %d is less than %d", oldBalance, amount);
+    }
     return SetCommunityBalance(account, oldBalance - amount);
 }
