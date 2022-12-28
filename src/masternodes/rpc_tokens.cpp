@@ -641,7 +641,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     RPCHelpMan{"minttokens",
                "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address. \n"
+               "All arguments may optionally be passed in a JSON object." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -671,6 +672,12 @@ UniValue minttokens(const JSONRPCRequest& request) {
                                       R"(10@symbol '[{"txid":"id","vout":0}]')")
                        + HelpExampleCli("minttokens",
                                            R"(10@symbol '[{"txid":"id","vout":0}]' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"({"amounts": ["10@symbol"], "to": "address"})")
+                       + HelpExampleCli("minttokens",
+                                           R"({"amounts": ["10@symbol"], "to": "address", "inputs": "[{"txid": "id","vout": 0}]"})")
                        + HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")
                },
     }.Check(request);
