@@ -291,6 +291,7 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         cycle1 = creationHeight + (votingPeriod - creationHeight % votingPeriod) + votingPeriod
         proposalEndHeight = cycle1
+
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
@@ -298,7 +299,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
         assert_equal(result["contextHash"], "")
-        assert_equal(result["status"], "Completed")
+        assert_equal(result["status"], "Voting")
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
         assert_equal(result["totalCycles"], 1)
@@ -517,6 +518,7 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         cycle1 = creationHeight + (emergencyPeriod - creationHeight % emergencyPeriod) + emergencyPeriod
         proposalEndHeight = creationHeight + emergencyPeriod
+
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
@@ -524,7 +526,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
         assert_equal(result["contextHash"], "")
-        assert_equal(result["status"], "Rejected")
+        assert_equal(result["status"], "Voting")
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
         assert_equal(result["totalCycles"], 1)
