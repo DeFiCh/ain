@@ -53,15 +53,7 @@ UniValue proposalToJSON(const CPropId &propId,
         votesPossible = votingInfo->votesPossible;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
-        auto valid      = votesPresentPct > quorum;
-        if (valid) {
-            votesYesPct = lround(votesYes * 10000.f / votesPresent);
-        }
-        if (valid && votesYesPct > approvalThreshold) {
-            statusString = "Completed";
-        } else {
-            statusString = "Rejected";
-        }
+        votesYesPct     = lround(votesYes * 10000.f / votesPresent);
 
         votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
         votesYesPctString     = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
@@ -163,10 +155,10 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
         RPCExamples{
                                                     HelpExampleCli("creategovcfp",
                                                     "'{\"title\":\"The cfp title\",\"context\":\"The cfp "
-                                                    "context\",\"amount\":10,\"payoutAddress\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'") +
+                           "context\",\"amount\":10,\"payoutAddress\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'") +
             HelpExampleRpc("creategovcfp",
                                                     "'{\"title\":\"The cfp title\",\"context\":\"The cfp "
-                                                    "context\",\"amount\":10,\"payoutAddress\":\"address\"} '[{\"txid\":\"id\",\"vout\":0}]'")},
+                           "context\",\"amount\":10,\"payoutAddress\":\"address\"} '[{\"txid\":\"id\",\"vout\":0}]'")},
     }
         .Check(request);
 
