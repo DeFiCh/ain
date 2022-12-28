@@ -100,7 +100,7 @@ struct Params {
     int FortCanningGreatWorldHeight;
     int FortCanningEpilogueHeight;
     int GrandCentralHeight;
-    int GrandCentralNextHeight;
+    int GrandCentralEpilogueHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
