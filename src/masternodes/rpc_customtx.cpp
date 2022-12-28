@@ -92,10 +92,10 @@ public:
                     EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
                                                                 : CTxDestination(WitnessV0KeyHash(rawAddress))));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                rpcInfo.pushKV(
-                    "ownerAddress",
-                    EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
-                                                                : CTxDestination(WitnessV0KeyHash(rawAddress))));
+                CTxDestination dest;
+                if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
+                    rpcInfo.pushKV("ownerAddress",EncodeDestination(dest));
+                }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
                 rpcInfo.pushKV(
@@ -117,7 +117,10 @@ public:
 
     void operator()(const CUpdateTokenMessage &obj) const { tokenInfo(obj.token); }
 
-    void operator()(const CMintTokensMessage &obj) const { rpcInfo.pushKVs(tokenBalances(obj)); }
+    void operator()(const CMintTokensMessage &obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj));
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+    }
 
     void operator()(const CBurnTokensMessage &obj) const {
         rpcInfo.pushKVs(tokenBalances(obj.amounts));
@@ -195,13 +198,13 @@ public:
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
             tokenInfo(tokenPair->second);
-        if (auto tokenA = mnview.GetToken(obj.idTokenA))
+        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
             rpcInfo.pushKV("tokenA", tokenA->name);
-        if (auto tokenB = mnview.GetToken(obj.idTokenB))
+        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
             rpcInfo.pushKV("tokenB", tokenB->name);
-        rpcInfo.pushKV("commission", ValueFromAmount(obj.commission));
-        rpcInfo.pushKV("status", obj.status);
-        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
+        rpcInfo.pushKV("status", obj.poolPair.status);
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
         customRewardsInfo(obj.rewards);
     }
 
@@ -251,8 +254,7 @@ public:
     }
 
     void operator()(const CGovernanceMessage &obj) const {
-        for (const auto &gov : obj.govs) {
-            auto& var = gov.second;
+        for (const auto &var : obj.govs) {
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }

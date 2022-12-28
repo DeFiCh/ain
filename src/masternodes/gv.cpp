@@ -55,8 +55,11 @@ std::shared_ptr<GovVariable> CGovView::GetVariable(const std::string &name) cons
 }
 
 Res CGovView::SetStoredVariables(const std::set<std::shared_ptr<GovVariable>> &govVars, const uint32_t height) {
-    for (auto &item : govVars)
-        Require(WriteBy<ByHeightVars>(GovVarKey{height, item->GetName()}, *item), "Cannot write to DB");
+    for (auto &item : govVars) {
+        if (!WriteBy<ByHeightVars>(GovVarKey{height, item->GetName()}, *item)) {
+            return Res::Err("Cannot write to DB");
+        }
+    }
 
     return Res::Ok();
 }
