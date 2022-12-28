@@ -14,10 +14,10 @@ class ConsortiumTest (DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
 
     def run_test(self):
 
@@ -218,7 +218,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('2.00000000'))
 
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolDOGE + " token by minting this amount!", self.nodes[2].minttokens, ["3.00000001@" + symbolDOGE])
-        assert_raises_rpc_error(-8, "Invalid parameters, argument \"from\" must not be null", self.nodes[0].burntokens, {'amounts': "1.00000000@" + symbolBTC})
+        assert_raises_rpc_error(-8, "No valid addresses could be found, use the "from" argument to set address to burn from", self.nodes[0].burntokens, {'amounts': "1.00000000@" + symbolBTC})
 
         self.nodes[0].burntokens({
             'amounts': "2@" + symbolBTC,
@@ -423,7 +423,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "You will exceed your daily mint limit for " + symbolBTC + " token by minting this amount", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
         # burn to check that burning from address of a member for different token does not get counted when burning other tokens
-        assert_raises_rpc_error(-8, "Invalid parameters, argument \"from\" must not be null", self.nodes[1].burntokens, {'amounts': "0.10000000@" + symbolBTC})
+        assert_raises_rpc_error(-8, "No valid addresses could be found, use the "from" argument to set address to burn from ", self.nodes[1].burntokens, {'amounts': "0.10000000@" + symbolBTC})
         self.nodes[1].burntokens({
             'amounts': "0.1@" + symbolBTC,
             'from': account1,
@@ -533,6 +533,28 @@ class ConsortiumTest (DefiTestFramework):
             "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
 
         assert_equal(self.nodes[0].getburninfo(), {'address': 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG', 'amount': Decimal('0E-8'), 'tokens': ['2.10000000@BTC', '0.50000000@DOGE'], 'consortiumtokens': ['6.10000000@BTC', '1.50000000@DOGE'], 'feeburn': Decimal('2.00000000'), 'auctionburn': Decimal('0E-8'), 'paybackburn': [], 'dexfeetokens': [], 'dfipaybackfee': Decimal('0E-8'), 'dfipaybacktokens': [], 'paybackfees': [], 'paybacktokens': [], 'emissionburn': Decimal('5386.81500000'), 'dfip2203': [], 'dfip2206f': []})
+
+        # Test setting before fork
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentralEpilogueHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/mint-tokens-to-address':'true'}})
+
+        # Move to fork
+        self.nodes[0].generate(300 - self.nodes[0].getblockcount())
+
+        # Try and mint to an address before feature enabled
+        newAddress = self.nodes[0].getnewaddress("", "bech32")
+        assert_raises_rpc_error(-32600, "Mint tokens to address is not enabled", self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": newAddress})
+
+        # Enable mint tokens to an address
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/mint-tokens-to-address':'true'}})
+        self.nodes[0].generate(1)
+
+        # Mint tokens to an address
+        self.nodes[0].minttokens({"amounts": ["2@" + symbolBTC], "to": newAddress})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
+
+        assert_raises_rpc_error(-5, "recipient (NOTANADDRESS) does not refer to any valid address",
+                                self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": "NOTANADDRESS"})
 
 if __name__ == '__main__':
     ConsortiumTest().main()
