@@ -675,9 +675,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
                        + HelpExampleCli("minttokens",
                                            R"(10@symbol '' address)")
                        + HelpExampleCli("minttokens",
-                                           R"({"amounts": ["10@symbol"], "to": "address"})")
+                                           R"('{"amounts": ["10@symbol"], "to": "address"}')")
                        + HelpExampleCli("minttokens",
-                                           R"({"amounts": ["10@symbol"], "to": "address", "inputs": "[{"txid": "id","vout": 0}]"})")
+                                           R"('{"amounts": ["10@symbol"], "to": "address", "inputs": "[{"txid": "id","vout": 0}]"}')")
                        + HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")
                },
     }.Check(request);
