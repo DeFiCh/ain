@@ -443,13 +443,18 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result[mn6]['ownerAuthAddress'], new_mn6_owner)
 
         # Update MN to address not owned in wallet
-        self.nodes[0].updatemasternode(mn1, {'ownerAddress':foreign_owner})
+        tx = self.nodes[0].updatemasternode(mn1, {'ownerAddress':foreign_owner})
         self.nodes[0].generate(21)
 
         # Test new owner address
         result = self.nodes[0].listmasternodes()
         assert_equal(result[mn1]['state'], 'ENABLED')
         assert_equal(result[mn1]['ownerAuthAddress'], foreign_owner)
+
+        # Check result of getcustomtx for owner transfer
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['results']['id'], mn1)
+        assert_equal(result['results']['ownerAddress'], foreign_owner)
 
 if __name__ == '__main__':
     TestForcedRewardAddress().main()
