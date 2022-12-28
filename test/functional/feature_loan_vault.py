@@ -357,10 +357,10 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # create
-        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed', self.nodes[0].createvault, self.owner_addresses[0], 'LOAN0002')
+        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed on block 626', self.nodes[0].createvault, self.owner_addresses[0], 'LOAN0002')
 
         # update
-        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed', self.nodes[0].updatevault, self.vaults[1], {'loanSchemeId':'LOAN0002'})
+        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed on block 626', self.nodes[0].updatevault, self.vaults[1], {'loanSchemeId':'LOAN0002'})
 
     def update_vault_scheme(self):
         new_address = self.nodes[0].getnewaddress('', 'legacy')

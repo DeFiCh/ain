@@ -85,6 +85,7 @@ enum DFIPKeys : uint8_t {
     GovernanceEnabled    = 'q',
     CFPPayout            = 'r',
     EmissionUnusedFund   = 's',
+    MintTokens           = 't',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -99,6 +100,7 @@ enum GovernanceKeys : uint8_t {
     Quorum               = 'j',
     VotingPeriod         = 'k',
     VOCEmergencyQuorum   = 'l',
+    CFPMaxCycles         = 'm',
 };
 
 enum TokenKeys : uint8_t {

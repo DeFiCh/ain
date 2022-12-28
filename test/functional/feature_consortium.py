@@ -14,10 +14,10 @@ class ConsortiumTest (DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=300', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
 
     def run_test(self):
 
@@ -524,6 +524,29 @@ class ConsortiumTest (DefiTestFramework):
         # Throw error for invalid values
         assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
+
+        # Test setting before fork
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentralEpilogueHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/mint-tokens-to-address':'true'}})
+
+        # Move to fork
+        self.nodes[0].generate(300 - self.nodes[0].getblockcount())
+
+        # Try and mint to an address before feature enabled
+        newAddress = self.nodes[0].getnewaddress("", "bech32")
+        assert_raises_rpc_error(-32600, "Mint tokens to address is not enabled", self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": newAddress})
+
+        # Enable mint tokens to an address
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/mint-tokens-to-address':'true'}})
+        self.nodes[0].generate(1)
+
+        # Mint tokens to an address
+        self.nodes[0].minttokens({"amounts": ["2@" + symbolBTC], "to": newAddress})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
+
+        assert_raises_rpc_error(-5, "recipient (NOTANADDRESS) does not refer to any valid address",
+                                self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": "NOTANADDRESS"})
+
 
 if __name__ == '__main__':
     ConsortiumTest().main()
