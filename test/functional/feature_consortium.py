@@ -218,7 +218,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('2.00000000'))
 
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolDOGE + " token by minting this amount!", self.nodes[2].minttokens, ["3.00000001@" + symbolDOGE])
-        assert_raises_rpc_error(-8, "No valid addresses could be found, use the "from" argument to set address to burn from", self.nodes[0].burntokens, {'amounts': "1.00000000@" + symbolBTC})
+        assert_raises_rpc_error(-8, "No valid addresses could be found, use the \"from\" argument to set address to burn from", self.nodes[0].burntokens, {'amounts': "1.00000000@" + symbolBTC})
 
         self.nodes[0].burntokens({
             'amounts': "2@" + symbolBTC,
@@ -423,7 +423,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "You will exceed your daily mint limit for " + symbolBTC + " token by minting this amount", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
         # burn to check that burning from address of a member for different token does not get counted when burning other tokens
-        assert_raises_rpc_error(-8, "No valid addresses could be found, use the "from" argument to set address to burn from ", self.nodes[1].burntokens, {'amounts': "0.10000000@" + symbolBTC})
+        assert_raises_rpc_error(-8, "No valid addresses could be found, use the \"from\" argument to set address to burn from", self.nodes[1].burntokens, {'amounts': "0.10000000@" + symbolBTC})
         self.nodes[1].burntokens({
             'amounts': "0.1@" + symbolBTC,
             'from': account1,
