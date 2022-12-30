@@ -649,12 +649,32 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     RPCHelpMan{
         "listgovproposals",
         "\nReturns information about proposals.\n",
-        {{"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "cfp/voc/all (default = all)"},
+        {
+          {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "cfp/voc/all (default = all)"},
           {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "voting/rejected/completed/all (default = all)"},
-          {"cycle",
-          RPCArg::Type::NUM,
-          RPCArg::Optional::OMITTED,
-          "cycle: 0 (all), cycle: N (show cycle N), cycle: -1 (show previous cycle) (default = 0)"}},
+          {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "cycle: 0 (all), cycle: N (show cycle N), cycle: -1 (show previous cycle) (default = 0)"},
+          {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Vote index to iterate from."
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of votes to return, 100 by default"},
+                },
+          },
+        },
         RPCResult{"{id:{...},...}     (array) Json object with proposals information\n"},
         RPCExamples{HelpExampleCli("listgovproposals", "") + HelpExampleRpc("listgovproposals", "")},
     }
@@ -663,7 +683,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     if (request.params[0].isObject())
         RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
     else
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, true);
+        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
 
     uint8_t type{0}, status{0};
     int cycle{0};
@@ -671,7 +691,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     CPropId start        = {};
     bool including_start = true;
 
-    if (request.params[0].isObject() > 0) {
+    if (request.params[0].isObject()) {
         auto optionsObj = request.params[0].get_obj();
 
         if (optionsObj.exists("type")) {
@@ -707,13 +727,13 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
         }
 
         if (!optionsObj["pagination"].isNull()) {
-            UniValue paginationObj = optionsObj["pagination"].get_obj();
+            auto paginationObj = optionsObj["pagination"].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t)paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
                 including_start  = false;
-                start                   = ParseHashV(optionsObj["start"], "start");
+                start                   = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -749,6 +769,20 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             if (cycle < -1) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
                                    "Incorrect cycle value (0 -> all cycles, -1 -> previous cycle, N -> nth cycle");
+            }
+        }
+
+        if (request.params.size() > 3) {
+            auto paginationObj = request.params[3].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start  = false;
+                start                   = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
             }
         }
     }
