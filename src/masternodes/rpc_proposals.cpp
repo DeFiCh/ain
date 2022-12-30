@@ -706,16 +706,19 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             }
         }
 
-        if (!optionsObj["limit"].isNull()) {
-            limit = (size_t)optionsObj["limit"].get_int64();
-        }
-        if (!optionsObj["start"].isNull()) {
-            including_start = false;
-            start           = ParseHashV(optionsObj["start"], "start");
-        }
-        if (!optionsObj["including_start"].isNull()) {
-            including_start = optionsObj["including_start"].getBool();
-        }
+        if (!optionsObj["pagination"].isNull()) {
+            UniValue paginationObj = optionsObj["pagination"].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start  = false;
+                start                   = ParseHashV(optionsObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+       }
     } else {
         if (request.params.size() > 0) {
             auto str = request.params[0].get_str();
