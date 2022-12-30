@@ -105,6 +105,20 @@ class OnChainGovernanceTest(DefiTestFramework):
             errorString = e.error['message']
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
+        # Test invalid keys
+        try:
+            self.nodes[0].creategovcfp(
+                {"title": title, "context": "a", "amount": 100, "cycle": 2, "payoutAddress": address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Unexpected key cycle" in errorString)
+        try:
+            self.nodes[0].creategovvoc(
+                {"title": title, "context": "a", "amounts": 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Unexpected key amounts" in errorString)
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
 
