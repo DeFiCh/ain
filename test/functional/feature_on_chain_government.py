@@ -105,6 +105,20 @@ class OnChainGovernanceTest(DefiTestFramework):
             errorString = e.error['message']
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
+        # Test invalid keys
+        try:
+            self.nodes[0].creategovcfp(
+                {"title": title, "context": "a", "amount": 100, "cycle": 2, "payoutAddress": address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Unexpected key cycle" in errorString)
+        try:
+            self.nodes[0].creategovvoc(
+                {"title": title, "context": "a", "amounts": 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Unexpected key amounts" in errorString)
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
 
@@ -277,6 +291,7 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         cycle1 = creationHeight + (votingPeriod - creationHeight % votingPeriod) + votingPeriod
         proposalEndHeight = cycle1
+
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
@@ -284,7 +299,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
         assert_equal(result["contextHash"], "")
-        assert_equal(result["status"], "Completed")
+        assert_equal(result["status"], "Voting")
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
         assert_equal(result["totalCycles"], 1)
@@ -503,6 +518,7 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         cycle1 = creationHeight + (emergencyPeriod - creationHeight % emergencyPeriod) + emergencyPeriod
         proposalEndHeight = creationHeight + emergencyPeriod
+
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
@@ -510,7 +526,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
         assert_equal(result["contextHash"], "")
-        assert_equal(result["status"], "Rejected")
+        assert_equal(result["status"], "Voting")
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
         assert_equal(result["totalCycles"], 1)
