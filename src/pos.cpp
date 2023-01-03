@@ -7,6 +7,7 @@
 #include <key.h>
 #include <logging.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <sync.h>
 #include <validation.h>
 
@@ -147,7 +148,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
     // Restore previous difficulty adjust on testnet after FC
-    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+    if (IsTestNetwork() && nHeight >= params.FortCanningHeight) {
         newDifficultyAdjust = false;
     }
 

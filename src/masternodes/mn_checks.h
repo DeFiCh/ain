@@ -36,7 +36,7 @@ public:
                      const Consensus::Params &consensus);
 
 protected:
-    Res HasAuth(const CScript &auth) const;
+    bool HasAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
@@ -313,11 +313,16 @@ struct CUpdateTokenMessage {
 
 struct CMintTokensMessage : public CBalances {
     using CBalances::CBalances;
+    CScript to;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CBalances, *this);
+
+        if (!s.eof()) {
+            READWRITE(to);
+        }
     }
 };
 
@@ -484,6 +489,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     uint32_t height,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+bool IsTestNetwork();
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD

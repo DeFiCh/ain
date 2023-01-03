@@ -641,7 +641,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     RPCHelpMan{"minttokens",
                "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address. \n"
+               "All arguments may optionally be passed in a JSON object." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -658,6 +659,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
                             },
                         },
                     },
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Address to mint tokens to"
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -665,8 +669,16 @@ UniValue minttokens(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("minttokens", "10@symbol")
                        + HelpExampleCli("minttokens",
-                                      "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                                      R"(10@symbol '[{"txid":"id","vout":0}]')")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '[{"txid":"id","vout":0}]' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"('{"amounts": ["10@symbol"], "to": "address"}')")
+                       + HelpExampleCli("minttokens",
+                                           R"('{"amounts": ["10@symbol"], "to": "address", "inputs": "[{"txid": "id","vout": 0}]"}')")
+                       + HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")
                },
     }.Check(request);
 
@@ -676,8 +688,32 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
-    UniValue const & txInputs = request.params[1];
+    CBalances minted;
+    UniValue txInputs;
+    CScript to;
+
+    if (request.params[0].isObject()) {
+        auto optionsObj = request.params[0].get_obj();
+        minted = DecodeAmounts(pwallet->chain(), optionsObj["amounts"].get_array(), "");
+
+        if (optionsObj.exists("inputs"))
+            txInputs = optionsObj["inputs"].get_array();
+
+        if (optionsObj.exists("to"))
+            to = DecodeScript(optionsObj["to"].get_str());
+    }
+    else {
+        minted   = DecodeAmounts(pwallet->chain(), request.params[0], "");
+        txInputs = request.params[1];
+
+        if (request.params.size() > 2)
+            to = DecodeScript(request.params[2].get_str());
+    }
+
+    CMintTokensMessage mintTokensMessage;
+    mintTokensMessage.balances = minted.balances;
+    if (!to.empty())
+        mintTokensMessage.to = to;
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -731,8 +767,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
-             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
+    metadata << static_cast<unsigned char>(CustomTxType::MintToken) << mintTokensMessage;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
