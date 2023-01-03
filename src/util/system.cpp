@@ -957,7 +957,7 @@ std::string ArgsManager::GetChainName() const
     LOCK(cs_args);
     int fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest") ? 1 : 0;
     int fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet") ? 1 : 0;
-    int fDevNet  = ArgsManagerHelper::GetNetBoolArg(*this, "-devnet") ? 1 : 0;
+    int fDevNet  = ArgsManagerHelper::GetNetBoolArg(*this, "-devnet") || ArgsManagerHelper::GetNetBoolArg(*this, "-devnet-bootstrap") ? 1 : 0;
 
     if (fTestNet + fDevNet + fRegTest > 1)
         throw std::runtime_error("Invalid combination of -regtest and -testnet."); // do not modify this message, it brakes unittests
