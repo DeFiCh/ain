@@ -960,7 +960,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
         auto batch = propBatches.rbegin();
         if (cycle != -1) {
-            if (cycle > propBatches.size())
+            if (static_cast<PropBatchesMap::size_type>(cycle) > propBatches.size())
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find cycle");
             for (unsigned int i = 1; i <= (propBatches.size() - cycle); i++) {
                 batch++;
