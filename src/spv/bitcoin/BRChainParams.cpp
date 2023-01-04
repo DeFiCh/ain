@@ -33,7 +33,7 @@ static const char *BRMainNetDNSSeeds[] = {
 };
 
 static const char *BRTestNetDNSSeeds[] = {
-    "testnet-seed.bitcoin.jonasschnelli.ch.", "seed.tbtc.petertodd.org.", "seed.testnet.bitcoin.sprovoost.nl.",
+    "testnet-seed.breadwallet.com.", "testnet-seed.bitcoin.jonasschnelli.ch.", "seed.testnet.bitcoin.sprovoost.nl.",
     "testnet-seed.bluematt.me.", NULL
 };
 
