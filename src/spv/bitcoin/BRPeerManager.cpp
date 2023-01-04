@@ -1757,6 +1757,10 @@ void BRPeerManagerConnect(BRPeerManager *manager)
         }
 
         while (array_count(manager->peers) > 0 && array_count(manager->connectedPeers) < manager->maxConnectCount) {
+            // Break out of loop to allow shutdown.
+            if (ShutdownRequested()) {
+                break;
+            }
             size_t i = BRRand((uint32_t)array_count(manager->peers)); // index of random peer
             BRPeerCallbackInfo *info;
             
