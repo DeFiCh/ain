@@ -596,5 +596,34 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"limit":10}})), 4)
         assert_equal(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"start": tx, "including_start": True}})[0]["proposalId"], tx)
 
+        # Test pagination, total number of votes is 3
+        assert_equal(len(self.nodes[1].listgovproposalvotes(
+            {"proposalId": tx, "masternode": "all", "cycle": -1, "pagination": {"start": 0}})), 2)
+        assert_equal(len(self.nodes[1].listgovproposalvotes(
+            {"proposalId": tx, "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": True}})),
+                     3)
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": True, "limit": 2}})),
+            2)
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": True, "limit": 1}})),
+            1)
+
+        # should be empty if start > number of entries
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 10, "including_start": True, "limit": 1}})),
+            0)
+
+        # should return all entries if limit is 0
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": True, "limit": 0}})),
+            3)
+
+        # should respect filters
+        assert_equal(len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn1, "cycle": -1, "pagination": {"start": 0}})), 0)
+
+        # test non-object RPC arguments
+        assert_equal(len(self.nodes[0].listgovproposalvotes(propId, 'all', -1, {"limit": 2})), 2)
+
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
