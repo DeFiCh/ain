@@ -13,8 +13,8 @@ on:
 
 jobs:
   build-binaries:
-    runs-on: [self-hosted, linux, x64, builder]
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, linux, x64, builder]
     steps:
     - uses: actions/checkout@v3
       with:
@@ -47,8 +47,8 @@ jobs:
           ci/parallel_sync/sync_then_diff.sh
 
   generate-matrix:
-      runs-on: [self-hosted, linux, x64]
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
+      runs-on: [self-hosted, linux, x64]
 
       # Add "id-token" with the intended permissions.
       permissions:
