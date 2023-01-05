@@ -812,7 +812,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
                     {"limit",
                      RPCArg::Type::NUM,
                      RPCArg::Optional::OMITTED,
-                     "Maximum number of votes to return, 100 by default"},
+                     "Maximum number of proposals to return, 100 by default"},
                 },
           },
         },
