@@ -1899,6 +1899,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     CBalances burntTokens;
     CBalances consortiumTokens;
+    CBalances nonConsortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybackFee;
@@ -1994,7 +1995,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::BurnToken))
         {
             for (auto const & diff : value.diff) {
-                consortiumTokens.Add({diff.first, diff.second});
+                nonConsortiumTokens.Add({diff.first, diff.second});
             }
             return true;
         }
@@ -2007,6 +2008,19 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     };
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
+
+    CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
+
+    for (auto const & token: nonConsortiumTokens.balances)
+    {
+        TAmounts amount;
+        amount[token.first] = balances[token.first].burnt;
+        consortiumTokens.AddBalances(amount);
+    }
+
+    nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    burntTokens.AddBalances(nonConsortiumTokens.balances);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));

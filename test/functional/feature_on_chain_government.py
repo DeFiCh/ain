@@ -582,6 +582,20 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected", 0, {"limit":1})), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected", 0, {"limit":0})), 4)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected", 0, {"limit":10})), 4)
+        assert_equal(self.nodes[0].listgovproposals("all", "rejected", 0, {"start": tx, "including_start": True})[0]["proposalId"], tx)
+
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"voting"})), 0)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"completed"})), 1)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected"})), 4)
+
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"limit":1}})), 1)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"limit":0}})), 4)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"limit":10}})), 4)
+        assert_equal(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "pagination": {"start": tx, "including_start": True}})[0]["proposalId"], tx)
+
         # Test pagination, total number of votes is 3
         assert_equal(len(self.nodes[1].listgovproposalvotes(
             {"proposalId": tx, "masternode": "all", "cycle": -1, "pagination": {"start": 0}})), 2)
