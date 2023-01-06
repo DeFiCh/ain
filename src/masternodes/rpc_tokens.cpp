@@ -805,7 +805,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
-                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing tokens to be burned."},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address containing tokens to be burned."},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Additional data necessary for specific burn type"},
                         }
                     },
@@ -841,18 +841,43 @@ UniValue burntokens(const JSONRPCRequest& request) {
     CBurnTokensMessage burnedTokens;
     UniValue metaObj = request.params[0].get_obj();
 
+    burnedTokens.burnType = CBurnTokensMessage::BurnType::TokenBurn;
+
     if (!metaObj["amounts"].isNull())
         burnedTokens.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"].getValStr(), "");
     else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
-    if (!metaObj["from"].isNull())
-        burnedTokens.from = DecodeScript(metaObj["from"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
 
-    burnedTokens.burnType = CBurnTokensMessage::BurnType::TokenBurn;
-    if (!metaObj["context"].isNull())
-        burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
+    if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
+        auto attributes = pcustomcsview->GetAttributes();
+
+        if (attributes) {
+            CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
+            if (attributes->GetValue(enableKey, false)) {
+                CDataStructureV0 membersKey{AttributeTypes::Consortium,
+                                            burnedTokens.amounts.balances.begin()->first.v,
+                                            ConsortiumKeys::MemberValues};
+                auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                for (const auto &member : members) {
+                    if (IsMineCached(*pwallet, member.second.ownerAddress)) {
+                        burnedTokens.from = member.second.ownerAddress;
+                        break;
+                    }
+                }
+            }
+        }
+        if (burnedTokens.from.empty())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "No valid addresses could be found, use the \"from\" argument to set address to burn from");
+    } else {
+        if (!metaObj["from"].isNull())
+            burnedTokens.from = DecodeScript(metaObj["from"].getValStr());
+        else
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"from\" must not be null");
+
+        if (!metaObj["context"].isNull())
+            burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
+    }
 
     UniValue const & txInputs = request.params[2];
 
