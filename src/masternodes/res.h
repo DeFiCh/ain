@@ -1,9 +1,10 @@
 #ifndef DEFI_MASTERNODES_RES_H
 #define DEFI_MASTERNODES_RES_H
 
-#include <tinyformat.h>
+#include <functional>
 #include <optional>
 #include <string>
+#include <tinyformat.h>
 
 struct Res {
     bool ok;
@@ -34,6 +35,16 @@ struct Res {
     template <typename... Args>
     static Res Ok(const std::string &msg, const Args &...args) {
         return Res{true, tfm::format(msg, args...), 0, {}};
+    }
+
+    template <typename T, size_t... I>
+    static Res Err(const T &t, std::index_sequence<I...>) {
+        using arg0 = std::tuple_element_t<0, std::decay_t<decltype(t)>>;
+        if constexpr (std::is_convertible_v<arg0, uint32_t>) {
+            return Res::ErrCode(std::get<I>(t)...);
+        } else {
+            return Res::Err(std::get<I>(t)...);
+        }
     }
 
     static Res Ok() { return Res{true, {}, 0, {}}; }
@@ -67,6 +78,11 @@ struct ResVal : public Res {
         return *val;
     }
 
+    const T *operator->() const {
+        assert(ok);
+        return &(*val);
+    }
+
     T &operator*() {
         assert(ok);
         return *val;
@@ -87,5 +103,29 @@ struct ResVal : public Res {
         return *val;
     }
 };
+
+template <typename T, typename... Args>
+Res CheckRes(T &&res, std::tuple<Args...> &&args) {
+    if (res) {
+        return Res::Ok();
+    }
+    constexpr auto size = sizeof...(Args);
+    if constexpr (size == 0) {
+        static_assert(std::is_convertible_v<T, Res>);
+        return std::forward<T>(res);
+    } else if constexpr (std::
+                             is_invocable_r_v<std::string, std::tuple_element_t<0, std::tuple<Args...>>, std::string>) {
+        static_assert(std::is_convertible_v<T, Res>);
+        return Res::Err(std::invoke(std::get<0>(args), res.msg));
+    } else {
+        return Res::Err(args, std::make_index_sequence<size>{});
+    }
+}
+
+#define Require(x, ...)                                                       \
+    do {                                                                      \
+        if (auto __res = ::CheckRes(x, std::make_tuple(__VA_ARGS__)); !__res) \
+            return __res;                                                     \
+    } while (0)
 
 #endif  // DEFI_MASTERNODES_RES_H
