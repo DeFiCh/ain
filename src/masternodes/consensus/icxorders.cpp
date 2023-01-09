@@ -4,6 +4,7 @@
 
 #include <masternodes/consensus/icxorders.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 
 static CAmount GetDFIperBTC(const CPoolPair &BTCDFIPoolPair) {
     if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
@@ -363,7 +364,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     // maker bonus only on fair dBTC/BTC (1:1) trades for now
     DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
     if (order->idToken == BTC && order->orderPrice == COIN) {
-        if ((Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= 1250000) ||
+        if ((IsTestNetwork() && height >= 1250000) ||
             Params().NetworkIDString() == CBaseChainParams::REGTEST) {
             Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
         } else {

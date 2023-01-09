@@ -127,6 +127,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     uint32_t height,
                     bool forceLoanSwap = false);
 bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed);
+bool IsTestNetwork();
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;

@@ -137,9 +137,9 @@ public:
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params &consensus,
                                 const std::vector<unsigned char> &metadata)
-        : height(height),
-          consensus(consensus),
-          metadata(metadata) {}
+            : height(height),
+              consensus(consensus),
+              metadata(metadata) {}
 
     template<typename T>
     Res EnabledAfter() const {
@@ -352,7 +352,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
 
     // disable ICX orders for all networks other than testnet
     if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        (Params().NetworkIDString() == CBaseChainParams::TESTNET && static_cast<int>(height) >= 1250000)) {
+        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
         return false;
     }
 
@@ -1158,4 +1158,8 @@ bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t 
             }
         }
     return true;
+}
+
+bool IsTestNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }

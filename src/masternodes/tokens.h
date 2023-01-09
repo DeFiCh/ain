@@ -105,11 +105,16 @@ struct CUpdateTokenMessage {
 
 struct CMintTokensMessage : public CBalances {
     using CBalances::CBalances;
+    CScript to;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CBalances, *this);
+
+        if (!s.eof()) {
+            READWRITE(to);
+        }
     }
 };
 

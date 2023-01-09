@@ -1345,6 +1345,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.FortCanningGreatWorldHeight);
     BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
     BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
+    BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.GrandCentralEpilogueHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

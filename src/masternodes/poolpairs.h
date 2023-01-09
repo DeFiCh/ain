@@ -173,7 +173,7 @@ private:
     CAmount slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, int height);
 
     inline void ioProofer()
-        const {  // Maybe it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
+    const {  // Maybe it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
         if (reserveA < 0 || reserveB < 0 || totalLiquidity < 0 || blockCommissionA < 0 || blockCommissionB < 0 ||
             rewardPct < 0 || commission < 0 || rewardLoanPct < 0) {
             throw std::ios_base::failure("negative pool's 'CAmounts'");

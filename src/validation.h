@@ -133,6 +133,8 @@ static const bool DEFAULT_FEEFILTER = true;
 static const bool DEFAULT_DEXSTATS = false;
 /** Default for tracking amount negated by negative interest in attributes */
 static const bool DEFAULT_NEGATIVE_INTEREST = false;
+/** Default for using TX fee ordering in blocks */
+static const bool DEFAULT_FEE_ORDERING = false;
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
