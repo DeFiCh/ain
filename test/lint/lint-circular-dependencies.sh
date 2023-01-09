@@ -40,7 +40,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/anchors -> validation -> masternodes/anchors"
     "masternodes/consensus/accounts -> masternodes/consensus/txvisitor -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/accounts"
     "masternodes/consensus/governance -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/governance"
-    "masternodes/consensus/icxorders -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/icxorders"
+    "masternodes/consensus/icxorders -> masternodes/mn_checks -> masternodes/consensus/icxorders"
     "masternodes/consensus/loans -> masternodes/mn_checks -> masternodes/consensus/loans"
     "masternodes/consensus/masternodes -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/masternodes"
     "masternodes/consensus/oracles -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/oracles"
