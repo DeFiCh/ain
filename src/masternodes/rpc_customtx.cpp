@@ -198,13 +198,13 @@ public:
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
             tokenInfo(tokenPair->second);
-        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
+        if (auto tokenA = mnview.GetToken(obj.idTokenA))
             rpcInfo.pushKV("tokenA", tokenA->name);
-        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
+        if (auto tokenB = mnview.GetToken(obj.idTokenB))
             rpcInfo.pushKV("tokenB", tokenB->name);
-        rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
-        rpcInfo.pushKV("status", obj.poolPair.status);
-        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
+        rpcInfo.pushKV("commission", ValueFromAmount(obj.commission));
+        rpcInfo.pushKV("status", obj.status);
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         customRewardsInfo(obj.rewards);
     }
 
@@ -254,7 +254,8 @@ public:
     }
 
     void operator()(const CGovernanceMessage &obj) const {
-        for (const auto &var : obj.govs) {
+        for (const auto &gov : obj.govs) {
+            auto& var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }
