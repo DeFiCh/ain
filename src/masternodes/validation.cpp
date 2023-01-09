@@ -2153,7 +2153,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
     std::set<uint256> activeMasternodes;
     cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
-        if (prop.status != CPropStatusType::Voting) return false;
+        if (prop.status != CPropStatusType::Voting) return true;
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
