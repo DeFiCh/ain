@@ -180,6 +180,7 @@ DEFI_CORE_H = \
   masternodes/tokens.h \
   masternodes/undo.h \
   masternodes/undos.h \
+  masternodes/validation.h \
   masternodes/vault.h \
   masternodes/vaulthistory.h \
   memusage.h \
@@ -409,6 +410,7 @@ libdefi_server_a_SOURCES = \
   masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
+  masternodes/validation.cpp \
   masternodes/vault.cpp \
   masternodes/vaulthistory.cpp \
   miner.cpp \
