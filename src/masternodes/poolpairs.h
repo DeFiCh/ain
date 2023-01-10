@@ -80,7 +80,7 @@ struct CPoolSwapMessageV2 {
     }
 };
 
-struct CPoolPairMessage {
+struct CPoolPairMessageBase {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;  // comission %% for traders
     CScript ownerAddress;
@@ -98,14 +98,44 @@ struct CPoolPairMessage {
     }
 };
 
-class CPoolPair : public CPoolPairMessage {
+struct CCreatePoolPairMessage : public CPoolPairMessageBase {
+    std::string pairSymbol;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPoolPairMessageBase, *this);
+        READWRITE(pairSymbol);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+struct CUpdatePoolPairMessage {
+    DCT_ID poolId;
+    bool status;
+    CAmount commission;
+    CScript ownerAddress;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(poolId.v);
+        READWRITE(status);
+        READWRITE(commission);
+        READWRITE(ownerAddress);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+class CPoolPair : public CPoolPairMessageBase {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE   = 1000;
     static const uint32_t PRECISION        = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair(const CPoolPairMessage &msg = {})
-        : CPoolPairMessage(msg) {}
-    virtual ~CPoolPair() = default;
 
     // temporary values, not serialized
     CAmount reserveA         = 0;
@@ -158,7 +188,7 @@ public:
         if (!ser_action.ForRead())
             ioProofer();
 
-        READWRITEAS(CPoolPairMessage, *this);
+        READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(rewards);
         READWRITE(creationTx);
         READWRITE(creationHeight);
