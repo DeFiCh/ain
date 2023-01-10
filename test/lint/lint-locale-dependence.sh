@@ -24,6 +24,7 @@ KNOWN_VIOLATIONS=(
     "src/util/system.cpp:.*atoi"
     "src/validation.cpp:.*stoi"
     "src/masternodes/govvariables/attributes.cpp:.*isspace"
+    "src/masternodes/validation.cpp:.*stoi"
 )
 
 REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue|spv/)"

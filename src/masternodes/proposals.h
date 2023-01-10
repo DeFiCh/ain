@@ -143,7 +143,7 @@ public:
     Res AddPropVote(const CPropId &propId, const uint256 &masternodeId, CPropVoteType vote);
     std::optional<CPropVoteType> GetPropVote(const CPropId &propId, uint8_t cycle, const uint256 &masternodeId);
 
-    void ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status = 0);
+    void ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, const CPropStatusType status, const CPropId start = {});
     void ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,
                          const CMnVotePerCycle &start = {});
     void ForEachCycleProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint32_t height);
