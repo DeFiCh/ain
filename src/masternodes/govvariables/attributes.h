@@ -86,9 +86,10 @@ enum DFIPKeys : uint8_t {
     GovernanceEnabled    = 'q',
     CFPPayout            = 'r',
     EmissionUnusedFund   = 's',
-    Limit                = 't',
-    LockToken            = 'u',
-    WithdrawHeight       = 'v',
+    MintTokens           = 't',
+    Limit                = 'u',
+    LockToken            = 'v',
+    WithdrawHeight       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -103,6 +104,7 @@ enum GovernanceKeys : uint8_t {
     Quorum                  = 'j',
     VotingPeriod            = 'k',
     VOCEmergencyQuorum      = 'l',
+    CFPMaxCycles            = 'm',
 };
 
 enum TokenKeys : uint8_t {

@@ -92,10 +92,10 @@ public:
                     EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
                                                                 : CTxDestination(WitnessV0KeyHash(rawAddress))));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                rpcInfo.pushKV(
-                    "ownerAddress",
-                    EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
-                                                                : CTxDestination(WitnessV0KeyHash(rawAddress))));
+                CTxDestination dest;
+                if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
+                    rpcInfo.pushKV("ownerAddress",EncodeDestination(dest));
+                }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
                 rpcInfo.pushKV(
@@ -117,7 +117,10 @@ public:
 
     void operator()(const CUpdateTokenMessage &obj) const { tokenInfo(obj.token); }
 
-    void operator()(const CMintTokensMessage &obj) const { rpcInfo.pushKVs(tokenBalances(obj)); }
+    void operator()(const CMintTokensMessage &obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj));
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+    }
 
     void operator()(const CBurnTokensMessage &obj) const {
         rpcInfo.pushKVs(tokenBalances(obj.amounts));

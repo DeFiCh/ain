@@ -53,12 +53,12 @@ Res CPropsView::CreateProp(const CPropId &propId, uint32_t height, const CCreate
     bool emergency = prop.options & CPropOption::Emergency;
     auto type      = static_cast<CPropType>(prop.type);
 
-    prop.creationHeight     = height;
-    prop.votingPeriod       = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
-    prop.approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop.quorum             = GetQuorumFromAttributes(type, emergency);
-    prop.fee                = fee;
-    prop.feeBurnAmount      = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
+    prop.creationHeight    = height;
+    prop.votingPeriod      = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
+    prop.approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop.quorum            = GetQuorumFromAttributes(type, emergency);
+    prop.fee               = fee;
+    prop.feeBurnAmount     = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
@@ -101,9 +101,6 @@ std::optional<CPropObject> CPropsView::GetProp(const CPropId &propId) {
 }
 
 Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
-    if (cycle < 1 || cycle > MAX_CYCLES)
-        return Res::Err("Cycle out of range");
-
     auto key    = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
     if (!pcycle)
@@ -120,8 +117,8 @@ Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
     bool emergency = prop->options & CPropOption::Emergency;
     auto type      = static_cast<CPropType>(prop->type);
 
-    prop->approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop->quorum             = GetQuorumFromAttributes(type, emergency);
+    prop->approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop->quorum            = GetQuorumFromAttributes(type, emergency);
     WriteBy<ByType>(propId, *prop);
 
     return Res::Ok();
@@ -181,14 +178,14 @@ std::optional<CPropVoteType> CPropsView::GetPropVote(const CPropId &propId,
     return static_cast<CPropVoteType>(*vote);
 }
 
-void CPropsView::ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status) {
+void CPropsView::ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, const CPropStatusType status, const CPropId start) {
     ForEach<ByStatus, std::pair<uint8_t, uint256>, uint8_t>(
         [&](const std::pair<uint8_t, uint256> &key, uint8_t i) {
             auto prop = GetProp(key.second);
             assert(prop);
             return callback(key.second, *prop);
         },
-        std::make_pair(status, uint256{}));
+        std::make_pair(status, start));
 }
 
 void CPropsView::ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,

@@ -1097,6 +1097,14 @@ public:
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
 
+        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
+
+        if (!toAddressEnabled && !obj.to.empty())
+            return Res::Err("Mint tokens to address is not enabled");
+
         // check auth and increase balance of token's owner
         for (const auto &[tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= fortCanningCrunchHeight &&
@@ -1116,8 +1124,17 @@ public:
                 if (!minted)
                     return minted;
 
-                CalculateOwnerRewards(*mintable.val);
-                auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, amount});
+                CScript mintTo{*mintable.val};
+                if (!obj.to.empty()) {
+                    CTxDestination destination;
+                    if (ExtractDestination(obj.to, destination) && IsValidDestination(destination))
+                        mintTo = obj.to;
+                    else
+                        return Res::Err("Invalid \'to\' address provided");
+                }
+
+                CalculateOwnerRewards(mintTo);
+                auto res = mnview.AddBalance(mintTo, CTokenAmount{tokenId, amount});
                 if (!res)
                     return res;
 
@@ -2487,7 +2504,7 @@ public:
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            if ((Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= 1250000) ||
+            if ((IsTestNetwork() && height >= 1250000) ||
                 Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
             } else {
@@ -3829,8 +3846,13 @@ public:
         if (obj.contextHash.size() > MAX_PROP_CONTEXT_SIZE)
             return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
 
-        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+        auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
+        auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
+
+        if (obj.nCycles < 1 || obj.nCycles > maxCycles )
+            return Res::Err("proposal cycles can be between 1 and %d", maxCycles);
 
         if ((obj.options & CPropOption::Emergency)) {
             if (obj.nCycles != 1) {
@@ -3934,7 +3956,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
 
     // disable ICX orders for all networks other than testnet
     if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        (Params().NetworkIDString() == CBaseChainParams::TESTNET && static_cast<int>(height) >= 1250000)) {
+        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
         return false;
     }
 
@@ -4865,4 +4887,8 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 
     // Store GovVariable set by height
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
+}
+
+bool IsTestNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
