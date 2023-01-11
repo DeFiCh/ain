@@ -12,6 +12,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/params.h>
 #include <masternodes/validation.h>
 #include <masternodes/vaulthistory.h>
 #include <validation.h>
