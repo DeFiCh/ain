@@ -55,8 +55,6 @@ struct DisconnectedBlockTransactions;
 struct PrecomputedTransactionData;
 struct LockPoints;
 
-using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
-
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */
@@ -133,6 +131,8 @@ static const bool DEFAULT_FEEFILTER = true;
 static const bool DEFAULT_DEXSTATS = false;
 /** Default for tracking amount negated by negative interest in attributes */
 static const bool DEFAULT_NEGATIVE_INTEREST = false;
+/** Default for using TX fee ordering in blocks */
+static const bool DEFAULT_FEE_ORDERING = false;
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
@@ -771,34 +771,6 @@ private:
 
     //! Mark a block as not having block data
     void EraseBlockData(CBlockIndex* index) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-    static void ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
-
-    static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams);
-
-    static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache);
-
-    static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
-
-    static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
-
-    static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
@@ -881,5 +853,9 @@ Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 void ConsolidateRewards(CCustomCSView& view, int height,
     const std::vector<std::pair<CScript, CAmount>> &items,
     bool interruptOnShutdown, int numWorkers = 0);
+
+extern std::map<CScript, CBalances> mapBurnAmounts;
+
+extern std::vector<CTransactionRef>::size_type nPhantomBurnTx;
 
 #endif // DEFI_VALIDATION_H
