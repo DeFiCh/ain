@@ -787,9 +787,15 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
 }
 
 template <typename T>
-void iteratePropsMap(const T& map, UniValue& ret, const CPropId& start, bool including_start, size_t limit)
+void iterateProps(const T& list, UniValue& ret, const CPropId& start, bool including_start, size_t limit, const uint8_t type, const uint8_t status)
 {
-    for (const auto &prop : map) {
+    for (const auto &prop : list) {
+        if (status && status != prop.second.status) {
+            continue;
+        }
+        if (type && type != prop.second.type) {
+            continue;
+        }
         if (start != CPropId{} && prop.first != start)
             continue;
         if (!including_start) {
@@ -803,7 +809,6 @@ void iteratePropsMap(const T& map, UniValue& ret, const CPropId& start, bool inc
             break;
     }
 }
-
 
 UniValue listgovproposals(const JSONRPCRequest &request) {
     RPCHelpMan{
@@ -963,15 +968,9 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
     view.ForEachProp(
         [&](const CPropId &propId, const CPropObject &prop) {
-            if (status && status != prop.status) {
-                return false;
-            }
-            if (type && type != prop.type) {
-                return true;
-            }
             props.insert({propId, prop});
             return true;
-        },static_cast<CPropStatusType>(status));
+        },static_cast<CPropStatusType>(0));
 
     if (cycle != 0) {
         // populate map
@@ -997,12 +996,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             batch++;
         }
 
-        iteratePropsMap(batch->second, ret, start, including_start, limit);
+        iterateProps(batch->second, ret, start, including_start, limit, type, status);
 
         return ret;
     }
 
-    iteratePropsMap(props, ret, start, including_start, limit);
+    iterateProps(props, ret, start, including_start, limit, type, status);
 
     return ret;
 }
