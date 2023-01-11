@@ -197,7 +197,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"limit", DFIPKeys::Limit},
              {"token", DFIPKeys::LockToken},
              {"withdraw-height", DFIPKeys::WithdrawHeight},
-
          }},
         {AttributeTypes::Governance,
          {
