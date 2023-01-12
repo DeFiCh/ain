@@ -18,6 +18,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <memory.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -44,7 +45,7 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
         pblock->nTime = nNewTime;
 
     // Updating time can change work required on testnet:
-    if (consensusParams.pos.fAllowMinDifficultyBlocks)
+    if (DeFiParams().GetConsensus().pos.fAllowMinDifficultyBlocks)
         pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensusParams);
 
     return nNewTime - nOldTime;
@@ -130,7 +131,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->nVersion = ComputeBlockVersion(pindexPrev, consensus);
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
-    if (chainparams.MineBlocksOnDemand())
+    if (DeFiParams().MineBlocksOnDemand())
         pblock->nVersion = gArgs.GetArg("-blockversion", pblock->nVersion);
 
     pblock->nTime = blockTime;
@@ -284,19 +285,19 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        auto foundationValue = CalculateCoinbaseReward(blockReward, DeFiParams().GetConsensus().dist.community);
         if (nHeight < consensus.GrandCentralHeight) {
             coinbaseTx.vout.resize(2);
             // Community payment always expected
-            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].scriptPubKey = DeFiParams().GetConsensus().foundationShareScript;
             coinbaseTx.vout[1].nValue = foundationValue;
         }
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
-            coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+            coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, DeFiParams().GetConsensus().dist.masternode);
         } else {
-            coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+            coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, DeFiParams().GetConsensus().dist.masternode);
         }
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
@@ -304,14 +305,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
-        for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+        for (const auto& kv : DeFiParams().GetConsensus().nonUtxoBlockSubsidies) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
         }
         // Pinch off foundation share
-        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
+        if (!DeFiParams().GetConsensus().foundationShareScript.empty() && DeFiParams().GetConsensus().foundationShareDFIP1 != 0) {
             coinbaseTx.vout.resize(2);
-            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-            coinbaseTx.vout[1].nValue = blockReward * consensus.foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
+            coinbaseTx.vout[1].scriptPubKey = DeFiParams().GetConsensus().foundationShareScript;
+            coinbaseTx.vout[1].nValue = blockReward * DeFiParams().GetConsensus().foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
             coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
             LogPrint(BCLog::STAKING, "%s: post AMK logic, foundation share %d\n", __func__, coinbaseTx.vout[1].nValue);
@@ -319,11 +320,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     else { // pre-AMK logic:
         // Pinch off foundation share
-        CAmount foundationsReward = coinbaseTx.vout[0].nValue * consensus.foundationShare / 100;
-        if (!consensus.foundationShareScript.empty() && consensus.foundationShare != 0) {
+        CAmount foundationsReward = coinbaseTx.vout[0].nValue * DeFiParams().GetConsensus().foundationShare / 100;
+        if (!DeFiParams().GetConsensus().foundationShareScript.empty() && DeFiParams().GetConsensus().foundationShare != 0) {
             if (pcustomcsview->GetFoundationsDebt() < foundationsReward) {
                 coinbaseTx.vout.resize(2);
-                coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+                coinbaseTx.vout[1].scriptPubKey = DeFiParams().GetConsensus().foundationShareScript;
                 coinbaseTx.vout[1].nValue = foundationsReward - pcustomcsview->GetFoundationsDebt();
                 coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
@@ -707,11 +708,11 @@ namespace pos {
     uint256 Staker::lastBlockSeen{};
 
     Staker::Status Staker::init(const CChainParams& chainparams) {
-        if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
+        if (!DeFiParams().GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
 
-            if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+            if (!DeFiParams().GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
                 return Status::initWaiting;
 
             if (::ChainstateActive().IsInitialBlockDownload())

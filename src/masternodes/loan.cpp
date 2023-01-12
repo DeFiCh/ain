@@ -1,8 +1,8 @@
-
 #include <chainparams.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/loan.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -188,21 +188,21 @@ std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId &vaultI
 template <typename T>
 inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
     const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = T(365) * DeFiParams().GetConsensus().blocksPerDay();
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 // Precision 128bit
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
     const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * DeFiParams().GetConsensus().blocksPerDay();
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
 // Precision 128bit with negative interest
 CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
     const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * DeFiParams().GetConsensus().blocksPerDay();
     return {netInterest < 0 && amount > 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
 }
 

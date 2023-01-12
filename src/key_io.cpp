@@ -221,7 +221,7 @@ bool IsValidDestinationString(const std::string& str)
     return IsValidDestinationString(str, Params());
 }
 
-CKeyID getCKeyIDFromDestination(const CTxDestination& dest) {
+CKeyID GetCKeyIDFromDestination(const CTxDestination& dest) {
   switch (dest.index()) {
     case PKHashType       : return CKeyID(std::get<PKHash>(dest));
     case WitV0KeyHashType : return CKeyID(std::get<WitnessV0KeyHash>(dest));

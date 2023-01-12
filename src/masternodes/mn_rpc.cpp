@@ -275,7 +275,7 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
 }
 
 std::optional<CScript> AmIFounder(CWallet* const pwallet) {
-    auto members = Params().GetConsensus().foundationMembers;
+    auto members = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
@@ -358,7 +358,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
 }
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
-    auto members = Params().GetConsensus().foundationMembers;
+    auto members = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {

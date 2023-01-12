@@ -4,6 +4,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
+#include <masternodes/params.h>
 
 /**
  * CChain implementation
@@ -144,7 +145,7 @@ int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& fr
         r = from.nChainWork - to.nChainWork;
         sign = -1;
     }
-    r = r * arith_uint256(params.pos.nTargetSpacing) / GetBlockProof(tip);
+    r = r * arith_uint256(DeFiParams().GetConsensus().pos.nTargetSpacing) / GetBlockProof(tip);
     if (r.bits() > 63) {
         return sign * std::numeric_limits<int64_t>::max();
     }

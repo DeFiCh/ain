@@ -11,6 +11,7 @@
 #include <coins.h>
 #include <consensus/consensus.h>
 #include <core_io.h>
+#include <masternodes/params.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
@@ -91,6 +92,7 @@ static int AppInitRawTx(int argc, char* argv[])
     // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainName());
+        SelectDeFiParams(gArgs.GetChainName());
     } catch (const std::exception& e) {
         tfm::format(std::cerr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

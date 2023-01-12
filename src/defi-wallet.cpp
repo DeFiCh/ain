@@ -9,6 +9,7 @@
 #include <chainparams.h>
 #include <chainparamsbase.h>
 #include <logging.h>
+#include <masternodes/params.h>
 #include <util/strencodings.h>
 #include <util/system.h>
 #include <util/translation.h>
@@ -63,6 +64,7 @@ static bool WalletAppInit(int argc, char* argv[])
     }
     // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
     SelectParams(gArgs.GetChainName());
+    SelectDeFiParams(gArgs.GetChainName());
 
     return true;
 }

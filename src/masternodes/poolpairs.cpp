@@ -6,6 +6,7 @@
 
 #include <core_io.h>
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/params.h>
 
 #include <tuple>
 
@@ -647,7 +648,7 @@ std::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const &poolId, const CScr
 }
 
 inline CAmount PoolRewardPerBlock(CAmount dailyReward, CAmount rewardPct) {
-    return dailyReward / Params().GetConsensus().blocksPerDay() * rewardPct / COIN;
+    return dailyReward / DeFiParams().GetConsensus().blocksPerDay() * rewardPct / COIN;
 }
 
 Res CPoolPairView::SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount rewardPct) {

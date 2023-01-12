@@ -17,6 +17,7 @@
 #include <index/blockfilterindex.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -157,7 +158,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         if (blockindex->nHeight >= Params().GetConsensus().EunosHeight)
         {
             CAmount burnt{0};
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : DeFiParams().GetConsensus().newNonUTXOSubsidies)
             {
                 if (blockindex->nHeight < Params().GetConsensus().GrandCentralHeight
                 && kv.first == CommunityAccountType::CommunityDevFunds) {
@@ -181,7 +182,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         }
         else
         {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : DeFiParams().GetConsensus().nonUtxoBlockSubsidies)
             {
                 // Anchor and LP incentive
                 nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(blockReward * kv.second / COIN));
@@ -1653,7 +1654,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
             }.Check(request);
 
     const CBlockIndex* pindex;
-    int blockcount = 30 * 24 * 60 * 60 / Params().GetConsensus().pos.nTargetSpacing; // By default: 1 month
+    int blockcount = 30 * 24 * 60 * 60 / DeFiParams().GetConsensus().pos.nTargetSpacing; // By default: 1 month
 
     if (request.params[1].isNull()) {
         LOCK(cs_main);

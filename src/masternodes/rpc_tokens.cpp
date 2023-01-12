@@ -1,6 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/params.h>
 
 #include <index/txindex.h>
 
@@ -286,7 +287,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         }
         bool isFoundersToken = !databaseMembers.empty() ?
                                databaseMembers.find(owner) != databaseMembers.end() :
-                               Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+                               DeFiParams().GetConsensus().foundationMembers.find(owner) != DeFiParams().GetConsensus().foundationMembers.end();
 
         if (isFoundersToken) { // need any founder's auth
             rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths /*auths*/, true /*needFoundersAuth*/, optAuthTx, txInputs);

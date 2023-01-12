@@ -1135,7 +1135,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
         if (nHeight >= consensusParams.EunosHeight)
         {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
+            const size_t reductions = (nHeight - consensusParams.EunosHeight) / DeFiParams().GetConsensus().emissionReductionPeriod;
 
             // See if we already have this reduction calculated and return if found.
             if (subsidyReductions.find(reductions) != subsidyReductions.end())
@@ -1146,7 +1146,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
             CAmount reductionAmount;
             for (size_t i = reductions; i > 0; --i)
             {
-                reductionAmount = (nSubsidy * consensusParams.emissionReductionAmount) / 100000;
+                reductionAmount = (nSubsidy * DeFiParams().GetConsensus().emissionReductionAmount) / 100000;
                 if (!reductionAmount) {
                     nSubsidy = 0;
                     break;
@@ -2064,11 +2064,11 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else if (height >= consensus.EunosHeight)
         {
-            foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+            foundationReward = CalculateCoinbaseReward(blockReward, DeFiParams().GetConsensus().dist.community);
         }
-        else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1)
+        else if (!DeFiParams().GetConsensus().foundationShareScript.empty() && DeFiParams().GetConsensus().foundationShareDFIP1)
         {
-            foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
+            foundationReward = blockReward * DeFiParams().GetConsensus().foundationShareDFIP1 / COIN;
         }
 
         if (foundationReward)
@@ -2076,7 +2076,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             bool foundationsRewardfound = false;
             for (auto& txout : tx.vout)
             {
-                if (txout.scriptPubKey == consensus.foundationShareScript)
+                if (txout.scriptPubKey == DeFiParams().GetConsensus().foundationShareScript)
                 {
                     if (txout.nValue < foundationReward)
                     {
@@ -2099,7 +2099,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         if (height >= consensus.EunosHeight)
         {
             CAmount subsidy;
-            for (const auto& kv : consensus.newNonUTXOSubsidies)
+            for (const auto& kv : DeFiParams().GetConsensus().newNonUTXOSubsidies)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < consensus.GrandCentralHeight) {
@@ -2131,9 +2131,9 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
                             if (!attributes->GetValue(enabledKey, false))
                             {
-                                res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                                res = mnview.AddBalance(DeFiParams().GetConsensus().foundationShareScript, {DCT_ID{0}, subsidy});
                                 LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
-                                         tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
+                                         tx.GetHash().ToString(), ScriptToString(DeFiParams().GetConsensus().foundationShareScript),
                                          (CBalances{{{{0}, subsidy}}}.ToString()));
                                 nonUtxoTotal += subsidy;
 
@@ -2143,10 +2143,10 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
                             if (attributes->GetValue(enabledKey, false)) {
-                                res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                                res = mnview.AddBalance(DeFiParams().GetConsensus().unusedEmission, {DCT_ID{0}, subsidy});
                                 if (res) {
                                     LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
-                                             tx.GetHash().ToString(), ScriptToString(consensus.unusedEmission),
+                                             tx.GetHash().ToString(), ScriptToString(DeFiParams().GetConsensus().unusedEmission),
                                              (CBalances{{{{0}, subsidy}}}.ToString()));
                                 }
                             } else {
@@ -2177,7 +2177,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else
         {
-            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+            for (const auto& kv : DeFiParams().GetConsensus().nonUtxoBlockSubsidies) {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
@@ -2208,7 +2208,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
     {
         if (height >= Params().GetConsensus().EunosHeight)
         {
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : DeFiParams().GetConsensus().newNonUTXOSubsidies)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < Params().GetConsensus().GrandCentralHeight) {
@@ -2236,7 +2236,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
 
                             if (!attributes->GetValue(enabledKey, false))
                             {
-                                mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                                mnview.SubBalance(DeFiParams().GetConsensus().foundationShareScript, {DCT_ID{0}, subsidy});
 
                                 continue;
                             }
@@ -2244,7 +2244,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
                             if (attributes->GetValue(enabledKey, false)) {
-                                mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                                mnview.SubBalance(DeFiParams().GetConsensus().unusedEmission, {DCT_ID{0}, subsidy});
                             } else {
                                 mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                             }
@@ -2259,7 +2259,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
         }
         else
         {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : DeFiParams().GetConsensus().nonUtxoBlockSubsidies)
             {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 mnview.SubCommunityBalance(kv.first, subsidy);
@@ -3398,7 +3398,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
 
     // Update teams every anchoringTeamChange number of blocks
     if (pindexNew->nHeight >= Params().GetConsensus().DakotaHeight &&
-            pindexNew->nHeight % Params().GetConsensus().mn.anchoringTeamChange == 0) {
+            pindexNew->nHeight % DeFiParams().GetConsensus().mn.anchoringTeamChange == 0) {
         pcustomcsview->CalcAnchoringTeams(blockConnecting.stakeModifier, pindexNew);
 
         // Delete old and now invalid anchor confirms
@@ -4566,7 +4566,7 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
     {
         LOCK(cs_main);
         if (::ChainstateActive().IsInitialBlockDownload() && ppindex && *ppindex) {
-            LogPrintf("Synchronizing blockheaders, height: %d (~%.2f%%)\n", (*ppindex)->nHeight, 100.0/((*ppindex)->nHeight+(GetAdjustedTime() - (*ppindex)->GetBlockTime()) / Params().GetConsensus().pos.nTargetSpacing) * (*ppindex)->nHeight);
+            LogPrintf("Synchronizing blockheaders, height: %d (~%.2f%%)\n", (*ppindex)->nHeight, 100.0/((*ppindex)->nHeight+(GetAdjustedTime() - (*ppindex)->GetBlockTime()) / DeFiParams().GetConsensus().pos.nTargetSpacing) * (*ppindex)->nHeight);
         }
     }
     return true;
@@ -4695,7 +4695,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     team = *teamDakota;
 
     // Calc how far back team changes, do not generate auths below that height.
-    teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
+    teamChange = teamChange % DeFiParams().GetConsensus().mn.anchoringTeamChange;
 
     int topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
@@ -4704,7 +4704,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     }
 
     CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
-    auto forkHeight = pindexFork && pindexFork->nHeight >= consensus.mn.anchoringFrequency ? pindexFork->nHeight - consensus.mn.anchoringFrequency : 0;
+    auto forkHeight = pindexFork && pindexFork->nHeight >= DeFiParams().GetConsensus().mn.anchoringFrequency ? pindexFork->nHeight - DeFiParams().GetConsensus().mn.anchoringFrequency : 0;
     // limit fork height - trim it by the top anchor, if any
     forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
@@ -4727,29 +4727,29 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     for (CBlockIndex const * pindex = tip; pindex && pindex != pindexFork && teamChange >= 0; pindex = pindex->pprev, --teamChange) {
 
         // Only anchor by specified frequency
-        if (pindex->nHeight % consensus.mn.anchoringFrequency != 0) {
+        if (pindex->nHeight % DeFiParams().GetConsensus().mn.anchoringFrequency != 0) {
             continue;
         }
 
         // Get start anchor height
-        int anchorHeight = static_cast<int>(pindex->nHeight) - consensus.mn.anchoringFrequency;
+        int anchorHeight = static_cast<int>(pindex->nHeight) - DeFiParams().GetConsensus().mn.anchoringFrequency;
 
         // Get anchor block from specified time depth
-        int64_t timeDepth = consensus.mn.anchoringTimeDepth;
+        int64_t timeDepth = DeFiParams().GetConsensus().mn.anchoringTimeDepth;
         while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
             --anchorHeight;
         }
 
         // Select a block further back to avoid Anchor too new error.
         if (pindex->nHeight >= consensus.FortCanningHeight) {
-            timeDepth += consensus.mn.anchoringAdditionalTimeDepth;
+            timeDepth += DeFiParams().GetConsensus().mn.anchoringAdditionalTimeDepth;
             while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
                 --anchorHeight;
             }
         }
 
         // Rollback to height consistent with anchoringFrequency
-        while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
+        while (anchorHeight > 0 && anchorHeight % DeFiParams().GetConsensus().mn.anchoringFrequency != 0) {
             --anchorHeight;
         }
 
@@ -4855,7 +4855,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     static bool firstRunAfterIBD = true;
     if (!::ChainstateActive().IsInitialBlockDownload() && tip && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
-        int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
+        int sinceHeight = std::max(::ChainActive().Height() - DeFiParams().GetConsensus().mn.anchoringFrequency * 5, 0);
         LogPrint(BCLog::ANCHORING, "Trying to request some auths after IBD, since %i...\n", sinceHeight);
         RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;

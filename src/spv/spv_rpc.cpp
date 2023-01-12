@@ -10,6 +10,7 @@
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/params.h>
 #include <spv/btctransaction.h>
 #include <spv/spv_wrapper.h>
 #include <univalue/include/univalue.h>
@@ -249,9 +250,9 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     auto consensus = Params().GetConsensus();
 
-    spv::TBytes scriptBytes{spv::CreateScriptForAddress(consensus.spv.anchors_address.c_str())};
+    spv::TBytes scriptBytes{spv::CreateScriptForAddress(DeFiParams().GetConsensus().spv.anchors_address.c_str())};
     if (scriptBytes.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't create script for chainparam's 'spv.anchors_address' = '" + consensus.spv.anchors_address + "'");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't create script for chainparam's 'spv.anchors_address' = '" + DeFiParams().GetConsensus().spv.anchors_address + "'");
     }
     CMutableBtcTransaction mtx;
     // output[0] - anchor address with creation fee
@@ -270,7 +271,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
     result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus)));
-    result.pushKV("anchorAddress", Params().GetConsensus().spv.anchors_address);
+    result.pushKV("anchorAddress", DeFiParams().GetConsensus().spv.anchors_address);
 
     return result;
 }

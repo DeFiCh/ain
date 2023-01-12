@@ -487,7 +487,7 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
 }
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
-    auto members          = consensus.foundationMembers;
+    auto members          = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
@@ -1064,7 +1064,7 @@ public:
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
         }
         bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
-                                                        : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+                                                        : DeFiParams().GetConsensus().foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         if (isFoundersToken)
             Require(HasFoundationAuth());
@@ -1171,7 +1171,7 @@ public:
                 AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
 
-            const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+            const auto dailyInterval = height / DeFiParams().GetConsensus().blocksPerDay() * DeFiParams().GetConsensus().blocksPerDay();
 
             for (const auto &[key, member] : members) {
                 if (HasAuth(member.ownerAddress)) {

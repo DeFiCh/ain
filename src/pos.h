@@ -4,6 +4,7 @@
 #include <consensus/params.h>
 #include <arith_uint256.h>
 #include <memory>
+#include <masternodes/params.h>
 #include <key.h>
 
 class CBlock;
@@ -42,7 +43,7 @@ namespace pos {
 
     unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params);
 
-    unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust = false);
+    unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const DeFiConsensus::Params::PoS& params, bool newDifficultyAdjust = false);
 
     std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
 

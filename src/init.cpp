@@ -27,6 +27,7 @@
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
@@ -2148,7 +2149,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Create masternode
         CMasternode node;
-        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+        node.creationHeight = chain_active_height - DeFiParams().GetConsensus().mn.newActivationDelay;
         node.ownerType = WitV0KeyHashType;
         node.ownerAuthAddress = keyID;
         node.operatorType = WitV0KeyHashType;

@@ -28,6 +28,6 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
 
-CKeyID getCKeyIDFromDestination(const CTxDestination& dest);
+CKeyID GetCKeyIDFromDestination(const CTxDestination& dest);
 
 #endif // DEFI_KEY_IO_H

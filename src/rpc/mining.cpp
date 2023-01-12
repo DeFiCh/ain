@@ -11,6 +11,7 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -52,7 +53,7 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
 
     // If lookup is -1, then use blocks since last difficulty change.
     if (lookup <= 0)
-        lookup = pb->nHeight % Params().GetConsensus().pos.DifficultyAdjustmentInterval() + 1;
+        lookup = pb->nHeight % DeFiParams().GetConsensus().pos.DifficultyAdjustmentInterval() + 1;
 
     // If lookup is larger than chain, then set it to chain length.
     if (lookup > pb->nHeight)
@@ -188,7 +189,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    CKeyID passedID = getCKeyIDFromDestination(destination);
+    CKeyID passedID = GetCKeyIDFromDestination(destination);
 
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {

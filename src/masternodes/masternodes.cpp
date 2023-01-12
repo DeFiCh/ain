@@ -8,6 +8,7 @@
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <masternodes/vaulthistory.h>
 
 #include <chainparams.h>
@@ -34,10 +35,10 @@ int GetMnActivationDelay(int height) {
     if (height < Params().GetConsensus().EunosHeight ||
        (IsTestNetwork() &&
        height >= Params().GetConsensus().FortCanningHeight)) {
-        return Params().GetConsensus().mn.activationDelay;
+        return DeFiParams().GetConsensus().mn.activationDelay;
     }
 
-    return Params().GetConsensus().mn.newActivationDelay;
+    return DeFiParams().GetConsensus().mn.newActivationDelay;
 }
 
 int GetMnResignDelay(int height) {
@@ -45,31 +46,31 @@ int GetMnResignDelay(int height) {
     if (height < Params().GetConsensus().EunosHeight ||
        (IsTestNetwork() &&
        height >= Params().GetConsensus().FortCanningHeight)) {
-        return Params().GetConsensus().mn.resignDelay;
+        return DeFiParams().GetConsensus().mn.resignDelay;
     }
 
-    return Params().GetConsensus().mn.newResignDelay;
+    return DeFiParams().GetConsensus().mn.newResignDelay;
 }
 
 CAmount GetMnCollateralAmount(int height) {
     auto &consensus = Params().GetConsensus();
     if (height < consensus.DakotaHeight) {
-        return consensus.mn.collateralAmount;
+        return DeFiParams().GetConsensus().mn.collateralAmount;
     } else {
-        return consensus.mn.collateralAmountDakota;
+        return DeFiParams().GetConsensus().mn.collateralAmountDakota;
     }
 }
 
 CAmount GetMnCreationFee(int) {
-    return Params().GetConsensus().mn.creationFee;
+    return DeFiParams().GetConsensus().mn.creationFee;
 }
 
 CAmount GetTokenCollateralAmount() {
-    return Params().GetConsensus().token.collateralAmount;
+    return DeFiParams().GetConsensus().token.collateralAmount;
 }
 
 CAmount GetTokenCreationFee(int) {
-    return Params().GetConsensus().token.creationFee;
+    return DeFiParams().GetConsensus().token.creationFee;
 }
 
 CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreatePropMessage &msg) {
@@ -87,15 +88,15 @@ CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreatePropMes
     CAmount cfpFee;
     switch (type) {
         case CPropType::CommunityFundProposal: {
-            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
-            auto minimumFee = Params().GetConsensus().props.cfp.minimumFee;
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, DeFiParams().GetConsensus().props.cfp.fee));
+            auto minimumFee = DeFiParams().GetConsensus().props.cfp.minimumFee;
             return minimumFee > cfpFee ? minimumFee : cfpFee;
         }
         case CPropType::VoteOfConfidence:
             if (emergency)
-                return attributes->GetValue(VOCEmergencyKey, Params().GetConsensus().props.voc.emergencyFee);
+                return attributes->GetValue(VOCEmergencyKey, DeFiParams().GetConsensus().props.voc.emergencyFee);
             else
-                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
+                return attributes->GetValue(VOCKey, DeFiParams().GetConsensus().props.voc.fee);
     }
     return -1;
 }
@@ -530,7 +531,7 @@ uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode 
         auto lastHeight = height - 1;
 
         // Cannot expire below block count required to calculate average time
-        if (lastHeight < static_cast<uint64_t>(Params().GetConsensus().mn.newResignDelay)) {
+        if (lastHeight < static_cast<uint64_t>(DeFiParams().GetConsensus().mn.newResignDelay)) {
             return *timelock;
         }
 
@@ -539,10 +540,10 @@ uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode 
 
         // Get average time of the last two times the activation delay worth of blocks
         uint64_t totalTime{0};
-        for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
+        for (; lastHeight + DeFiParams().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
             totalTime += ::ChainActive()[lastHeight]->nTime;
         }
-        const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
+        const uint32_t averageTime = totalTime / DeFiParams().GetConsensus().mn.newResignDelay;
 
         // Below expiration return timelock
         if (averageTime < timelockExpire) {
@@ -631,7 +632,7 @@ CTeamView::CTeam CTeamView::GetCurrentTeam() const {
     if (Read(CurrentTeam::prefix(), team) && team.size() > 0)
         return team;
 
-    return Params().GetGenesisTeam();
+    return DeFiParams().GetGenesisTeam();
 }
 
 void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, const int height) {
@@ -646,11 +647,11 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
     }
 
     // Called every on team change intercal from fork height
-    if (height % Params().GetConsensus().mn.anchoringTeamChange != 0) {
+    if (height % DeFiParams().GetConsensus().mn.anchoringTeamChange != 0) {
         LogPrint(BCLog::ANCHORING,
                  "%s: Not called on interval of %d, arg height %d\n",
                  __func__,
-                 Params().GetConsensus().mn.anchoringTeamChange,
+                 DeFiParams().GetConsensus().mn.anchoringTeamChange,
                  height);
         return;
     }
@@ -665,13 +666,13 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetAuthTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % DeFiParams().GetConsensus().mn.anchoringTeamChange;
 
     return ReadBy<AuthTeam, CTeam>(height);
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % DeFiParams().GetConsensus().mn.anchoringTeamChange;
 
     return ReadBy<ConfirmTeam, CTeam>(height);
 }
@@ -780,9 +781,9 @@ void CCustomCSView::SetDbVersion(int version) {
 
 CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 &stakeModifier) {
     if (stakeModifier == uint256())
-        return Params().GetGenesisTeam();
+        return DeFiParams().GetGenesisTeam();
 
-    int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
+    int anchoringTeamSize = DeFiParams().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
     ForEachMasternode([&](const uint256 &id, CMasternode node) {
@@ -807,7 +808,7 @@ enum AnchorTeams { AuthTeam, ConfirmTeam };
 
 void CCustomCSView::CalcAnchoringTeams(const uint256 &stakeModifier, const CBlockIndex *pindexNew) {
     std::set<uint256> masternodeIDs;
-    const int blockSample = 7 * Params().GetConsensus().blocksPerDay();  // One week
+    const int blockSample = 7 * DeFiParams().GetConsensus().blocksPerDay();  // One week
 
     {
         LOCK(cs_main);
@@ -843,7 +844,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 &stakeModifier, const CBloc
         return true;
     });
 
-    int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
+    int anchoringTeamSize = DeFiParams().GetConsensus().mn.anchoringTeamSize;
 
     CTeam authTeam;
     auto &&it = authMN.begin();
@@ -1279,7 +1280,7 @@ uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {
 
     CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
 
-    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
+    return attributes->GetValue(votingKey, DeFiParams().GetConsensus().props.votingPeriod);
 }
 
 uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType &type) const {
@@ -1287,7 +1288,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType &type) 
     assert(attributes);
 
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
-    return attributes->GetValue(VOCKey, Params().GetConsensus().props.emergencyPeriod);
+    return attributes->GetValue(VOCKey, DeFiParams().GetConsensus().props.emergencyPeriod);
 }
 
 CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type) const {
@@ -1299,9 +1300,9 @@ CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type)
 
     switch (type) {
         case CPropType::CommunityFundProposal:
-            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
+            return attributes->GetValue(CFPKey, DeFiParams().GetConsensus().props.cfp.approvalThreshold) / 10000;
         case CPropType::VoteOfConfidence:
-            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
+            return attributes->GetValue(VOCKey, DeFiParams().GetConsensus().props.voc.approvalThreshold) / 10000;
     }
 
     return 0;
@@ -1319,7 +1320,7 @@ CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType &type, bool emerg
         return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
     }
 
-    return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
+    return attributes->GetValue(quorumKey, DeFiParams().GetConsensus().props.quorum) / 10000;
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
@@ -1328,5 +1329,5 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 
     CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
-    return attributes->GetValue(feeBurnPctKey, Params().GetConsensus().props.feeBurnPct);
+    return attributes->GetValue(feeBurnPctKey, DeFiParams().GetConsensus().props.feeBurnPct);
 }

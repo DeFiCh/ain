@@ -396,7 +396,6 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/params.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \
@@ -600,6 +599,7 @@ libdefi_common_a_SOURCES = \
   core_write.cpp \
   key.cpp \
   key_io.cpp \
+  masternodes/params.cpp \
   merkleblock.cpp \
   netaddress.cpp \
   netbase.cpp \

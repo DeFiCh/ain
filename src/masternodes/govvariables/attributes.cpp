@@ -1643,7 +1643,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                 Require(
                     mnview.GetLoanTokenByID(DCT_ID{split}).has_value(), "Auto lock. No loan token with id (%d)", split);
 
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                const auto startHeight = attrV0->key - DeFiParams().GetConsensus().blocksPerDay() / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
                     Require(var, "Failed to create Gov var for lock");

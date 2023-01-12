@@ -23,10 +23,10 @@
 
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
-    if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
+    if (incentivePair != DeFiParams().GetConsensus().newNonUTXOSubsidies.end())
     {
         CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
-        subsidy *= Params().GetConsensus().blocksPerDay();
+        subsidy *= DeFiParams().GetConsensus().blocksPerDay();
         // Change daily LP reward if it has changed
         auto var = cache.GetVariable(GovVar::TypeName());
         if (var) {
@@ -46,14 +46,14 @@ static void ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& cache,
     // Hard coded LP_DAILY_DFI_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
+        const auto& incentivePair = DeFiParams().GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
         UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
     // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+        const auto& incentivePair = DeFiParams().GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
         UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
@@ -268,19 +268,19 @@ static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, 
     // Move funds from old burn address to new one
     CBalances burnAmounts;
     cache.ForEachBalance([&burnAmounts](CScript const & owner, CTokenAmount balance) {
-        if (owner != Params().GetConsensus().retiredBurnAddress) {
+        if (owner != DeFiParams().GetConsensus().retiredBurnAddress) {
             return false;
         }
 
         burnAmounts.Add({balance.nTokenId, balance.nValue});
 
         return true;
-    }, BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
+    }, BalanceKey{DeFiParams().GetConsensus().retiredBurnAddress, DCT_ID{}});
 
-    AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
+    AddNonTxToBurnIndex(DeFiParams().GetConsensus().retiredBurnAddress, burnAmounts);
 
     // Zero foundation balances
-    for (const auto& script : chainparams.GetConsensus().accountDestruction)
+    for (const auto& script : DeFiParams().GetConsensus().accountDestruction)
     {
         CBalances zeroAmounts;
         cache.ForEachBalance([&zeroAmounts, script](CScript const & owner, CTokenAmount balance) {
@@ -487,7 +487,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    if (pindex->nHeight % DeFiParams().GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
@@ -603,7 +603,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
             // All done. Ready to save the overall auction.
             cache.StoreAuction(vaultId, CAuctionData{
                     uint32_t(batches.size()),
-                    pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                    pindex->nHeight + DeFiParams().GetConsensus().blocksCollateralAuction(),
                     cache.GetLoanLiquidationPenalty()
             });
 
@@ -2140,15 +2140,15 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
     {
         if (funds > 0) {
             cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
-            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
+            cache.AddBalance(DeFiParams().GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
         }
 
         return;
     }
 
-    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    auto balance = cache.GetBalance(DeFiParams().GetConsensus().foundationShareScript, DCT_ID{0});
     if (balance.nValue > 0) {
-        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.SubBalance(DeFiParams().GetConsensus().foundationShareScript, balance);
         cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
     }
 
@@ -2304,7 +2304,7 @@ static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& 
     assert(attributes);
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-    attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
+    attributes->SetValue(key, DeFiParams().GetConsensus().foundationMembers);
     cache.SetVariable(*attributes);
 }
 

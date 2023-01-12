@@ -53,12 +53,6 @@ struct Params {
     int nSubsidyHalvingInterval;
     CAmount baseBlockSubsidy;
     CAmount newBaseBlockSubsidy;
-    uint32_t emissionReductionPeriod;
-    uint32_t emissionReductionAmount;
-    CScript foundationShareScript;
-    uint32_t foundationShare;
-    std::set<CScript> foundationMembers;
-    std::set<CScript> accountDestruction;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -101,61 +95,8 @@ struct Params {
     int GrandCentralHeight;
     int GrandCentralEpilogueHeight;
 
-    /** Foundation share after AMK, normalized to COIN = 100% */
-    CAmount foundationShareDFIP1;
     /** Trackable burn address */
     CScript burnAddress;
-    /** Previous burn address to transfer tokens from */
-    CScript retiredBurnAddress;
-    /** Address to hold unused emission */
-    CScript unusedEmission;
-
-    /** Struct to hold percentages for coinbase distribution.
-     *  Percentages are calculated out of 10000 */
-    struct CoinbaseDistribution {
-        uint32_t masternode; // Mining reward
-        uint32_t community; // Community fund
-        uint32_t anchor; // Anchor reward
-        uint32_t liquidity; // Liquidity mining
-        uint32_t loan; // Loans
-        uint32_t options; // Options
-        uint32_t unallocated; // Reserved
-    };
-    CoinbaseDistribution dist;
-
-    /** Proof of stake parameters */
-    struct PoS {
-        uint256 diffLimit;
-        int64_t nTargetTimespan;
-        int64_t nTargetTimespanV2;
-        int64_t nTargetSpacing;
-        int64_t nStakeMinAge;
-        int64_t nStakeMaxAge;
-        bool fAllowMinDifficultyBlocks;
-        bool fNoRetargeting;
-
-        int64_t DifficultyAdjustmentInterval() const { return nTargetTimespan / nTargetSpacing; }
-        int64_t DifficultyAdjustmentIntervalV2() const { return nTargetTimespanV2 / nTargetSpacing; }
-
-        arith_uint256 interestAtoms = arith_uint256{10000000000000000ull};
-        bool allowMintingWithoutPeers;
-    };
-    PoS pos;
-
-    uint32_t blocksPerDay() const {
-        static const uint32_t blocks = 60 * 60 * 24 / pos.nTargetSpacing;
-        return blocks;
-    }
-
-    uint32_t blocksCollateralizationRatioCalculation() const {
-        static const uint32_t blocks = 15 * 60 / pos.nTargetSpacing;
-        return blocks;
-    }
-
-    uint32_t blocksCollateralAuction() const {
-        static const uint32_t blocks = 6 * 60 * 60 / pos.nTargetSpacing;
-        return blocks;
-    }
 
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
@@ -169,58 +110,7 @@ struct Params {
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
 
-    struct MnParams {
-        CAmount creationFee;
-        CAmount collateralAmount;
-        CAmount collateralAmountDakota;
-        int activationDelay;
-        int resignDelay;
-        int newActivationDelay;
-        int newResignDelay;
-        int anchoringTeamSize;
-        int anchoringFrequency; // create every Nth block
-
-        int anchoringTimeDepth; // Min age of anchored blocks
-        int anchoringAdditionalTimeDepth; // Additional min age of anchored blocks
-        int anchoringTeamChange; // How many blocks before team is changed
-    };
-    MnParams mn;
-
-    struct TokenParams {
-        CAmount creationFee;
-        CAmount collateralAmount;
-    };
-    TokenParams token;
-
-    struct SpvParams {
-        CAmount creationFee;
-        CAmount anchorSubsidy;
-        int subsidyIncreasePeriod;
-        CAmount subsidyIncreaseValue;
-        std::string wallet_xpub;
-        std::string anchors_address;
-        int minConfirmations;
-    };
-    SpvParams spv;
-
     CAmount vaultCreationFee;
-
-    struct CPropsParams {
-        struct CPropsSpecs {
-            CAmount fee;
-            CAmount minimumFee;
-            CAmount emergencyFee;
-            CAmount approvalThreshold;
-        } cfp, brp, voc;
-        uint32_t votingPeriod;
-        uint32_t emergencyPeriod;
-        CAmount quorum;
-        CAmount feeBurnPct;
-    };
-    CPropsParams props;
-
-    std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
-    std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
 };
 } // namespace Consensus
 

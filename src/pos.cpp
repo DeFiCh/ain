@@ -8,6 +8,7 @@
 #include <logging.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <sync.h>
 #include <validation.h>
 
@@ -105,7 +106,7 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
     return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState, pindexPrev->nHeight + 1);
 }
 
-unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust)
+unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const DeFiConsensus::Params::PoS& params, bool newDifficultyAdjust)
 {
     if (params.fNoRetargeting)
         return pindexLast->nBits;
@@ -134,10 +135,10 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params)
 {
     assert(pindexLast != nullptr);
-    if (params.pos.fNoRetargeting)
+    if (DeFiParams().GetConsensus().pos.fNoRetargeting)
         return pindexLast->nBits;
 
-    unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
+    unsigned int nProofOfWorkLimit = UintToArith256(DeFiParams().GetConsensus().pos.diffLimit).GetCompact();
 
     // Lower difficulty fork for mock network testing
     if (fMockNetwork) {
@@ -152,25 +153,25 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
         newDifficultyAdjust = false;
     }
 
-    const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
+    const auto interval = newDifficultyAdjust ? DeFiParams().GetConsensus().pos.DifficultyAdjustmentIntervalV2() : DeFiParams().GetConsensus().pos.DifficultyAdjustmentInterval();
     bool skipChange = newDifficultyAdjust ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
     if (skipChange)
     {
         // Regtest only
-        if (params.pos.fAllowMinDifficultyBlocks)
+        if (DeFiParams().GetConsensus().pos.fAllowMinDifficultyBlocks)
         {
             // Special difficulty rule for testnet:
             // If the new block's timestamp is more than 2* 30 seconds
             // then allow mining of a min-difficulty block.
-            if (blockTime > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
+            if (blockTime > pindexLast->GetBlockTime() + DeFiParams().GetConsensus().pos.nTargetSpacing*2)
                 return nProofOfWorkLimit;
             else
             {
                 // Return the last non-special-min-difficulty-rules-block
                 const CBlockIndex* pindex = pindexLast;
-                while (pindex->pprev && pindex->nHeight % params.pos.DifficultyAdjustmentInterval() != 0 && pindex->nBits == nProofOfWorkLimit)
+                while (pindex->pprev && pindex->nHeight % DeFiParams().GetConsensus().pos.DifficultyAdjustmentInterval() != 0 && pindex->nBits == nProofOfWorkLimit)
                     pindex = pindex->pprev;
                 return pindex->nBits;
             }
@@ -184,7 +185,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     const CBlockIndex* pindexFirst = pindexLast->GetAncestor(nHeightFirst);
     assert(pindexFirst);
 
-    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
+    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), DeFiParams().GetConsensus().pos, newDifficultyAdjust);
 }
 
 std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {

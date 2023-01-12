@@ -5,6 +5,7 @@
 #include <masternodes/oracles.h>
 
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 
 #include <algorithm>
 
@@ -196,5 +197,5 @@ uint32_t COracleView::GetIntervalBlock() const {
     }
 
     // Default
-    return 60 * 60 / Params().GetConsensus().pos.nTargetSpacing;
+    return 60 * 60 / DeFiParams().GetConsensus().pos.nTargetSpacing;
 }

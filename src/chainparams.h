@@ -79,8 +79,6 @@ public:
     uint64_t AssumedBlockchainSize() const { return m_assumed_blockchain_size; }
     /** Minimum free space (in GB) needed for data directory when pruned; Does not include prune target*/
     uint64_t AssumedChainStateSize() const { return m_assumed_chain_state_size; }
-    /** Whether it is possible to mine blocks on demand (no retargeting) */
-    bool MineBlocksOnDemand() const { return consensus.pos.fNoRetargeting; }
     /** Return the BIP70 network string (main, test or regtest) */
     std::string NetworkIDString() const { return strNetworkID; }
     /** Return the list of hostnames to look up for DNS seeds */
@@ -90,7 +88,9 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
-    const std::set<CKeyID>& GetGenesisTeam() const { return genesisTeam; }
+    [[nodiscard]] std::vector<CTransactionRef> CreateGenesisMasternodes(const CChainParams &params) const;
+    [[nodiscard]] const std::vector<CTxOut>& GetinitialDistribution() const { return initdist; }
+
 protected:
     CChainParams() {}
 
@@ -119,9 +119,9 @@ protected:
         std::string operatorAddress;
     };
     std::vector<MasternodeKeys> vMasternodes;
-    std::vector<CTransactionRef> CreateGenesisMasternodes();
-    std::set<CKeyID> genesisTeam;
+    std::vector<CTxOut> initdist;
 
+protected:
     friend void ClearCheckpoints(CChainParams &params);
     friend Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName);
 };
