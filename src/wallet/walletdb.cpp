@@ -677,6 +677,37 @@ void MaybeCompactWalletDB()
     fOneThread = false;
 }
 
+void AutoBackupWallet() {
+    for (const std::shared_ptr<CWallet> &pwallet: GetWallets()) {
+        auto env = pwallet->GetDBHandle().env;
+        std::string walletName = pwallet->GetName().empty() ? "default" : pwallet->GetName();
+        fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1", walletName);
+        fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2", walletName);
+        if (fs::exists(prevBackup) && !fs::exists(currentBackup)) {
+            pwallet->BackupWallet(currentBackup.string());
+        } else if (fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            fs::remove(prevBackup);
+            try {
+                fs::rename(currentBackup, prevBackup);
+            } catch (const fs::filesystem_error &) {
+                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+            }
+            pwallet->BackupWallet(currentBackup.string());
+
+        } else if (!fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            try {
+                fs::rename(currentBackup, prevBackup);
+            } catch (const fs::filesystem_error &) {
+                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+            }
+            pwallet->BackupWallet(currentBackup.string());
+        } else {
+            pwallet->BackupWallet(prevBackup.string());
+        }
+
+    }
+}
+
 //
 // Try to (very carefully!) recover wallet file if there is a problem.
 //
