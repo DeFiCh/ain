@@ -786,6 +786,30 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
     return proposalToJSON(propId, *prop, view, info);
 }
 
+template <typename T>
+void iterateProps(const T& list, UniValue& ret, const CPropId& start, bool including_start, size_t limit, const uint8_t type, const uint8_t status)
+{
+    for (const auto &prop : list) {
+        if (status && status != prop.second.status) {
+            continue;
+        }
+        if (type && type != prop.second.type) {
+            continue;
+        }
+        if (start != CPropId{} && prop.first != start)
+            continue;
+        if (!including_start) {
+            including_start = true;
+            continue;
+        }
+
+        limit--;
+        ret.push_back(proposalToJSON(prop.first, prop.second, *pcustomcsview, std::nullopt));
+        if (!limit)
+            break;
+    }
+}
+
 UniValue listgovproposals(const JSONRPCRequest &request) {
     RPCHelpMan{
         "listgovproposals",
@@ -801,9 +825,9 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
                 "",
                 {
                     {"start",
-                     RPCArg::Type::NUM,
+                     RPCArg::Type::STR_HEX,
                      RPCArg::Optional::OMITTED,
-                     "Vote index to iterate from."
+                     "Proposal id to iterate from."
                      "Typically it's set to last ID from previous request."},
                     {"including_start",
                      RPCArg::Type::BOOL,
@@ -937,71 +961,47 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
     using IdPropPair        = std::pair<CPropId, CPropObject>;
     using CycleEndHeightInt = int;
-    using PropBatchesMap    = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
+    using CyclePropsMap    = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
 
-    PropBatchesMap propBatches;
+    std::map<CPropId, CPropObject> props;
+    CyclePropsMap cycleProps;
+
+    view.ForEachProp(
+        [&](const CPropId &propId, const CPropObject &prop) {
+            props.insert({propId, prop});
+            return true;
+        },static_cast<CPropStatusType>(0));
 
     if (cycle != 0) {
         // populate map
-        view.ForEachProp(
-            [&](const CPropId &propId, const CPropObject &prop) {
-                auto batch    = propBatches.find(prop.cycleEndHeight);
-                auto propPair = std::make_pair(propId, prop);
-                // if batch is not found create it
-                if (batch == propBatches.end()) {
-                    propBatches.insert({prop.cycleEndHeight, std::vector<IdPropPair>{propPair}});
-                } else {  // else insert to prop vector
-                    batch->second.push_back(propPair);
-                }
-                return true;
-            },
-            static_cast<CPropStatusType>(0),
-            start);
+        for (const auto &[propId, prop] : props) {
+            auto batch    = cycleProps.find(prop.cycleEndHeight);
+            auto propPair = std::make_pair(propId, prop);
+            // if batch is not found create it
+            if (batch == cycleProps.end()) {
+                cycleProps.insert({prop.cycleEndHeight, std::vector<IdPropPair>{propPair}});
+            } else {  // else insert to prop vector
+                batch->second.push_back(propPair);
+            }
+        }
 
-        auto batch = propBatches.rbegin();
+        auto batch = cycleProps.rbegin();
         if (cycle != -1) {
-            if (static_cast<PropBatchesMap::size_type>(cycle) > propBatches.size())
+            if (static_cast<CyclePropsMap::size_type>(cycle) > cycleProps.size())
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find cycle");
-            for (unsigned int i = 1; i <= (propBatches.size() - cycle); i++) {
+            for (unsigned int i = 1; i <= (cycleProps.size() - cycle); i++) {
                 batch++;
             }
         } else {
             batch++;
         }
-        // Filter batch
-        for (const auto &prop : batch->second) {
-            if (status && status != prop.second.status) {
-                continue;
-            }
-            if (type && type != prop.second.type) {
-                continue;
-            }
-            limit--;
-            ret.push_back(proposalToJSON(prop.first, prop.second, view, std::nullopt));
-            if (!limit)
-                break;
-        }
+
+        iterateProps(batch->second, ret, start, including_start, limit, type, status);
+
         return ret;
     }
 
-    view.ForEachProp(
-        [&](const CPropId &propId, const CPropObject &prop) {
-            if (!including_start) {
-                including_start = true;
-                return (true);
-            }
-            if (status && status != prop.status) {
-                return false;
-            }
-            if (type && type != prop.type) {
-                return true;
-            }
-            limit--;
-            ret.push_back(proposalToJSON(propId, prop, view, std::nullopt));
-            return limit != 0;
-        },
-        static_cast<CPropStatusType>(status),
-        start);
+    iterateProps(props, ret, start, including_start, limit, type, status);
 
     return ret;
 }
