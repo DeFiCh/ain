@@ -5,6 +5,7 @@
 
 #include <wallet/load.h>
 
+#include <chrono>
 #include <interfaces/chain.h>
 #include <scheduler.h>
 #include <util/system.h>
@@ -86,6 +87,12 @@ void StartWallets(CScheduler& scheduler)
     // Schedule periodic wallet flushes and tx rebroadcasts
     scheduler.scheduleEvery(MaybeCompactWalletDB, 2000);
     scheduler.scheduleEvery(MaybeResendWalletTxs, 1000);
+    // Schedule periodic backup for wallets
+    auto walletBackupPeriodMinutes = gArgs.GetArg("-backupwallet", DEFAULT_WALLET_BACKUP_PERIOD);
+    if (walletBackupPeriodMinutes > 0) {
+        auto walletBackupPeriodMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(walletBackupPeriodMinutes));
+        scheduler.scheduleEvery(AutoBackupWallet, walletBackupPeriodMs.count());
+    }
 }
 
 void FlushWallets()

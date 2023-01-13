@@ -123,7 +123,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
 
         # Create CFP
-        tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
+        cfp1 = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
         # Fund addresses
         self.nodes[0].sendtoaddress(address1, Decimal("1.0"))
         self.nodes[0].sendtoaddress(address2, Decimal("1.0"))
@@ -141,19 +141,19 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('5.00000000'))
 
         # cannot vote by non owning masternode
-        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")
+        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, cfp1, mn1, "yes")
 
         # Vote on proposal
-        self.nodes[0].votegov(tx, mn0, "yes")
+        self.nodes[0].votegov(cfp1, mn0, "yes")
         self.nodes[0].generate(1)
-        self.nodes[1].votegov(tx, mn1, "no")
+        self.nodes[1].votegov(cfp1, mn1, "no")
         self.nodes[1].generate(1)
-        self.nodes[2].votegov(tx, mn2, "yes")
+        self.nodes[2].votegov(cfp1, mn2, "yes")
         self.nodes[2].generate(1)
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "neutral")
 
         # voting period
         votingPeriod = 70
@@ -165,7 +165,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         # Check proposal and votes
         result = self.nodes[0].listgovproposals()
         assert_equal(len(result), 1)
-        assert_equal(result[0]["proposalId"], tx)
+        assert_equal(result[0]["proposalId"], cfp1)
         assert_equal(result[0]["creationHeight"], creationHeight)
         assert_equal(result[0]["title"], title)
         assert_equal(result[0]["context"], context)
@@ -184,23 +184,23 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result[0]["fee"], Decimal("10"))
 
         # Check individual MN votes
-        results = self.nodes[1].listgovproposalvotes(tx, mn0)
+        results = self.nodes[1].listgovproposalvotes(cfp1, mn0)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = self.nodes[1].listgovproposalvotes(tx, mn1)
+        results = self.nodes[1].listgovproposalvotes(cfp1, mn1)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = self.nodes[1].listgovproposalvotes(tx, mn2)
+        results = self.nodes[1].listgovproposalvotes(cfp1, mn2)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
         # Check total votes
-        result = self.nodes[1].listgovproposalvotes(tx, "all")
+        result = self.nodes[1].listgovproposalvotes(cfp1, "all")
         assert_equal(len(result), 3)
 
         # Move to just before cycle payout
@@ -468,7 +468,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.23346268"))
 
         # not votes on 2nd cycle makes proposal to rejected
-        result = self.nodes[0].listgovproposals()[0]
+        result = self.nodes[0].listgovproposals({"pagination":{"start": propId, "including_start":True}})[0]
         assert_equal(result["status"], "Rejected")
 
         # No proposals pending
@@ -624,6 +624,43 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         # test non-object RPC arguments
         assert_equal(len(self.nodes[0].listgovproposalvotes(propId, 'all', -1, {"limit": 2})), 2)
+
+        tx1 = self.nodes[0].creategovcfp({"title": "1111",
+            "context": context,
+            "amount": 50,
+            "cycles": 1,
+            "payoutAddress": address})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        tx2 = self.nodes[0].creategovcfp({"title": "2222",
+            "context": context,
+            "amount": 50,
+            "cycles": 1,
+            "payoutAddress": address})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        tx3 = self.nodes[0].creategovcfp({"title": "3333",
+            "context": context,
+            "amount": 50,
+            "cycles": 1,
+            "payoutAddress": address})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[0].listgovproposals({"cycle":1, "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
+        assert_equal(len(self.nodes[0].listgovproposals({"cycle":5})), 3)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
+
+        assert_equal(len(self.nodes[0].listgovproposals({"type": "cfp"})), 5)
+        assert_equal(self.nodes[0].listgovproposals({"type": "cfp", "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
+        assert_equal(self.nodes[0].listgovproposals({"type": "cfp", "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
+
+        assert_equal(len(self.nodes[0].listgovproposals({"status": "voting"})), 3)
+        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": True, "limit": 1}})[0]["proposalId"], tx1)
+        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
