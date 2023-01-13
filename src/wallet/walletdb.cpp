@@ -679,6 +679,9 @@ void MaybeCompactWalletDB()
 
 void AutoBackupWallet() {
     for (const std::shared_ptr<CWallet> &pwallet: GetWallets()) {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
         auto env = pwallet->GetDBHandle().env;
         std::string walletName = pwallet->GetName().empty() ? "default" : pwallet->GetName();
         fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1", walletName);
