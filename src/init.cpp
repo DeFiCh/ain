@@ -2235,17 +2235,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
                     CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 if (nodePtr->rewardAddressType != 0) {
-                    switch(nodePtr->rewardAddressType) {
-                        case PKHashType:
-                            rewardDest = CTxDestination(PKHash(nodePtr->rewardAddress));
-                            break;
-                        case ScriptHashType:
-                            rewardDest = CTxDestination(ScriptHash(nodePtr->rewardAddress));
-                            break;
-                        case WitV0KeyHashType:
-                            rewardDest = CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
-                            break;
-                    }
+                    rewardDest = nodePtr->GetRewardAddressDestination();
                 }
             }
 

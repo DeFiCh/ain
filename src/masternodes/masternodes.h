@@ -104,6 +104,7 @@ public:
 
     State GetState(int height, const CMasternodesView &mnview) const;
     bool IsActive(int height, const CMasternodesView &mnview) const;
+    [[nodiscard]] CTxDestination GetRewardAddressDestination() const;
 
     static std::string GetHumanReadableState(State state);
     static std::string GetTimelockToString(TimeLock timelock);

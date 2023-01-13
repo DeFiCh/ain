@@ -164,6 +164,19 @@ bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
     return state == ENABLED || state == PRE_RESIGNED;
 }
 
+CTxDestination CMasternode::GetRewardAddressDestination() const {
+    switch(rewardAddressType) {
+        case PKHashType:
+            return {PKHash(rewardAddress)};
+        case ScriptHashType:
+            return {ScriptHash(rewardAddress)};
+        case WitV0KeyHashType:
+            return {WitnessV0KeyHash(rewardAddress)};
+    }
+
+    return {};
+}
+
 std::string CMasternode::GetHumanReadableState(State state) {
     switch (state) {
         case PRE_ENABLED:

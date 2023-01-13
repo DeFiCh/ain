@@ -2195,10 +2195,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(mn->rewardAddressType == PKHashType ?
-                                                           CTxDestination(PKHash(mn->rewardAddress)) :
-                                                           CTxDestination(WitnessV0KeyHash(mn->rewardAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(mn->GetRewardAddressDestination());
                 } else {
                     scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
                                                            CTxDestination(PKHash(mn->ownerAuthAddress)) :

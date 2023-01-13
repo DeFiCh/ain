@@ -966,7 +966,7 @@ public:
                 }
                 rewardType = true;
 
-                if (height < static_cast<uint32_t>(consensus.GrandCentralNextHeight)) {
+                if (height < static_cast<uint32_t>(consensus.GrandCentralEpilogueHeight)) {
                     if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                         return Res::Err("Reward address must be P2PKH or P2WPKH type");
                     }

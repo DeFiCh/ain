@@ -759,17 +759,7 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    switch(nodePtr->rewardAddressType) {
-                        case PKHashType:
-                            scriptPubKey = GetScriptForDestination(CTxDestination(PKHash(nodePtr->rewardAddress)));
-                            break;
-                        case ScriptHashType:
-                            scriptPubKey = GetScriptForDestination(CTxDestination(ScriptHash(nodePtr->rewardAddress)));
-                            break;
-                        case WitV0KeyHashType:
-                            scriptPubKey = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress)));
-                            break;
-                    }
+                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
                 }
                 else {
                     scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
