@@ -81,12 +81,11 @@ class VaultTest (DefiTestFramework):
 
     def setup_loanschemes(self):
         self.nodes[0].createloanscheme(175, 3, 'LOAN0001')
+        self.nodes[0].generate(1)
         self.nodes[0].createloanscheme(150, 2.5, 'LOAN000A')
         self.nodes[0].createloanscheme(200, 2, 'LOAN0002')
         self.nodes[0].createloanscheme(350, 1.5, 'LOAN0003')
         self.nodes[0].createloanscheme(550, 1.5, 'LOAN0004')
-        self.nodes[0].generate(1)
-        self.nodes[0].setdefaultloanscheme('LOAN0001')
         self.nodes[0].generate(1)
 
     def create_vaults(self):

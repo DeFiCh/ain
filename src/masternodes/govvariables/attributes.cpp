@@ -191,6 +191,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"members", DFIPKeys::Members},
              {"gov-payout", DFIPKeys::CFPPayout},
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
+             {"mint-tokens-to-address", DFIPKeys::MintTokens},
          }},
         {AttributeTypes::Governance,
          {
@@ -205,6 +206,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"voc_approval_threshold", GovernanceKeys::VOCApprovalThreshold},
              {"quorum", GovernanceKeys::Quorum},
              {"voting_period", GovernanceKeys::VotingPeriod},
+             {"cfp_max_cycles", GovernanceKeys::CFPMaxCycles},
          }},
     };
     return keys;
@@ -264,6 +266,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::Members, "members"},
              {DFIPKeys::CFPPayout, "gov-payout"},
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
+             {DFIPKeys::MintTokens, "mint-tokens-to-address"},
          }},
         {AttributeTypes::Live,
          {
@@ -297,6 +300,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {GovernanceKeys::VOCApprovalThreshold, "voc_approval_threshold"},
              {GovernanceKeys::Quorum, "quorum"},
              {GovernanceKeys::VotingPeriod, "voting_period"},
+             {GovernanceKeys::CFPMaxCycles, "cfp_max_cycles"},
          }},
     };
     return keys;
@@ -564,6 +568,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::ConsortiumEnabled, VerifyBool},
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
+                 {DFIPKeys::MintTokens, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -586,6 +591,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {GovernanceKeys::VOCApprovalThreshold, VerifyPct},
                  {GovernanceKeys::Quorum, VerifyPct},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
+                 {GovernanceKeys::CFPMaxCycles, VerifyUInt32},
              }},
     };
     return parsers;
@@ -755,7 +761,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::MNSetRewardAddress && typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
-                    typeKey != DFIPKeys::EmissionUnusedFund) {
+                    typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {
@@ -772,7 +778,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
                     typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
                     typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
-                    typeKey != GovernanceKeys::VotingPeriod)
+                    typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             } else {
                 return Res::Err("Unsupported Governance ID");
@@ -1395,7 +1401,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
+                if (attrV0->typeId == ParamIDs::Feature && attrV0->key == DFIPKeys::MintTokens) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralEpilogueHeight) {
+                        return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
                     attrV0->key == DFIPKeys::Members) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
