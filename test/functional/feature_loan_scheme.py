@@ -323,7 +323,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].setdefaultloanscheme('LOAN0002')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as default, set to destroyed on block 121" in errorString)
+        assert("Cannot set LOAN0002 as default, set to destroyed" in errorString)
 
         # Set update on same block and later on
         self.nodes[0].updateloanscheme(160, 4.5, 'LOAN0002', destruction_height)

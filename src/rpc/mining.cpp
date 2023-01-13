@@ -279,12 +279,12 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             //should not come here if the database has correct data.
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnId.second.GetHex()));
         }
-        auto state = nodePtr->GetState(height);
+        auto state = nodePtr->GetState(height, *pcustomcsview);
         CTxDestination operatorDest = nodePtr->operatorType == 1 ? CTxDestination(PKHash(nodePtr->operatorAuthAddress)) :
                                       CTxDestination(WitnessV0KeyHash(nodePtr->operatorAuthAddress));
         subObj.pushKV("operator", EncodeDestination(operatorDest));// NOTE(sp) : Should this also be encoded? not the HEX
         subObj.pushKV("state", CMasternode::GetHumanReadableState(state));
-        auto generate = nodePtr->IsActive(height) && genCoins;
+        auto generate = nodePtr->IsActive(height, *pcustomcsview) && genCoins;
         subObj.pushKV("generate", generate);
         subObj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
 
@@ -300,7 +300,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         const auto timelock = pcustomcsview->GetTimelock(mnId.second, *nodePtr, height);
 
         // Get targetMultiplier if node is active
-        if (nodePtr->IsActive(height)) {
+        if (nodePtr->IsActive(height, *pcustomcsview)) {
             // Get block times
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, timelock);
 
@@ -979,6 +979,8 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
+    } else if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING)) {
+        result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
         errors.push_back("Insufficient data or no feerate found");
         result.pushKV("errors", errors);

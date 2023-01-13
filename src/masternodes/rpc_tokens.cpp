@@ -278,7 +278,16 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     }
     else
     { // post-bayfront auth
-        bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+        const auto attributes = pcustomcsview->GetAttributes();
+        assert(attributes);
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        }
+        bool isFoundersToken = !databaseMembers.empty() ?
+                               databaseMembers.find(owner) != databaseMembers.end() :
+                               Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+
         if (isFoundersToken) { // need any founder's auth
             rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths /*auths*/, true /*needFoundersAuth*/, optAuthTx, txInputs);
         }
@@ -632,11 +641,173 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     RPCHelpMan{"minttokens",
                "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address. \n"
+               "All arguments may optionally be passed in a JSON object." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Address to mint tokens to"
+                    },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("minttokens", "10@symbol")
+                       + HelpExampleCli("minttokens",
+                                      R"(10@symbol '[{"txid":"id","vout":0}]')")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '[{"txid":"id","vout":0}]' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '' address)")
+                       + HelpExampleCli("minttokens",
+                                           R"('{"amounts": ["10@symbol"], "to": "address"}')")
+                       + HelpExampleCli("minttokens",
+                                           R"('{"amounts": ["10@symbol"], "to": "address", "inputs": "[{"txid": "id","vout": 0}]"}')")
+                       + HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot mint tokens while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    CBalances minted;
+    UniValue txInputs;
+    CScript to;
+
+    if (request.params[0].isObject()) {
+        auto optionsObj = request.params[0].get_obj();
+        minted = DecodeAmounts(pwallet->chain(), optionsObj["amounts"].get_array(), "");
+
+        if (optionsObj.exists("inputs"))
+            txInputs = optionsObj["inputs"].get_array();
+
+        if (optionsObj.exists("to"))
+            to = DecodeScript(optionsObj["to"].get_str());
+    }
+    else {
+        minted   = DecodeAmounts(pwallet->chain(), request.params[0], "");
+        txInputs = request.params[1];
+
+        if (request.params.size() > 2)
+            to = DecodeScript(request.params[2].get_str());
+    }
+
+    CMintTokensMessage mintTokensMessage;
+    mintTokensMessage.balances = minted.balances;
+    if (!to.empty())
+        mintTokensMessage.to = to;
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    CTransactionRef optAuthTx;
+
+    // auth
+    std::set<CScript> auths;
+    auto needFoundersAuth{false};
+    if (txInputs.isNull() || txInputs.empty()) {
+        LOCK(cs_main); // needed for coins tip
+        for (auto const & [id, amount] : minted.balances) {
+            const auto token = pcustomcsview->GetToken(id);
+            if (!token) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", id.ToString()));
+            }
+
+            if (token->IsDAT()) {
+                auto found{false};
+                auto attributes = pcustomcsview->GetAttributes();
+
+                if (attributes) {
+                    CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
+                    if (attributes->GetValue(enableKey, false))
+                    {
+                        CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::MemberValues};
+                        auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                        for (auto const& member : members) {
+                            if (IsMineCached(*pwallet, member.second.ownerAddress)) {
+                                auths.insert(member.second.ownerAddress);
+                                found = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!found) {
+                    needFoundersAuth = true;
+                }
+            }
+            // Get token owner auth if present
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+            if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
+                auths.insert(authCoin.out.scriptPubKey);
+            }
+        }
+    }
+
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::MintToken) << mintTokensMessage;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue burntokens(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"burntokens",
+               "\nCreates (and submits to local node and network) a transaction burning your token (for accounts and/or UTXOs). \n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address containing tokens to be burned."},
+                            {"context", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Additional data necessary for specific burn type"},
+                        }
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects. Provide it if you want to spent specific UTXOs",
@@ -654,51 +825,74 @@ UniValue minttokens(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("minttokens", "10@symbol")
-                       + HelpExampleCli("minttokens",
-                                      "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                       HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}'")
+                       + HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\",\"context\":\"consortium_member_address\"}'")
+                       + HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot mint tokens while still in Initial Block Download");
+                           "Cannot burn tokens while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
-    UniValue const & txInputs = request.params[1];
+    CBurnTokensMessage burnedTokens;
+    UniValue metaObj = request.params[0].get_obj();
+
+    burnedTokens.burnType = CBurnTokensMessage::BurnType::TokenBurn;
+
+    if (!metaObj["amounts"].isNull())
+        burnedTokens.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"].getValStr(), "");
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
+
+    if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
+        auto attributes = pcustomcsview->GetAttributes();
+
+        if (attributes) {
+            CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
+            if (attributes->GetValue(enableKey, false)) {
+                CDataStructureV0 membersKey{AttributeTypes::Consortium,
+                                            burnedTokens.amounts.balances.begin()->first.v,
+                                            ConsortiumKeys::MemberValues};
+                auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                for (const auto &member : members) {
+                    if (IsMineCached(*pwallet, member.second.ownerAddress)) {
+                        burnedTokens.from = member.second.ownerAddress;
+                        break;
+                    }
+                }
+            }
+        }
+        if (burnedTokens.from.empty())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "No valid addresses could be found, use the \"from\" argument to set address to burn from");
+    } else {
+        if (!metaObj["from"].isNull())
+            burnedTokens.from = DecodeScript(metaObj["from"].getValStr());
+        else
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"from\" must not be null");
+
+        if (!metaObj["context"].isNull())
+            burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
+    }
+
+    UniValue const & txInputs = request.params[2];
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
+    std::set<CScript> auths{burnedTokens.from};
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
 
-    // auth
-    std::set<CScript> auths;
-    bool needFoundersAuth = false;
-    if (txInputs.isNull() || txInputs.empty()) {
-        LOCK(cs_main);
-        for (auto const & kv : minted.balances) {
-            auto token = pcustomcsview->GetToken(kv.first);
-            if (!token) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
-            }
-            if (token->IsDAT()) {
-                needFoundersAuth = true;
-            }
-            // Get token owner auth if present
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-            auths.insert(authCoin.out.scriptPubKey);
-        }
-    }
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
-             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
+    metadata << static_cast<unsigned char>(CustomTxType::BurnToken)
+             << burnedTokens;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -815,6 +1009,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"tokens",      "burntokens",            &burntokens,            {"metadata", "inputs"}},
     {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring", "iswitness"}},
 };
 

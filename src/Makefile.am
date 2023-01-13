@@ -176,9 +176,11 @@ DEFI_CORE_H = \
   masternodes/res.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
+  masternodes/proposals.h \
   masternodes/tokens.h \
   masternodes/undo.h \
   masternodes/undos.h \
+  masternodes/validation.h \
   masternodes/vault.h \
   masternodes/vaulthistory.h \
   memusage.h \
@@ -400,12 +402,15 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_loan.cpp \
   masternodes/rpc_oracles.cpp \
   masternodes/rpc_poolpair.cpp \
+  masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
+  masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
+  masternodes/validation.cpp \
   masternodes/vault.cpp \
   masternodes/vaulthistory.cpp \
   miner.cpp \

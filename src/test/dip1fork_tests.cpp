@@ -84,6 +84,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     const CScript SCRIPT_PUB{CScript(OP_TRUE)};
     Consensus::Params consensus = Params().GetConsensus();
     consensus.EunosHeight = 10000000;
+    consensus.GrandCentralHeight = 10000001;
     auto height = consensus.EunosHeight;
     CAmount blockReward = GetBlockSubsidy(height, consensus);
 

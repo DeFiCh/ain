@@ -116,12 +116,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<CMasternode> nodePtr;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)
             return nullptr;
-        auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight))
+        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
             return nullptr;
     }
 
@@ -215,7 +216,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
+
+    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    if (timeOrdering) {
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
+    } else {
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
+    }
+
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
@@ -276,7 +284,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        coinbaseTx.vout.resize(2);
+        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        if (nHeight < consensus.GrandCentralHeight) {
+            coinbaseTx.vout.resize(2);
+            // Community payment always expected
+            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].nValue = foundationValue;
+        }
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
@@ -285,12 +299,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        // Community payment always expected
-        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
@@ -480,6 +490,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
+template<class T>
 void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view)
 {
     // mapModifiedTx will store sorted packages after they are modified
@@ -492,7 +503,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // and modifying them for their already included ancestors
     UpdatePackagesForAdded(inBlock, mapModifiedTx);
 
-    CTxMemPool::indexed_transaction_set::index<ancestor_score>::type::iterator mi = mempool.mapTx.get<ancestor_score>().begin();
+    auto mi = mempool.mapTx.get<T>().begin();
     CTxMemPool::txiter iter;
 
     // Limit the number of attempts to add transactions to the block when it is
@@ -507,10 +518,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
-        if (mi != mempool.mapTx.get<ancestor_score>().end() &&
+        if (mi != mempool.mapTx.get<T>().end() &&
                 SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
             ++mi;
             continue;
@@ -521,7 +532,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         bool fUsingModified = false;
 
         modtxscoreiter modit = mapModifiedTx.get<ancestor_score>().begin();
-        if (mi == mempool.mapTx.get<ancestor_score>().end()) {
+        if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTx
             iter = modit->iter;
             fUsingModified = true;
@@ -727,6 +738,7 @@ namespace pos {
         int64_t blockHeight;
         std::vector<int64_t> subNodesBlockTime;
         uint16_t timelock;
+        std::optional<CMasternode> nodePtr;
 
         {
             LOCK(cs_main);
@@ -737,8 +749,8 @@ namespace pos {
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
-            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
+            nodePtr = pcustomcsview->GetMasternode(masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -807,7 +819,7 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                        LogPrintf("MakeStake: kernel found\n");
 
                         found = true;
                         break;

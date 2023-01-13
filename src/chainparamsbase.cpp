@@ -22,6 +22,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-segwitheight=<n>", "Set the activation height of segwit. -1 to disable. (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-testnet", "Use the test chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-devnet", "Use the dev chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-devnet-bootstrap", "Use the dev chain and sync from testnet", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
 }
 
@@ -35,16 +36,21 @@ const CBaseChainParams& BaseParams()
 
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
-    if (chain == CBaseChainParams::MAIN)
+    if (chain == CBaseChainParams::MAIN) {
         return std::make_unique<CBaseChainParams>("", 8554);
-    else if (chain == CBaseChainParams::TESTNET)
+    } else if (chain == CBaseChainParams::TESTNET) {
         return std::make_unique<CBaseChainParams>("testnet3", 18554);
-    else if (chain == CBaseChainParams::DEVNET)
-        return std::make_unique<CBaseChainParams>("devnet", 20554);
-    else if (chain == CBaseChainParams::REGTEST)
+    } else if (chain == CBaseChainParams::DEVNET) {
+        if (gArgs.IsArgSet("-devnet-bootstrap")) {
+            return std::make_unique<CBaseChainParams>("devnet", 18554);
+        } else {
+            return std::make_unique<CBaseChainParams>("devnet", 20554);
+        }
+    } else if (chain == CBaseChainParams::REGTEST) {
         return std::make_unique<CBaseChainParams>("regtest", 19554);
-    else
+    } else {
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+    }
 }
 
 void SelectBaseParams(const std::string& chain)

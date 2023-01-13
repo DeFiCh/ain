@@ -145,3 +145,8 @@ dist/
 
 # compile_commands.json
 compile_commands.json
+
+# secp256k1
+src/secp256k1/gen_context
+src/secp256k1/src/ecmult_static_context.h
+

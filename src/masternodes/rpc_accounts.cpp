@@ -1809,6 +1809,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burnt{0};
 
     CBalances burntTokens;
+    CBalances consortiumTokens;
+    CBalances nonConsortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybackFee;
@@ -1867,7 +1869,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         // Fee burn
         if (value.category == uint8_t(CustomTxType::CreateMasternode)
         || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
+        || value.category == uint8_t(CustomTxType::Vault)
+        || value.category == uint8_t(CustomTxType::CreateCfp)
+        || value.category == uint8_t(CustomTxType::CreateVoc)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
             }
@@ -1875,7 +1879,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
         // withdraw burn
         if (value.category == uint8_t(CustomTxType::PaybackLoan)
-        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
+        || value.category == uint8_t(CustomTxType::PaybackLoanV2)
+        || value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
             for (const auto& [id, amount] : value.diff) {
                 paybackFee.Add({id, amount});
             }
@@ -1896,6 +1901,16 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
+
+        // token burn with burnToken tx
+        if (value.category == uint8_t(CustomTxType::BurnToken))
+        {
+            for (auto const & diff : value.diff) {
+                nonConsortiumTokens.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
@@ -1905,11 +1920,25 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
 
+    CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
+
+    for (auto const & token: nonConsortiumTokens.balances)
+    {
+        TAmounts amount;
+        amount[token.first] = balances[token.first].burnt;
+        consortiumTokens.AddBalances(amount);
+    }
+
+    nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    burntTokens.AddBalances(nonConsortiumTokens.balances);
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
     result.pushKV("auctionburn", ValueFromAmount(auctionFee));
     result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));

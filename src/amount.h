@@ -75,7 +75,8 @@ struct DCT_ID {
     }
 };
 
-static const CAmount COIN = 100000000;
+static constexpr CAmount COIN = 100000000;
+static constexpr CAmount CENT = 1000000;
 
 //Converts the given value to decimal format string with COIN precision.
 inline std::string GetDecimaleString(CAmount nValue)
@@ -91,18 +92,16 @@ typedef std::map<DCT_ID, CAmount> TAmounts;
 
 inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     // check limits
-    if (_a < 0 || _b < 0) {
-        return Res::Err("negative amount");
-    }
+    Require(_a >= 0 && _b >= 0, "negative amount");
+
     // convert to unsigned, because signed overflow is UB
     const uint64_t a = (uint64_t) _a;
     const uint64_t b = (uint64_t) _b;
 
     const uint64_t sum = a + b;
     // check overflow
-    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
-        return Res::Err("overflow");
-    }
+
+    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, "overflow");
     return {(CAmount) sum, Res::Ok()};
 }
 
@@ -126,29 +125,26 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Add(CAmount amount) {
         // safety checks
-        if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
-        }
+        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+
         // add
-        auto sumRes = SafeAdd(this->nValue, amount);
-        if (!sumRes.ok) {
-            return std::move(sumRes);
-        }
-        this->nValue = *sumRes.val;
+        auto sumRes = SafeAdd(nValue, amount);
+        Require(sumRes);
+
+        nValue = *sumRes;
         return Res::Ok();
     }
+
     Res Sub(CAmount amount) {
         // safety checks
-        if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
-        }
-        if (this->nValue < amount) {
-            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
-        }
+        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+        Require(nValue >= amount, "amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
+
         // sub
-        this->nValue -= amount;
+        nValue -= amount;
         return Res::Ok();
     }
+
     CAmount SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {

@@ -7,6 +7,7 @@
 #include <key.h>
 #include <logging.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <sync.h>
 #include <validation.h>
 
@@ -18,11 +19,9 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
-    /// @todo is it possible to pass minter key here, or we really need to extract it srom sig???
     CKeyID key;
     if (!blockHeader.ExtractMinterKey(key)) {
-        LogPrintf("CheckStakeModifier: Can't extract minter key\n");
-        return false;
+        return error("%s: Can't extract minter key\n", __func__);
     }
 
     return blockHeader.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
@@ -70,7 +69,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(height)) {
+        if (!nodePtr || !nodePtr->IsActive(height, *mnView)) {
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
@@ -149,7 +148,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
     // Restore previous difficulty adjust on testnet after FC
-    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+    if (IsTestNetwork() && nHeight >= params.FortCanningHeight) {
         newDifficultyAdjust = false;
     }
 
@@ -196,7 +195,7 @@ std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CK
 
     bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
     if (!signingRes) {
-        return {std::string{} + "Block signing error"};
+        return "Block signing error";
     }
 
     return {};
