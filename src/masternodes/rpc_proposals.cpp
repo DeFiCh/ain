@@ -787,7 +787,7 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
 }
 
 template <typename T>
-void iterateProps(const T &list,
+void iterateProposals(const T &list,
                   UniValue &ret,
                   const CProposalId &start,
                   bool including_start,
@@ -1004,12 +1004,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             batch++;
         }
 
-        iterateProps(batch->second, ret, start, including_start, limit, type, status);
+        iterateProposals(batch->second, ret, start, including_start, limit, type, status);
 
         return ret;
     }
 
-    iterateProps(props, ret, start, including_start, limit, type, status);
+    iterateProposals(props, ret, start, including_start, limit, type, status);
 
     return ret;
 }
