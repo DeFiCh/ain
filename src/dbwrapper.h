@@ -18,7 +18,9 @@
 
 static const size_t DBWRAPPER_PREALLOC_KEY_SIZE = 64;
 static const size_t DBWRAPPER_PREALLOC_VALUE_SIZE = 1024;
-static const bool DEFAULT_LEVELDB_CHECKSUM = true; 
+static const std::string DEFAULT_LEVELDB_CHECKSUM = "auto";
+
+extern bool levelDBChecksum;
 
 class dbwrapper_error : public std::runtime_error
 {

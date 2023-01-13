@@ -946,17 +946,18 @@ void InitParameterInteraction()
     }
 
     // Parse leveldb checksum
-    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", "auto");
-    if (leveldbchecksum == "true"){
-        gArgs.SoftSetBoolArg("-leveldbchecksum", true);
-    } else if (leveldbchecksum == "false") {
-        gArgs.SoftSetBoolArg("-leveldbchecksum", false);
+    const auto checksumArg = gArgs.GetArg("-leveldbchecksum", DEFAULT_LEVELDB_CHECKSUM);
+    if (checksumArg == "true"){
+        levelDBChecksum = true;
+    } else if (checksumArg == "false") {
+        levelDBChecksum = false;
     } else {
-        if (leveldbchecksum != "auto"){
+        if (checksumArg != "auto"){
             InitWarning("Invalid value for -leveldbchecksum, setting default value -> 'auto'");
         }
-        if (gArgs.SoftSetBoolArg("-leveldbchecksum", gArgs.IsArgSet("-masternode_operator")))
-                LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
+        if (levelDBChecksum = gArgs.IsArgSet("-masternode_operator"); levelDBChecksum) {
+            LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
+        }
     }
 }
 

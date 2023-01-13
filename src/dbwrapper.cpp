@@ -14,6 +14,8 @@
 #include <stdint.h>
 #include <algorithm>
 
+bool levelDBChecksum{true};
+
 class CDefiLevelDBLogger : public leveldb::Logger {
 public:
     // This code is adapted from posix_logger.h, which is why it is using vsprintf.
@@ -133,9 +135,8 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     options = GetOptions(nCacheSize);
     options.create_if_missing = true;
 
-    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", true);
-    readoptions.verify_checksums = leveldbchecksum;
-    iteroptions.verify_checksums = leveldbchecksum;
+    readoptions.verify_checksums = levelDBChecksum;
+    iteroptions.verify_checksums = levelDBChecksum;
 
     if (fMemory) {
         penv = leveldb::NewMemEnv(leveldb::Env::Default());
