@@ -554,7 +554,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        tx = self.nodes[0].creategovvoc({"title": "Create vote of confidence custom fee custom majority", "context": "test context", "emergency": True})
+        tx = self.nodes[0].creategovvoc({"title": "Create vote of confidence custom fee custom majority", "context": "test context", "special": True})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
