@@ -1675,6 +1675,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 return false;
             }
 
+            if (!accountSet.empty() && accountSet.count(key.owner) == 0)
+                return true;
+
             if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
                 return true;
             }
