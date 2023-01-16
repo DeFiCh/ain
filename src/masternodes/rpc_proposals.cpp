@@ -801,10 +801,10 @@ void iterateProps(const T& list, UniValue& ret, const CPropId& start, bool inclu
         if (type && type != prop.second.type) {
             continue;
         }
-        if (start != CPropId{} && prop.first != start && !pastStart) {
+        if (prop.first == start)
             pastStart = true;
+        if (start != CPropId{} && prop.first != start && !pastStart)
             continue;
-        }
         if (!including_start) {
             including_start = true;
             continue;
