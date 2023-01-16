@@ -414,12 +414,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
-        address = self.nodes[0].getnewaddress()
         context = "<Git issue url>"
         title = "Create test community fund request proposal without automatic payout"
-        amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovvoc({"title": title, "context": context, "amount": amount, "payoutAddress": address, "emergency": True})
+        propId = self.nodes[0].creategovvoc({"title": title, "context": context, "emergency": True})
         self.nodes[0].generate(1)
         self.sync_blocks(timeout=120)
 
@@ -441,12 +439,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
-        address = self.nodes[0].getnewaddress()
         context = "<Git issue url>"
         title = "Create test community fund request proposal without automatic payout"
-        amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovvoc({"title": title, "context": context, "amount": amount, "payoutAddress": address})
+        propId = self.nodes[0].creategovvoc({"title": title, "context": context})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
