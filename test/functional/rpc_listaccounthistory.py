@@ -138,10 +138,16 @@ class TokensRPCListAccountHistory(DefiTestFramework):
                      self.nodes[0].listaccounthistory(collateral_a, {"txtype": "BurnToken"}) +
                      self.nodes[0].listaccounthistory(collateral_a, {"txtype": "MintToken"}))
 
+        assert_equal(len(self.nodes[0].listaccounthistory(collateral_a, {"txtypes": ["MintToken", "BurnToken"]})),
+                     self.nodes[0].accounthistorycount(collateral_a, {"txtypes": ["MintToken", "BurnToken"]}))
+
         # txtype should be ignored if txtypes is passed
         assert_equal(self.nodes[0].listaccounthistory(collateral_a, {"txtypes": ["MintToken", "BurnToken"]}),
                      self.nodes[0].listaccounthistory(collateral_a, {"txtype": "BurnToken", "txtypes": ["MintToken",
                                                                                                         "BurnToken"]}))
+        assert_equal(self.nodes[0].accounthistorycount(collateral_a, {"txtypes": ["MintToken", "BurnToken"]}),
+                     self.nodes[0].accounthistorycount(collateral_a, {"txtype": "BurnToken", "txtypes": ["MintToken",
+                                                                                                         "BurnToken"]}))
 
         # test pagination
         res0 = self.nodes[0].listaccounthistory(collateral_a, {"start": 0, "including_start": True})
@@ -158,6 +164,9 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         assert_equal(len(res0), len(res1) + 1)
         assert_equal(len(res0), len(res2) + 2)
         assert_equal(len(res0), len(res3) + 3)
+
+        # accounthistorycount should return total count
+        assert_equal(self.nodes[0].accounthistorycount(), 112)
 
         # REVERTING:
         # ========================

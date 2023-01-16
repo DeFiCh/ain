@@ -63,9 +63,11 @@ class MultiAccountListAccountHistory(DefiTestFramework):
         self.sync_blocks()
 
         combined = self.nodes[0].listaccounthistory([collateral_a, collateral_b])
+        combined_count = self.nodes[0].accounthistorycount([collateral_a, collateral_b])
         a = self.nodes[0].listaccounthistory([collateral_a])
         b = self.nodes[0].listaccounthistory([collateral_b])
 
+        assert_equal(len(combined), combined_count)
         assert_equal(len(combined), len(a) + len(b))
 
 
