@@ -619,6 +619,11 @@ class OnChainGovernanceTest(DefiTestFramework):
             len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": True, "limit": 0}})),
             3)
 
+        # should return all entries if limit is 0
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1, "pagination": {"start": 0, "including_start": False, "limit": 0}})),
+            2)
+
         # should respect filters
         assert_equal(len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn1, "cycle": -1, "pagination": {"start": 0}})), 0)
 
@@ -661,6 +666,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals({"status": "voting"})), 3)
         assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": True, "limit": 1}})[0]["proposalId"], tx1)
         assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
+        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}})[0]["proposalId"], tx2)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
