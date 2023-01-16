@@ -666,7 +666,19 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals({"status": "voting"})), 3)
         assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": True, "limit": 1}})[0]["proposalId"], tx1)
         assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
-        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}})[0]["proposalId"], tx2)
+
+        allProposals = self.nodes[0].listgovproposals({"status": "voting"})
+        nextProposal = []
+        for i in range(len(allProposals)):
+            if allProposals[i]["proposalId"] == tx1:
+                if i < len(allProposals) - 1:
+                    nextProposal = [allProposals[i + 1]]
+                else:
+                    # when tx1 is the last listed proposal
+                    nextProposal = []
+                break
+
+        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
 
 if __name__ == '__main__':
-    OnChainGovernanceTest().main ()
+    OnChainGovernanceTest().main()
