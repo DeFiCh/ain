@@ -290,6 +290,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
                      RPCArg::Optional::OMITTED,
                      "The hash of the content which context field point to of vote of confidence request"},
                     {"emergency", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Is this emergency VOC"},
+                    {"special", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Preferred alias for emergency VOC"},
                 },
             }, {
                 "inputs",
@@ -333,7 +334,8 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
                         {"title",       UniValue::VSTR },
                         {"context",     UniValue::VSTR },
                         {"contextHash", UniValue::VSTR },
-                        {"emergency",   UniValue::VBOOL}
+                        {"emergency",   UniValue::VBOOL},
+                        {"special",     UniValue::VBOOL}
     },
                     true,
                     true);
@@ -355,6 +357,8 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
 
     if (!data["emergency"].isNull()) {
         emergency = data["emergency"].get_bool();
+    } else if (!data["special"].isNull()) {
+        emergency = data["special"].get_bool();
     }
 
     CCreateProposalMessage pm;
