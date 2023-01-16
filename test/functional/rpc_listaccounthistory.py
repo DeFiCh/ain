@@ -165,6 +165,9 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         assert_equal(len(res0), len(res2) + 2)
         assert_equal(len(res0), len(res3) + 3)
 
+        # accounthistorycount should return total count
+        assert_equal(self.nodes[0].accounthistorycount(), 115)
+
         # REVERTING:
         # ========================
         self.start_node(2)
