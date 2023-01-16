@@ -795,7 +795,6 @@ void iterateProps(const T& list, UniValue& ret, const CPropId& start, bool inclu
 {
     bool pastStart = false;
     for (const auto &prop : list) {
-        LogPrintf("%s\n", including_start);
         if (status && status != prop.second.status) {
             continue;
         }
