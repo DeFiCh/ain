@@ -798,6 +798,7 @@ void iterateProposals(const T &list,
                   size_t limit,
                   const uint8_t type,
                   const uint8_t status) {
+    bool pastStart = false;
     for (const auto &prop : list) {
         if (status && status != prop.second.status) {
             continue;
@@ -805,7 +806,9 @@ void iterateProposals(const T &list,
         if (type && type != prop.second.type) {
             continue;
         }
-        if (start != CProposalId{} && prop.first != start)
+        if (prop.first == start)
+            pastStart = true;
+        if (start != CProposalId{} && prop.first != start && !pastStart)
             continue;
         if (!including_start) {
             including_start = true;
