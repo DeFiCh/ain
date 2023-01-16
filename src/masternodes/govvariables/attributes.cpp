@@ -84,6 +84,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"dfip2206f",  ParamIDs::DFIP2206F },
         {"feature",    ParamIDs::Feature   },
         {"foundation", ParamIDs::Foundation},
+        {"dfip2211d",  ParamIDs::DFIP2211D },
     };
     return params;
 }
@@ -108,6 +109,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::Feature,    "feature"   },
         {ParamIDs::Auction,    "auction"   },
         {ParamIDs::Foundation, "foundation"},
+        {ParamIDs::DFIP2211D,  "dfip2211d" },
     };
     return params;
 }
@@ -192,6 +194,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"gov-payout", DFIPKeys::CFPPayout},
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
+             {"limit", DFIPKeys::Limit},
+             {"token", DFIPKeys::LockToken},
+             {"withdraw-height", DFIPKeys::WithdrawHeight},
          }},
         {AttributeTypes::Governance,
          {
@@ -267,6 +272,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::CFPPayout, "gov-payout"},
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
+             {DFIPKeys::Limit, "limit"},
+             {DFIPKeys::LockToken, "token"},
+             {DFIPKeys::WithdrawHeight, "withdraw-height"},
          }},
         {AttributeTypes::Live,
          {
@@ -569,6 +577,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
+                 {DFIPKeys::Limit, VerifyPositiveOrMinusOneFloat },
+                 {DFIPKeys::LockToken, VerifyUInt32},
+                 {DFIPKeys::WithdrawHeight, VerifyUInt32},
              }},
             {AttributeTypes::Locks,
              {
@@ -756,6 +767,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 Require(typeKey == DFIPKeys::DUSDInterestBurn || typeKey == DFIPKeys::DUSDLoanBurn,
                         "Unsupported type for DFIP2206A {%d}",
                         typeKey);
+            } else if (typeId == ParamIDs::DFIP2211D) {
+                if (typeKey != DFIPKeys::Active && 
+                    typeKey != DFIPKeys::Limit &&
+                    typeKey != DFIPKeys::LockToken &&
+                    typeKey != DFIPKeys::WithdrawHeight) {
+                    return Res::Err("Unsupported type for DFIP2211D {%d}", typeKey);
+                }
             } else if (typeId == ParamIDs::Feature) {
                 if (typeKey != DFIPKeys::GovUnset && typeKey != DFIPKeys::GovFoundation &&
                     typeKey != DFIPKeys::MNSetRewardAddress && typeKey != DFIPKeys::MNSetOperatorAddress &&
@@ -1422,6 +1440,17 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {
                     Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningRoadHeight,
                             "Cannot be set before FortCanningRoadHeight");
+                } else if (attrV0->typeId == ParamIDs::DFIP2211D) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+
+                    if (attrV0->key == DFIPKeys::LockToken) {
+                        const auto token = std::get_if<uint32_t>(&value);
+                        if (!token || !view.GetToken(DCT_ID{*token})) {
+                            return Res::Err("No such token");
+                        }
+                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
@@ -1622,8 +1651,16 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
                     Require(!GetValue(activeKey, false), "Cannot set block period while DFIP2206F is active");
                 }
-            }
+            } else if (attrV0->typeId == ParamIDs::DFIP2211D) {
+                if (attrV0->key == DFIPKeys::Active) {
 
+                    const auto value = std::get_if<bool>(&attribute.second);
+                    if (!value) {
+                        return Res::Err("Unexpected type");
+                    }
+
+                } 
+            }
         } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
             const auto value = std::get_if<OracleSplits>(&attribute.second);
             Require(value, "Unsupported value");

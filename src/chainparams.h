@@ -129,6 +129,7 @@ protected:
 const auto SMART_CONTRACT_DFIP_2201 = "DFIP2201";
 const auto SMART_CONTRACT_DFIP_2203 = "DFIP2203";
 const auto SMART_CONTRACT_DFIP2206F = "DFIP2206F";
+const auto SMART_CONTRACT_DFIP2211D = "DFIP2211D";
 
 /**
  * Creates and returns a std::unique_ptr<CChainParams> of the chosen chain.

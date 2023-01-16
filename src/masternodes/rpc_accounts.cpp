@@ -2232,6 +2232,86 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
+UniValue dUSDlock(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"dusdlock",
+               "\nCreates and submits to the network a request to send to the DUSDLock" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send to the smart contract. format amount@token. Sending in the lockToken is only possible when withdrawal is active for this batch."},
+                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "batch id to be used"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("dusdlock", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD 1")
+                       + HelpExampleCli("dusdlock", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123@DUSD 2")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CDUSDLockMessage msg{};
+    msg.owner = GetScriptForDestination(dest);
+    
+    msg.source =  DecodeAmount(pwallet->chain(), request.params[1], "");
+    msg.batchId = request.params[2].get_int();
+    
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DUSDLock)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+
 UniValue futureswap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -2705,6 +2785,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
     {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
     {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
+    {"accounts",   "dusdlock",                 &dUSDlock,                  {"address", "source", "batchId", "inputs"}},
     {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 

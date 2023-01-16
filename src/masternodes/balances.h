@@ -230,6 +230,22 @@ struct CFutureSwapMessage {
     }
 };
 
+
+struct CDUSDLockMessage {
+    CScript owner;
+    CTokenAmount source; 
+    uint8_t batchId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(owner);
+        READWRITE(source);
+        READWRITE(batchId);
+    }
+};
+
 inline CBalances SumAllTransfers(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {

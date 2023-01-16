@@ -35,6 +35,7 @@ enum ParamIDs : uint8_t {
     Feature    = 'h',
     Auction    = 'i',
     Foundation = 'j',
+    DFIP2211D = 'k',
 };
 
 enum OracleIDs : uint8_t {
@@ -86,6 +87,9 @@ enum DFIPKeys : uint8_t {
     CFPPayout            = 'r',
     EmissionUnusedFund   = 's',
     MintTokens           = 't',
+    Limit                = 'u',
+    LockToken            = 'v',
+    WithdrawHeight       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -156,7 +160,13 @@ struct CDataStructureV0 {
     }
 
     bool IsExtendedSize() const {
-        return type == AttributeTypes::Token && (key == TokenKeys::LoanPayback || key == TokenKeys::LoanPaybackFeePCT);
+        return (type == AttributeTypes::Token
+                && (key == TokenKeys::LoanPayback
+                    ||  key == TokenKeys::LoanPaybackFeePCT))
+            || (type == AttributeTypes::Param 
+                && (key == DFIPKeys::Limit 
+                    || key == DFIPKeys::LockToken
+                    || key == DFIPKeys::WithdrawHeight));
     }
 
     bool operator<(const CDataStructureV0 &o) const {

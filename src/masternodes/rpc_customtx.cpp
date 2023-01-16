@@ -193,6 +193,19 @@ public:
         rpcInfo.pushKV("source", obj.source.ToString());
         rpcInfo.pushKV("destination", std::to_string(obj.destination));
     }
+    
+
+    void operator()(const CDUSDLockMessage& obj) const {
+        CTxDestination dest;
+        if (ExtractDestination(obj.owner, dest)) {
+            rpcInfo.pushKV("address", EncodeDestination(dest));
+        } else {
+            rpcInfo.pushKV("address", "Invalid destination");
+        }
+
+        rpcInfo.pushKV("amount", obj.source.ToString());
+        rpcInfo.pushKV("lockTime", (int)obj.batchId);
+    }
 
     void operator()(const CCreatePoolPairMessage &obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
