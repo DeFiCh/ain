@@ -673,9 +673,7 @@ class OnChainGovernanceTest(DefiTestFramework):
             if allProposals[i]["proposalId"] == tx1:
                 if i < len(allProposals) - 1:
                     nextProposal = [allProposals[i + 1]]
-                else:
-                    # when tx1 is the last listed proposal
-                    nextProposal = []
+                # otherwise tx1 is the last proposal
                 break
 
         assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
