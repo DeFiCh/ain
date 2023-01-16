@@ -793,15 +793,19 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
 template <typename T>
 void iterateProps(const T& list, UniValue& ret, const CPropId& start, bool including_start, size_t limit, const uint8_t type, const uint8_t status)
 {
+    bool pastStart = false;
     for (const auto &prop : list) {
+        LogPrintf("%s\n", including_start);
         if (status && status != prop.second.status) {
             continue;
         }
         if (type && type != prop.second.type) {
             continue;
         }
-        if (start != CPropId{} && prop.first != start)
+        if (start != CPropId{} && prop.first != start && !pastStart) {
+            pastStart = true;
             continue;
+        }
         if (!including_start) {
             including_start = true;
             continue;
