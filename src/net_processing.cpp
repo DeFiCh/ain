@@ -586,6 +586,9 @@ static bool TipMayBeStale(const Consensus::Params &consensusParams) EXCLUSIVE_LO
 
 static bool CanDirectFetch(const Consensus::Params &consensusParams) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
+    if (gArgs.GetBoolArg("-mocknet", false)) {
+        return true;
+    }
     return ::ChainActive().Tip()->GetBlockTime() > GetAdjustedTime() - DeFiParams().GetConsensus().pos.nTargetSpacing * 20;
 }
 
@@ -1816,7 +1819,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
             // very large reorg at a time we think we're close to caught up to
             // the main chain -- this shouldn't really happen.  Bail out on the
             // direct fetch and rely on parallel download instead.
-            if (!::ChainActive().Contains(pindexWalk)) {
+            if (!::ChainActive().Contains(pindexWalk) && !gArgs.GetBoolArg("-mocknet", false)) {
                 LogPrint(BCLog::NET, "Large reorg, won't direct fetch to %s (%d)\n",
                         pindexLast->GetBlockHash().ToString(),
                         pindexLast->nHeight);

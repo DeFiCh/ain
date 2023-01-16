@@ -1217,6 +1217,10 @@ bool CChainState::IsInitialBlockDownload() const
     if (m_cached_finished_ibd.load(std::memory_order_relaxed))
         return false;
 
+    if (gArgs.GetBoolArg("-mocknet", false)) {
+        return false;
+    }
+
     LOCK(cs_main);
     if (m_cached_finished_ibd.load(std::memory_order_relaxed))
         return false;
