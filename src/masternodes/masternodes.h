@@ -43,7 +43,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetPropsCreationFee(int height, const CCustomCSView &view, const CCreatePropMessage &msg);
+CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
 
 enum class UpdateMasternodeType : uint8_t {
     None             = 0x00,
@@ -435,7 +435,7 @@ class CCustomCSView : public CMasternodesView,
                       public CLoanView,
                       public CVaultView,
                       public CSettingsView,
-                      public CPropsView {
+                      public CProposalView {
     // clang-format off
     void CheckPrefixes()
     {
@@ -467,7 +467,7 @@ class CCustomCSView : public CMasternodesView,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
-            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
+            CProposalView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
     // clang-format on
@@ -559,9 +559,9 @@ public:
     void SetVaultHistoryStore();
 
     uint32_t GetVotingPeriodFromAttributes() const override;
-    uint32_t GetEmergencyPeriodFromAttributes(const CPropType &type) const override;
-    CAmount GetApprovalThresholdFromAttributes(const CPropType &type) const override;
-    CAmount GetQuorumFromAttributes(const CPropType &type, bool emergency = false) const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const override;
+    CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const override;
+    CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) const override;
     CAmount GetFeeBurnPctFromAttributes() const override;
 
     struct DbVersion {

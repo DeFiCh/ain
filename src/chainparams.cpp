@@ -415,7 +415,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralEpilogueHeight = 1438200;
 
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 0;
@@ -472,7 +472,7 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-//        vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("35.187.53.161");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;

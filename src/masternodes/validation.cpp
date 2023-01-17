@@ -2153,8 +2153,8 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
     }
 
     std::set<uint256> activeMasternodes;
-    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
-        if (prop.status != CPropStatusType::Voting) return true;
+    cache.ForEachCycleProposal([&](CProposalId const& propId, CProposalObject const& prop) {
+        if (prop.status != CProposalStatusType::Voting) return true;
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
@@ -2170,13 +2170,13 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
         uint32_t voteYes = 0;
         std::set<uint256> voters{};
-        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+        cache.ForEachProposalVote([&](CProposalId const & pId, uint8_t cycle, uint256 const & mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop.cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
                 voters.insert(mnId);
-                if (vote == CPropVoteType::VoteYes) {
+                if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
                 }
             }
@@ -2229,25 +2229,25 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= prop.quorum) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
         }
 
         if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
         }
 
         if (prop.nCycles == prop.cycle) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
         } else {
             assert(prop.nCycles > prop.cycle);
-            cache.UpdatePropCycle(propId, prop.cycle + 1);
+            cache.UpdateProposalCycle(propId, prop.cycle + 1);
         }
 
         CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
 
-        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
+        if (prop.type == CProposalType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);

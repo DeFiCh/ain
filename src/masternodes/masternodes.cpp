@@ -73,9 +73,9 @@ CAmount GetTokenCreationFee(int) {
     return DeFiParams().GetConsensus().token.creationFee;
 }
 
-CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreatePropMessage &msg) {
-    auto type       = static_cast<CPropType>(msg.type);
-    auto options    = static_cast<CPropOption>(msg.options);
+CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProposalMessage &msg) {
+    auto type       = static_cast<CProposalType>(msg.type);
+    auto options    = static_cast<CProposalOption>(msg.options);
     auto attributes = view.GetAttributes();
     assert(attributes);
 
@@ -83,16 +83,16 @@ CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreatePropMes
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
     CDataStructureV0 VOCEmergencyKey{
         AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
-    bool emergency = (options & CPropOption::Emergency);
+    bool emergency = (options & CProposalOption::Emergency);
 
     CAmount cfpFee;
     switch (type) {
-        case CPropType::CommunityFundProposal: {
+        case CProposalType::CommunityFundProposal: {
             cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, DeFiParams().GetConsensus().props.cfp.fee));
             auto minimumFee = DeFiParams().GetConsensus().props.cfp.minimumFee;
             return minimumFee > cfpFee ? minimumFee : cfpFee;
         }
-        case CPropType::VoteOfConfidence:
+        case CProposalType::VoteOfConfidence:
             if (emergency)
                 return attributes->GetValue(VOCEmergencyKey, DeFiParams().GetConsensus().props.voc.emergencyFee);
             else
@@ -1283,7 +1283,7 @@ uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {
     return attributes->GetValue(votingKey, DeFiParams().GetConsensus().props.votingPeriod);
 }
 
-uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType &type) const {
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CProposalType &type) const {
     auto attributes = GetAttributes();
     assert(attributes);
 
@@ -1291,7 +1291,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType &type) 
     return attributes->GetValue(VOCKey, DeFiParams().GetConsensus().props.emergencyPeriod);
 }
 
-CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type) const {
+CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CProposalType &type) const {
     auto attributes = GetAttributes();
     assert(attributes);
 
@@ -1299,16 +1299,16 @@ CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type)
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCApprovalThreshold};
 
     switch (type) {
-        case CPropType::CommunityFundProposal:
+        case CProposalType::CommunityFundProposal:
             return attributes->GetValue(CFPKey, DeFiParams().GetConsensus().props.cfp.approvalThreshold) / 10000;
-        case CPropType::VoteOfConfidence:
+        case CProposalType::VoteOfConfidence:
             return attributes->GetValue(VOCKey, DeFiParams().GetConsensus().props.voc.approvalThreshold) / 10000;
     }
 
     return 0;
 }
 
-CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType &type, bool emergency) const {
+CAmount CCustomCSView::GetQuorumFromAttributes(const CProposalType &type, bool emergency) const {
     auto attributes = GetAttributes();
     assert(attributes);
 
@@ -1316,7 +1316,7 @@ CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType &type, bool emerg
     CDataStructureV0 vocEmergencyQuorumKey{
         AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
-    if (type == CPropType::VoteOfConfidence && emergency) {
+    if (type == CProposalType::VoteOfConfidence && emergency) {
         return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
     }
 

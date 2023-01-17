@@ -1549,6 +1549,16 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                             {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
                             {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from {CustomTxType}"},
+                            {"txtypes", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "Filter multiple transaction types, supported letter from {CustomTxType}",
+                                 {
+                                         {
+                                             "Transaction Type",
+                                             RPCArg::Type::STR,
+                                             RPCArg::Optional::OMITTED,
+                                             "letter from {CustomTxType}",
+                                         },
+                                 }
+                            },
                        },
                    },
                },
@@ -1574,7 +1584,8 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     bool noRewards = false;
     std::string tokenFilter;
-    auto txType = CustomTxType::None;
+    std::set<CustomTxType> txTypes{};
+    bool hasTxFilter = false;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1583,6 +1594,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
+                {"txtypes", UniValueType(UniValue::VARR)},
             }, true, true);
 
         noRewards = optionsObj["no_rewards"].getBool();
@@ -1591,15 +1603,32 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             tokenFilter = optionsObj["token"].get_str();
         }
 
-        if (!optionsObj["txtype"].isNull()) {
+        if (!optionsObj["txtypes"].isNull()) {
+            hasTxFilter = true;
+            const auto types = optionsObj["txtypes"].get_array().getValues();
+            if (!types.empty()) {
+                for (const auto& type : types) {
+                    auto str = type.get_str();
+                    if (str.size() == 1) {
+                        txTypes.insert(CustomTxCodeToType(str[0]));
+                    } else {
+                        txTypes.insert(FromString(str));
+                    }
+                }
+            }
+        }
+        else if (!optionsObj["txtype"].isNull()) {
+            hasTxFilter = true;
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
-                txType = CustomTxCodeToType(str[0]);
+                txTypes.insert(CustomTxCodeToType(str[0]));
+            } else {
+                txTypes.insert(FromString(str));
             }
         }
     }
 
-    CScript owner;
+    std::set<CScript> accountSet{CScript{}};
     bool isMine = false;
     isminetype filter = ISMINE_ALL;
 
@@ -1607,12 +1636,19 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         isMine = true;
         filter = ISMINE_SPENDABLE;
     } else if (accounts != "all") {
-        owner = DecodeScript(accounts);
-        isMine = IsMineCached(*pwallet, owner) & ISMINE_ALL;
+        accountSet.clear();
+        if (request.params[0].isArray()) {
+            for (const auto& acc: request.params[0].get_array().getValues())
+                accountSet.emplace(DecodeScript(acc.get_str()));
+        } else {
+            const auto owner = DecodeScript(accounts);
+            accountSet.emplace(owner);
+            isMine = IsMineCached(*pwallet, owner) & ISMINE_ALL;
+        }
     }
 
     std::set<uint256> txs;
-    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -1628,69 +1664,77 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-
-    CScript lastOwner;
     uint64_t count = 0;
-    auto lastHeight = uint32_t(::ChainActive().Height());
-    const auto currentHeight = lastHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
-        if (!owner.empty() && owner != key.owner) {
-            return false;
-        }
+    for (const auto &owner : accountSet) {
+        CScript lastOwner;
+        auto lastHeight          = uint32_t(::ChainActive().Height());
+        const auto currentHeight = lastHeight;
 
-        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
-            return true;
-        }
-
-        std::unique_ptr<CScopeAccountReverter> reverter;
-        if (!noRewards) {
-            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
-        }
-
-        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
-            return true;
-        }
-
-        if (tokenFilter.empty() || hasToken(value.diff)) {
-            if (shouldSearchInWallet) {
-                txs.insert(value.txid);
+        auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
+            if (!owner.empty() && owner != key.owner) {
+                return false;
             }
-            ++count;
-        }
 
-        if (!noRewards) {
-            // starting new account
-            if (lastOwner != key.owner) {
-                view.Discard();
-                lastOwner = key.owner;
-                lastHeight = currentHeight;
-            }
-            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
-                [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
-                    if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
-                        ++count;
-                    }
-                }
-            );
-            lastHeight = key.blockHeight;
-        }
-
-        return true;
-    };
-
-    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
-
-    if (shouldSearchInWallet) {
-        searchInWallet(pwallet, owner, filter,
-            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || static_cast<uint32_t>(index->nHeight) > currentHeight;
-            },
-            [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
-                ++count;
+            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
                 return true;
             }
-        );
+
+            std::unique_ptr<CScopeAccountReverter> reverter;
+            if (!noRewards) {
+                reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
+            }
+
+            if (hasTxFilter && txTypes.find(CustomTxCodeToType(value.category)) == txTypes.end()) {
+                return true;
+            }
+
+            if (tokenFilter.empty() || hasToken(value.diff)) {
+                if (shouldSearchInWallet) {
+                    txs.insert(value.txid);
+                }
+                ++count;
+            }
+
+            if (!noRewards) {
+                // starting new account
+                if (lastOwner != key.owner) {
+                    view.Discard();
+                    lastOwner  = key.owner;
+                    lastHeight = currentHeight;
+                }
+                onPoolRewards(view,
+                              key.owner,
+                              key.blockHeight,
+                              lastHeight,
+                              [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
+                                  if (tokenFilter.empty() || hasToken({
+                                                                 {amount.nTokenId, amount.nValue}
+                                  })) {
+                                      ++count;
+                                  }
+                              });
+                lastHeight = key.blockHeight;
+            }
+
+            return true;
+        };
+
+        paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
+
+        if (shouldSearchInWallet) {
+            searchInWallet(
+                pwallet,
+                owner,
+                filter,
+                [&](CBlockIndex const *index, CWalletTx const *pwtx) {
+                    return txs.count(pwtx->GetHash()) || static_cast<uint32_t>(index->nHeight) > currentHeight;
+                },
+                [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
+                    ++count;
+                    return true;
+                });
+        }
     }
 
     return GetRPCResultCache().Set(request, count);
