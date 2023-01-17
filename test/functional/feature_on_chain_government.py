@@ -516,8 +516,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-        cycle1 = creationHeight + (emergencyPeriod - creationHeight % emergencyPeriod) + emergencyPeriod
-        proposalEndHeight = creationHeight + emergencyPeriod
+        cycle1 = creationHeight + emergencyPeriod
+        proposalEndHeight = cycle1
 
         # Check results
         result = self.nodes[0].getgovproposal(tx)
@@ -655,9 +655,9 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         assert_equal(self.nodes[0].listgovproposals({"cycle":1, "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
-        assert_equal(len(self.nodes[0].listgovproposals({"cycle":5})), 3)
-        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
-        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
+        assert_equal(len(self.nodes[0].listgovproposals({"cycle":6})), 3)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":6, "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":6, "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
 
         assert_equal(len(self.nodes[0].listgovproposals({"type": "cfp"})), 5)
         assert_equal(self.nodes[0].listgovproposals({"type": "cfp", "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
