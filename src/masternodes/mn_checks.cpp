@@ -81,9 +81,9 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::FutureSwapRefund:            return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:                  return CCustomTxMessageNone{};
         case CustomTxType::Reject:                      return CCustomTxMessageNone{};
-        case CustomTxType::CreateCfp:                   return CCreatePropMessage{};
-        case CustomTxType::CreateVoc:                   return CCreatePropMessage{};
-        case CustomTxType::Vote:                        return CPropVoteMessage{};
+        case CustomTxType::CreateCfp:                   return CCreateProposalMessage{};
+        case CustomTxType::CreateVoc:                   return CCreateProposalMessage{};
+        case CustomTxType::Vote:                        return CProposalVoteMessage{};
         case CustomTxType::ProposalFeeRedistribution:   return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:            return CGovernanceUnsetMessage{};
         case CustomTxType::None:                        return CCustomTxMessageNone{};
@@ -207,8 +207,8 @@ public:
         else if constexpr (IsOneOf<T,
                 CUpdateMasterNodeMessage,
                 CBurnTokensMessage,
-                CCreatePropMessage,
-                CPropVoteMessage,
+                CCreateProposalMessage,
+                CProposalVoteMessage,
                 CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
         else if constexpr (IsOneOf<T,

@@ -7,16 +7,16 @@
 
 #include <masternodes/consensus/txvisitor.h>
 
-struct CCreatePropMessage;
-struct CPropVoteMessage;
+struct CCreateProposalMessage;
+struct CProposalVoteMessage;
 
 class CProposalsConsensus : public CCustomTxVisitor {
-    Res CheckProposalTx(const CCreatePropMessage &msg) const;
+    Res CheckProposalTx(const CCreateProposalMessage &msg) const;
     Res IsOnChainGovernanceEnabled() const;
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CCreatePropMessage& obj) const;
-    Res operator()(const CPropVoteMessage& obj) const;
+    Res operator()(const CCreateProposalMessage& obj) const;
+    Res operator()(const CProposalVoteMessage& obj) const;
 };
 
 #endif // DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H

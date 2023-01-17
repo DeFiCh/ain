@@ -14,7 +14,7 @@
 struct CBalances;
 class CCoinsViewCache;
 class CCollateralLoans;
-struct CCreatePropMessage;
+struct CCreateProposalMessage;
 class CCustomCSView;
 struct CLoanSchemeData;
 class CScript;

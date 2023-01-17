@@ -76,8 +76,8 @@ using CCustomTxMessage = std::variant<
         CLoanPaybackLoanMessage,
         CLoanPaybackLoanV2Message,
         CAuctionBidMessage,
-        CCreatePropMessage,
-        CPropVoteMessage>;
+        CCreateProposalMessage,
+        CProposalVoteMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
