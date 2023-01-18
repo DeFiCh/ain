@@ -1695,17 +1695,17 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
     CBlockUndo blockUndo;
     if (!UndoReadFromDisk(blockUndo, pindex)) {
-        error("DisconnectBlock(): failure reading undo data");
+        error("%s: failure reading undo data", __func__);
         return DISCONNECT_FAILED;
     }
 
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size()) {
-        error("DisconnectBlock(): block and undo data inconsistent");
+        error("%s: block and undo data inconsistent", __func__);
         return DISCONNECT_FAILED;
     }
 
     if (mnview.GetLastHeight() != pindex->nHeight) {
-        error("DisconnectBlock(): mnview: wrong last processed block hash (view: %d, current: %d)", mnview.GetLastHeight(), pindex->nHeight);
+        error("%s: mnview: wrong last processed block hash (view: %d, current: %d)", __func__, mnview.GetLastHeight(), pindex->nHeight);
         return DISCONNECT_FAILED;
     }
 
@@ -1819,7 +1819,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
-                error("DisconnectBlock(): transaction and undo data inconsistent");
+                error("%s: transaction and undo data inconsistent", __func__);
                 return DISCONNECT_FAILED;
             }
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
@@ -3170,7 +3170,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        CCustomCSView mnview(*pcustomcsview);
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
         if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
@@ -5280,7 +5280,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView mnview(*pcustomcsview);
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -5326,6 +5326,14 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
             DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, disconnectedConfirms);
+            // Discard results from bespoke DBs
+            pburnHistoryDB->Discard();
+            if (paccountHistoryDB) {
+                paccountHistoryDB->Discard();
+            }
+            if (pvaultHistoryDB) {
+                pvaultHistoryDB->Discard();
+            }
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
