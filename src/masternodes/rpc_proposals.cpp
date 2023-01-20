@@ -567,7 +567,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     uint256 mnId;
     uint256 propId;
     bool isMine = true;
-    uint8_t cycle{1};
+    uint8_t cycle{0};
     int8_t inputCycle{0};
 
     size_t limit         = 100;
