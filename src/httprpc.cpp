@@ -10,6 +10,7 @@
 #include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <rpc/stats.h>
+#include <rpc/timestats.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
 #include <util/system.h>
@@ -283,6 +284,8 @@ bool StartHTTPRPC()
     httpRPCTimerInterface = std::make_unique<HTTPRPCTimerInterface>(eventBase);
     RPCSetTimerInterface(httpRPCTimerInterface.get());
     if (statsRPC.isActive()) statsRPC.load();
+    if (timeStats.isActive()) timeStats.load();
+
     return true;
 }
 
@@ -304,6 +307,9 @@ void StopHTTPRPC()
     }
 
     if (statsRPC.isActive()) statsRPC.save();
+    if (timeStats.isActive()) timeStats.save();
 }
 
 CRPCStats statsRPC;
+CTimeStats timeStats;
+size_t timeStatsOutliersSize;

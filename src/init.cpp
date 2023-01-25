@@ -40,6 +40,7 @@
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
 #include <rpc/stats.h>
+#include <rpc/timestats.h>
 #include <rpc/resultcache.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -628,6 +629,8 @@ void SetupServerArgs()
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-timestats", strprintf("Log variuous time stats (tx, blocks ..). (default: %u)", DEFAULT_TIME_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-timestatsoutliers", strprintf("Number of outliers to keep in time stats. (default: %u)", DEFAULT_TIME_STATS_OUTLIERS_SIZE), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
@@ -857,10 +860,20 @@ static bool InitSanityCheck()
     return true;
 }
 
+extern size_t timeStatsOutliersSize;
+
 static bool AppInitServers()
 {
     if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS))
         statsRPC.setActive(false);
+    if (gArgs.GetBoolArg("-timestats", DEFAULT_TIME_STATS)) {
+        timeStats.setActive(true);
+        if (timeStats.isActive())
+        {
+            auto outliers = gArgs.GetArg("-timestatsoutliers", DEFAULT_TIME_STATS_OUTLIERS_SIZE);
+            timeStatsOutliersSize = outliers;
+        }
+    }
 
     auto rpcCacheModeVal = gArgs.GetArg("-rpccache", 1);
     auto rpcCacheMode = [=](){

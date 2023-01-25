@@ -34,6 +34,7 @@
 #include <primitives/transaction.h>
 #include <random.h>
 #include <reverse_iterator.h>
+#include <rpc/timestats.h>
 #include <script/script.h>
 #include <script/sigcache.h>
 #include <script/standard.h>
@@ -2268,7 +2269,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
     return false;
 }
 
-static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
+static void LogApplyCustomTx(const CTransaction &tx, const int64_t start, const uint32_t height) {
     // Only log once for one of the following categories. Log BENCH first for consistent formatting.
     if (LogAcceptCategory(BCLog::BENCH)) {
         std::vector<unsigned char> metadata;
@@ -2276,6 +2277,10 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
     } else if (LogAcceptCategory(BCLog::CUSTOMTXBENCH)) {
         std::vector<unsigned char> metadata;
         LogPrint(BCLog::CUSTOMTXBENCH, "Bench::ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
+    }
+    if (timeStats.isActive()) {
+        std::vector<unsigned char> metadata;
+        timeStats.add(GuessCustomTxType(tx, metadata, false), (GetTimeMicros() - start) * MILLI, tx.GetHash(), height);
     }
 }
 
@@ -2628,7 +2633,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto applyCustomTxTime = GetTimeMicros();
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
-            LogApplyCustomTx(tx, applyCustomTxTime);
+            LogApplyCustomTx(tx, applyCustomTxTime, pindex->nHeight);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2872,6 +2877,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     int64_t nTime6 = GetTimeMicros(); nTimeCallbacks += nTime6 - nTime5;
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
+
+    if (timeStats.isActive()) {
+        std::vector<unsigned char> metadata;
+        timeStats.add((nTime6 - nTimeStart) * MILLI, block.GetHash(), pindex->nHeight);
+    }
 
     return true;
 }

@@ -217,9 +217,10 @@ DEFI_CORE_H = \
   rpc/rawtransaction_util.h \
   rpc/register.h \
   rpc/request.h \
+  rpc/resultcache.h \
   rpc/server.h \
   rpc/stats.h \
-  rpc/resultcache.h \
+  rpc/timestats.h \
   rpc/util.h \
   scheduler.h \
   script/descriptor.h \
@@ -611,8 +612,9 @@ libdefi_common_a_SOURCES = \
   psbt.cpp \
   rpc/rawtransaction_util.cpp \
   rpc/util.cpp \
-  rpc/stats.cpp \
   rpc/resultcache.cpp \
+  rpc/stats.cpp \
+  rpc/timestats.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
   script/sign.cpp \
