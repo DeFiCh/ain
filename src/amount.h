@@ -125,7 +125,7 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Add(CAmount amount) {
         // safety checks
-        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+        Require(amount >= 0, [&]{ return strprintf("negative amount: %s", GetDecimaleString(amount)); });
 
         // add
         auto sumRes = SafeAdd(nValue, amount);
@@ -137,8 +137,8 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Sub(CAmount amount) {
         // safety checks
-        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
-        Require(nValue >= amount, "amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
+        Require(amount >= 0, [&]{ return strprintf("negative amount: %s", GetDecimaleString(amount)); });
+        Require(nValue >= amount, [&]{ return strprintf("amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount)); });
 
         // sub
         nValue -= amount;
