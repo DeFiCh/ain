@@ -10,6 +10,7 @@
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
 #include <masternodes/gv.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
 #include <masternodes/loan.h>
@@ -487,8 +488,8 @@ private:
                                bool useNextPrice,
                                bool requireLivePrice);
 
-    std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
-    std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
+protected:
+    CHistoryWriters writers;
 
 public:
     // Increase version when underlaying tables are changed
@@ -499,8 +500,12 @@ public:
 
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView &other);
+    CCustomCSView(CCustomCSView &other,
+                  CAccountHistoryStorage *historyView,
+                  CBurnHistoryStorage *burnView,
+                  CVaultHistoryStorage *vaultView);
 
-    ~CCustomCSView();
+    ~CCustomCSView() = default;
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, const uint256 &stakeModifier);
@@ -550,13 +555,11 @@ public:
 
     uint256 MerkleRoot();
 
+    //virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+    virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }
-
-    virtual CAccountHistoryStorage *GetAccountHistoryStore();
-    CVaultHistoryStorage *GetVaultHistoryStore();
-    void SetAccountHistoryStore();
-    void SetVaultHistoryStore();
 
     uint32_t GetVotingPeriodFromAttributes() const override;
     uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const override;

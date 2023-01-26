@@ -21,6 +21,7 @@
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/validation.h>
 #include <masternodes/vaulthistory.h>
@@ -1712,21 +1713,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
-    pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
-    if (paccountHistoryDB) {
-        paccountHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
-    }
-
-    if (pindex->nHeight >= Params().GetConsensus().FortCanningHeight) {
-        // erase auction fee history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->EraseVaultHistory(pindex->nHeight);
-        }
-    }
-
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
 
@@ -1851,42 +1837,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
     }
 
-    // Remove burn balance transfers
-    if (pindex->nHeight == Params().GetConsensus().EunosHeight)
-    {
-        // Make sure to initialize lastTxOut, otherwise it never finds the block and
-        // ends up looping through uninitialized garbage value.
-        uint32_t lastTxOut = 0;
-        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
-        {
-            if (key.owner != Params().GetConsensus().burnAddress) {
-                return false;
-            }
-
-            if (key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().EunosHeight)) {
-                return false;
-            }
-
-            lastTxOut = key.txn;
-
-            return false;
-        };
-
-        AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
-        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory,
-                                              Params().GetConsensus().burnAddress,
-                                              Params().GetConsensus().EunosHeight);
-
-        for (uint32_t i = block.vtx.size(); i <= lastTxOut; ++i) {
-            pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
-        }
-    }
-
-    // Erase any UTXO burns
-    for (const auto& entries : eraseBurnEntries)
-    {
-        pburnHistoryDB->EraseAccountHistory(entries);
-    }
+    mnview.GetHistoryWriters().EraseHistory(pindex->nHeight, eraseBurnEntries);
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
@@ -2396,11 +2347,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
-            pcustomcsview->CreateDFIToken();
-            // init view|db with genesis here
+            mnview.CreateDFIToken();
+            // Do not track burns in genesis
+            mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2675,9 +2626,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2860,9 +2810,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs);
 
     // Write any UTXO burns
-    for (const auto& entries : writeBurnEntries)
+    for (const auto& [key, value] : writeBurnEntries)
     {
-        pburnHistoryDB->WriteAccountHistory(entries.first, entries.second);
+        mnview.GetHistoryWriters().WriteAccountHistory(key, value);
     }
 
     if (!fIsFakeNet) {
@@ -3170,36 +3120,17 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview);
+        CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
         if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
-            // no usable history
-            if (paccountHistoryDB) {
-                paccountHistoryDB->Discard();
-            }
-            if (pburnHistoryDB) {
-                pburnHistoryDB->Discard();
-            }
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->Discard();
-            }
             m_disconnectTip = false;
+            mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
-
-        // flush history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->Flush();
-        }
-        if (pburnHistoryDB) {
-            pburnHistoryDB->Flush();
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->Flush();
-        }
+        mnview.GetHistoryWriters().FlushDB();
 
         if (!disconnectedConfirms.empty()) {
             for (auto const & confirm : disconnectedConfirms) {
@@ -3336,7 +3267,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview);
+        CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
@@ -3344,33 +3275,14 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }
-            // no usable history
-            if (paccountHistoryDB) {
-                paccountHistoryDB->Discard();
-            }
-            if (pburnHistoryDB) {
-                pburnHistoryDB->Discard();
-            }
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->Discard();
-            }
+            mnview.GetHistoryWriters().DiscardDB();
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), FormatStateMessage(state));
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
-
-        // flush history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->Flush();
-        }
-        if (pburnHistoryDB) {
-            pburnHistoryDB->Flush();
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->Flush();
-        }
+        mnview.GetHistoryWriters().FlushDB();
 
         // Delete all other confirms from memory
         if (rewardedAnchors) {
@@ -5326,14 +5238,6 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
             DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, disconnectedConfirms);
-            // Discard results from bespoke DBs
-            pburnHistoryDB->Discard();
-            if (paccountHistoryDB) {
-                paccountHistoryDB->Discard();
-            }
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->Discard();
-            }
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -5409,7 +5313,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     LOCK(cs_main);
 
     CCoinsViewCache cache(view);
-    CCustomCSView mncache(*mnview);
+    CCustomCSView mncache(*mnview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
 
     std::vector<uint256> hashHeads = view->GetHeadBlocks();
     if (hashHeads.empty()) return true; // We're already in a consistent state.
@@ -5450,6 +5354,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
             DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
+                mncache.GetHistoryWriters().DiscardDB();
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             // If DISCONNECT_UNCLEAN is returned, it means a non-existing UTXO was deleted, or an existing UTXO was
@@ -5466,12 +5371,16 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
         const CBlockIndex* pindex = pindexNew->GetAncestor(nHeight);
         LogPrintf("Rolling forward %s (%i)\n", pindex->GetBlockHash().ToString(), nHeight);
         uiInterface.ShowProgress(_("Replaying blocks...").translated, (int) ((nHeight - nForkHeight) * 100.0 / (pindexNew->nHeight - nForkHeight)) , false);
-        if (!RollforwardBlock(pindex, cache, mncache, params)) return false;
+        if (!RollforwardBlock(pindex, cache, mncache, params)) {
+            mncache.GetHistoryWriters().DiscardDB();
+            return false;
+        }
     }
 
     cache.SetBestBlock(pindexNew->GetBlockHash());
     cache.Flush();
     mncache.Flush();
+    mncache.GetHistoryWriters().FlushDB();
     uiInterface.ShowProgress("", 100, false);
     return true;
 }

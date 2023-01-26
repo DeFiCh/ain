@@ -19,7 +19,6 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
-class CAccountsHistoryView;
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -60,8 +59,6 @@ protected:
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
 };
-class CVaultHistoryView;
-class CHistoryWriters;
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
@@ -462,8 +459,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
-                  uint32_t txn             = 0,
-                  CHistoryWriters *writers = nullptr);
+                  uint32_t txn             = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
