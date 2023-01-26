@@ -457,8 +457,8 @@ UniValue votegov(const JSONRPCRequest &request) {
         vote = CProposalVoteType::VoteNo;
     } else if (voteStr == "yes") {
         vote = CProposalVoteType::VoteYes;
-    } else if (voteStr != "neutral") {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
     }
 
     int targetHeight;
