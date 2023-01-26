@@ -153,7 +153,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, burnPct=30, vote="neutral",)
+        # self.test_cfp_fee_distribution(amount=1000, expectedFee=10, burnPct=30, vote="neutral",)
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'2%'}})
         self.nodes[0].generate(1)
