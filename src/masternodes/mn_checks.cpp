@@ -2839,6 +2839,11 @@ public:
 
                 Require(amount + totalInterest <= 0, "Vault <%s> has loans", obj.vaultId.GetHex());
 
+                // If there is an amount negated by interested remove it from loan tokens.
+                if (amount > 0) {
+                    mnview.SubLoanToken(obj.vaultId, {tokenId, amount});
+                }
+
                 if (totalInterest < 0) {
                     TrackNegativeInterest(
                         mnview, {tokenId, amount > std::abs(totalInterest) ? std::abs(totalInterest) : amount});

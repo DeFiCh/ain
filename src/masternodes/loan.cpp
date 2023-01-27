@@ -552,6 +552,10 @@ Res CLoanView::SubLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
     return Res::Ok();
 }
 
+void CLoanView::EraseVaultLoanTokens(const CVaultId &vaultId) {
+    EraseBy<LoanTokenAmount>(vaultId);
+}
+
 std::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId &vaultId) {
     return ReadBy<LoanTokenAmount, CBalances>(vaultId);
 }

@@ -1395,6 +1395,23 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
+static void EraseLoanAmountsInClosedVaults(CCustomCSView &mnview) {
+    LOCK(cs_main);
+
+    std::set<CVaultId> vaults;
+    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        vaults.insert(vaultId);
+        return true;
+    });
+
+    for (const auto &vaultId : vaults) {
+        const auto vault = mnview.GetVault(vaultId);
+        if (!vault) {
+            mnview.EraseVaultLoanTokens(vaultId);
+        }
+    }
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1755,6 +1772,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                EraseLoanAmountsInClosedVaults(*pcustomcsview);
 
                 // make account history db
                 paccountHistoryDB.reset();
