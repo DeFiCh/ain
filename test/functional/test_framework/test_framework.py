@@ -107,11 +107,11 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             def wrapper(self, *args, **kwargs):
                 init_height = None
                 init_data = None
-                if len(self.nodes != 0):
+                if len(self.nodes) != 0:
                     init_height = self.nodes[0].getblockcount()
                     init_data = self._get_chain_data()
                 result = func(self, *args, **kwargs)
-                if len(self.nodes != 0):
+                if len(self.nodes) != 0:
                     self.rollback_to(init_height)
                     final_data = self._get_chain_data()
                     final_height = self.nodes[0].getblockcount()
