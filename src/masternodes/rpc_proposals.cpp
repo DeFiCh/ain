@@ -3,6 +3,8 @@
 
 #include <functional>
 
+const bool DEFAULT_RPC_GOV_NEUTRAL = false;
+
 struct VotingInfo {
     int32_t votesPossible;
     int32_t votesPresent;
@@ -457,7 +459,9 @@ UniValue votegov(const JSONRPCRequest &request) {
         vote = CProposalVoteType::VoteNo;
     } else if (voteStr == "yes") {
         vote = CProposalVoteType::VoteYes;
-    } else {
+    } else if (gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL) && voteStr != "neutral") {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
+    } else if (!gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
     }
 
