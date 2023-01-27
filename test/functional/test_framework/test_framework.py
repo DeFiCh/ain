@@ -105,14 +105,18 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     @classmethod
     def rollback(cls, func):
             def wrapper(self, *args, **kwargs):
-                init_height = self.nodes[0].getblockcount()
-                init_data = self._get_chain_data()
+                init_height = None
+                init_data = None
+                if len(self.nodes != 0):
+                    init_height = self.nodes[0].getblockcount()
+                    init_data = self._get_chain_data()
                 result = func(self, *args, **kwargs)
-                self.rollback_to(init_height)
-                final_data = self._get_chain_data()
-                final_height = self.nodes[0].getblockcount()
-                assert(init_data == final_data)
-                assert(init_height == final_height)
+                if len(self.nodes != 0):
+                    self.rollback_to(init_height)
+                    final_data = self._get_chain_data()
+                    final_height = self.nodes[0].getblockcount()
+                    assert(init_data == final_data)
+                    assert(init_height == final_height)
                 return result
             return wrapper
 
