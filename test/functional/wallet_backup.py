@@ -108,6 +108,7 @@ class WalletBackupTest(DefiTestFramework):
         os.remove(os.path.join(self.nodes[1].datadir, 'regtest', 'wallets', 'wallet.dat'))
         os.remove(os.path.join(self.nodes[2].datadir, 'regtest', 'wallets', 'wallet.dat'))
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Generating initial blockchain")
         self.nodes[0].generate(1)

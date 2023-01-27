@@ -34,6 +34,7 @@ class HelpTest(DefiTestFramework):
 
         return out, err
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Start defi with -h for help text")
         self.nodes[0].start(extra_args=['-h'])

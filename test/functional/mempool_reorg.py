@@ -22,6 +22,7 @@ class MempoolCoinbaseTest(DefiTestFramework):
 
     alert_filename = None  # Set by setup_network
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Start with a 200 block chain
         assert_equal(self.nodes[0].getblockcount(), 200)

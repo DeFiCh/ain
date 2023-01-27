@@ -168,6 +168,7 @@ class BIP68_112_113Test(DefiTestFramework):
         Call with success = False if the tip shouldn't advance to the most recent block."""
         self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].add_p2p_connection(P2PDataStore())
 

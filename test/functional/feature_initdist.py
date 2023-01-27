@@ -31,6 +31,7 @@ class InitDistTest (DefiTestFramework):
             connect_nodes_bi(self.nodes, i, i + 1)
         self.sync_blocks()
 
+    @DefiTestFramework.rollback
     def run_test(self):
 
         self.nodes[0].importprivkey(privkey=self.nodes[0].PRIV_KEYS[5].ownerPrivKey, label='initdist')

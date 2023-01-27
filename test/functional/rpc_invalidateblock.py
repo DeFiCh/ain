@@ -21,6 +21,7 @@ class InvalidateTest(DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Make sure we repopulate setBlockIndexCandidates after InvalidateBlock:")
         self.log.info("Mine 4 blocks on Node 0")

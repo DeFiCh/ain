@@ -58,6 +58,7 @@ class ImportMultiTest(DefiTestFramework):
             assert_equal(result[0]['error']['code'], error_code)
             assert_equal(result[0]['error']['message'], error_message)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Mining blocks...")
         self.nodes[0].generate(1)

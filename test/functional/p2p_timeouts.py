@@ -39,6 +39,7 @@ class TimeoutsTest(DefiTestFramework):
         # set timeout to receive version/verack to 3 seconds
         self.extra_args = [["-peertimeout=3"]]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         no_verack_node = self.nodes[0].add_p2p_connection(TestP2PConn())

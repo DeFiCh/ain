@@ -18,6 +18,7 @@ class StoredInterestTest (DefiTestFramework):
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-jellyfish_regtest=1', '-negativeinterest=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Create tokens for tests
         self.setup_test_tokens()

@@ -95,6 +95,7 @@ class SegWitTest(DefiTestFramework):
     def fail_accept(self, node, error_msg, txid, sign, redeem_script=""):
         assert_raises_rpc_error(-26, error_msg, send_to_witness, use_p2wsh=1, node=node, utxo=getutxo(txid), pubkey=self.pubkey[0], encode_p2sh=False, amount=Decimal("49.998"), sign=sign, insert_redeem_script=redeem_script)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(161)  # block 161
 

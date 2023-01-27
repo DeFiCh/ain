@@ -569,6 +569,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(self.nodes[2].listpoolpairs()), 0)
 
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.test_swap_with_no_liquidity()

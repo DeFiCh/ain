@@ -218,6 +218,7 @@ class AddressTypeTest(DefiTestFramework):
         self.log.debug("Check if change address " + change_addresses[0] + " is " + expected_type)
         self.test_address(node_sender, change_addresses[0], multisig=False, typ=expected_type)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Mine 101 blocks on node5 to bring nodes out of IBD and make sure that
         # no coinbases are maturing for the nodes-under-test during the test

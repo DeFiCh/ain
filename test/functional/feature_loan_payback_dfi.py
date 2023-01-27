@@ -23,6 +23,7 @@ class PaybackDFILoanTest (DefiTestFramework):
              '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanningspringheight=200', '-debug=loan', '-txindex=1']
         ]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(150)
 

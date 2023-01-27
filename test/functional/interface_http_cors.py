@@ -16,6 +16,7 @@ class HTTPCorsTest (DefiTestFramework):
         self.cors_origin = "http://localhost:8000"
         self.extra_args = [["-rpcallowcors=" + self.cors_origin]]
 
+    @DefiTestFramework.rollback
     def run_test(self):
 
         url = urllib.parse.urlparse(self.nodes[0].url)

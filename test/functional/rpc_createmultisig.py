@@ -30,6 +30,7 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         self.priv = [node1.dumpprivkey(a) for a in add]
         self.final = node2.getnewaddress()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node0, node1, node2 = self.nodes
 

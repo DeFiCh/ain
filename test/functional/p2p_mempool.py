@@ -19,6 +19,7 @@ class P2PMempoolTests(DefiTestFramework):
         self.num_nodes = 1
         self.extra_args = [["-peerbloomfilters=0"]]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Add a p2p connection
         self.nodes[0].add_p2p_connection(P2PInterface())

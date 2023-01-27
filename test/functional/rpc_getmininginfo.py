@@ -18,6 +18,7 @@ class GetMiningInfoRPCTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node0_keys = self.nodes[0].get_genesis_keys()
         node1_keys = self.nodes[1].get_genesis_keys()

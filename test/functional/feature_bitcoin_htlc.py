@@ -20,6 +20,7 @@ class BitcoinHTLCTests(DefiTestFramework):
         ]
         self.setup_clean_chain = True
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Set up wallet
         address = self.nodes[0].spv_getnewaddress()

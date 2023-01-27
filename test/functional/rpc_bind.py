@@ -59,6 +59,7 @@ class RPCBindTest(DefiTestFramework):
         node.getnetworkinfo()
         self.stop_nodes()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # due to OS-specific network stats queries, this test works only on Linux
         if sum([self.options.run_ipv4, self.options.run_ipv6, self.options.run_nonloopback]) > 1:

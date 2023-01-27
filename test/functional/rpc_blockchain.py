@@ -50,6 +50,7 @@ class BlockchainTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.mine_chain()
         self.restart_node(0, extra_args=['-stopatheight=207', '-prune=1'])  # Set extra args with pruning after rescan is complete

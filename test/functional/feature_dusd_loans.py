@@ -510,6 +510,7 @@ class DUSDLoanTests(DefiTestFramework):
 
 
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Initial set up
         self.setup()

@@ -46,6 +46,7 @@ class InvalidTxRequestTest(DefiTestFramework):
         self.nodes[0].disconnect_p2ps()
         self.bootstrap_p2p(**kwargs)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
 

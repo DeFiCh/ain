@@ -24,6 +24,7 @@ class GovsetTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup_tokens()
 

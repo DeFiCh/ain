@@ -40,6 +40,7 @@ class RawTransactionsTest(DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         connect_nodes_bi(self.nodes, 0, 3)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.min_relay_tx_fee = self.nodes[0].getnetworkinfo()['relayfee']
         # This test is not meant to test fee estimation and we'd like

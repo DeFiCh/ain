@@ -22,6 +22,7 @@ class RPCstats(DefiTestFramework):
             ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-rpcstats=0'],
         ]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
 

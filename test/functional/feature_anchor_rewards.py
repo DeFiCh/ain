@@ -82,6 +82,7 @@ class AnchorRewardsTest (DefiTestFramework):
                 return True
         return False
 
+    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 

@@ -16,6 +16,7 @@ class MempoolCoinbaseTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node0_address = self.nodes[0].getnewaddress()
         # Spend block 1/2/3's coinbase transactions

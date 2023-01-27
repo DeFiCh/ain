@@ -15,6 +15,7 @@ class AccountMiningTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=50']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node.generate(120)

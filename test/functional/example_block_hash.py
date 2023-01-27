@@ -14,6 +14,7 @@ class SimpleHashTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
 

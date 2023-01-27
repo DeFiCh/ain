@@ -794,6 +794,7 @@ class CompactBlocksTest(DefiTestFramework):
         stalling_peer.send_and_ping(msg)
         assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         self.segwit_node = self.nodes[0].add_p2p_connection(TestP2PConn(cmpct_version=2))

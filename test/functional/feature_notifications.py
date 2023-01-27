@@ -32,6 +32,7 @@ class NotificationsTest(DefiTestFramework):
                             "-walletnotify=echo > {}".format(os.path.join(self.walletnotify_dir, '%s'))]]
         super().setup_network()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("test -blocknotify")
         block_count = 10

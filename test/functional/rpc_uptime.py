@@ -17,6 +17,7 @@ class UptimeTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self._test_uptime()
 

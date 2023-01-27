@@ -13,6 +13,7 @@ class TestLockUnspends(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(105)
         account_address = self.nodes[0].getnewaddress("", "bech32")

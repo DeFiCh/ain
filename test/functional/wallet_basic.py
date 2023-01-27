@@ -46,6 +46,7 @@ class WalletTest(DefiTestFramework):
     def get_vsize(self, txn):
         return self.nodes[0].decoderawtransaction(txn)['vsize']
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Check that there's no UTXO on none of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 0)

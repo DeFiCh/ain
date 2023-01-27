@@ -830,6 +830,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('10'))
 
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup(FCR=True)
         self.payback_DUSD_with_BTC()

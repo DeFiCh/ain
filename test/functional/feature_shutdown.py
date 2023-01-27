@@ -18,6 +18,7 @@ class ShutdownTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = get_rpc_proxy(self.nodes[0].url, 1, timeout=600, coveragedir=self.nodes[0].coverage_dir)
         # Force connection establishment by executing a dummy command.

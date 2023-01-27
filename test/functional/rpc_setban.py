@@ -16,6 +16,7 @@ class SetBanTests(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [[],[]]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Node 0 connects to Node 1, check that the noban permission is not granted
         connect_nodes(self.nodes[0], 1)

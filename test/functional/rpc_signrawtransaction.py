@@ -168,6 +168,7 @@ class SignRawTransactionsTest(DefiTestFramework):
         assert 'complete' in spending_tx_signed
         assert_equal(spending_tx_signed['complete'], True)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.successful_signing_test()
         self.script_verification_error_test()

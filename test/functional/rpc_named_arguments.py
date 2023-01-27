@@ -14,6 +14,7 @@ class NamedArgumentTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         h = node.help(command='getblockchaininfo')

@@ -23,6 +23,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
                            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145'],
                            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         self.nodes[0].generate(100)

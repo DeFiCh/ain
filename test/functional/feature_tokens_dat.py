@@ -28,6 +28,7 @@ class TokensBasicTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
 
+    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 

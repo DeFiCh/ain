@@ -19,6 +19,7 @@ class BitcoinSPVTests(DefiTestFramework):
         ]
         self.setup_clean_chain = True
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Set up wallet
         self.nodes[0].spv_setlastheight(1)

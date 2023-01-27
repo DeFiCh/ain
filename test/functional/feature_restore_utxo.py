@@ -16,6 +16,7 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1'],
                            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
         self.sync_blocks()

@@ -21,6 +21,7 @@ class DepositToVaultTest (DefiTestFramework):
                 ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
             ]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Prepare tokens for deposittoloan
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI

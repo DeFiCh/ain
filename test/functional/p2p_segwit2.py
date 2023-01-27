@@ -183,6 +183,7 @@ class SegWitTest2(DefiTestFramework):
         add_witness_commitment(block, nonce)
         block.solve()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         # self.test_node sets NODE_WITNESS|NODE_NETWORK

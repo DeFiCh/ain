@@ -86,6 +86,7 @@ class GetblockstatsTest(DefiTestFramework):
             self.nodes[0].submitblock(b)
 
 
+    @DefiTestFramework.rollback
     def run_test(self):
         test_data = os.path.join(TESTSDIR, self.options.test_data)
         if self.options.gen_test_data:

@@ -555,6 +555,7 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         self.rollback_to(height)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

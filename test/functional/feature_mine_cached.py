@@ -26,6 +26,7 @@ class IsMineCachedTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
         ]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 

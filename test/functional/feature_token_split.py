@@ -23,6 +23,7 @@ class TokenSplitTest(DefiTestFramework):
         self.extra_args = [
             ['-vaultindex=1', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.fort_canning_crunch}', '-subsidytest=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup_test_tokens()
         self.setup_test_pools()

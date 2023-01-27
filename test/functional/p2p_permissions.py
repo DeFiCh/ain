@@ -21,6 +21,7 @@ class P2PPermissionsTests(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [[],[]]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.checkpermission(
             # default permissions (no specific permissions)

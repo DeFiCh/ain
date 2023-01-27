@@ -18,6 +18,7 @@ class DisconnectBanTest(DefiTestFramework):
         self.num_nodes = 2
         self.extra_args = [['-dummypos=1'], ['-dummypos=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Test setban and listbanned RPCs")
 

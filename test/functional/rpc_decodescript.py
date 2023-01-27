@@ -225,6 +225,7 @@ class DecodeScriptTest(DefiTestFramework):
         rpc_result = self.nodes[0].decoderawtransaction(txSave.serialize().hex())
         assert_equal('OP_RETURN 3011020701010101010101020601010101010101', rpc_result['vin'][0]['scriptSig']['asm'])
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.decodescript_script_sig()
         self.decodescript_script_pub_key()

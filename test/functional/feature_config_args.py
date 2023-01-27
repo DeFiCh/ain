@@ -82,6 +82,7 @@ class ConfArgsTest(DefiTestFramework):
             self.start_node(0, extra_args=['-noconnect=0'])
         self.stop_node(0)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.stop_node(0)
 

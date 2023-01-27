@@ -18,6 +18,7 @@ class GetBlockFilterTest(DefiTestFramework):
         self.num_nodes = 2
         self.extra_args = [["-blockfilterindex"], []]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         # Create two chains by disconnecting nodes 0 & 1, mining, then reconnecting
         disconnect_nodes(self.nodes[0], 1)

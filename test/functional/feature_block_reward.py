@@ -17,6 +17,7 @@ class BlockRewardTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=50', '-eunosheight=100', '-eunosheight=100', '-fortcanningheight=110', '-subsidytest=1']]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node.generate(120)

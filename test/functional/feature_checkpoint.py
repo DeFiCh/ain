@@ -20,6 +20,7 @@ class CheckpointTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']
         ]
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(100)
         self.sync_blocks()

@@ -24,6 +24,7 @@ class P2PLeakTxTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         gen_node = self.nodes[0]  # The block and tx generating node
         gen_node.generate(1)

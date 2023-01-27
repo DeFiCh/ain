@@ -314,6 +314,7 @@ class TokenMergeUSDValueTest(DefiTestFramework):
             assert_greater_than_or_equal(vault["informativeRatio"], 0)
             assert_greater_than_or_equal(vault["collateralRatio"], 0)
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.compare_usd_account_value_on_merge(revert=True)

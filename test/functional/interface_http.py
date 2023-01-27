@@ -17,6 +17,7 @@ class HTTPBasicsTest (DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
+    @DefiTestFramework.rollback
     def run_test(self):
 
         #################################################

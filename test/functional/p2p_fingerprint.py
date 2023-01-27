@@ -73,6 +73,7 @@ class P2PFingerprintTest(DefiTestFramework):
     # by the node while recent stale blocks and old active chain blocks are.
     # This does not currently test that stale blocks timestamped within the
     # last month but that have over a month's worth of work are also withheld.
+    @DefiTestFramework.rollback
     def run_test(self):
         node0 = self.nodes[0].add_p2p_connection(P2PInterface())
 

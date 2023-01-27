@@ -1241,6 +1241,7 @@ class GetStoredInterestTest(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
+    @DefiTestFramework.rollback
     def run_test(self):
         rollback = True
 

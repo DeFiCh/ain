@@ -97,6 +97,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[node].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
+    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(200)
         self.sync_blocks()
