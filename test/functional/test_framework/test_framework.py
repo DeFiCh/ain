@@ -102,6 +102,20 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
+    @classmethod
+    def rollback(cls, func):
+            def wrapper(self, *args, **kwargs):
+                init_height = self.nodes[0].getblockcount()
+                init_data = self._get_chain_data()
+                result = func(self, *args, **kwargs)
+                self.rollback_to(init_height)
+                final_data = self._get_chain_data()
+                final_height = self.nodes[0].getblockcount()
+                assert(init_data == final_data)
+                assert(init_height == final_height)
+                return result
+            return wrapper
+
     def main(self):
         """Main function. This should not be overridden by the subclass test scripts."""
 
@@ -422,6 +436,21 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         else:
             for node in nodes:
                 self._rollback_to(block, node=node)
+
+    def _get_chain_data(self):
+        return [
+            self.nodes[0].logaccountbalances(),
+            self.nodes[0].logstoredinterests(),
+            self.nodes[0].listvaults(),
+            self.nodes[0].listtokens(),
+            self.nodes[0].listgovs(),
+            self.nodes[0].listmasternodes(),
+            self.nodes[0].listaccounthistory(),
+            self.nodes[0].getburninfo(),
+            self.nodes[0].getloaninfo(),
+            self.nodes[0].listanchors(),
+            self.nodes[0].listgovproposals()
+        ]
 
     def run_test(self):
         """Tests must override this method to define test logic"""
