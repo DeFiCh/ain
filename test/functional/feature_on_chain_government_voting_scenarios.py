@@ -13,13 +13,14 @@ from test_framework.util import (
 APPROVAL_THRESHOLD=50
 QUORUM=50
 VOTING_PERIOD=10
+NEXT_NETWORK_UPGRADE_HEIGHT=200
 
 class OCGVotingScenarionTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-jellyfish_regtest=1', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-simulatemainnet=1'],
+            ['-jellyfish_regtest=1', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-nextnetworkupgradeheight={0}'.format(NEXT_NETWORK_UPGRADE_HEIGHT), '-simulatemainnet=1'],
         ]
 
     def setup_masternodes(self, nMasternodes = 19):
@@ -68,7 +69,6 @@ class OCGVotingScenarionTest(DefiTestFramework):
         # Create CFP
         propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 1, "payoutAddress": address})
         self.nodes[0].generate(1)
-
         mnIterator = iter(self.nodes[0].mns)
 
         for _ in range(yesVote):
@@ -161,11 +161,49 @@ class OCGVotingScenarionTest(DefiTestFramework):
         self.test_scenario_66_6_percent_approval_full_no_votes(expectedStatus="Rejected")
         self.test_scenario_66_6_percent_approval_full_neutral_votes(expectedStatus="Rejected")
 
+    def scenarios_fix_test(self):
+        self.nodes[0].generate(NEXT_NETWORK_UPGRADE_HEIGHT - self.nodes[0].getblockcount())
+
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/gov/proposals/cfp_approval_threshold':'{}%'.format(APPROVAL_THRESHOLD),
+        }})
+        self.nodes[0].generate(1)
+
+        self.test_scenario_below_approval_threshold(expectedStatus='Rejected')
+        self.test_scenario_at_approval_threshold(expectedStatus='Rejected')
+        self.test_scenario_above_approval_threshold(expectedStatus='Completed')
+
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/gov/proposals/quorum':'{}%'.format(QUORUM),
+        }})
+        self.nodes[0].generate(1)
+
+        self.test_scenario_below_quorum(expectedStatus='Rejected')
+        self.test_scenario_at_quorum(expectedStatus='Rejected')
+        self.test_scenario_above_quorum(expectedStatus='Completed')
+
+        # Now it should be Completed after neutral votes fix
+        self.test_scenario_high_neutral_vote(expectedStatus='Completed')
+
+        # Now it should be Completed after neutral votes fix
+        self.test_scenario_only_yes_and_neutral(expectedStatus='Completed')
+
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/gov/proposals/cfp_approval_threshold':'{}%'.format(66.6),
+        }})
+        self.nodes[0].generate(1)
+
+        self.test_scenario_66_6_percent_approval_full_yes_votes(expectedStatus="Completed")
+        self.test_scenario_66_6_percent_approval_full_no_votes(expectedStatus="Rejected")
+        self.test_scenario_66_6_percent_approval_full_neutral_votes(expectedStatus="Rejected")
+
     def run_test(self):
 
         self.setup()
 
         self.scenarios_test()
+
+        self.scenarios_fix_test()
 
 if __name__ == '__main__':
     OCGVotingScenarionTest().main ()
