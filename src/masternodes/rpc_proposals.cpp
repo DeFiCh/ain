@@ -415,7 +415,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         "\nVote for community proposal" + HelpRequiringPassphrase(pwallet) + "\n",
         {
                                                     {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
-                                                    {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id which made the vote"},
+                                                    {"masternodeId/ownerAddress/operatorAdress", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id / owner address / operator address which made the vote"},
                                                     {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
                                                     {
                 "inputs",
@@ -449,7 +449,8 @@ UniValue votegov(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VARR}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-    auto mnId   = ParseHashV(request.params[1].get_str(), "masternodeId");
+    std::string id = request.params[1].get_str();
+    uint256 mnId = uint256();
     auto vote   = CProposalVoteType::VoteNeutral;
 
     auto voteStr = ToLower(request.params[2].get_str());
@@ -474,9 +475,25 @@ UniValue votegov(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
                                strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
         }
+        if (id.length() == 64) {
+            mnId = ParseHashV(id, "masternodeId");
+        }
         auto node = view.GetMasternode(mnId);
         if (!node) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", mnId.ToString()));
+            CTxDestination dest = DecodeDestination(id);
+            const CKeyID id = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(id);
+            if (!masterNodeIdByOwner) {
+                auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(id);
+                if (!masterNodeIdByOperator) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                     strprintf("The masternode does not exist or the address doesn't own a masternode: %s", mnId.ToString()));
+                }
+                mnId = masterNodeIdByOperator.value();
+            } else {
+                mnId = masterNodeIdByOwner.value();
+            }
+            node = view.GetMasternode(mnId); 
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
