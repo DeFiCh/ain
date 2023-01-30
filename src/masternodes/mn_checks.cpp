@@ -4078,7 +4078,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
     mnview.SetTeam(finMsg.nextTeam);
     if (height >= consensusParams.AMKHeight) {
         LogPrint(BCLog::ACCOUNTCHANGE,
-                 "AccountChange: txid=%s fund=%s change=%s\n",
+                 "AccountChange: hash=%s fund=%s change=%s\n",
                  tx.GetHash().ToString(),
                  GetCommunityAccountName(CommunityAccountType::AnchorReward),
                  (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
@@ -4151,7 +4151,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     LogPrint(BCLog::ACCOUNTCHANGE,
-             "AccountChange: txid=%s fund=%s change=%s\n",
+             "AccountChange: hash=%s fund=%s change=%s\n",
              tx.GetHash().ToString(),
              GetCommunityAccountName(CommunityAccountType::AnchorReward),
              (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));

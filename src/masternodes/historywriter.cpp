@@ -5,6 +5,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 
 extern std::string ScriptToString(const CScript &script);
@@ -57,8 +58,9 @@ void CHistoryWriters::Flush(const uint32_t height,
     if (historyView) {
         for (const auto& [owner, amounts] : diffs) {
             LogPrint(BCLog::ACCOUNTCHANGE,
-                     "AccountChange: txid=%s addr=%s change=%s\n",
+                     "AccountChange: hash=%s type=%s addr=%s change=%s\n",
                      txid.GetHex(),
+                     ToString(static_cast<CustomTxType>(type)),
                      ScriptToString(owner),
                      (CBalances{amounts}.ToString()));
             historyView->WriteAccountHistory({owner, height, txn}, {txid, type, amounts});

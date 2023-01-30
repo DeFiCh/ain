@@ -2071,7 +2071,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 else
                 {
@@ -2086,7 +2086,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             if (!attributes->GetValue(enabledKey, false))
                             {
                                 res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
+                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
                                          tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
                                          (CBalances{{{{0}, subsidy}}}.ToString()));
                                 nonUtxoTotal += subsidy;
@@ -2099,7 +2099,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             if (attributes->GetValue(enabledKey, false)) {
                                 res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
                                 if (res) {
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
                                              tx.GetHash().ToString(), ScriptToString(consensus.unusedEmission),
                                              (CBalances{{{{0}, subsidy}}}.ToString()));
                                 }
@@ -2107,7 +2107,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                                 // Previous behaviour was for Options and Unallocated to go to Unallocated
                                 res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                                 if (res)
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                             }
 
                             nonUtxoTotal += subsidy;
@@ -2118,7 +2118,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
 
                 if (!res.ok)
@@ -2137,7 +2137,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 if (!res.ok) {
                     return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
                 } else {
-                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 nonUtxoTotal += subsidy;
             }
