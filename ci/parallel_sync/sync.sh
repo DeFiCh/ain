@@ -13,6 +13,8 @@ setup_vars() {
   DEBUG_FILE="$DATADIR/debug.log"
   CONF_FILE="$DATADIR/defi.conf"
   TMP_LOG=debug-tmp-$STOP_BLOCK.log
+  PRE_ROLLBACK_LOG="debug-pre-rollback.log"
+  POST_ROLLBACK_LOG="debug-post-rollback.log"
   BASE_REF=${BASE_REF:-"master"}
   BASE_PATH=https://storage.googleapis.com
   BUCKET=team-drop
@@ -20,12 +22,13 @@ setup_vars() {
   REF_LOG_PATH=$BASE_PATH/$BUCKET/$REF_LOG_DIR/$REF_LOG
 
   # Commands
-  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange -spv"
+  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange -spv -checkpoints=0"
   DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
-  FETCH="wget -q"
+  FETCH="aria2c -x16 -s16"
   GREP="grep"
 
   BLOCK=0
+  ROLLBACK_BLOCK=$START_BLOCK
   ATTEMPTS=0
   MAX_ATTEMPTS=10
   MAX_NODE_RESTARTS=5
@@ -62,10 +65,8 @@ print_info() {
   "
 }
 
-create_log_file () {
-    echo "Output log to $TMP_LOG file"
-    {
-    $GREP "AccountChange:" "$DEBUG_FILE" | cut -d" " -f2-
+get_full_log () {
+    { $GREP "AccountChange:" "$DEBUG_FILE" || test $? = 1; } | cut -d" " -f2-
     echo "-- logaccountbalances --"
     $DEFI_CLI_CMD logaccountbalances
     echo "-- spv_listanchors --"
@@ -78,7 +79,32 @@ create_log_file () {
     $DEFI_CLI_CMD listtokens '{"limit":1000000}'
     echo "-- getburninfo --"
     $DEFI_CLI_CMD getburninfo
-    } >> "$TMP_LOG"
+}
+
+rollback_and_log() {
+  echo "ROLLBACK_BLOCK : $ROLLBACK_BLOCK"
+  ROLLBACK_HASH=$($DEFI_CLI_CMD getblockhash $((ROLLBACK_BLOCK)))
+  echo "ROLLBACK_HASH : $ROLLBACK_HASH"
+  $DEFI_CLI_CMD invalidateblock "$ROLLBACK_HASH"
+  echo "Rolled back to block : $($DEFI_CLI_CMD getblockcount)"
+
+  get_full_log | grep -v "AccountChange"
+}
+
+create_pre_sync_rollback_log () {
+  local DATADIR_ROLLBACK="$DATADIR-rollback"
+  local DEFID_CMD="$DEFID_BIN -datadir=$DATADIR_ROLLBACK -daemon -debug=accountchange -spv -rpcport=9999 -port=9998 -connect=0 -checkpoints=0 -interrupt-block=$((START_BLOCK+1))"
+  local DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR_ROLLBACK -rpcport=9999"
+  local DEBUG_FILE="$DATADIR_ROLLBACK/debug.log"
+
+  cp -r "$DATADIR" "$DATADIR_ROLLBACK"
+  rm -f "$DEBUG_FILE"
+  $DEFID_CMD
+  sleep 90
+
+  rollback_and_log > "$PRE_ROLLBACK_LOG"
+
+  $DEFI_CLI_CMD stop
 }
 
 # Start defid
@@ -91,6 +117,7 @@ start_node () {
 main() {
   setup_vars
   print_info
+  create_pre_sync_rollback_log
   start_node
 
   # Sync to target block height
@@ -122,15 +149,16 @@ main() {
   done
 
   # Create temporary log file
-  create_log_file
+  get_full_log >> "$TMP_LOG"
 
-  $DEFI_CLI_CMD stop
   # Download reference log file
   echo "Downloading reference log file : $REF_LOG_PATH"
   $FETCH "$REF_LOG_PATH"
 
-  echo "diff $TMP_LOG $REF_LOG"
-  diff "$TMP_LOG" "$REF_LOG"
+  # Create rollback log after sync
+  rollback_and_log > "$POST_ROLLBACK_LOG"
+
+  $DEFI_CLI_CMD stop
 }
 
 main "$@"
