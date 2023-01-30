@@ -153,6 +153,22 @@ Res CAccountsHistoryWriter::SubBalance(const CScript &owner, CTokenAmount amount
     return res;
 }
 
+Res CAccountsHistoryWriter::AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
+    auto res = CCustomCSView::AddVaultCollateral(vaultId, amount);
+    if (writers && res && amount.nValue) {
+        writers->AddVaultCollateral(amount, vaultID);
+    }
+    return res;
+}
+
+Res CAccountsHistoryWriter::SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
+    auto res = CCustomCSView::SubVaultCollateral(vaultId, amount);
+    if (writers && res && amount.nValue) {
+        writers->SubVaultCollateral(amount, vaultID);
+    }
+    return res;
+}
+
 bool CAccountsHistoryWriter::Flush() {
     if (writers) {
         writers->Flush(height, txid, txn, type, vaultID);
@@ -173,7 +189,7 @@ CHistoryWriters::CHistoryWriters(CAccountHistoryStorage *historyView,
 
 extern std::string ScriptToString(const CScript &script);
 
-void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID) {
+void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID) {
     if (historyView) {
         diffs[owner][amount.nTokenId] += amount.nValue;
     }
@@ -191,7 +207,7 @@ void CHistoryWriters::AddFeeBurn(const CScript &owner, const CAmount amount) {
     }
 }
 
-void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID) {
+void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID) {
     if (historyView) {
         diffs[owner][amount.nTokenId] -= amount.nValue;
     }
@@ -200,6 +216,18 @@ void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount amount
     }
     if (vaultView && !vaultID.IsNull()) {
         vaultDiffs[vaultID][owner][amount.nTokenId] -= amount.nValue;
+    }
+}
+
+void CHistoryWriters::AddVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID) {
+    if (vaultView) {
+        vaultDiffs[vaultID][{}][amount.nTokenId] += amount.nValue;
+    }
+}
+
+void CHistoryWriters::SubVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID) {
+    if (vaultView) {
+        vaultDiffs[vaultID][{}][amount.nTokenId] -= amount.nValue;
     }
 }
 

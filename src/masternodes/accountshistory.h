@@ -106,9 +106,11 @@ public:
 
     CAccountHistoryStorage *GetAccountHistoryStore() { return historyView; };
 
-    void AddBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID);
+    void AddBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID);
     void AddFeeBurn(const CScript &owner, const CAmount amount);
-    void SubBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID);
+    void SubBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID);
+    void AddVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID);
+    void SubVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID);
     void Flush(const uint32_t height,
                const uint256 &txid,
                const uint32_t txn,
@@ -134,6 +136,8 @@ public:
                            CHistoryWriters *writers);
     Res AddBalance(const CScript &owner, CTokenAmount amount) override;
     Res SubBalance(const CScript &owner, CTokenAmount amount) override;
+    Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) override;
+    Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) override;
     bool Flush() override;
 
     CAccountHistoryStorage *GetAccountHistoryStore() override;
