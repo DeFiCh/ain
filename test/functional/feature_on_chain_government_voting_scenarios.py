@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
+    assert_raises_rpc_error
 )
 
 APPROVAL_THRESHOLD=50
@@ -128,6 +129,21 @@ class OCGVotingScenarionTest(DefiTestFramework):
 
         self.rollback_to(height)
 
+    def test_vote_with_invalid_address(self):
+        # Create address for CFP
+        address = self.nodes[0].getnewaddress()
+        context = "<Git issue url>"
+        title = "Create test community fund proposal"
+        amount = 100
+
+        # Create CFP
+        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 1, "payoutAddress": address})
+        self.nodes[0].generate(1)
+
+        address = self.nodes[0].getnewaddress('', 'legacy')
+
+        assert_raises_rpc_error(-8, "The masternode does not exist or the address doesn't own a masternode: {}".format(address), self.nodes[0].votegov, propId, address, 'yes')
+
     def test_scenario_below_approval_threshold(self, expectedStatus):
         self.test_vote_on_cfp(yesVote=4, noVote=6, neutralVote=2, expectedStatus=expectedStatus)
         self.test_vote_on_cfp_with_address(yesVote=4, noVote=6, neutralVote=2, expectedStatus=expectedStatus)
@@ -213,6 +229,7 @@ class OCGVotingScenarionTest(DefiTestFramework):
         self.setup()
 
         self.scenarios_test()
+        self.test_vote_with_invalid_address()
 
 if __name__ == '__main__':
     OCGVotingScenarionTest().main ()

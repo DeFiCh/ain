@@ -481,13 +481,13 @@ UniValue votegov(const JSONRPCRequest &request) {
         auto node = view.GetMasternode(mnId);
         if (!node) {
             CTxDestination dest = DecodeDestination(id);
-            const CKeyID id = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(id);
+            const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
             if (!masterNodeIdByOwner) {
-                auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(id);
+                auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId);
                 if (!masterNodeIdByOperator) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                     strprintf("The masternode does not exist or the address doesn't own a masternode: %s", mnId.ToString()));
+                                     strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
                 }
                 mnId = masterNodeIdByOperator.value();
             } else {
