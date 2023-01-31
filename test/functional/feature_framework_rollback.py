@@ -7,8 +7,6 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
-from decimal import Decimal
-import time
 
 class RollbackFrameworkTest (DefiTestFramework):
     def set_test_params(self):
@@ -123,12 +121,12 @@ class RollbackFrameworkTest (DefiTestFramework):
         assert(height5 != height4)
 
         # rollback
-        self.mint_extra(rollback=True) 
+        self.mint_extra(rollback=True)
         height6 = self.nodes[0].getblockcount()
         assert_equal(height6, height5)
-        
+
         # No rollback
-        self.mint_extra(rollback=False) 
+        self.mint_extra(rollback=False)
         height7 = self.nodes[0].getblockcount()
         assert(height6 != height7)
 
