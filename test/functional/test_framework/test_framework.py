@@ -15,6 +15,7 @@ import shutil
 import sys
 import tempfile
 import time
+import inspect
 
 from .authproxy import JSONRPCException
 from . import coverage
@@ -102,22 +103,42 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
+    def _check_rollback(self, func, *args, **kwargs):
+        init_height = None
+        init_data = None
+        if len(self.nodes) != 0:
+            init_height = self.nodes[0].getblockcount()
+            init_data = self._get_chain_data()
+        result = func(self, *args, **kwargs)
+        if len(self.nodes) != 0:
+            self.rollback_to(init_height, nodes=list(range(len(self.nodes))))
+            final_data = self._get_chain_data()
+            final_height = self.nodes[0].getblockcount()
+            assert(init_data == final_data)
+            assert(init_height == final_height)
+        return result
+
     @classmethod
     def rollback(cls, func):
             def wrapper(self, *args, **kwargs):
-                init_height = None
-                init_data = None
-                if len(self.nodes) != 0:
-                    init_height = self.nodes[0].getblockcount()
-                    init_data = self._get_chain_data()
-                result = func(self, *args, **kwargs)
-                if len(self.nodes) != 0:
-                    self.rollback_to(init_height)
-                    final_data = self._get_chain_data()
-                    final_height = self.nodes[0].getblockcount()
-                    assert(init_data == final_data)
-                    assert(init_height == final_height)
-                return result
+                signature = inspect.signature(func)
+                default_value = None
+                passed_value = None
+                if "rollback" in signature.parameters:
+                    param = signature.parameters["rollback"]
+                    if param.default is not param.empty:
+                        default_value = param.default
+                    if "rollback" in kwargs:
+                        passed_value = kwargs["rollback"]
+                    else:
+                        passed_value = default_value
+                if isinstance(passed_value, bool):
+                    if passed_value == True:
+                        return self._check_rollback(func, *args, **kwargs)
+                    return func(self, *args, **kwargs)
+                else:
+                    self.log.warning("rollback parameter is not of type bool, rollback cancelled")
+                    return func(self, *args, **kwargs)
             return wrapper
 
     def main(self):
