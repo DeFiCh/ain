@@ -23,7 +23,6 @@ class PriceUpdateTest (DefiTestFramework):
                 ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', f'-fortcanninghillheight={self.FCH}']
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(300)
         self.nodes[0].createtoken({

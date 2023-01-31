@@ -27,7 +27,6 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
             self.nodes[0].set_mocktime(time + (i * 60 * 60))
             self.nodes[0].generate(5)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 

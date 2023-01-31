@@ -74,7 +74,6 @@ class RESTTest (DefiTestFramework):
         elif ret_type == RetType.JSON:
             return json.loads(resp.read().decode('utf-8'), parse_float=Decimal)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.url = urllib.parse.urlparse(self.nodes[0].url)
         self.log.info("Mine blocks and send Defi to node 1")

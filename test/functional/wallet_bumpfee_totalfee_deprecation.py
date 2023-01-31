@@ -20,7 +20,6 @@ class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         peer_node, rbf_node = self.nodes
         peer_node.generate(110)

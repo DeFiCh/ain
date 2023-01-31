@@ -28,7 +28,6 @@ class NetTest(DefiTestFramework):
         self.num_nodes = 2
         self.extra_args = [["-minrelaytxfee=0.00001000"],["-minrelaytxfee=0.00000500"]]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self._test_connection_count()
         self._test_getnettotals()

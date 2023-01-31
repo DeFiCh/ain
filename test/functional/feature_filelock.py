@@ -18,7 +18,6 @@ class FilelockTest(DefiTestFramework):
         self.nodes[0].start([])
         self.nodes[0].wait_for_rpc_connection()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         datadir = os.path.join(self.nodes[0].datadir, 'regtest')
         self.log.info("Using datadir {}".format(datadir))

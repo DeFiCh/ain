@@ -262,7 +262,6 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

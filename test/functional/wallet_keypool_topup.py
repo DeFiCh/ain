@@ -29,7 +29,6 @@ class KeypoolRestoreTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         wallet_path = os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat")
         wallet_backup_path = os.path.join(self.nodes[1].datadir, "wallet.bak")

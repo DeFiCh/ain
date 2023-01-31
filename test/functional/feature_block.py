@@ -84,7 +84,6 @@ class FullBlockTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-acceptnonstdtxn=1']]  # This is a consensus block test, we don't care about tx policy
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
 

@@ -12,7 +12,6 @@ class DeprecatedRpcTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [[], []]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # This test should be used to verify correct behaviour of deprecated
         # RPC methods with and without the -deprecatedrpc flags. For example:

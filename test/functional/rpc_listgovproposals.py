@@ -280,7 +280,6 @@ class ListGovProposalsTest(DefiTestFramework):
         prop_list = self.nodes[0].listgovproposals("all", "completed", 4)
         assert_equal(len(prop_list), 5)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

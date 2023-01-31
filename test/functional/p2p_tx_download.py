@@ -157,7 +157,6 @@ class TxDownloadTest(DefiTestFramework):
         wait_until(lambda: p.tx_getdata_count == MAX_GETDATA_IN_FLIGHT + 2)
         self.nodes[0].setmocktime(0)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         self.peers = []

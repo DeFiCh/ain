@@ -20,7 +20,6 @@ class FuturesTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=150', '-fortcanningroadheight=150', '-fortcanningspringheight=500', '-subsidytest=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
 

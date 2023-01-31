@@ -233,7 +233,6 @@ class PoolSwapTest (DefiTestFramework):
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
                 assert_equal(str(reserveB), format(newReserveB, '.8f'))
 
-    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 

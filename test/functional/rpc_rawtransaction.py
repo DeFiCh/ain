@@ -51,7 +51,6 @@ class RawTransactionsTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info('prepare some coins for multiple *rawtransaction commands')
         self.nodes[2].generate(1)

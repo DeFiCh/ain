@@ -94,7 +94,6 @@ class AssumeValidTest(DefiTestFramework):
             elif current_height == height:
                 break
 
-    @DefiTestFramework.rollback
     def run_test(self):
         p2p0 = self.nodes[0].add_p2p_connection(BaseNode())
 

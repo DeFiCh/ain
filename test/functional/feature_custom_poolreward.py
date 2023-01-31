@@ -17,7 +17,6 @@ class TokensCustomPoolReward(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-clarkequayheight=50'],
                            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-clarkequayheight=50']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(102)
         self.sync_blocks()

@@ -20,7 +20,6 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
             ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
         num_tokens = len(self.nodes[0].listtokens())

@@ -24,7 +24,6 @@ class InvalidBlockRequestTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [["-whitelist=127.0.0.1", "-dummypos=1"]]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Add p2p connection to node0
         node = self.nodes[0]  # convenience reference to the node

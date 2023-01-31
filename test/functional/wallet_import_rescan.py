@@ -168,7 +168,6 @@ class ImportRescanTest(DefiTestFramework):
         for i in range(1, self.num_nodes):
             connect_nodes(self.nodes[i], 0)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Create one transaction on node 0 with a unique amount for
         # each possible type of wallet import RPC.

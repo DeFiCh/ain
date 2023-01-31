@@ -24,7 +24,6 @@ class AbortNodeTest(DefiTestFramework):
         self.setup_nodes()
         # We'll connect the nodes later
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(3)
         datadir = get_datadir_path(self.options.tmpdir, 0)

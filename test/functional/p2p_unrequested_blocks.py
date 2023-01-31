@@ -78,7 +78,6 @@ class AcceptBlockTest(DefiTestFramework):
         # with nMinimumChainWork.
         self.setup_nodes()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         # test_node connects to node0 (not whitelisted)

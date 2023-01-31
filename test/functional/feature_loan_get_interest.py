@@ -109,7 +109,6 @@ class LoanGetInterestTest (DefiTestFramework):
             {self.account0: ["30@" + self.symbolDFI, "300@" + self.symboldUSD]}, self.account0)
         self.nodes[0].generate(1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

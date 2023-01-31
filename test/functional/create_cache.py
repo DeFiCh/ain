@@ -21,7 +21,6 @@ class CreateCache(DefiTestFramework):
     def setup_network(self):
         pass
 
-    @DefiTestFramework.rollback
     def run_test(self):
         pass
 

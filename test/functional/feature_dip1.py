@@ -24,7 +24,6 @@ class Dip1Test (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=2'], ['-txnotokens=0']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(self.nodes[0].getblockchaininfo()['softforks']['amk']['active'], False)
 

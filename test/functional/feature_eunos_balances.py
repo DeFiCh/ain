@@ -17,7 +17,6 @@ class TransferBurnTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=200', '-dakotaheight=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         # Burn address

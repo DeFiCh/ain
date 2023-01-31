@@ -19,7 +19,6 @@ class FoundationMemberTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', f'-grandcentralheight={self.grand_central}', '-subsidytest=1']
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         # Define node 0 foundation address

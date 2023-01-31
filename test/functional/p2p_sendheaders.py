@@ -253,7 +253,6 @@ class SendHeadersTest(DefiTestFramework):
         self.sync_blocks(self.nodes, wait=0.1)
         return [int(x, 16) for x in all_hashes]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Setup the p2p connections
         inv_node = self.nodes[0].add_p2p_connection(BaseNode())

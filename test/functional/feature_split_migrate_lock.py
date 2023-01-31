@@ -29,7 +29,6 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
             '-grandcentralheight=200',
             '-subsidytest=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup_test_tokens()
         self.test_unlock_migration()

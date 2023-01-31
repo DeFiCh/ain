@@ -17,7 +17,6 @@ class AccountsValidatingTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node1 = self.nodes[1]

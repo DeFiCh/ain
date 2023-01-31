@@ -407,7 +407,6 @@ class LowInterestTest (DefiTestFramework):
 
 
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

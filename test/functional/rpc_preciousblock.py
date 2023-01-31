@@ -40,7 +40,6 @@ class PreciousTest(DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Ensure submitblock can in principle reorg to a competing chain")
         # gen_address = lambda i: self.nodes[i].get_genesis_keys().address  # A non-wallet address to mine to

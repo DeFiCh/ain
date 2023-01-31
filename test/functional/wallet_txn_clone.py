@@ -32,7 +32,6 @@ class TxnMallTest(DefiTestFramework):
         disconnect_nodes(self.nodes[1], 2)
         disconnect_nodes(self.nodes[2], 1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         if self.options.segwit:
             output_type = "p2sh-segwit"

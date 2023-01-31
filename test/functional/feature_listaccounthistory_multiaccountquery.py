@@ -20,7 +20,6 @@ class MultiAccountListAccountHistory(DefiTestFramework):
              '-grandcentralheight=51'],
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
         self.sync_blocks()

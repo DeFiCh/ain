@@ -42,7 +42,6 @@ class ZMQTest (DefiTestFramework):
         self.skip_if_no_py3_zmq()
         self.skip_if_no_defid_zmq()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         import zmq
         self.ctx = zmq.Context()

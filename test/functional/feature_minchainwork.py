@@ -41,7 +41,6 @@ class MinimumChainWorkTest(DefiTestFramework):
         for i in range(self.num_nodes-1):
             connect_nodes(self.nodes[i+1], i)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Start building a chain on node0.  node2 shouldn't be able to sync until node1's
         # minchainwork is exceeded

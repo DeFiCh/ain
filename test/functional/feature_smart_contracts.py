@@ -17,7 +17,6 @@ class SmartContractTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-jellyfish_regtest=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(1000)
 

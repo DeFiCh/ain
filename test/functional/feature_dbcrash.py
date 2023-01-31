@@ -212,7 +212,6 @@ class ChainstateWriteCrashTest(DefiTestFramework):
             node.sendrawtransaction(tx_signed_hex)
             num_transactions += 1
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Track test coverage statistics
         self.restart_counts = [0, 0, 0]  # Track the restarts for nodes 0-2

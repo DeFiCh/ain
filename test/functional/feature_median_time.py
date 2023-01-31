@@ -31,7 +31,6 @@ class MedianTimeTest(DefiTestFramework):
             self.nodes[0].set_mocktime(int(time.time()) + randint(10, 60))
             self.nodes[0].generate(1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(11)
         assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())

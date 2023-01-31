@@ -146,7 +146,6 @@ class ProxyTest(DefiTestFramework):
 
         return rv
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # basic -proxy
         self.node_test(self.nodes[0], [self.serv1, self.serv1, self.serv1, self.serv1], False)

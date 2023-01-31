@@ -21,7 +21,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningcrunchheight=110', '-txindex=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 

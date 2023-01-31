@@ -12,7 +12,6 @@ class TestDefiCli(DefiTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
 
-    @DefiTestFramework.rollback
     def run_test(self):
         """Main test logic"""
 

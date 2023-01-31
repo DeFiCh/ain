@@ -60,7 +60,6 @@ class VersionBitsWarningTest(DefiTestFramework):
         alert_text = open(self.alert_filename, 'r', encoding='utf8').read()
         return VB_PATTERN.search(alert_text) is not None
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node.add_p2p_connection(P2PInterface())

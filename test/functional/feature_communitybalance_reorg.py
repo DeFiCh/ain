@@ -17,7 +17,6 @@ class CommunityBalanceReorg(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=0'], ['-txnotokens=0', '-amkheight=0']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Generate across nodes
         self.nodes[0].generate(10)

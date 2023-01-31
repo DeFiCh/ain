@@ -236,7 +236,6 @@ class DUSDFactorPctTests(DefiTestFramework):
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.post_FCE_DFI_minimum_check_takeloan()

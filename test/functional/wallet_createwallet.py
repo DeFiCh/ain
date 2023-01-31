@@ -20,7 +20,6 @@ class CreateWalletTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node.generate(1) # Leave IBD for sethdseed

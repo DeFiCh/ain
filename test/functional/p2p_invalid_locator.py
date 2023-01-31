@@ -16,7 +16,6 @@ class InvalidLocatorTest(DefiTestFramework):
         self.setup_clean_chain = False
         self.extra_args = [["-dummypos=1"]]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
         node.generate(1)  # Get node out of IBD

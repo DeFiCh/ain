@@ -18,7 +18,6 @@ class JellyfishInitialFundsTest (DefiTestFramework):
         # pass -jellyfish_regtest=1 option to enable regtest params required for jellyfish test containers
         self.extra_args = [['-jellyfish_regtest=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         # generate one block

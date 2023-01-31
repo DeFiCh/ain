@@ -21,7 +21,6 @@ class CreateTxWalletTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info('Create some old blocks')
         self.nodes[0].setmocktime(TIME_GENESIS_BLOCK+1)

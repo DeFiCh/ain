@@ -48,7 +48,6 @@ class MempoolAcceptanceTest(DefiTestFramework):
         assert_equal(result_expected, result_test)
         assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size)  # Must not change mempool state
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
 

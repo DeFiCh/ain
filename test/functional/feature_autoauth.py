@@ -26,7 +26,6 @@ class TokensAutoAuthTest (DefiTestFramework):
         self.nodes[0].sendtoaddress(non_auth_address, balance - Decimal("0.1")) # 0.1 to cover fee
         self.nodes[0].generate(1, 1000000, non_auth_address)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         n0 = self.nodes[0]
 

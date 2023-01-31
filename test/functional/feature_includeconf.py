@@ -35,7 +35,6 @@ class IncludeConfTest(DefiTestFramework):
         with open(os.path.join(self.options.tmpdir, "node0", "defi.conf"), "a", encoding='utf8') as f:
             f.write("uacomment=main\nincludeconf=relative.conf\n")
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("-includeconf works from config file. subversion should end with 'main; relative)/'")
 

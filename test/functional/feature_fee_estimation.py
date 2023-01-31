@@ -181,7 +181,6 @@ class EstimateFeeTest(DefiTestFramework):
                     newmem.append(utx)
             self.memutxo = newmem
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("This test is time consuming, please be patient")
         self.log.info("Splitting inputs so we can generate tx's")

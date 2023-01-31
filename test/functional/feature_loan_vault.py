@@ -944,7 +944,6 @@ class VaultTest (DefiTestFramework):
         assert_equal(result[f'v0/token/{self.idAAPL}/loan_minting_enabled'], 'true')
         assert_equal(result[f'v0/token/{self.idAAPL}/loan_minting_interest'], '1')
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.createvault_with_invalid_parameters()

@@ -18,7 +18,6 @@ class LoggingTest(DefiTestFramework):
     def relative_log_path(self, name):
         return os.path.join(self.nodes[0].datadir, "regtest", name)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # test default log file name
         default_log_path = self.relative_log_path("debug.log")

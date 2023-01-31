@@ -18,7 +18,6 @@ class BurnAddressTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=1', '-dakotaheight=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         self.nodes[0].generate(101)

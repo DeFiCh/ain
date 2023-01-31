@@ -30,7 +30,6 @@ class TxnMallTest(DefiTestFramework):
         disconnect_nodes(self.nodes[1], 2)
         disconnect_nodes(self.nodes[2], 1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # All nodes should start with 1,250 BTC:
         starting_balance = 1250

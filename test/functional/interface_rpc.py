@@ -66,7 +66,6 @@ class RPCInterfaceTest(DefiTestFramework):
         expect_http_status(404, -32601, self.nodes[0].invalidmethod)
         expect_http_status(500, -8, self.nodes[0].getblockhash, 42)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.test_getrpcinfo()
         self.test_batch_request()

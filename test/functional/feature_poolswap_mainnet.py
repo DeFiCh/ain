@@ -333,7 +333,6 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(poolpair_info_GS['1']['reserveA'], Decimal('9950000.00000203'))
         assert_equal(poolpair_info_GS['1']['reserveB'], Decimal('251256.28140704'))
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
 

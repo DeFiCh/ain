@@ -439,7 +439,6 @@ class TokenSplitMechanismTest(DefiTestFramework):
             self.rollback_to(revertHeight)
         return new_token_id
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         initialStateBlock = self.nodes[0].getblockcount()

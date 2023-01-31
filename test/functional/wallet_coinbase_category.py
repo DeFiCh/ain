@@ -30,7 +30,6 @@ class CoinbaseCategoryTest(DefiTestFramework):
                             {"address": address},
                             {"category": category})
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Generate one block to an address
         address = self.nodes[0].getnewaddress()

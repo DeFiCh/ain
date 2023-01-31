@@ -133,7 +133,6 @@ class ExampleTest(DefiTestFramework):
 
         self.log.info("Running custom_method")
 
-    @DefiTestFramework.rollback
     def run_test(self):
         """Main test logic"""
 

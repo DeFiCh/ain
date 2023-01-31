@@ -58,7 +58,6 @@ class MiningTest(DefiTestFramework):
         self.restart_node(0)
         connect_nodes_bi(self.nodes, 0, 1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.mine_chain()
         node = self.nodes[0]

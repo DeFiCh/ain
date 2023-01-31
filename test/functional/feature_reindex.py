@@ -27,7 +27,6 @@ class ReindexTest(DefiTestFramework):
         wait_until(lambda: self.nodes[0].getblockcount() == blockcount)
         self.log.info("Success")
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.reindex(False)
         self.reindex(True)

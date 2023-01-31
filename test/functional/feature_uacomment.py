@@ -16,7 +16,6 @@ class UacommentTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("test multiple -uacomment")
         test_uacomment = self.nodes[0].getnetworkinfo()["subversion"][-12:-1]

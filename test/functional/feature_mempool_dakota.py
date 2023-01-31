@@ -21,7 +21,6 @@ class MempoolDakotaTest(DefiTestFramework):
                             ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
                           ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
         node1 = self.nodes[1]

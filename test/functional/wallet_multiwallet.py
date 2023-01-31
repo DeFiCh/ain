@@ -27,7 +27,6 @@ class MultiWalletTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0]
 

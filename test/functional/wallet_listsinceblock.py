@@ -15,7 +15,6 @@ class ListSinceBlockTest (DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[2].generate(101)
         self.sync_blocks()

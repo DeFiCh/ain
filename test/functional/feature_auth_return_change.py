@@ -43,7 +43,6 @@ class TokensAuthChange(DefiTestFramework):
         assert_equal(len(final_rawtx['vout']), outputs)
         assert_equal(len(final_rawtx['vin']), 1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         coinbase = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].generate(101, 1000000, coinbase)

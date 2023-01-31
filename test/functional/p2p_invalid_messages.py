@@ -32,7 +32,6 @@ class InvalidMessagesTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
-    @DefiTestFramework.rollback
     def run_test(self):
         """
          . Test msg header

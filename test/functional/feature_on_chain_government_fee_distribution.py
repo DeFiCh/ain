@@ -140,7 +140,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.sync_blocks()
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         self.setup()

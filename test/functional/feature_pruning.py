@@ -346,7 +346,6 @@ class PruneTest(DefiTestFramework):
         self.start_node(5, extra_args=["-prune=550"])
         self.log.info("Success")
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.log.info("Warning! This test requires 4GB of disk space")
 

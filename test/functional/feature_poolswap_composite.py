@@ -24,7 +24,6 @@ class PoolPairCompositeTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
             ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         # Create tokens

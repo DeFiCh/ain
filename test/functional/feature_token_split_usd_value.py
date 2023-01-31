@@ -324,7 +324,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_greater_than_or_equal(vault["informativeRatio"], 0)
             assert_greater_than_or_equal(vault["collateralRatio"], 0)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         assert_equal(1,1) # Make linter happy for now

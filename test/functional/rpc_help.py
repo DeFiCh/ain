@@ -14,7 +14,6 @@ class HelpRpcTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.test_categories()
         self.dump_help()

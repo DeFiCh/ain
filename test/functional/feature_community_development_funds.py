@@ -23,7 +23,6 @@ class CommunityDevelopmentFunds(DefiTestFramework):
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node0 = self.nodes[0]
         node1 = self.nodes[1]

@@ -25,7 +25,6 @@ class OnChainGovernanceTest(DefiTestFramework):
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
         ]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         # Get MN addresses

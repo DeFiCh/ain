@@ -431,7 +431,6 @@ class TokenMergeTest(DefiTestFramework):
             self.rollback_to(revertHeight)
         return new_token_id
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.check_attributes_on_merge(self.idT1, revert=True)

@@ -83,7 +83,6 @@ class HTTPBasicsTest(DefiTestFramework):
         self.log.info('Wrong...')
         assert_equal(401, call_with_auth(node, user+'wrong', password+'wrong').status)
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         ##################################################

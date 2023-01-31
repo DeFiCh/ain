@@ -55,7 +55,6 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         self.start_nodes()
         self.import_deterministic_coinbase_privkeys()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         node = self.nodes[0].add_p2p_connection(P2PIgnoreInv())
 

@@ -29,7 +29,6 @@ class AbandonConflictTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[1].generate(100)
         self.sync_blocks()

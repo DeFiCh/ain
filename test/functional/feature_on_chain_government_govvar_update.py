@@ -571,7 +571,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.sync_blocks(timeout=120)
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         self.setup()

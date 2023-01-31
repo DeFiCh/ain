@@ -18,7 +18,6 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningspringheight=150', '-jellyfish_regtest=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         # Set up test tokens

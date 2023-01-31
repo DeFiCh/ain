@@ -17,7 +17,6 @@ class SendUTXOsFromTest(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-txindex=1'],
                            ['-txnotokens=0', '-amkheight=1', '-txindex=1']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(110)
         self.sync_blocks()

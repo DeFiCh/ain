@@ -40,7 +40,6 @@ class MempoolPackagesTest(DefiTestFramework):
         assert len(fulltx['vout']) == num_outputs  # make sure we didn't generate a change output
         return (txid, send_value)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         # Mine some blocks and have them mature.
         self.nodes[0].generate(101)

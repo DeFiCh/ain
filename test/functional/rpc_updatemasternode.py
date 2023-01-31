@@ -110,7 +110,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result['collateralTx'], mn_transfer_tx)
         assert_equal(result['ownerAuthAddress'], new_owner)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(105)
         self.sync_blocks()

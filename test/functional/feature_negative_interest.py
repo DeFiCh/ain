@@ -1006,7 +1006,6 @@ class NegativeInterestTest (DefiTestFramework):
         [balanceDUSDafter, _] = self.nodes[0].getaccount(self.account)[0].split('@')
         assert_equal(Decimal(balanceDUSDafter), Decimal(balanceDUSDbefore) - Decimal('1.00000000'))
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.setup()
         self.vault_interest_zero()

@@ -32,7 +32,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.nodes[0].generate(101)
         self.sync_blocks()

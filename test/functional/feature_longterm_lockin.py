@@ -19,7 +19,6 @@ class MasternodesTimelockTest (DefiTestFramework):
         self.extra_args = [['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140'],
                            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
 
-    @DefiTestFramework.rollback
     def run_test(self):
 
         self.nodes[0].generate(101)

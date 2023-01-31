@@ -16,7 +16,6 @@ class BlocksdirTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
 
-    @DefiTestFramework.rollback
     def run_test(self):
         self.stop_node(0)
         assert os.path.isdir(os.path.join(self.nodes[0].datadir, self.chain, "blocks"))
