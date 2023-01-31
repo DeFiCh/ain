@@ -587,12 +587,10 @@ UniValue setgov(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    if (!auths.empty()) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest)) {
-            coinControl.destChange = dest;
-        }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);

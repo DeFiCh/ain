@@ -15,7 +15,6 @@ import shutil
 import sys
 import tempfile
 import time
-from typing import List
 
 from .authproxy import JSONRPCException
 from . import coverage
