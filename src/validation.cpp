@@ -2223,23 +2223,34 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
 
                 // Remove Loan and Options balances from Unallocated
                 if ((height < Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    kv.first == CommunityAccountType::Options)
+                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
                 {
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    if (height >= consensus.GrandCentralHeight)
                     {
-                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+                        const auto attributes = mnview.GetAttributes();
+                        assert(attributes);
 
-                        auto attributes = mnview.GetAttributes();
-                        if (!attributes) {
-                            return;
-                        }
-                        if (!attributes->GetValue(enabledKey, false))
-                        {
-                            mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                        if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+                            if (!attributes->GetValue(enabledKey, false))
+                            {
+                                mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+
+                                continue;
+                            }
+                        } else if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::Options) {
+                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
+
+                            if (attributes->GetValue(enabledKey, false)) {
+                                mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                            } else {
+                                mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                            }
 
                             continue;
                         }
