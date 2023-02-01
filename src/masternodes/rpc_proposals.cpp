@@ -569,6 +569,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     bool isMine = true;
     uint8_t cycle{1};
     int8_t inputCycle{0};
+    int targetHeight;
 
     size_t limit         = 100;
     size_t start         = 0;
@@ -676,6 +677,13 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
+    auto prop = view.GetProposal(propId);
+    if (prop->status == CProposalStatusType::Voting) {
+        targetHeight = view.GetLastHeight() + 1;
+    } else {
+        targetHeight = prop->cycleEndHeight;
+    }
+
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
             if (pId != propId) {
@@ -689,6 +697,10 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             if (isMine) {
                 auto node = view.GetMasternode(id);
                 if (!node) {
+                    return true;
+                }
+
+                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
                     return true;
                 }
 
@@ -708,6 +720,11 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 // skip entries until we reach start index
                 if (start != 0) {
                     --start;
+                    return true;
+                }
+
+                auto node = view.GetMasternode(id);
+                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
                     return true;
                 }
 
