@@ -477,9 +477,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         }
         if (id.length() == 64) {
             mnId = ParseHashV(id, "masternodeId");
-        }
-        auto node = view.GetMasternode(mnId);
-        if (!node) {
+        } else {
             CTxDestination dest = DecodeDestination(id);
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -489,15 +487,15 @@ UniValue votegov(const JSONRPCRequest &request) {
             auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
             if (!masterNodeIdByOwner) {
                 auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId);
-                if (!masterNodeIdByOperator) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
-                }
                 mnId = masterNodeIdByOperator.value();
             } else {
                 mnId = masterNodeIdByOwner.value();
             }
-            node = view.GetMasternode(mnId);
+        }
+        auto node = view.GetMasternode(mnId);
+        if (!node) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
