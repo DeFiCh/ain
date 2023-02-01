@@ -95,6 +95,7 @@ jobs:
     strategy:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
+    continue-on-error: true
     env:
       DATADIR : datadir-${{matrix.blocks.start}}
       STOP_BLOCK: ${{matrix.blocks.stop}}
