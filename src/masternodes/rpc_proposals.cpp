@@ -450,7 +450,7 @@ UniValue votegov(const JSONRPCRequest &request) {
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
     std::string id = request.params[1].get_str();
-    uint256 mnId = uint256();
+    uint256 mnId;
     auto vote   = CProposalVoteType::VoteNeutral;
 
     auto voteStr = ToLower(request.params[2].get_str());
@@ -480,8 +480,8 @@ UniValue votegov(const JSONRPCRequest &request) {
         }
         auto node = view.GetMasternode(mnId);
         if (!node) {
-            if (id.length() == 34) {
-                CTxDestination dest = DecodeDestination(id);
+            CTxDestination dest = DecodeDestination(id);
+            if (IsValidDestination(dest)) {
                 const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
                 if (!masterNodeIdByOwner) {
