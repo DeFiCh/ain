@@ -453,15 +453,16 @@ UniValue votegov(const JSONRPCRequest &request) {
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
     auto mnId   = ParseHashV(request.params[1].get_str(), "masternodeId");
     auto vote   = CProposalVoteType::VoteNeutral;
-
     auto voteStr = ToLower(request.params[2].get_str());
+    auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
+
     if (voteStr == "no") {
         vote = CProposalVoteType::VoteNo;
     } else if (voteStr == "yes") {
         vote = CProposalVoteType::VoteYes;
-    } else if (gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL) && voteStr != "neutral") {
+    } else if (neutralVotesAllowed && voteStr != "neutral") {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
-    } else if (!gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL)) {
+    } else if (!neutralVotesAllowed) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
     }
 
