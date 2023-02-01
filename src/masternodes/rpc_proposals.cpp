@@ -107,24 +107,33 @@ UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint
     return ret;
 }
 
-void proposalVoteAccounting(const CProposalVoteType &vote,
-                            int &totalVotes,
-                            int &yesVotes,
-                            int &neutralVotes,
-                            int &noVotes,
-                            int &unknownVotes) {
+struct VoteAccounting {
+    int totalVotes;
+    int yesVotes;
+    int neutralVotes;
+    int noVotes;
+    int unknownVotes;
+};
+
+void proposalVoteAccounting(const CProposalVoteType &vote, uint256 propId, std::map<std::string, VoteAccounting> &map) {
     const auto voteString = CProposalVoteToString(vote);
 
-    if (voteString == "YES")
-        ++yesVotes;
-    else if (voteString == "NEUTRAL")
-        ++neutralVotes;
-    else if (voteString == "NO")
-        ++noVotes;
-    else
-        ++unknownVotes;
+    if (map.find(propId.GetHex()) == map.end())
+        map.emplace(propId.GetHex(), VoteAccounting{0,0,0,0,0});
 
-    ++totalVotes;
+    auto entry = &map.find(propId.GetHex())->second;
+
+
+    if (voteString == "YES")
+        ++entry->yesVotes;
+    else if (voteString == "NEUTRAL")
+        ++entry->neutralVotes;
+    else if (voteString == "NO")
+        ++entry->noVotes;
+    else
+        ++entry->unknownVotes;
+
+    ++entry->totalVotes;
 }
 
 /*
@@ -724,7 +733,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    int totalVotes{0}, yesVotes{0}, neutralVotes{0}, noVotes{0}, unknownVotes{0};
+    std::map<std::string, VoteAccounting> map;
 
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
@@ -755,7 +764,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                         ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                         limit--;
                     } else {
-                        proposalVoteAccounting(vote, totalVotes, yesVotes, neutralVotes, noVotes, unknownVotes);
+                        proposalVoteAccounting(vote, propId, map);
                     }
                 }
             } else if (mnId.IsNull() || mnId == id) {
@@ -769,7 +778,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                     ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                     limit--;
                 } else {
-                    proposalVoteAccounting(vote, totalVotes, yesVotes, neutralVotes, noVotes, unknownVotes);
+                    proposalVoteAccounting(vote, propId, map);
                 }
             }
 
@@ -778,14 +787,18 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         CMnVotePerCycle{propId, cycle, mnId});
 
     if(aggregate) {
-        UniValue stats(UniValue::VOBJ);
-        stats.pushKV("totalVotes", totalVotes);
-        stats.pushKV("yesVotes", yesVotes);
-        stats.pushKV("neutralVotes", neutralVotes);
-        stats.pushKV("noVotes", noVotes);
-        stats.pushKV("unknownVotes", unknownVotes);
+        for (const auto& entry : map) {
+            UniValue stats(UniValue::VOBJ);
 
-        ret.push_back(stats);
+            stats.pushKV("proposalId", entry.first);
+            stats.pushKV("total", entry.second.totalVotes);
+            stats.pushKV("yes", entry.second.yesVotes);
+            stats.pushKV("neutral", entry.second.neutralVotes);
+            stats.pushKV("no", entry.second.noVotes);
+            stats.pushKV("unknown", entry.second.unknownVotes);
+
+            ret.push_back(stats);
+        }
     }
 
     return ret;

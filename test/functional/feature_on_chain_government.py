@@ -676,7 +676,26 @@ class OnChainGovernanceTest(DefiTestFramework):
                 # otherwise tx1 is the last proposal
                 break
 
-        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
+        assert_equal(self.nodes[0].listgovproposals(
+            {"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
+
+        # test listgovproposalvotes aggregation
+        votes = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {})
+        totalVotes = len(votes)
+        yesVotes = len([x for x in votes if x["vote"] == "YES"])
+        noVotes = len([x for x in votes if x["vote"] == "NO"])
+        neutralVotes = len([x for x in votes if x["vote"] == "NEUTRAL"])
+        unknownVotes = totalVotes - yesVotes - noVotes - neutralVotes
+
+        votes_aggregate = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {}, True)[0]
+        assert_equal(votes_aggregate["proposalId"], propId)
+        assert_equal(votes_aggregate["total"], totalVotes)
+        assert_equal(votes_aggregate["yes"], yesVotes)
+        assert_equal(votes_aggregate["neutral"], neutralVotes)
+        assert_equal(votes_aggregate["no"], noVotes)
+        assert_equal(votes_aggregate["unknown"], unknownVotes)
+
+        print(self.nodes[0].listgovproposalvotes())
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main()
