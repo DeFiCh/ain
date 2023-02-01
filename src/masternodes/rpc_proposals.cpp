@@ -481,24 +481,23 @@ UniValue votegov(const JSONRPCRequest &request) {
         auto node = view.GetMasternode(mnId);
         if (!node) {
             CTxDestination dest = DecodeDestination(id);
-            if (IsValidDestination(dest)) {
-                const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-                auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
-                if (!masterNodeIdByOwner) {
-                    auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId);
-                    if (!masterNodeIdByOperator) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                     strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
-                    }
-                    mnId = masterNodeIdByOperator.value();
-                } else {
-                    mnId = masterNodeIdByOwner.value();
-                }
-                node = view.GetMasternode(mnId);
-            } else {
+            if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
                                     strprintf("The masternode id or address is not valid: %s", id));
             }
+            const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
+            if (!masterNodeIdByOwner) {
+                auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId);
+                if (!masterNodeIdByOperator) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
+                }
+                mnId = masterNodeIdByOperator.value();
+            } else {
+                mnId = masterNodeIdByOwner.value();
+            }
+            node = view.GetMasternode(mnId);
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
