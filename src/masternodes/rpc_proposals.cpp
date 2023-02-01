@@ -596,13 +596,13 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     if (request.params[0].isObject())
         RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
     else
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL}, true);
 
     CCustomCSView view(*pcustomcsview);
 
     uint256 mnId;
     uint256 propId;
-    bool isMine = true;
+    bool isMine = false;
     uint8_t cycle{1};
     int8_t inputCycle{0};
     bool aggregate = true;
@@ -617,6 +617,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         if (!optionsObj["proposalId"].isNull()) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
             aggregate = false;
+            isMine = true;
         }
 
         if (!optionsObj["masternode"].isNull()) {
@@ -674,6 +675,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         if (!request.params.empty()) {
             propId = ParseHashV(request.params[0].get_str(), "proposalId");
             aggregate = false;
+            isMine = true;
         }
 
         if (request.params.size() > 1) {
