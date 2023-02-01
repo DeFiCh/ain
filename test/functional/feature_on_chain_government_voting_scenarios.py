@@ -161,7 +161,7 @@ class OCGVotingScenarionTest(DefiTestFramework):
         self.test_scenario_66_6_percent_approval_full_no_votes(expectedStatus="Rejected")
         self.test_scenario_66_6_percent_approval_full_neutral_votes(expectedStatus="Rejected")
 
-    def scenarios_fix_test(self):
+    def scenarios_neutral_votes_not_counted_test(self):
         self.nodes[0].generate(NEXT_NETWORK_UPGRADE_HEIGHT - self.nodes[0].getblockcount())
 
         self.nodes[0].setgov({"ATTRIBUTES":{
@@ -203,7 +203,7 @@ class OCGVotingScenarionTest(DefiTestFramework):
 
         self.scenarios_test()
 
-        self.scenarios_fix_test()
+        self.scenarios_neutral_votes_not_counted_test()
 
 if __name__ == '__main__':
     OCGVotingScenarionTest().main ()
