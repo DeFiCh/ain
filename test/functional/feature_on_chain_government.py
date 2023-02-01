@@ -695,7 +695,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(votes_aggregate["no"], noVotes)
         assert_equal(votes_aggregate["unknown"], unknownVotes)
 
-        print(self.nodes[0].listgovproposalvotes())
+        assert_equal(len(self.nodes[0].listgovproposalvotes()), 3)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main()

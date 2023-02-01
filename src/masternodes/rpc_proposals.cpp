@@ -764,7 +764,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                         ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                         limit--;
                     } else {
-                        proposalVoteAccounting(vote, propId, map);
+                        proposalVoteAccounting(vote, pId, map);
                     }
                 }
             } else if (mnId.IsNull() || mnId == id) {
@@ -778,7 +778,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                     ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                     limit--;
                 } else {
-                    proposalVoteAccounting(vote, propId, map);
+                    proposalVoteAccounting(vote, pId, map);
                 }
             }
 
