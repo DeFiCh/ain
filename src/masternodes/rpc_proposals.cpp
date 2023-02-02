@@ -483,7 +483,9 @@ UniValue votegov(const JSONRPCRequest &request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
                                     strprintf("The masternode id or address is not valid: %s", id));
             }
-            const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            const CKeyID ckeyId = dest.index() == PKHashType ? 
+                    CKeyID(std::get<PKHash>(dest)) : dest.index() == WitV0KeyHashType ? 
+                            CKeyID(std::get<WitnessV0KeyHash>(dest)) : throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
             auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
             if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                 mnId = masterNodeIdByOwner.value();
