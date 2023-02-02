@@ -683,7 +683,14 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(self.nodes[0].listgovproposals(
             {"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
 
-        # test listgovproposalvotes aggregation
+        self.test_aggregation(propId)
+        self.test_default_cycles_fix()
+        self.aggregate_all_votes()
+
+    def test_aggregation(self, propId):
+        """
+        Tests vote aggregation for a specific proposal. It should respect all provided filters.
+        """
         votes = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {})
         totalVotes = len(votes)
         yesVotes = len([x for x in votes if x["vote"] == "YES"])
@@ -698,9 +705,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(votes_aggregate["neutral"], neutralVotes)
         assert_equal(votes_aggregate["no"], noVotes)
         assert_equal(votes_aggregate["unknown"], unknownVotes)
-
-        self.test_default_cycles_fix()
-        self.aggregate_all_votes()
 
     def test_default_cycles_fix(self):
         """
