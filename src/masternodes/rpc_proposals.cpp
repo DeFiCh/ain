@@ -485,11 +485,10 @@ UniValue votegov(const JSONRPCRequest &request) {
             }
             const CKeyID ckeyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
             auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId);
-            if (!masterNodeIdByOwner) {
-                auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId);
-                mnId = masterNodeIdByOperator.value();
-            } else {
+            if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                 mnId = masterNodeIdByOwner.value();
+            } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
+                mnId = masterNodeIdByOperator.value();
             }
         }
         auto node = view.GetMasternode(mnId);
