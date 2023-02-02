@@ -3,6 +3,8 @@
 
 #include <functional>
 
+const bool DEFAULT_RPC_GOV_NEUTRAL = false;
+
 struct VotingInfo {
     int32_t votesPossible;
     int32_t votesPresent;
@@ -452,14 +454,17 @@ UniValue votegov(const JSONRPCRequest &request) {
     std::string id = request.params[1].get_str();
     uint256 mnId;
     auto vote   = CProposalVoteType::VoteNeutral;
-
     auto voteStr = ToLower(request.params[2].get_str());
+    auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
+
     if (voteStr == "no") {
         vote = CProposalVoteType::VoteNo;
     } else if (voteStr == "yes") {
         vote = CProposalVoteType::VoteYes;
-    } else if (voteStr != "neutral") {
+    } else if (neutralVotesAllowed && voteStr != "neutral") {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
+    } else if (!neutralVotesAllowed) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
     }
 
     int targetHeight;
@@ -608,20 +613,21 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (!optionsObj["cycle"].isNull()) {
             inputCycle = optionsObj["cycle"].get_int();
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+        }
+
+        if (inputCycle == 0) {
+            auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
+            cycle = prop->cycle;
+        } else if (inputCycle > 0) {
+            cycle = inputCycle;
+        } else if (inputCycle == -1) {
+            cycle = 1;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
         }
 
         if (!optionsObj["pagination"].isNull()) {
@@ -655,21 +661,21 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (request.params.size() > 2) {
             inputCycle = request.params[2].get_int();
+        }
 
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+        if (inputCycle == 0) {
+            auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
+            cycle = prop->cycle;
+        } else if (inputCycle > 0) {
+            cycle = inputCycle;
+        } else if (inputCycle == -1) {
+            cycle = 1;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
         }
 
         if (request.params.size() > 3) {
