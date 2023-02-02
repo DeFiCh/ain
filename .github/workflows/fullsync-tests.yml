@@ -10,6 +10,11 @@ on:
       block_ranges:
         description: 'Optionally restrict to specific block ranges. Should be formatted as multiple start block, such as "350000 50000 750000". Defaults to all block ranges'
         required: false
+      name:
+        description: 'Workflow run custom name'
+        require: false
+
+run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
   build-binaries:

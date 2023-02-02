@@ -91,7 +91,7 @@ std::optional<CProposalObject> CProposalView::GetProposal(const CProposalId &pro
         if (auto cycle = ReadBy<ByStatus, uint8_t>(key)) {
             prop->cycle          = *cycle;
             prop->status         = status;
-            prop->cycleEndHeight = prop->creationHeight +
+            prop->cycleEndHeight = prop->options & CProposalOption::Emergency ? prop->proposalEndHeight : prop->creationHeight +
                                    (prop->votingPeriod - prop->creationHeight % prop->votingPeriod) +
                                    prop->votingPeriod * *cycle;
             return true;

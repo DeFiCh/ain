@@ -146,6 +146,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, cfp1, mn1, "yes")
 
+        assert_raises_rpc_error(-8, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704", self.nodes[0].votegov, cfp1, mn0, "neutral")
+
         # Vote on proposal
         self.nodes[0].votegov(cfp1, mn0, "yes")
         self.nodes[0].generate(1)
@@ -156,7 +158,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "yes")
 
         # voting period
         votingPeriod = 70
@@ -519,8 +521,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-        cycle1 = creationHeight + (emergencyPeriod - creationHeight % emergencyPeriod) + emergencyPeriod
-        proposalEndHeight = creationHeight + emergencyPeriod
+        cycle1 = creationHeight + emergencyPeriod
+        proposalEndHeight = cycle1
 
         # Check results
         result = self.nodes[0].getgovproposal(tx)
@@ -658,9 +660,9 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         assert_equal(self.nodes[0].listgovproposals({"cycle":1, "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
-        assert_equal(len(self.nodes[0].listgovproposals({"cycle":5})), 3)
-        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
-        assert_equal(self.nodes[0].listgovproposals({"cycle":5, "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
+        assert_equal(len(self.nodes[0].listgovproposals({"cycle":6})), 3)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":6, "pagination": {"start": tx2, "including_start": True, "limit": 1}})[0]["proposalId"], tx2)
+        assert_equal(self.nodes[0].listgovproposals({"cycle":6, "pagination": {"start": tx3, "including_start": True, "limit": 1}})[0]["proposalId"], tx3)
 
         assert_equal(len(self.nodes[0].listgovproposals({"type": "cfp"})), 5)
         assert_equal(self.nodes[0].listgovproposals({"type": "cfp", "pagination": {"start": cfp1, "including_start": True, "limit": 1}})[0]["proposalId"], cfp1)
