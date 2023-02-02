@@ -113,10 +113,11 @@ Res CheckRes(T &&res, std::tuple<Args...> &&args) {
     if constexpr (size == 0) {
         static_assert(std::is_convertible_v<T, Res>);
         return std::forward<T>(res);
-    } else if constexpr (std::
-                             is_invocable_r_v<std::string, std::tuple_element_t<0, std::tuple<Args...>>, std::string>) {
+    } else if constexpr (std::is_invocable_r_v<std::string, std::tuple_element_t<0, std::tuple<Args...>>, std::string>) {
         static_assert(std::is_convertible_v<T, Res>);
         return Res::Err(std::invoke(std::get<0>(args), res.msg));
+    } else if constexpr (size == 1 && std::is_invocable_r_v<std::string, std::tuple_element_t<0, std::tuple<Args...>>>) {
+        return Res::Err(std::invoke(std::get<0>(args)));
     } else {
         return Res::Err(args, std::make_index_sequence<size>{});
     }
