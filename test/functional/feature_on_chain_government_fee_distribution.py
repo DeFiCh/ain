@@ -9,10 +9,9 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
 )
+from decimal import ROUND_DOWN, Decimal
 
 VOTING_PERIOD=70
-
-from decimal import ROUND_DOWN, Decimal
 
 class CFPFeeDistributionTest(DefiTestFramework):
     def set_test_params(self):
