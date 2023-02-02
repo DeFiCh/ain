@@ -10,16 +10,16 @@ from test_framework.util import (
     assert_equal,
 )
 
-APPROVAL_THRESHOLD=50
-QUORUM=50
-VOTING_PERIOD=10
+APPROVAL_THRESHOLD = 50
+QUORUM = 50
+VOTING_PERIOD = 10
 
 class OCGVotingScenarionTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-jellyfish_regtest=1', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-simulatemainnet=1'],
+            ['-jellyfish_regtest=1', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-simulatemainnet=1', '-rpc-governance-accept-neutral=1'],
         ]
 
     def setup_masternodes(self, nMasternodes = 19):
