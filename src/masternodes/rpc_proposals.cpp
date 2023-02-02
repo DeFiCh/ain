@@ -594,20 +594,21 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (!optionsObj["cycle"].isNull()) {
             inputCycle = optionsObj["cycle"].get_int();
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+        }
+
+        if (inputCycle == 0) {
+            auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
+            cycle = prop->cycle;
+        } else if (inputCycle > 0) {
+            cycle = inputCycle;
+        } else if (inputCycle == -1) {
+            cycle = 1;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
         }
 
         if (!optionsObj["pagination"].isNull()) {
@@ -641,21 +642,21 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (request.params.size() > 2) {
             inputCycle = request.params[2].get_int();
+        }
 
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+        if (inputCycle == 0) {
+            auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
+            cycle = prop->cycle;
+        } else if (inputCycle > 0) {
+            cycle = inputCycle;
+        } else if (inputCycle == -1) {
+            cycle = 1;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
         }
 
         if (request.params.size() > 3) {
