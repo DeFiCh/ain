@@ -100,12 +100,13 @@ UniValue proposalToJSON(const CProposalId &propId,
     return ret;
 }
 
-UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
+UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote, bool valid) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("masternodeId", mnId.GetHex());
     ret.pushKV("cycle", int(cycle));
     ret.pushKV("vote", CProposalVoteToString(vote));
+    ret.pushKV("valid", valid);
     return ret;
 }
 
@@ -590,6 +591,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 RPCArg::Type::BOOL,
                 RPCArg::Optional::OMITTED,
                 "0: return raw vote data, 1: return total votes by type"
+            },
+            {
+                "valid",
+                RPCArg::Type::BOOL,
+                RPCArg::Optional::OMITTED,
+                "0: show only invalid votes at current height, 1: show only valid votes at current height (default: 1)"
             }
           },
         RPCResult{"{id:{...},...}     (array) Json object with proposal vote information\n"},
@@ -611,6 +618,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     int8_t inputCycle{0};
     bool aggregate = true;
     bool latestOnly = true;
+    bool validOnly = true;
 
     size_t limit         = 100;
     size_t start         = 0;
@@ -661,6 +669,10 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             aggregate = optionsObj["aggregate"].getBool();
         }
 
+        if (!optionsObj["valid"].isNull()) {
+            validOnly = optionsObj["valid"].getBool();
+        }
+
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
@@ -708,6 +720,10 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             aggregate = request.params[4].getBool();
         }
 
+        if (request.params.size() > 5) {
+            validOnly = request.params[5].getBool();
+        }
+
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
@@ -748,11 +764,29 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             if (aggregate && latestOnly && propCycle != view.GetProposal(pId)->cycle)
                 return true;
 
+            int targetHeight;
+            auto prop = view.GetProposal(propId);
+            if (prop->status == CProposalStatusType::Voting) {
+                targetHeight = view.GetLastHeight() + 1;
+            } else {
+                targetHeight = prop->cycleEndHeight;
+            }
+
             if (isMine) {
                 auto node = view.GetMasternode(id);
                 if (!node) {
                     return true;
                 }
+
+                bool valid = true;
+                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
+                    valid = false;
+                }
+
+                if (validOnly && !valid)
+                    return true;
+                if (!validOnly && valid)
+                    return true;
 
                 // skip entries until we reach start index
                 if (!aggregate && start != 0) {
@@ -764,7 +798,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                                                       : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
                 if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
                     if (!aggregate) {
-                        ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+                        ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote, valid));
                         limit--;
                     } else {
                         proposalVoteAccounting(vote, pId, map);
@@ -777,8 +811,19 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                     return true;
                 }
 
+                bool valid = true;
+                auto node = view.GetMasternode(id);
+                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
+                    valid = false;
+                }
+
+                if (validOnly && !valid)
+                    return true;
+                if (!validOnly && valid)
+                    return true;
+
                 if (!aggregate) {
-                    ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+                    ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote, valid));
                     limit--;
                 } else {
                     proposalVoteAccounting(vote, pId, map);

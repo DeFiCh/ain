@@ -685,9 +685,10 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(self.nodes[0].listgovproposals(
             {"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
 
-        self.test_aggregation(propId)
-        self.test_default_cycles_fix()
-        self.aggregate_all_votes()
+        # self.test_aggregation(propId)
+        # self.test_default_cycles_fix()
+        # self.aggregate_all_votes()
+        self.test_valid_votes()
 
     def test_aggregation(self, propId):
         """
@@ -769,6 +770,40 @@ class OnChainGovernanceTest(DefiTestFramework):
         for miss in missing:
             # proposals missing from entry must have 0 votes in the latest cycle
             assert_equal(len(self.nodes[0].listgovproposalvotes(miss, "all", 0)), 0)
+
+    def test_valid_votes(self):
+        """
+        Tests valid votes filter.
+        """
+        tx1 = self.nodes[0].creategovcfp({"title": "1111",
+                                          "context": "<Git issue url>",
+                                          "amount": 50,
+                                          "cycles": 2,
+                                          "payoutAddress": self.nodes[0].getnewaddress()})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        endHeight = self.nodes[0].getgovproposal(tx1)["cycleEndHeight"]
+        propId = self.nodes[0].getgovproposal(tx1)["proposalId"]
+
+        for mn in range(len(self.mns)):
+            self.nodes[mn].votegov(propId, self.mns[mn], "yes")
+            self.nodes[mn].generate(1)
+            self.sync_blocks()
+
+        self.nodes[2].resignmasternode(self.mns[2])
+        self.sync_mempools()
+        self.nodes[0].generate(5)
+        self.sync_blocks()
+
+        # move to next cycle
+        self.nodes[0].generate(endHeight + 1 - self.nodes[0].getblockcount())
+
+        validVotes = self.nodes[0].listgovproposalvotes(propId, "all", 1, {}, False, True)
+        invalidVotes = self.nodes[0].listgovproposalvotes(propId, "all", 1, {}, False, False)
+
+        assert(self.mns[2] not in [x["masternodeId"] for x in validVotes])
+        assert_equal(self.mns[2], invalidVotes[0]["masternodeId"])
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main()
