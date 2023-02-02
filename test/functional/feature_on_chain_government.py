@@ -147,6 +147,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, cfp1, mn1, "yes")
 
+        assert_raises_rpc_error(-8, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704", self.nodes[0].votegov, cfp1, mn0, "neutral")
+
         # Vote on proposal
         self.nodes[0].votegov(cfp1, mn0, "yes")
         self.nodes[0].generate(1)
@@ -157,7 +159,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "yes")
 
         # voting period
         votingPeriod = 70
