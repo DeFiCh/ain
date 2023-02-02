@@ -9,6 +9,7 @@ struct VotingInfo {
     int32_t votesPossible;
     int32_t votesPresent;
     int32_t votesYes;
+    int32_t votesInvalid;
 };
 
 UniValue proposalToJSON(const CProposalId &propId,
@@ -45,6 +46,7 @@ UniValue proposalToJSON(const CProposalId &propId,
     auto votesPresentPct              = -1;
     auto votesYes                     = -1;
     auto votesYesPct                  = -1;
+    auto votesInvalid                 = -1;
     std::string votesPresentPctString = "-1";
     std::string votesYesPctString     = "-1";
 
@@ -53,6 +55,7 @@ UniValue proposalToJSON(const CProposalId &propId,
         votesPresent  = votingInfo->votesPresent;
         votesYes      = votingInfo->votesYes;
         votesPossible = votingInfo->votesPossible;
+        votesInvalid  = votingInfo->votesInvalid;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
         votesYesPct     = lround(votesYes * 10000.f / votesPresent);
@@ -86,6 +89,7 @@ UniValue proposalToJSON(const CProposalId &propId,
         ret.pushKV("votesPresentPct", votesPresentPctString);
         ret.pushKV("votesYes", votesYes);
         ret.pushKV("votesYesPct", votesYesPctString);
+        ret.pushKV("votesInvalid", votesInvalid);
     }
     ret.pushKV("approvalThreshold", approvalThresholdString);
     ret.pushKV("fee", feeTotalValue);
@@ -768,7 +772,7 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
         return proposalToJSON(propId, *prop, view, std::nullopt);
     }
 
-    uint32_t voteYes = 0, voters = 0;
+    uint32_t voteYes = 0, voteInvalid = 0, voters = 0;
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop->cycle) {
@@ -779,6 +783,8 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
                 if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
                 }
+            } else {
+                ++voteInvalid;
             }
             return true;
         },
@@ -792,6 +798,7 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
     info.votesPossible = activeMasternodes.size();
     info.votesPresent  = voters;
     info.votesYes      = voteYes;
+    info.votesInvalid   = voteInvalid;
 
     return proposalToJSON(propId, *prop, view, info);
 }
