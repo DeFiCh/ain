@@ -99,8 +99,8 @@ UniValue proposalToJSON(const CProposalId &propId,
         ret.pushKV("votesNo", votesNo);
         ret.pushKV("votesNeutral", votesNeutral);
         ret.pushKV("votesInvalid", votesInvalid);
-        ret.pushKV("feeRewardPerVote", ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
-        ret.pushKV("feeRewardTotal", ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN), votesPresent * COIN)));
+        ret.pushKV("feeRedistributionPerVote", ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
+        ret.pushKV("feeRedistributionTotal", ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN), votesPresent * COIN)));
     }
     ret.pushKV("fee", feeTotalValue);
     // ret.pushKV("feeBurn", feeBurnValue);
