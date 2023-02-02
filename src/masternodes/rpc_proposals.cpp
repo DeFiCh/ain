@@ -119,10 +119,9 @@ void proposalVoteAccounting(const CProposalVoteType &vote, uint256 propId, std::
     const auto voteString = CProposalVoteToString(vote);
 
     if (map.find(propId.GetHex()) == map.end())
-        map.emplace(propId.GetHex(), VoteAccounting{0,0,0,0,0});
+        map.emplace(propId.GetHex(), VoteAccounting{0, 0, 0, 0, 0});
 
     auto entry = &map.find(propId.GetHex())->second;
-
 
     if (voteString == "YES")
         ++entry->yesVotes;
@@ -606,6 +605,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     uint8_t cycle{1};
     int8_t inputCycle{0};
     bool aggregate = true;
+    bool latestOnly = true;
 
     size_t limit         = 100;
     size_t start         = 0;
@@ -618,6 +618,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
             aggregate = false;
             isMine = true;
+            latestOnly = false;
         }
 
         if (!optionsObj["masternode"].isNull()) {
@@ -631,20 +632,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (!optionsObj["cycle"].isNull()) {
             inputCycle = optionsObj["cycle"].get_int();
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
-            }
+            latestOnly = false;
         }
 
         if (!optionsObj["pagination"].isNull()) {
@@ -676,6 +664,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             propId = ParseHashV(request.params[0].get_str(), "proposalId");
             aggregate = false;
             isMine = true;
+            latestOnly = false;
         }
 
         if (request.params.size() > 1) {
@@ -690,21 +679,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
         if (request.params.size() > 2) {
             inputCycle = request.params[2].get_int();
-
-            if (inputCycle == 0) {
-                auto prop = view.GetProposal(propId);
-                if (!prop) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
-                }
-                cycle = prop->cycle;
-            } else if (inputCycle > 0) {
-                cycle = inputCycle;
-            } else if (inputCycle == -1) {
-                cycle = 1;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
-            }
+            latestOnly = false;
         }
 
         if (request.params.size() > 3) {
@@ -733,6 +708,24 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         }
     }
 
+    if (inputCycle == 0) {
+        if (!propId.IsNull()) {
+            auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
+            }
+            cycle = prop->cycle;
+        } else {
+            inputCycle = -1;
+        }
+    } else if (inputCycle > 0) {
+        cycle = inputCycle;
+    } else if (inputCycle == -1) {
+        cycle = 1;
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+    }
+
     UniValue ret(UniValue::VARR);
 
     std::map<std::string, VoteAccounting> map;
@@ -746,6 +739,9 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             if (inputCycle != -1 && cycle != propCycle) {
                 return false;
             }
+
+            if (aggregate && latestOnly && propCycle != view.GetProposal(pId)->cycle)
+                return true;
 
             if (isMine) {
                 auto node = view.GetMasternode(id);
