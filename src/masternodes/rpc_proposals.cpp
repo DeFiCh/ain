@@ -7,7 +7,7 @@ const bool DEFAULT_RPC_GOV_NEUTRAL = false;
 
 struct VotingInfo {
     int32_t votesPossible = 0;
-    int32_t votesPresent =0;
+    int32_t votesPresent = 0;
     int32_t votesYes = 0;
     int32_t votesNo = 0;
     int32_t votesNeutral = 0;
