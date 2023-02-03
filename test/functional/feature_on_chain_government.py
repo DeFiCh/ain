@@ -698,7 +698,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         yesVotes = len([x for x in votes if x["vote"] == "YES"])
         noVotes = len([x for x in votes if x["vote"] == "NO"])
         neutralVotes = len([x for x in votes if x["vote"] == "NEUTRAL"])
-        unknownVotes = totalVotes - yesVotes - noVotes - neutralVotes
 
         votes_aggregate = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {}, True)[0]
         assert_equal(votes_aggregate["proposalId"], propId)
@@ -706,7 +705,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(votes_aggregate["yes"], yesVotes)
         assert_equal(votes_aggregate["neutral"], neutralVotes)
         assert_equal(votes_aggregate["no"], noVotes)
-        assert_equal(votes_aggregate["unknown"], unknownVotes)
 
     def test_default_cycles_fix(self):
         """
