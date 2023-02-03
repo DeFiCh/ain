@@ -6,9 +6,12 @@
 const bool DEFAULT_RPC_GOV_NEUTRAL = false;
 
 struct VotingInfo {
-    int32_t votesPossible;
-    int32_t votesPresent;
-    int32_t votesYes;
+    int32_t votesPossible = 0;
+    int32_t votesPresent = 0;
+    int32_t votesYes = 0;
+    int32_t votesNo = 0;
+    int32_t votesNeutral = 0;
+    int32_t votesInvalid = 0;
 };
 
 UniValue proposalToJSON(const CProposalId &propId,
@@ -109,32 +112,22 @@ UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint
     return ret;
 }
 
-struct VoteAccounting {
-    int totalVotes;
-    int yesVotes;
-    int neutralVotes;
-    int noVotes;
-    int unknownVotes;
-};
-
-void proposalVoteAccounting(const CProposalVoteType &vote, uint256 propId, std::map<std::string, VoteAccounting> &map) {
+void proposalVoteAccounting(const CProposalVoteType &vote, uint256 propId, std::map<std::string, VotingInfo> &map) {
     const auto voteString = CProposalVoteToString(vote);
 
     if (map.find(propId.GetHex()) == map.end())
-        map.emplace(propId.GetHex(), VoteAccounting{0, 0, 0, 0, 0});
+        map.emplace(propId.GetHex(), VotingInfo{0, 0, 0, 0, 0, 0});
 
     auto entry = &map.find(propId.GetHex())->second;
 
     if (voteString == "YES")
-        ++entry->yesVotes;
+        ++entry->votesYes;
     else if (voteString == "NEUTRAL")
-        ++entry->neutralVotes;
+        ++entry->votesNeutral;
     else if (voteString == "NO")
-        ++entry->noVotes;
-    else
-        ++entry->unknownVotes;
+        ++entry->votesNo;
 
-    ++entry->totalVotes;
+    ++entry->votesPresent;
 }
 
 /*
@@ -733,7 +726,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    std::map<std::string, VoteAccounting> map;
+    std::map<std::string, VotingInfo> map;
 
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
@@ -794,11 +787,10 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             UniValue stats(UniValue::VOBJ);
 
             stats.pushKV("proposalId", entry.first);
-            stats.pushKV("total", entry.second.totalVotes);
-            stats.pushKV("yes", entry.second.yesVotes);
-            stats.pushKV("neutral", entry.second.neutralVotes);
-            stats.pushKV("no", entry.second.noVotes);
-            stats.pushKV("unknown", entry.second.unknownVotes);
+            stats.pushKV("total", entry.second.votesPresent);
+            stats.pushKV("yes", entry.second.votesYes);
+            stats.pushKV("neutral", entry.second.votesNeutral);
+            stats.pushKV("no", entry.second.votesNo);
 
             ret.push_back(stats);
         }
