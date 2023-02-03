@@ -1034,9 +1034,9 @@ static const CRPCCommand commands[] = {
     {"proposals", "creategovcfp",         &creategovcfp,         {"data", "inputs"}                                  },
     {"proposals", "creategovvoc",         &creategovvoc,         {"data", "inputs"}                                  },
     {"proposals", "votegov",              &votegov,              {"proposalId", "masternodeId", "decision", "inputs"}},
-    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle"}               },
+    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle", "pagination"} },
     {"proposals", "getgovproposal",       &getgovproposal,       {"proposalId"}                                      },
-    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle"}                         },
+    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle", "pagination"}           },
 };
 
 void RegisterProposalRPCCommands(CRPCTable &tableRPC) {
