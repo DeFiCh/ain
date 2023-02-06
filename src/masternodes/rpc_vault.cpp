@@ -1318,6 +1318,11 @@ UniValue historyToJSON(VaultHistoryKey const & key, VaultHistoryValue const & va
                        key.txn, value.txid.ToString(), value.diff);
 }
 
+UniValue collateralToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+    return vaultToJSON(key.vaultID, "vaultCollateral", key.blockHeight, ToString(CustomTxCodeToType(value.category)),
+                       key.txn, value.txid.ToString(), value.diff);
+}
+
 UniValue schemeToJSON(VaultSchemeKey const & key, const VaultGlobalSchemeValue& value) {
     auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, ToString(CustomTxCodeToType(value.category)), 0, value.txid.ToString(), {});
 
@@ -1469,7 +1474,12 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
         }
 
         auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(historyToJSON(key, value));
+
+        if (key.address.empty()) {
+            array.push_back(collateralToJSON(key, value));
+        } else {
+            array.push_back(historyToJSON(key, value));
+        }
 
         return --count != 0;
     };

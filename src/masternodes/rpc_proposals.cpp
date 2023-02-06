@@ -48,6 +48,9 @@ UniValue proposalToJSON(const CProposalId &propId,
     auto votesPresentPct              = -1;
     auto votesYes                     = -1;
     auto votesYesPct                  = -1;
+    auto votesNo                      = -1;
+    auto votesNeutral                 = -1;
+    auto votesInvalid                 = -1;
     std::string votesPresentPctString = "-1";
     std::string votesYesPctString     = "-1";
 
@@ -55,6 +58,9 @@ UniValue proposalToJSON(const CProposalId &propId,
     if (isVotingInfoAvailable) {
         votesPresent  = votingInfo->votesPresent;
         votesYes      = votingInfo->votesYes;
+        votesNo       = votingInfo->votesNo;
+        votesNeutral  = votingInfo->votesNeutral;
+        votesInvalid  = votingInfo->votesInvalid;
         votesPossible = votingInfo->votesPossible;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
@@ -83,14 +89,19 @@ UniValue proposalToJSON(const CProposalId &propId,
     ret.pushKV("proposalEndHeight", proposalEndHeight);
     ret.pushKV("votingPeriod", votingPeriod);
     ret.pushKV("quorum", quorumString);
+    ret.pushKV("approvalThreshold", approvalThresholdString);
     if (isVotingInfoAvailable) {
         ret.pushKV("votesPossible", votesPossible);
         ret.pushKV("votesPresent", votesPresent);
         ret.pushKV("votesPresentPct", votesPresentPctString);
         ret.pushKV("votesYes", votesYes);
         ret.pushKV("votesYesPct", votesYesPctString);
+        ret.pushKV("votesNo", votesNo);
+        ret.pushKV("votesNeutral", votesNeutral);
+        ret.pushKV("votesInvalid", votesInvalid);
+        ret.pushKV("feeRedistributionPerVote", ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
+        ret.pushKV("feeRedistributionTotal", ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN), votesPresent * COIN)));
     }
-    ret.pushKV("approvalThreshold", approvalThresholdString);
     ret.pushKV("fee", feeTotalValue);
     // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options) {
@@ -597,10 +608,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    if (request.params[0].isObject())
-        RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-    else
+    UniValue optionsObj(UniValue::VOBJ);
+
+    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
         RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL}, true);
+    else if (request.params[0].isObject())
+        optionsObj = request.params[0].get_obj();
 
     CCustomCSView view(*pcustomcsview);
 
@@ -617,8 +630,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     size_t start         = 0;
     bool including_start = true;
 
-    if (request.params[0].isObject()) {
-        auto optionsObj = request.params[0].get_obj();
+    if (!optionsObj.empty()) {
 
         if (!optionsObj["proposalId"].isNull()) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
@@ -884,30 +896,34 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
         return proposalToJSON(propId, *prop, view, std::nullopt);
     }
 
-    uint32_t voteYes = 0, voters = 0;
+    VotingInfo info;
+    info.votesPossible = activeMasternodes.size();
+
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop->cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
-                ++voters;
+                ++info.votesPresent;
                 if (vote == CProposalVoteType::VoteYes) {
-                    ++voteYes;
+                    ++info.votesYes;
+                } else if (vote == CProposalVoteType::VoteNo) {
+                    ++info.votesNo;
+                } else if (vote == CProposalVoteType::VoteNeutral) {
+                    ++info.votesNeutral;
                 }
             }
+            else
+                ++info.votesInvalid;
+
             return true;
         },
         CMnVotePerCycle{propId, prop->cycle});
 
-    if (!voters) {
+    if (!info.votesPresent) {
         return proposalToJSON(propId, *prop, view, std::nullopt);
     }
-
-    VotingInfo info;
-    info.votesPossible = activeMasternodes.size();
-    info.votesPresent  = voters;
-    info.votesYes      = voteYes;
 
     return proposalToJSON(propId, *prop, view, info);
 }
@@ -981,10 +997,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    if (request.params[0].isObject())
-        RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-    else
+    UniValue optionsObj(UniValue::VOBJ);
+
+    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
         RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+    else if (request.params[0].isObject())
+        optionsObj = request.params[0].get_obj();
 
     uint8_t type{0}, status{0};
     int cycle{0};
@@ -992,9 +1010,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     CProposalId start    = {};
     bool including_start = true;
 
-    if (request.params[0].isObject()) {
-        auto optionsObj = request.params[0].get_obj();
-
+    if (!optionsObj.empty()) {
         if (optionsObj.exists("type")) {
             auto str = optionsObj["type"].get_str();
             if (str == "cfp") {
@@ -1149,9 +1165,9 @@ static const CRPCCommand commands[] = {
     {"proposals", "creategovcfp",         &creategovcfp,         {"data", "inputs"}                                  },
     {"proposals", "creategovvoc",         &creategovvoc,         {"data", "inputs"}                                  },
     {"proposals", "votegov",              &votegov,              {"proposalId", "masternodeId", "decision", "inputs"}},
-    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle"}               },
+    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle", "pagination"} },
     {"proposals", "getgovproposal",       &getgovproposal,       {"proposalId"}                                      },
-    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle"}                         },
+    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle", "pagination"}           },
 };
 
 void RegisterProposalRPCCommands(CRPCTable &tableRPC) {
