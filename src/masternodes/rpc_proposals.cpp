@@ -449,7 +449,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         "\nVote for community proposal" + HelpRequiringPassphrase(pwallet) + "\n",
         {
                                                     {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
-                                                    {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id which made the vote"},
+                                                    {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id / owner address / operator address which made the vote"},
                                                     {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
                                                     {
                 "inputs",
@@ -483,7 +483,8 @@ UniValue votegov(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VARR}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-    auto mnId   = ParseHashV(request.params[1].get_str(), "masternodeId");
+    std::string id = request.params[1].get_str();
+    uint256 mnId;
     auto vote   = CProposalVoteType::VoteNeutral;
     auto voteStr = ToLower(request.params[2].get_str());
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
@@ -511,9 +512,32 @@ UniValue votegov(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
                                strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
         }
+        if (id.length() == 64) {
+            mnId = ParseHashV(id, "masternodeId");
+        } else {
+            CTxDestination dest = DecodeDestination(id);
+            if (!IsValidDestination(dest)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                    strprintf("The masternode id or address is not valid: %s", id));
+            }
+            CKeyID ckeyId;
+            if (dest.index() == PKHashType) { 
+                ckeyId = CKeyID(std::get<PKHash>(dest));
+            } else if (dest.index() == WitV0KeyHashType) {
+                ckeyId =  CKeyID(std::get<WitnessV0KeyHash>(dest));
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
+            }
+            if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
+                mnId = masterNodeIdByOwner.value();
+            } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
+                mnId = masterNodeIdByOperator.value();
+            }
+        }
         auto node = view.GetMasternode(mnId);
         if (!node) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", mnId.ToString()));
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
