@@ -754,8 +754,6 @@ CCustomCSView::CCustomCSView() {
     CheckPrefixes();
 }
 
-CCustomCSView::~CCustomCSView() = default;
-
 CCustomCSView::CCustomCSView(CStorageKV &st)
     : CStorageView(new CFlushableStorageKV(st)) {
     CheckPrefixes();
@@ -763,7 +761,17 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
 
 // cache-upon-a-cache (not a copy!) constructor
 CCustomCSView::CCustomCSView(CCustomCSView &other)
-    : CStorageView(new CFlushableStorageKV(other.DB())) {
+    : CStorageView(new CFlushableStorageKV(other.DB())),
+      writers(other.GetHistoryWriters()) {
+    CheckPrefixes();
+}
+
+CCustomCSView::CCustomCSView(CCustomCSView &other,
+                             CAccountHistoryStorage *historyView,
+                             CBurnHistoryStorage *burnView,
+                             CVaultHistoryStorage *vaultView)
+        : CStorageView(new CFlushableStorageKV(other.DB())),
+          writers(historyView, burnView, vaultView) {
     CheckPrefixes();
 }
 
@@ -1249,28 +1257,6 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
-}
-
-CAccountHistoryStorage *CCustomCSView::GetAccountHistoryStore() {
-    return accHistoryStore.get();
-}
-
-CVaultHistoryStorage *CCustomCSView::GetVaultHistoryStore() {
-    return vauHistoryStore.get();
-}
-
-void CCustomCSView::SetAccountHistoryStore() {
-    if (paccountHistoryDB) {
-        accHistoryStore.reset();
-        accHistoryStore = std::make_unique<CAccountHistoryStorage>(*paccountHistoryDB);
-    }
-}
-
-void CCustomCSView::SetVaultHistoryStore() {
-    if (pvaultHistoryDB) {
-        vauHistoryStore.reset();
-        vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
-    }
 }
 
 uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {
