@@ -69,6 +69,8 @@ public:
     ~CAccountsHistoryWriter() override;
     Res AddBalance(const CScript &owner, CTokenAmount amount) override;
     Res SubBalance(const CScript &owner, CTokenAmount amount) override;
+    Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) override;
+    Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) override;
     bool Flush() override;
     CHistoryWriters& GetHistoryWriters() override { return writers; }
 };
