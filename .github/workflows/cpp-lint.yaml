@@ -1,0 +1,48 @@
+name: C++ Lint
+
+on:
+  push:
+    tags:
+      - "!v*"
+    branches:
+      - master
+      - staging
+      - develop
+      - ci/*
+      - epic/*
+      - v*
+  pull_request:
+    branches:
+      - master
+      - develop
+      - staging
+      - ci/*
+      - epic/*
+      - v*
+      - "[0-9]+.[0-9]+.x"
+
+jobs:
+  clang_lint:
+    name: Lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-18.04 ]
+    env:
+      BUILD_VERSION: latest # Computed
+      GITHUB_PULL_REQUEST: ${{ github.event.number }}
+      PYTHON: 3.6
+      TRAVIS_BUILD_DIR: ${{ github.workspace }}
+      TRAVIS_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Set Env
+        run: set -o errexit; source ./ci/test/00_setup_env.sh
+      - name: Lint
+        uses: DoozyX/clang-format-lint-action@v0.14
+        with:
+          source: './src'
+          exclude: './third_party ./external'
+          extensions: 'h,cpp'
+          clangFormatVersion: 14
