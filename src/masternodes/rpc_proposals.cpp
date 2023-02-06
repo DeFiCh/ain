@@ -417,7 +417,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         "\nVote for community proposal" + HelpRequiringPassphrase(pwallet) + "\n",
         {
                                                     {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
-                                                    {"masternodeId/ownerAddress/operatorAdress", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id / owner address / operator address which made the vote"},
+                                                    {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id / owner address / operator address which made the vote"},
                                                     {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
                                                     {
                 "inputs",
