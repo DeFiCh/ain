@@ -154,8 +154,8 @@ public:
                       const CVaultId &start       = {},
                       const CScript &ownerAddress = {});
 
-    Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
-    Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
+    virtual Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
+    virtual Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
     std::optional<CBalances> GetVaultCollaterals(const CVaultId &vaultId);
     void ForEachVaultCollateral(std::function<bool(const CVaultId &, const CBalances &)> callback);
 
