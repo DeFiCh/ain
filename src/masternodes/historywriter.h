@@ -106,9 +106,11 @@ public:
                     CBurnHistoryStorage *burnView,
                     CVaultHistoryStorage *vaultView);
 
-    void AddBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID);
+    void AddBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID);
     void AddFeeBurn(const CScript &owner, const CAmount amount);
-    void SubBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID);
+    void SubBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID);
+    void AddVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID);
+    void SubVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID);
 
     void ClearState();
     void FlushDB();

@@ -601,10 +601,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    if (request.params[0].isObject())
-        RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-    else
+    UniValue optionsObj(UniValue::VOBJ);
+
+    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
         RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL}, true);
+    else if (request.params[0].isObject())
+        optionsObj = request.params[0].get_obj();
 
     CCustomCSView view(*pcustomcsview);
 
@@ -620,8 +622,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     size_t start         = 0;
     bool including_start = true;
 
-    if (request.params[0].isObject()) {
-        auto optionsObj = request.params[0].get_obj();
+    if (!optionsObj.empty()) {
 
         if (!optionsObj["proposalId"].isNull()) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
@@ -951,10 +952,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    if (request.params[0].isObject())
-        RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-    else
+    UniValue optionsObj(UniValue::VOBJ);
+
+    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
         RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+    else if (request.params[0].isObject())
+        optionsObj = request.params[0].get_obj();
 
     uint8_t type{0}, status{0};
     int cycle{0};
@@ -962,9 +965,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     CProposalId start    = {};
     bool including_start = true;
 
-    if (request.params[0].isObject()) {
-        auto optionsObj = request.params[0].get_obj();
-
+    if (!optionsObj.empty()) {
         if (optionsObj.exists("type")) {
             auto str = optionsObj["type"].get_str();
             if (str == "cfp") {
@@ -1119,9 +1120,9 @@ static const CRPCCommand commands[] = {
     {"proposals", "creategovcfp",         &creategovcfp,         {"data", "inputs"}                                  },
     {"proposals", "creategovvoc",         &creategovvoc,         {"data", "inputs"}                                  },
     {"proposals", "votegov",              &votegov,              {"proposalId", "masternodeId", "decision", "inputs"}},
-    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle"}               },
+    {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle", "pagination"} },
     {"proposals", "getgovproposal",       &getgovproposal,       {"proposalId"}                                      },
-    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle"}                         },
+    {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle", "pagination"}           },
 };
 
 void RegisterProposalRPCCommands(CRPCTable &tableRPC) {

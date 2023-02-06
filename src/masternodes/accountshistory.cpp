@@ -129,16 +129,16 @@ Res CAccountsHistoryWriter::SubBalance(const CScript &owner, CTokenAmount amount
 
 Res CAccountsHistoryWriter::AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
     auto res = CCustomCSView::AddVaultCollateral(vaultId, amount);
-    if (writers && res && amount.nValue) {
-        writers->AddVaultCollateral(amount, vaultID);
+    if (res && amount.nValue) {
+        writers.AddVaultCollateral(amount, vaultID);
     }
     return res;
 }
 
 Res CAccountsHistoryWriter::SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
     auto res = CCustomCSView::SubVaultCollateral(vaultId, amount);
-    if (writers && res && amount.nValue) {
-        writers->SubVaultCollateral(amount, vaultID);
+    if (res && amount.nValue) {
+        writers.SubVaultCollateral(amount, vaultID);
     }
     return res;
 }
