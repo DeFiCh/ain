@@ -6,9 +6,12 @@
 const bool DEFAULT_RPC_GOV_NEUTRAL = false;
 
 struct VotingInfo {
-    int32_t votesPossible;
-    int32_t votesPresent;
-    int32_t votesYes;
+    int32_t votesPossible = 0;
+    int32_t votesPresent = 0;
+    int32_t votesYes = 0;
+    int32_t votesNo = 0;
+    int32_t votesNeutral = 0;
+    int32_t votesInvalid = 0;
 };
 
 UniValue proposalToJSON(const CProposalId &propId,
@@ -45,6 +48,9 @@ UniValue proposalToJSON(const CProposalId &propId,
     auto votesPresentPct              = -1;
     auto votesYes                     = -1;
     auto votesYesPct                  = -1;
+    auto votesNo                      = -1;
+    auto votesNeutral                 = -1;
+    auto votesInvalid                 = -1;
     std::string votesPresentPctString = "-1";
     std::string votesYesPctString     = "-1";
 
@@ -52,6 +58,9 @@ UniValue proposalToJSON(const CProposalId &propId,
     if (isVotingInfoAvailable) {
         votesPresent  = votingInfo->votesPresent;
         votesYes      = votingInfo->votesYes;
+        votesNo       = votingInfo->votesNo;
+        votesNeutral  = votingInfo->votesNeutral;
+        votesInvalid  = votingInfo->votesInvalid;
         votesPossible = votingInfo->votesPossible;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
@@ -80,14 +89,19 @@ UniValue proposalToJSON(const CProposalId &propId,
     ret.pushKV("proposalEndHeight", proposalEndHeight);
     ret.pushKV("votingPeriod", votingPeriod);
     ret.pushKV("quorum", quorumString);
+    ret.pushKV("approvalThreshold", approvalThresholdString);
     if (isVotingInfoAvailable) {
         ret.pushKV("votesPossible", votesPossible);
         ret.pushKV("votesPresent", votesPresent);
         ret.pushKV("votesPresentPct", votesPresentPctString);
         ret.pushKV("votesYes", votesYes);
         ret.pushKV("votesYesPct", votesYesPctString);
+        ret.pushKV("votesNo", votesNo);
+        ret.pushKV("votesNeutral", votesNeutral);
+        ret.pushKV("votesInvalid", votesInvalid);
+        ret.pushKV("feeRedistributionPerVote", ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
+        ret.pushKV("feeRedistributionTotal", ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN), votesPresent * COIN)));
     }
-    ret.pushKV("approvalThreshold", approvalThresholdString);
     ret.pushKV("fee", feeTotalValue);
     // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options) {
@@ -768,30 +782,34 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
         return proposalToJSON(propId, *prop, view, std::nullopt);
     }
 
-    uint32_t voteYes = 0, voters = 0;
+    VotingInfo info;
+    info.votesPossible = activeMasternodes.size();
+
     view.ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop->cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
-                ++voters;
+                ++info.votesPresent;
                 if (vote == CProposalVoteType::VoteYes) {
-                    ++voteYes;
+                    ++info.votesYes;
+                } else if (vote == CProposalVoteType::VoteNo) {
+                    ++info.votesNo;
+                } else if (vote == CProposalVoteType::VoteNeutral) {
+                    ++info.votesNeutral;
                 }
             }
+            else
+                ++info.votesInvalid;
+
             return true;
         },
         CMnVotePerCycle{propId, prop->cycle});
 
-    if (!voters) {
+    if (!info.votesPresent) {
         return proposalToJSON(propId, *prop, view, std::nullopt);
     }
-
-    VotingInfo info;
-    info.votesPossible = activeMasternodes.size();
-    info.votesPresent  = voters;
-    info.votesYes      = voteYes;
 
     return proposalToJSON(propId, *prop, view, info);
 }
