@@ -20,7 +20,7 @@ CHistoryWriters::CHistoryWriters(CAccountHistoryStorage *historyView,
 
 
 
-void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID) {
+void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID) {
     if (historyView) {
         diffs[owner][amount.nTokenId] += amount.nValue;
     }
@@ -38,7 +38,7 @@ void CHistoryWriters::AddFeeBurn(const CScript &owner, const CAmount amount) {
     }
 }
 
-void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID) {
+void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID) {
     if (historyView) {
         diffs[owner][amount.nTokenId] -= amount.nValue;
     }
@@ -47,6 +47,18 @@ void CHistoryWriters::SubBalance(const CScript &owner, const CTokenAmount amount
     }
     if (vaultView && !vaultID.IsNull()) {
         vaultDiffs[vaultID][owner][amount.nTokenId] -= amount.nValue;
+    }
+}
+
+void CHistoryWriters::AddVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID) {
+    if (vaultView) {
+        vaultDiffs[vaultID][{}][amount.nTokenId] += amount.nValue;
+    }
+}
+
+void CHistoryWriters::SubVaultCollateral(const CTokenAmount &amount, const uint256 &vaultID) {
+    if (vaultView) {
+        vaultDiffs[vaultID][{}][amount.nTokenId] -= amount.nValue;
     }
 }
 
