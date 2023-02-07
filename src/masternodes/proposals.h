@@ -12,39 +12,39 @@
 #include <serialize.h>
 #include <uint256.h>
 
-using CPropId                                  = uint256;
-constexpr const uint8_t VOC_CYCLES             = 1;
-constexpr const uint8_t MAX_CYCLES             = 100;
-constexpr const uint16_t MAX_PROP_TITLE_SIZE   = 128;
-constexpr const uint16_t MAX_PROP_CONTEXT_SIZE = 512;
+using CProposalId                                  = uint256;
+constexpr const uint8_t VOC_CYCLES                 = 1;
+constexpr const uint8_t MAX_CYCLES                 = 100;
+constexpr const uint16_t MAX_PROPOSAL_TITLE_SIZE   = 128;
+constexpr const uint16_t MAX_PROPOSAL_CONTEXT_SIZE = 512;
 
-enum CPropType : uint8_t {
+enum CProposalType : uint8_t {
     CommunityFundProposal = 0x01,
     VoteOfConfidence      = 0x02,
 };
 
-enum CPropOption : uint8_t {
+enum CProposalOption : uint8_t {
     Emergency = 0x01,
 };
 
-enum CPropStatusType : uint8_t {
+enum CProposalStatusType : uint8_t {
     Voting    = 0x01,
     Rejected  = 0x02,
     Completed = 0x03,
 };
 
-enum CPropVoteType : uint8_t {
+enum CProposalVoteType : uint8_t {
     VoteYes     = 0x01,
     VoteNo      = 0x02,
     VoteNeutral = 0x03,
 };
 
-std::string CPropTypeToString(const CPropType status);
-std::string CPropOptionToString(const CPropOption option);
-std::string CPropVoteToString(const CPropVoteType status);
-std::string CPropStatusToString(const CPropStatusType status);
+std::string CProposalTypeToString(const CProposalType status);
+std::string CProposalOptionToString(const CProposalOption option);
+std::string CProposalVoteToString(const CProposalVoteType status);
+std::string CProposalStatusToString(const CProposalStatusType status);
 
-struct CCreatePropMessage {
+struct CCreateProposalMessage {
     uint8_t type;
     CScript address;
     CAmount nAmount;
@@ -69,8 +69,8 @@ struct CCreatePropMessage {
     }
 };
 
-struct CPropVoteMessage {
-    CPropId propId;
+struct CProposalVoteMessage {
+    CProposalId propId;
     uint256 masternodeId;
     uint8_t vote;
 
@@ -84,10 +84,10 @@ struct CPropVoteMessage {
     }
 };
 
-struct CPropObject : public CCreatePropMessage {
-    CPropObject() = default;
-    explicit CPropObject(const CCreatePropMessage &other)
-        : CCreatePropMessage(other) {}
+struct CProposalObject : public CCreateProposalMessage {
+    CProposalObject() = default;
+    explicit CProposalObject(const CCreateProposalMessage &other)
+        : CCreateProposalMessage(other) {}
 
     uint32_t creationHeight{};
     uint32_t proposalEndHeight{};
@@ -99,7 +99,7 @@ struct CPropObject : public CCreatePropMessage {
     CAmount feeBurnAmount;
 
     // memory only
-    CPropStatusType status{};
+    CProposalStatusType status{};
     uint8_t cycle{};
     uint32_t cycleEndHeight{};
 
@@ -107,7 +107,7 @@ struct CPropObject : public CCreatePropMessage {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITEAS(CCreatePropMessage, *this);
+        READWRITEAS(CCreateProposalMessage, *this);
         READWRITE(creationHeight);
         READWRITE(proposalEndHeight);
         READWRITE(votingPeriod);
@@ -119,7 +119,7 @@ struct CPropObject : public CCreatePropMessage {
 };
 
 struct CMnVotePerCycle {
-    CPropId propId;
+    CProposalId propId;
     uint8_t cycle;
     uint256 masternodeId;
 
@@ -134,25 +134,34 @@ struct CMnVotePerCycle {
 };
 
 /// View for managing proposals and their data
-class CPropsView : public virtual CStorageView {
+class CProposalView : public virtual CStorageView {
 public:
-    Res CreateProp(const CPropId &propId, uint32_t height, const CCreatePropMessage &prop, const CAmount fee);
-    std::optional<CPropObject> GetProp(const CPropId &propId);
-    Res UpdatePropCycle(const CPropId &propId, uint8_t cycle);
-    Res UpdatePropStatus(const CPropId &propId, uint32_t height, CPropStatusType status);
-    Res AddPropVote(const CPropId &propId, const uint256 &masternodeId, CPropVoteType vote);
-    std::optional<CPropVoteType> GetPropVote(const CPropId &propId, uint8_t cycle, const uint256 &masternodeId);
+    Res CreateProposal(const CProposalId &propId,
+                       uint32_t height,
+                       const CCreateProposalMessage &prop,
+                       const CAmount fee);
+    std::optional<CProposalObject> GetProposal(const CProposalId &propId);
+    Res UpdateProposalCycle(const CProposalId &propId, uint8_t cycle);
+    Res UpdateProposalStatus(const CProposalId &propId, uint32_t height, CProposalStatusType status);
+    Res AddProposalVote(const CProposalId &propId, const uint256 &masternodeId, CProposalVoteType vote);
+    std::optional<CProposalVoteType> GetProposalVote(const CProposalId &propId,
+                                                     uint8_t cycle,
+                                                     const uint256 &masternodeId);
 
-    void ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status = 0);
-    void ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,
-                         const CMnVotePerCycle &start = {});
-    void ForEachCycleProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint32_t height);
+    void ForEachProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
+                         const CProposalStatusType status,
+                         const CProposalId start = {});
+    void ForEachProposalVote(
+        std::function<bool(const CProposalId &, uint8_t, const uint256 &, CProposalVoteType)> callback,
+        const CMnVotePerCycle &start = {});
+    void ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
+                              uint32_t height);
 
-    virtual uint32_t GetVotingPeriodFromAttributes() const                                       = 0;
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType &type) const               = 0;
-    virtual CAmount GetApprovalThresholdFromAttributes(const CPropType &type) const              = 0;
-    virtual CAmount GetQuorumFromAttributes(const CPropType &type, bool emergency = false) const = 0;
-    virtual CAmount GetFeeBurnPctFromAttributes() const                                          = 0;
+    virtual uint32_t GetVotingPeriodFromAttributes() const                                           = 0;
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const               = 0;
+    virtual CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const              = 0;
+    virtual CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) const = 0;
+    virtual CAmount GetFeeBurnPctFromAttributes() const                                              = 0;
 
     struct ByType {
         static constexpr uint8_t prefix() { return 0x2B; }

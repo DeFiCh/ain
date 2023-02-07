@@ -119,26 +119,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.AMKHeight = 356500;
-        consensus.BayfrontHeight = 405000;
-        consensus.BayfrontMarinaHeight = 465150;
-        consensus.BayfrontGardensHeight = 488300;
-        consensus.ClarkeQuayHeight = 595738;
-        consensus.DakotaHeight = 678000; // 1st March 2021
-        consensus.DakotaCrescentHeight = 733000; // 25th March 2021
-        consensus.EunosHeight = 894000; // 3rd June 2021
-        consensus.EunosKampungHeight = 895743;
-        consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
-        consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
-        consensus.FortCanningMuseumHeight = 1430640;
-        consensus.FortCanningParkHeight = 1503143;
-        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
-        consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
-        consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
+        consensus.AMKHeight = 356500; // Oct 12th, 2020.
+        consensus.BayfrontHeight = 405000; // Nov 2nd, 2020.
+        consensus.BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
+        consensus.ClarkeQuayHeight = 595738; // Jan 24th, 2021.
+        consensus.DakotaHeight = 678000; // Mar 1st, 2021.
+        consensus.DakotaCrescentHeight = 733000; // Mar 25th, 2021.
+        consensus.EunosHeight = 894000; // Jun 3rd, 2021.
+        consensus.EunosKampungHeight = 895743; // Jun 4th, 2021.
+        consensus.EunosPayaHeight = 1072000; // Aug 5th, 2021.
+        consensus.FortCanningHeight = 1367000; // Nov 15th, 2021.
+        consensus.FortCanningMuseumHeight = 1430640; // Dec 7th, 2021.
+        consensus.FortCanningParkHeight = 1503143; // Jan 2nd, 2022.
+        consensus.FortCanningHillHeight = 1604999; // Feb 7th, 2022.
+        consensus.FortCanningRoadHeight = 1786000; // April 11th, 2022.
+        consensus.FortCanningCrunchHeight = 1936000; // June 2nd, 2022.
+        consensus.FortCanningSpringHeight = 2033000; // July 6th, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
+        consensus.GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -396,6 +398,8 @@ public:
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
+        consensus.GrandCentralEpilogueHeight = 1438200;
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -589,26 +593,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 0;
-        consensus.BayfrontHeight = 0;
-        consensus.BayfrontMarinaHeight = 0;
-        consensus.BayfrontGardensHeight = 0;
-        consensus.ClarkeQuayHeight = 0;
-        consensus.DakotaHeight = 10;
-        consensus.DakotaCrescentHeight = 10;
-        consensus.EunosHeight = 150;
+        consensus.AMKHeight = 150;
+        consensus.BayfrontHeight = 3000;
+        consensus.BayfrontMarinaHeight = 90470;
+        consensus.BayfrontGardensHeight = 101342;
+        consensus.ClarkeQuayHeight = 155000;
+        consensus.DakotaHeight = 220680;
+        consensus.DakotaCrescentHeight = 287700;
+        consensus.EunosHeight = 354950;
         consensus.EunosKampungHeight = consensus.EunosHeight;
-        consensus.EunosPayaHeight = 300;
-        consensus.FortCanningHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.EunosPayaHeight = 463300;
+        consensus.FortCanningHeight = 686200;
+        consensus.FortCanningMuseumHeight = 724000;
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
+        consensus.FortCanningRoadHeight = 893700;
+        consensus.FortCanningCrunchHeight = 1011600;
+        consensus.FortCanningSpringHeight = 1086000;
+        consensus.FortCanningGreatWorldHeight = 1223000;
+        consensus.FortCanningEpilogueHeight = 1244000;
+        consensus.GrandCentralHeight = 1366000;
+        consensus.GrandCentralEpilogueHeight = 1438200;
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -665,13 +671,13 @@ public:
 
         consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
-        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
-        consensus.props.voc.fee = 5 * COIN;
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50%
+        consensus.props.voc.fee = 50 * COIN;
         consensus.props.voc.emergencyFee = 10000 * COIN;
-        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67%
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
-        consensus.props.votingPeriod = 100; // tally votes every 1K blocks
-        consensus.props.emergencyPeriod = 50;
+        consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+        consensus.props.emergencyPeriod = 8640;
         consensus.props.feeBurnPct = COIN / 2;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
@@ -693,10 +699,11 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
-        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
-        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
-        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
-        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0c;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x10;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x10;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x08;
+
         nDefaultPort = 20555; /// @note devnet matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -715,9 +722,12 @@ public:
         consensus.foundationShare = 10; // old style - just percents
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
 
-        // now it is for devnet and regtest only, 2 first of genesis MNs acts as foundation members
-        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this)));
-        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this)));
+        consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(consensus.foundationShareScript);
+
+        consensus.accountDestruction.clear();
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("trnZD2qPU1c3WryBi8sWX16mEaq9WkGHeg", *this))); // cVUZfDj1B1o7eVhxuZr8FQLh626KceiGQhZ8G6YCUdeW3CAV49ti
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
 
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
@@ -725,16 +735,15 @@ public:
         consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
         // owner base58, operator base58
-        vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
-        vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
-        vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
-        vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
+        vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
+        vMasternodes.push_back({"7E8Cjn9cqEwnrc3E4zN6c5xKxDSGAyiVUM", "78MWNEcAAJxihddCw1UnZD8T7fMWmUuBro"});
+        vMasternodes.push_back({"7GxxMCh7sJsvRK4GXLX5Eyh9B9EteXzuum", "7MYdTGv3bv3z65ai6y5J1NFiARg8PYu4hK"});
+        vMasternodes.push_back({"7BQZ67KKYWSmVRukgv57m4HorjbGh7NWrQ", "7GULFtS6LuJfJEikByKKg8psscg84jnfHs"});
 
         std::vector<CTxOut> initdist;
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this))));
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this))));
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", *this))));
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("te7wgg1X9HDJvMbrP2S51uz2Gxm2LPW4Gr", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tmYVkwmcv73Hth7hhHz15mx5K8mzC1hSef", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tahuMwb9eX83eJhf2vXL6NPzABy3Ca8DHi", *this))));
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
@@ -743,16 +752,16 @@ public:
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
 
-        genesis = CreateGenesisBlock(1585132338, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
+        genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x0000099a168f636895a019eacfc1798ec54c593c015cfc5aac1f12817f7ddff7"));
-        assert(genesis.hashMerkleRoot == uint256S("0x3f327ba2475176bcf8226b10d871f0f992e17ba9e040ff3dbd11d17c1e5914cb"));
+        assert(consensus.hashGenesisBlock == uint256S("0x034ac8c88a1a9b846750768c1ad6f295bc4d0dc4b9b418aee5c0ebd609be8f90"));
+        assert(genesis.hashMerkleRoot == uint256S("0xb71cfd828e692ca1b27e9df3a859740851047a5b5a68f659a908e8815aa35f38"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-//        vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("35.187.53.161");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
@@ -761,9 +770,12 @@ public:
 
 
         checkpointData = {
-            {
-//                {546, uint256S("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
-            }
+                {
+                        { 50000, uint256S("74a468206b59bfc2667aba1522471ca2f0a4b7cd807520c47355b040c7735ccc")},
+                        {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
+                        {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
+                        {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                }
         };
 
         chainTxData = ChainTxData{
@@ -771,7 +783,11 @@ public:
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
+
+        UpdateActivationParametersFromArgs();
     }
+
+    void UpdateActivationParametersFromArgs();
 };
 
 /**
@@ -813,6 +829,8 @@ public:
         consensus.FortCanningGreatWorldHeight = 10000000;
         consensus.FortCanningEpilogueHeight = 10000000;
         consensus.GrandCentralHeight = 10000000;
+        consensus.GrandCentralEpilogueHeight = 10000000;
+        consensus.NextNetworkUpgradeHeight = 10000000;
         consensus.DMCGenesisHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -1056,6 +1074,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
+    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
+    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight);
     UpdateHeightValidation("DMC Genesis", "-dmcgenesisheight", consensus.DMCGenesisHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
@@ -1095,6 +1115,18 @@ void CMainParams::UpdateActivationParametersFromArgs() {
 
         // Do this at the end, to ensure simualte mainnet overrides are in place.
         SetupCommonArgActivationParams(consensus);
+    }
+}
+
+
+void CDevNetParams::UpdateActivationParametersFromArgs() {
+    if (gArgs.IsArgSet("-devnet-bootstrap")) {
+        nDefaultPort = 18555;
+        vSeeds.emplace_back("testnet-seed.defichain.io");
+        pchMessageStartPostAMK[0] = 0x0b;
+        pchMessageStartPostAMK[1] = 0x11;
+        pchMessageStartPostAMK[2] = 0x09;
+        pchMessageStartPostAMK[3] = 0x07;
     }
 }
 
@@ -1164,9 +1196,7 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    if (!file.good()) {
-        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
-    }
+    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
 
     ClearCheckpoints(params);
 
@@ -1178,19 +1208,13 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        if (!(iss >> heightStr >> hashStr)) {
-            return Res::Err("Error parsing line %s", trimmed);
-        }
+        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
 
         uint256 hash;
-        if (!ParseHashStr(hashStr, hash)) {
-            return Res::Err("Invalid hash: %s", hashStr);
-        }
+        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
 
         int32_t height;
-        if (!ParseInt32(heightStr, &height)) {
-            return Res::Err("Invalid height: %s", heightStr);
-        }
+        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }

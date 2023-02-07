@@ -529,11 +529,14 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-dmcgenesisheight", "DMC Genesis fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-grandcentralepilogueheight", "Grand Central Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-nextnetworkupgradeheight", "Next NEtwork Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-blocktimeordering", strprintf("Whether to order transactions by time, otherwise ordered by fee (default: %u)", DEFAULT_FEE_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -653,6 +656,7 @@ void SetupServerArgs()
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
     gArgs.AddArg("-meta", "(experimental) Metachain options (any and all succeeding arguments will be passed to metachain, pass -help for more information)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-meta_rpc", "Metachain RPC URL (regtest only)", ArgsManager::ALLOW_STRING, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-rpc-governance-accept-neutral", "Allow voting with neutral votes for JellyFish purpose", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -967,6 +971,21 @@ void InitParameterInteraction()
     if (gArgs.GetBoolArg("-whitelistforcerelay", DEFAULT_WHITELISTFORCERELAY)) {
         if (gArgs.SoftSetBoolArg("-whitelistrelay", true))
             LogPrintf("%s: parameter interaction: -whitelistforcerelay=1 -> setting -whitelistrelay=1\n", __func__);
+    }
+
+    // Parse leveldb checksum
+    const auto checksumArg = gArgs.GetArg("-leveldbchecksum", DEFAULT_LEVELDB_CHECKSUM);
+    if (checksumArg == "true"){
+        levelDBChecksum = true;
+    } else if (checksumArg == "false") {
+        levelDBChecksum = false;
+    } else {
+        if (checksumArg != "auto"){
+            InitWarning("Invalid value for -leveldbchecksum, setting default value -> 'auto'");
+        }
+        if (levelDBChecksum = gArgs.IsArgSet("-masternode_operator"); levelDBChecksum) {
+            LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
+        }
     }
 }
 
@@ -1403,6 +1422,24 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
+static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
+    LOCK(cs_main);
+
+    std::set<CVaultId> vaults;
+    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        vaults.insert(vaultId);
+        return true;
+    });
+
+    for (const auto &vaultId : vaults) {
+        const auto vault = mnview.GetVault(vaultId);
+        if (!vault) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1763,6 +1800,11 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
+                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();

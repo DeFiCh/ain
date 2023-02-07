@@ -19,7 +19,6 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
-class CAccountsHistoryView;
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -36,11 +35,11 @@ public:
                      const Consensus::Params &consensus);
 
 protected:
-    bool HasAuth(const CScript &auth) const;
+    Res HasAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
-    Res CheckProposalTx(const CCreatePropMessage &msg) const;
+    Res CheckProposalTx(const CCreateProposalMessage &msg) const;
     Res CheckTokenCreationTx() const;
     Res CheckCustomTx() const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const;
@@ -60,8 +59,6 @@ protected:
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
 };
-class CVaultHistoryView;
-class CHistoryWriters;
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
@@ -316,11 +313,16 @@ struct CUpdateTokenMessage {
 
 struct CMintTokensMessage : public CBalances {
     using CBalances::CBalances;
+    CScript to;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CBalances, *this);
+
+        if (!s.eof()) {
+            READWRITE(to);
+        }
     }
 };
 
@@ -367,27 +369,40 @@ struct CBurnTokensMessage {
     }
 };
 
-struct CCreatePoolPairMessage {
-    CPoolPairMessage poolPair;
-    std::string pairSymbol;
-    CBalances rewards;
-};
-
-struct CUpdatePoolPairMessage {
-    DCT_ID poolId;
-    bool status;
-    CAmount commission;
-    CScript ownerAddress;
-    CBalances rewards;
-};
-
 struct CGovernanceMessage {
-    std::set<std::shared_ptr<GovVariable>> govs;
+    std::unordered_map<std::string, std::shared_ptr<GovVariable>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        std::string name;
+        while(!s.empty()) {
+            s >> name;
+            auto& gov = govs[name];
+            auto var = GovVariable::Create(name);
+            if (!var) break;
+            s >> *var;
+            gov = std::move(var);
+        }
+    }
 };
 
 struct CGovernanceHeightMessage {
+    std::string govName;
     std::shared_ptr<GovVariable> govVar;
     uint32_t startHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!s.empty()) {
+            s >> govName;
+            if ((govVar = GovVariable::Create(govName))) {
+                s >> *govVar;
+                s >> startHeight;
+            }
+        }
+    }
 };
 
 struct CGovernanceUnsetMessage {
@@ -453,8 +468,8 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanMessage,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
-                                      CCreatePropMessage,
-                                      CPropVoteMessage,
+                                      CCreateProposalMessage,
+                                      CProposalVoteMessage,
                                       CMetachainMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
@@ -471,8 +486,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
-                  uint32_t txn             = 0,
-                  CHistoryWriters *writers = nullptr);
+                  uint32_t txn             = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -511,6 +525,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     uint32_t height,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+bool IsTestNetwork();
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD

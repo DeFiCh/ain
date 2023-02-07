@@ -92,10 +92,10 @@ public:
                     EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
                                                                 : CTxDestination(WitnessV0KeyHash(rawAddress))));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                rpcInfo.pushKV(
-                    "ownerAddress",
-                    EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
-                                                                : CTxDestination(WitnessV0KeyHash(rawAddress))));
+                CTxDestination dest;
+                if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
+                    rpcInfo.pushKV("ownerAddress",EncodeDestination(dest));
+                }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
                 rpcInfo.pushKV(
@@ -117,7 +117,10 @@ public:
 
     void operator()(const CUpdateTokenMessage &obj) const { tokenInfo(obj.token); }
 
-    void operator()(const CMintTokensMessage &obj) const { rpcInfo.pushKVs(tokenBalances(obj)); }
+    void operator()(const CMintTokensMessage &obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj));
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+    }
 
     void operator()(const CBurnTokensMessage &obj) const {
         rpcInfo.pushKVs(tokenBalances(obj.amounts));
@@ -195,13 +198,13 @@ public:
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
             tokenInfo(tokenPair->second);
-        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
+        if (auto tokenA = mnview.GetToken(obj.idTokenA))
             rpcInfo.pushKV("tokenA", tokenA->name);
-        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
+        if (auto tokenB = mnview.GetToken(obj.idTokenB))
             rpcInfo.pushKV("tokenB", tokenB->name);
-        rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
-        rpcInfo.pushKV("status", obj.poolPair.status);
-        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
+        rpcInfo.pushKV("commission", ValueFromAmount(obj.commission));
+        rpcInfo.pushKV("status", obj.status);
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         customRewardsInfo(obj.rewards);
     }
 
@@ -251,7 +254,8 @@ public:
     }
 
     void operator()(const CGovernanceMessage &obj) const {
-        for (const auto &var : obj.govs) {
+        for (const auto &gov : obj.govs) {
+            auto& var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }
@@ -501,17 +505,17 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
-    void operator()(const CCreatePropMessage &obj) const {
+    void operator()(const CCreateProposalMessage &obj) const {
         auto propId = tx.GetHash();
         rpcInfo.pushKV("proposalId", propId.GetHex());
-        auto type = static_cast<CPropType>(obj.type);
-        rpcInfo.pushKV("type", CPropTypeToString(type));
+        auto type = static_cast<CProposalType>(obj.type);
+        rpcInfo.pushKV("type", CProposalTypeToString(type));
         rpcInfo.pushKV("title", obj.title);
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
         auto proposalEndHeight = height;
-        if (auto prop = mnview.GetProp(propId)) {
+        if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
             auto votingPeriod = prop->votingPeriod;
@@ -524,18 +528,18 @@ public:
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);
-            if (obj.options & CPropOption::Emergency)
+            if (obj.options & CProposalOption::Emergency)
                 opt.push_back("emergency");
 
             rpcInfo.pushKV("options", opt);
         }
     }
 
-    void operator()(const CPropVoteMessage &obj) const {
+    void operator()(const CProposalVoteMessage &obj) const {
         rpcInfo.pushKV("proposalId", obj.propId.GetHex());
         rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
-        auto vote = static_cast<CPropVoteType>(obj.vote);
-        rpcInfo.pushKV("vote", CPropVoteToString(vote));
+        auto vote = static_cast<CProposalVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CProposalVoteToString(vote));
     }
 
     void operator()(const CCustomTxMessageNone &) const {}

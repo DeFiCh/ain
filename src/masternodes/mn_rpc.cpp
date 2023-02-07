@@ -540,6 +540,24 @@ UniValue setgov(const JSONRPCRequest& request) {
             if (!res) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
             }
+
+            if (name == "ATTRIBUTES") {
+                const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+                if (!attributes) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
+                }
+                
+                LOCK(cs_main);
+                const auto attrMap = attributes->GetAttributesMap();
+                for (const auto& [key, value] : attrMap) {
+                    if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
+                        if (attrV0->type == AttributeTypes::Consortium && (attrV0->typeId == 0 || pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI or loan tokens");
+                        }
+                    }
+                }
+            }
+
             varStream << name << *gv;
         }
     }
@@ -565,10 +583,12 @@ UniValue setgov(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -655,10 +675,12 @@ UniValue unsetgov(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -749,10 +771,12 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
