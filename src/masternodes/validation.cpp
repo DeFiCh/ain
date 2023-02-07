@@ -9,6 +9,7 @@
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
 #include <masternodes/govvariables/loan_splits.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/mn_rpc.h>
@@ -307,7 +308,7 @@ static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, 
                 cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
 
                 // Add transfer as additional TX in block
-                pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
+                cache.GetHistoryWriters().WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
                                                     {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
             }
             else // Log burn failure
@@ -615,8 +616,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
         });
     }
 
-    CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};
-    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), &writers);
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
 
     view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
         if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
@@ -674,11 +674,9 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     LogPrintf("AuctionBid: SubMintedTokens failed: %s\n", res.msg);
                 }
 
-                if (paccountHistoryDB) {
-                    AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
-                    AuctionHistoryValue value{bidTokenAmount, batch->collaterals.balances};
-                    paccountHistoryDB->WriteAuctionHistory(key, value);
-                }
+                AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
+                AuctionHistoryValue value{bidTokenAmount, batch->collaterals.balances};
+                cache.GetHistoryWriters().WriteAuctionHistory(key, value);
 
             } else {
                 // we should return loan including interest
@@ -711,18 +709,12 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
         view.EraseAuction(vaultId, pindex->nHeight);
 
         // Store state in vault DB
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->WriteVaultState(view, *pindex, vaultId);
-        }
+        cache.GetHistoryWriters().WriteVaultState(view, *pindex, vaultId);
 
         return true;
     }, pindex->nHeight);
 
     view.Flush();
-    pburnHistoryDB->Flush();
-    if (paccountHistoryDB) {
-        paccountHistoryDB->Flush();
-    }
 }
 
 static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
@@ -829,8 +821,7 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
 
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
-        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapExecution));
 
         deletionPending.insert(key);
 
@@ -895,13 +886,11 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
 
-        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
         subView.SubBalance(*contractAddressValue, value.source);
         subView.Flush();
 
-        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
         addView.AddBalance(key.owner, value.source);
         addView.Flush();
 
@@ -1278,8 +1267,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (owner != Params().GetConsensus().burnAddress) {
-                    CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                     res = subView.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                     if (!res.ok) {
@@ -1315,8 +1303,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     totalBalance += amountB;
                 }
 
-                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 auto refundBalances = [&, owner = owner]() {
                     addView.AddBalance(owner, {newPoolPair.idTokenA, amountA});
@@ -1515,16 +1502,14 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         Require(view.AddLoanToken(vaultId, newTokenAmount));
 
-        if (view.GetVaultHistoryStore()) {
-            if (const auto vault = view.GetVault(vaultId)) {
-                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
-                VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
-                view.GetVaultHistoryStore()->WriteVaultHistory(subKey, subValue);
+        if (const auto vault = view.GetVault(vaultId)) {
+            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+            view.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
 
-                VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
-                VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
-                view.GetVaultHistoryStore()->WriteVaultHistory(addKey, addValue);
-            }
+            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+            view.GetHistoryWriters().WriteVaultHistory(addKey, addValue);
         }
     }
 
@@ -1712,8 +1697,6 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         }
 
         auto view{cache};
-        view.SetAccountHistoryStore();
-        view.SetVaultHistoryStore();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -1843,8 +1826,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
 
             for (const auto& [owner, balances] : balanceUpdates) {
 
-                CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 res = subView.SubBalance(owner, balances.second);
                 if (!res) {
@@ -1852,8 +1834,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
                 }
                 subView.Flush();
 
-                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 res = addView.AddBalance(owner, balances.first);
                 if (!res) {
@@ -1934,12 +1915,6 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         }
 
         view.Flush();
-        if (auto accountHistory = view.GetAccountHistoryStore()) {
-            accountHistory->Flush();
-        }
-        if (auto vaultHistory = view.GetVaultHistoryStore()) {
-            vaultHistory->Flush();
-        }
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
@@ -2005,13 +1980,11 @@ static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, 
 
             const CTokenAmount source{dfiID, amount};
 
-            CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-            CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+            CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
             subView.SubBalance(*contractAddressValue, source);
             subView.Flush();
 
-            CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-            CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+            CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
             addView.AddBalance(key.owner, source);
             addView.Flush();
 
@@ -2044,8 +2017,7 @@ static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, 
 
     cache.ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
 
-        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapExecution));
 
         deletionPending.insert(key);
 
@@ -2152,8 +2124,8 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
     }
 
     std::set<uint256> activeMasternodes;
-    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
-        if (prop.status != CPropStatusType::Voting) return true;
+    cache.ForEachCycleProposal([&](CProposalId const& propId, CProposalObject const& prop) {
+        if (prop.status != CProposalStatusType::Voting) return true;
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
@@ -2169,13 +2141,13 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
         uint32_t voteYes = 0;
         std::set<uint256> voters{};
-        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+        cache.ForEachProposalVote([&](CProposalId const & pId, uint8_t cycle, uint256 const & mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop.cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
                 voters.insert(mnId);
-                if (vote == CPropVoteType::VoteYes) {
+                if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
                 }
             }
@@ -2206,8 +2178,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                     );
                 }
 
-                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::ProposalFeeRedistribution), &subWriters);
+                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
 
                 auto res = subView.AddBalance(scriptPubKey, {DCT_ID{0}, amountPerVoter});
                 if (!res) {
@@ -2228,25 +2199,25 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= prop.quorum) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
         }
 
         if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
         }
 
         if (prop.nCycles == prop.cycle) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
         } else {
             assert(prop.nCycles > prop.cycle);
-            cache.UpdatePropCycle(propId, prop.cycle + 1);
+            cache.UpdateProposalCycle(propId, prop.cycle + 1);
         }
 
         CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
 
-        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
+        if (prop.type == CProposalType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);

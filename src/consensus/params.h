@@ -101,6 +101,7 @@ struct Params {
     int FortCanningEpilogueHeight;
     int GrandCentralHeight;
     int GrandCentralEpilogueHeight;
+    int NextNetworkUpgradeHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
@@ -206,8 +207,8 @@ struct Params {
 
     CAmount vaultCreationFee;
 
-    struct CPropsParams {
-        struct CPropsSpecs {
+    struct CProposalParams {
+        struct CProposalSpecs {
             CAmount fee;
             CAmount minimumFee;
             CAmount emergencyFee;
@@ -218,7 +219,7 @@ struct Params {
         CAmount quorum;
         CAmount feeBurnPct;
     };
-    CPropsParams props;
+    CProposalParams props;
 
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;

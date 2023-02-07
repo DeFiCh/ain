@@ -19,7 +19,6 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
-class CAccountsHistoryView;
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -40,7 +39,7 @@ protected:
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
-    Res CheckProposalTx(const CCreatePropMessage &msg) const;
+    Res CheckProposalTx(const CCreateProposalMessage &msg) const;
     Res CheckTokenCreationTx() const;
     Res CheckCustomTx() const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const;
@@ -60,8 +59,6 @@ protected:
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
 };
-class CVaultHistoryView;
-class CHistoryWriters;
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
@@ -445,8 +442,8 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanMessage,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
-                                      CCreatePropMessage,
-                                      CPropVoteMessage>;
+                                      CCreateProposalMessage,
+                                      CProposalVoteMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
@@ -462,8 +459,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
-                  uint32_t txn             = 0,
-                  CHistoryWriters *writers = nullptr);
+                  uint32_t txn             = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
