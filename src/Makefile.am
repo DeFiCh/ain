@@ -167,6 +167,7 @@ DEFI_CORE_H = \
   masternodes/govvariables/oracle_block_interval.h \
   masternodes/govvariables/oracle_deviation.h \
   masternodes/gv.h \
+  masternodes/historywriter.h \
   masternodes/icxorder.h \
   masternodes/incentivefunding.h \
   masternodes/loan.h \
@@ -389,6 +390,7 @@ libdefi_server_a_SOURCES = \
   masternodes/govvariables/oracle_block_interval.cpp \
   masternodes/govvariables/oracle_deviation.cpp \
   masternodes/gv.cpp \
+  masternodes/historywriter.cpp \
   masternodes/icxorder.cpp \
   masternodes/incentivefunding.cpp \
   masternodes/loan.cpp \

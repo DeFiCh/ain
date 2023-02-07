@@ -1,6 +1,6 @@
 # Define individuals that are responsible for code in a repository.
 # More details are here: https://help.github.com/articles/about-codeowners/
 
-/.github/                                                   @Bushstar @Mixa84 @wafflespeanut @hidiego @prasannavl @mambisi @Jouzo @fuxingloh
+#/.github/                                                   @Bushstar @Mixa84 @wafflespeanut @hidiego @prasannavl @Jouzo @fuxingloh
 
-/src/                                                       @Bushstar @Mixa84 @wafflespeanut @hidiego @prasannavl @mambisi @Jouzo
+#/src/                                                       @Bushstar @Mixa84 @wafflespeanut @hidiego @prasannavl @mambisi @Jouzo
