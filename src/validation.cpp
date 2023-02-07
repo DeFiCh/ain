@@ -16,7 +16,6 @@
 #include <consensus/validation.h>
 #include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
-#include <dmc_handler.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
