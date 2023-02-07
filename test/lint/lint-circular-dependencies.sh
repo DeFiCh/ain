@@ -80,6 +80,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/ismine -> wallet/wallet -> wallet/ismine"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
+    "dmc_handler -> miner -> dmc_handler"
 )
 
 EXIT_CODE=0
