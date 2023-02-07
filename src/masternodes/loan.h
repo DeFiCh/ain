@@ -470,7 +470,6 @@ public:
 
     Res AddLoanToken(const CVaultId &vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId &vaultId, CTokenAmount amount);
-    void EraseVaultLoanTokens(const CVaultId &vaultId);
     std::optional<CBalances> GetLoanTokens(const CVaultId &vaultId);
     void ForEachLoanTokenAmount(std::function<bool(const CVaultId &, const CBalances &)> callback);
 

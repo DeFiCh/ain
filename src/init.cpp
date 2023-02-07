@@ -1396,7 +1396,7 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
-static void EraseLoanAmountsInClosedVaults(CCustomCSView &mnview) {
+static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
     LOCK(cs_main);
 
     std::set<CVaultId> vaults;
@@ -1408,9 +1408,10 @@ static void EraseLoanAmountsInClosedVaults(CCustomCSView &mnview) {
     for (const auto &vaultId : vaults) {
         const auto vault = mnview.GetVault(vaultId);
         if (!vault) {
-            mnview.EraseVaultLoanTokens(vaultId);
+            return true;
         }
     }
+    return false;
 }
 
 bool AppInitMain(InitInterfaces& interfaces)
@@ -1774,7 +1775,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
-                EraseLoanAmountsInClosedVaults(*pcustomcsview);
+                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
+                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();
