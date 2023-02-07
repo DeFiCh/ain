@@ -11,9 +11,9 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
-APPROVAL_THRESHOLD=50
-QUORUM=50
-VOTING_PERIOD=10
+APPROVAL_THRESHOLD = 50
+QUORUM = 50
+VOTING_PERIOD = 10
 
 class OCGVotingScenarionTest(DefiTestFramework):
     def set_test_params(self):
