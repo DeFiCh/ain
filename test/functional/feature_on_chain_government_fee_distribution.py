@@ -11,20 +11,33 @@ from test_framework.util import (
 )
 from decimal import ROUND_DOWN, Decimal
 
-VOTING_PERIOD=70
+VOTING_PERIOD = 70
+
 
 class CFPFeeDistributionTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51',
+             '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51',
+             '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51',
+             '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-rpc-governance-accept-neutral', '-amkheight=50', '-bayfrontheight=51',
+             '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
         ]
 
-    def test_cfp_fee_distribution(self, amount, expectedFee, burnPct, vote, cycles=2, changeFeeAndBurnPCT = False):
+    def test_cfp_fee_distribution(self, amount, expectedFee, burnPct, vote, cycles=2, changeFeeAndBurnPCT=False):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -32,7 +45,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         context = "<Git issue url>"
         title = "Create test community fund request proposal without automatic payout"
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": cycles, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": cycles, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -52,9 +66,9 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal(expectedFee * burnPct / 100))
 
         # increase the fee in the middle of CFP and check that refund to MNs didn't change
-        if (changeFeeAndBurnPCT) :
-            self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'0.05'}})
-            self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'40%'}})
+        if changeFeeAndBurnPCT:
+            self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_fee': '0.05'}})
+            self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_burn_pct': '40%'}})
             self.nodes[0].generate(1)
 
         expectedAmount = Decimal(expectedFee * (100 - burnPct) / 100 / 3).quantize(Decimal('1E-8'), rounding=ROUND_DOWN)
@@ -68,12 +82,9 @@ class CFPFeeDistributionTest(DefiTestFramework):
                 votingCycles += 1
                 # Vote on proposal
                 self.nodes[0].votegov(propId, self.mn0, vote)
-                self.nodes[0].generate(1)
-                self.sync_blocks()
                 self.nodes[1].votegov(propId, self.mn1, vote)
-                self.nodes[1].generate(1)
-                self.sync_blocks()
                 self.nodes[2].votegov(propId, self.mn2, vote)
+                self.sync_mempools()
                 self.nodes[2].generate(1)
                 self.sync_blocks()
 
@@ -96,7 +107,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
             mn1 = self.nodes[0].getmasternode(self.mn1)[self.mn1]
             account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
-            assert_equal(account1[0], '{}@DFI'.format(expectedAmount* votingCycles))
+            assert_equal(account1[0], '{}@DFI'.format(expectedAmount * votingCycles))
             history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(len(history), votingCycles)
             for i in range(votingCycles):
@@ -105,7 +116,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             # Fee should be redistributed to reward address
             mn2 = self.nodes[0].getmasternode(self.mn2)[self.mn2]
             account2 = self.nodes[0].getaccount(mn2['ownerAuthAddress'])
-            assert_equal(account2[0], '{}@DFI'.format(expectedAmount* votingCycles))
+            assert_equal(account2[0], '{}@DFI'.format(expectedAmount * votingCycles))
             history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(len(history), votingCycles)
             for i in range(votingCycles):
@@ -144,11 +155,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true'}})
         self.nodes[0].generate(1)
 
         # activate fee redistribution
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         self.sync_blocks()
@@ -162,18 +173,20 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, burnPct=50, vote="yes", changeFeeAndBurnPCT=True)
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, burnPct=50, vote="no", changeFeeAndBurnPCT=True)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'30%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_burn_pct': '30%'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, burnPct=30, vote="neutral")
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'2%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_fee': '2%'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=1)
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=3, changeFeeAndBurnPCT=True)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=3,
+                                       changeFeeAndBurnPCT=True)
+
 
 if __name__ == '__main__':
-    CFPFeeDistributionTest().main ()
+    CFPFeeDistributionTest().main()
