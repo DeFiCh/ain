@@ -270,10 +270,38 @@ class OnChainGovernanceTest(DefiTestFramework):
         context = "Test context"
         tx = self.nodes[0].creategovvoc({"title": title, "context": context})
         raw_tx = self.nodes[0].getrawtransaction(tx)
+
+        # Check VoC in mempool
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['type'], 'CreateVoc')
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['proposalId'], tx)
+        assert_equal(result['results']['type'], 'VoteOfConfidence')
+        assert_equal(result['results']['title'], title)
+        assert_equal(result['results']['context'], context)
+        assert_equal(result['results']['amount'], Decimal('0E-8'))
+        assert_equal(result['results']['cycles'], 1)
+        assert_equal(result['results']['proposalEndHeight'], 420)
+        assert_equal(result['results']['payoutAddress'], '')
+
+        # Send transaction through a different node
         self.nodes[3].sendrawtransaction(raw_tx)
         self.nodes[3].generate(1)
         self.sync_blocks()
         creationHeight = self.nodes[0].getblockcount()
+
+        # Check VoC on-chain
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['type'], 'CreateVoc')
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['proposalId'], tx)
+        assert_equal(result['results']['type'], 'VoteOfConfidence')
+        assert_equal(result['results']['title'], title)
+        assert_equal(result['results']['context'], context)
+        assert_equal(result['results']['amount'], Decimal('0E-8'))
+        assert_equal(result['results']['cycles'], 1)
+        assert_equal(result['results']['proposalEndHeight'], 420)
+        assert_equal(result['results']['payoutAddress'], '')
 
         # Check burn fee increment
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('7.50000000'))
