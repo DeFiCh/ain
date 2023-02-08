@@ -81,10 +81,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
                 result = self.nodes[0].listgovproposalvotes(propId, "all")
                 assert_equal(len(result), 3)
 
-            cycleEnd = cycleAlignment + (cycle + 1) * VOTING_PERIOD
             # Move to cycle end height
-            self.nodes[0].generate(cycleEnd - self.nodes[0].getblockcount())
-            self.sync_blocks()
+            cycleEnd = cycleAlignment + (cycle + 1) * VOTING_PERIOD
+            for _ in range(cycleEnd - self.nodes[0].getblockcount()):
+                self.nodes[0].generate(1)
+                self.sync_blocks()
 
             mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
             account0 = self.nodes[0].getaccount(mn0['ownerAuthAddress'])
