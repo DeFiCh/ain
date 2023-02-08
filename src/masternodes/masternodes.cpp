@@ -329,7 +329,7 @@ Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId,
     if (!timelock) {
         return Res::Err("Failed to get timelock for masternode");
     }
-    Require(timelock.value() != CMasternode::ZEROYEAR, "Trying to resign masternode before timelock expiration.");
+    Require(timelock.value() == CMasternode::ZEROYEAR, "Trying to resign masternode before timelock expiration.");
 
     node.resignTx     = txid;
     node.resignHeight = height;
