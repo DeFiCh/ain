@@ -1396,6 +1396,24 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
+static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
+    LOCK(cs_main);
+
+    std::set<CVaultId> vaults;
+    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        vaults.insert(vaultId);
+        return true;
+    });
+
+    for (const auto &vaultId : vaults) {
+        const auto vault = mnview.GetVault(vaultId);
+        if (!vault) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1756,6 +1774,11 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
+                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();
