@@ -523,8 +523,7 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256 &nodeId, const u
 }
 
 uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const {
-    auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
-    if (timelock) {
+    if (const auto timelock = ReadBy<Timelock, uint16_t>(nodeId); timelock) {
         LOCK(cs_main);
         // Get last height
         auto lastHeight = height - 1;
@@ -540,7 +539,12 @@ uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode 
         // Get average time of the last two times the activation delay worth of blocks
         uint64_t totalTime{0};
         for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
-            totalTime += ::ChainActive()[lastHeight]->nTime;
+            const auto &blockIndex{::ChainActive()[lastHeight]};
+            // Last height might not be available due to rollback or call to invalidateblock
+            if (!blockIndex) {
+                return 0;
+            }
+            totalTime += blockIndex->nTime;
         }
         const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
 
