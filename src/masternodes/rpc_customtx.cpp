@@ -518,10 +518,11 @@ public:
         if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
-            auto votingPeriod = prop->votingPeriod;
-            proposalEndHeight = height + (votingPeriod - height % votingPeriod);
-            for (uint8_t i = 1; i <= obj.nCycles; ++i) {
-                proposalEndHeight += votingPeriod;
+            if (auto votingPeriod = prop->votingPeriod) {
+                proposalEndHeight = height + (votingPeriod - height % votingPeriod);
+                for (uint8_t i = 1; i <= obj.nCycles; ++i) {
+                    proposalEndHeight += votingPeriod;
+                }
             }
         }
         rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
