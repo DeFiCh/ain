@@ -514,16 +514,9 @@ public:
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
-        auto proposalEndHeight = height;
+        auto proposalEndHeight = -1;
         if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
-        } else {
-            if (auto votingPeriod = prop->votingPeriod) {
-                proposalEndHeight = height + (votingPeriod - height % votingPeriod);
-                for (uint8_t i = 1; i <= obj.nCycles; ++i) {
-                    proposalEndHeight += votingPeriod;
-                }
-            }
         }
         rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
