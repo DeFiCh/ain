@@ -325,7 +325,11 @@ Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId,
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    Require(!GetTimelock(nodeId, node, height), "Trying to resign masternode before timelock expiration.");
+    const auto timelock = GetTimelock(nodeId, node, height);
+    if (!timelock) {
+        return Res::Err("Failed to get timelock for masternode");
+    }
+    Require(timelock.value() != CMasternode::ZEROYEAR, "Trying to resign masternode before timelock expiration.");
 
     node.resignTx     = txid;
     node.resignHeight = height;
@@ -522,7 +526,7 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256 &nodeId, const u
     }
 }
 
-uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const {
+std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const {
     if (const auto timelock = ReadBy<Timelock, uint16_t>(nodeId); timelock) {
         LOCK(cs_main);
         // Get last height
@@ -542,7 +546,7 @@ uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode 
             const auto &blockIndex{::ChainActive()[lastHeight]};
             // Last height might not be available due to rollback or call to invalidateblock
             if (!blockIndex) {
-                return 0;
+                return {};
             }
             totalTime += blockIndex->nTime;
         }

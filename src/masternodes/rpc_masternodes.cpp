@@ -45,15 +45,15 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
         }
         obj.pushKV("localMasternode", localMasternode);
 
-        uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
+        const auto timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
-        if (node.IsActive(currentHeight, view)) {
+        if (timelock && node.IsActive(currentHeight, view)) {
             // Get block times with next block as height
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
 
             if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
-                const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
@@ -64,8 +64,8 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
             }
         }
 
-        if (timelock) {
-            obj.pushKV("timelock", strprintf("%d years", timelock / 52));
+        if (timelock && *timelock) {
+            obj.pushKV("timelock", strprintf("%d years", *timelock / 52));
         }
 
         /// @todo add unlock height and|or real resign height
