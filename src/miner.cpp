@@ -793,7 +793,11 @@ namespace pos {
             blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            const auto optTimeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            if (!optTimeLock)
+                return Status::stakeWaiting;
+
+            timelock = *optTimeLock;
 
             // Get block times
             subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
