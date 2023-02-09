@@ -422,13 +422,13 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         if nodes is None:
             self._rollback_to(block)
         else:
-            connections = []
+            connections = {}
             for node in nodes:
                 nodes_connections = []
                 for x in self.nodes[node].getpeerinfo():
                     if not x['inbound']:
                         nodes_connections.append(int(x['addr'].split(':')[1]) - PORT_MIN)
-                connections.append(nodes)
+                connections[node] = nodes_connections
 
             for node in nodes:
                 for x in connections[node]:
