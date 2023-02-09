@@ -22,9 +22,11 @@ from .test_node import TestNode
 from .mininode import NetworkThread
 from .util import (
     MAX_NODES,
+    PORT_MIN,
     PortSeed,
     assert_equal,
     check_json_precision,
+    connect_nodes,
     connect_nodes_bi,
     disconnect_nodes,
     get_datadir_path,
@@ -420,8 +422,27 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         if nodes is None:
             self._rollback_to(block)
         else:
+            connections = []
             for node in nodes:
-                self._rollback_to(block, node=node)
+                nodes_connections = []
+                for x in self.nodes[node].getpeerinfo():
+                    if not x['inbound']:
+                        nodes_connections.append(int(x['addr'].split(':')[1]) - PORT_MIN)
+                connections.append(nodes)
+
+            for node in nodes:
+                for x in connections[node]:
+                    disconnect_nodes(self.nodes[node], x)
+
+            for node in nodes:
+                assert (self.nodes[node].getconnectioncount() == 0)
+
+            for node in nodes:
+                self._rollback_to(block, node)
+
+            for node in nodes:
+                for x in connections[node]:
+                    connect_nodes(self.nodes[node], x)
 
     def run_test(self):
         """Tests must override this method to define test logic"""

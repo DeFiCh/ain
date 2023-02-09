@@ -7,9 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
-    assert_equal,
-    connect_nodes_bi,
-    disconnect_nodes,
+    assert_equal
 )
 from decimal import ROUND_DOWN, Decimal
 
@@ -120,19 +118,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(history, [])
 
-        # Disconnect nodes and check connection count
-        for i in range(self.num_nodes - 1):
-            disconnect_nodes(self.nodes[i], i + 1)
-            assert_equal(self.nodes[i].getconnectioncount(), 0)
-        assert_equal(self.nodes[3].getconnectioncount(), 0)
-
-        # Rollback nodes in isolation
-        for i in range(self.num_nodes):
-            self.rollback_to(height, nodes=[i])
-
-        # Connect nodes
-        for i in range(self.num_nodes - 1):
-            connect_nodes_bi(self.nodes, i, i + 1)
+        self.rollback_to(height, nodes=[0, 1, 2, 3])
 
     def setup(self):
         # Get MN addresses
