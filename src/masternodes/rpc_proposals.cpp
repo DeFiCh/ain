@@ -1085,7 +1085,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             }
         }
     } else {
-        if (request.params.size() > 0) {
+        if (request.params.size() > 0 && request.params[0].isStr()) {
             auto str = request.params[0].get_str();
             if (str == "cfp") {
                 type = uint8_t(CProposalType::CommunityFundProposal);
