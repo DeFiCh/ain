@@ -657,7 +657,6 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     bool including_start = true;
 
     if (!optionsObj.empty()) {
-
         if (!optionsObj["proposalId"].isNull()) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
             aggregate = false;
@@ -708,7 +707,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
     } else {
-        if (!request.params.empty()) {
+        if (!request.params.empty() && request.params[0].isStr()) {
             propId = ParseHashV(request.params[0].get_str(), "proposalId");
             aggregate = false;
             isMine = true;
