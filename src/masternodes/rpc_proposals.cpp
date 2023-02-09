@@ -634,10 +634,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     UniValue optionsObj(UniValue::VOBJ);
 
-    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL}, true);
-    else if (request.params[0].isObject())
-        optionsObj = request.params[0].get_obj();
+    if (!request.params[0].empty()) {
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
+            RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL}, true);
+        else if (request.params[0].isObject())
+            optionsObj = request.params[0].get_obj();
+    }
 
     CCustomCSView view(*pcustomcsview);
 
@@ -1023,10 +1025,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
     UniValue optionsObj(UniValue::VOBJ);
 
-    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
-    else if (request.params[0].isObject())
-        optionsObj = request.params[0].get_obj();
+    if (!request.params[0].empty()) {
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
+            RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+        else if (request.params[0].isObject())
+            optionsObj = request.params[0].get_obj();
+    }
 
     uint8_t type{0}, status{0};
     int cycle{0};
