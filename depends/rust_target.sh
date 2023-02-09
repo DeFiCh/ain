@@ -1,5 +1,7 @@
 #! /bin/bash
 
+export LC_ALL=C
+
 TARGET=$1
 
 case ${TARGET} in
