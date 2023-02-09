@@ -8,6 +8,8 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
+    connect_nodes_bi,
+    disconnect_nodes,
 )
 from decimal import ROUND_DOWN, Decimal
 
@@ -83,7 +85,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
             # Move to cycle end height
             cycleEnd = cycleAlignment + (cycle + 1) * VOTING_PERIOD
-            self.nodes[2].generate(cycleEnd - self.nodes[2].getblockcount())
+            self.nodes[0].generate(cycleEnd - self.nodes[0].getblockcount())
             self.sync_blocks()
 
             mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
@@ -118,7 +120,19 @@ class CFPFeeDistributionTest(DefiTestFramework):
             history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(history, [])
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        # Disconnect nodes and check connection count
+        for i in range(self.num_nodes - 1):
+            disconnect_nodes(self.nodes[i], i + 1)
+            assert_equal(self.nodes[i].getconnectioncount(), 0)
+        assert_equal(self.nodes[3].getconnectioncount(), 0)
+
+        # Rollback nodes in isolation
+        for i in range(self.num_nodes):
+            self.rollback_to(height, nodes=[i])
+
+        # Connect nodes
+        for i in range(self.num_nodes - 1):
+            connect_nodes_bi(self.nodes, i, i + 1)
 
     def setup(self):
         # Get MN addresses
