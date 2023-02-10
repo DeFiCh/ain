@@ -385,13 +385,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks(timeout=120)
 
+        newVotingPeriod = VOTING_PERIOD * 10
+        # Set longer voting period during first cycle
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voting_period': '{}'.format(newVotingPeriod) }})
+        self.nodes[0].generate(1)
+
         # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
         self.sync_blocks(timeout=120)
-
-        # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voting_period': '200'}})
-        self.nodes[0].generate(1)
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
@@ -401,12 +402,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks(timeout=120)
 
-        self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks(timeout=120)
-
-        # Voting period should is saved on creation
+        # Voting period is updated after each cyle
         proposal = self.nodes[0].getgovproposal(propId)
-        assert_equal(proposal['status'], 'Completed')
+        assert_equal(proposal['status'], 'Voting')
+        assert_equal(proposal['votingPeriod'], newVotingPeriod)
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 

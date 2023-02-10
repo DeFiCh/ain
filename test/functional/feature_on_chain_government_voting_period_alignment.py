@@ -90,8 +90,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Calculate cycle
-        cycleAlignemnt = creationHeight + (votingPeriod - creationHeight % votingPeriod)
-        proposalEndHeight = cycleAlignemnt + votingPeriod
+        cycleAlignment = creationHeight + (votingPeriod - creationHeight % votingPeriod)
+        proposalEndHeight = cycleAlignment + votingPeriod
         multiProposalEndHeight = proposalEndHeight + votingPeriod
 
         # Check proposal and votes
@@ -123,15 +123,15 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["approvalThreshold"], "50.00%")
         assert_equal(result["fee"], Decimal("10"))
 
+        votingPeriod1 = votingPeriod + 90
+
         # Change voting period at height - 1 when voting period ends
-        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/gov/proposals/voting_period':'130'}}, cycleAlignemnt - 1)
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/gov/proposals/voting_period':'{}'.format(votingPeriod1)}}, cycleAlignment - 1)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        votingPeriod1 = 130
-
         # Move to voting period end
-        self.nodes[0].generate(cycleAlignemnt - self.nodes[0].getblockcount())
+        self.nodes[0].generate(cycleAlignment - self.nodes[0].getblockcount())
         self.sync_blocks()
 
         # Create CFP in new voting period
@@ -141,8 +141,8 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         # Calculate new cycle
         creationHeight = self.nodes[0].getblockcount()
-        cycleAlignemnt1 = creationHeight + (votingPeriod1 - creationHeight % votingPeriod1)
-        proposalEndHeight1 = cycleAlignemnt1 + votingPeriod1
+        cycleAlignment1 = creationHeight + (votingPeriod1 - creationHeight % votingPeriod1)
+        proposalEndHeight1 = cycleAlignment1 + votingPeriod1
 
         # Check all proposals cycle and proposal end height
         result = self.nodes[0].getgovproposal(tx2)
@@ -162,19 +162,34 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[0].generate(proposalEndHeight - self.nodes[0].getblockcount() + 1)
         self.sync_blocks()
 
+        # Create CFP in new voting period
+        tx3 = self.nodes[0].creategovcfp({"title": "Single cycle CFP (200)", "context": context, "amount": 100, "cycles": 1, "payoutAddress": address})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        secondCycleHeight = self.nodes[0].getblockcount()
+        cycleAlignment2 = secondCycleHeight + (votingPeriod1 - secondCycleHeight % votingPeriod1)
+        proposalEndHeight2 = cycleAlignment2 + votingPeriod1
+
         # Check all proposals cycle and proposal end height
-        result = self.nodes[0].getgovproposal(tx2)
-        assert_equal(result['currentCycle'], 1)
-        assert_equal(result["cycleEndHeight"], proposalEndHeight1)
-        assert_equal(result["proposalEndHeight"], proposalEndHeight1)
-        result = self.nodes[0].getgovproposal(tx1)
-        assert_equal(result['currentCycle'], 2)
-        assert_equal(result["cycleEndHeight"], multiProposalEndHeight)
-        assert_equal(result["proposalEndHeight"], multiProposalEndHeight)
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result['currentCycle'], 1)
         assert_equal(result["cycleEndHeight"], proposalEndHeight)
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
+        result = self.nodes[0].getgovproposal(tx2)
+        assert_equal(result['currentCycle'], 1)
+        assert_equal(result["cycleEndHeight"], proposalEndHeight1)
+        assert_equal(result["proposalEndHeight"], proposalEndHeight1)
+
+        # Check that multi cycle proposal aligns with newly created proposals
+        result = self.nodes[0].getgovproposal(tx1)
+        assert_equal(result['currentCycle'], 2)
+        assert_equal(result["cycleEndHeight"], proposalEndHeight2)
+        assert_equal(result["proposalEndHeight"], proposalEndHeight2)
+        result = self.nodes[0].getgovproposal(tx3)
+        assert_equal(result['currentCycle'], 1)
+        assert_equal(result["cycleEndHeight"], proposalEndHeight2)
+        assert_equal(result["proposalEndHeight"], proposalEndHeight2)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()

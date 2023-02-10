@@ -114,14 +114,29 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
 
     WriteBy<ByStatus>(key, cycle);
 
-    // Update values from attributes on each cycle
     auto prop = GetProposal(propId);
     assert(prop);
     bool emergency = prop->options & CProposalOption::Emergency;
     auto type      = static_cast<CProposalType>(prop->type);
 
+    auto currentVotingPeriod = GetVotingPeriodFromAttributes();
+    if (currentVotingPeriod != prop->votingPeriod) {
+        auto height        = prop->cycleEndHeight;
+        prop->votingPeriod = currentVotingPeriod;
+        height             = height + (prop->votingPeriod - height % prop->votingPeriod);
+
+        for (uint8_t i = prop->cycle; i <= prop->nCycles; ++i) {
+            height += prop->votingPeriod;
+            auto keyPair = std::make_pair(height, propId);
+            WriteBy<ByCycle>(keyPair, i);
+        }
+        prop->proposalEndHeight = height;
+    }
+
+    // Update values from attributes on each cycle
     prop->approvalThreshold = GetApprovalThresholdFromAttributes(type);
     prop->quorum            = GetQuorumFromAttributes(type, emergency);
+
     WriteBy<ByType>(propId, *prop);
 
     return Res::Ok();
