@@ -72,7 +72,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         creationHeight = self.nodes[0].getblockcount()
 
         # Create CFP with 2 cycles
-        tx1 = self.nodes[2].creategovcfp({"title": "Multi cycle CFP (70)", "context": context, "amount": 100, "cycles": 2, "payoutAddress": address2})
+        tx1 = self.nodes[2].creategovcfp({"title": "Multi cycle CFP (70)", "context": context, "amount": 100, "cycles": 3, "payoutAddress": address2})
 
         self.nodes[2].generate(1)
         self.sync_blocks()
@@ -92,7 +92,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         # Calculate cycle
         cycleAlignment = creationHeight + (votingPeriod - creationHeight % votingPeriod)
         proposalEndHeight = cycleAlignment + votingPeriod
-        multiProposalEndHeight = proposalEndHeight + votingPeriod
+        multiProposalEndHeight = proposalEndHeight + votingPeriod * 2
 
         # Check proposal and votes
         result = self.nodes[0].getgovproposal(tx)
@@ -170,6 +170,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         secondCycleHeight = self.nodes[0].getblockcount()
         cycleAlignment2 = secondCycleHeight + (votingPeriod1 - secondCycleHeight % votingPeriod1)
         proposalEndHeight2 = cycleAlignment2 + votingPeriod1
+        multiProposalEndHeight2 = proposalEndHeight2 + votingPeriod1
 
         # Check all proposals cycle and proposal end height
         result = self.nodes[0].getgovproposal(tx)
@@ -185,11 +186,28 @@ class OnChainGovernanceTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(tx1)
         assert_equal(result['currentCycle'], 2)
         assert_equal(result["cycleEndHeight"], proposalEndHeight2)
-        assert_equal(result["proposalEndHeight"], proposalEndHeight2)
+        assert_equal(result["proposalEndHeight"], multiProposalEndHeight2)
         result = self.nodes[0].getgovproposal(tx3)
         assert_equal(result['currentCycle'], 1)
         assert_equal(result["cycleEndHeight"], proposalEndHeight2)
         assert_equal(result["proposalEndHeight"], proposalEndHeight2)
+
+        # Vote on proposal
+        self.nodes[0].votegov(tx1, mn0, "yes")
+        self.nodes[0].generate(1)
+        self.nodes[1].votegov(tx1, mn1, "yes")
+        self.nodes[1].generate(1)
+        self.nodes[2].votegov(tx1, mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
+        # Move to third cycle
+        self.nodes[0].generate(proposalEndHeight2 - self.nodes[0].getblockcount())
+
+        result = self.nodes[0].getgovproposal(tx1)
+        assert_equal(result['currentCycle'], 3)
+        assert_equal(result["cycleEndHeight"], multiProposalEndHeight2)
+        assert_equal(result["proposalEndHeight"], multiProposalEndHeight2)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
