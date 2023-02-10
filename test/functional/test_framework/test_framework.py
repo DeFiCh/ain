@@ -443,9 +443,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                     disconnect_nodes(self.nodes[node], x)
 
             for node in nodes:
-                wait_until(lambda: self.nodes[node].getconnectioncount() == 0)
-
-            for node in nodes:
                 self._rollback_to(block, node)
 
             for node in nodes:
