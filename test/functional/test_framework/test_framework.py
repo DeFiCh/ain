@@ -33,6 +33,7 @@ from .util import (
     initialize_datadir,
     sync_blocks,
     sync_mempools,
+    wait_until,
 )
 
 
@@ -422,26 +423,33 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         if nodes is None:
             self._rollback_to(block)
         else:
-            connections = {}
+            connections_outbound = {}
+            connections_inbound = {}
             for node in nodes:
-                nodes_connections = []
+                nodes_connections_outbound = []
+                nodes_connections_inbound = []
                 for x in self.nodes[node].getpeerinfo():
-                    if not x['inbound']:
-                        nodes_connections.append(int(x['addr'].split(':')[1]) - PORT_MIN)
-                connections[node] = nodes_connections
+                    if x['inbound']:
+                        nodes_connections_inbound.append(int(x['addrbind'].split(':')[1]) - PORT_MIN)
+                    else:
+                        nodes_connections_outbound.append(int(x['addr'].split(':')[1]) - PORT_MIN)
+                connections_outbound[node] = nodes_connections_outbound
+                connections_inbound[node] = nodes_connections_inbound
 
             for node in nodes:
-                for x in connections[node]:
+                for x in connections_outbound[node]:
+                    disconnect_nodes(self.nodes[node], x)
+                for x in connections_inbound[node]:
                     disconnect_nodes(self.nodes[node], x)
 
             for node in nodes:
-                assert (self.nodes[node].getconnectioncount() == 0)
+                wait_until(lambda: self.nodes[node].getconnectioncount() == 0)
 
             for node in nodes:
                 self._rollback_to(block, node)
 
             for node in nodes:
-                for x in connections[node]:
+                for x in connections_outbound[node]:
                     connect_nodes(self.nodes[node], x)
 
     def run_test(self):
