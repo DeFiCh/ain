@@ -38,7 +38,7 @@ Res LP_SPLITS::Validate(const CCustomCSView &mnview) const {
         Require(mnview.HasPoolPair(poolId), [poolId=poolId]{ return strprintf("pool with id=%s not found", poolId.ToString()); });
 
         Require(amount >= 0 && amount <= COIN,
-                [=, poolId=poolId]{ return strprintf("wrong percentage for pool with id=%s, value = %s", poolId.ToString(), std::to_string(amount)); });
+                [amount=amount, poolId=poolId]{ return strprintf("wrong percentage for pool with id=%s, value = %s", poolId.ToString(), std::to_string(amount)); });
 
         total += amount;
     }
