@@ -23,7 +23,6 @@ from .test_node import TestNode
 from .mininode import NetworkThread
 from .util import (
     MAX_NODES,
-    PORT_MIN,
     PortSeed,
     assert_equal,
     check_json_precision,
