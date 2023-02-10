@@ -13,7 +13,7 @@ bool ORACLE_BLOCK_INTERVAL::IsEmpty() const {
 }
 
 Res ORACLE_BLOCK_INTERVAL::Import(const UniValue &val) {
-    Require(val.isNum(), "Block interval amount is not a number");
+    Require(val.isNum(), []{ return "Block interval amount is not a number"; });
 
     blockInterval = val.get_int();
     return Res::Ok();
@@ -24,8 +24,8 @@ UniValue ORACLE_BLOCK_INTERVAL::Export() const {
 }
 
 Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView &view) const {
-    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, "Cannot be set before FortCanning");
-    Require(blockInterval > 0, "Block interval cannot be less than 1");
+    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
+    Require(blockInterval > 0, []{ return "Block interval cannot be less than 1"; });
 
     return Res::Ok();
 }

@@ -80,7 +80,7 @@ uint32_t CAccountsView::GetBalancesHeight(const CScript &owner) {
 }
 
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey &key, const CFuturesUserValue &futures) {
-    Require(WriteBy<ByFuturesSwapKey>(key, futures), "Failed to store futures");
+    Require(WriteBy<ByFuturesSwapKey>(key, futures), []{ return "Failed to store futures"; });
     return Res::Ok();
 }
 
@@ -91,12 +91,12 @@ void CAccountsView::ForEachFuturesUserValues(
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) {
-    Require(EraseBy<ByFuturesSwapKey>(key), "Failed to erase futures");
+    Require(EraseBy<ByFuturesSwapKey>(key), [=]{ return "Failed to erase futures"; });
     return Res::Ok();
 }
 
 Res CAccountsView::StoreFuturesDUSD(const CFuturesUserKey &key, const CAmount &amount) {
-    Require(WriteBy<ByFuturesDUSDKey>(key, amount), "Failed to store futures");
+    Require(WriteBy<ByFuturesDUSDKey>(key, amount), []{ return "Failed to store futures"; });
     return Res::Ok();
 }
 
@@ -106,6 +106,6 @@ void CAccountsView::ForEachFuturesDUSD(std::function<bool(const CFuturesUserKey 
 }
 
 Res CAccountsView::EraseFuturesDUSD(const CFuturesUserKey &key) {
-    Require(EraseBy<ByFuturesDUSDKey>(key), "Failed to erase futures");
+    Require(EraseBy<ByFuturesDUSDKey>(key), []{ return "Failed to erase futures"; });
     return Res::Ok();
 }

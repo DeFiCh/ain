@@ -320,7 +320,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
     auto state = node.GetState(height, *this);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
-        Require(state == CMasternode::ENABLED, "node %s state is not 'ENABLED'", nodeId.ToString());
+        Require(state == CMasternode::ENABLED, [=]{ return strprintf("node %s state is not 'ENABLED'", nodeId.ToString()); });
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
@@ -329,7 +329,7 @@ Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId,
     if (!timelock) {
         return Res::Err("Failed to get timelock for masternode");
     }
-    Require(timelock.value() == CMasternode::ZEROYEAR, "Trying to resign masternode before timelock expiration.");
+    Require(timelock.value() == CMasternode::ZEROYEAR, [=]{ return "Trying to resign masternode before timelock expiration."; });
 
     node.resignTx     = txid;
     node.resignHeight = height;
@@ -990,9 +990,9 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
     auto amountInCurrency = MultiplyAmounts(price, amount);
     if (price > COIN)
         Require(amountInCurrency >= amount,
-                "Value/price too high (%s/%s)",
-                GetDecimaleString(amount),
-                GetDecimaleString(price));
+                [=]{ return strprintf("Value/price too high (%s/%s)",
+                                      GetDecimaleString(amount),
+                                      GetDecimaleString(price)); });
 
     return {amountInCurrency, Res::Ok()};
 }
@@ -1004,7 +1004,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vault
                                                            bool useNextPrice,
                                                            bool requireLivePrice) {
     const auto vault = GetVault(vaultId);
-    Require(vault && !vault->isUnderLiquidation, "Vault is under liquidation");
+    Require(vault && !vault->isUnderLiquidation, []{ return "Vault is under liquidation";} );
 
     CCollateralLoans result{};
     Require(PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice));
@@ -1030,11 +1030,11 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     Require(priceFeed);
 
     if (requireLivePrice)
-        Require(priceFeed->isLive(GetPriceDeviation()), "No live fixed prices for %s/%s", tokenSymbol, currency);
+        Require(priceFeed->isLive(GetPriceDeviation()), [=]{ return strprintf("No live fixed prices for %s/%s", tokenSymbol, currency); });
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
     auto price            = priceFeed.val->priceRecord[priceRecordIndex];
-    Require(price > 0, "Negative price (%s/%s)", tokenSymbol, currency);
+    Require(price > 0, [=]{ return strprintf("Negative price (%s/%s)", tokenSymbol, currency); });
 
     return {price, Res::Ok()};
 }
@@ -1051,12 +1051,12 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        Require(token, "Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        Require(token, [=]{ return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString()); });
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        Require(rate, "Cannot get interest rate for token (%s)!", token->symbol);
+        Require(rate, [=]{ return strprintf("Cannot get interest rate for token (%s)!", token->symbol); });
 
-        Require(height >= rate->height, "Trying to read loans in the past");
+        Require(height >= rate->height, []{ return "Trying to read loans in the past"; });
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         if (totalAmount < 0) {
@@ -1070,7 +1070,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
 
-        Require(prevLoans <= result.totalLoans, "Exceeded maximum loans");
+        Require(prevLoans <= result.totalLoans, []{ return "Exceeded maximum loans"; });
 
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
@@ -1089,7 +1089,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
-        Require(token, "Collateral token with id (%s) does not exist!", tokenId.ToString());
+        Require(token, [=]{ return strprintf("Collateral token with id (%s) does not exist!", tokenId.ToString()); });
 
         auto amountInCurrency =
             GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
@@ -1100,7 +1100,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;
 
-        Require(prevCollaterals <= result.totalCollaterals, "Exceeded maximum collateral");
+        Require(prevCollaterals <= result.totalCollaterals, []{ return "Exceeded maximum collateral"; });
 
         result.collaterals.push_back({tokenId, amountInCurrency});
     }
