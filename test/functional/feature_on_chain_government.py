@@ -727,6 +727,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.test_default_cycles_fix()
         self.aggregate_all_votes()
         self.test_valid_votes()
+        self.test_empty_object()
 
     def test_aggregation(self, propId):
         """
@@ -792,7 +793,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         Tests aggregation of all latest cycle votes for all proposals
         when no arguments are provided in listgovproposalvotes.
         """
-        votes = self.nodes[0].listgovproposalvotes()
+        votes = self.nodes[0].listgovproposalvotes({})
         proposalVotes = self.nodes[0].listgovproposalvotes(self.proposalId, "all", 0, {}, True)
         filteredVotes = list(filter(lambda vote: vote["proposalId"] == self.proposalId, votes))
         assert_equal(filteredVotes, proposalVotes)
@@ -806,6 +807,15 @@ class OnChainGovernanceTest(DefiTestFramework):
         for miss in missing:
             # proposals missing from entry must have 0 votes in the latest cycle
             assert_equal(len(self.nodes[0].listgovproposalvotes(miss, "all", 0)), 0)
+
+    def test_empty_object(self):
+        """
+        Tests fix for an issue where providing an empty object would
+        cause the node to incorrectly throw an error
+        """
+        votes = self.nodes[0].listgovproposalvotes()
+        votesObj = self.nodes[0].listgovproposalvotes({})
+        assert_equal(votes, votesObj)
 
     def test_valid_votes(self):
         """
