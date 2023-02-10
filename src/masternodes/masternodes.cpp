@@ -1051,7 +1051,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        Require(token, [=]{ return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString()); });
+        Require(token, [loanTokenId=loanTokenId]{ return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString()); });
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
         Require(rate, [=]{ return strprintf("Cannot get interest rate for token (%s)!", token->symbol); });
