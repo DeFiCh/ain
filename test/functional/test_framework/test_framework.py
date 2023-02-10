@@ -15,6 +15,7 @@ import shutil
 import sys
 import tempfile
 import time
+import re
 
 from .authproxy import JSONRPCException
 from . import coverage
@@ -422,34 +423,24 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         if nodes is None:
             self._rollback_to(block)
         else:
-            connections_outbound = {}
-            connections_inbound = {}
+            connections = {}
             for node in nodes:
-                nodes_connections_outbound = []
-                nodes_connections_inbound = []
+                nodes_connections = []
                 for x in self.nodes[node].getpeerinfo():
-                    if x['inbound']:
-                        node_number = int(x['addrbind'].split(':')[1]) - PORT_MIN
-                        if node_number <= MAX_NODES:
-                            nodes_connections_inbound.append(node_number)
-                    else:
-                        node_number = int(x['addr'].split(':')[1]) - PORT_MIN
-                        if node_number <= MAX_NODES:
-                            nodes_connections_outbound.append(node_number)
-                connections_outbound[node] = nodes_connections_outbound
-                connections_inbound[node] = nodes_connections_inbound
+                    if not x['inbound']:
+                        node_number = re.findall(r'\d+', x['subver'])[-1]
+                        nodes_connections.append(int(node_number))
+                connections[node] = nodes_connections
 
             for node in nodes:
-                for x in connections_outbound[node]:
-                    disconnect_nodes(self.nodes[node], x)
-                for x in connections_inbound[node]:
+                for x in connections[node]:
                     disconnect_nodes(self.nodes[node], x)
 
             for node in nodes:
                 self._rollback_to(block, node)
 
             for node in nodes:
-                for x in connections_outbound[node]:
+                for x in connections[node]:
                     connect_nodes(self.nodes[node], x)
 
     def run_test(self):
