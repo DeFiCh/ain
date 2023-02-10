@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <queue>
 #include <utility>
+#include <random>
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -217,7 +218,21 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    const auto autoOrdering = gArgs.GetBoolArg("-autotxordering", DEFAULT_AUTO_FEE_ORDERING);
+    bool timeOrdering = DEFAULT_FEE_ORDERING;
+    if (autoOrdering) {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<unsigned long long> dis;
+
+        if (dis(rd) % 2 == 0)
+            timeOrdering = false;
+        else
+            timeOrdering = true;
+    } else {
+        timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    }
+
     if (timeOrdering) {
         addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
     } else {

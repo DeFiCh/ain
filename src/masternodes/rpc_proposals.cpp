@@ -634,10 +634,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     UniValue optionsObj(UniValue::VOBJ);
 
-    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL}, true);
-    else if (request.params[0].isObject())
-        optionsObj = request.params[0].get_obj();
+    if (!request.params[0].empty()) {
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
+            RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL}, true);
+        else if (request.params[0].isObject())
+            optionsObj = request.params[0].get_obj();
+    }
 
     CCustomCSView view(*pcustomcsview);
 
@@ -655,7 +657,6 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     bool including_start = true;
 
     if (!optionsObj.empty()) {
-
         if (!optionsObj["proposalId"].isNull()) {
             propId = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
             aggregate = false;
@@ -706,7 +707,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
     } else {
-        if (!request.params.empty()) {
+        if (!request.params.empty() && request.params[0].isStr()) {
             propId = ParseHashV(request.params[0].get_str(), "proposalId");
             aggregate = false;
             isMine = true;
@@ -1023,10 +1024,12 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
     UniValue optionsObj(UniValue::VOBJ);
 
-    if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
-        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
-    else if (request.params[0].isObject())
-        optionsObj = request.params[0].get_obj();
+    if (!request.params[0].empty()) {
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
+            RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+        else if (request.params[0].isObject())
+            optionsObj = request.params[0].get_obj();
+    }
 
     uint8_t type{0}, status{0};
     int cycle{0};
@@ -1081,7 +1084,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             }
         }
     } else {
-        if (request.params.size() > 0) {
+        if (request.params.size() > 0 && request.params[0].isStr()) {
             auto str = request.params[0].get_str();
             if (str == "cfp") {
                 type = uint8_t(CProposalType::CommunityFundProposal);
