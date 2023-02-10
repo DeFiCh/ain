@@ -138,8 +138,8 @@ main() {
     if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
       ATTEMPTS=$((ATTEMPTS + 1))
 
-      # Handle odd case where node get stuck on previously invalidated block
-      $DEFI_CLI_CMD reconsiderblock "$($DEFI_CLI_CMD getbestblockhash)" || true
+      # # Handle odd case where node get stuck on previously invalidated block
+      # $DEFI_CLI_CMD reconsiderblock "$($DEFI_CLI_CMD getbestblockhash)" || true
     else
       ATTEMPTS=0
     fi
