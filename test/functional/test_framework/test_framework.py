@@ -429,9 +429,13 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 nodes_connections_inbound = []
                 for x in self.nodes[node].getpeerinfo():
                     if x['inbound']:
-                        nodes_connections_inbound.append(int(x['addrbind'].split(':')[1]) - PORT_MIN)
+                        node_number = int(x['addrbind'].split(':')[1]) - PORT_MIN
+                        if node_number <= MAX_NODES:
+                            nodes_connections_inbound.append(node_number)
                     else:
-                        nodes_connections_outbound.append(int(x['addr'].split(':')[1]) - PORT_MIN)
+                        node_number = int(x['addr'].split(':')[1]) - PORT_MIN
+                        if node_number <= MAX_NODES:
+                            nodes_connections_outbound.append(node_number)
                 connections_outbound[node] = nodes_connections_outbound
                 connections_inbound[node] = nodes_connections_inbound
 
