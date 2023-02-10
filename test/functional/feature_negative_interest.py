@@ -19,16 +19,6 @@ def getDecimalAmount(amount):
 
 
 class NegativeInterestTest (DefiTestFramework):
-    def rollback_to(self, block):
-        self.log.info("rollback to: %d", block)
-        current_height = self.nodes[0].getblockcount()
-        if current_height == block:
-            return
-        blockhash = self.nodes[0].getblockhash(block + 1)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
-        assert_equal(block, self.nodes[0].getblockcount())
-
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
