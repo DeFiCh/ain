@@ -121,10 +121,19 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
 
     auto currentVotingPeriod = GetVotingPeriodFromAttributes();
     if (currentVotingPeriod != prop->votingPeriod) {
+        uint8_t i   = 0;
+        auto cycles = prop->nCycles;
+        auto ckey   = std::make_pair(prop->creationHeight, propId);
+        for (auto it = LowerBound<ByCycle>(ckey); i < cycles && it.Valid(); it.Next()) {
+            if (it.Key().second == propId) {
+                EraseBy<ByCycle>(it.Key());
+                ++i;
+            }
+        }
+
         auto height        = prop->cycleEndHeight;
         prop->votingPeriod = currentVotingPeriod;
         height             = height + (prop->votingPeriod - height % prop->votingPeriod);
-
         for (uint8_t i = prop->cycle; i <= prop->nCycles; ++i) {
             height += prop->votingPeriod;
             auto keyPair = std::make_pair(height, propId);
