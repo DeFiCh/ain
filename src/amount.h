@@ -92,7 +92,7 @@ typedef std::map<DCT_ID, CAmount> TAmounts;
 
 inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     // check limits
-    Require(_a >= 0 && _b >= 0, "negative amount");
+    Require(_a >= 0 && _b >= 0, []{ return "negative amount"; });
 
     // convert to unsigned, because signed overflow is UB
     const uint64_t a = (uint64_t) _a;
@@ -101,7 +101,7 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     const uint64_t sum = a + b;
     // check overflow
 
-    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, "overflow");
+    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, []{ return "overflow"; });
     return {(CAmount) sum, Res::Ok()};
 }
 
