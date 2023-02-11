@@ -92,16 +92,20 @@ typedef std::map<DCT_ID, CAmount> TAmounts;
 
 inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     // check limits
-    Require(_a >= 0 && _b >= 0, []{ return "negative amount"; });
+    if (_a < 0 || _b < 0) {
+        return Res::Err("negative amount");
+    }
 
     // convert to unsigned, because signed overflow is UB
-    const uint64_t a = (uint64_t) _a;
-    const uint64_t b = (uint64_t) _b;
+    const auto a = static_cast<uint64_t>(_a);
+    const auto b = static_cast<uint64_t>(_b);
 
-    const uint64_t sum = a + b;
+    const auto sum = a + b;
     // check overflow
 
-    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, []{ return "overflow"; });
+    if ((sum - a) != b || static_cast<uint64_t>(std::numeric_limits<CAmount>::max()) < sum) {
+        return Res::Err("overflow");
+    }
     return {(CAmount) sum, Res::Ok()};
 }
 
@@ -125,7 +129,9 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Add(CAmount amount) {
         // safety checks
-        Require(amount >= 0, [=]{ return strprintf("negative amount: %s", GetDecimaleString(amount)); });
+        if (amount < 0) {
+            return Res::Err("negative amount: %s", GetDecimaleString(amount));
+        }
 
         // add
         auto sumRes = SafeAdd(nValue, amount);
@@ -137,8 +143,12 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Sub(CAmount amount) {
         // safety checks
-        Require(amount >= 0, [=]{ return strprintf("negative amount: %s", GetDecimaleString(amount)); });
-        Require(nValue >= amount, [=]{ return strprintf("amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount)); });
+        if (amount < 0) {
+            return Res::Err("negative amount: %s", GetDecimaleString(amount));
+        }
+        if (this->nValue < amount) {
+            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+        }
 
         // sub
         nValue -= amount;
