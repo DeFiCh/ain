@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_ERRORS_H
-#define DEFI_ERRORS_H
+#ifndef DEFI_MASTERNODES_ERRORS_H
+#define DEFI_MASTERNODES_ERRORS_H
 
 #include <amount.h>
 #include <masternodes/res.h>
@@ -28,5 +28,5 @@ public:
     }
 };
 
-#endif  // DEFI_ERRORS_H
+#endif  // DEFI_MASTERNODES_ERRORS_H
 
