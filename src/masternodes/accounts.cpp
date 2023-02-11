@@ -91,7 +91,7 @@ void CAccountsView::ForEachFuturesUserValues(
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) {
-    Require(EraseBy<ByFuturesSwapKey>(key), [=]{ return "Failed to erase futures"; });
+    Require(EraseBy<ByFuturesSwapKey>(key), []{ return "Failed to erase futures"; });
     return Res::Ok();
 }
 
