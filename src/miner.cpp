@@ -234,7 +234,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         timeOrdering = true;
     } else if (gArgs.IsArgSet("-txordering") && txOrdering == FEE_ORDERING) {
         timeOrdering = false;
-    } // falls back to blocktimeordering arg if txordering is default/fee based
+    } // falls back to blocktimeordering arg if txordering is not set
 
     if (timeOrdering) {
         addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
