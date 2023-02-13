@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 
+from typing import List
 from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
@@ -93,7 +94,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         """Sets test framework defaults. Do not override this method. Instead, override the set_test_params() method"""
         self.chain = 'regtest'
         self.setup_clean_chain = False
-        self.nodes = []
+        self.nodes: List[TestNode] = []
         self.network_thread = None
         self.rpc_timeout = 60  # Wait for up to 60 seconds for the RPC server to respond
         self.supports_cli = False
