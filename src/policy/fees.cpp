@@ -790,7 +790,8 @@ CFeeRate CBlockPolicyEstimator::estimateSmartFee(int confTarget, FeeCalculation 
 
     // If block ordering by time is enabled return 0 to let fallback or discard fee be used.
     if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING) ||
-        gArgs.GetBoolArg("-txordering", DEFAULT_AUTO_FEE_ORDERING)) {
+        gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == MIXED_ORDERING ||
+        gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == ENTRYTIME_ORDERING) {
         return 0;
     }
 
