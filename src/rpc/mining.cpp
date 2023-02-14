@@ -980,7 +980,8 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
     } else if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING) ||
-               gArgs.GetBoolArg("-autotxordering", DEFAULT_AUTO_FEE_ORDERING)) {
+               gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == MIXED_ORDERING ||
+               gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == ENTRYTIME_ORDERING) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
         errors.push_back("Insufficient data or no feerate found");
