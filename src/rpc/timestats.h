@@ -3,9 +3,9 @@
 
 #include <masternodes/mn_checks.h>
 #include <queue>
-#include "stats.h"
+#include <rpc/stats.h>
+#include <rpc/util.h>
 #include <uint256.h>
-#include "util.h"
 
 static const bool DEFAULT_TIME_STATS = false;
 static const uint32_t DEFAULT_TIME_STATS_OUTLIERS_SIZE = 5;
