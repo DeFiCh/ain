@@ -29,6 +29,10 @@ public:
                                const CScript &owner = {},
                                uint32_t height      = std::numeric_limits<uint32_t>::max(),
                                uint32_t txn         = std::numeric_limits<uint32_t>::max());
+    void ForEachAccountHistoryNew(std::function<bool(const AccountHistoryKeyNew &, const AccountHistoryValue &)> callback,
+                                  const AccountHistoryKeyNew &start = {std::numeric_limits<uint32_t>::max(),
+                                                                       {},
+                                                                       std::numeric_limits<uint32_t>::max()});
 
     // tags
     struct ByAccountHistoryKey {
