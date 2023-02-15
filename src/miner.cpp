@@ -218,7 +218,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    bool timeOrdering;
+    bool timeOrdering{false};
     if (txOrdering == MIXED_ORDERING) {
         std::random_device rd;
         std::mt19937_64 gen(rd());
