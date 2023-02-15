@@ -1969,7 +1969,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
-    auto &burnView = pburnHistoryDB;
     auto attributes = view.GetAttributes();
 
     if (attributes) {
@@ -2018,7 +2017,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         workerResults.push_back(result);
 
         threads.emplace_back([result, startHeight, stopHeight]{
-            burnView->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+            pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
 
                 // Stop on chunk range for worker
                 if (key.blockHeight <= stopHeight) {
