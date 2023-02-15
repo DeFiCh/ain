@@ -962,6 +962,12 @@ void InitParameterInteraction()
             LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
         }
     }
+
+    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    if (timeOrdering)
+        txOrdering = TxOrderings::ENTRYTIME_ORDERING;
+
+    txOrdering = static_cast<TxOrderings>(gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING));
 }
 
 /**
