@@ -2012,13 +2012,12 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     boost::asio::thread_pool workerPool{nWorkers};
 
     for (size_t i{}; i < nWorkers; ++i) {
-        uint32_t startHeight{}, stopHeight{};
+        uint32_t startHeight = (i + 1) * chunks;
+        uint32_t stopHeight = startHeight - chunks;
+
         if (i + 1 == nWorkers) {
             startHeight = (i + 1) * chunks + chunksRemainder;
             stopHeight = startHeight - chunks - chunksRemainder;
-        } else {
-            startHeight = (i + 1) * chunks;
-            stopHeight = nWorkers ?  : startHeight - chunks;
         }
 
         auto result = std::make_shared<BalanceResults>();
