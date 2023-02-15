@@ -2016,8 +2016,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         uint32_t stopHeight = startHeight - chunks;
 
         if (i + 1 == nWorkers) {
-            startHeight = (i + 1) * chunks + chunksRemainder;
-            stopHeight = startHeight - chunks - chunksRemainder;
+            startHeight += chunksRemainder;
+            stopHeight -= chunksRemainder;
         }
 
         auto result = std::make_shared<BalanceResults>();
