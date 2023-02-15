@@ -963,11 +963,10 @@ void InitParameterInteraction()
         }
     }
 
-    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
-    if (timeOrdering)
-        txOrdering = TxOrderings::ENTRYTIME_ORDERING;
+    txOrdering = static_cast<TxOrderings>(gArgs.GetArg("-txordering", DEFAULT_TX_ORDERING));
 
-    txOrdering = static_cast<TxOrderings>(gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING));
+    if (gArgs.GetBoolArg("-blocktimeordering", false))
+        txOrdering = TxOrderings::ENTRYTIME_ORDERING;
 }
 
 /**
