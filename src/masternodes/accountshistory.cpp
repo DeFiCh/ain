@@ -57,12 +57,6 @@ void CAccountsHistoryView::ForEachAccountHistory(
         {height, owner, txn});
 }
 
-void CAccountsHistoryView::ForEachAccountHistoryNew(
-        std::function<bool(const AccountHistoryKeyNew &, const AccountHistoryValue &)> callback,
-        const AccountHistoryKeyNew &start) {
-    ForEach<ByAccountHistoryKeyNew, AccountHistoryKeyNew, AccountHistoryValue>(callback, start);
-}
-
 std::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(const AccountHistoryKey &key) const {
     return ReadBy<ByAccountHistoryKey, AccountHistoryValue>(key);
 }

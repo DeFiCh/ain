@@ -2018,10 +2018,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         workerResults.push_back(result);
 
         threads.emplace_back([result, startHeight, stopHeight]{
-            burnView->ForEachAccountHistoryNew([result, startHeight, stopHeight](const AccountHistoryKeyNew &key, const AccountHistoryValue &value) {
+            burnView->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
 
                 // Stop on chunk range for worker
-                if (key.blockHeight == stopHeight) {
+                if (key.blockHeight <= stopHeight) {
                     return false;
                 }
 
@@ -2087,7 +2087,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                 }
 
                 return true;
-            }, {startHeight, {}, std::numeric_limits<uint32_t>::max()});
+            }, {}, startHeight, std::numeric_limits<uint32_t>::max());
         });
     }
 
