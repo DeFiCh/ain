@@ -3,6 +3,8 @@
 #include <masternodes/mn_rpc.h>
 #include <masternodes/validation.h>
 
+#include <boost/asio.hpp>
+
 struct BalanceResults {
     CAmount burntDFI{};
     CAmount burntFee{};
@@ -2007,7 +2009,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     const auto chunksRemainder = currentHeight % nWorkers;
 
     std::vector<std::shared_ptr<BalanceResults>> workerResults;
-    std::vector<std::thread> threads;
+    boost::asio::thread_pool workerPool{nWorkers};
 
     for (size_t i{}; i < nWorkers; ++i) {
         const uint32_t startHeight = i + 1 == nWorkers ? (i + 1) * chunks + chunksRemainder : (i + 1) * chunks;
@@ -2016,7 +2018,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         auto result = std::make_shared<BalanceResults>();
         workerResults.push_back(result);
 
-        threads.emplace_back([result, startHeight, stopHeight]{
+        boost::asio::post(workerPool, [result, startHeight, stopHeight]{
             pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
 
                 // Stop on chunk range for worker
@@ -2090,9 +2092,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         });
     }
 
-    for (std::thread& t : threads) {
-        t.join();
-    }
+    workerPool.join();
 
     for (const auto &result : workerResults) {
         burntDFI += result->burntDFI;
