@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <streams.h>
 #include <txmempool.h>
+#include <miner.h>
 #include <util/system.h>
 #include <validation.h>
 
@@ -789,8 +790,7 @@ CFeeRate CBlockPolicyEstimator::estimateSmartFee(int confTarget, FeeCalculation 
     LOCK(m_cs_fee_estimator);
 
     // If block ordering by time is enabled return 0 to let fallback or discard fee be used.
-    if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING) ||
-        gArgs.GetBoolArg("-autotxordering", DEFAULT_AUTO_FEE_ORDERING)) {
+    if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
         return 0;
     }
 

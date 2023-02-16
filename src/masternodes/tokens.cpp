@@ -64,14 +64,14 @@ Res CTokensView::CreateDFIToken() {
 ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront) {
     // this should not happen, but for sure
     Require(!GetTokenByCreationTx(token.creationTx),
-            "token with creation tx %s already exists!",
-            token.creationTx.ToString());
+            [=]{ return strprintf("token with creation tx %s already exists!",
+                                  token.creationTx.ToString()); });
 
     Require(token.IsValidSymbol());
 
     DCT_ID id{0};
     if (token.IsDAT()) {
-        Require(!GetToken(token.symbol), "token '%s' already exists!", token.symbol);
+        Require(!GetToken(token.symbol), [=]{ return strprintf("token '%s' already exists!", token.symbol); });
 
         ForEachToken(
             [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
@@ -81,14 +81,10 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
             },
             id);
         if (id == DCT_ID_START) {
+            // asserted before BayfrontHeight, keep it for strict sameness
             Require(
                 !isPreBayfront,
-                "Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");  // asserted
-                                                                                                         // before
-                                                                                                         // BayfrontHeight,
-                                                                                                         // keep it for
-                                                                                                         // strict
-                                                                                                         // sameness
+                []{ return "Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"; });
 
             id = IncrementLastDctId();
             LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n",
@@ -108,7 +104,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
 
 Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
-    Require(pair, "token with creationTx %s does not exist!", newToken.creationTx.ToString());
+    Require(pair, [=]{ return strprintf("token with creationTx %s does not exist!", newToken.creationTx.ToString()); });
 
     DCT_ID id            = pair->first;
     CTokenImpl &oldToken = pair->second;
@@ -116,7 +112,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
     if (!isPreBayfront)
         // for compatibility, in potential case when someone cheat and create finalized token with old node (and then
         // alter dat for ex.)
-        Require(!oldToken.IsFinalized(), "can't alter 'Finalized' tokens");
+        Require(!oldToken.IsFinalized(), []{ return "can't alter 'Finalized' tokens"; });
 
     // 'name' and 'symbol' were trimmed in 'Apply'
     oldToken.name = newToken.name;
@@ -132,7 +128,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
         // create keys with regard of new flag
         std::string oldSymbolKey = oldToken.CreateSymbolKey(id);
         std::string newSymbolKey = newToken.CreateSymbolKey(id);
-        Require(!GetToken(newSymbolKey), "token with key '%s' already exists!", newSymbolKey);
+        Require(!GetToken(newSymbolKey), [=]{ return strprintf("token with key '%s' already exists!", newSymbolKey); });
 
         EraseBy<Symbol>(oldSymbolKey);
         WriteBy<Symbol>(newSymbolKey, id);
@@ -197,10 +193,10 @@ Res CTokensView::BayfrontFlagsCleanup() {
 
 Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    Require(tokenImpl, "token with id %d does not exist!", id.v);
+    Require(tokenImpl, [=]{ return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = SafeAdd(tokenImpl->minted, amount);
-    Require(resMinted, "overflow when adding to minted");
+    Require(resMinted, []{ return "overflow when adding to minted"; });
 
     tokenImpl->minted = resMinted;
 
@@ -210,10 +206,10 @@ Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
 
 Res CTokensView::SubMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    Require(tokenImpl, "token with id %d does not exist!", id.v);
+    Require(tokenImpl, [=]{ return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = tokenImpl->minted - amount;
-    Require(resMinted >= 0, "not enough tokens exist to subtract this amount");
+    Require(resMinted >= 0, []{ return "not enough tokens exist to subtract this amount"; });
 
     tokenImpl->minted = resMinted;
 
@@ -240,10 +236,10 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const {
 }
 
 inline Res CTokenImplementation::IsValidSymbol() const {
-    Require(!symbol.empty() && !IsDigit(symbol[0]), "token symbol should be non-empty and starts with a letter");
-    Require(symbol.find('#') == std::string::npos, "token symbol should not contain '#'");
+    Require(!symbol.empty() && !IsDigit(symbol[0]), []{ return "token symbol should be non-empty and starts with a letter"; });
+    Require(symbol.find('#') == std::string::npos, []{ return "token symbol should not contain '#'"; });
     if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
-        Require(symbol.find('/') == std::string::npos, "token symbol should not contain '/'");
+        Require(symbol.find('/') == std::string::npos, []{ return "token symbol should not contain '/'"; });
     }
     return Res::Ok();
 }

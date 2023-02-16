@@ -853,8 +853,8 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
     });
 
     static const uint64_t minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
-    Require(numLiveOracles >= minimumLiveOracles, "no live oracles for specified request");
-    Require(sumWeights > 0, "all live oracles which meet specified request, have zero weight");
+    Require(numLiveOracles >= minimumLiveOracles, []{ return "no live oracles for specified request"; });
+    Require(sumWeights > 0, []{ return "all live oracles which meet specified request, have zero weight"; });
 
     ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
 
