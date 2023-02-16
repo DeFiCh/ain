@@ -552,11 +552,16 @@ UniValue setgov(const JSONRPCRequest& request) {
                 for (const auto& [key, value] : attrMap) {
                     if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
                         DCT_ID tokenID{attrV0->typeId};
-                        if (attrV0->type == AttributeTypes::Consortium &&
-                            (attrV0->typeId == 0 ||
-                             !pcustomcsview->GetToken(tokenID)->IsDAT() ||
-                             pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
+                        if (attrV0->type == AttributeTypes::Consortium) {
+                            bool isDAT{};
+                            if (auto token = pcustomcsview->GetToken(tokenID)) {
+                                isDAT = token->IsDAT();
+                            }
+
+                            if (attrV0->typeId == 0 ||
+                                !isDAT ||
+                                pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                                throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
                     }
                 }
@@ -759,11 +764,16 @@ UniValue setgovheight(const JSONRPCRequest& request) {
             for (const auto& [key, value] : attrMap) {
                 if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
                     DCT_ID tokenID{attrV0->typeId};
-                    if (attrV0->type == AttributeTypes::Consortium &&
-                        (attrV0->typeId == 0 ||
-                         !pcustomcsview->GetToken(tokenID)->IsDAT() ||
-                         pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
-                        throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
+                    if (attrV0->type == AttributeTypes::Consortium) {
+                        bool isDAT{};
+                        if (auto token = pcustomcsview->GetToken(tokenID)) {
+                            isDAT = token->IsDAT();
+                        }
+
+                        if (attrV0->typeId == 0 ||
+                            !isDAT ||
+                            pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                     }
                 }
             }
