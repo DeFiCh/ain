@@ -320,12 +320,16 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
     auto state = node.GetState(height, *this);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
-        Require(state == CMasternode::ENABLED, "node %s state is not 'ENABLED'", nodeId.ToString());
+        Require(state == CMasternode::ENABLED, [=]{ return strprintf("node %s state is not 'ENABLED'", nodeId.ToString()); });
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    Require(!GetTimelock(nodeId, node, height), "Trying to resign masternode before timelock expiration.");
+    const auto timelock = GetTimelock(nodeId, node, height);
+    if (!timelock) {
+        return Res::Err("Failed to get timelock for masternode");
+    }
+    Require(timelock.value() == CMasternode::ZEROYEAR, [=]{ return "Trying to resign masternode before timelock expiration."; });
 
     node.resignTx     = txid;
     node.resignHeight = height;
@@ -522,9 +526,8 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256 &nodeId, const u
     }
 }
 
-uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const {
-    auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
-    if (timelock) {
+std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const {
+    if (const auto timelock = ReadBy<Timelock, uint16_t>(nodeId); timelock) {
         LOCK(cs_main);
         // Get last height
         auto lastHeight = height - 1;
@@ -540,7 +543,12 @@ uint16_t CMasternodesView::GetTimelock(const uint256 &nodeId, const CMasternode 
         // Get average time of the last two times the activation delay worth of blocks
         uint64_t totalTime{0};
         for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
-            totalTime += ::ChainActive()[lastHeight]->nTime;
+            const auto &blockIndex{::ChainActive()[lastHeight]};
+            // Last height might not be available due to rollback or call to invalidateblock
+            if (!blockIndex) {
+                return {};
+            }
+            totalTime += blockIndex->nTime;
         }
         const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
 
@@ -754,8 +762,6 @@ CCustomCSView::CCustomCSView() {
     CheckPrefixes();
 }
 
-CCustomCSView::~CCustomCSView() = default;
-
 CCustomCSView::CCustomCSView(CStorageKV &st)
     : CStorageView(new CFlushableStorageKV(st)) {
     CheckPrefixes();
@@ -763,7 +769,17 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
 
 // cache-upon-a-cache (not a copy!) constructor
 CCustomCSView::CCustomCSView(CCustomCSView &other)
-    : CStorageView(new CFlushableStorageKV(other.DB())) {
+    : CStorageView(new CFlushableStorageKV(other.DB())),
+      writers(other.GetHistoryWriters()) {
+    CheckPrefixes();
+}
+
+CCustomCSView::CCustomCSView(CCustomCSView &other,
+                             CAccountHistoryStorage *historyView,
+                             CBurnHistoryStorage *burnView,
+                             CVaultHistoryStorage *vaultView)
+        : CStorageView(new CFlushableStorageKV(other.DB())),
+          writers(historyView, burnView, vaultView) {
     CheckPrefixes();
 }
 
@@ -974,9 +990,9 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
     auto amountInCurrency = MultiplyAmounts(price, amount);
     if (price > COIN)
         Require(amountInCurrency >= amount,
-                "Value/price too high (%s/%s)",
-                GetDecimaleString(amount),
-                GetDecimaleString(price));
+                [=]{ return strprintf("Value/price too high (%s/%s)",
+                                      GetDecimaleString(amount),
+                                      GetDecimaleString(price)); });
 
     return {amountInCurrency, Res::Ok()};
 }
@@ -988,7 +1004,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vault
                                                            bool useNextPrice,
                                                            bool requireLivePrice) {
     const auto vault = GetVault(vaultId);
-    Require(vault && !vault->isUnderLiquidation, "Vault is under liquidation");
+    Require(vault && !vault->isUnderLiquidation, []{ return "Vault is under liquidation";} );
 
     CCollateralLoans result{};
     Require(PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice));
@@ -1014,11 +1030,11 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     Require(priceFeed);
 
     if (requireLivePrice)
-        Require(priceFeed->isLive(GetPriceDeviation()), "No live fixed prices for %s/%s", tokenSymbol, currency);
+        Require(priceFeed->isLive(GetPriceDeviation()), [=]{ return strprintf("No live fixed prices for %s/%s", tokenSymbol, currency); });
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
     auto price            = priceFeed.val->priceRecord[priceRecordIndex];
-    Require(price > 0, "Negative price (%s/%s)", tokenSymbol, currency);
+    Require(price > 0, [=]{ return strprintf("Negative price (%s/%s)", tokenSymbol, currency); });
 
     return {price, Res::Ok()};
 }
@@ -1035,12 +1051,12 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        Require(token, "Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        Require(token, [loanTokenId=loanTokenId]{ return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString()); });
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        Require(rate, "Cannot get interest rate for token (%s)!", token->symbol);
+        Require(rate, [=]{ return strprintf("Cannot get interest rate for token (%s)!", token->symbol); });
 
-        Require(height >= rate->height, "Trying to read loans in the past");
+        Require(height >= rate->height, []{ return "Trying to read loans in the past"; });
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         if (totalAmount < 0) {
@@ -1054,7 +1070,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
 
-        Require(prevLoans <= result.totalLoans, "Exceeded maximum loans");
+        Require(prevLoans <= result.totalLoans, []{ return "Exceeded maximum loans"; });
 
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
@@ -1073,7 +1089,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
-        Require(token, "Collateral token with id (%s) does not exist!", tokenId.ToString());
+        Require(token, [=]{ return strprintf("Collateral token with id (%s) does not exist!", tokenId.ToString()); });
 
         auto amountInCurrency =
             GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
@@ -1084,7 +1100,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;
 
-        Require(prevCollaterals <= result.totalCollaterals, "Exceeded maximum collateral");
+        Require(prevCollaterals <= result.totalCollaterals, []{ return "Exceeded maximum collateral"; });
 
         result.collaterals.push_back({tokenId, amountInCurrency});
     }
@@ -1249,28 +1265,6 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
-}
-
-CAccountHistoryStorage *CCustomCSView::GetAccountHistoryStore() {
-    return accHistoryStore.get();
-}
-
-CVaultHistoryStorage *CCustomCSView::GetVaultHistoryStore() {
-    return vauHistoryStore.get();
-}
-
-void CCustomCSView::SetAccountHistoryStore() {
-    if (paccountHistoryDB) {
-        accHistoryStore.reset();
-        accHistoryStore = std::make_unique<CAccountHistoryStorage>(*paccountHistoryDB);
-    }
-}
-
-void CCustomCSView::SetVaultHistoryStore() {
-    if (pvaultHistoryDB) {
-        vauHistoryStore.reset();
-        vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
-    }
 }
 
 uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {

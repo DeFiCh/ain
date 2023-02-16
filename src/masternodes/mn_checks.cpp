@@ -4,8 +4,10 @@
 
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/errors.h>
 
 #include <core_io.h>
 #include <index/txindex.h>
@@ -844,7 +846,7 @@ public:
 
     Res operator()(const CResignMasterNodeMessage &obj) const {
         auto node = mnview.GetMasternode(obj);
-        Require(node, "node %s does not exists", obj.ToString());
+        if (!node) return DeFiErrors::MNInvalid(obj.ToString());
 
         Require(HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx));
         return mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
@@ -860,13 +862,16 @@ public:
         }
 
         auto node = mnview.GetMasternode(obj.mnId);
-        Require(node, "masternode %s does not exist", obj.mnId.ToString());
+        if (!node)
+            return DeFiErrors::MNInvalidAltMsg(obj.mnId.ToString());
 
         const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
         Require(HasCollateralAuth(collateralTx));
 
         auto state = node->GetState(height, mnview);
-        Require(state == CMasternode::ENABLED, "Masternode %s is not in 'ENABLED' state", obj.mnId.ToString());
+        if (state != CMasternode::ENABLED) {
+            return DeFiErrors::MNStateNotEnabled(obj.mnId.ToString());
+        }
 
         const auto attributes = mnview.GetAttributes();
         assert(attributes);
@@ -1555,8 +1560,9 @@ public:
         CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
         auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
-        Require(amount >= minSwap,
-                "Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
+        if (amount < minSwap) {
+            return DeFiErrors::ICXBTCBelowMinSwap(amount, minSwap);
+        }
 
         const auto token = mnview.GetToken(id);
         Require(token, "Specified token not found");
@@ -2839,6 +2845,11 @@ public:
 
                 Require(amount + totalInterest <= 0, "Vault <%s> has loans", obj.vaultId.GetHex());
 
+                // If there is an amount negated by interested remove it from loan tokens.
+                if (amount > 0) {
+                    mnview.SubLoanToken(obj.vaultId, {tokenId, amount});
+                }
+
                 if (totalInterest < 0) {
                     TrackNegativeInterest(
                         mnview, {tokenId, amount > std::abs(totalInterest) ? std::abs(totalInterest) : amount});
@@ -3849,7 +3860,7 @@ bool ShouldReturnNonFatalError(const CTransaction &tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-void PopulateVaultHistoryData(CHistoryWriters *writers,
+void PopulateVaultHistoryData(CHistoryWriters &writers,
                               CAccountsHistoryWriter &view,
                               const CCustomTxMessage &txMessage,
                               const CustomTxType txType,
@@ -3858,7 +3869,7 @@ void PopulateVaultHistoryData(CHistoryWriters *writers,
                               const uint256 &txid) {
     if (txType == CustomTxType::Vault) {
         auto obj          = std::get<CVaultMessage>(txMessage);
-        writers->schemeID = obj.schemeId;
+        writers.schemeID = obj.schemeId;
         view.vaultID      = txid;
     } else if (txType == CustomTxType::CloseVault) {
         auto obj     = std::get<CCloseVaultMessage>(txMessage);
@@ -3867,7 +3878,7 @@ void PopulateVaultHistoryData(CHistoryWriters *writers,
         auto obj     = std::get<CUpdateVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
         if (!obj.schemeId.empty()) {
-            writers->schemeID = obj.schemeId;
+            writers.schemeID = obj.schemeId;
         }
     } else if (txType == CustomTxType::DepositToVault) {
         auto obj     = std::get<CDepositToVaultMessage>(txMessage);
@@ -3892,18 +3903,18 @@ void PopulateVaultHistoryData(CHistoryWriters *writers,
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::LoanScheme) {
         auto obj                             = std::get<CLoanSchemeMessage>(txMessage);
-        writers->globalLoanScheme.identifier = obj.identifier;
-        writers->globalLoanScheme.ratio      = obj.ratio;
-        writers->globalLoanScheme.rate       = obj.rate;
+        writers.globalLoanScheme.identifier = obj.identifier;
+        writers.globalLoanScheme.ratio      = obj.ratio;
+        writers.globalLoanScheme.rate       = obj.rate;
         if (!obj.updateHeight) {
-            writers->globalLoanScheme.schemeCreationTxid = txid;
+            writers.globalLoanScheme.schemeCreationTxid = txid;
         } else {
-            writers->vaultView->ForEachGlobalScheme(
+            writers.GetVaultView()->ForEachGlobalScheme(
                 [&writers](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> value) {
-                    if (value.get().loanScheme.identifier != writers->globalLoanScheme.identifier) {
+                    if (value.get().loanScheme.identifier != writers.globalLoanScheme.identifier) {
                         return true;
                     }
-                    writers->globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
+                    writers.globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
                     return false;
                 },
                 {height, txn, {}});
@@ -3918,8 +3929,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time,
                   uint256 *canSpend,
-                  uint32_t txn,
-                  CHistoryWriters *writers) {
+                  uint32_t txn) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -3937,51 +3947,48 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     }
 
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
+    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
-        if (pvaultHistoryDB && writers) {
-            PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
+        if (mnview.GetHistoryWriters().GetVaultView()) {
+            PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
+
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
 
-        if (res && canSpend && txType == CustomTxType::UpdateMasternode) {
-            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
-            for (const auto &item : obj.updates) {
-                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
-                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+        if (res) {
+            if (canSpend && txType == CustomTxType::UpdateMasternode) {
+                auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+                for (const auto &item : obj.updates) {
+                    if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                        if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                            *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                        }
+                        break;
                     }
-                    break;
                 }
             }
-        }
 
-        // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
-            if (writers) {
-                writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+            // Track burn fee
+            if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+                mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }
-        }
 
-        if (txType == CustomTxType::CreateCfp || txType == CustomTxType::CreateVoc) {
-            // burn fee_burn_pct of creation fee, the rest is distributed among voting masternodes
-            CDataStructureV0 burnPctKey{
-                AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+            if (txType == CustomTxType::CreateCfp || txType == CustomTxType::CreateVoc) {
+                // burn fee_burn_pct of creation fee, the rest is distributed among voting masternodes
+                CDataStructureV0 burnPctKey{
+                        AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
-            auto attributes = view.GetAttributes();
-            assert(attributes);
+                auto attributes = view.GetAttributes();
+                assert(attributes);
 
-            auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
-            if (writers) {
-                writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+                auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
+                mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
             }
-        }
 
-        if (txType == CustomTxType::Vault) {
-            // burn the half, the rest is returned on close vault
-            auto burnFee = tx.vout[0].nValue / 2;
-            if (writers) {
-                writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            if (txType == CustomTxType::Vault) {
+                // burn the half, the rest is returned on close vault
+                auto burnFee = tx.vout[0].nValue / 2;
+                mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
             }
         }
     }
@@ -4081,7 +4088,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
     mnview.SetTeam(finMsg.nextTeam);
     if (height >= consensusParams.AMKHeight) {
         LogPrint(BCLog::ACCOUNTCHANGE,
-                 "AccountChange: txid=%s fund=%s change=%s\n",
+                 "AccountChange: hash=%s fund=%s change=%s\n",
                  tx.GetHash().ToString(),
                  GetCommunityAccountName(CommunityAccountType::AnchorReward),
                  (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
@@ -4154,7 +4161,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     LogPrint(BCLog::ACCOUNTCHANGE,
-             "AccountChange: txid=%s fund=%s change=%s\n",
+             "AccountChange: hash=%s fund=%s change=%s\n",
              tx.GetHash().ToString(),
              GetCommunityAccountName(CommunityAccountType::AnchorReward),
              (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));

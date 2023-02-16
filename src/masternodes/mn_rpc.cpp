@@ -587,10 +587,12 @@ UniValue setgov(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -677,10 +679,12 @@ UniValue unsetgov(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -792,10 +796,12 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);

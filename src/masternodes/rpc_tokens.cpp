@@ -957,7 +957,6 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
-    int nHeight{0};
     CustomTxType guess;
     UniValue txResults(UniValue::VOBJ);
     Res res{};
@@ -967,16 +966,14 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
     if (tx)
     {
         LOCK(cs_main);
-        // Default to INT_MAX
-        nHeight = std::numeric_limits<int>::max();
 
         // Skip coinbase TXs except for genesis block
-        if ((tx->IsCoinBase() && nHeight > 0)) {
+        if (tx->IsCoinBase()) {
             return "Coinbase transaction. Not a custom transaction.";
         }
         //get custom tx info. We pass nHeight INT_MAX,
         //just to get over hardfork validations. txResults are based on transaction metadata.
-        res = RpcInfo(*tx, nHeight, guess, txResults);
+        res = RpcInfo(*tx, std::numeric_limits<int>::max(), guess, txResults);
         if (guess == CustomTxType::None) {
             return "Not a custom transaction";
         }

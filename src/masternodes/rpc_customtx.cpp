@@ -514,17 +514,21 @@ public:
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
-        auto proposalEndHeight = height;
+        int64_t proposalEndHeight{};
         if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
-            auto votingPeriod = prop->votingPeriod;
+            // TX still in mempool. For the most accurate guesstimate use
+            // votingPeriod as it would be set when TX is added to the chain.
+            const auto votingPeriod = obj.options & CProposalOption::Emergency ?
+                                mnview.GetEmergencyPeriodFromAttributes(type) :
+                                mnview.GetVotingPeriodFromAttributes();
             proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 proposalEndHeight += votingPeriod;
             }
         }
-        rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
+        rpcInfo.pushKV("proposalEndHeight", proposalEndHeight);
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);

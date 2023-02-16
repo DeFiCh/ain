@@ -15,6 +15,9 @@ from test_framework.util import (
 from decimal import Decimal
 
 class OnChainGovernanceTest(DefiTestFramework):
+    mns = None
+    proposalId = ""
+
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -37,6 +40,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         mn1 = self.nodes[1].getmininginfo()['masternodes'][0]['id']
         mn2 = self.nodes[2].getmininginfo()['masternodes'][0]['id']
         mn3 = self.nodes[3].getmininginfo()['masternodes'][0]['id']
+        self.mns = [mn0, mn1, mn2, mn3]
 
         # Generate chain
         self.nodes[0].generate(100)
@@ -143,6 +147,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, cfp1, mn1, "yes")
 
+        assert_raises_rpc_error(-8, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704", self.nodes[0].votegov, cfp1, mn0, "neutral")
+
         # Vote on proposal
         self.nodes[0].votegov(cfp1, mn0, "yes")
         self.nodes[0].generate(1)
@@ -153,7 +159,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, cfp1, mn3, "yes")
 
         # voting period
         votingPeriod = 70
@@ -264,10 +270,38 @@ class OnChainGovernanceTest(DefiTestFramework):
         context = "Test context"
         tx = self.nodes[0].creategovvoc({"title": title, "context": context})
         raw_tx = self.nodes[0].getrawtransaction(tx)
+
+        # Check VoC in mempool
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['type'], 'CreateVoc')
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['proposalId'], tx)
+        assert_equal(result['results']['type'], 'VoteOfConfidence')
+        assert_equal(result['results']['title'], title)
+        assert_equal(result['results']['context'], context)
+        assert_equal(result['results']['amount'], Decimal('0E-8'))
+        assert_equal(result['results']['cycles'], 1)
+        assert_equal(result['results']['proposalEndHeight'], 420)
+        assert_equal(result['results']['payoutAddress'], '')
+
+        # Send transaction through a different node
         self.nodes[3].sendrawtransaction(raw_tx)
         self.nodes[3].generate(1)
         self.sync_blocks()
         creationHeight = self.nodes[0].getblockcount()
+
+        # Check VoC on-chain
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['type'], 'CreateVoc')
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['proposalId'], tx)
+        assert_equal(result['results']['type'], 'VoteOfConfidence')
+        assert_equal(result['results']['title'], title)
+        assert_equal(result['results']['context'], context)
+        assert_equal(result['results']['amount'], Decimal('0E-8'))
+        assert_equal(result['results']['cycles'], 1)
+        assert_equal(result['results']['proposalEndHeight'], 420)
+        assert_equal(result['results']['payoutAddress'], '')
 
         # Check burn fee increment
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('7.50000000'))
@@ -312,6 +346,11 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["votesPresentPct"], "100.00%")
         assert_equal(result["votesYes"], Decimal("3"))
         assert_equal(result["votesYesPct"], "75.00%")
+        assert_equal(result["votesNo"], Decimal("1"))
+        assert_equal(result["votesNeutral"], Decimal("0"))
+        assert_equal(result["votesInvalid"], Decimal("0"))
+        assert_equal(result["feeRedistributionPerVote"], Decimal("0.625"))
+        assert_equal(result["feeRedistributionTotal"], Decimal("2.5"))
         assert_equal(result["approvalThreshold"], "66.67%")
         assert_equal(result["fee"], Decimal("5"))
 
@@ -539,6 +578,11 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["votesPresentPct"], "100.00%")
         assert_equal(result["votesYes"], Decimal("2"))
         assert_equal(result["votesYesPct"], "50.00%")
+        assert_equal(result["votesNo"], Decimal("2"))
+        assert_equal(result["votesNeutral"], Decimal("0"))
+        assert_equal(result["votesInvalid"], Decimal("0"))
+        assert_equal(result["feeRedistributionPerVote"], Decimal("2.5"))
+        assert_equal(result["feeRedistributionTotal"], Decimal("10"))
         assert_equal(result["approvalThreshold"], "50.00%")
         assert_equal(result["fee"], Decimal("20"))
         assert_equal(result["options"], ["emergency"])
@@ -676,7 +720,136 @@ class OnChainGovernanceTest(DefiTestFramework):
                 # otherwise tx1 is the last proposal
                 break
 
-        assert_equal(self.nodes[0].listgovproposals({"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
+        assert_equal(self.nodes[0].listgovproposals(
+            {"status": "voting", "pagination": {"start": tx1, "including_start": False, "limit": 1}}), nextProposal)
+
+        self.test_aggregation(propId)
+        self.test_default_cycles_fix()
+        self.aggregate_all_votes()
+        self.test_valid_votes()
+        self.test_empty_object()
+
+    def test_aggregation(self, propId):
+        """
+        Tests vote aggregation for a specific proposal. It should respect all provided filters.
+        """
+        votes = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {})
+        totalVotes = len(votes)
+        yesVotes = len([x for x in votes if x["vote"] == "YES"])
+        noVotes = len([x for x in votes if x["vote"] == "NO"])
+        neutralVotes = len([x for x in votes if x["vote"] == "NEUTRAL"])
+
+        votes_aggregate = self.nodes[0].listgovproposalvotes(propId, 'all', -1, {}, True)[0]
+        assert_equal(votes_aggregate["proposalId"], propId)
+        assert_equal(votes_aggregate["total"], totalVotes)
+        assert_equal(votes_aggregate["yes"], yesVotes)
+        assert_equal(votes_aggregate["neutral"], neutralVotes)
+        assert_equal(votes_aggregate["no"], noVotes)
+
+    def test_default_cycles_fix(self):
+        """
+        Tests fix for an issue for when the cycles argument is not provided, the
+        votes for cycle 1 are returned instead of the latest cycle.
+        https://github.com/DeFiCh/ain/pull/1701
+        """
+        tx1 = self.nodes[0].creategovcfp({"title": "1111",
+                                          "context": "<Git issue url>",
+                                          "amount": 50,
+                                          "cycles": 2,
+                                          "payoutAddress": self.nodes[0].getnewaddress()})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        endHeight = self.nodes[0].getgovproposal(tx1)["cycleEndHeight"]
+        self.proposalId = self.nodes[0].getgovproposal(tx1)["proposalId"]
+
+        # cycle 1 votes
+        for mn in range(len(self.mns)):
+            self.nodes[mn].votegov(self.proposalId, self.mns[mn], "yes")
+            self.nodes[mn].generate(1)
+            self.sync_blocks()
+
+        # should show cycle 1 votes
+        votes = self.nodes[0].listgovproposalvotes(self.proposalId, 'all')
+        for vote in votes:
+            assert_equal(vote["vote"], "YES")  # there are only YES votes in cycle 1
+
+        # move to next cycle
+        self.nodes[0].generate(endHeight + 1 - self.nodes[0].getblockcount())
+
+        # cycle 2 votes
+        for mn in range(len(self.mns)):
+            self.nodes[mn].votegov(self.proposalId, self.mns[mn], "no")
+            self.nodes[mn].generate(1)
+            self.sync_blocks()
+
+        votes = self.nodes[0].listgovproposalvotes(self.proposalId, 'all')
+        for vote in votes:
+            # there are only NO votes in cycle 2, this should fail if cycle defaults to 1
+            assert_equal(vote["vote"], "NO")
+
+    def aggregate_all_votes(self):
+        """
+        Tests aggregation of all latest cycle votes for all proposals
+        when no arguments are provided in listgovproposalvotes.
+        """
+        votes = self.nodes[0].listgovproposalvotes({})
+        proposalVotes = self.nodes[0].listgovproposalvotes(self.proposalId, "all", 0, {}, True)
+        filteredVotes = list(filter(lambda vote: vote["proposalId"] == self.proposalId, votes))
+        assert_equal(filteredVotes, proposalVotes)
+
+        props = self.nodes[0].listgovproposals()
+        missing = []
+        for prop in props:
+            if prop["proposalId"] not in [x["proposalId"] for x in votes]:
+                missing.append(prop["proposalId"])
+
+        for miss in missing:
+            # proposals missing from entry must have 0 votes in the latest cycle
+            assert_equal(len(self.nodes[0].listgovproposalvotes(miss, "all", 0)), 0)
+
+    def test_empty_object(self):
+        """
+        Tests fix for an issue where providing an empty object would
+        cause the node to incorrectly throw an error
+        """
+        votes = self.nodes[0].listgovproposalvotes()
+        votesObj = self.nodes[0].listgovproposalvotes({})
+        assert_equal(votes, votesObj)
+
+    def test_valid_votes(self):
+        """
+        Tests valid votes filter.
+        """
+        tx1 = self.nodes[0].creategovcfp({"title": "1111",
+                                          "context": "<Git issue url>",
+                                          "amount": 50,
+                                          "cycles": 2,
+                                          "payoutAddress": self.nodes[0].getnewaddress()})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        endHeight = self.nodes[0].getgovproposal(tx1)["cycleEndHeight"]
+        propId = self.nodes[0].getgovproposal(tx1)["proposalId"]
+
+        for mn in range(len(self.mns)):
+            self.nodes[mn].votegov(propId, self.mns[mn], "yes")
+            self.nodes[mn].generate(1)
+            self.sync_blocks()
+
+        self.nodes[2].resignmasternode(self.mns[2])
+        self.sync_mempools()
+        self.nodes[0].generate(5)
+        self.sync_blocks()
+
+        # move to next cycle
+        self.nodes[0].generate(endHeight + 1 - self.nodes[0].getblockcount())
+
+        validVotes = self.nodes[0].listgovproposalvotes(propId, "all", 1, {}, False, True)
+        invalidVotes = self.nodes[0].listgovproposalvotes(propId, "all", 1, {}, False, False)
+
+        assert(self.mns[2] not in [x["masternodeId"] for x in validVotes])
+        assert_equal(self.mns[2], invalidVotes[0]["masternodeId"])
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main()

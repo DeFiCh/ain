@@ -22,8 +22,8 @@ UniValue LOAN_LIQUIDATION_PENALTY::Export() const {
 }
 
 Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView &view) const {
-    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, "Cannot be set before FortCanning");
-    Require(penalty >= COIN / 100, "Penalty cannot be less than 0.01 DFI");
+    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
+    Require(penalty >= COIN / 100, []{ return "Penalty cannot be less than 0.01 DFI"; });
 
     return Res::Ok();
 }
