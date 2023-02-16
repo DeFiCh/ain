@@ -553,7 +553,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
         if (IsMineCached(*pwallet, owner)) {
-            if (calculatedOwners.find(owner) == calculatedOwners.end()) {
+            if (calculatedOwners.count(owner) == 0) {
                 mnview.CalculateOwnerRewards(owner, targetHeight);
                 calculatedOwners.emplace(owner);
             }
