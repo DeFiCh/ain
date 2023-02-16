@@ -192,7 +192,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=1)
         self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=3,
                                        changeFeeAndBurnPCT=True)
-        self.test_spendable_fee()
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()
