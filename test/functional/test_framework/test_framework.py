@@ -420,6 +420,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # rollback to block
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
+        nodes = nodes or self.nodes
         if nodes is None:
             self._rollback_to(block)
         else:
