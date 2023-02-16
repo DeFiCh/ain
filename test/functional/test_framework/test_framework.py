@@ -408,8 +408,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     # rollback one node (Default = node 0)
-    def _rollback_to(self, block, node=0):
-        node = self.nodes[node]
+    def _rollback_to(self, block, node):
         current_height = node.getblockcount()
         if current_height == block:
             return
@@ -421,28 +420,25 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
         nodes = nodes or self.nodes
-        if nodes is None:
-            self._rollback_to(block)
-        else:
-            connections = {}
-            for node in nodes:
-                nodes_connections = []
-                for x in self.nodes[node].getpeerinfo():
-                    if not x['inbound']:
-                        node_number = re.findall(r'\d+', x['subver'])[-1]
-                        nodes_connections.append(int(node_number))
+        connections = {}
+        for node in nodes:
+            nodes_connections = []
+            for x in node.getpeerinfo():
+                if not x['inbound']:
+                    node_number = re.findall(r'\d+', x['subver'])[-1]
+                    nodes_connections.append(int(node_number))
                 connections[node] = nodes_connections
 
-            for node in nodes:
-                for x in connections[node]:
-                    disconnect_nodes(self.nodes[node], x)
+        for node in nodes:
+            for x in connections[node]:
+                disconnect_nodes(node, x)
 
-            for node in nodes:
-                self._rollback_to(block, node)
+        for node in nodes:
+            self._rollback_to(block, node)
 
-            for node in nodes:
-                for x in connections[node]:
-                    connect_nodes(self.nodes[node], x)
+        for node in nodes:
+            for x in connections[node]:
+                connect_nodes(node, x)
 
     def run_test(self):
         """Tests must override this method to define test logic"""
