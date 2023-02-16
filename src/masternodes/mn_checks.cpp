@@ -7,6 +7,7 @@
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/errors.h>
 
 #include <core_io.h>
 #include <index/txindex.h>
@@ -845,7 +846,7 @@ public:
 
     Res operator()(const CResignMasterNodeMessage &obj) const {
         auto node = mnview.GetMasternode(obj);
-        Require(node, "node %s does not exists", obj.ToString());
+        if (!node) return DeFiErrors::MNInvalid(obj.ToString());
 
         Require(HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx));
         return mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
@@ -861,13 +862,16 @@ public:
         }
 
         auto node = mnview.GetMasternode(obj.mnId);
-        Require(node, "masternode %s does not exist", obj.mnId.ToString());
+        if (!node)
+            return DeFiErrors::MNInvalidAltMsg(obj.mnId.ToString());
 
         const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
         Require(HasCollateralAuth(collateralTx));
 
         auto state = node->GetState(height, mnview);
-        Require(state == CMasternode::ENABLED, "Masternode %s is not in 'ENABLED' state", obj.mnId.ToString());
+        if (state != CMasternode::ENABLED) {
+            return DeFiErrors::MNStateNotEnabled(obj.mnId.ToString());
+        }
 
         const auto attributes = mnview.GetAttributes();
         assert(attributes);
@@ -1556,8 +1560,9 @@ public:
         CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
         auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
-        Require(amount >= minSwap,
-                "Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
+        if (amount < minSwap) {
+            return DeFiErrors::ICXBTCBelowMinSwap(amount, minSwap);
+        }
 
         const auto token = mnview.GetToken(id);
         Require(token, "Specified token not found");
