@@ -218,9 +218,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    const auto autoOrdering = gArgs.GetBoolArg("-autotxordering", DEFAULT_AUTO_FEE_ORDERING);
-    bool timeOrdering = DEFAULT_FEE_ORDERING;
-    if (autoOrdering) {
+    bool timeOrdering{false};
+    if (txOrdering == MIXED_ORDERING) {
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<unsigned long long> dis;
@@ -229,8 +228,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             timeOrdering = false;
         else
             timeOrdering = true;
-    } else {
-        timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    } else if (txOrdering == ENTRYTIME_ORDERING) {
+        timeOrdering = true;
+    } else if (txOrdering == FEE_ORDERING) {
+        timeOrdering = false;
     }
 
     if (timeOrdering) {

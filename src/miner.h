@@ -30,6 +30,8 @@ static const bool DEFAULT_GENERATE = false;
 
 static const bool DEFAULT_PRINTPRIORITY = false;
 
+extern TxOrderings txOrdering;
+
 struct CBlockTemplate
 {
     CBlock block;
