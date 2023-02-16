@@ -93,7 +93,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account = self.nodes[0].getaccount(address)
         assert_equal(account, ['100.00000000@DFI'])
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_quorum(self):
         height = self.nodes[0].getblockcount()
@@ -157,7 +157,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Rejected')
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_approval_threshold(self):
         height = self.nodes[0].getblockcount()
@@ -230,7 +230,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Rejected')
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_fee_redistribution(self):
         height = self.nodes[0].getblockcount()
@@ -297,7 +297,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1[0], expectedAmount)
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_cfp_fee(self):
         height = self.nodes[0].getblockcount()
@@ -358,7 +358,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1[0], expectedAmount)
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_voting_period(self):
         height = self.nodes[0].getblockcount()
@@ -408,7 +408,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Completed')
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_voc_emergency_period(self):
         height = self.nodes[0].getblockcount()
@@ -433,7 +433,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Rejected')
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_update_voc_emergency_fee(self):
         height = self.nodes[0].getblockcount()
@@ -478,7 +478,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1[0], expectedAmount)
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def test_cfp_state_after_update(self):
         height = self.nodes[0].getblockcount()
@@ -527,7 +527,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Completed')
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height, {self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3]})
 
     def setup(self):
         # Get MN addresses

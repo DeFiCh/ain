@@ -427,7 +427,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 if not x['inbound']:
                     node_number = re.findall(r'\d+', x['subver'])[-1]
                     nodes_connections.append(int(node_number))
-                connections[node] = nodes_connections
+            connections[node] = nodes_connections
 
         for node in nodes:
             for x in connections[node]:
