@@ -550,8 +550,10 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-        if (IsMineCached(*pwallet, owner))
+        if (IsMineCached(*pwallet, owner)) {
+            mnview.CalculateOwnerRewards(owner, targetHeight);
             totalBalances.Add(balance);
+        }
 
         return true;
     });
