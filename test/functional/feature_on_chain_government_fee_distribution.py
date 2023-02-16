@@ -118,7 +118,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(history, [])
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height)
 
     def setup(self):
         # Get MN addresses
