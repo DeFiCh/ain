@@ -549,9 +549,14 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
+    std::set<CScript> calculatedOwners;
+
     mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
         if (IsMineCached(*pwallet, owner)) {
-            mnview.CalculateOwnerRewards(owner, targetHeight);
+            if (calculatedOwners.find(owner) == calculatedOwners.end()) {
+                mnview.CalculateOwnerRewards(owner, targetHeight);
+                calculatedOwners.emplace(owner);
+            }
             totalBalances.Add(balance);
         }
 
