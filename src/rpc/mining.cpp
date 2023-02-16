@@ -36,6 +36,7 @@
 #include <memory>
 #include <stdint.h>
 
+TxOrderings txOrdering;
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or from the last difficulty change if 'lookup' is nonpositive.
@@ -979,9 +980,7 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
-    } else if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING) ||
-               gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == MIXED_ORDERING ||
-               gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING) == ENTRYTIME_ORDERING) {
+    } else if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
         errors.push_back("Insufficient data or no feerate found");
