@@ -72,7 +72,7 @@ class TestRestoreUTXOs(DefiTestFramework):
                 self.nodes[1].generate(1)
                 self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
                 self.nodes[1].generate(1)
-            self.rollback_to(block, self.nodes[:1])
+            self.rollback_to(block)
             assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
 
 if __name__ == '__main__':
