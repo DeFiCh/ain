@@ -358,26 +358,24 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
+    CScript calculatedOwner;
 
-        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
+    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
+        if (isMineOnly && IsMineCached(*pwallet, owner) != ISMINE_SPENDABLE) {
             return true;
         }
 
-        mnview.CalculateOwnerRewards(account, targetHeight);
+        if (calculatedOwner != owner) {
+            mnview.CalculateOwnerRewards(owner, targetHeight);
+            calculatedOwner = owner;
+        }
 
-        // output the relavant balances only for account
-        mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-            if (account != owner) {
-                return false;
-            }
-            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
-            return --limit != 0;
-        }, {account, start.tokenID});
+        ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
 
         start.tokenID = DCT_ID{}; // reset to start id
-        return limit != 0;
-    }, start.owner);
+
+        return --limit != 0;
+    }, {start.owner, start.tokenID});
 
     return GetRPCResultCache().Set(request, ret);
 }

@@ -19,13 +19,17 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
-        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
-            mnview.CalculateOwnerRewards(account, targetHeight);
-            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-                return account == owner && walletAccounts[owner].Add(balance);
-            }, {account, DCT_ID{}});
+    CScript calculatedOwner;
+
+    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
+            if (calculatedOwner != owner) {
+                mnview.CalculateOwnerRewards(owner, targetHeight);
+                calculatedOwner = owner;
+            }
+            walletAccounts[owner].Add(balance);
         }
+
         return true;
     });
 
