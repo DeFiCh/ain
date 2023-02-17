@@ -27,7 +27,6 @@ COPY . .
 RUN ./contrib/install_db4.sh .
 
 RUN ./make.sh clean && ./autogen.sh
-RUN echo "$(ls depends/)"
 RUN export BDB_PREFIX=/work/db4 CONFIG_SITE=$PWD/depends/x86_64-pc-linux-musl/share/config.site && \
     ./configure --disable-ccache BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include" \
     --prefix='$(pwd)/depends/x86_64-pc-linux-musl' \
