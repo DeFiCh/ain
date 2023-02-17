@@ -4619,30 +4619,30 @@ Res PaybackWithCollateral(CCustomCSView &view,
                           uint32_t height,
                           uint64_t time) {
     const auto attributes = view.GetAttributes();
-    Require(attributes, "Attributes unavailable");
+    if (!attributes) return DeFiErrors::MNInvalidAttribute();
 
     const auto dUsdToken = view.GetToken("DUSD");
-    Require(dUsdToken, "Cannot find token DUSD");
+    if (!dUsdToken) return DeFiErrors::CannotFindDUSD();
 
     CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
-    Require(attributes->GetValue(activeKey, false), "Payback of DUSD loan with collateral is not currently active");
+    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackWithCollateralDisable();
 
     const auto collateralAmounts = view.GetVaultCollaterals(vaultId);
-    Require(collateralAmounts, "Vault has no collaterals");
+    if (!collateralAmounts) return DeFiErrors::NoCollateral();
 
-    Require(collateralAmounts->balances.count(dUsdToken->first), "Vault does not have any DUSD collaterals");
+    if (!collateralAmounts->balances.count(dUsdToken->first)) return DeFiErrors::NoDUSDCollateral();
 
     const auto &collateralDUSD = collateralAmounts->balances.at(dUsdToken->first);
 
     const auto loanAmounts = view.GetLoanTokens(vaultId);
-    Require(loanAmounts, "Vault has no loans");
+    if (!loanAmounts) return DeFiErrors::NoLoans();
 
-    Require(loanAmounts->balances.count(dUsdToken->first), "Vault does not have any DUSD loans");
+    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::NoDUSDLoans();
 
     const auto &loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
     const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
-    Require(rate, "Cannot get interest rate for this token (DUSD)!");
+    if (!rate) return DeFiErrors::CannotGetInterestRate();
     const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
@@ -4654,9 +4654,9 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (subInterest > collateralDUSD) {
         subCollateralAmount = collateralDUSD;
 
-        Require(view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount}));
+        if (!view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount})) return Res::Err("");
 
-        Require(view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount));
+        if (!view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount)) return Res::Err("");
 
         burnAmount = subCollateralAmount;
     } else {
@@ -4673,11 +4673,11 @@ Res PaybackWithCollateral(CCustomCSView &view,
 
         if (subLoanAmount > 0) {
             TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
-            Require(view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount}));
+            if (!view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount})) return Res::Err("");
         }
 
         if (subCollateralAmount > 0) {
-            Require(view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount}));
+            if (!view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount})) return Res::Err("");
         }
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
@@ -4685,7 +4685,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     }
 
     if (burnAmount > 0) {
-        Require(view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount}));
+        if (!view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount})) return Res::Err("");
     } else {
         TrackNegativeInterest(view, {dUsdToken->first, std::abs(burnAmount)});
     }
@@ -4694,25 +4694,21 @@ Res PaybackWithCollateral(CCustomCSView &view,
     const auto collaterals = view.GetVaultCollaterals(vaultId);
     const auto loans       = view.GetLoanTokens(vaultId);
     if (loans)
-        Require(collaterals, "Vault cannot have loans without collaterals");
+        if (!collaterals) return DeFiErrors::NeedCollateral();
 
     auto collateralsLoans = view.GetLoanCollaterals(vaultId, *collaterals, height, time);
-    Require(collateralsLoans);
+    if (!collateralsLoans) return Res::Err("");
 
     // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5
     // currently) can be tested for economical stability. Taking the safer approach for now.
-    Require(IsVaultPriceValid(view, vaultId, height),
-            "Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
+    if (!IsVaultPriceValid(view, vaultId, height)) return DeFiErrors::InvalidVaultPrice();
 
     const auto scheme = view.GetLoanScheme(vault.schemeId);
-    Require(collateralsLoans.val->ratio() >= scheme->ratio,
-            "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
-            collateralsLoans.val->ratio(),
-            scheme->ratio);
+    if (collateralsLoans.val->ratio() < scheme->ratio) return DeFiErrors::InsufficientCollateralization(collateralsLoans.val->ratio(), scheme->ratio);
 
     if (subCollateralAmount > 0) {
-        Require(view.SubMintedTokens(dUsdToken->first, subCollateralAmount));
+        if (!view.SubMintedTokens(dUsdToken->first, subCollateralAmount)) return Res::Err("");
     }
 
     return Res::Ok();
