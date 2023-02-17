@@ -3317,7 +3317,9 @@ public:
     }
 
     Res operator()(const CLoanPaybackLoanV2Message &obj) const {
-        if (!CheckCustomTx()) return Res::Err("");
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
 
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault) return DeFiErrors::VaultInvalid(obj.vaultId.GetHex());
@@ -3361,7 +3363,6 @@ public:
 
                 if (loanTokenId != paybackTokenId) {
                     if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
-                    if (!attributes) return DeFiErrors::LoanPaybackDisabled();
 
                     // search in token to token
                     if (paybackTokenId != DCT_ID{0}) {
@@ -3386,7 +3387,8 @@ public:
                     const CTokenCurrencyPair tokenUsdPair{paybackToken->symbol, "USD"};
                     bool useNextPrice{false}, requireLivePrice{true};
                     const auto resVal = mnview.GetValidatedIntervalPrice(tokenUsdPair, useNextPrice, requireLivePrice);
-                    if (!resVal) return Res::Err("");
+                    if (!resVal)
+                        return std::move(resVal);
 
                     paybackUsdPrice = MultiplyAmounts(*resVal.val, penaltyPct);
 
@@ -3405,7 +3407,8 @@ public:
                         bool useNextPrice{false}, requireLivePrice{true};
                         const auto resVal =
                             mnview.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
-                        if (!resVal) return Res::Err("");
+                        if (!resVal)
+                            return std::move(resVal);
 
                         loanUsdPrice = *resVal.val;
 
@@ -3414,9 +3417,9 @@ public:
                 }
 
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-                if (!loanAmounts) return DeFiErrors::LoanInvalid(obj.vaultId.GetHex());
+                if (!loanAmounts) return DeFiErrors::LoanInvalidVault(obj.vaultId.GetHex());
 
-                if (!loanAmounts->balances.count(loanTokenId)) return DeFiErrors::LoanInvalid(loanToken->symbol);
+                if (!loanAmounts->balances.count(loanTokenId)) return DeFiErrors::LoanInvalidToken(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
 
@@ -3445,12 +3448,14 @@ public:
                     TrackDUSDSub(mnview, {loanTokenId, subLoan});
                 }
 
-                if (!mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan})) return Res::Err("");
+                res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
+                if (!res)
+                    return res;
 
                 // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
                 // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
                 // then IPB will be updated and ITH will be wiped.
-                if (!mnview.DecreaseInterest(
+                res = mnview.DecreaseInterest(
                     height,
                     obj.vaultId,
                     vault->schemeId,
@@ -3458,7 +3463,9 @@ public:
                     subLoan,
                     subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
                         ? std::numeric_limits<CAmount>::max()
-                        : subInterest)) return Res::Err("");
+                        : subInterest);
+                if (!res)
+                    return res;
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
                     height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
@@ -3474,7 +3481,9 @@ public:
                 CalculateOwnerRewards(obj.from);
 
                 if (paybackTokenId == loanTokenId) {
-                    if (!mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest)) return Res::Err("");
+                    res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
+                    if (!res)
+                        return res;
 
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
@@ -3493,7 +3502,9 @@ public:
                                  "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n",
                                  subLoan,
                                  height);
-                        if (!mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan})) return Res::Err("");
+                        res = mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan});
+                        if (!res)
+                            return res;
                     }
 
                     // burn interest Token->USD->DFI->burnAddress
@@ -3503,8 +3514,9 @@ public:
                                  loanToken->symbol,
                                  subInterest,
                                  height);
-                        if (
-                            !SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height)) return Res::Err("");
+                        res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
+                        if (!res)
+                            return res;
                     }
                 } else {
                     CAmount subInToken;
@@ -3553,7 +3565,9 @@ public:
                                  paybackToken->symbol,
                                  height);
 
-                        if (!TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress)) return Res::Err("");
+                        res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
+                        if (!res)
+                            return res;
                     } else {
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
                         auto balances = attributes->GetValue(liveKey, CTokenPayback{});
@@ -3575,13 +3589,15 @@ public:
                             AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
                         auto directLoanBurn = attributes->GetValue(directBurnKey, false);
 
-                        if (!SwapToDFIorDUSD(mnview,
+                        res = SwapToDFIorDUSD(mnview,
                                                 paybackTokenId,
                                                 subInToken,
                                                 obj.from,
                                                 consensus.burnAddress,
                                                 height,
-                                                !directLoanBurn)) return Res::Err("");
+                                                !directLoanBurn);
+                        if (!res)
+                            return res;
                     }
                 }
             }
@@ -4624,7 +4640,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     const auto &collateralDUSD = collateralAmounts->balances.at(dUsdToken->first);
 
     const auto loanAmounts = view.GetLoanTokens(vaultId);
-    if (!loanAmounts) return DeFiErrors::LoanInvalid();
+    if (!loanAmounts) return DeFiErrors::VaultNoLoans();
 
     if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoLoans("DUSD");
 
@@ -4643,9 +4659,13 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (subInterest > collateralDUSD) {
         subCollateralAmount = collateralDUSD;
 
-        if (!view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount})) return Res::Err("");
+        res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
+        if (!res)
+            return res;
 
-        if (!view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount)) return Res::Err("");
+        res = view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount);
+        if (!res)
+            return res;
 
         burnAmount = subCollateralAmount;
     } else {
@@ -4662,11 +4682,15 @@ Res PaybackWithCollateral(CCustomCSView &view,
 
         if (subLoanAmount > 0) {
             TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
-            if (!view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount})) return Res::Err("");
+            res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
+            if (!res)
+                return res;
         }
 
         if (subCollateralAmount > 0) {
-            if (!view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount})) return Res::Err("");
+            res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
+            if (!res)
+                return res;
         }
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
@@ -4674,7 +4698,9 @@ Res PaybackWithCollateral(CCustomCSView &view,
     }
 
     if (burnAmount > 0) {
-        if (!view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount})) return Res::Err("");
+        res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
+        if (!res)
+            return res;
     } else {
         TrackNegativeInterest(view, {dUsdToken->first, std::abs(burnAmount)});
     }
@@ -4686,7 +4712,8 @@ Res PaybackWithCollateral(CCustomCSView &view,
         if (!collaterals) return DeFiErrors::VaultNeedCollateral();
 
     auto collateralsLoans = view.GetLoanCollaterals(vaultId, *collaterals, height, time);
-    if (!collateralsLoans) return Res::Err("");
+    if (!collateralsLoans)
+        return std::move(collateralsLoans);
 
     // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5
@@ -4698,7 +4725,9 @@ Res PaybackWithCollateral(CCustomCSView &view,
                 collateralsLoans.val->ratio(), scheme->ratio);
 
     if (subCollateralAmount > 0) {
-        if (!view.SubMintedTokens(dUsdToken->first, subCollateralAmount)) return Res::Err("");
+        res = view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+        if (!res)
+            return res;
     }
 
     return Res::Ok();
