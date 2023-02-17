@@ -31,39 +31,31 @@ public:
         return Res::Err("Attributes unavailable");
     }
 
-    static Res LoanCannotFindDUSD() {
-        return Res::Err("Cannot find token DUSD");
+    static Res TokenInvalid(std::string token) {
+        return Res::Err("Cannot find token %s", token);
     }
 
     static Res LoanPaybackWithCollateralDisable() {
         return Res::Err("Payback of DUSD loan with collateral is not currently active");
     }
 
-    static Res VaultNoCollateral() {
-        return Res::Err("Vault has no collaterals");
-    }
-
-    static Res VaultNoCollateral(const std::string vaultId) {
-        return Res::Err("Vault with id %s has no collaterals", vaultId);
+    static Res VaultNoCollateral(const std::string vaultId = "") {
+        return vaultId.empty() ? Res::Err("Vault has no collaterals") : Res::Err("Vault with id %s has no collaterals", vaultId);
     }
 
     static Res VaultNoDUSDCollateral() {
         return Res::Err("Vault does not have any DUSD collaterals");
     }
 
-    static Res LoanInvalid() {
-        return Res::Err("Vault has no loans");
+    static Res LoanInvalid(std::string vault = "") {
+        return vault.empty() ? Res::Err("Vault has no loans") : Res::Err("There are no loans on this vault (%s)!", vault);
     }
 
-    static Res LoanInvalid(std::string vault) {
-        return Res::Err("There are no loans on this vault (%s)!", vault);
+    static Res VaultNoLoans(std::string token) {
+        return Res::Err("Vault does not have any %s loans", token);
     }
 
-    static Res VaultNoDUSDLoans() {
-        return Res::Err("Vault does not have any DUSD loans");
-    }
-
-    static Res LoanInterestRateInvalid(const std::string token) {
+    static Res TokenInterestRateInvalid(const std::string token) {
         return Res::Err("Cannot get interest rate for this token (%s)!", token);
     }
 
@@ -81,8 +73,8 @@ public:
                         schemeRatio);
     }
 
-    static Res LoanDUSDInvalid() {
-        return Res::Err("Loan token DUSD does not exist!");
+    static Res LoanTokenInvalid(std::string token) {
+        return Res::Err("Loan token %s does not exist!", token);
     }
 
     static Res VaultInvalid(const std::string vaultId) {
@@ -101,7 +93,7 @@ public:
         return Res::Err("Cannot payback loan while any of the asset's price is invalid");
     }
 
-    static Res LoanTokenInvalid(const std::string token) {
+    static Res LoanTokenIdInvalid(const std::string token) {
         return Res::Err("Loan token with id (%s) does not exist!", token);
     }
 
@@ -109,16 +101,12 @@ public:
         return Res::Err("Valid payback amount required (input: %d@%d)", amount, value);
     }
 
-    static Res LoanTokenIvalid(const std::string token) {
+    static Res TokenIdInvalid(const std::string token) {
         return Res::Err("Token with id (%s) does not exists", token);
     }
 
-    static Res LoanPaybackDisabled() {
-        return Res::Err("Payback is not currently active");
-    }
-
     static Res LoanPaybackDisabled(const std::string token) {
-        return Res::Err("Payback of loan via %s token is not currently active", token);
+        return token.empty() ? Res::Err("Payback is not currently active") : Res::Err("Payback of loan via %s token is not currently active", token);
     }
 
     static Res LoanPriceInvalid(const std::string kv, const std::string payback) {

@@ -3306,7 +3306,7 @@ public:
             CBalances *loan;
             if (id == DCT_ID{0}) {
                 auto tokenDUSD = mnview.GetToken("DUSD");
-                if (!tokenDUSD) return DeFiErrors::LoanDUSDInvalid();
+                if (!tokenDUSD) return DeFiErrors::LoanTokenInvalid("DUSD");
                 loan = &loans[tokenDUSD->first];
             } else
                 loan = &loans[id];
@@ -3344,7 +3344,7 @@ public:
 
         for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
             const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
-            if (!loanToken) return DeFiErrors::LoanTokenInvalid(loanTokenId.ToString());
+            if (!loanToken) return DeFiErrors::LoanTokenIdInvalid(loanTokenId.ToString());
 
             for (const auto &kv : paybackAmounts.balances) {
                 const auto &paybackTokenId = kv.first;
@@ -3357,7 +3357,7 @@ public:
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
                 auto paybackToken = mnview.GetToken(paybackTokenId);
-                if (!paybackToken) return DeFiErrors::LoanTokenIvalid(paybackTokenId.ToString());
+                if (!paybackToken) return DeFiErrors::TokenIdInvalid(paybackTokenId.ToString());
 
                 if (loanTokenId != paybackTokenId) {
                     if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
@@ -3421,7 +3421,7 @@ public:
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
 
                 const auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                if (!rate) return DeFiErrors::LoanInterestRateInvalid(loanToken->symbol);
+                if (!rate) return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
 
                 auto subInterest = TotalInterest(*rate, height);
 
@@ -3463,7 +3463,7 @@ public:
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
                     height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                    if (!newRate) return DeFiErrors::LoanInterestRateInvalid(loanToken->symbol);
+                    if (!newRate) return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
 
                     Require(newRate->interestPerBlock.amount != 0,
                             "Cannot payback this amount of loan for %s, either payback full amount or less than this "
@@ -4611,7 +4611,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (!attributes) return DeFiErrors::MNInvalidAttribute();
 
     const auto dUsdToken = view.GetToken("DUSD");
-    if (!dUsdToken) return DeFiErrors::LoanCannotFindDUSD();
+    if (!dUsdToken) return DeFiErrors::TokenInvalid("DUSD");
 
     CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
     if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackWithCollateralDisable();
@@ -4626,12 +4626,12 @@ Res PaybackWithCollateral(CCustomCSView &view,
     const auto loanAmounts = view.GetLoanTokens(vaultId);
     if (!loanAmounts) return DeFiErrors::LoanInvalid();
 
-    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoDUSDLoans();
+    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoLoans("DUSD");
 
     const auto &loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
     const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
-    if (!rate) return DeFiErrors::LoanInterestRateInvalid("DUSD");
+    if (!rate) return DeFiErrors::TokenInterestRateInvalid("DUSD");
     const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
