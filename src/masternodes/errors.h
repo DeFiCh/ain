@@ -43,6 +43,10 @@ public:
         return Res::Err("Vault has no collaterals");
     }
 
+    static Res NoCollateral(const std::string vaultId) {
+        return Res::Err("Vault with id %s has no collaterals", vaultId);
+    }
+
     static Res NoDUSDCollateral() {
         return Res::Err("Vault does not have any DUSD collaterals");
     }
@@ -51,12 +55,16 @@ public:
         return Res::Err("Vault has no loans");
     }
 
+    static Res NoLoans(std::string vault) {
+        return Res::Err("There are no loans on this vault (%s)!", vault);
+    }
+
     static Res NoDUSDLoans() {
         return Res::Err("Vault does not have any DUSD loans");
     }
 
-    static Res CannotGetInterestRate() {
-        return Res::Err("Cannot get interest rate for this token (DUSD)!");
+    static Res CannotGetInterestRate(const std::string token) {
+        return Res::Err("Cannot get interest rate for this token (%s)!", token);
     }
 
     static Res NeedCollateral() {
@@ -67,12 +75,55 @@ public:
         return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
     }
 
-    static Res InsufficientCollateralization(uint32_t collateralizationRatio, uint32_t schemeRatio) {
+    static Res InsufficientCollateralization(const uint32_t collateralizationRatio, const uint32_t schemeRatio) {
         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
                         collateralizationRatio,
                         schemeRatio);
     }
 
+    static Res InvalidLoan() {
+        return Res::Err("Loan token DUSD does not exist!");
+    }
+
+    static Res CannotFindVault(const std::string vaultId) {
+        return Res::Err("Cannot find existing vault with id %s", vaultId);
+    }
+
+    static Res VaultUnderLiquidation() {
+        return Res::Err("Cannot payback loan on vault under liquidation");
+    }
+
+    static Res TXMissingInput() {
+        return Res::Err("tx must have at least one input from token owner");
+    }
+
+    static Res InvalidAssetPrice() {
+        return Res::Err("Cannot payback loan while any of the asset's price is invalid");
+    }
+
+    static Res InvalidLoanToken(const std::string token) {
+        return Res::Err("Loan token with id (%s) does not exist!", token);
+    }
+
+    static Res InvalidPaymentAmount(const long amount, const uint32_t value) {
+        return Res::Err("Valid payback amount required (input: %d@%d)", amount, value);
+    }
+
+    static Res InvalidToken(const std::string token) {
+        return Res::Err("Token with id (%s) does not exists", token);
+    }
+
+    static Res PaybackDisabled() {
+        return Res::Err("Payback is not currently active");
+    }
+
+    static Res PaybackDisabled(const std::string token) {
+        return Res::Err("Payback of loan via %s token is not currently active", token);
+    }
+
+    static Res InvalidPrice(const std::string kv, const std::string payback) {
+        return Res::Err("Value/price too high (%s/%s)", kv, payback);
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H

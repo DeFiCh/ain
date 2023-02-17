@@ -3306,7 +3306,7 @@ public:
             CBalances *loan;
             if (id == DCT_ID{0}) {
                 auto tokenDUSD = mnview.GetToken("DUSD");
-                Require(tokenDUSD, "Loan token DUSD does not exist!");
+                if (!tokenDUSD) return DeFiErrors::InvalidLoan();
                 loan = &loans[tokenDUSD->first];
             } else
                 loan = &loans[id];
@@ -3317,20 +3317,19 @@ public:
     }
 
     Res operator()(const CLoanPaybackLoanV2Message &obj) const {
-        Require(CheckCustomTx());
+        if (!CheckCustomTx()) return Res::Err("");
 
         const auto vault = mnview.GetVault(obj.vaultId);
-        Require(vault, "Cannot find existing vault with id %s", obj.vaultId.GetHex());
+        if (!vault) return DeFiErrors::CannotFindVault(obj.vaultId.GetHex());
 
-        Require(!vault->isUnderLiquidation, "Cannot payback loan on vault under liquidation");
+        if (vault->isUnderLiquidation) return DeFiErrors::VaultUnderLiquidation();
 
-        Require(mnview.GetVaultCollaterals(obj.vaultId), "Vault with id %s has no collaterals", obj.vaultId.GetHex());
+        if (!mnview.GetVaultCollaterals(obj.vaultId)) return DeFiErrors::NoCollateral(obj.vaultId.GetHex());
 
-        Require(HasAuth(obj.from), "tx must have at least one input from token owner");
+        if (!HasAuth(obj.from)) return DeFiErrors::TXMissingInput();
 
         if (static_cast<int>(height) < consensus.FortCanningRoadHeight) {
-            Require(IsVaultPriceValid(mnview, obj.vaultId, height),
-                    "Cannot payback loan while any of the asset's price is invalid");
+            if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::InvalidAssetPrice();
         }
 
         // Handle payback with collateral special case
@@ -3345,45 +3344,37 @@ public:
 
         for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
             const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
-            Require(loanToken, "Loan token with id (%s) does not exist!", loanTokenId.ToString());
+            if (!loanToken) return DeFiErrors::InvalidLoanToken(loanTokenId.ToString());
 
             for (const auto &kv : paybackAmounts.balances) {
                 const auto &paybackTokenId = kv.first;
                 auto paybackAmount         = kv.second;
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
-                    Require(paybackAmount > 0,
-                            "Valid payback amount required (input: %d@%d)",
-                            paybackAmount,
-                            paybackTokenId.v);
+                    if (paybackAmount <= 0) return DeFiErrors::InvalidPaymentAmount(paybackAmount, paybackTokenId.v);
                 }
 
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
                 auto paybackToken = mnview.GetToken(paybackTokenId);
-                Require(paybackToken, "Token with id (%s) does not exists", paybackTokenId.ToString());
+                if (!paybackToken) return DeFiErrors::InvalidToken(paybackTokenId.ToString());
 
                 if (loanTokenId != paybackTokenId) {
-                    Require(IsVaultPriceValid(mnview, obj.vaultId, height),
-                            "Cannot payback loan while any of the asset's price is invalid");
-                    Require(attributes, "Payback is not currently active");
+                    if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::InvalidAssetPrice();
+                    if (!attributes) return DeFiErrors::PaybackDisabled();
 
                     // search in token to token
                     if (paybackTokenId != DCT_ID{0}) {
                         CDataStructureV0 activeKey{
                             AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
-                        Require(attributes->GetValue(activeKey, false),
-                                "Payback of loan via %s token is not currently active",
-                                paybackToken->symbol);
+                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackDisabled(paybackToken->symbol);
 
                         CDataStructureV0 penaltyKey{
                             AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
                         penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
                     } else {
                         CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFI};
-                        Require(attributes->GetValue(activeKey, false),
-                                "Payback of loan via %s token is not currently active",
-                                paybackToken->symbol);
+                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackDisabled(paybackToken->symbol);
 
                         CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFIFeePCT};
                         penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
@@ -3393,7 +3384,7 @@ public:
                     const CTokenCurrencyPair tokenUsdPair{paybackToken->symbol, "USD"};
                     bool useNextPrice{false}, requireLivePrice{true};
                     const auto resVal = mnview.GetValidatedIntervalPrice(tokenUsdPair, useNextPrice, requireLivePrice);
-                    Require(resVal);
+                    if (!resVal) return Res::Err("");
 
                     paybackUsdPrice = MultiplyAmounts(*resVal.val, penaltyPct);
 
@@ -3403,10 +3394,7 @@ public:
                     if (loanToken->symbol == "DUSD") {
                         paybackAmount = usdAmount;
                         if (paybackUsdPrice > COIN) {
-                            Require(paybackAmount >= kv.second,
-                                    "Value/price too high (%s/%s)",
-                                    GetDecimaleString(kv.second),
-                                    GetDecimaleString(paybackUsdPrice));
+                            if (paybackAmount < kv.second) return DeFiErrors::InvalidPrice(GetDecimaleString(kv.second), GetDecimaleString(paybackUsdPrice));
                         }
                     } else {
                         // Get dToken price in USD
@@ -3414,7 +3402,7 @@ public:
                         bool useNextPrice{false}, requireLivePrice{true};
                         const auto resVal =
                             mnview.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
-                        Require(resVal);
+                        if (!resVal) return Res::Err("");
 
                         loanUsdPrice = *resVal.val;
 
@@ -3423,16 +3411,14 @@ public:
                 }
 
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-                Require(loanAmounts, "There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+                if (!loanAmounts) return DeFiErrors::NoLoans(obj.vaultId.GetHex());
 
-                Require(loanAmounts->balances.count(loanTokenId),
-                        "There is no loan on token (%s) in this vault!",
-                        loanToken->symbol);
+                if (!loanAmounts->balances.count(loanTokenId)) return DeFiErrors::NoLoans(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
 
                 const auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                Require(rate, "Cannot get interest rate for this token (%s)!", loanToken->symbol);
+                if (!rate) return DeFiErrors::CannotGetInterestRate(loanToken->symbol);
 
                 auto subInterest = TotalInterest(*rate, height);
 
@@ -3456,12 +3442,12 @@ public:
                     TrackDUSDSub(mnview, {loanTokenId, subLoan});
                 }
 
-                Require(mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan}));
+                if (!mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan})) return Res::Err("");
 
                 // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
                 // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
                 // then IPB will be updated and ITH will be wiped.
-                Require(mnview.DecreaseInterest(
+                if (!mnview.DecreaseInterest(
                     height,
                     obj.vaultId,
                     vault->schemeId,
@@ -3469,12 +3455,12 @@ public:
                     subLoan,
                     subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
                         ? std::numeric_limits<CAmount>::max()
-                        : subInterest));
+                        : subInterest)) return Res::Err("");
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
                     height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                    Require(newRate, "Cannot get interest rate for this token (%s)!", loanToken->symbol);
+                    if (!newRate) return DeFiErrors::CannotGetInterestRate(loanToken->symbol);
 
                     Require(newRate->interestPerBlock.amount != 0,
                             "Cannot payback this amount of loan for %s, either payback full amount or less than this "
@@ -3485,7 +3471,7 @@ public:
                 CalculateOwnerRewards(obj.from);
 
                 if (paybackTokenId == loanTokenId) {
-                    Require(mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest));
+                    if (!mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest)) return Res::Err("");
 
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
@@ -3504,7 +3490,7 @@ public:
                                  "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n",
                                  subLoan,
                                  height);
-                        Require(mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan}));
+                        if (!mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan})) return Res::Err("");
                     }
 
                     // burn interest Token->USD->DFI->burnAddress
@@ -3514,8 +3500,8 @@ public:
                                  loanToken->symbol,
                                  subInterest,
                                  height);
-                        Require(
-                            SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height));
+                        if (
+                            !SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height)) return Res::Err("");
                     }
                 } else {
                     CAmount subInToken;
@@ -3564,7 +3550,7 @@ public:
                                  paybackToken->symbol,
                                  height);
 
-                        Require(TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress));
+                        if (!TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress)) return Res::Err("");
                     } else {
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
                         auto balances = attributes->GetValue(liveKey, CTokenPayback{});
@@ -3586,13 +3572,13 @@ public:
                             AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
                         auto directLoanBurn = attributes->GetValue(directBurnKey, false);
 
-                        Require(SwapToDFIorDUSD(mnview,
+                        if (!SwapToDFIorDUSD(mnview,
                                                 paybackTokenId,
                                                 subInToken,
                                                 obj.from,
                                                 consensus.burnAddress,
                                                 height,
-                                                !directLoanBurn));
+                                                !directLoanBurn)) return Res::Err("");
                     }
                 }
             }
@@ -4642,7 +4628,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     const auto &loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
     const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
-    if (!rate) return DeFiErrors::CannotGetInterestRate();
+    if (!rate) return DeFiErrors::CannotGetInterestRate("DUSD");
     const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
