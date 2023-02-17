@@ -125,6 +125,8 @@ class ListGovProposalsTest(DefiTestFramework):
 
         prop_list = self.nodes[0].listgovproposals()
         assert_equal(len(prop_list), 30)
+        prop_list = self.nodes[0].listgovproposals({})
+        assert_equal(len(prop_list), 30)
         prop_list = self.nodes[0].listgovproposals("all", "all", 0)
         assert_equal(len(prop_list), 30)
         prop_list = self.nodes[0].listgovproposals("all", "all", -1)
@@ -295,4 +297,4 @@ class ListGovProposalsTest(DefiTestFramework):
         self.create_10_proposals_and_aprove_half()
 
 if __name__ == '__main__':
-    ListGovProposalsTest().main ()
+    ListGovProposalsTest().main()

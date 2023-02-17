@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
-    assert_equal,
+    assert_equal
 )
 from decimal import ROUND_DOWN, Decimal
 
@@ -81,8 +81,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
                 result = self.nodes[0].listgovproposalvotes(propId, "all")
                 assert_equal(len(result), 3)
 
-            cycleEnd = cycleAlignment + (cycle + 1) * VOTING_PERIOD
             # Move to cycle end height
+            cycleEnd = cycleAlignment + (cycle + 1) * VOTING_PERIOD
             self.nodes[0].generate(cycleEnd - self.nodes[0].getblockcount())
             self.sync_blocks()
 
@@ -118,7 +118,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(history, [])
 
-        self.rollback_to(height, nodes=[0, 1, 2, 3])
+        self.rollback_to(height)
 
     def setup(self):
         # Get MN addresses

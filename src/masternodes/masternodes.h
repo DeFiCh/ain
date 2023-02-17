@@ -263,7 +263,7 @@ public:
                                                             uint8_t{},
                                                             std::numeric_limits<uint32_t>::max()});
 
-    uint16_t GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
+    std::optional<uint16_t> GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
 
     // tags
     struct ID {
