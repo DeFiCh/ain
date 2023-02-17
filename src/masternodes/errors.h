@@ -31,61 +31,61 @@ public:
         return Res::Err("Attributes unavailable");
     }
 
-    static Res CannotFindDUSD() {
+    static Res LoanCannotFindDUSD() {
         return Res::Err("Cannot find token DUSD");
     }
 
-    static Res PaybackWithCollateralDisable() {
+    static Res LoanPaybackWithCollateralDisable() {
         return Res::Err("Payback of DUSD loan with collateral is not currently active");
     }
 
-    static Res NoCollateral() {
+    static Res VaultNoCollateral() {
         return Res::Err("Vault has no collaterals");
     }
 
-    static Res NoCollateral(const std::string vaultId) {
+    static Res VaultNoCollateral(const std::string vaultId) {
         return Res::Err("Vault with id %s has no collaterals", vaultId);
     }
 
-    static Res NoDUSDCollateral() {
+    static Res VaultNoDUSDCollateral() {
         return Res::Err("Vault does not have any DUSD collaterals");
     }
 
-    static Res NoLoans() {
+    static Res LoanInvalid() {
         return Res::Err("Vault has no loans");
     }
 
-    static Res NoLoans(std::string vault) {
+    static Res LoanInvalid(std::string vault) {
         return Res::Err("There are no loans on this vault (%s)!", vault);
     }
 
-    static Res NoDUSDLoans() {
+    static Res VaultNoDUSDLoans() {
         return Res::Err("Vault does not have any DUSD loans");
     }
 
-    static Res CannotGetInterestRate(const std::string token) {
+    static Res LoanInterestRateInvalid(const std::string token) {
         return Res::Err("Cannot get interest rate for this token (%s)!", token);
     }
 
-    static Res NeedCollateral() {
+    static Res VaultNeedCollateral() {
         return Res::Err("Vault cannot have loans without collaterals");
     }
 
-    static Res InvalidVaultPrice() {
+    static Res VaultInvalidPrice() {
         return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
     }
 
-    static Res InsufficientCollateralization(const uint32_t collateralizationRatio, const uint32_t schemeRatio) {
+    static Res VaultInsufficientCollateralization(const uint32_t collateralizationRatio, const uint32_t schemeRatio) {
         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
                         collateralizationRatio,
                         schemeRatio);
     }
 
-    static Res InvalidLoan() {
+    static Res LoanDUSDInvalid() {
         return Res::Err("Loan token DUSD does not exist!");
     }
 
-    static Res CannotFindVault(const std::string vaultId) {
+    static Res VaultInvalid(const std::string vaultId) {
         return Res::Err("Cannot find existing vault with id %s", vaultId);
     }
 
@@ -97,31 +97,31 @@ public:
         return Res::Err("tx must have at least one input from token owner");
     }
 
-    static Res InvalidAssetPrice() {
+    static Res LoanAssetPriceInvalid() {
         return Res::Err("Cannot payback loan while any of the asset's price is invalid");
     }
 
-    static Res InvalidLoanToken(const std::string token) {
+    static Res LoanTokenInvalid(const std::string token) {
         return Res::Err("Loan token with id (%s) does not exist!", token);
     }
 
-    static Res InvalidPaymentAmount(const long amount, const uint32_t value) {
+    static Res LoanPaymentAmountInvalid(const long amount, const uint32_t value) {
         return Res::Err("Valid payback amount required (input: %d@%d)", amount, value);
     }
 
-    static Res InvalidToken(const std::string token) {
+    static Res LoanTokenIvalid(const std::string token) {
         return Res::Err("Token with id (%s) does not exists", token);
     }
 
-    static Res PaybackDisabled() {
+    static Res LoanPaybackDisabled() {
         return Res::Err("Payback is not currently active");
     }
 
-    static Res PaybackDisabled(const std::string token) {
+    static Res LoanPaybackDisabled(const std::string token) {
         return Res::Err("Payback of loan via %s token is not currently active", token);
     }
 
-    static Res InvalidPrice(const std::string kv, const std::string payback) {
+    static Res LoanPriceInvalid(const std::string kv, const std::string payback) {
         return Res::Err("Value/price too high (%s/%s)", kv, payback);
     }
 };

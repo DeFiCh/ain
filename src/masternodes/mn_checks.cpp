@@ -3306,7 +3306,7 @@ public:
             CBalances *loan;
             if (id == DCT_ID{0}) {
                 auto tokenDUSD = mnview.GetToken("DUSD");
-                if (!tokenDUSD) return DeFiErrors::InvalidLoan();
+                if (!tokenDUSD) return DeFiErrors::LoanDUSDInvalid();
                 loan = &loans[tokenDUSD->first];
             } else
                 loan = &loans[id];
@@ -3320,16 +3320,16 @@ public:
         if (!CheckCustomTx()) return Res::Err("");
 
         const auto vault = mnview.GetVault(obj.vaultId);
-        if (!vault) return DeFiErrors::CannotFindVault(obj.vaultId.GetHex());
+        if (!vault) return DeFiErrors::VaultInvalid(obj.vaultId.GetHex());
 
         if (vault->isUnderLiquidation) return DeFiErrors::VaultUnderLiquidation();
 
-        if (!mnview.GetVaultCollaterals(obj.vaultId)) return DeFiErrors::NoCollateral(obj.vaultId.GetHex());
+        if (!mnview.GetVaultCollaterals(obj.vaultId)) return DeFiErrors::VaultNoCollateral(obj.vaultId.GetHex());
 
         if (!HasAuth(obj.from)) return DeFiErrors::TXMissingInput();
 
         if (static_cast<int>(height) < consensus.FortCanningRoadHeight) {
-            if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::InvalidAssetPrice();
+            if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
         }
 
         // Handle payback with collateral special case
@@ -3344,37 +3344,39 @@ public:
 
         for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
             const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
-            if (!loanToken) return DeFiErrors::InvalidLoanToken(loanTokenId.ToString());
+            if (!loanToken) return DeFiErrors::LoanTokenInvalid(loanTokenId.ToString());
 
             for (const auto &kv : paybackAmounts.balances) {
                 const auto &paybackTokenId = kv.first;
                 auto paybackAmount         = kv.second;
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
-                    if (paybackAmount <= 0) return DeFiErrors::InvalidPaymentAmount(paybackAmount, paybackTokenId.v);
+                    if (paybackAmount <= 0) return DeFiErrors::LoanPaymentAmountInvalid(paybackAmount, paybackTokenId.v);
                 }
 
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
                 auto paybackToken = mnview.GetToken(paybackTokenId);
-                if (!paybackToken) return DeFiErrors::InvalidToken(paybackTokenId.ToString());
+                if (!paybackToken) return DeFiErrors::LoanTokenIvalid(paybackTokenId.ToString());
 
                 if (loanTokenId != paybackTokenId) {
-                    if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::InvalidAssetPrice();
-                    if (!attributes) return DeFiErrors::PaybackDisabled();
+                    if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
+                    if (!attributes) return DeFiErrors::LoanPaybackDisabled();
 
                     // search in token to token
                     if (paybackTokenId != DCT_ID{0}) {
                         CDataStructureV0 activeKey{
                             AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
-                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackDisabled(paybackToken->symbol);
+                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackDisabled(
+                                    paybackToken->symbol);
 
                         CDataStructureV0 penaltyKey{
                             AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
                         penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
                     } else {
                         CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFI};
-                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackDisabled(paybackToken->symbol);
+                        if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackDisabled(
+                                    paybackToken->symbol);
 
                         CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFIFeePCT};
                         penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
@@ -3394,7 +3396,8 @@ public:
                     if (loanToken->symbol == "DUSD") {
                         paybackAmount = usdAmount;
                         if (paybackUsdPrice > COIN) {
-                            if (paybackAmount < kv.second) return DeFiErrors::InvalidPrice(GetDecimaleString(kv.second), GetDecimaleString(paybackUsdPrice));
+                            if (paybackAmount < kv.second) return DeFiErrors::LoanPriceInvalid(
+                                        GetDecimaleString(kv.second), GetDecimaleString(paybackUsdPrice));
                         }
                     } else {
                         // Get dToken price in USD
@@ -3411,14 +3414,14 @@ public:
                 }
 
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-                if (!loanAmounts) return DeFiErrors::NoLoans(obj.vaultId.GetHex());
+                if (!loanAmounts) return DeFiErrors::LoanInvalid(obj.vaultId.GetHex());
 
-                if (!loanAmounts->balances.count(loanTokenId)) return DeFiErrors::NoLoans(loanToken->symbol);
+                if (!loanAmounts->balances.count(loanTokenId)) return DeFiErrors::LoanInvalid(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
 
                 const auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                if (!rate) return DeFiErrors::CannotGetInterestRate(loanToken->symbol);
+                if (!rate) return DeFiErrors::LoanInterestRateInvalid(loanToken->symbol);
 
                 auto subInterest = TotalInterest(*rate, height);
 
@@ -3460,7 +3463,7 @@ public:
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
                     height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                    if (!newRate) return DeFiErrors::CannotGetInterestRate(loanToken->symbol);
+                    if (!newRate) return DeFiErrors::LoanInterestRateInvalid(loanToken->symbol);
 
                     Require(newRate->interestPerBlock.amount != 0,
                             "Cannot payback this amount of loan for %s, either payback full amount or less than this "
@@ -4608,27 +4611,27 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (!attributes) return DeFiErrors::MNInvalidAttribute();
 
     const auto dUsdToken = view.GetToken("DUSD");
-    if (!dUsdToken) return DeFiErrors::CannotFindDUSD();
+    if (!dUsdToken) return DeFiErrors::LoanCannotFindDUSD();
 
     CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
-    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::PaybackWithCollateralDisable();
+    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackWithCollateralDisable();
 
     const auto collateralAmounts = view.GetVaultCollaterals(vaultId);
-    if (!collateralAmounts) return DeFiErrors::NoCollateral();
+    if (!collateralAmounts) return DeFiErrors::VaultNoCollateral();
 
-    if (!collateralAmounts->balances.count(dUsdToken->first)) return DeFiErrors::NoDUSDCollateral();
+    if (!collateralAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoDUSDCollateral();
 
     const auto &collateralDUSD = collateralAmounts->balances.at(dUsdToken->first);
 
     const auto loanAmounts = view.GetLoanTokens(vaultId);
-    if (!loanAmounts) return DeFiErrors::NoLoans();
+    if (!loanAmounts) return DeFiErrors::LoanInvalid();
 
-    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::NoDUSDLoans();
+    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoDUSDLoans();
 
     const auto &loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
     const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
-    if (!rate) return DeFiErrors::CannotGetInterestRate("DUSD");
+    if (!rate) return DeFiErrors::LoanInterestRateInvalid("DUSD");
     const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
@@ -4680,7 +4683,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     const auto collaterals = view.GetVaultCollaterals(vaultId);
     const auto loans       = view.GetLoanTokens(vaultId);
     if (loans)
-        if (!collaterals) return DeFiErrors::NeedCollateral();
+        if (!collaterals) return DeFiErrors::VaultNeedCollateral();
 
     auto collateralsLoans = view.GetLoanCollaterals(vaultId, *collaterals, height, time);
     if (!collateralsLoans) return Res::Err("");
@@ -4688,10 +4691,11 @@ Res PaybackWithCollateral(CCustomCSView &view,
     // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5
     // currently) can be tested for economical stability. Taking the safer approach for now.
-    if (!IsVaultPriceValid(view, vaultId, height)) return DeFiErrors::InvalidVaultPrice();
+    if (!IsVaultPriceValid(view, vaultId, height)) return DeFiErrors::VaultInvalidPrice();
 
     const auto scheme = view.GetLoanScheme(vault.schemeId);
-    if (collateralsLoans.val->ratio() < scheme->ratio) return DeFiErrors::InsufficientCollateralization(collateralsLoans.val->ratio(), scheme->ratio);
+    if (collateralsLoans.val->ratio() < scheme->ratio) return DeFiErrors::VaultInsufficientCollateralization(
+                collateralsLoans.val->ratio(), scheme->ratio);
 
     if (subCollateralAmount > 0) {
         if (!view.SubMintedTokens(dUsdToken->first, subCollateralAmount)) return Res::Err("");
