@@ -566,20 +566,20 @@ class ConsortiumTest (DefiTestFramework):
         idTSLA = list(self.nodes[0].gettoken("TSLA").keys())[0]
 
         # Try and set consortium value for DFI and loan token
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idTSLA + '/mint_limit': '10'}})
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idTSLA + '/mint_limit_daily': '10'}})
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/0/mint_limit': '10'}})
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/0/mint_limit_daily': '10'}})
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idTSLA + '/members' : {"01":{"name":"account2BTC",
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idTSLA + '/members' : {"01":{"name":"account2BTC",
                                                                                                                                                                         "ownerAddress": account2,
                                                                                                                                                                         "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
                                                                                                                                                                         "mintLimitDaily":1.00000000,
                                                                                                                                                                         "mintLimit":1.00000000}}}})
-        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/0/members' : {"01":{"name":"account2BTC",
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/0/members' : {"01":{"name":"account2BTC",
                                                                                                                                                                          "ownerAddress": account2,
                                                                                                                                                                          "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
                                                                                                                                                                          "mintLimitDaily":1.00000000,
@@ -606,6 +606,21 @@ class ConsortiumTest (DefiTestFramework):
 
         assert_raises_rpc_error(-5, "recipient (NOTANADDRESS) does not refer to any valid address",
                                 self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": "NOTANADDRESS"})
+
+        # should not set attributes for non-DAT tokens
+        token = self.nodes[0].createtoken({
+            "symbol": "notDAT",
+            "name": "notDAT",
+            "isDAT": False,
+            "collateralAddress": self.nodes[0].getnewaddress()
+        })
+        self.nodes[0].generate(1)
+
+        idnotDAT = list(self.nodes[0].gettoken(token).keys())[0]
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/' + idnotDAT + '/mint_limit': '10'}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI, loan tokens and non-DAT tokens", self.nodes[0].setgovheight, {
+            "ATTRIBUTES": {'v0/consortium/' + idnotDAT + '/mint_limit': '10'}}, self.nodes[0].getblockcount() + 10)
 
 if __name__ == '__main__':
     ConsortiumTest().main()

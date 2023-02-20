@@ -20,4 +20,6 @@ using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs);
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
 
+size_t RewardConsolidationWorkersCount();
+
 #endif  // DEFI_MASTERNODES_VALIDATION_H

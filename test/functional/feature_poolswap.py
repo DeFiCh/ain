@@ -563,7 +563,7 @@ class PoolPairTest (DefiTestFramework):
                                 "amountFrom": 0, "tokenFrom": self.symbolLTC, "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
 
     def revert_to_initial_state(self):
-        self.rollback_to(block=0, nodes=[0, 1, 2])
+        self.rollback_to(block=0)
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
         assert_equal(len(self.nodes[1].listpoolpairs()), 0)
         assert_equal(len(self.nodes[2].listpoolpairs()), 0)

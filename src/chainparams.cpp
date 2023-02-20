@@ -560,6 +560,7 @@ public:
                 {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                 {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                 {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
             }
         };
 
@@ -769,6 +770,7 @@ public:
                         {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                         {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                         {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                        {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
                 }
         };
 
@@ -1187,7 +1189,7 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
+    Require(file.good(), [=]{ return strprintf("Could not read %s. Ensure it exists and has read permissions", fileName); });
 
     ClearCheckpoints(params);
 
@@ -1199,13 +1201,13 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
+        Require((iss >> heightStr >> hashStr), [=]{ return strprintf("Error parsing line %s", trimmed); });
 
         uint256 hash;
-        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
+        Require(ParseHashStr(hashStr, hash), [=]{ return strprintf("Invalid hash: %s", hashStr); });
 
         int32_t height;
-        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
+        Require(ParseInt32(heightStr, &height), [=]{ return strprintf("Invalid height: %s", heightStr); });
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }
