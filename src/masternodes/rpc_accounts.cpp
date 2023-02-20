@@ -358,26 +358,27 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
+    // ForEachBalance is in account order, so we only need to check if the
+    // last record is the same as the current one to know whether we can skip
+    // CalculateOwnerRewards or if it needs to be called.
+    CScript lastCalculatedOwner;
 
-        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
+    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
+        if (isMineOnly && IsMineCached(*pwallet, owner) != ISMINE_SPENDABLE) {
             return true;
         }
 
-        mnview.CalculateOwnerRewards(account, targetHeight);
+        if (lastCalculatedOwner != owner) {
+            mnview.CalculateOwnerRewards(owner, targetHeight);
+            lastCalculatedOwner = owner;
+        }
 
-        // output the relavant balances only for account
-        mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-            if (account != owner) {
-                return false;
-            }
-            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
-            return --limit != 0;
-        }, {account, start.tokenID});
+        ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
 
         start.tokenID = DCT_ID{}; // reset to start id
-        return limit != 0;
-    }, start.owner);
+
+        return --limit != 0;
+    }, {start.owner, start.tokenID});
 
     return GetRPCResultCache().Set(request, ret);
 }
@@ -549,15 +550,23 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
-        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
-            mnview.CalculateOwnerRewards(account, targetHeight);
-            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-                return account == owner && totalBalances.Add(balance);
-            }, {account, DCT_ID{}});
+    // ForEachBalance is in account order, so we only need to check if the
+    // last record is the same as the current one to know whether we can skip
+    // CalculateOwnerRewards or if it needs to be called.
+    CScript lastCalculatedOwner;
+
+    mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        if (IsMineCached(*pwallet, owner)) {
+            if (lastCalculatedOwner != owner) {
+                mnview.CalculateOwnerRewards(owner, targetHeight);
+                lastCalculatedOwner = owner;
+            }
+            totalBalances.Add(balance);
         }
+
         return true;
     });
+
     auto it = totalBalances.balances.lower_bound(start);
     for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         auto bal = CTokenAmount{(*it).first, (*it).second};
