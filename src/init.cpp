@@ -1476,7 +1476,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         // DeFiChain specific:
         // Set this to a max value, since most custom TXs don't utilize this unfortunately 
         // and is just a waste of resources.
-        auto defaultThreads = std::min(script_threads, 4);
+        auto defaultThreads = std::min(GetNumCores(), 4);
 
         // -par=0 means autodetect (number of cores - 1 script threads)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
