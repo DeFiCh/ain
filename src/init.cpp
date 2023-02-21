@@ -1476,6 +1476,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         // -par=0 means autodetect (number of cores - 1 script threads)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
         script_threads += GetNumCores();
+        // DeFiChain specific:
+        // Set this to a max value, since most custom TXs don't utilize this unfortunately 
+        // and is just a waste of resources. 
+        script_threads = std::min(script_threads, 4);
     }
 
     // Subtract 1 because the main thread counts towards the par threads
