@@ -36,7 +36,9 @@ Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    Require(balance.Add(amount.nValue));
+    if (const auto res = balance.Add(amount.nValue); !res) {
+        return res;
+    }
     return SetBalance(owner, balance);
 }
 
@@ -45,7 +47,9 @@ Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    Require(balance.Sub(amount.nValue));
+    if (const auto res = balance.Sub(amount.nValue); !res) {
+        return res;
+    }
     return SetBalance(owner, balance);
 }
 
@@ -61,11 +65,6 @@ Res CAccountsView::SubBalances(const CScript &owner, const CBalances &balances) 
         Require(SubBalance(owner, CTokenAmount{kv.first, kv.second}));
 
     return Res::Ok();
-}
-
-void CAccountsView::ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start) {
-    ForEach<ByHeightKey, CScript, uint32_t>(
-        [&callback](const CScript &owner, CLazySerialize<uint32_t>) { return callback(owner); }, start);
 }
 
 Res CAccountsView::UpdateBalancesHeight(const CScript &owner, uint32_t height) {

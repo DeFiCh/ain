@@ -64,6 +64,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/mn_checks -> validation -> rpc/timestats -> masternodes/mn_checks"
     "masternodes/mn_checks -> validation -> wallet/wallet -> masternodes/mn_checks"
     "masternodes/validation -> validation -> masternodes/validation"
+    "miner -> wallet/wallet -> policy/fees -> miner"
     "node/transaction -> validation -> rpc/timestats -> rpc/util -> node/transaction"
     "net_processing -> validation -> net_processing"
     "policy/fees -> txmempool -> policy/fees"

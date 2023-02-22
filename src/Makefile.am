@@ -175,10 +175,12 @@ DEFI_CORE_H = \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
+  masternodes/errors.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
   masternodes/proposals.h \
   masternodes/tokens.h \
+  masternodes/threadpool.h \
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/validation.h \
@@ -409,6 +411,7 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
   masternodes/tokens.cpp \
+  masternodes/threadpool.cpp \
   masternodes/poolpairs.cpp \
   masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
