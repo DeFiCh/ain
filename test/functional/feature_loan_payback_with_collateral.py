@@ -36,17 +36,6 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
             '-simulatemainnet=1'
             ]]
 
-    def rollback_to(self, block):
-        self.log.info("rollback to: %d", block)
-        node = self.nodes[0]
-        current_height = node.getblockcount()
-        if current_height == block:
-            return
-        blockhash = node.getblockhash(block + 1)
-        node.invalidateblock(blockhash)
-        node.clearmempool()
-        assert_equal(block, node.getblockcount())
-
     def createOracles(self):
         self.oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds = [{"currency": "USD", "token": "DFI"},

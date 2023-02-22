@@ -7,9 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
-    assert_equal,
-    connect_nodes_bi,
-    disconnect_nodes,
+    assert_equal
 )
 from decimal import ROUND_DOWN, Decimal
 
@@ -91,6 +89,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
             account0 = self.nodes[0].getaccount(mn0['ownerAuthAddress'])
             assert_equal(account0[0], '{}@DFI'.format(expectedAmount * votingCycles))
+            assert_equal(self.nodes[0].gettokenbalances(), [f"{expectedAmount * votingCycles}@0"])
             history = self.nodes[0].listaccounthistory(mn0['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(len(history), votingCycles)
             for i in range(votingCycles):
@@ -98,7 +97,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
             mn1 = self.nodes[0].getmasternode(self.mn1)[self.mn1]
             account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
-            assert_equal(account1[0], '{}@DFI'.format(expectedAmount* votingCycles))
+            assert_equal(account1[0], '{}@DFI'.format(expectedAmount * votingCycles))
+            assert_equal(self.nodes[1].gettokenbalances(), [f"{expectedAmount * votingCycles}@0"])
             history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(len(history), votingCycles)
             for i in range(votingCycles):
@@ -107,7 +107,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
             # Fee should be redistributed to reward address
             mn2 = self.nodes[0].getmasternode(self.mn2)[self.mn2]
             account2 = self.nodes[0].getaccount(mn2['ownerAuthAddress'])
-            assert_equal(account2[0], '{}@DFI'.format(expectedAmount* votingCycles))
+            assert_equal(account2[0], '{}@DFI'.format(expectedAmount * votingCycles))
+            assert_equal(self.nodes[2].gettokenbalances(), [f"{expectedAmount * votingCycles}@0"])
             history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(len(history), votingCycles)
             for i in range(votingCycles):
@@ -120,19 +121,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
             assert_equal(history, [])
 
-        # Disconnect nodes and check connection count
-        for i in range(self.num_nodes - 1):
-            disconnect_nodes(self.nodes[i], i + 1)
-            assert_equal(self.nodes[i].getconnectioncount(), 0)
-        assert_equal(self.nodes[3].getconnectioncount(), 0)
-
-        # Rollback nodes in isolation
-        for i in range(self.num_nodes):
-            self.rollback_to(height, nodes=[i])
-
-        # Connect nodes
-        for i in range(self.num_nodes - 1):
-            connect_nodes_bi(self.nodes, i, i + 1)
+        self.rollback_to(height)
 
     def setup(self):
         # Get MN addresses
@@ -158,11 +147,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true'}})
         self.nodes[0].generate(1)
 
         # activate fee redistribution
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         self.sync_blocks()
@@ -187,7 +176,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=1)
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=3, changeFeeAndBurnPCT=True)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, burnPct=30, vote="yes", cycles=3,
+                                       changeFeeAndBurnPCT=True)
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()

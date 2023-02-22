@@ -219,9 +219,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    const auto txOrdering = gArgs.GetArg("-txordering", DEFAULT_AUTO_FEE_ORDERING);
-    bool timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
-
+    bool timeOrdering{false};
     if (txOrdering == MIXED_ORDERING) {
         std::random_device rd;
         std::mt19937_64 gen(rd());
@@ -233,9 +231,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             timeOrdering = true;
     } else if (txOrdering == ENTRYTIME_ORDERING) {
         timeOrdering = true;
-    } else if (gArgs.IsArgSet("-txordering") && txOrdering == FEE_ORDERING) {
+    } else if (txOrdering == FEE_ORDERING) {
         timeOrdering = false;
-    } // falls back to blocktimeordering arg if txordering is not set
+    }
 
     if (timeOrdering) {
         addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);

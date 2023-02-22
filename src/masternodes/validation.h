@@ -5,6 +5,8 @@
 #ifndef DEFI_MASTERNODES_VALIDATION_H
 #define DEFI_MASTERNODES_VALIDATION_H
 
+#include <amount.h>
+
 struct CAuctionBatch;
 class CBlock;
 class CBlockIndex;
@@ -13,11 +15,10 @@ class CCoinsViewCache;
 class CCollateralLoans;
 class CCustomCSView;
 
-#include <amount.h>
-
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs);
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
+
 
 #endif  // DEFI_MASTERNODES_VALIDATION_H
