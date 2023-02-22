@@ -17,9 +17,9 @@ static const int DEFAULT_DFTX_WORKERS=0;
 
 class TaskPool {
     public:
-        TaskPool(size_t size);
+        explicit TaskPool(size_t size);
         void Shutdown();
-        size_t GetAvailableThreads() { return size; }
+        [[nodiscard]] size_t GetAvailableThreads() const { return size; }
         boost::asio::thread_pool pool;
 
     private:
@@ -40,6 +40,6 @@ class TaskGroup {
         std::condition_variable cv;
 };
 
-static std::unique_ptr<TaskPool> DfTxTaskPool;
+extern std::unique_ptr<TaskPool> DfTxTaskPool;
 
 #endif  // DEFI_MASTERNODES_THREADPOOL_H

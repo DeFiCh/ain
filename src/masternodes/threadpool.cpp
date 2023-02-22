@@ -4,7 +4,7 @@
 #include <util/system.h>
 
 
-TaskPool::TaskPool(size_t size): size{size}, pool{size} {}
+TaskPool::TaskPool(size_t size): pool{size}, size{size} {}
 
 void TaskPool::Shutdown() {
     pool.wait();
@@ -44,3 +44,5 @@ void TaskGroup::WaitForCompletion() {
     std::unique_lock<std::mutex> l(cv_m);
     cv.wait(l, [&] { return tasks.load() == 0; });
 }
+
+std::unique_ptr<TaskPool> DfTxTaskPool;
