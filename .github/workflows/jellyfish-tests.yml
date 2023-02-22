@@ -25,14 +25,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: '18'
 
       - name: Set build version
         run: |
@@ -51,5 +44,4 @@ jobs:
       - name: Run tests
         run: |
           npm ci
-          npm run all:build
           DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test
