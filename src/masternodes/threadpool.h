@@ -19,7 +19,7 @@ class TaskPool {
     public:
         explicit TaskPool(size_t size);
         void Shutdown();
-        size_t GetAvailableThreads() { return size; }
+        [[nodiscard]] size_t GetAvailableThreads() { return size; }
         boost::asio::thread_pool pool;
 
     private:
