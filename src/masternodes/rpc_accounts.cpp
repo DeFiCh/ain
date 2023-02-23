@@ -2036,19 +2036,24 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     const auto chunks = height / nWorkers;
     const auto chunksRemainder = height % nWorkers;
 
-    auto processedHeight = 0;
-    auto i               = 0;
-
     TaskGroup g;
-    std::vector<std::shared_ptr<BalanceResults>> workerResults;
 
-    auto &pool = DfTxTaskPool->pool;
+    std::vector<std::shared_ptr<BalanceResults>> workerResults;
+    // Note this creates a massive amount of chunks as we go in mem.
+    // But this is fine for now. Most optimal impl is to return the future val
+    // and add it on receive. It requires a bit more changes, but for now 
+    // this should do.
+    // However reserve in one-go to prevent numerous reallocations
+    workerResults.reserve(chunks);
 
     for (auto i = 0; i <= chunks; i++) {
         auto result = std::make_shared<BalanceResults>();
         workerResults.push_back(result);
     }
 
+    auto &pool = DfTxTaskPool->pool;
+    auto processedHeight = 0;
+    auto i               = 0;
     while (processedHeight < height)
     {
         auto startHeight = (chunks * (i + 1));
