@@ -2028,27 +2028,38 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    const auto nWorkers        = DfTxTaskPool->GetAvailableThreads();
+    auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+    if (static_cast<decltype(nWorkers)>(height) < nWorkers) {
+        nWorkers = height;
+    }
+
     const auto chunks = height / nWorkers;
-    const auto chunksRemainder = height % nWorkers;
 
     TaskGroup g;
+
     std::vector<std::shared_ptr<BalanceResults>> workerResults;
+    // Note this creates a massive amount of chunks as we go in mem.
+    // But this is fine for now. Most optimal impl is to return the future val
+    // and add it on receive. It requires a bit more changes, but for now 
+    // this should do.
+    // However reserve in one-go to prevent numerous reallocations
+    workerResults.reserve(chunks + 1);
 
-    for (size_t i{}; i < nWorkers; ++i) {
-        uint32_t startHeight = (i + 1) * chunks;
-        uint32_t stopHeight = startHeight - chunks;
-
-        if (i + 1 == nWorkers) {
-            startHeight += chunksRemainder;
-            stopHeight -= chunksRemainder;
-        }
-
+    for (size_t i = 0; i <= chunks; i++) {
         auto result = std::make_shared<BalanceResults>();
         workerResults.push_back(result);
+    }
+
+    auto &pool = DfTxTaskPool->pool;
+    auto processedHeight = 0;
+    auto i               = 0;
+    while (processedHeight < height)
+    {
+        auto startHeight = (chunks * (i + 1));
+        auto stopHeight  = (chunks * (i));
+        auto result      = workerResults[i];
 
         g.AddTask();
-        auto &pool = DfTxTaskPool->pool;
         boost::asio::post(pool, [result, startHeight, stopHeight, &g] {
             pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
 
@@ -2122,6 +2133,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }, {}, startHeight, std::numeric_limits<uint32_t>::max());
             g.RemoveTask();
         });
+
+        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunks;
+        processedHeight += chunks;
+        i++;
     }
 
     g.WaitForCompletion();
@@ -2172,7 +2187,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return GetRPCResultCache()
         .Set(request, result);
 }
-
 
 UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
