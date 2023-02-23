@@ -2044,7 +2044,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     // and add it on receive. It requires a bit more changes, but for now 
     // this should do.
     // However reserve in one-go to prevent numerous reallocations
-    workerResults.reserve(chunks);
+    workerResults.reserve(chunks + 1);
 
     for (auto i = 0; i <= chunks; i++) {
         auto result = std::make_shared<BalanceResults>();
