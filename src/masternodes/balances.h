@@ -57,9 +57,11 @@ struct CBalances {
     }
 
     Res SubBalances(const TAmounts &other) {
-        for (const auto &[tokenId, amount] : other)
-            Require(Sub(CTokenAmount{tokenId, amount}));
-
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Sub(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
         return Res::Ok();
     }
 
@@ -75,9 +77,11 @@ struct CBalances {
     }
 
     Res AddBalances(const TAmounts &other) {
-        for (const auto &[tokenId, amount] : other)
-            Require(Add(CTokenAmount{tokenId, amount}));
-
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Add(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
         return Res::Ok();
     }
 
