@@ -2028,27 +2028,34 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    const auto nWorkers        = DfTxTaskPool->GetAvailableThreads();
+    auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+    if (height < nWorkers) {
+        nWorkers = height;
+    }
+
     const auto chunks = height / nWorkers;
     const auto chunksRemainder = height % nWorkers;
+
+    auto processedHeight = 0;
+    auto i               = 0;
 
     TaskGroup g;
     std::vector<std::shared_ptr<BalanceResults>> workerResults;
 
-    for (size_t i{}; i < nWorkers; ++i) {
-        uint32_t startHeight = (i + 1) * chunks;
-        uint32_t stopHeight = startHeight - chunks;
+    auto &pool = DfTxTaskPool->pool;
 
-        if (i + 1 == nWorkers) {
-            startHeight += chunksRemainder;
-            stopHeight -= chunksRemainder;
-        }
-
+    for (auto i = 0; i <= chunks; i++) {
         auto result = std::make_shared<BalanceResults>();
         workerResults.push_back(result);
+    }
+
+    while (processedHeight < height)
+    {
+        auto startHeight = (chunks * (i + 1));
+        auto stopHeight  = (chunks * (i));
+        auto result      = workerResults[i];
 
         g.AddTask();
-        auto &pool = DfTxTaskPool->pool;
         boost::asio::post(pool, [result, startHeight, stopHeight, &g] {
             pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
 
@@ -2122,6 +2129,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }, {}, startHeight, std::numeric_limits<uint32_t>::max());
             g.RemoveTask();
         });
+
+        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunks;
+        processedHeight += chunks;
+        i++;
     }
 
     g.WaitForCompletion();
@@ -2171,6 +2182,206 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     return GetRPCResultCache()
         .Set(request, result);
+}
+
+UniValue getburninfo2(const JSONRPCRequest& request) {
+    RPCHelpMan{"getburninfo2",
+               "\nReturns burn address and burnt coin and token information.\n"
+               "Requires full acindex for correct amount, tokens and feeburn values.\n",
+               {
+               },
+               RPCResult{
+                       "{\n"
+                       "  \"address\" : \"address\",        (string) The defi burn address\n"
+                       "  \"amount\" : n.nnnnnnnn,        (string) The amount of DFI burnt\n"
+                       "  \"tokens\" :  [\n"
+                       "      { (array of burnt tokens)"
+                       "      \"name\" : \"name\"\n"
+                       "      \"amount\" : n.nnnnnnnn\n"
+                       "    ]\n"
+                       "  \"feeburn\" : n.nnnnnnnn,        (string) The amount of fees burnt\n"
+                       "  \"emissionburn\" : n.nnnnnnnn,   (string) The amount of non-utxo coinbase rewards burnt\n"
+                       "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getburninfo", "")
+                       + HelpExampleRpc("getburninfo", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    CAmount burntDFI{0};
+    CAmount burntFee{0};
+    CAmount auctionFee{0};
+    CAmount dfiPaybackFee{0};
+    CAmount burnt{0};
+
+    CBalances burntTokens;
+    CBalances consortiumTokens;
+    CBalances nonConsortiumTokens;
+    CBalances dexfeeburn;
+    CBalances paybackfees;
+    CBalances paybackFee;
+    CBalances paybacktokens;
+    CBalances dfi2203Tokens;
+    CBalances dfipaybacktokens;
+    CBalances dfiToDUSDTokens;
+
+    LOCK(cs_main);
+
+    auto height = ::ChainActive().Height();
+    auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
+    auto burnAddress = Params().GetConsensus().burnAddress;
+    auto view = *pcustomcsview;
+    auto attributes = view.GetAttributes();
+
+    if (attributes) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.Add({balance.first, balance.second});
+            }
+        }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        paybackfees = std::move(paybacks.tokensFee);
+        paybacktokens = std::move(paybacks.tokensPayback);
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
+        dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
+    }
+
+    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+        if (kv.first == CommunityAccountType::Unallocated ||
+            kv.first == CommunityAccountType::IncentiveFunding ||
+            (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
+            burnt += view.GetCommunityBalance(kv.first);
+        }
+    }
+
+    std::vector<std::shared_ptr<BalanceResults>> workerResults;
+    auto result = std::make_shared<BalanceResults>();
+    workerResults.push_back(result);
+
+    pburnHistoryDB->ForEachAccountHistory([result](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+        // UTXO burn
+        if (value.category == uint8_t(CustomTxType::None)) {
+            for (auto const & diff : value.diff) {
+                result->burntDFI += diff.second;
+            }
+            return true;
+        }
+
+        // Fee burn
+        if (value.category == uint8_t(CustomTxType::CreateMasternode)
+            || value.category == uint8_t(CustomTxType::CreateToken)
+            || value.category == uint8_t(CustomTxType::Vault)
+            || value.category == uint8_t(CustomTxType::CreateCfp)
+            || value.category == uint8_t(CustomTxType::CreateVoc)) {
+            for (auto const & diff : value.diff) {
+                result->burntFee += diff.second;
+            }
+            return true;
+        }
+
+        // withdraw burn
+        if (value.category == uint8_t(CustomTxType::PaybackLoan)
+            || value.category == uint8_t(CustomTxType::PaybackLoanV2)
+            || value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
+            for (const auto& [id, amount] : value.diff) {
+                result->paybackFee.Add({id, amount});
+            }
+            return true;
+        }
+
+        // auction burn
+        if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+            for (auto const & diff : value.diff) {
+                result->auctionFee += diff.second;
+            }
+            return true;
+        }
+
+        // dex fee burn
+        if (value.category == uint8_t(CustomTxType::PoolSwap)
+            ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+            for (auto const & diff : value.diff) {
+                result->dexfeeburn.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
+        // token burn with burnToken tx
+        if (value.category == uint8_t(CustomTxType::BurnToken))
+        {
+            for (auto const & diff : value.diff) {
+                result->nonConsortiumTokens.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
+        // Token burn
+        for (auto const & diff : value.diff) {
+            result->burntTokens.Add({diff.first, diff.second});
+        }
+
+        return true;
+    }, {}, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max());
+
+    for (const auto &result : workerResults) {
+        burntDFI += result->burntDFI;
+        burntFee += result->burntFee;
+        auctionFee += result->auctionFee;
+        burntTokens.AddBalances(result->burntTokens.balances);
+        nonConsortiumTokens.AddBalances(result->nonConsortiumTokens.balances);
+        dexfeeburn.AddBalances(result->dexfeeburn.balances);
+        paybackFee.AddBalances(result->paybackFee.balances);
+    }
+
+    CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
+
+    for (const auto &token : nonConsortiumTokens.balances) {
+        TAmounts amount;
+        amount[token.first] = balances[token.first].burnt;
+        consortiumTokens.AddBalances(amount);
+    }
+
+    nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    burntTokens.AddBalances(nonConsortiumTokens.balances);
+
+    {
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("address", ScriptToString(burnAddress));
+        result.pushKV("amount", ValueFromAmount(burntDFI));
+
+        result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+        result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
+        result.pushKV("feeburn", ValueFromAmount(burntFee));
+        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+        result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));
+        result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+
+        result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+        result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
+
+        result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
+        result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
+
+        result.pushKV("emissionburn", ValueFromAmount(burnt));
+        result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
+        result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
+
+        return GetRPCResultCache()
+            .Set(request, result);
+    }
 }
 
 
@@ -2780,6 +2991,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
     {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
     {"accounts",   "getburninfo",              &getburninfo,               {}},
+    {"accounts",   "getburninfo2",             &getburninfo2,              {}},
     {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
     {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},
     {"accounts",   "withdrawfutureswap",       &withdrawfutureswap,        {"address", "amount", "destination", "inputs"}},
