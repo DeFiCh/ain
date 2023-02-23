@@ -2029,12 +2029,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
 
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
-    if (height < nWorkers) {
+    if (static_cast<decltype(nWorkers)>(height) < nWorkers) {
         nWorkers = height;
     }
 
     const auto chunks = height / nWorkers;
-    const auto chunksRemainder = height % nWorkers;
 
     TaskGroup g;
 
@@ -2046,7 +2045,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     // However reserve in one-go to prevent numerous reallocations
     workerResults.reserve(chunks + 1);
 
-    for (auto i = 0; i <= chunks; i++) {
+    for (size_t i = 0; i <= chunks; i++) {
         auto result = std::make_shared<BalanceResults>();
         workerResults.push_back(result);
     }
