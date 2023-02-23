@@ -18,7 +18,9 @@ struct CBalances {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        Require(current.Add(amount.nValue));
+        if (auto res = current.Add(amount.nValue); !res) {
+            return res;
+        }
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
@@ -32,7 +34,9 @@ struct CBalances {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        Require(current.Sub(amount.nValue));
+        if (auto res = current.Sub(amount.nValue); !res) {
+            return res;
+        }
 
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
