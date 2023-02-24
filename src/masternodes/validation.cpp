@@ -2139,7 +2139,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
             }
         }
 
-        uint32_t voteYes = 0;
+        uint32_t voteYes = 0, voteNeutral = 0;
         std::set<uint256> voters{};
         cache.ForEachProposalVote([&](CProposalId const & pId, uint8_t cycle, uint256 const & mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop.cycle) {
@@ -2149,6 +2149,8 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                 voters.insert(mnId);
                 if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
+                } else if (vote == CProposalVoteType::VoteNeutral) {
+                    ++voteNeutral;
                 }
             }
             return true;
@@ -2203,9 +2205,15 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
             return true;
         }
 
-        if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
+        if (pindex->nHeight < chainparams.GetConsensus().NextNetworkUpgradeHeight && lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
             cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
+        } else if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+                auto onlyNeutral = voters.size() == voteNeutral;
+                if (onlyNeutral || lround(voteYes * 10000.f / (voters.size() - voteNeutral)) <= prop.approvalThreshold) {
+                    cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
+                    return true;
+                }
         }
 
         if (prop.nCycles == prop.cycle) {
