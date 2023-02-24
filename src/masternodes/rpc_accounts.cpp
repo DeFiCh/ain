@@ -575,7 +575,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CScript lastCalculatedOwner;
 
     mnview.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
-        if (IsMineCached(*pwallet, owner)) {
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             if (lastCalculatedOwner != owner) {
                 mnview.CalculateOwnerRewards(owner, targetHeight);
                 lastCalculatedOwner = owner;
