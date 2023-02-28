@@ -587,18 +587,18 @@ UniValue votegovmulti(const JSONRPCRequest &request) {
 
     RPCHelpMan{
             "votegovmulti",
-            "\nVote for community proposal" + HelpRequiringPassphrase(pwallet) + "\n",
+            "\nVote for community proposal with multiple masternodes" + HelpRequiringPassphrase(pwallet) + "\n",
             {
-                    {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
-                    {"masternodeIds", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of masternode IDs, operator or owner addresses.",
+                    {"votes", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of proposal ID, masternode IDs, operator or owner addresses and vote decision (yes/no/neutral).",
                      {
+                             {"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal txid"},
                              {"masternodeId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The masternode ID, operator or owner address"},
+                             {"decision", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The vote decision (yes/no/neutral)"},
                      }},
-                    {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
                  },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
-            RPCExamples{HelpExampleCli("votegovmulti", "txid {masternodeId, ...} yes") +
-                        HelpExampleRpc("votegovmulti", "txid {masternodeId, ...} yes")},
+            RPCExamples{HelpExampleCli("votegovmulti", "{{proposalId, masternodeId, yes}...}") +
+                        HelpExampleRpc("votegovmulti", "{{proposalId, masternodeId, yes}...}")},
     }
             .Check(request);
 
@@ -607,46 +607,49 @@ UniValue votegovmulti(const JSONRPCRequest &request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR}, false);
+    RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
-    auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-    const auto &keys = request.params[1].get_array();
-    auto vote   = CProposalVoteType::VoteNeutral;
-    auto voteStr = ToLower(request.params[2].get_str());
+    const auto &keys = request.params[0].get_array();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
-    if (voteStr == "no") {
-        vote = CProposalVoteType::VoteNo;
-    } else if (voteStr == "yes") {
-        vote = CProposalVoteType::VoteYes;
-    } else if (neutralVotesAllowed && voteStr != "neutral") {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
-    } else if (!neutralVotesAllowed) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
-    }
-
     int targetHeight;
-    std::vector<std::pair<uint256, CTxDestination>> mnIds;
+
+    struct MasternodeMultiVote {
+        uint256 propId;
+        uint256 mnId;
+        CTxDestination dest;
+        CProposalVoteType type;
+    };
+
+    std::vector<MasternodeMultiVote> mnMultiVotes;
     {
         CCustomCSView view(*pcustomcsview);
 
-        auto prop = view.GetProposal(propId);
-        if (!prop) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
-        }
-
-        if (prop->status != CProposalStatusType::Voting) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
-        }
-
         for (size_t i{}; i < keys.size(); ++i) {
+
+            const auto &votes{keys[i].get_array()};
+            if (votes.size() != 3) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Incorrect number of items, three expected, proposal ID, masternode ID and vote expected. %d entries provided.", votes.size()));
+            }
+
+            const auto propId = ParseHashV(votes[0].get_str(), "proposalId");
+            const auto prop = view.GetProposal(propId);
+            if (!prop) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
+            }
+
+            if (prop->status != CProposalStatusType::Voting) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
+            }
+
             uint256 mnId;
-            const auto &id{keys[i].get_str()};
+            const auto &id = votes[1].get_str();
+
             if (id.length() == 64) {
                 mnId = ParseHashV(id, "masternodeId");
             } else {
-                CTxDestination dest = DecodeDestination(id);
+                const CTxDestination dest = DecodeDestination(id);
                 if (!IsValidDestination(dest)) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,
                                        strprintf("The masternode id or address is not valid: %s", id));
@@ -672,21 +675,38 @@ UniValue votegovmulti(const JSONRPCRequest &request) {
                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
             }
 
-            mnIds.emplace_back(mnId, node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                                               : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)));
+            auto vote   = CProposalVoteType::VoteNeutral;
+            auto voteStr = ToLower(votes[2].get_str());
+
+            if (voteStr == "no") {
+                vote = CProposalVoteType::VoteNo;
+            } else if (voteStr == "yes") {
+                vote = CProposalVoteType::VoteYes;
+            } else if (neutralVotesAllowed && voteStr != "neutral") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
+            } else if (!neutralVotesAllowed) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
+            }
+
+            mnMultiVotes.push_back({
+                propId,
+                mnId,
+                node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
+                vote
+            });
         }
 
         targetHeight = view.GetLastHeight() + 1;
     }
 
-    CProposalVoteMessage msg;
-    msg.propId       = propId;
-    msg.vote         = vote;
-
     UniValue ret(UniValue::VARR);
 
-    for (const auto& [mnId, ownerDest] : mnIds) {
+    for (const auto& [propId, mnId, ownerDest, vote] : mnMultiVotes) {
+
+        CProposalVoteMessage msg;
+        msg.propId       = propId;
         msg.masternodeId = mnId;
+        msg.vote         = vote;
 
         // encode
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

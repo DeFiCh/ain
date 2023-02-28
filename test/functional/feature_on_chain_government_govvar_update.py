@@ -77,7 +77,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].importprivkey(self.nodes[3].dumpprivkey(self.nodes[0].getmasternode(self.mn3)[self.mn3]['ownerAuthAddress']))
 
         # Vote during second cycle using multi-vote
-        self.nodes[0].votegovmulti(propId, [self.mn0, self.mn1, self.mn2, self.mn3], "yes")
+        self.nodes[0].votegovmulti([[propId, self.mn0, "yes"], [propId, self.mn1, "yes"], [propId, self.mn2, "yes"], [propId, self.mn3, "yes"]])
         self.nodes[0].generate(1)
 
         # End proposal
