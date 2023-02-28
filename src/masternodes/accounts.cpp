@@ -4,6 +4,11 @@
 
 #include <masternodes/accounts.h>
 
+void CAccountsView::ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start) {
+    ForEach<ByHeightKey, CScript, uint32_t>(
+            [&callback](const CScript &owner, CLazySerialize<uint32_t>) { return callback(owner); }, start);
+}
+
 void CAccountsView::ForEachBalance(std::function<bool(const CScript &, const CTokenAmount &)> callback,
                                    const BalanceKey &start) {
     ForEach<ByBalanceKey, BalanceKey, CAmount>(

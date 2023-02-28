@@ -574,15 +574,13 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     // CalculateOwnerRewards or if it needs to be called.
     CScript lastCalculatedOwner;
 
-    mnview.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
-        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            if (lastCalculatedOwner != owner) {
-                mnview.CalculateOwnerRewards(owner, targetHeight);
-                lastCalculatedOwner = owner;
-            }
-            totalBalances.Add(balance);
+    mnview.ForEachAccount([&](CScript const & account) {
+        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+                return account == owner && totalBalances.Add(balance);
+            }, {account, DCT_ID{}});
         }
-
         return true;
     });
 
