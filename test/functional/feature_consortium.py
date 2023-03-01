@@ -43,6 +43,7 @@ class ConsortiumTest (DefiTestFramework):
 
         symbolBTC = "BTC"
         symbolDOGE = "DOGE"
+        symbolLTC = "LTC"
 
         self.nodes[0].createtoken({
             "symbol": symbolBTC,
@@ -603,6 +604,21 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].minttokens({"amounts": ["2@" + symbolBTC], "to": newAddress})
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
+
+        # Create another token
+        self.nodes[0].createtoken({
+            "symbol": symbolLTC,
+            "name": symbolLTC,
+            "isDAT": True,
+            "collateralAddress": account0
+        })
+        self.nodes[0].generate(1)
+
+        # Mint multiple tokens to an address
+        newAddress = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].minttokens({"amounts": ["2@" + symbolBTC, "2@" + symbolDOGE, '2@' + symbolLTC], "to": newAddress})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE, '2.00000000@' + symbolLTC])
 
         assert_raises_rpc_error(-5, "recipient (NOTANADDRESS) does not refer to any valid address",
                                 self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": "NOTANADDRESS"})

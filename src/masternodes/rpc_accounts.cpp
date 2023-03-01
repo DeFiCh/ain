@@ -565,7 +565,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CScript lastCalculatedOwner;
 
     mnview.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
-        if (IsMineCached(*pwallet, owner)) {
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             if (lastCalculatedOwner != owner) {
                 mnview.CalculateOwnerRewards(owner, targetHeight);
                 lastCalculatedOwner = owner;
@@ -2073,7 +2073,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
 
     const auto chunks = height / nWorkers;
-    const auto chunksRemainder = height % nWorkers;
 
     TaskGroup g;
     WorkerResultPool resultsPool{nWorkers};
