@@ -1570,6 +1570,8 @@ public:
         Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
                 "Only Bitcoin can be swapped in " + obj.name);
 
+        mnview.CalculateOwnerRewards(script, height);
+
         Require(mnview.SubBalance(script, {id, amount}));
 
         const CTokenCurrencyPair btcUsd{"BTC", "USD"};
@@ -1678,9 +1680,7 @@ public:
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, economyKey};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
-            CalculateOwnerRewards(obj.owner);
-        }
+        CalculateOwnerRewards(obj.owner);
 
         if (obj.withdraw) {
             CTokenAmount totalFutures{};
@@ -3129,6 +3129,8 @@ public:
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
             }
         }
+
+        mnview.CalculateOwnerRewards(obj.to, height);
 
         return mnview.AddBalance(obj.to, obj.amount);
     }

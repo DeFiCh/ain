@@ -2187,9 +2187,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                     LogPrintf("Proposal fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
                 }
 
-                if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
-                    subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
-                }
+                subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
 
                 subView.Flush();
             }
