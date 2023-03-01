@@ -2046,7 +2046,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             for (auto &item : pool) {
                 if (!item.second) {
                     item.second = true;
-                    syncFlag.store(false, std::memory_order_release);
                     res = &item.first;
                     break;
                 }
