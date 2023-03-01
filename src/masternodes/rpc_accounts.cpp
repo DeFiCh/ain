@@ -2038,7 +2038,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         BalanceResults* Acquire() {
-            std::unique_lock lock{syncFlag};
+            CLockFreeGuard lock{syncFlag};
             for (auto &item : pool) {
                 if (!item.second) {
                     item.second = true;
@@ -2049,7 +2049,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         void Release(BalanceResults &res) {
-            std::unique_lock lock{syncFlag};
+            CLockFreeGuard lock{syncFlag};
             for (auto &item : pool) {
                 if (&item.first == &res) {
                     item.second = false;
@@ -2063,7 +2063,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
       private:
-        std::mutex syncFlag;
+        std::atomic_bool syncFlag;
         std::vector<std::pair<BalanceResults, bool>> pool;
     };
 
