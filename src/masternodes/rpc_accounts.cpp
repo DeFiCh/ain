@@ -2038,24 +2038,36 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         BalanceResults* Acquire() {
-            CLockFreeGuard lock{syncFlag};
+            auto expected = false;
+            while (!syncFlag.compare_exchange_weak(expected, true, 
+                std::memory_order_release, std::memory_order_relaxed));
+
+            BalanceResults *res = nullptr;
             for (auto &item : pool) {
                 if (!item.second) {
                     item.second = true;
-                    return &item.first;
+                    syncFlag.store(false, std::memory_order_release);
+                    res = &item.first;
+                    break;
                 }
             }
-            return nullptr;
+
+            syncFlag.store(false, std::memory_order_release);
+            return res;
         }
 
         void Release(BalanceResults &res) {
-            CLockFreeGuard lock{syncFlag};
+            auto expected = false;
+            while (!syncFlag.compare_exchange_weak(expected, true, 
+                std::memory_order_release, std::memory_order_relaxed));
+
             for (auto &item : pool) {
                 if (&item.first == &res) {
                     item.second = false;
-                    return;
+                    break;
                 }
             }
+            syncFlag.store(false, std::memory_order_release);
         }
 
         std::vector<std::pair<BalanceResults, bool>> &GetContainer() {
