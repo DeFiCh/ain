@@ -19,13 +19,20 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
-        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
-            mnview.CalculateOwnerRewards(account, targetHeight);
-            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-                return account == owner && walletAccounts[owner].Add(balance);
-            }, {account, DCT_ID{}});
+    // ForEachBalance is in account order, so we only need to check if the
+    // last record is the same as the current one to know whether we can skip
+    // CalculateOwnerRewards or if it needs to be called.
+    CScript lastCalculatedOwner;
+
+    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
+            if (lastCalculatedOwner != owner) {
+                mnview.CalculateOwnerRewards(owner, targetHeight);
+                lastCalculatedOwner = owner;
+            }
+            walletAccounts[owner].Add(balance);
         }
+
         return true;
     });
 
@@ -551,8 +558,17 @@ UniValue setgov(const JSONRPCRequest& request) {
                 const auto attrMap = attributes->GetAttributesMap();
                 for (const auto& [key, value] : attrMap) {
                     if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                        if (attrV0->type == AttributeTypes::Consortium && (attrV0->typeId == 0 || pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI or loan tokens");
+                        DCT_ID tokenID{attrV0->typeId};
+                        if (attrV0->type == AttributeTypes::Consortium) {
+                            bool isDAT{};
+                            if (auto token = pcustomcsview->GetToken(tokenID)) {
+                                isDAT = token->IsDAT();
+                            }
+
+                            if (attrV0->typeId == 0 ||
+                                !isDAT ||
+                                pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                                throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
                     }
                 }
@@ -743,6 +759,32 @@ UniValue setgovheight(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
         }
         varStream << name << *gv;
+
+        if (name == "ATTRIBUTES") {
+            const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!attributes) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
+            }
+
+            LOCK(cs_main);
+            const auto attrMap = attributes->GetAttributesMap();
+            for (const auto& [key, value] : attrMap) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
+                    DCT_ID tokenID{attrV0->typeId};
+                    if (attrV0->type == AttributeTypes::Consortium) {
+                        bool isDAT{};
+                        if (auto token = pcustomcsview->GetToken(tokenID)) {
+                            isDAT = token->IsDAT();
+                        }
+
+                        if (attrV0->typeId == 0 ||
+                            !isDAT ||
+                            pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
+                    }
+                }
+            }
+        }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
     }

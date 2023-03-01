@@ -49,7 +49,7 @@ jobs:
       with:
         name: sync
         path: |
-          ci/parallel_sync/sync_then_diff.sh
+          ci/parallel_sync/sync.sh
 
   generate-matrix:
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
@@ -129,10 +129,17 @@ jobs:
       run: |
         chmod 777 defid
         chmod 777 defi-cli
-        chmod 777 sync_then_diff.sh
+        chmod 777 sync.sh
 
-    - name: Sync and Diff
-      run: ./sync_then_diff.sh
+    - name: Sync
+      run: ./sync.sh
+
+    - name: Diff log
+      run: diff debug-${{matrix.blocks.stop}}.log debug-tmp-${{matrix.blocks.stop}}.log
+
+    - name: Diff rollback log
+      run: diff debug-pre-rollback.log debug-post-rollback.log
+      if: ${{ failure() ||  success() }}
 
     - name: Show debug.log
       run: cat $DATADIR/debug.log

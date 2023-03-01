@@ -28,6 +28,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/threadpool.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -285,6 +286,7 @@ void Shutdown(InitInterfaces& interfaces)
 
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
+    ShutdownDfTxGlobalTaskPool();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -632,6 +634,7 @@ void SetupServerArgs()
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
     gArgs.AddArg("-rpc-governance-accept-neutral", "Allow voting with neutral votes for JellyFish purpose", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-dftxworkers=<n>", strprintf("No. of parallel workers associated with the DfTx related work pool. Stock splits, parallel processing of the chain where appropriate, etc use this worker pool (default: %d)", DEFAULT_DFTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1476,6 +1479,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         // -par=0 means autodetect (number of cores - 1 script threads)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
         script_threads += GetNumCores();
+        // DeFiChain specific:
+        // Set this to a max value, since most custom TXs don't utilize this unfortunately 
+        // and is just a waste of resources. 
+        script_threads = std::min(script_threads, 4);
     }
 
     // Subtract 1 because the main thread counts towards the par threads
@@ -1688,6 +1695,8 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
     LogPrintf("* Using %.1f MiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
+
+    InitDfTxGlobalTaskPool();
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
