@@ -114,7 +114,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             init_data = self._get_chain_data()
         result = func(self, *args, **kwargs)
         if len(self.nodes) != 0:
-            self.rollback_to(init_height, nodes=list(range(len(self.nodes))))
+            self.rollback_to(init_height)
             final_data = self._get_chain_data()
             final_height = self.nodes[0].getblockcount()
             assert(init_data == final_data)
@@ -491,7 +491,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             self.nodes[0].getburninfo(),
             self.nodes[0].getloaninfo(),
             self.nodes[0].listanchors(),
-            self.nodes[0].listgovproposals()
+            self.nodes[0].listgovproposals(),
+            self.nodes[0].listburnhistory(),
+            self.nodes[0].listcommunitybalances()
         ]
 
     def run_test(self):
