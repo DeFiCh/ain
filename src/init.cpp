@@ -28,6 +28,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/threadpool.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -285,6 +286,7 @@ void Shutdown(InitInterfaces& interfaces)
 
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
+    ShutdownDfTxGlobalTaskPool();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -512,7 +514,8 @@ void SetupServerArgs()
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-blocktimeordering", strprintf("Whether to order transactions by time, otherwise ordered by fee (default: %u)", DEFAULT_FEE_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -630,6 +633,8 @@ void SetupServerArgs()
     gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-rpc-governance-accept-neutral", "Allow voting with neutral votes for JellyFish purpose", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-dftxworkers=<n>", strprintf("No. of parallel workers associated with the DfTx related work pool. Stock splits, parallel processing of the chain where appropriate, etc use this worker pool (default: %d)", DEFAULT_DFTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -960,6 +965,11 @@ void InitParameterInteraction()
             LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
         }
     }
+
+    txOrdering = static_cast<TxOrderings>(gArgs.GetArg("-txordering", DEFAULT_TX_ORDERING));
+
+    if (gArgs.GetBoolArg("-blocktimeordering", false))
+        txOrdering = TxOrderings::ENTRYTIME_ORDERING;
 }
 
 /**
@@ -1395,6 +1405,24 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
+static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
+    LOCK(cs_main);
+
+    std::set<CVaultId> vaults;
+    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        vaults.insert(vaultId);
+        return true;
+    });
+
+    for (const auto &vaultId : vaults) {
+        const auto vault = mnview.GetVault(vaultId);
+        if (!vault) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1451,6 +1479,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         // -par=0 means autodetect (number of cores - 1 script threads)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
         script_threads += GetNumCores();
+        // DeFiChain specific:
+        // Set this to a max value, since most custom TXs don't utilize this unfortunately 
+        // and is just a waste of resources. 
+        script_threads = std::min(script_threads, 4);
     }
 
     // Subtract 1 because the main thread counts towards the par threads
@@ -1664,6 +1696,8 @@ bool AppInitMain(InitInterfaces& interfaces)
     LogPrintf("* Using %.1f MiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 
+    InitDfTxGlobalTaskPool();
+
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
         bool fReset = fReindex;
@@ -1755,6 +1789,11 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
+                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();

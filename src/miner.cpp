@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <queue>
 #include <utility>
+#include <random>
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -217,7 +218,22 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
+    bool timeOrdering{false};
+    if (txOrdering == MIXED_ORDERING) {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<unsigned long long> dis;
+
+        if (dis(rd) % 2 == 0)
+            timeOrdering = false;
+        else
+            timeOrdering = true;
+    } else if (txOrdering == ENTRYTIME_ORDERING) {
+        timeOrdering = true;
+    } else if (txOrdering == FEE_ORDERING) {
+        timeOrdering = false;
+    }
+
     if (timeOrdering) {
         addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
     } else {
@@ -777,7 +793,11 @@ namespace pos {
             blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            const auto optTimeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            if (!optTimeLock)
+                return Status::stakeWaiting;
+
+            timelock = *optTimeLock;
 
             // Get block times
             subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);

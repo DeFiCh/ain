@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!
+/usr/bin/env python3
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
@@ -16,7 +17,9 @@ import sys
 import tempfile
 import time
 import inspect
+import re
 
+from typing import List
 from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
@@ -26,6 +29,7 @@ from .util import (
     PortSeed,
     assert_equal,
     check_json_precision,
+    connect_nodes,
     connect_nodes_bi,
     disconnect_nodes,
     get_datadir_path,
@@ -94,7 +98,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         """Sets test framework defaults. Do not override this method. Instead, override the set_test_params() method"""
         self.chain = 'regtest'
         self.setup_clean_chain = False
-        self.nodes = []
+        self.nodes: List[TestNode] = []
         self.network_thread = None
         self.rpc_timeout = 60  # Wait for up to 60 seconds for the RPC server to respond
         self.supports_cli = False
@@ -444,8 +448,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     # rollback one node (Default = node 0)
-    def _rollback_to(self, block, node=0):
-        node = self.nodes[node]
+    def _rollback_to(self, block, node):
         current_height = node.getblockcount()
         if current_height == block:
             return
@@ -456,11 +459,26 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # rollback to block
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
-        if nodes is None:
-            self._rollback_to(block)
-        else:
-            for node in nodes:
-                self._rollback_to(block, node=node)
+        nodes = nodes or self.nodes
+        connections = {}
+        for node in nodes:
+            nodes_connections = []
+            for x in node.getpeerinfo():
+                if not x['inbound']:
+                    node_number = re.findall(r'\d+', x['subver'])[-1]
+                    nodes_connections.append(int(node_number))
+            connections[node] = nodes_connections
+
+        for node in nodes:
+            for x in connections[node]:
+                disconnect_nodes(node, x)
+
+        for node in nodes:
+            self._rollback_to(block, node)
+
+        for node in nodes:
+            for x in connections[node]:
+                connect_nodes(node, x)
 
     def _get_chain_data(self):
         return [
