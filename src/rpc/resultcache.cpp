@@ -87,7 +87,7 @@ CResultCache LastResultCache::TryGet(const JSONRPCRequest &request) {
     {
         CLockFreeGuard lock{syncFlag};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
-            if (::ChainActive().Contains(LookupBlockIndex(res->second.hash)))
+            if (!::ChainActive().Contains(LookupBlockIndex(res->second.hash)))
                 return {};
 
             if (LogAcceptCategory(BCLog::RPCCACHE)) {
