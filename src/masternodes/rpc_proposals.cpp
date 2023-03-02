@@ -582,11 +582,11 @@ UniValue votegov(const JSONRPCRequest &request) {
 }
 
 
-UniValue votegovmulti(const JSONRPCRequest &request) {
+UniValue votegovbatch(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{
-            "votegovmulti",
+            "votegovbatch",
             "\nVote for community proposal with multiple masternodes" + HelpRequiringPassphrase(pwallet) + "\n",
             {
                     {"votes", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of proposal ID, masternode IDs, operator or owner addresses and vote decision (yes/no/neutral).",
@@ -597,8 +597,8 @@ UniValue votegovmulti(const JSONRPCRequest &request) {
                      }},
                  },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
-            RPCExamples{HelpExampleCli("votegovmulti", "{{proposalId, masternodeId, yes}...}") +
-                        HelpExampleRpc("votegovmulti", "{{proposalId, masternodeId, yes}...}")},
+            RPCExamples{HelpExampleCli("votegovbatch", "{{proposalId, masternodeId, yes}...}") +
+                        HelpExampleRpc("votegovbatch", "{{proposalId, masternodeId, yes}...}")},
     }
             .Check(request);
 
@@ -1350,7 +1350,7 @@ static const CRPCCommand commands[] = {
     {"proposals", "creategovcfp",         &creategovcfp,         {"data", "inputs"}                                  },
     {"proposals", "creategovvoc",         &creategovvoc,         {"data", "inputs"}                                  },
     {"proposals", "votegov",              &votegov,              {"proposalId", "masternodeId", "decision", "inputs"}},
-    {"proposals", "votegovmulti",         &votegovmulti,         {"proposalId", "masternodeIds", "decision"}},
+    {"proposals", "votegovbatch",         &votegovbatch,         {"proposalId", "masternodeIds", "decision"}},
     {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle", "pagination"} },
     {"proposals", "getgovproposal",       &getgovproposal,       {"proposalId"}                                      },
     {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle", "pagination"}           },
