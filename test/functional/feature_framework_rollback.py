@@ -24,7 +24,6 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[0].generate(100)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback
     def set_accounts(self, rollback=True):
         self.account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.account1 = self.nodes[1].getnewaddress("", "legacy")
@@ -39,7 +38,11 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback
+    @DefiTestFramework.rollback_diff_chain_data
+    def set_accounts_with_rollback(self):
+        self.set_accounts()
+
+
     def create_tokens(self, rollback=None):
         self.symbolBTC = "BTC"
         self.symbolDOGE = "DOGE"
@@ -82,11 +85,18 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback
+    @DefiTestFramework.rollback_diff_chain_data
+    def create_tokens_with_rollback(self):
+        self.create_tokens()
+
     def mint_extra(self, rollback=None):
         self.nodes[3].minttokens(["1@" + self.symbolDOGE])
         self.nodes[3].generate(1)
         self.sync_blocks()
+
+    @DefiTestFramework.rollback_diff_chain_data
+    def mint_extra_with_rollback(self):
+        self.mint_extra()
 
     def run_test(self):
 
@@ -94,42 +104,34 @@ class RollbackFrameworkTest (DefiTestFramework):
         height = self.nodes[0].getblockcount() # block 100
 
         # rollback
-        self.set_accounts()
+        self.set_accounts_with_rollback()
         height1 = self.nodes[1].getblockcount()
         assert_equal(height, height1)
 
-        # rollback
-        self.set_accounts(rollback=True)
-        height2 = self.nodes[2].getblockcount()
-        assert_equal(height, height2)
-
-        # No rollback
+        # no rollback
         self.set_accounts(rollback=False)
-        height3 = self.nodes[3].getblockcount()
-        assert(height != height3)
+        height2 = self.nodes[3].getblockcount()
+        assert(height != height2)
 
-        # Print warning + No rollback
-        # Default rollback = None -> not boolean
+        # rollback
+        self.create_tokens_with_rollback()
+        height3 = self.nodes[0].getblockcount()
+        assert_equal(height2, height3)
+
+        # no rollback
         self.create_tokens()
         height4 = self.nodes[0].getblockcount()
-        assert(height4 != height3)
-
-        # Print warning + No rollback
-        # rollback = "wrongType" -> not boolean
-        self.mint_extra(rollback="wrongType")
-        height5 = self.nodes[0].getblockcount()
-        assert(height5 != height4)
+        assert(height3 != height4)
 
         # rollback
-        self.mint_extra(rollback=True)
+        self.mint_extra_with_rollback()
+        height5 = self.nodes[0].getblockcount()
+        assert_equal(height5, height4)
+
+        # no rollback
+        self.mint_extra()
         height6 = self.nodes[0].getblockcount()
-        assert_equal(height6, height5)
-
-        # No rollback
-        self.mint_extra(rollback=False)
-        height7 = self.nodes[0].getblockcount()
-        assert(height6 != height7)
-
+        assert(height6 != height5)
 
 if __name__ == '__main__':
     RollbackFrameworkTest().main()
