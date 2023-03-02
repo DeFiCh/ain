@@ -875,6 +875,7 @@ static bool AppInitServers()
         default: return RPCResultCache::RPCCacheMode::None;
     }}();
     GetRPCResultCache().Init(rpcCacheMode);
+    GetLastResultCache().Init(rpcCacheMode);
 
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
@@ -1480,8 +1481,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
         script_threads += GetNumCores();
         // DeFiChain specific:
-        // Set this to a max value, since most custom TXs don't utilize this unfortunately 
-        // and is just a waste of resources. 
+        // Set this to a max value, since most custom TXs don't utilize this unfortunately
+        // and is just a waste of resources.
         script_threads = std::min(script_threads, 4);
     }
 
