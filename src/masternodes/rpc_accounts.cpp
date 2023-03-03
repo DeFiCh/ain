@@ -2019,30 +2019,29 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         explicit WorkerResultPool(size_t size) {
             pool.reserve(size);
             for (size_t i = 0; i < size; i++) {
-                pool.push_back(CGetBurnInfoResult{});
+                pool.push_back(std::make_shared<CGetBurnInfoResult>());
             }
         }
 
         std::shared_ptr<CGetBurnInfoResult> Acquire() {
-            LOCK(syncFlag);
-            auto res = std::make_shared<CGetBurnInfoResult>(pool.back());
+            CLockFreeGuard lock{syncFlag};
+            auto res = pool.back();
             pool.pop_back();
-
             return res;
         }
 
         void Release(std::shared_ptr<CGetBurnInfoResult> res) {
-            LOCK(syncFlag);
-            pool.push_back(*res);
+            CLockFreeGuard lock{syncFlag};
+            pool.push_back(res);
         }
 
-        std::vector<CGetBurnInfoResult> &GetContainer() {
+        std::vector<std::shared_ptr<CGetBurnInfoResult>> &GetContainer() {
             return pool;
         }
 
       private:
-        CCriticalSection syncFlag;
-        std::vector<CGetBurnInfoResult> pool;
+        std::atomic_bool syncFlag{};
+        std::vector<std::shared_ptr<CGetBurnInfoResult>> pool;
     };
 
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
@@ -2152,14 +2151,16 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     g.WaitForCompletion();
 
     for (const auto &r : resultsPool.GetContainer()) {
-        totalResult->burntDFI += r.burntDFI;
-        totalResult->burntFee += r.burntFee;
-        totalResult->auctionFee += r.auctionFee;
-        totalResult->burntTokens.AddBalances(r.burntTokens.balances);
-        totalResult->nonConsortiumTokens.AddBalances(r.nonConsortiumTokens.balances);
-        totalResult->dexfeeburn.AddBalances(r.dexfeeburn.balances);
-        totalResult->paybackFee.AddBalances(r.paybackFee.balances);
+        totalResult->burntDFI += r->burntDFI;
+        totalResult->burntFee += r->burntFee;
+        totalResult->auctionFee += r->auctionFee;
+        totalResult->burntTokens.AddBalances(r->burntTokens.balances);
+        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
+        totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
+        totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
+
+    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
     CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
@@ -2194,7 +2195,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
     result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
-    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
     return GetRPCResultCache()
         .Set(request, result);
 }
