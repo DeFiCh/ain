@@ -19,20 +19,15 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    // ForEachBalance is in account order, so we only need to check if the
-    // last record is the same as the current one to know whether we can skip
-    // CalculateOwnerRewards or if it needs to be called.
-    CScript lastCalculatedOwner;
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
 
-    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
-        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            if (lastCalculatedOwner != owner) {
-                mnview.CalculateOwnerRewards(owner, targetHeight);
-                lastCalculatedOwner = owner;
-            }
-            walletAccounts[owner].Add(balance);
+    mnview.ForEachAccount([&](CScript const & account) {
+        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+                return account == owner && walletAccounts[owner].Add(balance);
+            }, {account, DCT_ID{}});
         }
-
         return true;
     });
 

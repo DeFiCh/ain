@@ -46,6 +46,10 @@ CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
 
+// Update owner rewards for MNs missing call to CalculateOwnerRewards after voter fee distributions.
+// Missing call fixed in: https://github.com/DeFiCh/ain/pull/1766
+void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet);
+
 enum class UpdateMasternodeType : uint8_t {
     None             = 0x00,
     OwnerAddress     = 0x01,
