@@ -23,6 +23,7 @@
 #include <index/txindex.h>
 #include <key.h>
 #include <key_io.h>
+#include <libevm.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
@@ -886,6 +887,7 @@ static bool AppInitServers()
         return false;
     if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE)) StartREST();
     StartHTTPServer();
+    hello_sputnik_vm();
     return true;
 }
 
