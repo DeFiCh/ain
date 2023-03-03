@@ -2018,7 +2018,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
       public:
         explicit WorkerResultPool(size_t size) {
             pool.reserve(size);
-            for (auto i = 0; i < size; i++) {
+            for (size_t i = 0; i < size; i++) {
                 pool.push_back(CGetBurnInfoResult{});
             }
         }
