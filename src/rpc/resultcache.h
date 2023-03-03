@@ -48,23 +48,23 @@ RPCResultCache& GetRPCResultCache();
 int GetLastValidatedHeight();
 void SetLastValidatedHeight(int height);
 
-struct CResultCache {
+struct CMemoizedResultValue {
     int height;
     uint256 hash;
     std::variant<CGetBurnInfoResult> data;
 };
 
-class LastResultCache {
+class MemoizedResultCache {
 public:
     void Init(RPCResultCache::RPCCacheMode mode);
-    CResultCache TryGet(const JSONRPCRequest &request);
-    void Set(const JSONRPCRequest &request, const CResultCache &value);
+    CMemoizedResultValue GetOrDefault(const JSONRPCRequest &request);
+    void Set(const JSONRPCRequest &request, const CMemoizedResultValue &value);
 private:
     std::atomic_bool syncFlag{false};
-    std::map<std::string, CResultCache> cacheMap{};
+    std::map<std::string, CMemoizedResultValue> cacheMap{};
     RPCResultCache::RPCCacheMode mode{RPCResultCache::RPCCacheMode::None};
 };
 
-LastResultCache& GetLastResultCache();
+MemoizedResultCache& GetMemoizedResultCache();
 
 #endif //DEFI_RPC_RESULTCACHE_H

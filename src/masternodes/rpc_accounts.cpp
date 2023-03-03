@@ -1962,8 +1962,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
-    auto lastResult = GetLastResultCache().TryGet(request);
-    auto getBurnInfoResult = std::get_if<CGetBurnInfoResult>(&lastResult.data);
+    auto cacheOrDefaultResult = GetMemoizedResultCache().GetOrDefault(request);
+    auto totalResult = std::get_if<CGetBurnInfoResult>(&cacheOrDefaultResult.data);
 
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
@@ -2056,19 +2056,19 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     WorkerResultPool resultsPool{nWorkers};
 
     auto &pool = DfTxTaskPool->pool;
-    auto processedHeight = lastResult.height;
+    auto processedHeight = cacheOrDefaultResult.height;
     auto i               = 0;
     while (processedHeight < height)
     {
-        auto startHeight = lastResult.height + (chunks * (i + 1));
-        auto stopHeight  = lastResult.height + (chunks * (i));
+        auto startHeight = cacheOrDefaultResult.height + (chunks * (i + 1));
+        auto stopHeight  = cacheOrDefaultResult.height + (chunks * (i));
 
         g.AddTask();
         boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
-            auto result = resultsPool.Acquire();
+            auto currentResult = resultsPool.Acquire();
 
             pburnHistoryDB->ForEachAccountHistory(
-                [result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                [currentResult, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
                     // Stop on chunk range for worker
                     if (key.blockHeight <= stopHeight) {
                         return false;
@@ -2077,7 +2077,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                     // UTXO burn
                     if (value.category == uint8_t(CustomTxType::None)) {
                         for (auto const &diff : value.diff) {
-                            result->burntDFI += diff.second;
+                            currentResult->burntDFI += diff.second;
                         }
                         return true;
                     }
@@ -2089,7 +2089,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                         value.category == uint8_t(CustomTxType::CreateCfp) ||
                         value.category == uint8_t(CustomTxType::CreateVoc)) {
                         for (auto const &diff : value.diff) {
-                            result->burntFee += diff.second;
+                            currentResult->burntFee += diff.second;
                         }
                         return true;
                     }
@@ -2099,7 +2099,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                         value.category == uint8_t(CustomTxType::PaybackLoanV2) ||
                         value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
                         for (const auto &[id, amount] : value.diff) {
-                            result->paybackFee.Add({id, amount});
+                            currentResult->paybackFee.Add({id, amount});
                         }
                         return true;
                     }
@@ -2107,7 +2107,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                     // auction burn
                     if (value.category == uint8_t(CustomTxType::AuctionBid)) {
                         for (auto const &diff : value.diff) {
-                            result->auctionFee += diff.second;
+                            currentResult->auctionFee += diff.second;
                         }
                         return true;
                     }
@@ -2116,7 +2116,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                     if (value.category == uint8_t(CustomTxType::PoolSwap) ||
                         value.category == uint8_t(CustomTxType::PoolSwapV2)) {
                         for (auto const &diff : value.diff) {
-                            result->dexfeeburn.Add({diff.first, diff.second});
+                            currentResult->dexfeeburn.Add({diff.first, diff.second});
                         }
                         return true;
                     }
@@ -2124,14 +2124,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                     // token burn with burnToken tx
                     if (value.category == uint8_t(CustomTxType::BurnToken)) {
                         for (auto const &diff : value.diff) {
-                            result->nonConsortiumTokens.Add({diff.first, diff.second});
+                            currentResult->nonConsortiumTokens.Add({diff.first, diff.second});
                         }
                         return true;
                     }
 
                     // Token burn
                     for (auto const &diff : value.diff) {
-                        result->burntTokens.Add({diff.first, diff.second});
+                        currentResult->burntTokens.Add({diff.first, diff.second});
                     }
 
                     return true;
@@ -2140,7 +2140,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                 startHeight,
                 std::numeric_limits<uint32_t>::max());
 
-            resultsPool.Release(result);
+            resultsPool.Release(currentResult);
             g.RemoveTask();
         });
 
@@ -2151,38 +2151,38 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     g.WaitForCompletion();
 
-    for (const auto &result : resultsPool.GetContainer()) {
-        getBurnInfoResult->burntDFI += result.burntDFI;
-        getBurnInfoResult->burntFee += result.burntFee;
-        getBurnInfoResult->auctionFee += result.auctionFee;
-        getBurnInfoResult->burntTokens.AddBalances(result.burntTokens.balances);
-        getBurnInfoResult->nonConsortiumTokens.AddBalances(result.nonConsortiumTokens.balances);
-        getBurnInfoResult->dexfeeburn.AddBalances(result.dexfeeburn.balances);
-        getBurnInfoResult->paybackFee.AddBalances(result.paybackFee.balances);
+    for (const auto &r : resultsPool.GetContainer()) {
+        totalResult->burntDFI += r.burntDFI;
+        totalResult->burntFee += r.burntFee;
+        totalResult->auctionFee += r.auctionFee;
+        totalResult->burntTokens.AddBalances(r.burntTokens.balances);
+        totalResult->nonConsortiumTokens.AddBalances(r.nonConsortiumTokens.balances);
+        totalResult->dexfeeburn.AddBalances(r.dexfeeburn.balances);
+        totalResult->paybackFee.AddBalances(r.paybackFee.balances);
     }
 
     CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
 
-    for (const auto &token : getBurnInfoResult->nonConsortiumTokens.balances) {
+    for (const auto &token : totalResult->nonConsortiumTokens.balances) {
         TAmounts amount;
         amount[token.first] = balances[token.first].burnt;
         consortiumTokens.AddBalances(amount);
     }
 
-    getBurnInfoResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    getBurnInfoResult->burntTokens.AddBalances(getBurnInfoResult->nonConsortiumTokens.balances);
+    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
-    result.pushKV("amount", ValueFromAmount(getBurnInfoResult->burntDFI));
+    result.pushKV("amount", ValueFromAmount(totalResult->burntDFI));
 
-    result.pushKV("tokens", AmountsToJSON(getBurnInfoResult->burntTokens.balances));
+    result.pushKV("tokens", AmountsToJSON(totalResult->burntTokens.balances));
     result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
-    result.pushKV("feeburn", ValueFromAmount(getBurnInfoResult->burntFee));
-    result.pushKV("auctionburn", ValueFromAmount(getBurnInfoResult->auctionFee));
-    result.pushKV("paybackburn", AmountsToJSON(getBurnInfoResult->paybackFee.balances));
-    result.pushKV("dexfeetokens", AmountsToJSON(getBurnInfoResult->dexfeeburn.balances));
+    result.pushKV("feeburn", ValueFromAmount(totalResult->burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(totalResult->auctionFee));
+    result.pushKV("paybackburn", AmountsToJSON(totalResult->paybackFee.balances));
+    result.pushKV("dexfeetokens", AmountsToJSON(totalResult->dexfeeburn.balances));
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
@@ -2194,7 +2194,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
     result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
-    GetLastResultCache().Set(request, {height, hash, *getBurnInfoResult});
+    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
     return GetRPCResultCache()
         .Set(request, result);
 }

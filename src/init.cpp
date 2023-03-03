@@ -875,7 +875,7 @@ static bool AppInitServers()
         default: return RPCResultCache::RPCCacheMode::None;
     }}();
     GetRPCResultCache().Init(rpcCacheMode);
-    GetLastResultCache().Init(rpcCacheMode);
+    GetMemoizedResultCache().Init(rpcCacheMode);
 
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);

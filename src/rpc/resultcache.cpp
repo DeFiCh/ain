@@ -76,12 +76,12 @@ void SetLastValidatedHeight(int height) {
     GetRPCResultCache().InvalidateCaches();
 }
 
-void LastResultCache::Init(RPCResultCache::RPCCacheMode mode) {
+void MemoizedResultCache::Init(RPCResultCache::RPCCacheMode mode) {
     CLockFreeGuard lock{syncFlag};
     this->mode = mode;
 }
 
-CResultCache LastResultCache::TryGet(const JSONRPCRequest &request) {
+CMemoizedResultValue MemoizedResultCache::GetOrDefault(const JSONRPCRequest &request) {
     if (mode == RPCResultCache::RPCCacheMode::None) return {};
     auto key = GetKey(request);
     {
@@ -99,7 +99,7 @@ CResultCache LastResultCache::TryGet(const JSONRPCRequest &request) {
     return {};
 }
 
-void LastResultCache::Set(const JSONRPCRequest &request, const CResultCache &value) {
+void MemoizedResultCache::Set(const JSONRPCRequest &request, const CMemoizedResultValue &value) {
     auto key = GetKey(request);
     {
         CLockFreeGuard lock{syncFlag};
@@ -112,7 +112,7 @@ void LastResultCache::Set(const JSONRPCRequest &request, const CResultCache &val
 
 // Note: We initialize all the globals in the init phase. So, it's safe. Otherwise,
 // static init is undefined behavior when multiple threads init them at the same time.
-LastResultCache& GetLastResultCache() {
-    static LastResultCache g_lastResultCache;
-    return g_lastResultCache;
+MemoizedResultCache& GetMemoizedResultCache() {
+    static MemoizedResultCache g_memoizedResultCache;
+    return g_memoizedResultCache;
 }
