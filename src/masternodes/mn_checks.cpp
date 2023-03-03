@@ -1570,6 +1570,10 @@ public:
         Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
                 "Only Bitcoin can be swapped in " + obj.name);
 
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(script, height);
+        }
+
         Require(mnview.SubBalance(script, {id, amount}));
 
         const CTokenCurrencyPair btcUsd{"BTC", "USD"};
@@ -3128,6 +3132,10 @@ public:
             } else {
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
             }
+        }
+
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(obj.to, height);
         }
 
         return mnview.AddBalance(obj.to, obj.amount);
