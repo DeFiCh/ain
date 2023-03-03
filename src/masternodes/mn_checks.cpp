@@ -1570,7 +1570,9 @@ public:
         Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
                 "Only Bitcoin can be swapped in " + obj.name);
 
-        mnview.CalculateOwnerRewards(script, height);
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(script, height);
+        }
 
         Require(mnview.SubBalance(script, {id, amount}));
 
@@ -1680,7 +1682,9 @@ public:
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, economyKey};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
-        CalculateOwnerRewards(obj.owner);
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
+            CalculateOwnerRewards(obj.owner);
+        }
 
         if (obj.withdraw) {
             CTokenAmount totalFutures{};
@@ -3130,7 +3134,9 @@ public:
             }
         }
 
-        mnview.CalculateOwnerRewards(obj.to, height);
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(obj.to, height);
+        }
 
         return mnview.AddBalance(obj.to, obj.amount);
     }
