@@ -337,17 +337,16 @@ class CLockFreeGuard
 public:
     CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
     {
-        bool desired = false;
-        while (!lock.compare_exchange_weak(desired, true,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-            desired = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        bool expected = false;
+        while (!lock.compare_exchange_weak(expected, true)) {
+            expected = false;
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
+
     ~CLockFreeGuard()
     {
-        lock.store(false, std::memory_order_release);
+        lock.store(false);
     }
 };
 
