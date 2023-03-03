@@ -5,16 +5,6 @@
 #include <masternodes/threadpool.h>
 #include <boost/asio.hpp>
 
-struct BalanceResults {
-    CAmount burntDFI{};
-    CAmount burntFee{};
-    CAmount auctionFee{};
-    CBalances burntTokens;
-    CBalances nonConsortiumTokens;
-    CBalances dexfeeburn;
-    CBalances paybackFee;
-};
-
 std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
     const auto amountString = ValueFromAmount(amount.nValue).getValStr();
@@ -1967,19 +1957,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    auto initialResult = GetMemoizedResultCache().GetOrDefault(request);
+    auto totalResult = std::get_if<CGetBurnInfoResult>(&initialResult.data);
 
-    CAmount burntDFI{0};
-    CAmount burntFee{0};
-    CAmount auctionFee{0};
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
 
-    CBalances burntTokens;
     CBalances consortiumTokens;
-    CBalances nonConsortiumTokens;
-    CBalances dexfeeburn;
     CBalances paybackfees;
-    CBalances paybackFee;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
     CBalances dfipaybacktokens;
@@ -1988,6 +1973,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto height = ::ChainActive().Height();
+    auto hash = ::ChainActive().Tip()->GetBlockHash();
     auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
@@ -2023,109 +2009,133 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
+    class WorkerResultPool {
+      public:
+        explicit WorkerResultPool(size_t size) {
+            pool.reserve(size);
+            for (size_t i = 0; i < size; i++) {
+                pool.push_back(CGetBurnInfoResult{});
+            }
+        }
+
+        std::shared_ptr<CGetBurnInfoResult> Acquire() {
+            LOCK(syncFlag);
+            auto res = std::make_shared<CGetBurnInfoResult>(pool.back());
+            pool.pop_back();
+
+            return res;
+        }
+
+        void Release(std::shared_ptr<CGetBurnInfoResult> res) {
+            LOCK(syncFlag);
+            pool.push_back(*res);
+        }
+
+        std::vector<CGetBurnInfoResult> &GetContainer() {
+            return pool;
+        }
+
+      private:
+        CCriticalSection syncFlag;
+        std::vector<CGetBurnInfoResult> pool;
+    };
+
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
-    if (static_cast<decltype(nWorkers)>(height) < nWorkers) {
+    if (static_cast<size_t>(height) < nWorkers) {
         nWorkers = height;
     }
 
     const auto chunks = height / nWorkers;
 
     TaskGroup g;
-
-    std::vector<std::shared_ptr<BalanceResults>> workerResults;
-    // Note this creates a massive amount of chunks as we go in mem.
-    // But this is fine for now. Most optimal impl is to return the future val
-    // and add it on receive. It requires a bit more changes, but for now 
-    // this should do.
-    // However reserve in one-go to prevent numerous reallocations
-    workerResults.reserve(chunks + 1);
-
-    for (size_t i = 0; i <= chunks; i++) {
-        auto result = std::make_shared<BalanceResults>();
-        workerResults.push_back(result);
-    }
+    WorkerResultPool resultsPool{nWorkers};
 
     auto &pool = DfTxTaskPool->pool;
-    auto processedHeight = 0;
+    auto processedHeight = initialResult.height;
     auto i               = 0;
     while (processedHeight < height)
     {
-        auto startHeight = (chunks * (i + 1));
-        auto stopHeight  = (chunks * (i));
-        auto result      = workerResults[i];
+        auto startHeight = initialResult.height + (chunks * (i + 1));
+        auto stopHeight  = initialResult.height + (chunks * (i));
 
         g.AddTask();
-        boost::asio::post(pool, [result, startHeight, stopHeight, &g] {
-            pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+        boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
+            auto currentResult = resultsPool.Acquire();
 
-                // Stop on chunk range for worker
-                if (key.blockHeight <= stopHeight) {
-                    return false;
-                }
-
-                // UTXO burn
-                if (value.category == uint8_t(CustomTxType::None)) {
-                    for (auto const & diff : value.diff) {
-                        result->burntDFI += diff.second;
+            pburnHistoryDB->ForEachAccountHistory(
+                [currentResult, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                    // Stop on chunk range for worker
+                    if (key.blockHeight <= stopHeight) {
+                        return false;
                     }
-                    return true;
-                }
 
-                // Fee burn
-                if (value.category == uint8_t(CustomTxType::CreateMasternode)
-                    || value.category == uint8_t(CustomTxType::CreateToken)
-                    || value.category == uint8_t(CustomTxType::Vault)
-                    || value.category == uint8_t(CustomTxType::CreateCfp)
-                    || value.category == uint8_t(CustomTxType::CreateVoc)) {
-                    for (auto const & diff : value.diff) {
-                        result->burntFee += diff.second;
+                    // UTXO burn
+                    if (value.category == uint8_t(CustomTxType::None)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->burntDFI += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // withdraw burn
-                if (value.category == uint8_t(CustomTxType::PaybackLoan)
-                    || value.category == uint8_t(CustomTxType::PaybackLoanV2)
-                    || value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
-                    for (const auto& [id, amount] : value.diff) {
-                        result->paybackFee.Add({id, amount});
+                    // Fee burn
+                    if (value.category == uint8_t(CustomTxType::CreateMasternode) ||
+                        value.category == uint8_t(CustomTxType::CreateToken) ||
+                        value.category == uint8_t(CustomTxType::Vault) ||
+                        value.category == uint8_t(CustomTxType::CreateCfp) ||
+                        value.category == uint8_t(CustomTxType::CreateVoc)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->burntFee += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // auction burn
-                if (value.category == uint8_t(CustomTxType::AuctionBid)) {
-                    for (auto const & diff : value.diff) {
-                        result->auctionFee += diff.second;
+                    // withdraw burn
+                    if (value.category == uint8_t(CustomTxType::PaybackLoan) ||
+                        value.category == uint8_t(CustomTxType::PaybackLoanV2) ||
+                        value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
+                        for (const auto &[id, amount] : value.diff) {
+                            currentResult->paybackFee.Add({id, amount});
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // dex fee burn
-                if (value.category == uint8_t(CustomTxType::PoolSwap)
-                    ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
-                    for (auto const & diff : value.diff) {
-                        result->dexfeeburn.Add({diff.first, diff.second});
+                    // auction burn
+                    if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->auctionFee += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // token burn with burnToken tx
-                if (value.category == uint8_t(CustomTxType::BurnToken))
-                {
-                    for (auto const & diff : value.diff) {
-                        result->nonConsortiumTokens.Add({diff.first, diff.second});
+                    // dex fee burn
+                    if (value.category == uint8_t(CustomTxType::PoolSwap) ||
+                        value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->dexfeeburn.Add({diff.first, diff.second});
+                        }
+                        return true;
                     }
+
+                    // token burn with burnToken tx
+                    if (value.category == uint8_t(CustomTxType::BurnToken)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->nonConsortiumTokens.Add({diff.first, diff.second});
+                        }
+                        return true;
+                    }
+
+                    // Token burn
+                    for (auto const &diff : value.diff) {
+                        currentResult->burntTokens.Add({diff.first, diff.second});
+                    }
+
                     return true;
-                }
+                },
+                {},
+                startHeight,
+                std::numeric_limits<uint32_t>::max());
 
-                // Token burn
-                for (auto const & diff : value.diff) {
-                    result->burntTokens.Add({diff.first, diff.second});
-                }
-
-                return true;
-            }, {}, startHeight, std::numeric_limits<uint32_t>::max());
+            resultsPool.Release(currentResult);
             g.RemoveTask();
         });
 
@@ -2136,38 +2146,38 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     g.WaitForCompletion();
 
-    for (const auto &result : workerResults) {
-        burntDFI += result->burntDFI;
-        burntFee += result->burntFee;
-        auctionFee += result->auctionFee;
-        burntTokens.AddBalances(result->burntTokens.balances);
-        nonConsortiumTokens.AddBalances(result->nonConsortiumTokens.balances);
-        dexfeeburn.AddBalances(result->dexfeeburn.balances);
-        paybackFee.AddBalances(result->paybackFee.balances);
+    for (const auto &r : resultsPool.GetContainer()) {
+        totalResult->burntDFI += r.burntDFI;
+        totalResult->burntFee += r.burntFee;
+        totalResult->auctionFee += r.auctionFee;
+        totalResult->burntTokens.AddBalances(r.burntTokens.balances);
+        totalResult->nonConsortiumTokens.AddBalances(r.nonConsortiumTokens.balances);
+        totalResult->dexfeeburn.AddBalances(r.dexfeeburn.balances);
+        totalResult->paybackFee.AddBalances(r.paybackFee.balances);
     }
 
     CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
 
-    for (const auto &token : nonConsortiumTokens.balances) {
+    for (const auto &token : totalResult->nonConsortiumTokens.balances) {
         TAmounts amount;
         amount[token.first] = balances[token.first].burnt;
         consortiumTokens.AddBalances(amount);
     }
 
-    nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    burntTokens.AddBalances(nonConsortiumTokens.balances);
+    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
-    result.pushKV("amount", ValueFromAmount(burntDFI));
+    result.pushKV("amount", ValueFromAmount(totalResult->burntDFI));
 
-    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("tokens", AmountsToJSON(totalResult->burntTokens.balances));
     result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
-    result.pushKV("feeburn", ValueFromAmount(burntFee));
-    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));
-    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+    result.pushKV("feeburn", ValueFromAmount(totalResult->burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(totalResult->auctionFee));
+    result.pushKV("paybackburn", AmountsToJSON(totalResult->paybackFee.balances));
+    result.pushKV("dexfeetokens", AmountsToJSON(totalResult->dexfeeburn.balances));
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
@@ -2179,6 +2189,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
     result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
+    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
     return GetRPCResultCache()
         .Set(request, result);
 }
