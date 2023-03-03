@@ -38,7 +38,7 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback_diff_chain_data
+    @DefiTestFramework.capture_rollback_verify
     def set_accounts_with_rollback(self):
         self.set_accounts()
 
@@ -85,7 +85,7 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback_diff_chain_data
+    @DefiTestFramework.capture_rollback_verify
     def create_tokens_with_rollback(self):
         self.create_tokens()
 
@@ -94,7 +94,7 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.rollback_diff_chain_data
+    @DefiTestFramework.capture_rollback_verify
     def mint_extra_with_rollback(self):
         self.mint_extra()
 

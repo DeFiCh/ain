@@ -118,7 +118,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         return result
 
     @classmethod
-    def rollback_diff_chain_data(cls, func):
+    def capture_rollback_verify(cls, func):
             def wrapper(self, *args, **kwargs):
                 return self._check_rollback(func, *args, **kwargs)
             return wrapper
