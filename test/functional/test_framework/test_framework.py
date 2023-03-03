@@ -106,6 +106,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
+    # Captures the chain data, does a rollback and checks data has been restored
     def _check_rollback(self, func, *args, **kwargs):
         init_height = self.nodes[0].getblockcount()
         init_data = self._get_chain_data()
@@ -117,6 +118,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         assert(init_height == final_height)
         return result
 
+    # WARNING: This decorator uses _get_chain_data() internally which can be an expensive call if used in large test scenarios.
     @classmethod
     def capture_rollback_verify(cls, func):
             def wrapper(self, *args, **kwargs):
@@ -458,6 +460,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             for x in connections[node]:
                 connect_nodes(node, x)
 
+    # build the data obj to be checked pre and post rollback
     def _get_chain_data(self):
         return [
             self.nodes[0].logaccountbalances(),
