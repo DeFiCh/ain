@@ -1962,8 +1962,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
-    auto cacheOrDefaultResult = GetMemoizedResultCache().GetOrDefault(request);
-    auto totalResult = std::get_if<CGetBurnInfoResult>(&cacheOrDefaultResult.data);
+    auto initialResult = GetMemoizedResultCache().GetOrDefault(request);
+    auto totalResult = std::get_if<CGetBurnInfoResult>(&initialResult.data);
 
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
@@ -2056,12 +2056,12 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     WorkerResultPool resultsPool{nWorkers};
 
     auto &pool = DfTxTaskPool->pool;
-    auto processedHeight = cacheOrDefaultResult.height;
+    auto processedHeight = initialResult.height;
     auto i               = 0;
     while (processedHeight < height)
     {
-        auto startHeight = cacheOrDefaultResult.height + (chunks * (i + 1));
-        auto stopHeight  = cacheOrDefaultResult.height + (chunks * (i));
+        auto startHeight = initialResult.height + (chunks * (i + 1));
+        auto stopHeight  = initialResult.height + (chunks * (i));
 
         g.AddTask();
         boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
