@@ -338,7 +338,7 @@ private:
     int64_t yields;
 
 public:
-    AtomicMutex(int64_t spins = 10, int64_t yields = 4): 
+    AtomicMutex(int64_t spins = 10, int64_t yields = 16): 
         spins(spins), yields(yields) {}
 
     void lock() {
