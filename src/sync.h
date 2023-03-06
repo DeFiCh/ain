@@ -380,6 +380,11 @@ public:
     }
 
     bool try_lock() noexcept {
+        // We locked it if and only if it was a false -> true transition.
+        // Otherwise, we just re-wrote an already existing value as true which is harmless 
+        // We could theoritically use CAS here to prevent the additional write, but
+        // but requires loop on weak, or using strong. Simpler to just use an exchange for
+        // for now, since all ops are seq_cst anyway.
         return !flag.exchange(true, std::memory_order_seq_cst);
     }
 };
