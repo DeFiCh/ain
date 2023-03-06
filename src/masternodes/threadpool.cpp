@@ -31,16 +31,17 @@ void ShutdownDfTxGlobalTaskPool() {
 
 
 void TaskGroup::AddTask() { 
-    tasks.fetch_add(1, std::memory_order_relaxed);
+    tasks.fetch_add(1, std::memory_order_release);
 }
 
 void TaskGroup::RemoveTask() {
-    if (tasks.fetch_sub(1, std::memory_order_seq_cst) == 1) {
-        cv.notify_one();
+    if (tasks.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+        cv.notify_all();
     }
 }
 
-void TaskGroup::WaitForCompletion() {
+void TaskGroup::WaitForCompletion(bool checkForPrematureCompletion) {
+    if (checkForPrematureCompletion && tasks.load() == 0) return;
     std::unique_lock<std::mutex> l(cv_m);
     cv.wait(l, [&] { return tasks.load() == 0; });
 }
