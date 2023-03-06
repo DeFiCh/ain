@@ -55,6 +55,7 @@ struct CFuturesUserValue {
 
 class CAccountsView : public virtual CStorageView {
 public:
+    void ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start = {});
     void ForEachBalance(std::function<bool(const CScript &, const CTokenAmount &)> callback,
                         const BalanceKey &start = {});
     CTokenAmount GetBalance(const CScript &owner, DCT_ID tokenID) const;
