@@ -293,7 +293,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             subObj.pushKV("lastblockcreationattempt", "0");
         } else {
             // get the last block creation attempt by the master node
-            CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+            std::unique_lock l{pos::cs_MNLastBlockCreationAttemptTs};
             auto lastBlockCreationAttemptTs = pos::Staker::mapMNLastBlockCreationAttemptTs[mnId.second];
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }

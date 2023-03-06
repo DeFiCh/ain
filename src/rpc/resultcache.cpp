@@ -3,7 +3,7 @@
 #include <logging.h>
 
 void RPCResultCache::Init(RPCCacheMode mode) {
-    CLockFreeGuard lock{syncFlag};
+    std::unique_lock l{aMutex};
     this->mode = mode;
 }
 
@@ -14,7 +14,7 @@ std::string GetKey(const JSONRPCRequest &request) {
 }
 
 bool RPCResultCache::InvalidateCaches() {
-    CLockFreeGuard lock{syncFlag};
+    std::unique_lock l{aMutex};
     auto height = GetLastValidatedHeight();
     if (cacheHeight != height) {
         LogPrint(BCLog::RPCCACHE, "RPCCache: clear\n");
@@ -33,7 +33,7 @@ std::optional<UniValue> RPCResultCache::TryGet(const JSONRPCRequest &request) {
     auto key = GetKey(request);
     UniValue val;
     {
-        CLockFreeGuard lock{syncFlag};
+        std::unique_lock l{aMutex};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
         if (LogAcceptCategory(BCLog::RPCCACHE)) {
             LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s, val: %s\n", cacheHeight, key, res->second.write());
@@ -47,7 +47,7 @@ std::optional<UniValue> RPCResultCache::TryGet(const JSONRPCRequest &request) {
 const UniValue& RPCResultCache::Set(const JSONRPCRequest &request, const UniValue &value) {
     auto key = GetKey(request);
     {
-        CLockFreeGuard lock{syncFlag};
+        std::unique_lock l{aMutex};
         if (LogAcceptCategory(BCLog::RPCCACHE)) {
             LogPrint(BCLog::RPCCACHE, "RPCCache: set: key: %d/%s, val: %s\n", cacheHeight, key, value.write());
         }
@@ -77,7 +77,7 @@ void SetLastValidatedHeight(int height) {
 }
 
 void MemoizedResultCache::Init(RPCResultCache::RPCCacheMode mode) {
-    CLockFreeGuard lock{syncFlag};
+    std::unique_lock l{aMutex};
     this->mode = mode;
 }
 
@@ -85,7 +85,7 @@ CMemoizedResultValue MemoizedResultCache::GetOrDefault(const JSONRPCRequest &req
     if (mode == RPCResultCache::RPCCacheMode::None) return {};
     auto key = GetKey(request);
     {
-        CLockFreeGuard lock{syncFlag};
+        std::unique_lock l{aMutex};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
             if (!::ChainActive().Contains(LookupBlockIndex(res->second.hash)))
                 return {};
@@ -102,7 +102,7 @@ CMemoizedResultValue MemoizedResultCache::GetOrDefault(const JSONRPCRequest &req
 void MemoizedResultCache::Set(const JSONRPCRequest &request, const CMemoizedResultValue &value) {
     auto key = GetKey(request);
     {
-        CLockFreeGuard lock{syncFlag};
+        std::unique_lock l{aMutex};
         if (LogAcceptCategory(BCLog::RPCCACHE)) {
             LogPrint(BCLog::RPCCACHE, "RPCCache: set: key: %d/%s\n", value.height, key);
         }
