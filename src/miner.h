@@ -224,6 +224,9 @@ namespace pos {
 // The main staking routine.
 // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
 // Uses Args.getWallets() to receive and update wallets list.
+
+    extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
+
     class ThreadStaker {
     public:
 
@@ -258,7 +261,6 @@ namespace pos {
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
         static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;
