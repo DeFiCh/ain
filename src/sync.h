@@ -409,9 +409,10 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
+
     ~CLockFreeGuard()
     {
-        lock.store(false, std::memory_order_release);
+        lock.store(false);
     }
 };
 
