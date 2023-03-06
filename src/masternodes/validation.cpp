@@ -13,6 +13,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/threadpool.h>
 #include <masternodes/validation.h>
 #include <masternodes/vaulthistory.h>
 #include <validation.h>
@@ -571,7 +572,6 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                 auto collateral  = v.vaultAssets;
                 auto vault = v.vault;
                 auto vaultId     = v.vaultId;
-                auto scheme      = v.scheme;
 
                 // Time to liquidate vault.
                 vault.isUnderLiquidation = true;
