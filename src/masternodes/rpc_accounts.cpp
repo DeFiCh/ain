@@ -2009,53 +2009,23 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    class WorkerResultPool {
-      public:
-        explicit WorkerResultPool(size_t size) {
-            pool.reserve(size);
-            for (size_t i = 0; i < size; i++) {
-                pool.push_back(std::make_shared<CGetBurnInfoResult>());
-            }
-        }
-
-        std::shared_ptr<CGetBurnInfoResult> Acquire() {
-            CLockFreeGuard lock{syncFlag};
-            auto res = pool.back();
-            pool.pop_back();
-            return res;
-        }
-
-        void Release(std::shared_ptr<CGetBurnInfoResult> res) {
-            CLockFreeGuard lock{syncFlag};
-            pool.push_back(res);
-        }
-
-        std::vector<std::shared_ptr<CGetBurnInfoResult>> &GetContainer() {
-            return pool;
-        }
-
-      private:
-        std::atomic_bool syncFlag{};
-        std::vector<std::shared_ptr<CGetBurnInfoResult>> pool;
-    };
-
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
     if (static_cast<size_t>(height) < nWorkers) {
         nWorkers = height;
     }
 
-    const auto chunks = height / nWorkers;
+    const auto chunkSize = height / nWorkers;
 
     TaskGroup g;
-    WorkerResultPool resultsPool{nWorkers};
+    BufferPool<CGetBurnInfoResult> resultsPool{nWorkers};
 
     auto &pool = DfTxTaskPool->pool;
     auto processedHeight = initialResult.height;
     auto i               = 0;
     while (processedHeight < height)
     {
-        auto startHeight = initialResult.height + (chunks * (i + 1));
-        auto stopHeight  = initialResult.height + (chunks * (i));
+        auto startHeight = initialResult.height + (chunkSize * (i + 1));
+        auto stopHeight  = initialResult.height + (chunkSize * (i));
 
         g.AddTask();
         boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
@@ -2138,14 +2108,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             g.RemoveTask();
         });
 
-        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunks;
-        processedHeight += chunks;
+        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunkSize;
+        processedHeight += chunkSize;
         i++;
     }
 
     g.WaitForCompletion();
 
-    for (const auto &r : resultsPool.GetContainer()) {
+    for (const auto &r : resultsPool.GetBuffer()) {
         totalResult->burntDFI += r->burntDFI;
         totalResult->burntFee += r->burntFee;
         totalResult->auctionFee += r->auctionFee;
