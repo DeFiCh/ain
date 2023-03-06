@@ -755,6 +755,15 @@ void CSettingsView::SetDexStatsEnabled(const bool enabled) {
 std::optional<bool> CSettingsView::GetDexStatsEnabled() {
     return ReadBy<KVSettings, bool>(DEX_STATS_ENABLED);
 }
+
+std::optional<std::set<CScript>> CSettingsView::SettingsGetRewardAddresses() {
+    return ReadBy<KVSettings, std::set<CScript>>(MN_REWARD_ADDRESSES);
+}
+
+void CSettingsView::SettingsSetRewardAddresses(const std::set<CScript> &addresses) {
+    WriteBy<KVSettings>(MN_REWARD_ADDRESSES, addresses);
+}
+
 /*
  *  CCustomCSView
  */
@@ -1345,4 +1354,12 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
 
         return true;
     });
+
+    if (const auto addresses = mnview.SettingsGetRewardAddresses()) {
+        for (const auto &rewardAddress : *addresses) {
+            if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+                mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+            }
+        }
+    }
 }
