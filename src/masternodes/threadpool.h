@@ -38,6 +38,36 @@ class TaskGroup {
         std::atomic<uint64_t> tasks{0};
         std::mutex cv_m;
         std::condition_variable cv;
+        std::atomic_bool is_cancelled{false};
+};
+
+template <typename T>
+class BufferPool {
+    public:
+    explicit BufferPool(size_t size) {
+        pool.reserve(size);
+        for (size_t i = 0; i < size; i++) {
+            pool.push_back(std::make_shared<T>());
+        }
+    }
+
+    std::shared_ptr<T> Acquire() {
+        std::unique_lock l{m};
+        auto res = pool.back();
+        pool.pop_back();
+        return res;
+    }
+
+    void Release(std::shared_ptr<T> res) {
+        std::unique_lock l{m};
+        pool.push_back(res);
+    }
+
+    std::vector<std::shared_ptr<T>> &GetBuffer() { return pool; }
+
+    private:
+    AtomicMutex m{};
+    std::vector<std::shared_ptr<T>> pool;
 };
 
 extern std::unique_ptr<TaskPool> DfTxTaskPool;
