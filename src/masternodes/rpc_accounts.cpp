@@ -2009,7 +2009,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
     if (static_cast<size_t>(height) < nWorkers) {
         nWorkers = height;
