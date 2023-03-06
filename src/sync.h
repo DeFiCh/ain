@@ -331,18 +331,74 @@ struct SCOPED_LOCKABLE LockAssertion
     ~LockAssertion() UNLOCK_FUNCTION() {}
 };
 
+class AtomicMutex {
+private:
+    std::atomic<bool> flag{false};
+    int64_t spins;
+    int64_t yields;
+
+public:
+    AtomicMutex(int64_t spins = 10, int64_t yields = 4): 
+        spins(spins), yields(yields) {}
+
+    void lock() {
+        // Note: The loop here addresses both, spurious failures as well
+        // as to suspend or spin wait until it's set
+        // Additional:
+        // - We use this a lock for external critical section, so we use
+        // seq ordering, to ensure it provides the right ordering guarantees
+        // for the others
+        // On failure of CAS, we don't care about the existing value, we just
+        // discard it, so relaxed ordering is sufficient.
+        bool expected = false;
+        auto i = 0;
+        while (std::atomic_compare_exchange_weak_explicit(
+                   &flag,
+                   &expected, true,
+                   std::memory_order_seq_cst,
+                   std::memory_order_relaxed) == false) {
+            // Could have been a spurious failure or another thread could have taken the
+            // lock in-between since we're now out of the atomic ops. 
+            // Reset expected to start from scratch again, since we only want
+            // a singular atomic false -> true transition.
+            expected = false;
+            if (i > spins) {
+                if (i > spins + yields) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+            i++;
+        }
+    }
+
+    void unlock() {
+        flag.store(false, std::memory_order_seq_cst);
+    }
+
+    bool try_lock() noexcept {
+        return !flag.exchange(true, std::memory_order_seq_cst);
+    }
+};
+
 class CLockFreeGuard
 {
     std::atomic_bool& lock;
 public:
     CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
     {
-        bool desired = false;
-        while (!lock.compare_exchange_weak(desired, true,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-            desired = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        bool expected = false;
+        while (std::atomic_compare_exchange_weak_explicit(
+                   &lock,
+                   &expected, true,
+                   std::memory_order_seq_cst,
+                   std::memory_order_relaxed) == false) {
+            // Could have been a spurious failure or another thread could have taken the
+            // lock in-between since we're now out of the atomic ops. 
+            // Reset expected to start from scratch again, since we only want
+            // a singular atomic false -> true transition.
+            std::this_thread::sleep_for(std::chrono::milliseconds(1);
         }
     }
     ~CLockFreeGuard()
