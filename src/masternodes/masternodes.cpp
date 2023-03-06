@@ -755,6 +755,15 @@ void CSettingsView::SetDexStatsEnabled(const bool enabled) {
 std::optional<bool> CSettingsView::GetDexStatsEnabled() {
     return ReadBy<KVSettings, bool>(DEX_STATS_ENABLED);
 }
+
+std::optional<std::set<CScript>> CSettingsView::SettingsGetRewardAddresses() {
+    return ReadBy<KVSettings, std::set<CScript>>(MN_REWARD_ADDRESSES);
+}
+
+void CSettingsView::SettingsSetRewardAddresses(const std::set<CScript> &addresses) {
+    WriteBy<KVSettings>(MN_REWARD_ADDRESSES, addresses);
+}
+
 /*
  *  CCustomCSView
  */
@@ -1323,4 +1332,34 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
     CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
     return attributes->GetValue(feeBurnPctKey, Params().GetConsensus().props.feeBurnPct);
+}
+
+void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
+    mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
+        if (node.rewardAddressType) {
+            const CScript rewardAddress = GetScriptForDestination(node.rewardAddressType == PKHashType ?
+                                                                  CTxDestination(PKHash(node.rewardAddress)) :
+                                                                  CTxDestination(WitnessV0KeyHash(node.rewardAddress)));
+            if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+                mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+            }
+        }
+
+        const CScript rewardAddress = GetScriptForDestination(node.ownerType == PKHashType ?
+                                                              CTxDestination(PKHash(node.ownerAuthAddress)) :
+                                                              CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress)));
+        if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+        }
+
+        return true;
+    });
+
+    if (const auto addresses = mnview.SettingsGetRewardAddresses()) {
+        for (const auto &rewardAddress : *addresses) {
+            if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+                mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+            }
+        }
+    }
 }

@@ -365,27 +365,28 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    // ForEachBalance is in account order, so we only need to check if the
-    // last record is the same as the current one to know whether we can skip
-    // CalculateOwnerRewards or if it needs to be called.
-    CScript lastCalculatedOwner;
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
 
-    mnview.ForEachBalance([&](const CScript &owner, const CTokenAmount &balance) {
-        if (isMineOnly && IsMineCached(*pwallet, owner) != ISMINE_SPENDABLE) {
+    mnview.ForEachAccount([&](CScript const & account) {
+
+        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
             return true;
         }
 
-        if (lastCalculatedOwner != owner) {
-            mnview.CalculateOwnerRewards(owner, targetHeight);
-            lastCalculatedOwner = owner;
-        }
+        mnview.CalculateOwnerRewards(account, targetHeight);
 
-        ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+        // output the relavant balances only for account
+        mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+            if (account != owner) {
+                return false;
+            }
+            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+            return --limit != 0;
+        }, {account, start.tokenID});
 
         start.tokenID = DCT_ID{}; // reset to start id
-
-        return --limit != 0;
-    }, {start.owner, start.tokenID});
+        return limit != 0;
+    }, start.owner);
 
     return GetRPCResultCache().Set(request, ret);
 }
@@ -559,23 +560,17 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    // ForEachBalance is in account order, so we only need to check if the
-    // last record is the same as the current one to know whether we can skip
-    // CalculateOwnerRewards or if it needs to be called.
-    CScript lastCalculatedOwner;
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
 
-    mnview.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
-        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            if (lastCalculatedOwner != owner) {
-                mnview.CalculateOwnerRewards(owner, targetHeight);
-                lastCalculatedOwner = owner;
-            }
-            totalBalances.Add(balance);
+    mnview.ForEachAccount([&](CScript const & account) {
+        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+                return account == owner && totalBalances.Add(balance);
+            }, {account, DCT_ID{}});
         }
-
         return true;
     });
-
     auto it = totalBalances.balances.lower_bound(start);
     for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         auto bal = CTokenAmount{(*it).first, (*it).second};
@@ -2014,54 +2009,23 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    class WorkerResultPool {
-      public:
-        explicit WorkerResultPool(size_t size) {
-            pool.reserve(size);
-            for (size_t i = 0; i < size; i++) {
-                pool.push_back(CGetBurnInfoResult{});
-            }
-        }
-
-        std::shared_ptr<CGetBurnInfoResult> Acquire() {
-            LOCK(syncFlag);
-            auto res = std::make_shared<CGetBurnInfoResult>(pool.back());
-            pool.pop_back();
-
-            return res;
-        }
-
-        void Release(std::shared_ptr<CGetBurnInfoResult> res) {
-            LOCK(syncFlag);
-            pool.push_back(*res);
-        }
-
-        std::vector<CGetBurnInfoResult> &GetContainer() {
-            return pool;
-        }
-
-      private:
-        CCriticalSection syncFlag;
-        std::vector<CGetBurnInfoResult> pool;
-    };
-
     auto nWorkers = DfTxTaskPool->GetAvailableThreads();
     if (static_cast<size_t>(height) < nWorkers) {
         nWorkers = height;
     }
 
-    const auto chunks = height / nWorkers;
+    const auto chunkSize = height / nWorkers;
 
     TaskGroup g;
-    WorkerResultPool resultsPool{nWorkers};
+    BufferPool<CGetBurnInfoResult> resultsPool{nWorkers};
 
     auto &pool = DfTxTaskPool->pool;
     auto processedHeight = initialResult.height;
     auto i               = 0;
     while (processedHeight < height)
     {
-        auto startHeight = initialResult.height + (chunks * (i + 1));
-        auto stopHeight  = initialResult.height + (chunks * (i));
+        auto startHeight = initialResult.height + (chunkSize * (i + 1));
+        auto stopHeight  = initialResult.height + (chunkSize * (i));
 
         g.AddTask();
         boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
@@ -2144,22 +2108,24 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             g.RemoveTask();
         });
 
-        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunks;
-        processedHeight += chunks;
+        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunkSize;
+        processedHeight += chunkSize;
         i++;
     }
 
     g.WaitForCompletion();
 
-    for (const auto &r : resultsPool.GetContainer()) {
-        totalResult->burntDFI += r.burntDFI;
-        totalResult->burntFee += r.burntFee;
-        totalResult->auctionFee += r.auctionFee;
-        totalResult->burntTokens.AddBalances(r.burntTokens.balances);
-        totalResult->nonConsortiumTokens.AddBalances(r.nonConsortiumTokens.balances);
-        totalResult->dexfeeburn.AddBalances(r.dexfeeburn.balances);
-        totalResult->paybackFee.AddBalances(r.paybackFee.balances);
+    for (const auto &r : resultsPool.GetBuffer()) {
+        totalResult->burntDFI += r->burntDFI;
+        totalResult->burntFee += r->burntFee;
+        totalResult->auctionFee += r->auctionFee;
+        totalResult->burntTokens.AddBalances(r->burntTokens.balances);
+        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
+        totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
+        totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
+
+    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
     CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
@@ -2194,7 +2160,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
     result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
-    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
     return GetRPCResultCache()
         .Set(request, result);
 }

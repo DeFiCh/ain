@@ -977,6 +977,18 @@ public:
 
                 const auto keyID = CKeyID(uint160(rawAddress));
                 mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
+
+                // Store history of all reward address changes. This allows us to call CalculateOwnerReward
+                // on reward addresses owned by the local wallet. This can be removed some time after the
+                // next hard fork as this is a workaround for the issue fixed in the following PR:
+                // https://github.com/DeFiCh/ain/pull/1766
+                if (auto addresses = mnview.SettingsGetRewardAddresses()) {
+                    const CScript rewardAddress = GetScriptForDestination(addressType == PKHashType ?
+                                                                          CTxDestination(PKHash(keyID)) :
+                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    addresses->insert(rewardAddress);
+                    mnview.SettingsSetRewardAddresses(*addresses);
+                }
             } else if (type == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
                 if (!attributes->GetValue(key, false)) {
@@ -1569,6 +1581,10 @@ public:
 
         Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
                 "Only Bitcoin can be swapped in " + obj.name);
+
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(script, height);
+        }
 
         Require(mnview.SubBalance(script, {id, amount}));
 
@@ -3128,6 +3144,10 @@ public:
             } else {
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
             }
+        }
+
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            mnview.CalculateOwnerRewards(obj.to, height);
         }
 
         return mnview.AddBalance(obj.to, obj.amount);
