@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <functional>
 #include <unordered_map>
+#include <masternodes/errors.h>
 
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
@@ -993,16 +994,15 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
                                                    bool useNextPrice,
                                                    bool requireLivePrice) {
     auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
-    Require(priceResult);
+    if (!priceResult) return priceResult;
 
     auto price            = *priceResult.val;
     auto amountInCurrency = MultiplyAmounts(price, amount);
-    if (price > COIN)
-        Require(amountInCurrency >= amount,
-                [=]{ return strprintf("Value/price too high (%s/%s)",
-                                      GetDecimaleString(amount),
-                                      GetDecimaleString(price)); });
-
+    if (price > COIN) {
+        if (amountInCurrency < amount) {
+            return DeFiErrors::AmountOverflowAsValuePrice(amount, price);
+        }
+    }
     return {amountInCurrency, Res::Ok()};
 }
 
@@ -1013,18 +1013,25 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vault
                                                            bool useNextPrice,
                                                            bool requireLivePrice) {
     const auto vault = GetVault(vaultId);
-    Require(vault && !vault->isUnderLiquidation, []{ return "Vault is under liquidation";} );
+    if (!vault)
+        return DeFiErrors::VaultInvalid(vaultId);
+    if (vault->isUnderLiquidation)
+        return DeFiErrors::VaultUnderLiquidation();
 
     CCollateralLoans result{};
-    Require(PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice));
-    Require(PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice));
 
-    LogPrint(BCLog::LOAN,
-             "%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
+    if (auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice); !res)
+        return res;
+    if (auto res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice); !res)
+        return res;
+
+    if (LogAcceptCategory((BCLog::LOAN))) {
+        LogPrintf("%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
              __func__,
              result.totalCollaterals,
              result.totalLoans,
              result.ratio());
+    }
 
     return {result, Res::Ok()};
 }
@@ -1036,14 +1043,18 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     auto currency    = priceFeedId.second;
 
     auto priceFeed = GetFixedIntervalPrice(priceFeedId);
-    Require(priceFeed);
+    if (!priceFeed) return priceFeed;
 
-    if (requireLivePrice)
-        Require(priceFeed->isLive(GetPriceDeviation()), [=]{ return strprintf("No live fixed prices for %s/%s", tokenSymbol, currency); });
+    if (requireLivePrice && !priceFeed->isLive(GetPriceDeviation())) {
+        return DeFiErrors::OracleNoLivePrice(tokenSymbol, currency);
+    }
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
     auto price            = priceFeed.val->priceRecord[priceRecordIndex];
-    Require(price > 0, [=]{ return strprintf("Negative price (%s/%s)", tokenSymbol, currency); });
+    
+    if (price <= 0) {
+        return DeFiErrors::OracleNegativePrice(tokenSymbol, currency);
+    }
 
     return {price, Res::Ok()};
 }
@@ -1055,8 +1066,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
                                      bool useNextPrice,
                                      bool requireLivePrice) {
     const auto loanTokens = GetLoanTokens(vaultId);
-    if (!loanTokens)
-        return Res::Ok();
+    if (!loanTokens) return Res::Ok();
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);

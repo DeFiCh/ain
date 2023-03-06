@@ -615,7 +615,6 @@ libdefi_common_a_SOURCES = \
   rpc/rawtransaction_util.cpp \
   rpc/util.cpp \
   rpc/stats.cpp \
-  rpc/resultcache.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
   script/sign.cpp \
