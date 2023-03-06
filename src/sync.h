@@ -364,7 +364,9 @@ public:
             expected = false;
             if (i > spins) {
                 if (i > spins + yields) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    // Use larger sleep, in line with the largest quantum, which is 
+                    // Windows with 16ms
+                    std::this_thread::sleep_for(std::chrono::milliseconds(16));
                 } else {
                     std::this_thread::yield();
                 }
