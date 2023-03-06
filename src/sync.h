@@ -398,6 +398,7 @@ public:
             // lock in-between since we're now out of the atomic ops. 
             // Reset expected to start from scratch again, since we only want
             // a singular atomic false -> true transition.
+            expected = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(1);
         }
     }
