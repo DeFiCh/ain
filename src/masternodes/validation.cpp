@@ -498,7 +498,6 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
             CBalances collaterals;
             CCollateralLoans vaultAssets;
             CVaultData vault;
-            CLoanSchemeData scheme;
         };
 
         struct LiquidationVaults {
@@ -520,9 +519,9 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                 CBalances collateralsCopy = collaterals;
 
                 boost::asio::post(pool, [
-                    vaultIdCopy, collateralsCopy, 
+                    vaultIdCopy, collateralsCopy,
                     &cache, pindex,
-                    useNextPrice, requireLivePrice, 
+                    useNextPrice, requireLivePrice,
                     &g, &lv, &markCompleted] {
 
                     auto vaultId = vaultIdCopy;
@@ -548,9 +547,9 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                         return;
                     }
 
-                    { 
+                    {
                         std::unique_lock lock{lv.m};
-                        lv.vaults.push_back(VaultWithCollateralInfo{vaultId, collaterals, collateral, *vault, *scheme});
+                        lv.vaults.push_back(VaultWithCollateralInfo{vaultId, collaterals, collateral, *vault});
                     }
                     markCompleted();
                 });
@@ -559,12 +558,8 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
 
         g.WaitForCompletion();
 
-
-        for (auto &v: lv.vaults) {
-            auto collaterals = v.collaterals;
-            auto collateral  = v.vaultAssets;
-            auto vault = v.vault;
-            auto vaultId     = v.vaultId;
+        std::unique_lock lock{lv.m};
+        for (auto &[vaultId, collaterals, collateral, vault]: lv.vaults) {
 
             // Time to liquidate vault.
             vault.isUnderLiquidation = true;
