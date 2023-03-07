@@ -34,8 +34,9 @@ public:
     std::string URI;
     std::string authUser;
     std::string peerAddr;
+    UniValue metadata;
 
-    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
+    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false), metadata(NullUniValue) {}
     void parse(const UniValue& valRequest);
 };
 

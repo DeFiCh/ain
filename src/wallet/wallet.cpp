@@ -2488,7 +2488,7 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const WalletFastSelect &walletFastSelect) const
 {
     AssertLockHeld(cs_wallet);
 
@@ -2500,7 +2500,27 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
 
-    const auto isSolvable{gArgs.GetArg("-skipissolvable", false)};
+    bool exitOnFirstMatch = walletFastSelect.exitOnFirstMatch;
+    if (!exitOnFirstMatch) {
+        exitOnFirstMatch = walletFastSelect.fastSelect;
+    }
+
+    bool fastSolvable = walletFastSelect.fastSolvable;
+    if (!fastSolvable) {
+        fastSolvable = walletFastSelect.fastSelect;
+    }
+
+    if (exitOnFirstMatch) {
+        LogPrintf("XXX exitOnFirstMatch TRUE\n");
+    } else {
+        LogPrintf("XXX exitOnFirstMatch FALSE\n");
+    }
+
+    if (fastSolvable) {
+        LogPrintf("XXX fastSolvable TRUE\n");
+    } else {
+        LogPrintf("XXX fastSolvable FALSE\n");
+    }
 
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
@@ -2602,11 +2622,16 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 }
             }
 
-
-            bool solvable = isSolvable || IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = fastSolvable || IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+
+            // If matchDestination is set and we get this far, then we
+            // are only looking for a single auth input which is now found.
+            if (coinControl && coinControl->matchDestination.index() != 0 && exitOnFirstMatch) {
+                return;
+            }
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {

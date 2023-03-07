@@ -35,6 +35,19 @@
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
 
+/** Default for skipping IsSolvable and return on first valid auth */
+static const bool DEFAULT_FAST_SELECT = false;
+/** Default for skipping IsSolvable */
+static const bool DEFAULT_FAST_SOLVABLE = false;
+/** Default for returning on first valid auth */
+static const bool DEFAULT_EXIT_ON_FIRST_MATCH = false;
+
+struct WalletFastSelect {
+    bool fastSelect{};
+    bool fastSolvable{};
+    bool exitOnFirstMatch{};
+};
+
 extern const char * const DEFI_CONF_FILENAME;
 
 void SetupEnvironment();

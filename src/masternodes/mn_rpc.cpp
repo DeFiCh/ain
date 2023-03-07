@@ -292,7 +292,7 @@ std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth, const WalletFastSelect &walletFastSelect = {}) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -381,7 +381,7 @@ static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwal
     return {};
 }
 
-std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs, const WalletFastSelect &walletFastSelect) {
 
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -398,7 +398,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         if (IsMineCached(*pwallet, auth) != ISMINE_SPENDABLE) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
-        auto authInput = GetAuthInputOnly(pwallet, destination);
+        auto authInput = GetAuthInputOnly(pwallet, destination, walletFastSelect);
         if (authInput) {
             result.push_back(authInput.value());
         }

@@ -27,6 +27,13 @@ UniValue JSONRPCRequestObj(const std::string& strMethod, const UniValue& params,
     request.pushKV("method", strMethod);
     request.pushKV("params", params);
     request.pushKV("id", id);
+
+    UniValue metadata(UniValue::VOBJ);
+    metadata.pushKV("walletfastselect", gArgs.GetBoolArg("-walletfastselect", DEFAULT_FAST_SELECT));
+    metadata.pushKV("walletselectionfastsolvable", gArgs.GetBoolArg("-walletselectionfastsolvable", DEFAULT_FAST_SOLVABLE));
+    metadata.pushKV("walletselectionexitonfirstmatch", gArgs.GetBoolArg("-walletselectionexitonfirstmatch", DEFAULT_EXIT_ON_FIRST_MATCH));
+    request.pushKV("metadata", metadata);
+
     return request;
 }
 
@@ -181,4 +188,11 @@ void JSONRPCRequest::parse(const UniValue& valRequest)
         params = UniValue(UniValue::VARR);
     else
         throw JSONRPCError(RPC_INVALID_REQUEST, "Params must be an array or object");
+
+    // Parse params
+    UniValue valMetadata = find_value(request, "params");
+    if (valMetadata.isArray() || valMetadata.isObject())
+        metadata = valMetadata;
+    else if (valMetadata.isNull())
+        metadata = UniValue(UniValue::VARR);
 }

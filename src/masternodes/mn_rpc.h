@@ -6,6 +6,7 @@
 
 #include <chainparams.h>
 #include <core_io.h>
+#include <util/system.h>
 #include <validation.h>
 
 #include <masternodes/masternodes.h>
@@ -79,7 +80,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       std::set<CScript> &auths,
                                       bool needFounderAuth,
                                       CTransactionRef &optAuthTx,
-                                      const UniValue &explicitInputs);
+                                      const UniValue &explicitInputs,
+                                      const WalletFastSelect &walletFastSelect = {});
 std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,

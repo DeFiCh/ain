@@ -609,6 +609,19 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
+    WalletFastSelect walletFastSelect{};
+    if (!request.metadata.isNull()) {
+        if (request.metadata.exists("walletfastselect")) {
+            walletFastSelect.fastSelect = request.metadata["walletfastselect"].get_bool();
+        }
+        if (request.metadata.exists("walletselectionfastsolvable")) {
+            walletFastSelect.fastSolvable = request.metadata["walletselectionfastsolvable"].get_bool();
+        }
+        if (request.metadata.exists("walletselectionexitonfirstmatch")) {
+            walletFastSelect.exitOnFirstMatch = request.metadata["walletselectionexitonfirstmatch"].get_bool();
+        }
+    }
+
     const auto &keys = request.params[0].get_array();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
@@ -720,7 +733,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, {});
+        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, {}, walletFastSelect);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;
