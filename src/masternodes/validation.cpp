@@ -558,120 +558,123 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
 
         g.WaitForCompletion();
 
-        std::unique_lock lock{lv.m};
-        for (auto &[vaultId, collaterals, collateral, vault]: lv.vaults) {
+        {
+            std::unique_lock lock{lv.m};
+            for (auto &[vaultId, collaterals, collateral, vault]: lv.vaults) {
 
-            // Time to liquidate vault.
-            vault.isUnderLiquidation = true;
-            cache.StoreVault(vaultId, vault);
-            auto loanTokens = cache.GetLoanTokens(vaultId);
-            assert(loanTokens);
+                // Time to liquidate vault.
+                vault.isUnderLiquidation = true;
+                cache.StoreVault(vaultId, vault);
+                auto loanTokens = cache.GetLoanTokens(vaultId);
+                assert(loanTokens);
 
-            // Get the interest rate for each loan token in the vault, find
-            // the interest value and move it to the totals, removing it from the
-            // vault, while also stopping the vault from accumulating interest
-            // further. Note, however, it's added back so that it's accurate
-            // for auction calculations.
-            CBalances totalInterest;
-            for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
-                const auto &[tokenId, tokenValue] = *it;
+                // Get the interest rate for each loan token in the vault, find
+                // the interest value and move it to the totals, removing it from the
+                // vault, while also stopping the vault from accumulating interest
+                // further. Note, however, it's added back so that it's accurate
+                // for auction calculations.
+                CBalances totalInterest;
+                for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
+                    const auto &[tokenId, tokenValue] = *it;
 
-                auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
-                assert(rate);
+                    auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
+                    assert(rate);
 
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
-                if (subInterest > 0) {
-                    totalInterest.Add({tokenId, subInterest});
-                }
-
-                // Remove loan from the vault
-                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-
-                if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
-                    TrackDUSDSub(cache, {tokenId, tokenValue});
-                }
-
-                // Remove interest from the vault
-                cache.DecreaseInterest(pindex->nHeight,
-                                        vaultId,
-                                        vault.schemeId,
-                                        tokenId,
-                                        tokenValue,
-                                        subInterest < 0 || (!subInterest && rate->interestPerBlock.negative)
-                                            ? std::numeric_limits<CAmount>::max()
-                                            : subInterest);
-
-                // Putting this back in now for auction calculations.
-                it->second += subInterest;
-
-                // If loan amount fully negated then remove it
-                if (it->second < 0) {
-                    TrackNegativeInterest(cache, {tokenId, tokenValue});
-
-                    it = loanTokens->balances.erase(it);
-                } else {
-                    if (subInterest < 0) {
-                        TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                    auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                    if (subInterest > 0) {
+                        totalInterest.Add({tokenId, subInterest});
                     }
 
-                    ++it;
-                }
-            }
+                    // Remove loan from the vault
+                    cache.SubLoanToken(vaultId, {tokenId, tokenValue});
 
-            // Remove the collaterals out of the vault.
-            // (Prep to get the auction batches instead)
-            for (const auto &col : collaterals.balances) {
-                auto tokenId    = col.first;
-                auto tokenValue = col.second;
-                cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
-            }
+                    if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
+                        TrackDUSDSub(cache, {tokenId, tokenValue});
+                    }
 
-            auto batches = CollectAuctionBatches(collateral, collaterals.balances, loanTokens->balances);
+                    // Remove interest from the vault
+                    cache.DecreaseInterest(pindex->nHeight,
+                                            vaultId,
+                                            vault.schemeId,
+                                            tokenId,
+                                            tokenValue,
+                                            subInterest < 0 || (!subInterest && rate->interestPerBlock.negative)
+                                                ? std::numeric_limits<CAmount>::max()
+                                                : subInterest);
 
-            // Now, let's add the remaining amounts and store the batch.
-            CBalances totalLoanInBatches{};
-            for (auto i = 0u; i < batches.size(); i++) {
-                auto &batch = batches[i];
-                totalLoanInBatches.Add(batch.loanAmount);
-                auto tokenId  = batch.loanAmount.nTokenId;
-                auto interest = totalInterest.balances[tokenId];
-                if (interest > 0) {
-                    auto balance       = loanTokens->balances[tokenId];
-                    auto interestPart  = DivideAmounts(batch.loanAmount.nValue, balance);
-                    batch.loanInterest = MultiplyAmounts(interestPart, interest);
-                    totalLoanInBatches.Sub({tokenId, batch.loanInterest});
-                }
-                cache.StoreAuctionBatch({vaultId, i}, batch);
-            }
+                    // Putting this back in now for auction calculations.
+                    it->second += subInterest;
 
-            // Check if more than loan amount was generated.
-            CBalances balances;
-            for (const auto &[tokenId, amount] : loanTokens->balances) {
-                if (totalLoanInBatches.balances.count(tokenId)) {
-                    const auto interest =
-                        totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
-                    if (totalLoanInBatches.balances[tokenId] > amount - interest) {
-                        balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                    // If loan amount fully negated then remove it
+                    if (it->second < 0) {
+                        TrackNegativeInterest(cache, {tokenId, tokenValue});
+
+                        it = loanTokens->balances.erase(it);
+                    } else {
+                        if (subInterest < 0) {
+                            TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                        }
+
+                        ++it;
                     }
                 }
-            }
 
-            // Only store to attributes if there has been a rounding error.
-            if (!balances.balances.empty()) {
-                TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
-            }
+                // Remove the collaterals out of the vault.
+                // (Prep to get the auction batches instead)
+                for (const auto &col : collaterals.balances) {
+                    auto tokenId    = col.first;
+                    auto tokenValue = col.second;
+                    cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
+                }
 
-            // All done. Ready to save the overall auction.
-            cache.StoreAuction(vaultId,
-                                CAuctionData{uint32_t(batches.size()),
-                                            pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
-                                            cache.GetLoanLiquidationPenalty()});
+                auto batches = CollectAuctionBatches(collateral, collaterals.balances, loanTokens->balances);
 
-            // Store state in vault DB
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, collateral.ratio());
+                // Now, let's add the remaining amounts and store the batch.
+                CBalances totalLoanInBatches{};
+                for (auto i = 0u; i < batches.size(); i++) {
+                    auto &batch = batches[i];
+                    totalLoanInBatches.Add(batch.loanAmount);
+                    auto tokenId  = batch.loanAmount.nTokenId;
+                    auto interest = totalInterest.balances[tokenId];
+                    if (interest > 0) {
+                        auto balance       = loanTokens->balances[tokenId];
+                        auto interestPart  = DivideAmounts(batch.loanAmount.nValue, balance);
+                        batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                        totalLoanInBatches.Sub({tokenId, batch.loanInterest});
+                    }
+                    cache.StoreAuctionBatch({vaultId, i}, batch);
+                }
+
+                // Check if more than loan amount was generated.
+                CBalances balances;
+                for (const auto &[tokenId, amount] : loanTokens->balances) {
+                    if (totalLoanInBatches.balances.count(tokenId)) {
+                        const auto interest =
+                            totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
+                        if (totalLoanInBatches.balances[tokenId] > amount - interest) {
+                            balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                        }
+                    }
+                }
+
+                // Only store to attributes if there has been a rounding error.
+                if (!balances.balances.empty()) {
+                    TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
+                }
+
+                // All done. Ready to save the overall auction.
+                cache.StoreAuction(vaultId,
+                                    CAuctionData{uint32_t(batches.size()),
+                                                pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                                cache.GetLoanLiquidationPenalty()});
+
+                // Store state in vault DB
+                if (pvaultHistoryDB) {
+                    pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, collateral.ratio());
+                }
             }
         }
+
     }
 
     CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
