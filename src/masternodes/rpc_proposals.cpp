@@ -720,7 +720,12 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, {});
+        rawTx.vin = GetAuthInputsSmart(pwallet, 
+            rawTx.nVersion, 
+            auths, false /*needFoundersAuth*/, 
+            optAuthTx, 
+            {}, 
+            request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;

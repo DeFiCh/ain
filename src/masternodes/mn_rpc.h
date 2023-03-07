@@ -10,6 +10,7 @@
 
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/coinselect.h>
 
 #include <rpc/rawtransaction_util.h>
 #include <rpc/resultcache.h>
@@ -79,7 +80,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       std::set<CScript> &auths,
                                       bool needFounderAuth,
                                       CTransactionRef &optAuthTx,
-                                      const UniValue &explicitInputs);
+                                      const UniValue &explicitInputs,
+                                      const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,

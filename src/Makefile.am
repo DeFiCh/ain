@@ -181,6 +181,7 @@ DEFI_CORE_H = \
   masternodes/proposals.h \
   masternodes/tokens.h \
   masternodes/threadpool.h \
+  masternodes/coinselect.h \ 
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/validation.h \

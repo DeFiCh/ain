@@ -47,6 +47,9 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
+typedef std::function<std::pair<bool, std::string>(const std::string&)> HTTPHeaderQueryFunc;
+typedef std::function<void(const std::string&, const std::string&)> HTTPHeaderWriterFunc;
+
 void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
 bool FileCommit(FILE *file);
 bool TruncateFile(FILE *file, unsigned int length);

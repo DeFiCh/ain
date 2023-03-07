@@ -2488,7 +2488,7 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const CoinSelectionOptions &coinSelectOpts) const
 {
     AssertLockHeld(cs_wallet);
 
@@ -2499,6 +2499,16 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     bool allow_used_addresses = !IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
+
+    bool eagerExit = coinSelectOpts.eagerExit;
+    if (!eagerExit) {
+        eagerExit = coinSelectOpts.fastSelect;
+    }
+
+    bool skipSolvable = coinSelectOpts.skipSolvable;
+    if (!skipSolvable) {
+        skipSolvable = coinSelectOpts.fastSelect;
+    }
 
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
@@ -2600,11 +2610,16 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 }
             }
 
-
-            bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = skipSolvable || IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+
+            // If matchDestination is set and we get this far, then we
+            // are only looking for a single auth input which is now found.
+            if (coinControl && coinControl->matchDestination.index() != 0 && eagerExit) {
+                return;
+            }
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {

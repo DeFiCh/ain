@@ -7,8 +7,9 @@
 #define DEFI_RPC_REQUEST_H
 
 #include <string>
-
 #include <univalue.h>
+#include <masternodes/coinselect.h>
+#include <util/system.h>
 
 UniValue JSONRPCRequestObj(const std::string& strMethod, const UniValue& params, const UniValue& id);
 UniValue JSONRPCReplyObj(const UniValue& result, const UniValue& error, const UniValue& id);
@@ -24,6 +25,35 @@ void DeleteAuthCookie();
 /** Parse JSON-RPC batch reply into a vector */
 std::vector<UniValue> JSONRPCProcessBatchReply(const UniValue &in, size_t num);
 
+
+struct RPCMetadata {
+    public:
+    CoinSelectionOptions coinSelectOpts;
+
+    static RPCMetadata CreateDefault() {
+        RPCMetadata m;
+        FromArgs(m, gArgs);
+        return m;
+    }
+
+    static void SetupArgs(ArgsManager& args) {
+        CoinSelectionOptions::SetupArgs(args);
+    }
+
+    static void FromArgs(RPCMetadata &m, ArgsManager& args) {
+        CoinSelectionOptions::FromArgs(m.coinSelectOpts, args);
+    }
+
+    static void FromHTTPHeaderFunc(RPCMetadata &m, const HTTPHeaderQueryFunc headerFunc) {
+        CoinSelectionOptions::FromHTTPHeaderFunc(m.coinSelectOpts, headerFunc);
+    }
+
+    static void ToHTTPHeaderFunc(const RPCMetadata& m, const HTTPHeaderWriterFunc writer) {
+        CoinSelectionOptions::ToHTTPHeaderFunc(m.coinSelectOpts, writer);
+    }
+};
+    // UniValue metadata;
+
 class JSONRPCRequest
 {
 public:
@@ -34,6 +64,7 @@ public:
     std::string URI;
     std::string authUser;
     std::string peerAddr;
+    RPCMetadata metadata;
 
     JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
     void parse(const UniValue& valRequest);
