@@ -558,7 +558,9 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
 
         g.WaitForCompletion();
 
+        std::unique_lock lock{lv.m};
         for (auto &[vaultId, collaterals, collateral, vault]: lv.vaults) {
+
             // Time to liquidate vault.
             vault.isUnderLiquidation = true;
             cache.StoreVault(vaultId, vault);
