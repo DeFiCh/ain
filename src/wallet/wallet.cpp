@@ -2500,6 +2500,8 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
 
+    const auto isSolvable{gArgs.GetArg("-skipissolvable", false)};
+
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
         const uint256& wtxid = wtx.GetHash();
@@ -2601,7 +2603,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             }
 
 
-            bool solvable = gArgs.GetArg("-skipissolvable", false) ? true : IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = isSolvable || IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
