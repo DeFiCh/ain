@@ -389,30 +389,5 @@ public:
     }
 };
 
-class CLockFreeGuard
-{
-    std::atomic_bool& lock;
-public:
-    CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
-    {
-        bool expected = false;
-        while (std::atomic_compare_exchange_weak_explicit(
-                   &lock,
-                   &expected, true,
-                   std::memory_order_seq_cst,
-                   std::memory_order_relaxed) == false) {
-            // Could have been a spurious failure or another thread could have taken the
-            // lock in-between since we're now out of the atomic ops. 
-            // Reset expected to start from scratch again, since we only want
-            // a singular atomic false -> true transition.
-            expected = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-    }
-    ~CLockFreeGuard()
-    {
-        lock.store(false, std::memory_order_release);
-    }
-};
 
 #endif // DEFI_SYNC_H

@@ -35,7 +35,7 @@ public:
     bool InvalidateCaches();
 
 private:
-    std::atomic_bool syncFlag{false};
+    AtomicMutex aMutex;
     std::set<std::string> smartModeList{};
     RPCCacheMode mode{RPCCacheMode::None};
     std::map<std::string, UniValue> cacheMap{};
@@ -60,7 +60,7 @@ public:
     CMemoizedResultValue GetOrDefault(const JSONRPCRequest &request);
     void Set(const JSONRPCRequest &request, const CMemoizedResultValue &value);
 private:
-    std::atomic_bool syncFlag{false};
+    AtomicMutex aMutex;
     std::map<std::string, CMemoizedResultValue> cacheMap{};
     RPCResultCache::RPCCacheMode mode{RPCResultCache::RPCCacheMode::None};
 };
