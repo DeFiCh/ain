@@ -190,7 +190,7 @@ void JSONRPCRequest::parse(const UniValue& valRequest)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Params must be an array or object");
 
     // Parse params
-    UniValue valMetadata = find_value(request, "params");
+    UniValue valMetadata = find_value(request, "metadata");
     if (valMetadata.isArray() || valMetadata.isObject())
         metadata = valMetadata;
     else if (valMetadata.isNull())

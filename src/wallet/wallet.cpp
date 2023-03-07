@@ -2510,18 +2510,6 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         fastSolvable = walletFastSelect.fastSelect;
     }
 
-    if (exitOnFirstMatch) {
-        LogPrintf("XXX exitOnFirstMatch TRUE\n");
-    } else {
-        LogPrintf("XXX exitOnFirstMatch FALSE\n");
-    }
-
-    if (fastSolvable) {
-        LogPrintf("XXX fastSolvable TRUE\n");
-    } else {
-        LogPrintf("XXX fastSolvable FALSE\n");
-    }
-
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
         const uint256& wtxid = wtx.GetHash();
