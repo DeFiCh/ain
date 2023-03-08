@@ -24,7 +24,7 @@ public:
 
     static Res ICXBTCBelowMinSwap(const CAmount amount, const CAmount minSwap) {
         // TODO: Change error in later version to include amount. Retaining old msg for compatibility
-        return Res::Err("Below minimum swapable amount, must be at least %s BTC", GetDecimaleString(minSwap));
+        return Res::Err("Below minimum swapable amount, must be at least %s BTC", GetDecimalString(minSwap));
     }
 
     static Res MNInvalidAttribute() {
@@ -126,7 +126,7 @@ public:
     }
 
     static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) { 
-        return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price)); 
+        return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price)); 
     }
 };
 

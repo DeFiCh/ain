@@ -2816,7 +2816,7 @@ public:
         auto vaultCreationFee = consensus.vaultCreationFee;
         Require(tx.vout[0].nValue == vaultCreationFee && tx.vout[0].nTokenId == DCT_ID{0},
                 "Malformed tx vouts, creation vault fee is %s DFI",
-                GetDecimaleString(vaultCreationFee));
+                GetDecimalString(vaultCreationFee));
 
         CVaultData vault{};
         static_cast<CVaultMessage &>(vault) = obj;
@@ -3283,8 +3283,8 @@ public:
                 if (price > COIN) {
                     Require(amount >= tokenAmount,
                             "Value/price too high (%s/%s)",
-                            GetDecimaleString(tokenAmount),
-                            GetDecimaleString(price));
+                            GetDecimalString(tokenAmount),
+                            GetDecimalString(price));
                 }
                 auto &totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
                 auto prevLoans   = totalLoans;

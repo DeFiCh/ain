@@ -17,7 +17,7 @@ Res CLoanView::CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &coll
                                   collToken.creationTx.GetHex()); });
     Require(
         collToken.factor <= COIN, [=]{ return strprintf("setCollateralToken factor must be lower or equal than %s!",
-                                                         GetDecimaleString(COIN)); });
+                                                         GetDecimalString(COIN)); });
     Require(collToken.factor >= 0, []{ return "setCollateralToken factor must not be negative!"; });
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);

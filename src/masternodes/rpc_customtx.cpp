@@ -305,7 +305,7 @@ public:
 
                 UniValue uniPair(UniValue::VOBJ);
                 uniPair.pushKV("currency", currency);
-                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimaleString(amount), token));
+                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimalString(amount), token));
                 tokenPrices.push_back(uniPair);
             }
         }
