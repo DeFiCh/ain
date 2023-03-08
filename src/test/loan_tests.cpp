@@ -70,7 +70,7 @@ void CreateScheme(CCustomCSView &mnview, const std::string& name, uint32_t ratio
     mnview.StoreLoanScheme(msg);
 }
 
-extern std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
+extern std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
 
 BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
@@ -459,7 +459,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_CHECK_EQUAL(collaterals->balances[dfi_id], 2 * COIN);
     BOOST_CHECK_EQUAL(collaterals->balances[btc_id], 3 * COIN);
 
-    auto colls = mnview.GetLoanCollaterals(vault_id, *collaterals, 10, 0);
+    auto colls = mnview.GetVaultAssets(vault_id, *collaterals, 10, 0);
     BOOST_REQUIRE(colls.ok);
     BOOST_CHECK_EQUAL(colls.val->ratio(), 78);
 }
@@ -467,7 +467,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
 BOOST_AUTO_TEST_CASE(auction_batch_creator)
 {
     {
-        CCollateralLoans collLoan = {
+        CVaultAssets collLoan = {
             7000 * COIN, 1000 * COIN,
             {{DCT_ID{0}, 2000 * COIN}, {DCT_ID{1}, 5000 * COIN}},
             {{DCT_ID{1}, 1000 * COIN}},
@@ -498,7 +498,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
         CAmount value5 = 333.13573427 * COIN;
         CAmount value6 = 271.46557479 * COIN;
 
-        CCollateralLoans collLoan = {
+        CVaultAssets collLoan = {
             uint64_t(value1) + value2 + value4, uint64_t(value3),
             {{DCT_ID{0}, value1}, {DCT_ID{1}, value2}, {DCT_ID{2}, value4}},
             {{DCT_ID{1}, value3}},

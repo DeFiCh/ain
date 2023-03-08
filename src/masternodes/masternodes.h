@@ -393,7 +393,7 @@ public:
     };
 };
 
-class CCollateralLoans {  // in USD
+class CVaultAssets {  // in USD
 
     double calcRatio(uint64_t maxRatio) const;
 
@@ -482,13 +482,13 @@ class CCustomCSView : public CMasternodesView,
     // clang-format on
 
 private:
-    Res PopulateLoansData(CCollateralLoans &result,
+    Res PopulateLoansData(CVaultAssets &result,
                           const CVaultId &vaultId,
                           uint32_t height,
                           int64_t blockTime,
                           bool useNextPrice,
                           bool requireLivePrice);
-    Res PopulateCollateralData(CCollateralLoans &result,
+    Res PopulateCollateralData(CVaultAssets &result,
                                const CVaultId &vaultId,
                                const CBalances &collaterals,
                                uint32_t height,
@@ -538,7 +538,7 @@ public:
                                         bool useNextPrice     = false,
                                         bool requireLivePrice = true);
 
-    ResVal<CCollateralLoans> GetLoanCollaterals(const CVaultId &vaultId,
+    ResVal<CVaultAssets> GetVaultAssets(const CVaultId &vaultId,
                                                 const CBalances &collaterals,
                                                 uint32_t height,
                                                 int64_t blockTime,

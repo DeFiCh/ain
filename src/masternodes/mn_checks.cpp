@@ -2919,7 +2919,7 @@ public:
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
                 for (int i = 0; i < 2; i++) {
                     bool useNextPrice = i > 0, requireLivePrice = true;
-                    auto collateralsLoans = mnview.GetLoanCollaterals(
+                    auto collateralsLoans = mnview.GetVaultAssets(
                         obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     Require(collateralsLoans);
 
@@ -2947,7 +2947,7 @@ public:
     }
 
     Res CollateralPctCheck(const bool hasDUSDLoans,
-                           const CCollateralLoans &collateralsLoans,
+                           const CVaultAssets &collateralsLoans,
                            const uint32_t ratio) const {
         std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
@@ -3057,7 +3057,7 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
         auto collateralsLoans =
-            mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+            mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         Require(collateralsLoans);
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
@@ -3130,7 +3130,7 @@ public:
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
-                    auto collateralsLoans = mnview.GetLoanCollaterals(
+                    auto collateralsLoans = mnview.GetVaultAssets(
                         obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     Require(collateralsLoans);
 
@@ -3304,7 +3304,7 @@ public:
             // check ratio against current and active price
             bool useNextPrice = i > 0, requireLivePrice = true;
             auto collateralsLoans =
-                mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+                mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             Require(collateralsLoans);
 
             Require(collateralsLoans.val->ratio() >= scheme->ratio,
@@ -4733,7 +4733,7 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (loans)
         if (!collaterals) return DeFiErrors::VaultNeedCollateral();
 
-    auto collateralsLoans = view.GetLoanCollaterals(vaultId, *collaterals, height, time);
+    auto collateralsLoans = view.GetVaultAssets(vaultId, *collaterals, height, time);
     if (!collateralsLoans)
         return std::move(collateralsLoans);
 

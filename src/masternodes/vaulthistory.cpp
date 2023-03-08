@@ -75,9 +75,9 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView &mnview,
 
     bool useNextPrice = false, requireLivePrice = false;
     auto rate =
-        mnview.GetLoanCollaterals(vaultID, *collaterals, pindex.nHeight, pindex.nTime, useNextPrice, requireLivePrice);
+        mnview.GetVaultAssets(vaultID, *collaterals, pindex.nHeight, pindex.nTime, useNextPrice, requireLivePrice);
 
-    CCollateralLoans collateralLoans{0, 0, {}, {}};
+    CVaultAssets collateralLoans{0, 0, {}, {}};
     if (rate) {
         collateralLoans = *rate.val;
     }

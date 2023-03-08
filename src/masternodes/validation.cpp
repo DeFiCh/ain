@@ -371,7 +371,7 @@ static void ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache,
     });
 }
 
-std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
+std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
 {
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
     auto totalCollateralsValue = collLoan.totalCollaterals;
@@ -496,7 +496,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
         struct VaultWithCollateralInfo {
             CVaultId vaultId;
             CBalances collaterals;
-            CCollateralLoans vaultAssets;
+            CVaultAssets vaultAssets;
             CVaultData vault;
         };
 
@@ -527,7 +527,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     auto vaultId = vaultIdCopy;
                     auto collaterals = collateralsCopy;
 
-                    auto collateral  = cache.GetLoanCollaterals(
+                    auto collateral  = cache.GetVaultAssets(
                         vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
 
                     if (!collateral) {
