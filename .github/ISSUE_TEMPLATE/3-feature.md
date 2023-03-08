@@ -1,11 +1,35 @@
 ---
 name: Feature request
 about: Suggest a feature for DeFiChain
-labels: kind/feature
+labels: feature
 ---
 
-<!-- Please only use this template for submitting enhancement/feature requests -->
+<!-- 
+- This issue tracker is only for technical issues related to the DeFi Blockchain.
+- If the matter is security related, please disclose it privately via security@defichain.com
+- Please use bullet points as much as possible.
+-->
 
-#### What would you like to be added:
+## Feature Request Summary
 
-#### Why is this needed:
+
+## Rationale
+
+
+## Design
+
+
+## RPCs
+
+
+## Flags
+
+
+## Internal Architecture Change Requirements
+
+
+## Performance Impact
+
+
+## Potential Implementation Timeline
+

@@ -1,29 +1,35 @@
 ---
 name: Bug report
 about: Report a bug encountered with using DeFiChain
-labels: kind/bug
+labels: bug
 ---
 
 <!-- 
-This issue tracker is only for technical issues related to the DeFi Blockchain.
-Please use this template while reporting a bug and provide as much info as possible.
-If the node is "stuck" during sync or giving "block checksum mismatch" errors, please ensure your hardware is stable by running memtest and observe CPU temperature with a load-test tool such as linpack before creating an issue!
-
-If the matter is security related, please disclose it privately via security@defichain.com
+- This issue tracker is only for technical issues related to the DeFi Blockchain.
+- Please use this template while reporting a bug and provide as much info as possible.
+- If the matter is security related, please disclose it privately via security@defichain.com
+- Please use bullet points as much as possible.
+- If you'd like to add details notes, split the summary with a "Details" section.  
 -->
 
-#### What happened:
+## Bug Summary
 
-#### What you expected to happen:
+- 
 
-#### How to reproduce it (as minimally and precisely as possible):
-<!-- How reliably can you reproduce the issue, what are the steps to do so? -->
+## Steps to Reproduce
 
-#### What are your environment parameters:
-<!-- What type of machine are you observing the error on (OS/CPU and disk type)? -->
-<!-- For the GUI-related issue on Linux provide names and versions of a distro, a desktop environment and a graphical shell (if relevant). -->
+[Please use step-by bullet points to help the team reproduce the bug]
 
-#### Anything else we need to know?:
-<!-- Any extra information that might be useful in the debugging process. -->
-<!--- This is normally the contents of a `debug.log` or `config.log` file. Raw text or a link to a pastebin type site are preferred. -->
+- 
+- 
 
+
+## Environment
+
+[Please fill all of the following or NA if not applicable]
+
+- Node Version: 
+- Block height on bug if applicable: 
+- TX or TX type on bug if applicable:  
+- OS with version: 
+- Any other relevant environment info:  
