@@ -21,9 +21,17 @@ Thanks for sending a pull request!
 
 - 
 
+## Protocol
+
+- 
+
+## Storage
+
+- 
+
 ## Implications
 
-- Storage changes
+- Index changes
   - [ ] Reindex required
   - [ ] Reindex optional
   - [ ] Reindex not required

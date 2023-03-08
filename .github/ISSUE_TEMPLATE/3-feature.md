@@ -10,7 +10,7 @@ labels: feature
 - Please use bullet points as much as possible.
 -->
 
-## Feature Request Summary
+## Summary
 
 
 ## Rationale

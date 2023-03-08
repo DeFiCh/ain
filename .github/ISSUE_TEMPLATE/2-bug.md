@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a bug encountered with using DeFiChain
+about: Report bugs or technical issues
 labels: bug
 ---
 
@@ -12,7 +12,7 @@ labels: bug
 - If you'd like to add details notes, split the summary with a "Details" section.  
 -->
 
-## Bug Summary
+## Summary
 
 - 
 
