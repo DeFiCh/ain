@@ -10,6 +10,7 @@
 
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/coinselect.h>
 
 #include <rpc/rawtransaction_util.h>
 #include <rpc/resultcache.h>
@@ -71,7 +72,8 @@ int chainHeight(interfaces::Chain::Lock &locked_chain);
 CMutableTransaction fund(CMutableTransaction &mtx,
                          CWalletCoinsUnlocker &pwallet,
                          CTransactionRef optAuthTx,
-                         CCoinControl *coin_control = nullptr);
+                         CCoinControl *coin_control = nullptr,
+                         const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
@@ -79,7 +81,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       std::set<CScript> &auths,
                                       bool needFounderAuth,
                                       CTransactionRef &optAuthTx,
-                                      const UniValue &explicitInputs);
+                                      const UniValue &explicitInputs,
+                                      const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,

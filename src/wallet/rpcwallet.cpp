@@ -332,7 +332,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 }
 
 
-CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, DCT_ID tokenId, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue)
+CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, DCT_ID tokenId, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const CoinSelectionOptions &coinSelectOpts)
 {
     TAmounts curBalance = pwallet->GetBalance(0, coin_control.m_avoid_address_reuse).m_mine_trusted;
 
@@ -354,7 +354,7 @@ CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const
     CRecipient recipient = {scriptPubKey, nValue, tokenId, tokenId == DCT_ID{0} ? fSubtractFeeFromAmount : false }; // turn off `fSubtractFeeFromAmount` for tokens
     vecSend.push_back(recipient);
     CTransactionRef tx;
-    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, nFeeRequired, nChangePosRet, strError, coin_control)) {
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, nFeeRequired, nChangePosRet, strError, coin_control, true, coinSelectOpts)) {
         if (!fSubtractFeeFromAmount && (tokenId == DCT_ID{0} ? nValue : 0) + nFeeRequired > curBalance[DCT_ID{0}])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -457,7 +457,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, tokenAmount.nValue, tokenAmount.nTokenId, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, tokenAmount.nValue, tokenAmount.nTokenId, fSubtractFeeFromAmount, coin_control, std::move(mapValue), request.metadata.coinSelectOpts);
     return tx->GetHash().GetHex();
 }
 

@@ -573,7 +573,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         coinControl.destChange = ownerDest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -720,7 +720,12 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, {});
+        rawTx.vin = GetAuthInputsSmart(pwallet, 
+            rawTx.nVersion, 
+            auths, false /*needFoundersAuth*/, 
+            optAuthTx, 
+            {}, 
+            request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;
@@ -728,7 +733,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
             coinControl.destChange = ownerDest;
         }
 
-        fund(rawTx, pwallet, optAuthTx, &coinControl);
+        fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
         // check execution
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
