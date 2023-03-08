@@ -36,6 +36,7 @@
 #include <memory>
 #include <stdint.h>
 
+TxOrderings txOrdering;
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or from the last difficulty change if 'lookup' is nonpositive.
@@ -279,12 +280,12 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             //should not come here if the database has correct data.
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnId.second.GetHex()));
         }
-        auto state = nodePtr->GetState(height);
+        auto state = nodePtr->GetState(height, *pcustomcsview);
         CTxDestination operatorDest = nodePtr->operatorType == 1 ? CTxDestination(PKHash(nodePtr->operatorAuthAddress)) :
                                       CTxDestination(WitnessV0KeyHash(nodePtr->operatorAuthAddress));
         subObj.pushKV("operator", EncodeDestination(operatorDest));// NOTE(sp) : Should this also be encoded? not the HEX
         subObj.pushKV("state", CMasternode::GetHumanReadableState(state));
-        auto generate = nodePtr->IsActive(height) && genCoins;
+        auto generate = nodePtr->IsActive(height, *pcustomcsview) && genCoins;
         subObj.pushKV("generate", generate);
         subObj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
 
@@ -292,7 +293,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             subObj.pushKV("lastblockcreationattempt", "0");
         } else {
             // get the last block creation attempt by the master node
-            CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+            std::unique_lock l{pos::cs_MNLastBlockCreationAttemptTs};
             auto lastBlockCreationAttemptTs = pos::Staker::mapMNLastBlockCreationAttemptTs[mnId.second];
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }
@@ -300,12 +301,12 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         const auto timelock = pcustomcsview->GetTimelock(mnId.second, *nodePtr, height);
 
         // Get targetMultiplier if node is active
-        if (nodePtr->IsActive(height)) {
+        if (timelock && nodePtr->IsActive(height, *pcustomcsview)) {
             // Get block times
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, timelock);
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
             if (height >= Params().GetConsensus().EunosPayaHeight) {
-                const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
@@ -316,8 +317,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             }
         }
 
-        if (timelock) {
-            obj.pushKV("timelock", strprintf("%d years", timelock / 52));
+        if (timelock && *timelock) {
+            obj.pushKV("timelock", strprintf("%d years", *timelock / 52));
         }
 
         mnArr.push_back(subObj);
@@ -979,6 +980,8 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
+    } else if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
+        result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
         errors.push_back("Insufficient data or no feerate found");
         result.pushKV("errors", errors);

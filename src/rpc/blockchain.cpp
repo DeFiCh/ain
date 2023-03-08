@@ -23,6 +23,7 @@
 #include <primitives/transaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
+#include <rpc/resultcache.h>
 #include <script/descriptor.h>
 #include <streams.h>
 #include <sync.h>
@@ -159,12 +160,20 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             CAmount burnt{0};
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (blockindex->nHeight < Params().GetConsensus().GrandCentralHeight
+                && kv.first == CommunityAccountType::CommunityDevFunds) {
+                    continue;
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
-                if (kv.first == CommunityAccountType::AnchorReward) {
-                    nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
-                } else {
-                    burnt += subsidy; // Everything else goes into burnt
+                switch(kv.first) {
+                    case CommunityAccountType::AnchorReward:
+                    case CommunityAccountType::CommunityDevFunds:
+                        nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
+                    break;
+                    default:
+                        burnt += subsidy; // Everything else goes into burnt
                 }
             }
 
@@ -880,29 +889,33 @@ static UniValue getblock(const JSONRPCRequest& request)
                     },
                     RPCResult{"for verbosity = 1",
             "{\n"
-            "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
-            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n"
-            "  \"size\" : n,            (numeric) The block size\n"
-            "  \"strippedsize\" : n,    (numeric) The block size excluding witness data\n"
-            "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
-            "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
-            "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
-            "  \"nonutxo\" : [,         (array of string) Non-UTXO coinbase rewards\n"
-            "     \"type\" n.nnnnnnnn   (numeric) Reward type and amount\n"
+            "  \"hash\" : \"hash\",             (string) the block hash (same as provided)\n"
+            "  \"confirmations\" : n,         (numeric) The number of confirmations, or -1 if the block is not on the main chain\n"
+            "  \"size\" : n,                  (numeric) The block size\n"
+            "  \"strippedsize\" : n,          (numeric) The block size excluding witness data\n"
+            "  \"weight\" : n                 (numeric) The block weight as defined in BIP 141\n"
+            "  \"height\" : n,                (numeric) The block height or index\n"
+            "  \"masternode\" : \"hex\",        (string) Masternode ID of the block minter\n"
+            "  \"minter\" : \"address\",        (string) Operator address of block minter\n"
+            "  \"mintedBlocks\" : n,          (numeric) Total number of blocks minted by block minter\n"
+            "  \"stakeModifier\" : \"hex\",     (string) The block stake modifier\n"
+            "  \"version\" : n,               (numeric) The block version\n"
+            "  \"versionHex\" : \"00000000\",   (string) The block version formatted in hexadecimal\n"
+            "  \"merkleroot\" : \"xxxx\",       (string) The merkle root\n"
+            "  \"nonutxo\" : [,               (array of string) Non-UTXO coinbase rewards\n"
+            "     \"type\" n.nnnnnnnn         (numeric) Reward type and amount\n"
             "  ],\n"
-            "  \"tx\" : [               (array of string) The transaction ids\n"
-            "     \"transactionid\"     (string) The transaction id\n"
+            "  \"tx\" : [                     (array of string) The transaction ids\n"
+            "     \"transactionid\"           (string) The transaction id\n"
             "     ,...\n"
             "  ],\n"
-            "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"nonce\" : n,           (numeric) The nonce\n"
-            "  \"bits\" : \"1d00ffff\", (string) The bits\n"
-            "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
-            "  \"chainwork\" : \"xxxx\",  (string) Expected number of hashes required to produce the chain up to this block (in hex)\n"
-            "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
+            "  \"time\" : ttt,                (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"mediantime\" : ttt,          (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"nonce\" : n,                 (numeric) The nonce\n"
+            "  \"bits\" : \"1d00ffff\",         (string) The bits\n"
+            "  \"difficulty\" : x.xxx,        (numeric) The difficulty\n"
+            "  \"chainwork\" : \"xxxx\",        (string) Expected number of hashes required to produce the chain up to this block (in hex)\n"
+            "  \"nTx\" : n,                   (numeric) The number of transactions in the block.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1286,6 +1299,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     LOCK(cs_main);
 
     const CBlockIndex* tip = ::ChainActive().Tip();
@@ -1336,11 +1351,15 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningspring", consensusParams.FortCanningSpringHeight);
     BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.FortCanningGreatWorldHeight);
     BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
+    BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
+    BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.GrandCentralEpilogueHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
     obj.pushKV("warnings", GetWarnings("statusbar"));
-    return obj;
+
+    return GetRPCResultCache()
+        .Set(request, obj);
 }
 
 /** Comparison function for sorting the getchaintips heads.  */

@@ -95,13 +95,15 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     if (_a < 0 || _b < 0) {
         return Res::Err("negative amount");
     }
-    // convert to unsigned, because signed overflow is UB
-    const uint64_t a = (uint64_t) _a;
-    const uint64_t b = (uint64_t) _b;
 
-    const uint64_t sum = a + b;
+    // convert to unsigned, because signed overflow is UB
+    const auto a = static_cast<uint64_t>(_a);
+    const auto b = static_cast<uint64_t>(_b);
+
+    const auto sum = a + b;
     // check overflow
-    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
+
+    if ((sum - a) != b || static_cast<uint64_t>(std::numeric_limits<CAmount>::max()) < sum) {
         return Res::Err("overflow");
     }
     return {(CAmount) sum, Res::Ok()};
@@ -130,14 +132,15 @@ struct CTokenAmount { // simple std::pair is less informative
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
+
         // add
-        auto sumRes = SafeAdd(this->nValue, amount);
-        if (!sumRes.ok) {
-            return std::move(sumRes);
-        }
-        this->nValue = *sumRes.val;
+        auto sumRes = SafeAdd(nValue, amount);
+        Require(sumRes);
+
+        nValue = *sumRes;
         return Res::Ok();
     }
+
     Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
@@ -146,10 +149,12 @@ struct CTokenAmount { // simple std::pair is less informative
         if (this->nValue < amount) {
             return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
         }
+
         // sub
-        this->nValue -= amount;
+        nValue -= amount;
         return Res::Ok();
     }
+
     CAmount SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {

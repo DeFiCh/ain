@@ -1,2 +1,5 @@
 # Define individuals that are responsible for code in a repository.
 # More details are here: https://help.github.com/articles/about-codeowners/
+
+/.github/                                                   @Bushstar @prasannavl @Jouzo
+

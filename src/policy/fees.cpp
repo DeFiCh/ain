@@ -9,7 +9,9 @@
 #include <primitives/transaction.h>
 #include <streams.h>
 #include <txmempool.h>
+#include <miner.h>
 #include <util/system.h>
+#include <validation.h>
 
 static constexpr double INF_FEERATE = 1e99;
 
@@ -786,6 +788,11 @@ double CBlockPolicyEstimator::estimateConservativeFee(unsigned int doubleTarget,
 CFeeRate CBlockPolicyEstimator::estimateSmartFee(int confTarget, FeeCalculation *feeCalc, bool conservative) const
 {
     LOCK(m_cs_fee_estimator);
+
+    // If block ordering by time is enabled return 0 to let fallback or discard fee be used.
+    if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
+        return 0;
+    }
 
     if (feeCalc) {
         feeCalc->desiredTarget = confTarget;

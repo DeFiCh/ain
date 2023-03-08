@@ -6,7 +6,7 @@ bool CRPCStats::isActive() { return active.load(); }
 void CRPCStats::setActive(bool isActive) { active.store(isActive); }
 
 std::optional<RPCStats> CRPCStats::get(const std::string& name) {
-    CLockFreeGuard lock(lock_stats);
+    std::unique_lock lock(lock_stats);
 
     auto it = map.find(name);
     if (it == map.end()) {
@@ -16,7 +16,7 @@ std::optional<RPCStats> CRPCStats::get(const std::string& name) {
 }
 
 std::map<std::string, RPCStats> CRPCStats::getMap() {
-    CLockFreeGuard lock(lock_stats);
+    std::unique_lock lock(lock_stats);
     return map;
 }
 
@@ -41,7 +41,7 @@ void CRPCStats::load() {
     UniValue arr(UniValue::VARR);
     arr.read((const std::string)line);
 
-    CLockFreeGuard lock(lock_stats);
+    std::unique_lock lock(lock_stats);
     for (const auto &val : arr.getValues()) {
         auto name = val["name"].get_str();
         map[name] = RPCStats::fromJSON(val);
@@ -140,7 +140,7 @@ void CRPCStats::add(const std::string& name, const int64_t latency, const int64_
     }
     stats->history.push_back({ stats->lastUsedTime, latency, payload });
 
-    CLockFreeGuard lock(lock_stats);
+    std::unique_lock lock(lock_stats);
     map[name] = *stats;
 }
 

@@ -177,6 +177,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
     { "updatemasternode", 2, "inputs" },
+    { "updatemasternode", 1, "values" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},
@@ -189,6 +190,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtokens", 1, "verbose" },
     { "minttokens", 0, "amounts" },
     { "minttokens", 1, "inputs"},
+    { "burntokens", 0, "metadata" },
+    { "burntokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
     { "sendutxosfrom", 2, "amount" },
@@ -310,6 +313,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
+    { "unsetgov", 0, "variables" },
+    { "unsetgov", 1, "inputs" },
+
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },
@@ -344,6 +350,15 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setmockcheckpoint", 0, "height" },
     { "logaccountbalances", 0, "logfile" },
     { "logaccountbalances", 1, "rpcresult" },
+
+    { "creategovcfp", 0, "data" },
+    { "creategovcfp", 1, "inputs" },
+    { "creategovvoc", 0, "data" },
+    { "creategovvoc", 1, "inputs" },
+    { "listgovproposalvotes", 2, "cycle" },
+    { "listgovproposalvotes", 3, "pagination" },
+    { "listgovproposals", 2, "cycle" },
+    { "listgovproposals", 3, "pagination" },
 };
 // clang-format on
 
