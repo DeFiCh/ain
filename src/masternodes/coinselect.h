@@ -38,30 +38,47 @@ struct CoinSelectionOptions {
     }
 
     static void FromArgs(CoinSelectionOptions& m, ArgsManager& args) {
-           m.fastSelect = args.GetBoolArg(ARG_STR_WALLET_FAST_SELECT, DEFAULT_COIN_SELECT_FAST_SELECT);
-           m.skipSolvable = args.GetBoolArg(ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, DEFAULT_COIN_SELECT_SKIP_SOLVABLE);
-           m.eagerExit = args.GetBoolArg(ARG_STR_WALLET_COIN_OPT_EAGER_EXIT, DEFAULT_COIN_SELECT_EAGER_EXIT);
-    }
-
-    static void FromHTTPHeaderFunc(CoinSelectionOptions &m, const HTTPHeaderQueryFunc headerFunc) {
-        {
-            const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_FAST_SELECT);
-            if (present) m.fastSelect = val == "1";
-        }
-        {
-            const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE);
-            if (present) m.skipSolvable = val == "1";
-        }
-        {
-            const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_COIN_OPT_EAGER_EXIT);
-            if (present) m.eagerExit = val == "1";
+        struct V {
+            bool& target;
+            const std::string& arg;
+            const bool& def;
+        };
+        for (auto &[v, str, def]: {
+            V { m.fastSelect, ARG_STR_WALLET_FAST_SELECT, DEFAULT_COIN_SELECT_FAST_SELECT},
+            V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, DEFAULT_COIN_SELECT_SKIP_SOLVABLE},
+            V { m.eagerExit, ARG_STR_WALLET_COIN_OPT_EAGER_EXIT, DEFAULT_COIN_SELECT_EAGER_EXIT},
+        }) {
+            v = args.GetBoolArg(str, def);
         }
     }
 
-    static void ToHTTPHeaderFunc(const CoinSelectionOptions& m, const HTTPHeaderWriterFunc writer) {
-        writer("x" + ARG_STR_WALLET_FAST_SELECT, m.fastSelect ? "1" : "0");
-        writer("x" + ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, m.skipSolvable ? "1" : "0");
-        writer("x" + ARG_STR_WALLET_COIN_OPT_EAGER_EXIT, m.eagerExit ? "1" : "0");
+    static void FromHTTPHeader(CoinSelectionOptions &m, const HTTPHeaderQueryFunc headerFunc) {
+        struct V {
+            bool& target;
+            const std::string& arg;
+        };
+        for (auto &[v, str]: {
+            V { m.fastSelect, ARG_STR_WALLET_FAST_SELECT},
+            V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE},
+            V { m.eagerExit, ARG_STR_WALLET_COIN_OPT_EAGER_EXIT},
+        }) {
+            const auto &[present, val] = headerFunc("x" + str);
+            if (present) v = val == "1" ? true : false;
+        }
+    }
+
+    static void ToHTTPHeader(const CoinSelectionOptions& m, const HTTPHeaderWriterFunc writer) {
+        struct V {
+            const bool& val;
+            const std::string& arg;
+        };
+        for (auto &[v, str]: {
+            V { m.fastSelect, ARG_STR_WALLET_FAST_SELECT},
+            V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE},
+            V { m.eagerExit, ARG_STR_WALLET_COIN_OPT_EAGER_EXIT},
+        }) {
+            writer("x" + str, v ? "1" : "0");
+        }
     }
 };
 

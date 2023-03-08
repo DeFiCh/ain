@@ -44,12 +44,12 @@ struct RPCMetadata {
         CoinSelectionOptions::FromArgs(m.coinSelectOpts, args);
     }
 
-    static void FromHTTPHeaderFunc(RPCMetadata &m, const HTTPHeaderQueryFunc headerFunc) {
-        CoinSelectionOptions::FromHTTPHeaderFunc(m.coinSelectOpts, headerFunc);
+    static void FromHTTPHeader(RPCMetadata &m, const HTTPHeaderQueryFunc headerFunc) {
+        CoinSelectionOptions::FromHTTPHeader(m.coinSelectOpts, headerFunc);
     }
 
-    static void ToHTTPHeaderFunc(const RPCMetadata& m, const HTTPHeaderWriterFunc writer) {
-        CoinSelectionOptions::ToHTTPHeaderFunc(m.coinSelectOpts, writer);
+    static void ToHTTPHeader(const RPCMetadata& m, const HTTPHeaderWriterFunc writer) {
+        CoinSelectionOptions::ToHTTPHeader(m.coinSelectOpts, writer);
     }
 };
     // UniValue metadata;

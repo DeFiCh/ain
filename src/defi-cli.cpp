@@ -347,7 +347,7 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     
     const auto meta = RPCMetadata::CreateDefault();
     const auto writerFunc = [&](const std::string& key, const std::string& val) { evhttp_add_header(output_headers, key.c_str(), val.c_str()); };
-    RPCMetadata::ToHTTPHeaderFunc(meta, writerFunc);
+    RPCMetadata::ToHTTPHeader(meta, writerFunc);
 
     // Attach request data
     std::string strRequest = rh->PrepareRequest(strMethod, args).write() + "\n";
