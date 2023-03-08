@@ -210,19 +210,19 @@ struct CCacheInfo
 
 isminetype IsMineCached(const CWallet& keystore, CScript const & script)
 {
-    static std::atomic_bool cs_cache(false);
+    static AtomicMutex cs_cache;
     static std::unordered_map<const CWallet*, CCacheInfo> cache;
     auto* wallet = &keystore;
-    CLockFreeGuard lock(cs_cache);
+    std::unique_lock lock(cs_cache);
     auto it = cache.find(wallet);
     if (it == cache.end()) {
         it = cache.emplace(wallet, CCacheInfo{{}, {
             wallet->NotifyOwnerChanged.connect([wallet](CScript const & owner) {
-                CLockFreeGuard lock(cs_cache);
+                std::unique_lock lock(cs_cache);
                 cache[wallet].mineData.erase(owner);
             }),
             wallet->NotifyUnload.connect([wallet]() {
-                CLockFreeGuard lock(cs_cache);
+                std::unique_lock lock(cs_cache);
                 cache.erase(wallet);
             }),
         }}).first;

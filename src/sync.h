@@ -331,24 +331,63 @@ struct SCOPED_LOCKABLE LockAssertion
     ~LockAssertion() UNLOCK_FUNCTION() {}
 };
 
-class CLockFreeGuard
-{
-    std::atomic_bool& lock;
+class AtomicMutex {
+private:
+    std::atomic<bool> flag{false};
+    int64_t spins;
+    int64_t yields;
+
 public:
-    CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
-    {
-        bool desired = false;
-        while (!lock.compare_exchange_weak(desired, true,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-            desired = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    AtomicMutex(int64_t spins = 10, int64_t yields = 16): 
+        spins(spins), yields(yields) {}
+
+    void lock() {
+        // Note: The loop here addresses both, spurious failures as well
+        // as to suspend or spin wait until it's set
+        // Additional:
+        // - We use this a lock for external critical section, so we use
+        // seq ordering, to ensure it provides the right ordering guarantees
+        // for the others
+        // On failure of CAS, we don't care about the existing value, we just
+        // discard it, so relaxed ordering is sufficient.
+        bool expected = false;
+        auto i = 0;
+        while (std::atomic_compare_exchange_weak_explicit(
+                   &flag,
+                   &expected, true,
+                   std::memory_order_seq_cst,
+                   std::memory_order_relaxed) == false) {
+            // Could have been a spurious failure or another thread could have taken the
+            // lock in-between since we're now out of the atomic ops. 
+            // Reset expected to start from scratch again, since we only want
+            // a singular atomic false -> true transition.
+            expected = false;
+            if (i > spins) {
+                if (i > spins + yields) {
+                    // Use larger sleep, in line with the largest quantum, which is 
+                    // Windows with 16ms
+                    std::this_thread::sleep_for(std::chrono::milliseconds(16));
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+            i++;
         }
     }
-    ~CLockFreeGuard()
-    {
-        lock.store(false, std::memory_order_release);
+
+    void unlock() {
+        flag.store(false, std::memory_order_seq_cst);
+    }
+
+    bool try_lock() noexcept {
+        // We locked it if and only if it was a false -> true transition.
+        // Otherwise, we just re-wrote an already existing value as true which is harmless 
+        // We could theoritically use CAS here to prevent the additional write, but
+        // but requires loop on weak, or using strong. Simpler to just use an exchange for
+        // for now, since all ops are seq_cst anyway.
+        return !flag.exchange(true, std::memory_order_seq_cst);
     }
 };
+
 
 #endif // DEFI_SYNC_H

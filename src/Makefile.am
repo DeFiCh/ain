@@ -180,6 +180,8 @@ DEFI_CORE_H = \
   masternodes/poolpairs.h \
   masternodes/proposals.h \
   masternodes/tokens.h \
+  masternodes/threadpool.h \
+  masternodes/coinselect.h \ 
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/validation.h \
@@ -409,6 +411,7 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
   masternodes/tokens.cpp \
+  masternodes/threadpool.cpp \
   masternodes/poolpairs.cpp \
   masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
@@ -613,7 +616,6 @@ libdefi_common_a_SOURCES = \
   rpc/rawtransaction_util.cpp \
   rpc/util.cpp \
   rpc/stats.cpp \
-  rpc/resultcache.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
   script/sign.cpp \

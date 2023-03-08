@@ -71,23 +71,22 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
         self.nodes[0].generate(1)
 
-        # Vote during second cycle
-        self.nodes[0].votegov(propId, self.mn0, "yes")
+        # Import MN keys into MN0
+        self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(self.nodes[0].getmasternode(self.mn1)[self.mn1]['ownerAuthAddress']))
+        self.nodes[0].importprivkey(self.nodes[2].dumpprivkey(self.nodes[0].getmasternode(self.mn2)[self.mn2]['ownerAuthAddress']))
+        self.nodes[0].importprivkey(self.nodes[3].dumpprivkey(self.nodes[0].getmasternode(self.mn3)[self.mn3]['ownerAuthAddress']))
+
+        # Vote during second cycle using multi-vote
+        self.nodes[0].votegovbatch([[propId, self.mn0, "yes"], [propId, self.mn1, "yes"], [propId, self.mn2, "yes"], [propId, self.mn3, "yes"]])
         self.nodes[0].generate(1)
-        self.sync_blocks(timeout=120)
-        self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.nodes[1].generate(1)
-        self.sync_blocks(timeout=120)
-        self.nodes[2].votegov(propId, self.mn2, "yes")
-        self.nodes[2].generate(1)
-        self.sync_blocks(timeout=120)
-        self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.nodes[3].generate(1)
-        self.sync_blocks(timeout=120)
 
         # End proposal
         self.nodes[0].generate(VOTING_PERIOD)
         self.sync_blocks(timeout=120)
+
+        result = self.nodes[0].getgovproposal(propId)
+        assert_equal(result['currentCycle'], 2)
+        assert_equal(result['votesYes'], 4)
 
         # Automatic payout only for last cycle
         account = self.nodes[0].getaccount(address)
