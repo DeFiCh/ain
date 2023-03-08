@@ -2500,11 +2500,6 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
 
-    bool eagerExit = coinSelectOpts.eagerExit;
-    if (!eagerExit) {
-        eagerExit = coinSelectOpts.fastSelect;
-    }
-
     bool skipSolvable = coinSelectOpts.skipSolvable;
     if (!skipSolvable) {
         skipSolvable = coinSelectOpts.fastSelect;
@@ -2614,12 +2609,6 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
-
-            // If matchDestination is set and we get this far, then we
-            // are only looking for a single auth input which is now found.
-            if (coinControl && coinControl->matchDestination.index() != 0 && eagerExit) {
-                return;
-            }
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
@@ -3004,7 +2993,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSendOrig, CTransactionRef& tx, CAmount& nFeeRet,
-                         /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                         /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, const CoinSelectionOptions &coinSelectOpts)
 {
     CAmount nValue = 0;
     std::vector<CRecipient> vecSend(vecSendOrig);
@@ -3033,6 +3022,13 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             vTokenValues[recipient.nTokenId] += recipient.nAmount;
         }
     }
+
+    bool eagerExit = coinSelectOpts.eagerExit;
+    if (!eagerExit) {
+        eagerExit = coinSelectOpts.fastSelect;
+    }
+    const auto sumAmountToSelect = eagerExit ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
+
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient").translated;
@@ -3063,7 +3059,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             CCoinControl ccSingleToken(coin_control);
             ccSingleToken.m_tokenFilter = { tokenId };
 
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, MAX_MONEY, MAX_MONEY, 0);
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, MAX_MONEY, sumAmountToSelect, 0);
 
             tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
             CScript scriptChange;

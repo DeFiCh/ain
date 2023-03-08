@@ -46,15 +46,15 @@ struct CoinSelectionOptions {
     static void FromHTTPHeaderFunc(CoinSelectionOptions &m, const HTTPHeaderQueryFunc headerFunc) {
         {
             const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_FAST_SELECT);
-            if (present) m.fastSelect = val == "1" ? true : false;
+            if (present) m.fastSelect = val == "1";
         }
         {
             const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE);
-            if (present) m.skipSolvable = val == "1" ? true : false;
+            if (present) m.skipSolvable = val == "1";
         }
         {
             const auto &[present, val] = headerFunc("x" + ARG_STR_WALLET_COIN_OPT_EAGER_EXIT);
-            if (present) m.eagerExit = val == "1" ? true : false;
+            if (present) m.eagerExit = val == "1";
         }
     }
 

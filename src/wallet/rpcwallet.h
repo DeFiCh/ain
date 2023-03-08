@@ -41,5 +41,5 @@ bool EnsureWalletIsAvailable(const CWallet*, bool avoidException);
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 
-CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, DCT_ID tokenId, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue);
+CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, DCT_ID tokenId, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 #endif //DEFI_WALLET_RPCWALLET_H

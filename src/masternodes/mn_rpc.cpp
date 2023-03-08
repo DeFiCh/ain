@@ -303,7 +303,11 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
-    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
+    // See comment in GetDustThreshold
+    // https://github.com/DeFiCh/ain/blob/0edc8e002ddc634dcb80785b9e9e01606fd8e4f7/src/policy/policy.cpp#L16-L29
+    const CAmount segwitDust = 98 * DUST_RELAY_TX_FEE / 1000;
+
+    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, segwitDust, 1);
 
     if (vecOutputs.empty()) {
         return {};
