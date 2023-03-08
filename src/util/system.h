@@ -47,6 +47,8 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
+// Adding some generic function pointers to keep things contained without taking 
+// dependencies on HTTPServer on libs that don't need it
 typedef std::function<std::pair<bool, std::string>(const std::string&)> HTTPHeaderQueryFunc;
 typedef std::function<void(const std::string&, const std::string&)> HTTPHeaderWriterFunc;
 
