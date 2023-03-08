@@ -72,7 +72,8 @@ int chainHeight(interfaces::Chain::Lock &locked_chain);
 CMutableTransaction fund(CMutableTransaction &mtx,
                          CWalletCoinsUnlocker &pwallet,
                          CTransactionRef optAuthTx,
-                         CCoinControl *coin_control = nullptr);
+                         CCoinControl *coin_control = nullptr,
+                         const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,

@@ -573,7 +573,7 @@ UniValue votegov(const JSONRPCRequest &request) {
         coinControl.destChange = ownerDest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -733,7 +733,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
             coinControl.destChange = ownerDest;
         }
 
-        fund(rawTx, pwallet, optAuthTx, &coinControl);
+        fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
         // check execution
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

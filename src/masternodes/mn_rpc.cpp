@@ -110,7 +110,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control, const CoinSelectionOptions &coinSelectOpts) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
