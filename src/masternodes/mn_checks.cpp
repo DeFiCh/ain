@@ -2919,13 +2919,13 @@ public:
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
                 for (int i = 0; i < 2; i++) {
                     bool useNextPrice = i > 0, requireLivePrice = true;
-                    auto collateralsLoans = mnview.GetVaultAssets(
+                    auto vaultAssets = mnview.GetVaultAssets(
                         obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-                    Require(collateralsLoans);
+                    Require(vaultAssets);
 
-                    Require(collateralsLoans.val->ratio() >= scheme->ratio,
+                    Require(vaultAssets.val->ratio() >= scheme->ratio,
                             "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
-                            collateralsLoans.val->ratio(),
+                            vaultAssets.val->ratio(),
                             scheme->ratio);
                 }
             }
@@ -2947,7 +2947,7 @@ public:
     }
 
     Res CollateralPctCheck(const bool hasDUSDLoans,
-                           const CVaultAssets &collateralsLoans,
+                           const CVaultAssets &vaultAssets,
                            const uint32_t ratio) const {
         std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
@@ -2960,7 +2960,7 @@ public:
         CAmount factorDUSD           = 0;
         CAmount factorDFI            = 0;
 
-        for (auto &col : collateralsLoans.collaterals) {
+        for (auto &col : vaultAssets.collaterals) {
             auto token = mnview.GetCollateralTokenFromAttributes(col.nTokenId);
 
             if (col.nTokenId == DCT_ID{0}) {
@@ -2989,11 +2989,11 @@ public:
 
         // Condition checks
         auto isDFILessThanHalfOfTotalCollateral =
-            arith_uint256(totalCollateralsDFI) < arith_uint256(collateralsLoans.totalCollaterals) / 2;
+            arith_uint256(totalCollateralsDFI) < arith_uint256(vaultAssets.totalCollaterals) / 2;
         auto isDFIAndDUSDLessThanHalfOfRequiredCollateral =
-            arith_uint256(totalCollaterals) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+            arith_uint256(totalCollaterals) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
         auto isDFILessThanHalfOfRequiredCollateral =
-            arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+            arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
 
         if (isPostFCE) {
             if (hasDUSDLoans) {
@@ -3056,14 +3056,14 @@ public:
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
-        auto collateralsLoans =
+        auto vaultAssets =
             mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-        Require(collateralsLoans);
+        Require(vaultAssets);
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
-        Require(collateralsLoans.val->ratio() >= scheme->ratio,
+        Require(vaultAssets.val->ratio() >= scheme->ratio,
                 "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
-                collateralsLoans.val->ratio(),
+                vaultAssets.val->ratio(),
                 scheme->ratio);
 
         return Res::Ok();
@@ -3130,16 +3130,16 @@ public:
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
-                    auto collateralsLoans = mnview.GetVaultAssets(
+                    auto vaultAssets = mnview.GetVaultAssets(
                         obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-                    Require(collateralsLoans);
+                    Require(vaultAssets);
 
-                    Require(collateralsLoans.val->ratio() >= scheme->ratio,
+                    Require(vaultAssets.val->ratio() >= scheme->ratio,
                             "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
-                            collateralsLoans.val->ratio(),
+                            vaultAssets.val->ratio(),
                             scheme->ratio);
 
-                    Require(CollateralPctCheck(hasDUSDLoans, collateralsLoans, scheme->ratio));
+                    Require(CollateralPctCheck(hasDUSDLoans, vaultAssets, scheme->ratio));
                 }
             } else {
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
@@ -3303,16 +3303,16 @@ public:
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
             bool useNextPrice = i > 0, requireLivePrice = true;
-            auto collateralsLoans =
+            auto vaultAssets =
                 mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-            Require(collateralsLoans);
+            Require(vaultAssets);
 
-            Require(collateralsLoans.val->ratio() >= scheme->ratio,
+            Require(vaultAssets.val->ratio() >= scheme->ratio,
                     "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
-                    collateralsLoans.val->ratio(),
+                    vaultAssets.val->ratio(),
                     scheme->ratio);
 
-            Require(CollateralPctCheck(hasDUSDLoans, collateralsLoans, scheme->ratio));
+            Require(CollateralPctCheck(hasDUSDLoans, vaultAssets, scheme->ratio));
         }
         return Res::Ok();
     }
@@ -4733,9 +4733,9 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (loans)
         if (!collaterals) return DeFiErrors::VaultNeedCollateral();
 
-    auto collateralsLoans = view.GetVaultAssets(vaultId, *collaterals, height, time);
-    if (!collateralsLoans)
-        return std::move(collateralsLoans);
+    auto vaultAssets = view.GetVaultAssets(vaultId, *collaterals, height, time);
+    if (!vaultAssets)
+        return std::move(vaultAssets);
 
     // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5
@@ -4743,8 +4743,8 @@ Res PaybackWithCollateral(CCustomCSView &view,
     if (!IsVaultPriceValid(view, vaultId, height)) return DeFiErrors::VaultInvalidPrice();
 
     const auto scheme = view.GetLoanScheme(vault.schemeId);
-    if (collateralsLoans.val->ratio() < scheme->ratio) return DeFiErrors::VaultInsufficientCollateralization(
-                collateralsLoans.val->ratio(), scheme->ratio);
+    if (vaultAssets.val->ratio() < scheme->ratio) return DeFiErrors::VaultInsufficientCollateralization(
+                vaultAssets.val->ratio(), scheme->ratio);
 
     if (subCollateralAmount > 0) {
         res = view.SubMintedTokens(dUsdToken->first, subCollateralAmount);

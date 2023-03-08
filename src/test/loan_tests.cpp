@@ -70,7 +70,7 @@ void CreateScheme(CCustomCSView &mnview, const std::string& name, uint32_t ratio
     mnview.StoreLoanScheme(msg);
 }
 
-extern std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
+extern std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& vaultAssets, const TAmounts& collBalances, const TAmounts& loanBalances);
 
 BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
@@ -467,7 +467,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
 BOOST_AUTO_TEST_CASE(auction_batch_creator)
 {
     {
-        CVaultAssets collLoan = {
+        CVaultAssets vaultAssets = {
             7000 * COIN, 1000 * COIN,
             {{DCT_ID{0}, 2000 * COIN}, {DCT_ID{1}, 5000 * COIN}},
             {{DCT_ID{1}, 1000 * COIN}},
@@ -480,7 +480,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
             {DCT_ID{1}, 150 * COIN},
         };
 
-        auto batches = CollectAuctionBatches(collLoan, collBalances, loanBalances);
+        auto batches = CollectAuctionBatches(vaultAssets, collBalances, loanBalances);
         BOOST_CHECK_EQUAL(batches.size(), 1);
         auto& collaterals = batches[0].collaterals.balances;
         auto& loan = batches[0].loanAmount;
@@ -498,7 +498,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
         CAmount value5 = 333.13573427 * COIN;
         CAmount value6 = 271.46557479 * COIN;
 
-        CVaultAssets collLoan = {
+        CVaultAssets vaultAssets = {
             uint64_t(value1) + value2 + value4, uint64_t(value3),
             {{DCT_ID{0}, value1}, {DCT_ID{1}, value2}, {DCT_ID{2}, value4}},
             {{DCT_ID{1}, value3}},
@@ -512,7 +512,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
             {DCT_ID{1}, value6},
         };
 
-        auto batches = CollectAuctionBatches(collLoan, collBalances, loanBalances);
+        auto batches = CollectAuctionBatches(vaultAssets, collBalances, loanBalances);
         BOOST_CHECK_EQUAL(batches.size(), 2);
         CBalances cbalances, lbalances;
         for (auto& batch : batches) {
