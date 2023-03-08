@@ -739,6 +739,11 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
         ret.push_back(signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+        // Sleep the RPC worker thread a bit, so that the node can 
+        // relay the TXs as it works through. Otherwise, the main 
+        // chain can be locked for too long that prevent broadcasting of
+        // TXs
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     return ret;
