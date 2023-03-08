@@ -3023,11 +3023,11 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         }
     }
 
-    bool eagerExit = coinSelectOpts.eagerExit;
-    if (!eagerExit) {
-        eagerExit = coinSelectOpts.fastSelect;
+    bool eagerSelect = coinSelectOpts.eagerSelect;
+    if (!eagerSelect) {
+        eagerSelect = coinSelectOpts.fastSelect;
     }
-    const auto sumAmountToSelect = eagerExit ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
+    const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
 
     if (vecSend.empty())
     {
