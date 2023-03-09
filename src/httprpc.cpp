@@ -212,6 +212,9 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
 
         // Set the URI
         jreq.URI = req->GetURI();
+        // Parse the metadata from request
+        auto func = [&](const std::string& h) { return req->GetHeader(h); };
+        RPCMetadata::FromHTTPHeader(jreq.metadata, func);
 
         std::string strReply;
         // singleton request

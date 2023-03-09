@@ -15,6 +15,7 @@ import shutil
 import sys
 import tempfile
 import time
+import re
 
 from typing import List
 from .authproxy import JSONRPCException
@@ -26,6 +27,7 @@ from .util import (
     PortSeed,
     assert_equal,
     check_json_precision,
+    connect_nodes,
     connect_nodes_bi,
     disconnect_nodes,
     get_datadir_path,
@@ -102,6 +104,25 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         self.set_test_params()
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
+
+    # Captures the chain data, does a rollback and checks data has been restored
+    def _check_rollback(self, func, *args, **kwargs):
+        init_height = self.nodes[0].getblockcount()
+        init_data = self._get_chain_data()
+        result = func(self, *args, **kwargs)
+        self.rollback_to(init_height)
+        final_data = self._get_chain_data()
+        final_height = self.nodes[0].getblockcount()
+        assert(init_data == final_data)
+        assert(init_height == final_height)
+        return result
+
+    # WARNING: This decorator uses _get_chain_data() internally which can be an expensive call if used in large test scenarios.
+    @classmethod
+    def capture_rollback_verify(cls, func):
+            def wrapper(self, *args, **kwargs):
+                return self._check_rollback(func, *args, **kwargs)
+            return wrapper
 
     def main(self):
         """Main function. This should not be overridden by the subclass test scripts."""
@@ -406,8 +427,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     # rollback one node (Default = node 0)
-    def _rollback_to(self, block, node=0):
-        node = self.nodes[node]
+    def _rollback_to(self, block, node):
         current_height = node.getblockcount()
         if current_height == block:
             return
@@ -418,11 +438,44 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # rollback to block
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
-        if nodes is None:
-            self._rollback_to(block)
-        else:
-            for node in nodes:
-                self._rollback_to(block, node=node)
+        nodes = nodes or self.nodes
+        connections = {}
+        for node in nodes:
+            nodes_connections = []
+            for x in node.getpeerinfo():
+                if not x['inbound']:
+                    node_number = re.findall(r'\d+', x['subver'])[-1]
+                    nodes_connections.append(int(node_number))
+            connections[node] = nodes_connections
+
+        for node in nodes:
+            for x in connections[node]:
+                disconnect_nodes(node, x)
+
+        for node in nodes:
+            self._rollback_to(block, node)
+
+        for node in nodes:
+            for x in connections[node]:
+                connect_nodes(node, x)
+
+    # build the data obj to be checked pre and post rollback
+    def _get_chain_data(self):
+        return [
+            self.nodes[0].logaccountbalances(),
+            self.nodes[0].logstoredinterests(),
+            self.nodes[0].listvaults(),
+            self.nodes[0].listtokens(),
+            self.nodes[0].listgovs(),
+            self.nodes[0].listmasternodes(),
+            self.nodes[0].listaccounthistory(),
+            self.nodes[0].getburninfo(),
+            self.nodes[0].getloaninfo(),
+            self.nodes[0].listanchors(),
+            self.nodes[0].listgovproposals(),
+            self.nodes[0].listburnhistory(),
+            self.nodes[0].listcommunitybalances()
+        ]
 
     def run_test(self):
         """Tests must override this method to define test logic"""

@@ -2,20 +2,10 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 #include <masternodes/validation.h>
-
+#include <masternodes/threadpool.h>
 #include <boost/asio.hpp>
 
-struct BalanceResults {
-    CAmount burntDFI{};
-    CAmount burntFee{};
-    CAmount auctionFee{};
-    CBalances burntTokens;
-    CBalances nonConsortiumTokens;
-    CBalances dexfeeburn;
-    CBalances paybackFee;
-};
-
-std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol) {
+std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
     const auto amountString = ValueFromAmount(amount.nValue).getValStr();
 
@@ -37,16 +27,20 @@ std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = 
     return amountString + "@" + tokenStr;
 }
 
-UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol) {
+UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VARR);
 
-    for (auto const & diff : diffs) {
+    for (const auto &diff : diffs) {
         obj.push_back(tokenAmountString({diff.first, diff.second}, format));
     }
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts,AmountFormat format = AmountFormat::Symbol) {
+UniValue accountToJSON(const CScript &owner,
+                       const CTokenAmount &amount,
+                       bool verbose,
+                       bool indexed_amounts,
+                       AmountFormat format = AmountFormat::Symbol) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -75,7 +69,9 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     return obj;
 }
 
-UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value, AmountFormat format = AmountFormat::Symbol) {
+UniValue accounthistoryToJSON(const AccountHistoryKey &key,
+                              const AccountHistoryValue &value,
+                              AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", ScriptToString(key.owner));
@@ -91,7 +87,12 @@ UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue
     return obj;
 }
 
-UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, RewardType type, CTokenAmount amount, AmountFormat format = AmountFormat::Id) {
+UniValue rewardhistoryToJSON(const CScript &owner,
+                             uint32_t height,
+                             DCT_ID const &poolId,
+                             RewardType type,
+                             CTokenAmount amount,
+                             AmountFormat format = AmountFormat::Id) {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("owner", ScriptToString(owner));
     obj.pushKV("blockHeight", (uint64_t) height);
@@ -109,7 +110,10 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx, AmountFormat format = AmountFormat::Symbol) {
+UniValue outputEntryToJSON(const COutputEntry &entry,
+                           const CBlockIndex *index,
+                           const CWalletTx *pwtx,
+                           AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
@@ -130,7 +134,11 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     return obj;
 }
 
-static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
+static void onPoolRewards(CCustomCSView &view,
+                          const CScript &owner,
+                          uint32_t begin,
+                          uint32_t end,
+                          std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
     CCustomCSView mnview(view);
     static const uint32_t eunosHeight = Params().GetConsensus().EunosHeight;
     view.ForEachPoolId([&] (DCT_ID const & poolId) {
@@ -163,12 +171,11 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
     });
 }
 
-static void searchInWallet(CWallet const * pwallet,
-                           CScript const & account,
+static void searchInWallet(const CWallet *pwallet,
+                           const CScript &account,
                            isminetype filter,
-                           std::function<bool(CBlockIndex const *, CWalletTx const *)> shouldSkipTx,
-                           std::function<bool(COutputEntry const &, CBlockIndex const *, CWalletTx const *)> txEntry) {
-
+                           std::function<bool(const CBlockIndex *, const CWalletTx *)> shouldSkipTx,
+                           std::function<bool(const COutputEntry &, const CBlockIndex *, const CWalletTx *)> txEntry) {
     CTxDestination destination;
     ExtractDestination(account, destination);
 
@@ -226,7 +233,7 @@ static void searchInWallet(CWallet const * pwallet,
     }
 }
 
-static CScript hexToScript(std::string const& str) {
+static CScript hexToScript(const std::string &str) {
     if (!IsHex(str)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "(" + str + ") doesn't represent a correct hex:\n");
     }
@@ -234,7 +241,7 @@ static CScript hexToScript(std::string const& str) {
     return CScript{raw.begin(), raw.end()};
 }
 
-static BalanceKey decodeBalanceKey(std::string const& str) {
+static BalanceKey decodeBalanceKey(const std::string &str) {
     const auto pair = SplitAmount(str);
     DCT_ID tokenID{};
     if (!pair.second.empty()) {
@@ -247,7 +254,7 @@ static BalanceKey decodeBalanceKey(std::string const& str) {
     return {hexToScript(pair.first), tokenID};
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValue const& values) {
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
     UniValue recipients(UniValue::VOBJ);
     for (const auto& key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
@@ -358,6 +365,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
+
     mnview.ForEachAccount([&](CScript const & account) {
 
         if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
@@ -457,19 +466,21 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
 
-    mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-        if (owner != reqOwner) {
-            return false;
-        }
+    mnview.ForEachBalance(
+        [&](const CScript &owner, CTokenAmount balance) {
+            if (owner != reqOwner) {
+                return false;
+            }
 
-        if (indexed_amounts)
-            ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
-        else
-            ret.push_back(tokenAmountString(balance));
+            if (indexed_amounts)
+                ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+            else
+                ret.push_back(tokenAmountString(balance));
 
-        limit--;
-        return limit != 0;
-    }, BalanceKey{reqOwner, start});
+            limit--;
+            return limit != 0;
+        },
+        BalanceKey{reqOwner, start});
     return GetRPCResultCache().Set(request, ret);
 }
 
@@ -548,6 +559,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CBalances totalBalances;
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
+
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -789,7 +802,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    UniValue const & txInputs = request.params[2];
+    const UniValue &txInputs = request.params[2];
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
@@ -895,7 +908,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // auth
-    UniValue const & txInputs = request.params[2];
+    const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
@@ -940,12 +953,14 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 
 class CScopeAccountReverter {
     CCustomCSView & view;
-    CScript const & owner;
-    TAmounts const & balances;
+    const CScript &owner;
+    const TAmounts &balances;
 
 public:
-    CScopeAccountReverter(CCustomCSView & view, CScript const & owner, TAmounts const & balances)
-        : view(view), owner(owner), balances(balances) {}
+    CScopeAccountReverter(CCustomCSView &view, const CScript &owner, const TAmounts &balances)
+        : view(view),
+          owner(owner),
+          balances(balances) {}
 
     ~CScopeAccountReverter() {
         for (const auto& balance : balances) {
@@ -1152,9 +1167,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             start++;
     }
 
-    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
-        return true;
-    };
+    std::function<bool(const CScript &)> isMatchOwner = [](const CScript &) { return true; };
 
     std::string accounts = "mine";
     if (request.params.size() > 0) {
@@ -1184,7 +1197,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+    auto hasToken = [&tokenFilter](const TAmounts &diffs) {
         for (auto const & diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1218,7 +1231,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         else
             isMatchOwner = [](const CScript &owner) { return true; };
 
-        auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
+        auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
             if (!isMatchOwner(key.owner)) {
                 return false;
             }
@@ -1299,7 +1312,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!noRewards && !account.empty()) {
             // revert previous tx to restore account balances to maxBlockHeight
             paccountHistoryDB->ForEachAccountHistory(
-                [&](AccountHistoryKey const &key, AccountHistoryValue const &value) {
+                [&](const AccountHistoryKey &key, const AccountHistoryValue &value) {
                     if (maxBlockHeight > key.blockHeight) {
                         return false;
                     }
@@ -1320,11 +1333,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 pwallet,
                 account,
                 filter,
-                [&](CBlockIndex const *index, CWalletTx const *pwtx) {
+                [&](const CBlockIndex *index, const CWalletTx *pwtx) {
                     uint32_t height = index->nHeight;
                     return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
                 },
-                [&](COutputEntry const &entry, CBlockIndex const *index, CWalletTx const *pwtx) {
+                [&](const COutputEntry &entry, const CBlockIndex *index, const CWalletTx *pwtx) {
                     uint32_t height = index->nHeight;
                     uint32_t nIndex = pwtx->nIndex;
                     if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn) {
@@ -1475,13 +1488,11 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         }
     }
 
-    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
-        return true;
-    };
+    std::function<bool(const CScript &)> isMatchOwner = [](const CScript &) { return true; };
 
     std::set<uint256> txs;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+    auto hasToken = [&tokenFilter](const TAmounts &diffs) {
         for (auto const & diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1507,8 +1518,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 
     auto count = limit;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool
-    {
+    auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
         }
@@ -1662,7 +1672,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+    auto hasToken = [&tokenFilter](const TAmounts &diffs) {
         for (auto const & diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1683,7 +1693,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         auto lastHeight          = uint32_t(::ChainActive().Height());
         const auto currentHeight = lastHeight;
 
-        auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
+        auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
             if (!owner.empty() && owner != key.owner) {
                 return false;
             }
@@ -1739,10 +1749,10 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 pwallet,
                 owner,
                 filter,
-                [&](CBlockIndex const *index, CWalletTx const *pwtx) {
+                [&](const CBlockIndex *index, const CWalletTx *pwtx) {
                     return txs.count(pwtx->GetHash()) || static_cast<uint32_t>(index->nHeight) > currentHeight;
                 },
-                [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
+                [&count](const COutputEntry &, const CBlockIndex *, const CWalletTx *) {
                     ++count;
                     return true;
                 });
@@ -1947,19 +1957,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    auto initialResult = GetMemoizedResultCache().GetOrDefault(request);
+    auto totalResult = std::get_if<CGetBurnInfoResult>(&initialResult.data);
 
-    CAmount burntDFI{0};
-    CAmount burntFee{0};
-    CAmount auctionFee{0};
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
 
-    CBalances burntTokens;
     CBalances consortiumTokens;
-    CBalances nonConsortiumTokens;
-    CBalances dexfeeburn;
     CBalances paybackfees;
-    CBalances paybackFee;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
     CBalances dfipaybacktokens;
@@ -1968,6 +1973,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto height = ::ChainActive().Height();
+    auto hash = ::ChainActive().Tip()->GetBlockHash();
     auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
@@ -2003,135 +2009,146 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    const auto nWorkers = RewardConsolidationWorkersCount();
-    const auto currentHeight = ChainActive().Height();
-    const auto chunks = currentHeight / nWorkers;
-    const auto chunksRemainder = currentHeight % nWorkers;
+    auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+    if (static_cast<size_t>(height) < nWorkers) {
+        nWorkers = height;
+    }
 
-    std::vector<std::shared_ptr<BalanceResults>> workerResults;
-    boost::asio::thread_pool workerPool{nWorkers};
+    const auto chunkSize = height / nWorkers;
 
-    for (size_t i{}; i < nWorkers; ++i) {
-        uint32_t startHeight = (i + 1) * chunks;
-        uint32_t stopHeight = startHeight - chunks;
+    TaskGroup g;
+    BufferPool<CGetBurnInfoResult> resultsPool{nWorkers};
 
-        if (i + 1 == nWorkers) {
-            startHeight += chunksRemainder;
-            stopHeight -= chunksRemainder;
-        }
+    auto &pool = DfTxTaskPool->pool;
+    auto processedHeight = initialResult.height;
+    auto i               = 0;
+    while (processedHeight < height)
+    {
+        auto startHeight = initialResult.height + (chunkSize * (i + 1));
+        auto stopHeight  = initialResult.height + (chunkSize * (i));
 
-        auto result = std::make_shared<BalanceResults>();
-        workerResults.push_back(result);
+        g.AddTask();
+        boost::asio::post(pool, [startHeight, stopHeight, &g, &resultsPool] {
+            auto currentResult = resultsPool.Acquire();
 
-        boost::asio::post(workerPool, [result, startHeight, stopHeight]{
-            pburnHistoryDB->ForEachAccountHistory([result, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
-
-                // Stop on chunk range for worker
-                if (key.blockHeight <= stopHeight) {
-                    return false;
-                }
-
-                // UTXO burn
-                if (value.category == uint8_t(CustomTxType::None)) {
-                    for (auto const & diff : value.diff) {
-                        result->burntDFI += diff.second;
+            pburnHistoryDB->ForEachAccountHistory(
+                [currentResult, stopHeight](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                    // Stop on chunk range for worker
+                    if (key.blockHeight <= stopHeight) {
+                        return false;
                     }
-                    return true;
-                }
 
-                // Fee burn
-                if (value.category == uint8_t(CustomTxType::CreateMasternode)
-                    || value.category == uint8_t(CustomTxType::CreateToken)
-                    || value.category == uint8_t(CustomTxType::Vault)
-                    || value.category == uint8_t(CustomTxType::CreateCfp)
-                    || value.category == uint8_t(CustomTxType::CreateVoc)) {
-                    for (auto const & diff : value.diff) {
-                        result->burntFee += diff.second;
+                    // UTXO burn
+                    if (value.category == uint8_t(CustomTxType::None)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->burntDFI += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // withdraw burn
-                if (value.category == uint8_t(CustomTxType::PaybackLoan)
-                    || value.category == uint8_t(CustomTxType::PaybackLoanV2)
-                    || value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
-                    for (const auto& [id, amount] : value.diff) {
-                        result->paybackFee.Add({id, amount});
+                    // Fee burn
+                    if (value.category == uint8_t(CustomTxType::CreateMasternode) ||
+                        value.category == uint8_t(CustomTxType::CreateToken) ||
+                        value.category == uint8_t(CustomTxType::Vault) ||
+                        value.category == uint8_t(CustomTxType::CreateCfp) ||
+                        value.category == uint8_t(CustomTxType::CreateVoc)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->burntFee += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // auction burn
-                if (value.category == uint8_t(CustomTxType::AuctionBid)) {
-                    for (auto const & diff : value.diff) {
-                        result->auctionFee += diff.second;
+                    // withdraw burn
+                    if (value.category == uint8_t(CustomTxType::PaybackLoan) ||
+                        value.category == uint8_t(CustomTxType::PaybackLoanV2) ||
+                        value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
+                        for (const auto &[id, amount] : value.diff) {
+                            currentResult->paybackFee.Add({id, amount});
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // dex fee burn
-                if (value.category == uint8_t(CustomTxType::PoolSwap)
-                    ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
-                    for (auto const & diff : value.diff) {
-                        result->dexfeeburn.Add({diff.first, diff.second});
+                    // auction burn
+                    if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->auctionFee += diff.second;
+                        }
+                        return true;
                     }
-                    return true;
-                }
 
-                // token burn with burnToken tx
-                if (value.category == uint8_t(CustomTxType::BurnToken))
-                {
-                    for (auto const & diff : value.diff) {
-                        result->nonConsortiumTokens.Add({diff.first, diff.second});
+                    // dex fee burn
+                    if (value.category == uint8_t(CustomTxType::PoolSwap) ||
+                        value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->dexfeeburn.Add({diff.first, diff.second});
+                        }
+                        return true;
                     }
+
+                    // token burn with burnToken tx
+                    if (value.category == uint8_t(CustomTxType::BurnToken)) {
+                        for (auto const &diff : value.diff) {
+                            currentResult->nonConsortiumTokens.Add({diff.first, diff.second});
+                        }
+                        return true;
+                    }
+
+                    // Token burn
+                    for (auto const &diff : value.diff) {
+                        currentResult->burntTokens.Add({diff.first, diff.second});
+                    }
+
                     return true;
-                }
+                },
+                {},
+                startHeight,
+                std::numeric_limits<uint32_t>::max());
 
-                // Token burn
-                for (auto const & diff : value.diff) {
-                    result->burntTokens.Add({diff.first, diff.second});
-                }
-
-                return true;
-            }, {}, startHeight, std::numeric_limits<uint32_t>::max());
+            resultsPool.Release(currentResult);
+            g.RemoveTask();
         });
+
+        // perfect accuracy: processedHeight += (startHeight > height) ? chunksRemainder : chunkSize;
+        processedHeight += chunkSize;
+        i++;
     }
 
-    workerPool.join();
+    g.WaitForCompletion();
 
-    for (const auto &result : workerResults) {
-        burntDFI += result->burntDFI;
-        burntFee += result->burntFee;
-        auctionFee += result->auctionFee;
-        burntTokens.AddBalances(result->burntTokens.balances);
-        nonConsortiumTokens.AddBalances(result->nonConsortiumTokens.balances);
-        dexfeeburn.AddBalances(result->dexfeeburn.balances);
-        paybackFee.AddBalances(result->paybackFee.balances);
+    for (const auto &r : resultsPool.GetBuffer()) {
+        totalResult->burntDFI += r->burntDFI;
+        totalResult->burntFee += r->burntFee;
+        totalResult->auctionFee += r->auctionFee;
+        totalResult->burntTokens.AddBalances(r->burntTokens.balances);
+        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
+        totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
+        totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
+
+    GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
     CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
 
-    for (auto const & token: nonConsortiumTokens.balances)
-    {
+    for (const auto &token : totalResult->nonConsortiumTokens.balances) {
         TAmounts amount;
         amount[token.first] = balances[token.first].burnt;
         consortiumTokens.AddBalances(amount);
     }
 
-    nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    burntTokens.AddBalances(nonConsortiumTokens.balances);
+    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
-    result.pushKV("amount", ValueFromAmount(burntDFI));
+    result.pushKV("amount", ValueFromAmount(totalResult->burntDFI));
 
-    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("tokens", AmountsToJSON(totalResult->burntTokens.balances));
     result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
-    result.pushKV("feeburn", ValueFromAmount(burntFee));
-    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));
-    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+    result.pushKV("feeburn", ValueFromAmount(totalResult->burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(totalResult->auctionFee));
+    result.pushKV("paybackburn", AmountsToJSON(totalResult->paybackFee.balances));
+    result.pushKV("dexfeetokens", AmountsToJSON(totalResult->dexfeeburn.balances));
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
@@ -2146,7 +2163,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return GetRPCResultCache()
         .Set(request, result);
 }
-
 
 UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
@@ -2621,7 +2637,7 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
 
     std::map<std::string, std::vector<CTokenAmount>> accounts;
     size_t count{};
-    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+    pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
         ++count;
         auto ownerStr = ScriptToString(owner);
         if (outToLog)

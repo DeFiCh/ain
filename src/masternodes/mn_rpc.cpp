@@ -19,6 +19,8 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
+
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(account, targetHeight);
@@ -108,7 +110,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control, const CoinSelectionOptions &coinSelectOpts) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
@@ -290,7 +292,7 @@ std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth, const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault()) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -300,7 +302,8 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
 
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
-
+    
+    // Note, for auth, we call this with 1 as max count, so should early exit
     pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
 
     if (vecOutputs.empty()) {
@@ -379,7 +382,7 @@ static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwal
     return {};
 }
 
-std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs, const CoinSelectionOptions &coinSelectOpts) {
 
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -396,7 +399,10 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         if (IsMineCached(*pwallet, auth) != ISMINE_SPENDABLE) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
-        auto authInput = GetAuthInputOnly(pwallet, destination);
+        auto authInput = GetAuthInputOnly(
+            pwallet, 
+            destination, 
+            coinSelectOpts);
         if (authInput) {
             result.push_back(authInput.value());
         }
@@ -551,8 +557,17 @@ UniValue setgov(const JSONRPCRequest& request) {
                 const auto attrMap = attributes->GetAttributesMap();
                 for (const auto& [key, value] : attrMap) {
                     if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                        if (attrV0->type == AttributeTypes::Consortium && (attrV0->typeId == 0 || pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI or loan tokens");
+                        DCT_ID tokenID{attrV0->typeId};
+                        if (attrV0->type == AttributeTypes::Consortium) {
+                            bool isDAT{};
+                            if (auto token = pcustomcsview->GetToken(tokenID)) {
+                                isDAT = token->IsDAT();
+                            }
+
+                            if (attrV0->typeId == 0 ||
+                                !isDAT ||
+                                pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                                throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
                     }
                 }
@@ -743,6 +758,32 @@ UniValue setgovheight(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
         }
         varStream << name << *gv;
+
+        if (name == "ATTRIBUTES") {
+            const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!attributes) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
+            }
+
+            LOCK(cs_main);
+            const auto attrMap = attributes->GetAttributesMap();
+            for (const auto& [key, value] : attrMap) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
+                    DCT_ID tokenID{attrV0->typeId};
+                    if (attrV0->type == AttributeTypes::Consortium) {
+                        bool isDAT{};
+                        if (auto token = pcustomcsview->GetToken(tokenID)) {
+                            isDAT = token->IsDAT();
+                        }
+
+                        if (attrV0->typeId == 0 ||
+                            !isDAT ||
+                            pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
+                    }
+                }
+            }
+        }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
     }

@@ -36,7 +36,9 @@ Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    Require(balance.Add(amount.nValue));
+    if (const auto res = balance.Add(amount.nValue); !res) {
+        return res;
+    }
     return SetBalance(owner, balance);
 }
 
@@ -45,7 +47,9 @@ Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    Require(balance.Sub(amount.nValue));
+    if (const auto res = balance.Sub(amount.nValue); !res) {
+        return res;
+    }
     return SetBalance(owner, balance);
 }
 
