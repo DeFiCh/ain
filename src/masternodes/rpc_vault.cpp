@@ -50,7 +50,7 @@ namespace {
             return false;
 
         bool useNextPrice = true, requireLivePrice = false;
-        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
+        auto vaultRate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
         if (!vaultRate)
             return false;
 
@@ -136,7 +136,7 @@ namespace {
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
 
-        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+        if (auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -228,7 +228,7 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+            if (auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
@@ -1663,7 +1663,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
 
     auto height = ::ChainActive().Height();
     auto blockTime = ::ChainActive().Tip()->GetBlockTime();
-    auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, true);
+    auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, false, true);
     if (!rate.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
     }
@@ -1837,7 +1837,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
     LOCK(cs_main);
     auto height = (uint32_t) ::ChainActive().Height();
 
-    CCollateralLoans result{};
+    CVaultAssets result{};
 
     for (const auto& collateral : collateralBalances.balances) {
         auto collateralToken = pcustomcsview->HasLoanCollateralToken({collateral.first, height});

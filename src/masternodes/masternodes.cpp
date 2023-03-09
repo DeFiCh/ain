@@ -972,17 +972,17 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-double CCollateralLoans::calcRatio(uint64_t maxRatio) const {
+double CVaultAssets::calcRatio(uint64_t maxRatio) const {
     return !totalLoans ? double(maxRatio) : double(totalCollaterals) / totalLoans;
 }
 
-uint32_t CCollateralLoans::ratio() const {
+uint32_t CVaultAssets::ratio() const {
     constexpr auto maxRatio = std::numeric_limits<uint32_t>::max();
     auto ratio              = calcRatio(maxRatio) * 100;
     return ratio > maxRatio ? maxRatio : uint32_t(lround(ratio));
 }
 
-CAmount CCollateralLoans::precisionRatio() const {
+CAmount CVaultAssets::precisionRatio() const {
     constexpr auto maxRatio = std::numeric_limits<CAmount>::max();
     auto ratio              = calcRatio(maxRatio);
     const auto precision    = COIN * 100;
@@ -1006,7 +1006,7 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
     return {amountInCurrency, Res::Ok()};
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vaultId,
+ResVal<CVaultAssets> CCustomCSView::GetVaultAssets(const CVaultId &vaultId,
                                                            const CBalances &collaterals,
                                                            uint32_t height,
                                                            int64_t blockTime,
@@ -1018,7 +1018,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vault
     if (vault->isUnderLiquidation)
         return DeFiErrors::VaultUnderLiquidation();
 
-    CCollateralLoans result{};
+    CVaultAssets result{};
 
     if (auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice); !res)
         return res;
@@ -1059,7 +1059,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     return {price, Res::Ok()};
 }
 
-Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
+Res CCustomCSView::PopulateLoansData(CVaultAssets &result,
                                      const CVaultId &vaultId,
                                      uint32_t height,
                                      int64_t blockTime,
@@ -1096,7 +1096,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
     return Res::Ok();
 }
 
-Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
+Res CCustomCSView::PopulateCollateralData(CVaultAssets &result,
                                           const CVaultId &vaultId,
                                           const CBalances &collaterals,
                                           uint32_t height,
