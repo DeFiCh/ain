@@ -1,4 +1,4 @@
-name: Full Sync Tests
+name: Tests - Sync
 on:
   pull_request:
     branches:

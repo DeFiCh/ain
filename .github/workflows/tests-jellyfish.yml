@@ -1,4 +1,4 @@
-name: Jellyfish Tests
+name: Tests - Jellyfish
 
 on:
   push:
