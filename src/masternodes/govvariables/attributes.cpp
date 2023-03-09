@@ -1107,7 +1107,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
-                    auto decimalStr = GetDecimaleString(*amount);
+                    auto decimalStr = GetDecimalString(*amount);
                     rtrim(decimalStr, '0');
                     if (decimalStr.back() == '.') {
                         decimalStr.pop_back();
@@ -1568,7 +1568,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                         Require(factor, []{ return "Unexpected type"; });
                         Require(*factor < *ratio.begin() * CENT, [=]{ return strprintf(
                                 "Factor cannot be more than or equal to the lowest scheme rate of %d\n",
-                                GetDecimaleString(*ratio.begin() * CENT)); });
+                                GetDecimalString(*ratio.begin() * CENT)); });
                     }
                 }
             }

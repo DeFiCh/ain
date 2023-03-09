@@ -1702,7 +1702,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
             totalSplit += split;
         }
         if (totalSplit != COIN)
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimalString(totalSplit), GetDecimalString(COIN)));
     }
     auto res = AmountsToJSON(loanBalances.balances);
     return GetRPCResultCache().Set(request, res);
@@ -1795,7 +1795,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         totalSplit += split;
     }
     if (totalSplit != COIN) {
-        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimalString(totalSplit), GetDecimalString(COIN)));
     }
 
     auto res = AmountsToJSON(collateralBalances.balances);
