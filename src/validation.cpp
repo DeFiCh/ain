@@ -3401,7 +3401,9 @@ void CChainState::PruneBlockIndexCandidates() {
         setBlockIndexCandidates.erase(it++);
     }
     // Either the current tip or a successor of it we're working towards is left in setBlockIndexCandidates.
-    assert(!setBlockIndexCandidates.empty());
+    if (setBlockIndexCandidates.empty()) {
+        throw std::runtime_error("ERROR:: Data corruption detected. Please resync or use a snapshot");
+    }
 //    LogPrintf("TRACE PruneBlockIndexCandidates() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
 }
 
