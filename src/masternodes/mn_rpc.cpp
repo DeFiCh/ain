@@ -132,7 +132,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     // we does not honor non locking spends anymore
     // it ensures auto auth not overlap regular tx inputs
     const bool lockUnspents = true;
-    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
+    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl, coinSelectOpts)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
     for (auto& txin : mtx.vin) {
@@ -304,7 +304,7 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
     
     // Note, for auth, we call this with 1 as max count, so should early exit
-    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
+    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1, coinSelectOpts);
 
     if (vecOutputs.empty()) {
         return {};
