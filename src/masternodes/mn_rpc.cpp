@@ -132,7 +132,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     // we does not honor non locking spends anymore
     // it ensures auto auth not overlap regular tx inputs
     const bool lockUnspents = true;
-    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
+    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl, coinSelectOpts)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
     for (auto& txin : mtx.vin) {
