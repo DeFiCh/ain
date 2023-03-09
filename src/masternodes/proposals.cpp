@@ -103,7 +103,7 @@ std::optional<CProposalObject> CProposalView::GetProposal(const CProposalId &pro
     return prop;
 }
 
-Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle) {
+Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle, bool shouldUpdateVotingPeriod) {
     auto key    = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
     if (!pcycle)
@@ -119,27 +119,29 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
     bool emergency = prop->options & CProposalOption::Emergency;
     auto type      = static_cast<CProposalType>(prop->type);
 
-    auto currentVotingPeriod = GetVotingPeriodFromAttributes();
-    if (currentVotingPeriod != prop->votingPeriod) {
-        uint8_t i   = 0;
-        auto cycles = prop->nCycles;
-        auto ckey   = std::make_pair(prop->creationHeight, propId);
-        for (auto it = LowerBound<ByCycle>(ckey); i < cycles && it.Valid(); it.Next()) {
-            if (it.Key().second == propId) {
-                EraseBy<ByCycle>(it.Key());
-                ++i;
+    if (shouldUpdateVotingPeriod) {
+        auto currentVotingPeriod = GetVotingPeriodFromAttributes();
+        if (currentVotingPeriod != prop->votingPeriod) {
+            uint8_t i   = 0;
+            auto cycles = prop->nCycles;
+            auto ckey   = std::make_pair(prop->creationHeight, propId);
+            for (auto it = LowerBound<ByCycle>(ckey); i < cycles && it.Valid(); it.Next()) {
+                if (it.Key().second == propId) {
+                    EraseBy<ByCycle>(it.Key());
+                    ++i;
+                }
             }
-        }
 
-        auto height        = prop->cycleEndHeight;
-        prop->votingPeriod = currentVotingPeriod;
-        height             = height + (prop->votingPeriod - height % prop->votingPeriod);
-        for (uint8_t i = prop->cycle; i <= prop->nCycles; ++i) {
-            height += prop->votingPeriod;
-            auto keyPair = std::make_pair(height, propId);
-            WriteBy<ByCycle>(keyPair, i);
+            auto height        = prop->cycleEndHeight;
+            prop->votingPeriod = currentVotingPeriod;
+            height             = height + (prop->votingPeriod - height % prop->votingPeriod);
+            for (uint8_t i = prop->cycle; i <= prop->nCycles; ++i) {
+                height += prop->votingPeriod;
+                auto keyPair = std::make_pair(height, propId);
+                WriteBy<ByCycle>(keyPair, i);
+            }
+            prop->proposalEndHeight = height;
         }
-        prop->proposalEndHeight = height;
     }
 
     // Update values from attributes on each cycle

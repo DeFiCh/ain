@@ -141,7 +141,7 @@ public:
                        const CCreateProposalMessage &prop,
                        const CAmount fee);
     std::optional<CProposalObject> GetProposal(const CProposalId &propId);
-    Res UpdateProposalCycle(const CProposalId &propId, uint8_t cycle);
+    Res UpdateProposalCycle(const CProposalId &propId, uint8_t cycle, bool shouldUpdateVotingPeriod);
     Res UpdateProposalStatus(const CProposalId &propId, uint32_t height, CProposalStatusType status);
     Res AddProposalVote(const CProposalId &propId, const uint256 &masternodeId, CProposalVoteType vote);
     std::optional<CProposalVoteType> GetProposalVote(const CProposalId &propId,

@@ -2286,7 +2286,8 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
             cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
         } else {
             assert(prop.nCycles > prop.cycle);
-            cache.UpdateProposalCycle(propId, prop.cycle + 1);
+            auto shouldUpdateVotingPeriod = pindex->nHeight >= static_cast<uint32_t>(chainparams.GetConsensus().NextNetworkUpgradeHeight);
+            cache.UpdateProposalCycle(propId, prop.cycle + 1, shouldUpdateVotingPeriod);
         }
 
         CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
