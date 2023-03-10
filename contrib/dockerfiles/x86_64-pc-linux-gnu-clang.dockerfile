@@ -13,6 +13,12 @@ RUN apt update && apt install -y apt-transport-https
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm_ubuntu_18_04
 
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add x86_64-unknown-linux-gnu
+
 # -----------
 FROM builder-base as depends-builder
 ARG TARGET

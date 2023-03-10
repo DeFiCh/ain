@@ -103,6 +103,16 @@ You can monitor the download process by looking at the debug.log file:
 tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 ```
 
+## Installing the rust toolchain (MacOS M1)
+```shell
+# default installation
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+# custom installation
+curl https://sh.rustup.rs -sSf | sh
+PATH=$PATH:~/.cargo/bin/cargo
+rustup target add aarch64-apple-darwin
+```
+
 ## Other commands:
 ```shell
 ./src/defid -daemon      # Starts the defi daemon.
