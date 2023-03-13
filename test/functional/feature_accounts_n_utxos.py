@@ -116,7 +116,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         # Only technically supported for DFI as accounttoutxxos blocks non-DFI transfers
         #========================
         assert_raises_rpc_error(-4, "Unexpected token type set for recipient. Only native DFI token type expected.", self.nodes[0].utxostoaccount, {toGold: "100@" + symbolGOLD})
-        
+
         # missing amount
         try:
             self.nodes[0].utxostoaccount({toGold: ""}, [])
