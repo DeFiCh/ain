@@ -1,0 +1,24 @@
+syntax = "proto3";
+package types;
+
+message EthAccountsResult {
+    repeated string accounts = 1; // Accounts
+}
+
+message EthCallInfo {
+    optional string from = 1; // The address from which the transaction is sent
+    optional string to = 2; // The address to which the transaction is addressed
+    optional uint64 gas = 3; // The integer of gas provided for the transaction execution
+    optional uint64 price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
+    optional uint64 value = 5; // The integer of value sent with this transaction encoded as hexadecimal
+    optional string data = 6; // The hash of the method signature and encoded parameters.
+}
+
+message EthCallInput {
+    EthCallInfo callinfo = 1; // Call info
+    string blocknumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+}
+
+message EthCallResult {
+    bytes data = 1; // The return value of the executed contract method 
+}

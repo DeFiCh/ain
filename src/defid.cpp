@@ -21,6 +21,8 @@
 #include <util/threadnames.h>
 #include <util/translation.h>
 
+#include <libain_grpc.h>
+
 #include <functional>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -64,6 +66,9 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
+    init_runtime();
+
+    start_servers("127.0.0.1:50050", "127.0.0.1:50051");
 
     //
     // Parameters
@@ -176,6 +181,8 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
+
+    stop_runtime();
 
     return fRet;
 }
