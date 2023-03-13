@@ -887,7 +887,6 @@ static bool AppInitServers()
         return false;
     if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE)) StartREST();
     StartHTTPServer();
-    hello_sputnik_vm();
     return true;
 }
 
