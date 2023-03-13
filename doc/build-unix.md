@@ -83,6 +83,10 @@ Now, you can either build from self-compiled [depends](/depends/README.md) or in
 
     sudo apt-get install libssl-dev libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev
 
+Rust toolchain is necessary for the build:
+
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
 BerkeleyDB is required for the wallet.
 
 Ubuntu and Debian have their own `libdb-dev` and `libdb++-dev` packages, but these will install

@@ -24,6 +24,11 @@ Then install [Homebrew](https://brew.sh).
 brew install automake berkeley-db@4 libtool boost miniupnpc openssl pkg-config protobuf python libevent qrencode
 ```
 
+Rust toolchain is necessary for the build:
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
 See [dependencies.md](dependencies.md) for a complete overview.
 
 If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG:
