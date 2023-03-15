@@ -750,7 +750,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         // relay the TXs as it works through. Otherwise, the main 
         // chain can be locked for too long that prevent broadcasting of
         // TXs
-        std::this_thread::sleep_for(std::chrono::seconds(0.5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     return ret;
