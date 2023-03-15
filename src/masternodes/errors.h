@@ -128,6 +128,206 @@ public:
     static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) { 
         return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price)); 
     }
+
+    static Res GovVarVerifyInt() {
+        return Res::Err("Value must be an integer");
+    }
+
+    static Res GovVarVerifyPositiveNumber() {
+        return Res::Err("Value must be a positive integer");
+    }
+
+    static Res GovVarInvalidNumber() {
+        return Res::Err("Amount must be a valid number");
+    }
+
+    static Res GovVarVerifySplitValues() {
+        return Res::Err("Two int values expected for split in id/mutliplier");
+    }
+
+    static Res GovVarVerifyMultiplier() {
+        return Res::Err("Mutliplier cannot be zero");
+    }
+
+    static Res GovVarVerifyPair() {
+        return Res::Err("Exactly two entires expected for currency pair");
+    }
+
+    static Res GovVarVerifyValues() {
+        return Res::Err("Empty token / currency");
+    }
+
+    static Res GovVarVerifyFeeDirection() {
+        return Res::Err("Fee direction value must be both, in or out");
+    }
+
+    static Res GovVarVariableLength() {
+        return Res::Err("Identifier exceeds maximum length (128)");
+    }
+
+    static Res GovVarVariableNoVersion() {
+        return Res::Err("Empty version");
+    }
+
+    static Res GovVarUnsupportedVersion() {
+        return Res::Err("Unsupported version");
+    }
+
+    static Res GovVarVariableNumberOfKey() {
+        return Res::Err("Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
+    }
+
+    static Res GovVarVariableInvalidKey(const std::string &key, const std::map<std::string, uint8_t> &keys) {
+        std::string error{"Unrecognised " + key + " argument provided, valid " + key + "s are:"};
+        for (const auto &pair : keys) {
+            error += ' ' + pair.first + ',';
+        }
+        return Res::Err(error);
+    }
+
+    static Res GovVarVariableUnsupportedType(const unsigned char type) {
+        return Res::Err("Unsupported type {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedDFIPType(const unsigned char type) {
+        return Res::Err("Unsupported type for DFIP2206A {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedFeatureType(const unsigned char type) {
+        return Res::Err("Unsupported type for Feature {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedFoundationType(const unsigned char type) {
+        return Res::Err("Unsupported type for Foundation {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedProposalType(const unsigned char type) {
+        return Res::Err("Unsupported key for Governance Proposal section - {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedParamType() {
+        return Res::Err("Unsupported Param ID");
+    }
+
+    static Res GovVarVariableUnsupportedGovType() {
+        return Res::Err("Unsupported Governance ID");
+    }
+
+    static Res GovVarVariableKeyCount(const uint32_t expected, const std::vector<std::string> &keys) {
+        return Res::Err("Exact %d keys are required {%d}", expected, keys.size());
+    }
+
+    static Res GovVarImportObjectExpected() {
+        return Res::Err("Object of values expected");
+    }
+
+    static Res GovVarValidateFortCanningHill() {
+        return Res::Err("Cannot be set before FortCanningHill");
+    }
+
+    static Res GovVarValidateFortCanningEpilogue() {
+        return Res::Err("Cannot be set before FortCanningEpilogue");
+    }
+
+    static Res GovVarValidateFortCanningRoad() {
+        return Res::Err("Cannot be set before FortCanningRoad");
+    }
+
+    static Res GovVarValidateFortCanningCrunch() {
+        return Res::Err("Cannot be set before FortCanningCrunch");
+    }
+
+    static Res GovVarValidateFortCanningSpring() {
+        return Res::Err("Cannot be set before FortCanningSpringHeight");
+    }
+
+    static Res GovVarValidateToken(const uint32_t token) {
+        return Res::Err("No such token (%d)", token);
+    }
+
+    static Res GovVarValidateTokenExist(const uint32_t token) {
+        return Res::Err("Token (%d) does not exist", token);
+    }
+
+    static Res GovVarValidateLoanToken(const uint32_t token) {
+        return Res::Err("No such loan token (%d)", token);
+    }
+
+    static Res GovVarValidateLoanTokenID(const uint32_t token) {
+        return Res::Err("No loan token with id (%d)", token);
+    }
+
+    static Res GovVarValidateExcessAmount() {
+        return Res::Err("Percentage exceeds 100%%");
+    }
+
+    static Res GovVarValidateNegativeAmount() {
+        return Res::Err("Amount must be a positive value");
+    }
+
+    static Res GovVarValidateCurrencyPair() {
+        return Res::Err("Fixed interval price currency pair must be set first");
+    }
+
+    static Res GovVarUnsupportedValue() {
+        return Res::Err("Unsupported value");
+    }
+
+    static Res GovVarValidateUnsupportedKey() {
+        return Res::Err("Unsupported key");
+    }
+
+    static Res GovVarValidateSplitDFI() {
+        return Res::Err("Tokenised DFI cannot be split");
+    }
+
+    static Res GovVarValidateSplitPool() {
+        return Res::Err("Pool tokens cannot be split");
+    }
+
+    static Res GovVarValidateSplitDAT() {
+        return Res::Err("Only DATs can be split");
+    }
+
+    static Res GovVarApplyUnexpectedType() {
+        return Res::Err("Unexpected type");
+    }
+
+    static Res GovVarApplyInvalidPool(const uint32_t pool) {
+        return Res::Err("No such pool (%d)", pool);
+    }
+
+    static Res GovVarApplyInvalidFactor(const CAmount ratio) {
+        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %s", GetDecimalString(ratio * CENT));
+    }
+
+    static Res GovVarApplyDFIPActive(const std::string &str) {
+        return Res::Err("Cannot set block period while %s is active", str);
+    }
+
+    static Res GovVarApplyBelowHeight() {
+        return Res::Err("Cannot be set at or below current height");
+    }
+
+    static Res GovVarApplyAutoNoToken(const uint32_t token) {
+        return Res::Err("Auto lock. No loan token with id (%d)", token);
+    }
+
+    static Res GovVarApplyLockFail() {
+        return Res::Err("Failed to create Gov var for lock");
+    }
+
+    static Res GovVarApplyCastFail() {
+        return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+    }
+
+    static Res GovVarEraseLive() {
+        return Res::Err("Live attribute cannot be deleted");
+    }
+
+    static Res GovVarEraseNonExist(const uint32_t type) {
+        return Res::Err("Attribute {%d} not exists", type);
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H
