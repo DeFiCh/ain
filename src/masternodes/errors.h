@@ -298,11 +298,11 @@ public:
     }
 
     static Res GovVarApplyInvalidFactor(const CAmount ratio) {
-        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d", GetDecimalString(ratio * CENT));
+        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %s", GetDecimalString(ratio * CENT));
     }
 
     static Res GovVarApplyDFIPActive(const std::string &str) {
-        return Res::Err("Cannot set block period while %d is active", str);
+        return Res::Err("Cannot set block period while %s is active", str);
     }
 
     static Res GovVarApplyBelowHeight() {
