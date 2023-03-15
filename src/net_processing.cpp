@@ -83,14 +83,8 @@ static_assert(INBOUND_PEER_TX_DELAY >= MAX_GETDATA_RANDOM_DELAY,
 /** Limit to avoid sending big packets. Not used in processing incoming GETDATA for compatibility */
 static const unsigned int MAX_GETDATA_SZ = 1000;
 
-/** The maximum rate of address records we're willing to process on average. Can be bypassed using
- *  the NetPermissionFlags::Addr permission. */
-static constexpr double MAX_ADDR_RATE_PER_SECOND{0.1};
-
-/** The soft limit of the address processing token bucket (the regular MAX_ADDR_RATE_PER_SECOND
- *  based increments won't go above this, but the MAX_ADDR_TO_SEND increment following GETADDR
- *  is exempt from this limit. */
-static constexpr size_t MAX_ADDR_PROCESSING_TOKEN_BUCKET{MAX_ADDR_TO_SEND};
+double maxAddrRatePerSecond;
+size_t maxAddrProcessingTokenBucket;
 
 
 struct COrphanTx {
@@ -2272,10 +2266,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         // Update/increment addr rate limiting bucket.
         const uint64_t nCurrentTime = GetTimeMicros();
-        if (pfrom->nAddrTokenBucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+        if (pfrom->nAddrTokenBucket < maxAddrProcessingTokenBucket) {
             const uint64_t nTimeElapsed = std::max(nCurrentTime - pfrom->nAddrTokenTimestamp, uint64_t(0));
-            const double nIncrement = nTimeElapsed * (Params().NetworkIDString() == CBaseChainParams::REGTEST ? 10000 : MAX_ADDR_RATE_PER_SECOND) / 1e6;
-            pfrom->nAddrTokenBucket = std::min<double>(pfrom->nAddrTokenBucket + nIncrement, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+            const double nIncrement = nTimeElapsed * maxAddrRatePerSecond / 1e6;
+            pfrom->nAddrTokenBucket = std::min<double>(pfrom->nAddrTokenBucket + nIncrement, maxAddrProcessingTokenBucket);
         }
         pfrom->nAddrTokenTimestamp = nCurrentTime;
 
