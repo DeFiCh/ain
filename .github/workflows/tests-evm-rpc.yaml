@@ -4,7 +4,7 @@ on:
     types: [ labeled ]
 env:
   ETHLIBS_TEST_WS_URL: wss://goerli.infura.io/ws/v3/
-  AUTH_ID: ${{ secrets.INFURE_GOERLI_PROJECT_ID }}
+  AUTH_ID: ${{ secrets.INFURA_GOERLI_PROJECT_ID }}
   AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 jobs:
   node-rpc-tests:
