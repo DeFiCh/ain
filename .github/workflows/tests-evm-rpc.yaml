@@ -1,4 +1,4 @@
-name: RPC EVM Tests
+name: Tests - EVM/RPC Tests
 on:
   pull_request:
     types: [ labeled ]
