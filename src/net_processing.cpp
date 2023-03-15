@@ -2274,7 +2274,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         const uint64_t nCurrentTime = GetTimeMicros();
         if (pfrom->nAddrTokenBucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
             const uint64_t nTimeElapsed = std::max(nCurrentTime - pfrom->nAddrTokenTimestamp, uint64_t(0));
-            const double nIncrement = nTimeElapsed * MAX_ADDR_RATE_PER_SECOND / 1e6;
+            const double nIncrement = nTimeElapsed * (Params().NetworkIDString() == CBaseChainParams::REGTEST ? 10000 : MAX_ADDR_RATE_PER_SECOND) / 1e6;
             pfrom->nAddrTokenBucket = std::min<double>(pfrom->nAddrTokenBucket + nIncrement, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
         }
         pfrom->nAddrTokenTimestamp = nCurrentTime;
