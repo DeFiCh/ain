@@ -30,14 +30,18 @@ struct RPCMetadata {
     public:
     CoinSelectionOptions coinSelectOpts;
 
-    static RPCMetadata CreateDefault() {
-        RPCMetadata m;
-        FromArgs(m, gArgs);
-        return m;
+    static void InitFromArgs(ArgsManager& args) {
+        CoinSelectionOptions::InitFromArgs(args);
     }
 
     static void SetupArgs(ArgsManager& args) {
         CoinSelectionOptions::SetupArgs(args);
+    }
+
+    static RPCMetadata CreateDefault() {
+        return RPCMetadata {
+            CoinSelectionOptions::CreateDefault(),
+        };
     }
 
     static void FromArgs(RPCMetadata &m, ArgsManager& args) {

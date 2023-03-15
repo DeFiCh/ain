@@ -1488,6 +1488,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     InitSignatureCache();
     InitScriptExecutionCache();
+    RPCMetadata::InitFromArgs(gArgs);
 
     int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
     if (script_threads <= 0) {

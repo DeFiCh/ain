@@ -21,15 +21,35 @@ static const std::string& ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE = "-walletcoinop
 static const std::string& ARG_STR_WALLET_COIN_OPT_EAGER_SELECT = "-walletcoinopteagerselect";
 
 struct CoinSelectionOptions {
-    private:
-        std::optional<bool> fastSelect{};
-        std::optional<bool> skipSolvable{};
-        std::optional<bool> eagerSelect{};
+private:
+    std::optional<bool> fastSelect{};
+    std::optional<bool> skipSolvable{};
+    std::optional<bool> eagerSelect{};
 
-    public:
+    inline static std::shared_ptr<CoinSelectionOptions> DEFAULT;
+
+public:
     bool IsFastSelectEnabled() const { return fastSelect.value_or(false); }
     bool IsSkipSolvableEnabled() const { return skipSolvable.value_or(false); }
     bool IsEagerSelectEnabled() const { return eagerSelect.value_or(false); }
+
+    static void InitFromArgs(ArgsManager& args) {
+        auto m = std::make_shared<CoinSelectionOptions>();
+        FromArgs(*m, args);
+        CoinSelectionOptions::DEFAULT = m;
+        LogValues(*m);
+    }
+
+    static void LogValues(const CoinSelectionOptions& m) {
+        struct V { const bool v; const std::string& arg; };
+        for (auto &[v, arg]: std::vector<V> { 
+            { m.IsFastSelectEnabled(), ARG_STR_WALLET_FAST_SELECT },
+            { m.IsSkipSolvableEnabled(), ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE },
+            { m.IsEagerSelectEnabled(), ARG_STR_WALLET_COIN_OPT_EAGER_SELECT },
+        }) {
+            if (v) LogPrintf("conf: %s: %s\n", arg.substr(1), "true");
+        }
+    }
 
     static void SetupArgs(ArgsManager& args) {
         args.AddArg(ARG_STR_WALLET_FAST_SELECT, strprintf("Faster coin select - Enables walletcoinoptskipsolvable and walletcoinopteagerselect. This ends up in faster selection but has the disadvantage of not being able to pick complex input scripts (default: %u)", DEFAULT_COIN_SELECT_FAST_SELECT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -38,11 +58,9 @@ struct CoinSelectionOptions {
     }
 
     static CoinSelectionOptions CreateDefault() {
-        CoinSelectionOptions opts;
-        FromArgs(opts, gArgs);
-        return opts;
+        // Create a copy
+        return *DEFAULT;
     }
-
 
     static void FromArgs(CoinSelectionOptions& m, ArgsManager& args) {
         struct V {
