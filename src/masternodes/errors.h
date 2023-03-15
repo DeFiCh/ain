@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <masternodes/res.h>
+#include <masternodes/vault.h>
 
 class DeFiErrors {
 public:
@@ -25,6 +26,58 @@ public:
     static Res ICXBTCBelowMinSwap(const CAmount amount, const CAmount minSwap) {
         // TODO: Change error in later version to include amount. Retaining old msg for compatibility
         return Res::Err("Below minimum swapable amount, must be at least %s BTC", GetDecimalString(minSwap));
+    }
+
+    static Res ICXExists(const std::string &str, const uint256 &tx) {
+        return Res::Err("%s with creation tx %s already exists!", str, tx.GetHex());
+    }
+
+    static Res ICXOrderNotExist(const uint256 &tx) {
+        return Res::Err("order with creation tx %s doesn't exists!", tx.GetHex());
+    }
+
+    static Res ICXOrderInvalidType() {
+        return Res::Err("invalid order type!");
+    }
+
+    static Res ICXOrderAmountFromZero() {
+        return Res::Err("order amountFrom must be greater than 0!");
+    }
+
+    static Res ICXOrderOrderPriceZero() {
+        return Res::Err("order price must be greater than 0!");
+    }
+
+    static Res ICXOrderAmountsNotEqual() {
+        return Res::Err("order amountToFill does not equal to amountFrom!");
+    }
+
+    static Res ICXOrderExiryTooSmall(const uint32_t amount) {
+        return Res::Err("order expiry must be greater than %d!", amount);
+    }
+
+    static Res ICXOfferAmountZero() {
+        return Res::Err("offer amount must be greater than 0!");
+    }
+
+    static Res ICXSubmitAmountZero() {
+        return Res::Err("Invalid amount, must be greater than 0!");
+    }
+
+    static Res ICXSubmitInvalidHash() {
+        return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
+    }
+
+    static Res ICXSubmitTimeout() {
+        return Res::Err("Invalid timeout, must be greater than 0!");
+    }
+
+    static Res ICXSubmitEXTEmpty() {
+        return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
+    }
+
+    static Res ICXSubmitEXTInvalid() {
+        return Res::Err("Invalid refundPubkey is not a valid pubkey!");
     }
 
     static Res MNInvalidAttribute() {
@@ -327,6 +380,18 @@ public:
 
     static Res GovVarEraseNonExist(const uint32_t type) {
         return Res::Err("Attribute {%d} not exists", type);
+    }
+
+    static Res GovVarFailedWrite() {
+        return Res::Err("Cannot write to DB");
+    }
+
+    static Res AccountsFuturesStore() {
+        return Res::Err("Failed to store futures");
+    }
+
+    static Res AccountsFuturesErase() {
+        return Res::Err("Failed to erase futures");
     }
 };
 
