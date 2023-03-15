@@ -69,11 +69,7 @@ struct CoinSelectionOptions {
             V { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT},
         }) {
             const auto &[present, val] = headerFunc("x" + str);
-            if (present) {
-                v = val == "1" ? true : false;
-            } else {
-                v = {};
-            }
+            if (present) v = val == "1" ? true : false;
         }
     }
 
