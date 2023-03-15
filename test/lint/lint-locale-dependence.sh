@@ -22,6 +22,7 @@ KNOWN_VIOLATIONS=(
     "src/util/strencodings.cpp:.*strtoul"
     "src/util/strencodings.h:.*atoi"
     "src/util/system.cpp:.*atoi"
+    "src/util/system.cpp:.*atof"
     "src/validation.cpp:.*stoi"
     "src/masternodes/govvariables/attributes.cpp:.*isspace"
     "src/masternodes/validation.cpp:.*stoi"

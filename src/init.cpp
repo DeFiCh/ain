@@ -635,6 +635,8 @@ void SetupServerArgs()
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
     gArgs.AddArg("-rpc-governance-accept-neutral", "Allow voting with neutral votes for JellyFish purpose", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
     gArgs.AddArg("-dftxworkers=<n>", strprintf("No. of parallel workers associated with the DfTx related work pool. Stock splits, parallel processing of the chain where appropriate, etc use this worker pool (default: %d)", DEFAULT_DFTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-maxaddrratepersecond=<n>", strprintf("Sets MAX_ADDR_RATE_PER_SECOND limit for ADDR messages(default: %f)", MAX_ADDR_RATE_PER_SECOND), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1246,6 +1248,17 @@ bool AppInitParameterInteraction()
     peer_connect_timeout = gArgs.GetArg("-peertimeout", DEFAULT_PEER_CONNECT_TIMEOUT);
     if (peer_connect_timeout <= 0) {
         return InitError("peertimeout cannot be configured with a negative value.");
+    }
+
+    maxAddrRatePerSecond = gArgs.GetDoubleArg("-maxaddrratepersecond", Params().NetworkIDString() == CBaseChainParams::REGTEST ? MAX_ADDR_RATE_PER_SECOND_REGTEST : MAX_ADDR_RATE_PER_SECOND);
+    std::cout << maxAddrRatePerSecond << std::endl;
+    if (maxAddrRatePerSecond <= static_cast<double>(0)) {
+        return InitError("maxaddrratepersecond cannot be configured with a negative value.");
+    }
+
+    maxAddrProcessingTokenBucket = gArgs.GetArg("-maxaddrprocessingtokenbucket", MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+    if (maxAddrProcessingTokenBucket <= 0) {
+        return InitError("maxaddrprocessingtokenbucket cannot be configured with a negative value.");
     }
 
     if (gArgs.IsArgSet("-minrelaytxfee")) {
