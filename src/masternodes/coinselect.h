@@ -75,7 +75,7 @@ public:
         }) {
             // If it's defid, respond with defaults.
             // If it's defi-cli, just skip init unless it's provided,
-            // so we just directly call GetOptionalBoolArg
+            // so we just directly call GetOptionalArgs
             #ifdef DEFI_CLI
                 v = args.GetOptionalBoolArg(str);
             #else
