@@ -389,7 +389,7 @@ pkg_install_deps_x86_64() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake
+        curl cmake unzip
 }
 
 pkg_install_llvm() {

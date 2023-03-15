@@ -118,6 +118,13 @@ PATH=$PATH:~/.cargo/bin/cargo
 rustup target add aarch64-apple-darwin
 ```
 
+## Installing the protobuf compiler
+```shell
+brew install protobuf@3.20
+# ensure installation was successful by running
+protoc --version
+```
+
 ## Other commands:
 ```shell
 ./src/defid -daemon      # Starts the defi daemon.

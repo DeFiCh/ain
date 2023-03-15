@@ -12,6 +12,13 @@ COPY ./make.sh .
 RUN apt update && apt install -y apt-transport-https
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
 
+# install protobuf
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
+RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
+RUN chmod 755 -R ./proto/bin
+RUN cp ./proto/bin/protoc /usr/local/bin/
+RUN cp -R ./proto/include/* /usr/local/include/
+
 # install rustlang
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain stable -y
