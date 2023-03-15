@@ -27,7 +27,7 @@ static constexpr double MAX_ADDR_RATE_PER_SECOND{0.1};
 
 /** The maximum rate of address records we're willing to process on average. Can be bypassed using
  *  the NetPermissionFlags::Addr permission. */
-static constexpr double MAX_ADDR_RATE_PER_SECOND_REGTEST{10000};
+static constexpr double MAX_ADDR_RATE_PER_SECOND_REGTEST{100000};
 
 /** The soft limit of the address processing token bucket (the regular MAX_ADDR_RATE_PER_SECOND
  *  based increments won't go above this, but the MAX_ADDR_TO_SEND increment following GETADDR
