@@ -1,11 +1,11 @@
-name: tests evm rpc
+name: rpc auth tests
 on:
   pull_request:
     types: [ labeled ]
-
-# env:
- # ETHLIBS_TEST_ROPSTEN_WS_URL: ""
-
+env:
+  ETHLIBS_TEST_WS_URL: wss://goerli.infura.io/ws/v3/
+  AUTH_ID: ${{ secrets.INFURE_GOERLI_PROJECT_ID }}
+  AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 jobs:
   unit-tests:
     if: ${{ github.event.label.name == 'test/rpc_evm' }}
@@ -18,8 +18,5 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: 'DeFiCh/go-ethlibs'
-      - name: go version
-        run: go version
       - name: Run unit tests
         run: go test -v ./node/rpc_test.go
-
