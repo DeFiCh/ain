@@ -642,6 +642,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-daemon");
 #endif
 
+    RPCMetadata::SetupArgs(gArgs);
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
 }

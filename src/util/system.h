@@ -31,6 +31,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <optional>
 
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
@@ -243,6 +244,14 @@ public:
      * @return command-line argument or default value
      */
     bool GetBoolArg(const std::string& strArg, bool fDefault) const;
+
+    /**
+     * Return boolean argument if present or empty
+     *
+     * @param strArg Argument to get (e.g. "-foo")
+     * @return command-line argument or null value
+     */
+    std::optional<bool> GetOptionalBoolArg(const std::string& strArg) const;
 
     /**
      * Set an argument if it doesn't already have a value

@@ -7,6 +7,7 @@
 #define DEFI_MASTERNODES_COINSELECT_H
 
 #include <util/system.h>
+#include <optional>
 
 /** Default for skipping IsSolvable and return on first valid auth */
 static const bool DEFAULT_COIN_SELECT_FAST_SELECT = false;
@@ -21,9 +22,9 @@ static const std::string& ARG_STR_WALLET_COIN_OPT_EAGER_SELECT = "-walletcoinopt
 
 struct CoinSelectionOptions {
     public:
-        bool fastSelect{};
-        bool skipSolvable{};
-        bool eagerSelect{};
+        std::optional<bool> fastSelect{};
+        std::optional<bool> skipSolvable{};
+        std::optional<bool> eagerSelect{};
 
     static void SetupArgs(ArgsManager& args) {
         args.AddArg(ARG_STR_WALLET_FAST_SELECT, strprintf("Faster coin select - Enables walletcoinoptskipsolvable and walletcoinopteagerselect. This ends up in faster selection but has the disadvantage of not being able to pick complex input scripts (default: %u)", DEFAULT_COIN_SELECT_FAST_SELECT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -39,7 +40,7 @@ struct CoinSelectionOptions {
 
     static void FromArgs(CoinSelectionOptions& m, ArgsManager& args) {
         struct V {
-            bool& target;
+            std::optional<bool>& target;
             const std::string& arg;
             const bool& def;
         };
@@ -48,13 +49,18 @@ struct CoinSelectionOptions {
             V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, DEFAULT_COIN_SELECT_SKIP_SOLVABLE},
             V { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT, DEFAULT_COIN_SELECT_EAGER_SELECT},
         }) {
+            // Use a static way to detect DEFI_CLI or DEFID compilation.
+            // If it's defid, respond with defaults.
+            // If it's defi-cli, just skip init unless it's provided,
+            // so we just directly call GetOptionalArgs 
             v = args.GetBoolArg(str, def);
+            v = args.GetOptionalBoolArg(str);
         }
     }
 
     static void FromHTTPHeader(CoinSelectionOptions &m, const HTTPHeaderQueryFunc headerFunc) {
         struct V {
-            bool& target;
+            std::optional<bool>& target;
             const std::string& arg;
         };
         for (auto &[v, str]: {
@@ -63,13 +69,17 @@ struct CoinSelectionOptions {
             V { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT},
         }) {
             const auto &[present, val] = headerFunc("x" + str);
-            if (present) v = val == "1" ? true : false;
+            if (present) {
+                v = val == "1" ? true : false;
+            } else {
+                v = {};
+            }
         }
     }
 
     static void ToHTTPHeader(const CoinSelectionOptions& m, const HTTPHeaderWriterFunc writer) {
         struct V {
-            const bool& val;
+            const std::optional<bool>& val;
             const std::string& arg;
         };
         for (auto &[v, str]: {
@@ -77,7 +87,8 @@ struct CoinSelectionOptions {
             V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE},
             V { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT},
         }) {
-            writer("x" + str, v ? "1" : "0");
+            if (!v) continue;
+            writer("x" + str, *v ? "1" : "0");
         }
     }
 };
