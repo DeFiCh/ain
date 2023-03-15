@@ -135,7 +135,9 @@ struct CTokenAmount { // simple std::pair is less informative
 
         // add
         auto sumRes = SafeAdd(nValue, amount);
-        Require(sumRes);
+        if (!sumRes) {
+            return sumRes;
+        }
 
         nValue = *sumRes;
         return Res::Ok();
