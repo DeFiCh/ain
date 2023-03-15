@@ -1,4 +1,4 @@
-name: Tests - EVM/RPC Tests
+name: Tests - EVM
 on:
   pull_request:
     types: [ labeled ]
@@ -7,7 +7,7 @@ env:
   AUTH_ID: ${{ secrets.INFURE_GOERLI_PROJECT_ID }}
   AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 jobs:
-  unit-tests:
+  node-rpc-tests:
     if: ${{ github.event.label.name == 'test/rpc_evm' }}
     name: Unit tests
     runs-on: ubuntu-latest
