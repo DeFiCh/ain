@@ -47,7 +47,7 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
-// Adding some generic function pointers to keep things contained without taking 
+// Adding some generic function pointers to keep things contained without taking
 // dependencies on HTTPServer on libs that don't need it
 typedef std::function<std::pair<bool, std::string>(const std::string&)> HTTPHeaderQueryFunc;
 typedef std::function<void(const std::string&, const std::string&)> HTTPHeaderWriterFunc;
@@ -234,6 +234,15 @@ public:
      * @return command-line argument (0 if invalid number) or default value
      */
     int64_t GetArg(const std::string& strArg, int64_t nDefault) const;
+
+    /**
+     * Return integer argument or default value
+     *
+     * @param strArg Argument to get (e.g. "-foo")
+     * @param fDefault (e.g. 1.0)
+     * @return command-line argument (0.0 if invalid number) or default value
+     */
+    double GetDoubleArg(const std::string& strArg, double fDefault) const;
 
     /**
      * Return boolean argument or default value
