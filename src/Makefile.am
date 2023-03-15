@@ -181,7 +181,7 @@ DEFI_CORE_H = \
   masternodes/proposals.h \
   masternodes/tokens.h \
   masternodes/threadpool.h \
-  masternodes/coinselect.h \ 
+  masternodes/coinselect.h \
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/validation.h \
@@ -707,6 +707,7 @@ defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
 defi_cli_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CFLAGS)
+defi_cli_CPPFLAGS += -DDEFI_CLI
 defi_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defi_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 

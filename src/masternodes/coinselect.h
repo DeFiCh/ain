@@ -52,9 +52,12 @@ struct CoinSelectionOptions {
             // Use a static way to detect DEFI_CLI or DEFID compilation.
             // If it's defid, respond with defaults.
             // If it's defi-cli, just skip init unless it's provided,
-            // so we just directly call GetOptionalArgs 
-            v = args.GetBoolArg(str, def);
-            v = args.GetOptionalBoolArg(str);
+            // so we just directly call GetOptionalArgs
+            #ifdef DEFI_CLI
+                v = args.GetOptionalBoolArg(str);
+            #else
+                v = args.GetBoolArg(str, def);
+            #endif
         }
     }
 
