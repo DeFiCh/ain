@@ -66,7 +66,7 @@ public:
     std::string peerAddr;
     RPCMetadata metadata;
 
-    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
+    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false), metadata(RPCMetadata::CreateDefault()) {}
     void parse(const UniValue& valRequest);
 };
 
