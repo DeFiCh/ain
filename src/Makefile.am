@@ -360,7 +360,6 @@ $(LIBSECP256K1_GEN): $(LIBSECP256K1)
 # from wallet and gui code (see node/README.md). Shared code should go in
 # libdefi_common or libdefi_util libraries, instead.
 libdefi_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
-libdefi_server_a_CPPFLAGS += -D_LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE
 libdefi_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_server_a_SOURCES = \
   addrdb.cpp \
