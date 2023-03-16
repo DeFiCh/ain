@@ -105,6 +105,8 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
             "       n,                        (numeric) The heights of blocks we're currently asking from this peer\n"
             "       ...\n"
             "    ],\n"
+            "    \"addr_processed\": n,       (numeric) The total number of addresses processed, excluding those dropped due to rate limiting\n"
+            "    \"addr_rate_limited\": n,    (numeric) The total number of addresses dropped due to rate limiting\n"
             "    \"whitelisted\": true|false, (boolean) Whether the peer is whitelisted\n"
             "    \"minfeefilter\": n,         (numeric) The minimum fee rate for transactions this peer accepts\n"
             "    \"bytessent_per_msg\": {\n"
@@ -179,6 +181,8 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
             }
             obj.pushKV("inflight", heights);
         }
+        obj.pushKV("addr_processed", stats.nProcessedAddrs);
+        obj.pushKV("addr_rate_limited", stats.nRatelimitedAddrs);
         obj.pushKV("whitelisted", stats.m_legacyWhitelisted);
         UniValue permissions(UniValue::VARR);
         for (const auto& permission : NetPermissions::ToStrings(stats.m_permissionFlags)) {
