@@ -1405,7 +1405,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
                               auto collaterals = view.GetVaultCollaterals(vaultId);
                               if (!collaterals)
                                   collaterals = CBalances{};
-                              auto rate = view.GetLoanCollaterals(
+                              auto rate = view.GetVaultAssets(
                                   vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
                               if (rate) {
                                   colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);

@@ -3009,18 +3009,16 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             strFailReason = _("Transaction amounts must not be negative").translated;
             return false;
         }
-        if (recipient.nTokenId == DCT_ID{0})
-        {
-            nValue += recipient.nAmount;
 
-            if (recipient.fSubtractFeeFromAmount)
-                nSubtractFeeFromAmount++;
+        if (recipient.nTokenId != DCT_ID{0}) {
+            strFailReason = "Unexpected token type set for recipient. Only native DFI token type expected.";
+            return false;
         }
-        else
-        {
-            assert(!recipient.fSubtractFeeFromAmount);
-            vTokenValues[recipient.nTokenId] += recipient.nAmount;
-        }
+
+        nValue += recipient.nAmount;
+
+        if (recipient.fSubtractFeeFromAmount)
+            nSubtractFeeFromAmount++;
     }
 
     bool eagerSelect = coinSelectOpts.eagerSelect;
@@ -3045,68 +3043,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
     const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
 
-    std::map<DCT_ID, std::unique_ptr<ReserveDestination> > tokensreservedest;
-    std::set<CInputCoin> tokenCoins;
-    {
-        auto locked_chain = chain().lock();
-        LOCK2(cs_wallet, locked_chain->mutex());
-
-        for (auto it = vTokenValues.begin(); it != vTokenValues.end(); ++it)
-        {
-            std::vector<COutput> vAvailableCoins;
-
-            DCT_ID tokenId = it->first;
-            CCoinControl ccSingleToken(coin_control);
-            ccSingleToken.m_tokenFilter = { tokenId };
-
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, MAX_MONEY, sumAmountToSelect, 0);
-
-            tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
-            CScript scriptChange;
-            // coin control: send change to custom address
-            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
-                scriptChange = GetScriptForDestination(coin_control.destChange);
-            } else { // no coin control: send change to newly generated address
-                // Reserve a new key pair from key pool
-                if (!CanGetAddresses(true)) {
-                    strFailReason = _("Can't generate a change-address key. No keys in the internal keypool and can't generate any keys.").translated;
-                    return false;
-                }
-                CTxDestination dest;
-                if (!tokensreservedest.at(tokenId)->GetReservedDestination(change_type, dest, true))
-                {
-                    strFailReason = "Keypool ran out, please call keypoolrefill first";
-                    return false;
-                }
-                scriptChange = GetScriptForDestination(dest);
-            }
-
-            CAmount nValueIn;
-            std::set<CInputCoin> setCoins;
-            bool bnb_used;
-            CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
-            bool result = SelectCoins(vAvailableCoins, it->second, setCoins, nValueIn, ccSingleToken, coin_selection_params, bnb_used);
-            if (!result && bnb_used)
-            {
-                coin_selection_params.use_bnb = false;
-                result = SelectCoins(vAvailableCoins, it->second, setCoins, nValueIn, ccSingleToken, coin_selection_params, bnb_used);
-            }
-            if (!result)
-            {
-                strFailReason = _("Insufficient funds").translated;
-                return false;
-            }
-            tokenCoins.insert(setCoins.begin(), setCoins.end());
-
-            const CAmount nChange = nValueIn - it->second;
-            if (nChange > 0)
-            {
-                /// @todo tokens: ORDER???
-                vecSend.push_back(CRecipient{scriptChange, nChange, tokenId, false});
-            }
-        }
-    }
-
     FeeCalculation feeCalc;
     CAmount nFeeNeeded;
     int nBytes;
@@ -3116,7 +3052,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         LOCK2(cs_wallet, locked_chain->mutex());
         {
             std::vector<COutput> vAvailableCoins;
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, sumAmountToSelect, 0);
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, sumAmountToSelect, 0, coinSelectOpts);
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
             // Create change script that will be used if we need change
@@ -3283,9 +3219,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 for (const auto& coin : setCoins) {
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
                 }
-                for (const auto& coin : tokenCoins) {
-                    txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
-                }
 
                 nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly, coin_control.m_linkedCoins);
                 if (nBytes < 0) {
@@ -3368,7 +3301,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         // Shuffle selected coins and fill in final vin
         txNew.vin.clear();
         std::vector<CInputCoin> selected_coins(setCoins.begin(), setCoins.end());
-        selected_coins.insert(selected_coins.end(), tokenCoins.begin(), tokenCoins.end());
         Shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
 
         // Note how the sequence number is set to non-maxint so that
@@ -3431,9 +3363,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     // Before we return success, we assume any change key will be used to prevent
     // accidental re-use.
     reservedest.KeepDestination();
-    for (auto && pair : tokensreservedest) {
-        pair.second->KeepDestination();
-    }
 
     WalletLogPrintf("Fee Calculation: Fee:%d Bytes:%u Needed:%d Tgt:%d (requested %d) Reason:\"%s\" Decay %.5f: Estimation: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out) Fail: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out)\n",
               nFeeRet, nBytes, nFeeNeeded, feeCalc.returnedTarget, feeCalc.desiredTarget, StringForFeeReason(feeCalc.reason), feeCalc.est.decay,

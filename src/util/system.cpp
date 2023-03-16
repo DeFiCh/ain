@@ -510,6 +510,14 @@ int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault) const
     return nDefault;
 }
 
+double ArgsManager::GetDoubleArg(const std::string& strArg, double fDefault) const
+{
+    if (IsArgNegated(strArg)) return 0;
+    std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
+    if (found_res.first) return atof(found_res.second.c_str());
+    return fDefault;
+}
+
 bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
 {
     if (IsArgNegated(strArg)) return false;

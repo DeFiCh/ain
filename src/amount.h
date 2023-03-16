@@ -79,7 +79,7 @@ static constexpr CAmount COIN = 100000000;
 static constexpr CAmount CENT = 1000000;
 
 //Converts the given value to decimal format string with COIN precision.
-inline std::string GetDecimaleString(CAmount nValue)
+inline std::string GetDecimalString(CAmount nValue)
 {
     const bool sign = nValue < 0;
     const int64_t n_abs = (sign ? -nValue : nValue);
@@ -124,18 +124,20 @@ struct CTokenAmount { // simple std::pair is less informative
     CAmount nValue;
 
     std::string ToString() const {
-        return strprintf("%s@%d", GetDecimaleString(nValue), nTokenId.v);
+        return strprintf("%s@%d", GetDecimalString(nValue), nTokenId.v);
     }
 
     Res Add(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
+            return Res::Err("negative amount: %s", GetDecimalString(amount));
         }
 
         // add
         auto sumRes = SafeAdd(nValue, amount);
-        Require(sumRes);
+        if (!sumRes) {
+            return sumRes;
+        }
 
         nValue = *sumRes;
         return Res::Ok();
@@ -144,10 +146,10 @@ struct CTokenAmount { // simple std::pair is less informative
     Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
+            return Res::Err("negative amount: %s", GetDecimalString(amount));
         }
         if (this->nValue < amount) {
-            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+            return Res::Err("amount %s is less than %s", GetDecimalString(this->nValue), GetDecimalString(amount));
         }
 
         // sub
