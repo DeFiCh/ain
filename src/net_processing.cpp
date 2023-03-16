@@ -2281,7 +2281,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // from a peer point of view.
             FastRandomContext insecure_rand;
             auto seed = insecure_rand.randrange(nCurrentTime) * getpid();
-            std::shuffle(vAddr.begin(), vAddr.end(), std::default_random_engine {seed});
+            std::shuffle(vAddr.begin(), vAddr.end(), std::default_random_engine{static_cast<unsigned int>(seed)});
         }
 
         for (CAddress& addr : vAddr)
