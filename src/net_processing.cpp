@@ -2277,10 +2277,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // Randomize entries before processing, to prevent an attacker to
         // determine which entries will make it through the rate limit
         {
-            // Generate an fairly indeterministic seed out from a peer
-            // point of view.
+            // Generate an fairly indeterministic seed out variables we already have
+            // from a peer point of view.
             FastRandomContext insecure_rand;
-            auto seed = insecure_rand.randrange(nCurrentTime);
+            auto seed = insecure_rand.randrange(nCurrentTime) * getpid();
             std::shuffle(vAddr.begin(), vAddr.end(), std::default_random_engine {seed});
         }
 
