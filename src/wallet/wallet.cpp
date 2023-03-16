@@ -2500,10 +2500,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
 
-    bool skipSolvable = coinSelectOpts.skipSolvable && *coinSelectOpts.skipSolvable;
-    if (!skipSolvable && coinSelectOpts.fastSelect) {
-        skipSolvable = *coinSelectOpts.fastSelect;
-    }
+    bool skipSolvable = coinSelectOpts.IsSkipSolvableEnabled() || coinSelectOpts.IsFastSelectEnabled();
 
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
@@ -3021,10 +3018,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             nSubtractFeeFromAmount++;
     }
 
-    bool eagerSelect = coinSelectOpts.eagerSelect && *coinSelectOpts.eagerSelect;
-    if (!eagerSelect && coinSelectOpts.fastSelect) {
-        eagerSelect = *coinSelectOpts.fastSelect;
-    }
+    bool eagerSelect = coinSelectOpts.IsEagerSelectEnabled() || coinSelectOpts.IsFastSelectEnabled();
+    
     const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
 
     if (vecSend.empty())

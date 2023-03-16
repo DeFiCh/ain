@@ -26,6 +26,10 @@ struct CoinSelectionOptions {
         std::optional<bool> skipSolvable{};
         std::optional<bool> eagerSelect{};
 
+    bool IsFastSelectEnabled() const { return fastSelect.value_or(false); }
+    bool IsSkipSolvableEnabled() const { return skipSolvable.value_or(false); }
+    bool IsEagerSelectEnabled() const { return eagerSelect.value_or(false); }
+
     static void SetupArgs(ArgsManager& args) {
         args.AddArg(ARG_STR_WALLET_FAST_SELECT, strprintf("Faster coin select - Enables walletcoinoptskipsolvable and walletcoinopteagerselect. This ends up in faster selection but has the disadvantage of not being able to pick complex input scripts (default: %u)", DEFAULT_COIN_SELECT_FAST_SELECT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
         args.AddArg(ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, strprintf("Coin select option: Skips IsSolvable signable UTXO check (default: %u)", DEFAULT_COIN_SELECT_SKIP_SOLVABLE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -38,6 +42,7 @@ struct CoinSelectionOptions {
         return opts;
     }
 
+
     static void FromArgs(CoinSelectionOptions& m, ArgsManager& args) {
         struct V {
             std::optional<bool>& target;
@@ -49,10 +54,9 @@ struct CoinSelectionOptions {
             V { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE, DEFAULT_COIN_SELECT_SKIP_SOLVABLE},
             V { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT, DEFAULT_COIN_SELECT_EAGER_SELECT},
         }) {
-            // Use a static way to detect DEFI_CLI or DEFID compilation.
             // If it's defid, respond with defaults.
             // If it's defi-cli, just skip init unless it's provided,
-            // so we just directly call GetOptionalArgs
+            // so we just directly call GetOptionalBoolArg
             #ifdef DEFI_CLI
                 v = args.GetOptionalBoolArg(str);
             #else
