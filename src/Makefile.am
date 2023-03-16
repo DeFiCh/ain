@@ -730,6 +730,8 @@ if TARGET_WINDOWS
 defid_LDADD += -luserenv -lbcrypt
 endif
 
+$(defid_SOURCES): $(LIBAIN_GRPC)
+
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
 defi_cli_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CFLAGS)
