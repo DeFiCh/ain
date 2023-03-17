@@ -518,12 +518,18 @@ double ArgsManager::GetDoubleArg(const std::string& strArg, double fDefault) con
     return fDefault;
 }
 
-bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
+std::optional<bool> ArgsManager::GetOptionalBoolArg(const std::string& strArg) const
 {
     if (IsArgNegated(strArg)) return false;
     std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
     if (found_res.first) return InterpretBool(found_res.second);
-    return fDefault;
+    return {};
+}
+
+bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
+{
+    auto res = ArgsManager::GetOptionalBoolArg(strArg);
+    return res ? *res : fDefault;
 }
 
 bool ArgsManager::SoftSetArg(const std::string& strArg, const std::string& strValue)

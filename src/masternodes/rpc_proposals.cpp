@@ -4,6 +4,7 @@
 #include <functional>
 
 const bool DEFAULT_RPC_GOV_NEUTRAL = false;
+const int SLEEP_TIME_MILLIS = 500;
 
 struct VotingInfo {
     int32_t votesPossible = 0;
@@ -282,7 +283,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{pm.address};
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto cfpFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
@@ -297,7 +298,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -419,7 +420,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto vocFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
@@ -434,7 +435,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -564,7 +565,7 @@ UniValue votegov(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(CTxOut(0, scriptMeta));
 
@@ -610,18 +611,19 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     const auto &keys = request.params[0].get_array();
+    auto sleepTime = gArgs.GetBoolArg("-sleep-time", SLEEP_TIME_MILLIS);
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
     int targetHeight;
 
-    struct MasternodeMultiVote {
+    struct VotingState {
         uint256 propId;
         uint256 mnId;
         CTxDestination dest;
         CProposalVoteType type;
     };
 
-    std::vector<MasternodeMultiVote> mnMultiVotes;
+    std::vector<VotingState> voteList;
     {
         CCustomCSView view(*pcustomcsview);
 
@@ -629,18 +631,23 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
             const auto &votes{keys[i].get_array()};
             if (votes.size() != 3) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Incorrect number of items, three expected, proposal ID, masternode ID and vote expected. %d entries provided.", votes.size()));
+                throw JSONRPCError(RPC_INVALID_PARAMETER, 
+                    strprintf("Incorrect number of items, three expected, proposal ID, masternode ID and vote expected. %d entries provided.", 
+                    votes.size()));
             }
 
             const auto propId = ParseHashV(votes[0].get_str(), "proposalId");
             const auto prop = view.GetProposal(propId);
             if (!prop) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
+                throw JSONRPCError(RPC_INVALID_PARAMETER, 
+                    strprintf("Proposal <%s> does not exist", 
+                    propId.GetHex()));
             }
 
             if (prop->status != CProposalStatusType::Voting) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                   strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
+                    strprintf("Proposal <%s> is not in voting period", 
+                    propId.GetHex()));
             }
 
             uint256 mnId;
@@ -652,7 +659,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                 const CTxDestination dest = DecodeDestination(id);
                 if (!IsValidDestination(dest)) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("The masternode id or address is not valid: %s", id));
+                        strprintf("The masternode id or address is not valid: %s", id));
                 }
                 CKeyID ckeyId;
                 if (dest.index() == PKHashType) {
@@ -660,7 +667,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                 } else if (dest.index() == WitV0KeyHashType) {
                     ckeyId =  CKeyID(std::get<WitnessV0KeyHash>(dest));
                 } else {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, 
+                        strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
                 }
                 if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                     mnId = masterNodeIdByOwner.value();
@@ -672,7 +680,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
             const auto node = view.GetMasternode(mnId);
             if (!node) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                   strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
+                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
             }
 
             auto vote   = CProposalVoteType::VoteNeutral;
@@ -688,10 +696,11 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
             }
 
-            mnMultiVotes.push_back({
+            voteList.push_back({
                 propId,
                 mnId,
-                node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
+                node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress)) : 
+                    CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
                 vote
             });
         }
@@ -701,7 +710,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    for (const auto& [propId, mnId, ownerDest, vote] : mnMultiVotes) {
+    for (const auto& [propId, mnId, ownerDest, vote] : voteList) {
 
         CProposalVoteMessage msg;
         msg.propId       = propId;
@@ -720,12 +729,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, 
-            rawTx.nVersion, 
-            auths, false /*needFoundersAuth*/, 
-            optAuthTx, 
-            {}, 
-            request.metadata.coinSelectOpts);
+        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;
@@ -739,6 +743,11 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
         ret.push_back(signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+        // Sleep the RPC worker thread a bit, so that the node can 
+        // relay the TXs as it works through. Otherwise, the main 
+        // chain can be locked for too long that prevent broadcasting of
+        // TXs
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
     }
 
     return ret;

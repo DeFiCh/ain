@@ -186,7 +186,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     CTransactionRef optAuthTx;
     auto scriptOwner = GetScriptForDestination(ownerDest);
     std::set<CScript> auths{scriptOwner};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     // Return change to owner address
     CCoinControl coinControl;
@@ -197,7 +197,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), scriptOwner));
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -277,7 +277,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     if (collateralDest.index() != 0) {
         auths.insert(GetScriptForDestination(collateralDest));
     }
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     // Return change to owner address
     CCoinControl coinControl;
@@ -294,7 +294,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -395,7 +395,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{GetScriptForDestination(ownerDest)};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     // Return change to owner address
     CCoinControl coinControl;
@@ -442,7 +442,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
