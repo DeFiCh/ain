@@ -21,11 +21,12 @@ static const std::string& ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE = "-walletcoinop
 static const std::string& ARG_STR_WALLET_COIN_OPT_EAGER_SELECT = "-walletcoinopteagerselect";
 
 struct CoinSelectionOptions {
-    public:
+    private:
         std::optional<bool> fastSelect{};
         std::optional<bool> skipSolvable{};
         std::optional<bool> eagerSelect{};
 
+    public:
     bool IsFastSelectEnabled() const { return fastSelect.value_or(false); }
     bool IsSkipSolvableEnabled() const { return skipSolvable.value_or(false); }
     bool IsEagerSelectEnabled() const { return eagerSelect.value_or(false); }
