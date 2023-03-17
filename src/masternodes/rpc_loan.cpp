@@ -155,7 +155,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -167,7 +167,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -360,7 +360,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -372,7 +372,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -481,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -493,7 +493,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -648,7 +648,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -661,7 +661,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -735,7 +735,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -748,7 +748,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -811,7 +811,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -823,7 +823,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -890,7 +890,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -902,7 +902,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1103,7 +1103,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1115,7 +1115,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1287,7 +1287,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
     const UniValue &txInputs = request.params[1];
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1299,7 +1299,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1604,7 +1604,7 @@ UniValue paybackwithcollateral(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1615,7 +1615,7 @@ UniValue paybackwithcollateral(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

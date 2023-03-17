@@ -282,7 +282,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{pm.address};
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto cfpFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
@@ -297,7 +297,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -419,7 +419,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto vocFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
@@ -434,7 +434,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -564,7 +564,7 @@ UniValue votegov(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
     rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(CTxOut(0, scriptMeta));
 
@@ -720,12 +720,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, 
-            rawTx.nVersion, 
-            auths, false /*needFoundersAuth*/, 
-            optAuthTx, 
-            {}, 
-            request.metadata.coinSelectOpts);
+        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;

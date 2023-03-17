@@ -112,7 +112,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, metaObj["isDAT"].getBool() /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, metaObj["isDAT"].getBool(), optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
@@ -128,7 +128,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -274,7 +274,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         }
 
         // before BayfrontHeight it needs only founders auth
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths /*auths*/, true /*needFoundersAuth*/, optAuthTx, txInputs);
+        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
     }
     else
     { // post-bayfront auth
@@ -289,11 +289,11 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                                Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
 
         if (isFoundersToken) { // need any founder's auth
-            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths /*auths*/, true /*needFoundersAuth*/, optAuthTx, txInputs);
+            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
         }
         else {// "common" auth
             auths.insert(owner);
-            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
         }
     }
 
@@ -323,7 +323,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -764,7 +764,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
         }
     }
 
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::MintToken) << mintTokensMessage;
@@ -786,7 +786,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -888,7 +888,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
 
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::BurnToken)
@@ -911,7 +911,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
