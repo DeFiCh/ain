@@ -4,6 +4,7 @@
 #include <functional>
 
 const bool DEFAULT_RPC_GOV_NEUTRAL = false;
+const int SLEEP_TIME_MILLIS = 500;
 
 struct VotingInfo {
     int32_t votesPossible = 0;
@@ -610,6 +611,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     const auto &keys = request.params[0].get_array();
+    auto sleepTime = gArgs.GetBoolArg("-sleep-time", SLEEP_TIME_MILLIS);
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
     int targetHeight;
@@ -750,7 +752,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         // relay the TXs as it works through. Otherwise, the main 
         // chain can be locked for too long that prevent broadcasting of
         // TXs
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
     }
 
     return ret;
