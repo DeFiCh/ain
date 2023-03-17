@@ -33,6 +33,7 @@
 #include <util/validation.h>
 
 #include <memory>
+#include <random>
 
 #if defined(NDEBUG)
 # error "DeFi Blockchain cannot be compiled without assertions."
@@ -2275,7 +2276,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         // Randomize entries before processing, to prevent an attacker to
         // determine which entries will make it through the rate limit
-        random_shuffle(vAddr.begin(), vAddr.end(), GetRandInt);
+        {
+            // Generate an fairly indeterministic seed out variables we already have
+            // from a peer point of view.
+            FastRandomContext insecure_rand;
+            auto seed = insecure_rand.randrange(nCurrentTime) * getpid();
+            std::shuffle(vAddr.begin(), vAddr.end(), std::default_random_engine{static_cast<unsigned int>(seed)});
+        }
 
         for (CAddress& addr : vAddr)
         {
