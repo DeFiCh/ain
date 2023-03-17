@@ -595,8 +595,10 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                              {"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal txid"},
                              {"masternodeId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The masternode ID, operator or owner address"},
                              {"decision", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The vote decision (yes/no/neutral)"},
-                     }},
-                 },
+                            }
+                    },
+                    {"sleepTime", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Sets sleeping time for voteGovBatch, by default the value is set to 500ms"}
+            },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
             RPCExamples{HelpExampleCli("votegovbatch", "{{proposalId, masternodeId, yes}...}") +
                         HelpExampleRpc("votegovbatch", "{{proposalId, masternodeId, yes}...}")},
@@ -611,7 +613,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     const auto &keys = request.params[0].get_array();
-    auto sleepTime = gArgs.GetBoolArg("-sleep-time", SLEEP_TIME_MILLIS);
+    auto sleepTime = (request.params.size() > 1 && request.params[1].isNull()) ? SLEEP_TIME_MILLIS : request.params[1].get_int();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
     int targetHeight;
