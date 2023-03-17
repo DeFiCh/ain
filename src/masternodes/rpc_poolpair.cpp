@@ -423,7 +423,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -437,7 +437,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -511,7 +511,7 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -523,7 +523,7 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -687,7 +687,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -699,7 +699,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -821,7 +821,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
@@ -846,7 +846,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -946,7 +946,7 @@ UniValue poolswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -958,7 +958,7 @@ UniValue poolswap(const JSONRPCRequest &request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1089,7 +1089,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1101,7 +1101,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
