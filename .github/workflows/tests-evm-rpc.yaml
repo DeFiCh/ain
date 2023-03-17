@@ -8,7 +8,7 @@ env:
   AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 jobs:
   node-rpc-tests:
-    if: ${{ github.event.label.name == 'test/rpc_evm' }}
+    if: ${{ github.event.label.name == 'evm' }}
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
