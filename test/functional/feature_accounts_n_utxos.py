@@ -11,7 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
+from test_framework.util import assert_equal, assert_raises_rpc_error, \
     connect_nodes_bi
 
 class AccountsAndUTXOsTest (DefiTestFramework):
@@ -112,20 +112,10 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
         assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], self.nodes[1].getaccount(toSilver, {}, True)[idSilver])
 
-        # missing (account exists, there are tokens, but not token 0) - autofunded now!
-        # try:
-        #     self.nodes[0].accounttoaccount(toSilver, {accountGold: "100@" + symbolSILVER}, [])
-        # except JSONRPCException as e:
-        #     errorString = e.error['message']
-        # assert("Can't find any UTXO" in errorString)
-
         # utxostoaccount
+        # Only technically supported for DFI as accounttoutxxos blocks non-DFI transfers
         #========================
-        try:
-            self.nodes[0].utxostoaccount({toGold: "100@" + symbolGOLD}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Insufficient funds" in errorString)
+        assert_raises_rpc_error(-4, "Unexpected token type set for recipient. Only native DFI token type expected.", self.nodes[0].utxostoaccount, {toGold: "100@" + symbolGOLD})
 
         # missing amount
         try:
@@ -189,7 +179,6 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
             self.nodes[0].generate(1)
         except JSONRPCException as e:
-            print(e)
             errorString = e.error['message']
         assert("only available for DFI transactions" in errorString)
 
