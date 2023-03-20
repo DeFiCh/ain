@@ -269,8 +269,8 @@ bool CKey::Load(const CPrivKey &privkey, const CPubKey &vchPubKey, bool fSkipChe
 
     return VerifyPubKey(vchPubKey);
 }
-
-bool CKey::Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const {
+#include <logging.h>
+bool CKey::Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, const bool uncompressed) const {
     assert(IsValid());
     assert(IsCompressed());
     std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
@@ -285,17 +285,17 @@ bool CKey::Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const
     memcpy(ccChild.begin(), vout.data()+32, 32);
     memcpy((unsigned char*)keyChild.begin(), begin(), 32);
     bool ret = secp256k1_ec_seckey_tweak_add(secp256k1_context_sign, (unsigned char*)keyChild.begin(), vout.data());
-    keyChild.fCompressed = true;
+    keyChild.fCompressed = !uncompressed;
     keyChild.fValid = ret;
     return ret;
 }
 
-bool CExtKey::Derive(CExtKey &out, unsigned int _nChild) const {
+bool CExtKey::Derive(CExtKey &out, unsigned int _nChild, const bool uncompressed) const {
     out.nDepth = nDepth + 1;
     CKeyID id = key.GetPubKey().GetID();
     memcpy(&out.vchFingerprint[0], &id, 4);
     out.nChild = _nChild;
-    return key.Derive(out.key, out.chaincode, _nChild, chaincode);
+    return key.Derive(out.key, out.chaincode, _nChild, chaincode, uncompressed);
 }
 
 void CExtKey::SetSeed(const unsigned char *seed, unsigned int nSeedLen) {

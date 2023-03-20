@@ -261,12 +261,12 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     return &(*it);
 }
 
-CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
+CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal, const bool uncompressed)
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
     AssertLockHeld(cs_wallet);
-    bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
+    bool fCompressed = !uncompressed && CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
 
     CKey secret;
 
@@ -276,7 +276,7 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
 
     // use HD key derivation if HD was enabled during wallet creation and a seed is present
     if (IsHDEnabled()) {
-        DeriveNewChildKey(batch, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
+        DeriveNewChildKey(batch, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false), uncompressed);
     } else {
         secret.MakeNewKey(fCompressed);
     }
@@ -298,7 +298,7 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
     return pubkey;
 }
 
-void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey& secret, bool internal)
+void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey& secret, bool internal, const bool uncompressed)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
     CKey seed;                     //seed (256bit)
@@ -327,7 +327,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
         // childIndex | BIP32_HARDENED_KEY_LIMIT = derive childIndex in hardened child-index-range
         // example: 1 | BIP32_HARDENED_KEY_LIMIT == 0x80000001 == 2147483649
         if (internal) {
-            chainChildKey.Derive(childKey, hdChain.nInternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
+            chainChildKey.Derive(childKey, hdChain.nInternalChainCounter | BIP32_HARDENED_KEY_LIMIT, uncompressed);
             metadata.hdKeypath = "m/0'/1'/" + std::to_string(hdChain.nInternalChainCounter) + "'";
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
             metadata.key_origin.path.push_back(1 | BIP32_HARDENED_KEY_LIMIT);
@@ -335,7 +335,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
             hdChain.nInternalChainCounter++;
         }
         else {
-            chainChildKey.Derive(childKey, hdChain.nExternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
+            chainChildKey.Derive(childKey, hdChain.nExternalChainCounter | BIP32_HARDENED_KEY_LIMIT, uncompressed);
             metadata.hdKeypath = "m/0'/0'/" + std::to_string(hdChain.nExternalChainCounter) + "'";
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
@@ -3767,9 +3767,9 @@ void CWallet::ReturnKey(int64_t nIndex, bool fInternal, const CPubKey& pubkey)
     WalletLogPrintf("keypool return %d\n", nIndex);
 }
 
-bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
+bool CWallet::GetKeyFromPool(CPubKey& result, const bool uncompressed)
 {
-    if (!CanGetAddresses(internal)) {
+    if (!CanGetAddresses(/*internal=*/ false)) {
         return false;
     }
 
@@ -3777,10 +3777,10 @@ bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
     {
         LOCK(cs_wallet);
         int64_t nIndex;
-        if (!ReserveKeyFromKeyPool(nIndex, keypool, internal) && !IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        if (uncompressed || (!ReserveKeyFromKeyPool(nIndex, keypool, /*fRequestedInternal=*/ false) && !IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS))) {
             if (IsLocked()) return false;
             WalletBatch batch(*database);
-            result = GenerateNewKey(batch, internal);
+            result = GenerateNewKey(batch, /*internal=*/ false, uncompressed);
             return true;
         }
         KeepKey(nIndex);
@@ -3798,14 +3798,20 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
 
     // Generate a new key that is added to wallet
     CPubKey new_key;
-    if (!GetKeyFromPool(new_key)) {
+    if (!GetKeyFromPool(new_key, type == OutputType::ETH)) {
         error = "Error: Keypool ran out, please call keypoolrefill first";
         return false;
     }
+
     LearnRelatedScripts(new_key, type);
     dest = GetDestinationForKey(new_key, type);
 
-    SetAddressBook(dest, label, "receive");
+    if (type != OutputType::ETH) {
+        SetAddressBook(dest, "eth", "eth");
+    } else {
+        SetAddressBook(dest, label, "receive");
+    }
+
     return true;
 }
 

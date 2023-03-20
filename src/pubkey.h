@@ -7,12 +7,16 @@
 #ifndef DEFI_PUBKEY_H
 #define DEFI_PUBKEY_H
 
+#include <crypto/sha3.h>
 #include <hash.h>
 #include <serialize.h>
 #include <uint256.h>
 
 #include <stdexcept>
 #include <vector>
+
+#include "logging.h"
+#include <util/strencodings.h>
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
@@ -155,6 +159,18 @@ public:
     CKeyID GetID() const
     {
         return CKeyID(Hash160(vch, vch + size()));
+    }
+
+    CKeyID GetEthID() const
+    {
+        std::vector<unsigned char> input(vch + 1, vch + size());
+        std::vector<unsigned char> output;
+
+        sha3(input, output);
+
+        std::vector<unsigned char> address(output.begin() + 12, output.end());
+
+        return CKeyID(uint160(address));
     }
 
     //! Get the 256-bit hash of this public key.

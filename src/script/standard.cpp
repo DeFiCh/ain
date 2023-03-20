@@ -25,6 +25,8 @@ WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
 
+EthHash::EthHash(const CPubKey& pubkey) : uint160(pubkey.GetEthID()) {}
+
 const char* GetTxnOutputType(txnouttype t)
 {
     switch (t)
@@ -269,6 +271,11 @@ public:
     CScript operator()(const WitnessUnknown& id) const
     {
         return CScript() << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
+    }
+
+    CScript operator()(const EthHash& id) const
+    {
+        return CScript() << OP_16 << ToByteVector(id);
     }
 };
 } // namespace

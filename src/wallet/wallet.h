@@ -799,7 +799,7 @@ private:
     CHDChain hdChain;
 
     /* HD derive new child key (on internal or external chain) */
-    void DeriveNewChildKey(WalletBatch& batch, CKeyMetadata& metadata, CKey& secret, bool internal = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void DeriveNewChildKey(WalletBatch& batch, CKeyMetadata& metadata, CKey& secret, bool internal, const bool uncompressed) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     std::set<int64_t> setInternalKeyPool GUARDED_BY(cs_wallet);
     std::set<int64_t> setExternalKeyPool GUARDED_BY(cs_wallet);
@@ -1000,7 +1000,7 @@ public:
      * keystore implementation
      * Generate a new key
      */
-    CPubKey GenerateNewKey(WalletBatch& batch, bool internal = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    CPubKey GenerateNewKey(WalletBatch& batch, bool internal = false, const bool uncompressed = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
@@ -1188,7 +1188,7 @@ public:
     std::set<CTxDestination> GetLabelAddresses(const std::string& label) const;
 
     //! Fetches a key from the keypool. Public for use in SPV.
-    bool GetKeyFromPool(CPubKey &key, bool internal = false);
+    bool GetKeyFromPool(CPubKey &key, bool uncompressed = false);
 
     bool GetNewDestination(const OutputType type, const std::string label, CTxDestination& dest, std::string& error);
     bool GetNewChangeDestination(const OutputType type, CTxDestination& dest, std::string& error);

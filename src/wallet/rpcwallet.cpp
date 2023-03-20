@@ -207,7 +207,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
                 "so payments received with the address will be associated with 'label'.\n",
                 {
                     {"label", RPCArg::Type::STR, /* default */ "\"\"", "The label name for the address to be linked to. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name."},
-                    {"address_type", RPCArg::Type::STR, /* default */ "set by -addresstype", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
+                    {"address_type", RPCArg::Type::STR, /* default */ "set by -addresstype", R"(The address type to use. Options are "legacy", "p2sh-segwit", "bech32" and "eth".)"},
                 },
                 RPCResult{
             "\"address\"    (string) The new defi address\n"
@@ -3696,6 +3696,8 @@ public:
     }
 
     UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const EthHash& dest) const { return UniValue(UniValue::VOBJ); }
 };
 
 static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& dest)

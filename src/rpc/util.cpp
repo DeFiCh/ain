@@ -252,6 +252,11 @@ public:
         obj.pushKV("witness_program", HexStr(id.program, id.program + id.length));
         return obj;
     }
+
+    UniValue operator()(const EthHash& id) const
+    {
+        return UniValue(UniValue::VOBJ);
+    }
 };
 
 UniValue DescribeAddress(const CTxDestination& dest)

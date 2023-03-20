@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include "logging.h"
 
 namespace {
 class DestinationEncoder
@@ -58,6 +59,11 @@ public:
         data.reserve(1 + (id.length * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
         return bech32::Encode(m_params.Bech32HRP(), data);
+    }
+
+    std::string operator()(const EthHash& id) const
+    {
+        return "0x" + HexStr(id);
     }
 
     std::string operator()(const CNoDestination& no) const { return {}; }
