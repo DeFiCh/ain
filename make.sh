@@ -396,11 +396,6 @@ pkg_install_llvm() {
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
 }
 
-pkg_install_llvm_ubuntu_18_04() {
-    add-apt-repository ppa:ubuntu-toolchain-r/test
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
-}
-
 pkg_install_deps_mac() {
     apt install -y \
     python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick

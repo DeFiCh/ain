@@ -11,7 +11,7 @@ COPY ./make.sh .
 
 RUN apt update && apt install -y apt-transport-https
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm_ubuntu_18_04
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
 # -----------
 FROM builder-base as depends-builder
