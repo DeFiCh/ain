@@ -1,0 +1,47 @@
+name: Jellyfish Tests
+
+on:
+  push:
+    branches:
+      - epic/*
+  pull_request:
+    branches:
+      - master
+      - epic/*
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-20.04-8core
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: JellyfishSDK/jellyfish
+          ref: 'main'
+
+      - uses: actions/checkout@v3
+        with:
+          path: defichain
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Set build version
+        run: |
+          cd defichain
+          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh git_version
+
+      - name: Build and package
+        run: |
+          echo ">>> BUILD VERSION <<<"
+          echo ${BUILD_VERSION}
+          cd defichain
+          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
+          docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
+
+      - name: Run tests
+        run: |
+          npm ci
+          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test
