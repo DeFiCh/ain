@@ -45,7 +45,7 @@ int GetMnResignDelay(int height) {
     // Restore previous activation delay on testnet after FC
     if (height < Params().GetConsensus().EunosHeight ||
        (IsTestNetwork() &&
-       height >= Params().GetConsensus().GrandCentralHeight)) {
+       height >= Params().GetConsensus().FortCanningHeight)) {
         return Params().GetConsensus().mn.resignDelay;
     }
 
