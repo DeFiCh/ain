@@ -83,7 +83,7 @@ def get_block_hashes(settings, max_blocks_per_call=10000):
             if rpc.response_is_error(resp_obj):
                 print('JSON-RPC: error at height', height+x, ': ', resp_obj['error'], file=sys.stderr)
                 sys.exit(1)
-            assert(resp_obj['id'] == x) # assume replies are in-sequence
+            assert (resp_obj['id'] == x) # assume replies are in-sequence
             if settings['rev_hash_bytes'] == 'true':
                 resp_obj['result'] = hex_switchEndian(resp_obj['result'])
             print(resp_obj['result'])
@@ -106,12 +106,12 @@ if __name__ == '__main__':
     f = open(sys.argv[1], encoding="utf8")
     for line in f:
         # skip comment lines
-        m = re.search('^\s*#', line)
+        m = re.search('^s*#', line)
         if m:
             continue
 
         # parse key=value lines
-        m = re.search('^(\w+)\s*=\s*(\S.*)$', line)
+        m = re.search('^(w+)s*=s*(S.*)$', line)
         if m is None:
             continue
         settings[m.group(1)] = m.group(2)
