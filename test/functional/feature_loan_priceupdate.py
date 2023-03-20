@@ -14,13 +14,15 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
 
-class PriceUpdateTest (DefiTestFramework):
+
+class PriceUpdateTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.FCH = 400
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', f'-fortcanninghillheight={self.FCH}']
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1',
+             '-fortcanningheight=1', f'-fortcanninghillheight={self.FCH}']
         ]
 
     def run_test(self):
@@ -73,7 +75,7 @@ class PriceUpdateTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken(collTokenDFI_USD)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("no live oracles for specified request" in errorString)
+        assert ("no live oracles for specified request" in errorString)
 
         # feed oracle
         oracle1_prices = [
@@ -105,7 +107,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create vault
-        vaultId1 = self.nodes[0].createvault(account, 'LOAN1') # default loan scheme
+        vaultId1 = self.nodes[0].createvault(account, 'LOAN1')  # default loan scheme
         self.nodes[0].generate(6)
 
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
@@ -125,7 +127,7 @@ class PriceUpdateTest (DefiTestFramework):
             self.nodes[0].setloantoken(loanTokenTSLA_USD)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("no live oracles for specified request" in errorString)
+        assert ("no live oracles for specified request" in errorString)
 
         oracle1_prices = [
             {"currency": "USD", "tokenAmount": "20@TSLA"},
@@ -152,21 +154,21 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No live fixed prices for TSLA/USD" in errorString)
+        assert ("No live fixed prices for TSLA/USD" in errorString)
 
-        self.nodes[0].generate(5) # let price update
+        self.nodes[0].generate(5)  # let price update
 
         loanAmount = 40
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
-            'amounts': str(loanAmount)+"@TSLA"})
+            'amounts': str(loanAmount) + "@TSLA"})
         self.nodes[0].generate(1)
         takenLoanAmount = loanAmount
         try:
             fixedPrice = self.nodes[0].getfixedintervalprice("AAA/USD")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("fixedIntervalPrice with id <AAA/USD> not found" in errorString)
+        assert ("fixedIntervalPrice with id <AAA/USD> not found" in errorString)
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
         assert_equal(fixedPrice['activePrice'], Decimal(15.00000000))
         assert_equal(fixedPrice['nextPrice'], Decimal(15.00000000))
@@ -194,8 +196,8 @@ class PriceUpdateTest (DefiTestFramework):
         loanAmount = 10
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
-            'amounts': str(loanAmount)+"@TSLA"})
-        self.nodes[0].generate(2) # let price update to invalid state
+            'amounts': str(loanAmount) + "@TSLA"})
+        self.nodes[0].generate(2)  # let price update to invalid state
 
         takenLoanAmount += loanAmount
         vault = self.nodes[0].getvault(vaultId1)
@@ -206,23 +208,22 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot take loan while any of the asset's price in the vault is not live" in errorString)
+        assert ("Cannot take loan while any of the asset's price in the vault is not live" in errorString)
 
         try:
             self.nodes[0].withdrawfromvault(vaultId1, account, "100@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot withdraw from vault while any of the asset's price is invalid" in errorString)
+        assert ("Cannot withdraw from vault while any of the asset's price is invalid" in errorString)
 
         try:
             self.nodes[0].paybackloan({
-                    'vaultId': vaultId1,
-                    'from': account,
-                    'amounts': ["0.5@TSLA"]})
+                'vaultId': vaultId1,
+                'from': account,
+                'amounts': ["0.5@TSLA"]})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot payback loan while any of the asset's price is invalid" in errorString)
-
+        assert ("Cannot payback loan while any of the asset's price is invalid" in errorString)
 
         account2 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].generate(1)
@@ -232,15 +233,14 @@ class PriceUpdateTest (DefiTestFramework):
             self.nodes[0].updatevault(vaultId1, params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot update vault while any of the asset's price is invalid" in errorString)
+        assert ("Cannot update vault while any of the asset's price is invalid" in errorString)
 
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
         assert_equal(fixedPrice['isLive'], False)
         assert_equal(fixedPrice['activePrice'], Decimal('15.00000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('22.50000000'))
 
-
-        self.nodes[0].generate(5) # let price update to valid state
+        self.nodes[0].generate(5)  # let price update to valid state
         self.nodes[0].updatevault(vaultId1, params)
 
         self.nodes[0].generate(1)
@@ -250,11 +250,12 @@ class PriceUpdateTest (DefiTestFramework):
         loanAmount = 30
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
-            'amounts': str(loanAmount)+ "@TSLA"})
+            'amounts': str(loanAmount) + "@TSLA"})
         self.nodes[0].generate(1)
         takenLoanAmount += loanAmount
 
-        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].withdrawfromvault, vaultId1, account, "900@DFI")
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI",
+                                self.nodes[0].withdrawfromvault, vaultId1, account, "900@DFI")
 
         vault = self.nodes[0].getvault(vaultId1)
         self.nodes[0].withdrawfromvault(vaultId1, account, "100@BTC")
@@ -269,7 +270,7 @@ class PriceUpdateTest (DefiTestFramework):
         assert_equal(vault["collateralAmounts"][1], '900.00000000@BTC')
         interest_TSLA = self.nodes[0].getinterest('LOAN1')[0]["totalInterest"]
         totalLoanAmount = takenLoanAmount + interest_TSLA
-        assert_equal(vault["loanAmounts"][0], str(totalLoanAmount)+"@TSLA")
+        assert_equal(vault["loanAmounts"][0], str(totalLoanAmount) + "@TSLA")
 
         height = self.nodes[0].getblockcount()
         assert_equal(height, 340)
@@ -355,7 +356,8 @@ class PriceUpdateTest (DefiTestFramework):
 
         # Check one block interest is added correctly
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
-        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(
+            Decimal('0.00000001'), rounding=ROUND_DOWN)
         realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
         assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
 
@@ -371,9 +373,11 @@ class PriceUpdateTest (DefiTestFramework):
 
         # Check one block interest is added correctly
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
-        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(
+            Decimal('0.00000001'), rounding=ROUND_DOWN)
         realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
         assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
+
 
 if __name__ == '__main__':
     PriceUpdateTest().main()

@@ -10,6 +10,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
+
 class NamedArgumentTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -25,10 +26,11 @@ class NamedArgumentTest(DefiTestFramework):
         node.getblock(blockhash=h)
 
         assert_equal(node.echo(), [])
-        assert_equal(node.echo(arg0=0,arg9=9), [0] + [None]*8 + [9])
+        assert_equal(node.echo(arg0=0, arg9=9), [0] + [None] * 8 + [9])
         assert_equal(node.echo(arg1=1), [None, 1])
-        assert_equal(node.echo(arg9=None), [None]*10)
-        assert_equal(node.echo(arg0=0,arg3=3,arg9=9), [0] + [None]*2 + [3] + [None]*5 + [9])
+        assert_equal(node.echo(arg9=None), [None] * 10)
+        assert_equal(node.echo(arg0=0, arg3=3, arg9=9), [0] + [None] * 2 + [3] + [None] * 5 + [9])
+
 
 if __name__ == '__main__':
     NamedArgumentTest().main()

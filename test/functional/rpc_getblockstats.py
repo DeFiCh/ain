@@ -17,8 +17,8 @@ import os
 
 TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
-class GetblockstatsTest(DefiTestFramework):
 
+class GetblockstatsTest(DefiTestFramework):
     start_height = 101
     max_stat_pos = 2
 
@@ -36,10 +36,10 @@ class GetblockstatsTest(DefiTestFramework):
         self.setup_clean_chain = True
 
     def get_stats(self):
-        return [self.nodes[0].getblockstats(hash_or_height=self.start_height + i) for i in range(self.max_stat_pos+1)]
+        return [self.nodes[0].getblockstats(hash_or_height=self.start_height + i) for i in range(self.max_stat_pos + 1)]
 
     def generate_test_data(self, filename):
-        mocktime = TIME_GENESIS_BLOCK+1
+        mocktime = TIME_GENESIS_BLOCK + 1
         self.nodes[0].setmocktime(mocktime)
         self.nodes[0].generate(101)
 
@@ -85,7 +85,6 @@ class GetblockstatsTest(DefiTestFramework):
         for b in blocks:
             self.nodes[0].submitblock(b)
 
-
     def run_test(self):
         test_data = os.path.join(TESTSDIR, self.options.test_data)
         if self.options.gen_test_data:
@@ -102,7 +101,7 @@ class GetblockstatsTest(DefiTestFramework):
         assert_equal(stats[0]['height'], self.start_height)
         assert_equal(stats[self.max_stat_pos]['height'], self.start_height + self.max_stat_pos)
 
-        for i in range(self.max_stat_pos+1):
+        for i in range(self.max_stat_pos + 1):
             self.log.info('Checking block %d\n' % (i))
             assert_equal(stats[i], self.expected_stats[i])
 
@@ -113,7 +112,7 @@ class GetblockstatsTest(DefiTestFramework):
 
         # Make sure each stat can be queried on its own
         for stat in expected_keys:
-            for i in range(self.max_stat_pos+1):
+            for i in range(self.max_stat_pos + 1):
                 result = self.nodes[0].getblockstats(hash_or_height=self.start_height + i, stats=[stat])
                 assert_equal(list(result.keys()), [stat])
                 if result[stat] != self.expected_stats[i][stat]:
@@ -128,8 +127,8 @@ class GetblockstatsTest(DefiTestFramework):
 
         # Test invalid parameters raise the proper json exceptions
         tip = self.start_height + self.max_stat_pos
-        assert_raises_rpc_error(-8, 'Target block height %d after current tip %d' % (tip+1, tip),
-                                self.nodes[0].getblockstats, hash_or_height=tip+1)
+        assert_raises_rpc_error(-8, 'Target block height %d after current tip %d' % (tip + 1, tip),
+                                self.nodes[0].getblockstats, hash_or_height=tip + 1)
         assert_raises_rpc_error(-8, 'Target block height %d is negative' % (-1),
                                 self.nodes[0].getblockstats, hash_or_height=-1)
 
@@ -137,7 +136,7 @@ class GetblockstatsTest(DefiTestFramework):
         inv_sel_stat = 'asdfghjkl'
         inv_stats = [
             [inv_sel_stat],
-            ['minfee' , inv_sel_stat],
+            ['minfee', inv_sel_stat],
             [inv_sel_stat, 'minfee'],
             ['minfee', inv_sel_stat, 'maxfee'],
         ]
@@ -147,7 +146,7 @@ class GetblockstatsTest(DefiTestFramework):
 
         # Make sure we aren't always returning inv_sel_stat as the culprit stat
         assert_raises_rpc_error(-8, 'Invalid selected statistic aaa%s' % inv_sel_stat,
-                                self.nodes[0].getblockstats, hash_or_height=1, stats=['minfee' , 'aaa%s' % inv_sel_stat])
+                                self.nodes[0].getblockstats, hash_or_height=1, stats=['minfee', 'aaa%s' % inv_sel_stat])
         # Mainchain's genesis block shouldn't be found on regtest
         assert_raises_rpc_error(-5, 'Block not found', self.nodes[0].getblockstats,
                                 hash_or_height='000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f')

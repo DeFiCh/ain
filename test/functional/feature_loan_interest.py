@@ -14,16 +14,19 @@ import calendar
 import time
 from decimal import Decimal
 
-class LoanInterestTest (DefiTestFramework):
+
+class LoanInterestTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50', '-fortcanningmuseumheight=50', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50', '-fortcanningmuseumheight=50', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50',
+             '-fortcanningmuseumheight=50', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50',
+             '-fortcanningmuseumheight=50', '-txindex=1']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         print("Generating initial chain...")
         self.nodes[0].generate(50)
@@ -81,38 +84,38 @@ class LoanInterestTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].setcollateraltoken({
-                                    'token': idDFI,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': idDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
-                                    'token': idBTC,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': idBTC,
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.nodes[0].setloantoken({
-                                    'symbol': symbolTSLA,
-                                    'name': "Tesla stock token",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': True,
-                                    'interest': 1})
+            'symbol': symbolTSLA,
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 1})
 
         self.nodes[0].setloantoken({
-                                    'symbol': symbolGOOGL,
-                                    'name': "Tesla stock token",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': True,
-                                    'interest': 2})
+            'symbol': symbolGOOGL,
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 2})
 
         self.nodes[0].setloantoken({
-                                    'symbol': symboldUSD,
-                                    'name': "DUSD stable token",
-                                    'fixedIntervalPriceId': "DUSD/USD",
-                                    'mintable': True,
-                                    'interest': 1})
+            'symbol': symboldUSD,
+            'name': "DUSD stable token",
+            'fixedIntervalPriceId': "DUSD/USD",
+            'mintable': True,
+            'interest': 1})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -135,7 +138,7 @@ class LoanInterestTest (DefiTestFramework):
         idTSLA = list(self.nodes[0].getloantoken(symbolTSLA)["token"])[0]
         idGOOGL = list(self.nodes[0].getloantoken(symbolGOOGL)["token"])[0]
 
-        vaultId1 = self.nodes[0].createvault( account0, 'LOAN150')
+        vaultId1 = self.nodes[0].createvault(account0, 'LOAN150')
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -146,8 +149,8 @@ class LoanInterestTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': vaultId1,
-                    'amounts': "2000@" + symboldUSD})
+            'vaultId': vaultId1,
+            'amounts': "2000@" + symboldUSD})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -174,7 +177,7 @@ class LoanInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        vaultId = self.nodes[0].createvault( account0, 'LOAN150')
+        vaultId = self.nodes[0].createvault(account0, 'LOAN150')
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -183,8 +186,8 @@ class LoanInterestTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
+            'vaultId': vaultId,
+            'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -213,25 +216,26 @@ class LoanInterestTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': ["1000@" + symboldUSD]})
+            'vaultId': vaultId,
+            'amounts': ["1000@" + symboldUSD]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': vaultId,
-                        'from': account0,
-                        'amounts': ["999.99900000@" + symboldUSD]})
+                'vaultId': vaultId,
+                'from': account0,
+                'amounts': ["999.99900000@" + symboldUSD]})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot payback this amount of loan for " + symboldUSD + ", either payback full amount or less than this amount" in errorString)
+        assert (
+                    "Cannot payback this amount of loan for " + symboldUSD + ", either payback full amount or less than this amount" in errorString)
 
         self.nodes[0].paybackloan({
-                        'vaultId': vaultId,
-                        'from': account0,
-                        'amounts': ["999.99700000@" + symboldUSD]})
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': ["999.99700000@" + symboldUSD]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -248,15 +252,16 @@ class LoanInterestTest (DefiTestFramework):
         DUSDbalance = self.nodes[0].getaccount(account0, {}, True)[iddUSD]
 
         self.nodes[0].paybackloan({
-                        'vaultId': vaultId,
-                        'from': account0,
-                        'amounts': ["1000@" + symboldUSD]})
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': ["1000@" + symboldUSD]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         newDUSDbalance = self.nodes[0].getaccount(account0, {}, True)[iddUSD]
         assert_equal(newDUSDbalance, DUSDbalance - Decimal('0.00414257'))
+
 
 if __name__ == '__main__':
     LoanInterestTest().main()

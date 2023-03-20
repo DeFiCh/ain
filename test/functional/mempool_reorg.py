@@ -40,14 +40,15 @@ class MempoolCoinbaseTest(DefiTestFramework):
         # 3. Indirect (coinbase and child both in chain) : spend_103 and spend_103_1
         # Use invalidatblock to make all of the above coinbase spends invalid (immature coinbase),
         # and make sure the mempool code behaves correctly.
-        b = [ self.nodes[0].getblockhash(n) for n in range(101, 105) ]
-        coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
+        b = [self.nodes[0].getblockhash(n) for n in range(101, 105)]
+        coinbase_txids = [self.nodes[0].getblock(h)['tx'][0] for h in b]
         spend_101_raw = create_raw_transaction(self.nodes[0], coinbase_txids[1], node1_address, amount=49.99)
         spend_102_raw = create_raw_transaction(self.nodes[0], coinbase_txids[2], node0_address, amount=49.99)
         spend_103_raw = create_raw_transaction(self.nodes[0], coinbase_txids[3], node0_address, amount=49.99)
 
         # Create a transaction which is time-locked to two blocks in the future
-        timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}], {node0_address: 49.99})
+        timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}],
+                                                         {node0_address: 49.99})
         # Set the time lock
         timelock_tx = timelock_tx.replace("ffffffff", "11111191", 1)
         timelock_tx = timelock_tx[:-8] + hex(self.nodes[0].getblockcount() + 2)[2:] + "000000"
@@ -95,6 +96,7 @@ class MempoolCoinbaseTest(DefiTestFramework):
 
         # mempool should be empty.
         assert_equal(set(self.nodes[0].getrawmempool()), set())
+
 
 if __name__ == '__main__':
     MempoolCoinbaseTest().main()

@@ -11,15 +11,16 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
+
 class MempoolDakotaTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-                            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
-                            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
-                            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
-                          ]
+            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
+            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
+            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
+        ]
 
     def run_test(self):
         node = self.nodes[0]
@@ -27,7 +28,7 @@ class MempoolDakotaTest(DefiTestFramework):
         node.generate(101)
         self.sync_blocks()
 
-        assert_equal(node.getblockcount(), 101) # Dakota height
+        assert_equal(node.getblockcount(), 101)  # Dakota height
 
         # Get addresses and set up account
         wallet1_addr = node1.getnewaddress("", "legacy")
@@ -48,5 +49,6 @@ class MempoolDakotaTest(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
 
+
 if __name__ == '__main__':
-    MempoolDakotaTest().main ()
+    MempoolDakotaTest().main()

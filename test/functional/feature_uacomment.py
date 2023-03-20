@@ -33,7 +33,8 @@ class UacommentTest(DefiTestFramework):
         self.log.info("test -uacomment unsafe characters")
         for unsafe_char in ['/', ':', '(', ')']:
             expected = "Error: User Agent comment \(" + re.escape(unsafe_char) + "\) contains unsafe characters."
-            self.nodes[0].assert_start_raises_init_error(["-uacomment=" + unsafe_char], expected, match=ErrorMatch.FULL_REGEX)
+            self.nodes[0].assert_start_raises_init_error(["-uacomment=" + unsafe_char], expected,
+                                                         match=ErrorMatch.FULL_REGEX)
 
 
 if __name__ == '__main__':

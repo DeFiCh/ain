@@ -17,7 +17,7 @@ FALSE_POSITIVES = [
     ("src/index/base.cpp", "FatalError(const char* fmt, const Args&... args)"),
     ("src/netbase.cpp", "LogConnectFailure(bool manual_connection, const char* fmt, const Args&... args)"),
     ("src/util/system.cpp", "strprintf(_(COPYRIGHT_HOLDERS).translated, COPYRIGHT_HOLDERS_SUBSTITUTION)"),
-    ("src/wallet/wallet.h",  "WalletLogPrintf(std::string fmt, Params... parameters)"),
+    ("src/wallet/wallet.h", "WalletLogPrintf(std::string fmt, Params... parameters)"),
     ("src/wallet/wallet.h", "LogPrintf((\"%s \" + fmt).c_str(), GetDisplayName(), parameters...)"),
     ("src/logging.h", "LogPrintf(const char* fmt, const Args&... args)"),
 ]
@@ -183,7 +183,8 @@ def parse_function_call_and_arguments(function_name, function_call):
         if char == "<" and next_char not in [" ", "<", "="] and prev_char not in [" ", "<"]:
             open_template_arguments += 1
             continue
-        if char == ">" and next_char not in [" ", ">", "="] and prev_char not in [" ", ">"] and open_template_arguments > 0:
+        if char == ">" and next_char not in [" ", ">", "="] and prev_char not in [" ",
+                                                                                  ">"] and open_template_arguments > 0:
             open_template_arguments -= 1
         if open_template_arguments > 0:
             continue
@@ -256,10 +257,10 @@ def count_format_specifiers(format_string):
 
 def main():
     parser = argparse.ArgumentParser(description="This program checks that the number of arguments passed "
-                                     "to a variadic format string function matches the number of format "
-                                     "specifiers in the format string.")
+                                                 "to a variadic format string function matches the number of format "
+                                                 "specifiers in the format string.")
     parser.add_argument("--skip-arguments", type=int, help="number of arguments before the format string "
-                        "argument (e.g. 1 in the case of fprintf)", default=0)
+                                                           "argument (e.g. 1 in the case of fprintf)", default=0)
     parser.add_argument("function_name", help="function name (e.g. fprintf)", default=None)
     parser.add_argument("file", nargs="*", help="C++ source code file (e.g. foo.cpp)")
     args = parser.parse_args()
@@ -273,14 +274,18 @@ def main():
                     continue
                 if len(parts) < 3 + args.skip_arguments:
                     exit_code = 1
-                    print("{}: Could not parse function call string \"{}(...)\": {}".format(f.name, args.function_name, relevant_function_call_str))
+                    print("{}: Could not parse function call string \"{}(...)\": {}".format(f.name, args.function_name,
+                                                                                            relevant_function_call_str))
                     continue
                 argument_count = len(parts) - 3 - args.skip_arguments
                 format_str = parse_string_content(parts[1 + args.skip_arguments])
                 format_specifier_count = count_format_specifiers(format_str)
                 if format_specifier_count != argument_count:
                     exit_code = 1
-                    print("{}: Expected {} argument(s) after format string but found {} argument(s): {}".format(f.name, format_specifier_count, argument_count, relevant_function_call_str))
+                    print("{}: Expected {} argument(s) after format string but found {} argument(s): {}".format(f.name,
+                                                                                                                format_specifier_count,
+                                                                                                                argument_count,
+                                                                                                                relevant_function_call_str))
                     continue
     sys.exit(exit_code)
 

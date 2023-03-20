@@ -33,13 +33,13 @@ from test_framework.util import hex_str_to_bytes, assert_equal
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70024  # past bip-31 for ping/pong
 MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
-MY_RELAY = 1 # from version 70001 onwards, fRelay should be appended to version messages (BIP37)
+MY_RELAY = 1  # from version 70001 onwards, fRelay should be appended to version messages (BIP37)
 
 MAX_LOCATOR_SZ = 101
 MAX_BLOCK_BASE_SIZE = 1000000 * 16
 
 COIN = 100000000  # 1 btc in satoshis
-MAXMONEY = 1200000000 * COIN # old value 21000000 * 4
+MAXMONEY = 1200000000 * COIN  # old value 21000000 * 4
 
 BIP125_SEQUENCE_NUMBER = 0xfffffffd  # Sequence number that is BIP 125 opt-in and BIP 68-opt-out
 
@@ -54,12 +54,15 @@ MSG_BLOCK = 2
 MSG_WITNESS_FLAG = 1 << 30
 MSG_TYPE_MASK = 0xffffffff >> 2
 
+
 # Serialization/deserialization tools
 def sha256(s):
     return hashlib.new('sha256', s).digest()
 
+
 def hash256(s):
     return sha256(sha256(s))
+
 
 def ser_compact_size(l):
     r = b""
@@ -73,6 +76,7 @@ def ser_compact_size(l):
         r = struct.pack("<BQ", 255, l)
     return r
 
+
 def deser_compact_size(f):
     nit = struct.unpack("<B", f.read(1))[0]
     if nit == 253:
@@ -83,12 +87,15 @@ def deser_compact_size(f):
         nit = struct.unpack("<Q", f.read(8))[0]
     return nit
 
+
 def deser_string(f):
     nit = deser_compact_size(f)
     return f.read(nit)
 
+
 def ser_string(s):
     return ser_compact_size(len(s)) + s
+
 
 def deser_uint256(f):
     r = 0
@@ -180,9 +187,11 @@ def FromHex(obj, hex_string):
     obj.deserialize(BytesIO(hex_str_to_bytes(hex_string)))
     return obj
 
+
 # Convert a binary-serializable object to hex (eg for submission via RPC)
 def ToHex(obj):
     return obj.serialize().hex()
+
 
 # Objects that map to defid objects, which can be serialized/deserialized
 
@@ -223,7 +232,7 @@ class CAddress:
 class CAnchorAuth:
     __slots__ = ("previousAnchor", "height", "blockHash", "nextTeam")
 
-    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=None):
+    def __init__(self, previousAnchor=b"\x00" * 32, height=0, blockHash=b"\x00" * 32, nextTeam=None):
         self.previousAnchor = previousAnchor if previousAnchor is not None else []
         self.height = height
         self.blockHash = blockHash
@@ -240,11 +249,11 @@ class CAnchorAuth:
         for i in range(nit):
             t = f.read(20)
             self.nextTeam.append(t)
-        repr (self)
+        repr(self)
 
     # dummy, untested yet:
     def serialize(self):
-        repr (self)
+        repr(self)
         r = b""
         r += ser_uint256(self.previousAnchor)
         r += struct.pack("<I", self.height)
@@ -256,7 +265,8 @@ class CAnchorAuth:
         return r
 
     def __repr__(self):
-        return "CAnchorAuth(previousAnchor=%064x height=%i blockHash=%064x nextTeam=%s)" % (self.previousAnchor, self.height, self.blockHash, self.nextTeam)
+        return "CAnchorAuth(previousAnchor=%064x height=%i blockHash=%064x nextTeam=%s)" % (
+        self.previousAnchor, self.height, self.blockHash, self.nextTeam)
 
 
 class CInv:
@@ -266,8 +276,8 @@ class CInv:
         0: "Error",
         1: "TX",
         2: "Block",
-        1|MSG_WITNESS_FLAG: "WitnessTx",
-        2|MSG_WITNESS_FLAG : "WitnessBlock",
+        1 | MSG_WITNESS_FLAG: "WitnessTx",
+        2 | MSG_WITNESS_FLAG: "WitnessBlock",
         4: "CompactBlock",
         5: "AnchorAuth"
     }
@@ -396,7 +406,7 @@ class CScriptWitness:
 
     def __repr__(self):
         return "CScriptWitness(%s)" % \
-               (",".join([x.hex() for x in self.stack]))
+            (",".join([x.hex() for x in self.stack]))
 
     def is_null(self):
         if self.stack:
@@ -444,7 +454,7 @@ class CTxWitness:
 
     def __repr__(self):
         return "CTxWitness(%s)" % \
-               (';'.join([repr(x) for x in self.vtxinwit]))
+            (';'.join([repr(x) for x in self.vtxinwit]))
 
     def is_null(self):
         for x in self.vtxinwit:
@@ -595,7 +605,7 @@ class CBlockHeader:
         self.stakeModifier = 0
         self.nHeight = 0
         self.nMintedBlocks = 0
-        self.sig = b"0" * 65 # dummy sig to make header fixed length
+        self.sig = b"0" * 65  # dummy sig to make header fixed length
 
         self.sha256 = None
         self.hash = None
@@ -655,10 +665,13 @@ class CBlockHeader:
     def __repr__(self):
         return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "".join("{:02x}".format(c) for c in self.sig))
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks,
+               "".join("{:02x}".format(c) for c in self.sig))
+
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
 assert_equal(BLOCK_HEADER_SIZE, 190)
+
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -686,7 +699,7 @@ class CBlock(CBlockHeader):
         while len(hashes) > 1:
             newhashes = []
             for i in range(0, len(hashes), 2):
-                i2 = min(i+1, len(hashes)-1)
+                i2 = min(i + 1, len(hashes) - 1)
                 newhashes.append(hash256(hashes[i] + hashes[i2]))
             hashes = newhashes
         return uint256_from_str(hashes[0])
@@ -733,13 +746,14 @@ class CBlock(CBlockHeader):
     def __repr__(self):
         return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig), repr(self.vtx))
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks,
+               "0x".join("{:02x}".format(c) for c in self.sig), repr(self.vtx))
 
 
 class PrefilledTransaction:
     __slots__ = ("index", "tx")
 
-    def __init__(self, index=0, tx = None):
+    def __init__(self, index=0, tx=None):
         self.index = index
         self.tx = tx
 
@@ -807,15 +821,19 @@ class P2PHeaderAndShortIDs:
         return r
 
     def __repr__(self):
-        return "P2PHeaderAndShortIDs(header=%s, nonce=%d, shortids_length=%d, shortids=%s, prefilled_txn_length=%d, prefilledtxn=%s" % (repr(self.header), self.nonce, self.shortids_length, repr(self.shortids), self.prefilled_txn_length, repr(self.prefilled_txn))
+        return "P2PHeaderAndShortIDs(header=%s, nonce=%d, shortids_length=%d, shortids=%s, prefilled_txn_length=%d, prefilledtxn=%s" % (
+        repr(self.header), self.nonce, self.shortids_length, repr(self.shortids), self.prefilled_txn_length,
+        repr(self.prefilled_txn))
 
 
 # P2P version of the above that will use witness serialization (for compact
 # block version 2)
 class P2PHeaderAndShortWitnessIDs(P2PHeaderAndShortIDs):
     __slots__ = ()
+
     def serialize(self):
         return super(P2PHeaderAndShortWitnessIDs, self).serialize(with_witness=True)
+
 
 # Calculate the BIP 152-compact blocks shortid for a given transaction hash
 def calculate_shortid(k0, k1, tx_hash):
@@ -829,7 +847,7 @@ def calculate_shortid(k0, k1, tx_hash):
 class HeaderAndShortIDs:
     __slots__ = ("header", "nonce", "prefilled_txn", "shortids", "use_witness")
 
-    def __init__(self, p2pheaders_and_shortids = None):
+    def __init__(self, p2pheaders_and_shortids=None):
         self.header = CBlockHeader()
         self.nonce = 0
         self.shortids = []
@@ -868,7 +886,7 @@ class HeaderAndShortIDs:
         hash_header_nonce_as_str = sha256(header_nonce)
         key0 = struct.unpack("<Q", hash_header_nonce_as_str[0:8])[0]
         key1 = struct.unpack("<Q", hash_header_nonce_as_str[8:16])[0]
-        return [ key0, key1 ]
+        return [key0, key1]
 
     # Version 2 compact blocks use wtxid in shortids (rather than txid)
     def initialize_from_block(self, block, nonce=0, prefill_list=None, use_witness=False):
@@ -876,7 +894,7 @@ class HeaderAndShortIDs:
             prefill_list = [0]
         self.header = CBlockHeader(block)
         self.nonce = nonce
-        self.prefilled_txn = [ PrefilledTransaction(i, block.vtx[i]) for i in prefill_list ]
+        self.prefilled_txn = [PrefilledTransaction(i, block.vtx[i]) for i in prefill_list]
         self.shortids = []
         self.use_witness = use_witness
         [k0, k1] = self.get_siphash_keys()
@@ -888,13 +906,14 @@ class HeaderAndShortIDs:
                 self.shortids.append(calculate_shortid(k0, k1, tx_hash))
 
     def __repr__(self):
-        return "HeaderAndShortIDs(header=%s, nonce=%d, shortids=%s, prefilledtxn=%s" % (repr(self.header), self.nonce, repr(self.shortids), repr(self.prefilled_txn))
+        return "HeaderAndShortIDs(header=%s, nonce=%d, shortids=%s, prefilledtxn=%s" % (
+        repr(self.header), self.nonce, repr(self.shortids), repr(self.prefilled_txn))
 
 
 class BlockTransactionsRequest:
     __slots__ = ("blockhash", "indexes")
 
-    def __init__(self, blockhash=0, indexes = None):
+    def __init__(self, blockhash=0, indexes=None):
         self.blockhash = blockhash
         self.indexes = indexes if indexes is not None else []
 
@@ -917,14 +936,14 @@ class BlockTransactionsRequest:
         self.indexes = []
         last_index = -1
         for x in absolute_indexes:
-            self.indexes.append(x-last_index-1)
+            self.indexes.append(x - last_index - 1)
             last_index = x
 
     def to_absolute(self):
         absolute_indexes = []
         last_index = -1
         for x in self.indexes:
-            absolute_indexes.append(x+last_index+1)
+            absolute_indexes.append(x + last_index + 1)
             last_index = absolute_indexes[-1]
         return absolute_indexes
 
@@ -935,7 +954,7 @@ class BlockTransactionsRequest:
 class BlockTransactions:
     __slots__ = ("blockhash", "transactions")
 
-    def __init__(self, blockhash=0, transactions = None):
+    def __init__(self, blockhash=0, transactions=None):
         self.blockhash = blockhash
         self.transactions = transactions if transactions is not None else []
 
@@ -970,20 +989,21 @@ class CPartialMerkleTree:
         vBytes = deser_string(f)
         self.vBits = []
         for i in range(len(vBytes) * 8):
-            self.vBits.append(vBytes[i//8] & (1 << (i % 8)) != 0)
+            self.vBits.append(vBytes[i // 8] & (1 << (i % 8)) != 0)
 
     def serialize(self):
         r = b""
         r += struct.pack("<i", self.nTransactions)
         r += ser_uint256_vector(self.vHash)
-        vBytesArray = bytearray([0x00] * ((len(self.vBits) + 7)//8))
+        vBytesArray = bytearray([0x00] * ((len(self.vBits) + 7) // 8))
         for i in range(len(self.vBits)):
             vBytesArray[i // 8] |= self.vBits[i] << (i % 8)
         r += ser_string(bytes(vBytesArray))
         return r
 
     def __repr__(self):
-        return "CPartialMerkleTree(nTransactions=%d, vHash=%s, vBits=%s)" % (self.nTransactions, repr(self.vHash), repr(self.vBits))
+        return "CPartialMerkleTree(nTransactions=%d, vHash=%s, vBits=%s)" % (
+        self.nTransactions, repr(self.vHash), repr(self.vBits))
 
 
 class CMerkleBlock:
@@ -1119,6 +1139,7 @@ class msg_inv:
 
     def __repr__(self):
         return "msg_inv(inv=%s)" % (repr(self.inv))
+
 
 class msg_getauths:
     __slots__ = ()
@@ -1257,6 +1278,7 @@ class msg_generic:
 
 class msg_no_witness_block(msg_block):
     __slots__ = ()
+
     def serialize(self):
         return self.block.serialize(with_witness=False)
 
@@ -1334,7 +1356,7 @@ class msg_mempool:
 
 
 class msg_notfound:
-    __slots__ = ("vec", )
+    __slots__ = ("vec",)
     command = b"notfound"
 
     def __init__(self, vec=None):
@@ -1496,7 +1518,7 @@ class msg_cmpctblock:
     __slots__ = ("header_and_shortids",)
     command = b"cmpctblock"
 
-    def __init__(self, header_and_shortids = None):
+    def __init__(self, header_and_shortids=None):
         self.header_and_shortids = header_and_shortids
 
     def deserialize(self, f):

@@ -8,7 +8,9 @@ import time
 
 from test_framework.messages import COIN, MAX_BLOCK_BASE_SIZE
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, create_confirmed_utxos, create_lots_of_big_transactions, gen_return_txouts
+from test_framework.util import assert_equal, assert_raises_rpc_error, create_confirmed_utxos, \
+    create_lots_of_big_transactions, gen_return_txouts
+
 
 class PrioritiseTransactionTest(DefiTestFramework):
     def set_test_params(self):
@@ -32,23 +34,31 @@ class PrioritiseTransactionTest(DefiTestFramework):
         assert_raises_rpc_error(-1, "prioritisetransaction", self.nodes[0].prioritisetransaction, '', 0, 0, 0)
 
         # Test `prioritisetransaction` invalid `txid`
-        assert_raises_rpc_error(-8, "txid must be of length 64 (not 3, for 'foo')", self.nodes[0].prioritisetransaction, txid='foo', fee_delta=0)
-        assert_raises_rpc_error(-8, "txid must be hexadecimal string (not 'Zd1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000')", self.nodes[0].prioritisetransaction, txid='Zd1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000', fee_delta=0)
+        assert_raises_rpc_error(-8, "txid must be of length 64 (not 3, for 'foo')", self.nodes[0].prioritisetransaction,
+                                txid='foo', fee_delta=0)
+        assert_raises_rpc_error(-8,
+                                "txid must be hexadecimal string (not 'Zd1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000')",
+                                self.nodes[0].prioritisetransaction,
+                                txid='Zd1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000', fee_delta=0)
 
         # Test `prioritisetransaction` invalid `dummy`
         txid = '1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000'
-        assert_raises_rpc_error(-1, "JSON value is not a number as expected", self.nodes[0].prioritisetransaction, txid, 'foo', 0)
-        assert_raises_rpc_error(-8, "Priority is no longer supported, dummy argument to prioritisetransaction must be 0.", self.nodes[0].prioritisetransaction, txid, 1, 0)
+        assert_raises_rpc_error(-1, "JSON value is not a number as expected", self.nodes[0].prioritisetransaction, txid,
+                                'foo', 0)
+        assert_raises_rpc_error(-8,
+                                "Priority is no longer supported, dummy argument to prioritisetransaction must be 0.",
+                                self.nodes[0].prioritisetransaction, txid, 1, 0)
 
         # Test `prioritisetransaction` invalid `fee_delta`
-        assert_raises_rpc_error(-1, "JSON value is not an integer as expected", self.nodes[0].prioritisetransaction, txid=txid, fee_delta='foo')
+        assert_raises_rpc_error(-1, "JSON value is not an integer as expected", self.nodes[0].prioritisetransaction,
+                                txid=txid, fee_delta='foo')
 
         self.txouts = gen_return_txouts()
         self.relayfee = self.nodes[0].getnetworkinfo()['relayfee']
 
-        utxo_count = 90*8 # 90 for original 1M block
+        utxo_count = 90 * 8  # 90 for original 1M block
         utxos = create_confirmed_utxos(self.relayfee, self.nodes[0], utxo_count)
-        base_fee = self.relayfee*100 # our transactions are smaller than 100kb
+        base_fee = self.relayfee * 100  # our transactions are smaller than 100kb
         txids = []
 
         # Create 3 batches of transactions at 3 different fee rate levels
@@ -57,7 +67,8 @@ class PrioritiseTransactionTest(DefiTestFramework):
             txids.append([])
             start_range = i * range_size
             end_range = start_range + range_size
-            txids[i] = create_lots_of_big_transactions(self.nodes[0], self.txouts, utxos[start_range:end_range], end_range - start_range, (i+1)*base_fee)
+            txids[i] = create_lots_of_big_transactions(self.nodes[0], self.txouts, utxos[start_range:end_range],
+                                                       end_range - start_range, (i + 1) * base_fee)
 
         # Make sure that the size of each group of transactions exceeds
         # MAX_BLOCK_BASE_SIZE -- otherwise the test needs to be revised to create
@@ -72,7 +83,7 @@ class PrioritiseTransactionTest(DefiTestFramework):
 
         # add a fee delta to something in the cheapest bucket and make sure it gets mined
         # also check that a different entry in the cheapest bucket is NOT mined
-        self.nodes[0].prioritisetransaction(txid=txids[0][0], fee_delta=int(3*base_fee*COIN))
+        self.nodes[0].prioritisetransaction(txid=txids[0][0], fee_delta=int(3 * base_fee * COIN))
 
         self.nodes[0].generate(1)
 
@@ -91,7 +102,7 @@ class PrioritiseTransactionTest(DefiTestFramework):
 
         # Add a prioritisation before a tx is in the mempool (de-prioritising a
         # high-fee transaction so that it's now low fee).
-        self.nodes[0].prioritisetransaction(txid=high_fee_tx, fee_delta=-int(2*base_fee*COIN))
+        self.nodes[0].prioritisetransaction(txid=high_fee_tx, fee_delta=-int(2 * base_fee * COIN))
 
         # Add everything back to mempool
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
@@ -122,7 +133,7 @@ class PrioritiseTransactionTest(DefiTestFramework):
 
         inputs = []
         outputs = {}
-        inputs.append({"txid" : utxo["txid"], "vout" : utxo["vout"]})
+        inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
         outputs[self.nodes[0].getnewaddress()] = utxo["amount"]
         raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
         tx_hex = self.nodes[0].signrawtransactionwithwallet(raw_tx)["hex"]
@@ -135,7 +146,7 @@ class PrioritiseTransactionTest(DefiTestFramework):
         # This is a less than 1000-byte transaction, so just set the fee
         # to be the minimum for a 1000-byte transaction and check that it is
         # accepted.
-        self.nodes[0].prioritisetransaction(txid=tx_id, fee_delta=int(self.relayfee*COIN))
+        self.nodes[0].prioritisetransaction(txid=tx_id, fee_delta=int(self.relayfee * COIN))
 
         self.log.info("Assert that prioritised free transaction is accepted to mempool")
         assert_equal(self.nodes[0].sendrawtransaction(tx_hex), tx_id)
@@ -146,11 +157,12 @@ class PrioritiseTransactionTest(DefiTestFramework):
         mock_time = int(time.time())
         self.nodes[0].setmocktime(mock_time)
         template = self.nodes[0].getblocktemplate({'rules': ['segwit']})
-        self.nodes[0].prioritisetransaction(txid=tx_id, fee_delta=-int(self.relayfee*COIN))
-        self.nodes[0].setmocktime(mock_time+10)
+        self.nodes[0].prioritisetransaction(txid=tx_id, fee_delta=-int(self.relayfee * COIN))
+        self.nodes[0].setmocktime(mock_time + 10)
         new_template = self.nodes[0].getblocktemplate({'rules': ['segwit']})
 
         assert template != new_template
+
 
 if __name__ == '__main__':
     PrioritiseTransactionTest().main()

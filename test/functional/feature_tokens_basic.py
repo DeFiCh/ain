@@ -13,7 +13,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
-class TokensBasicTest (DefiTestFramework):
+
+class TokensBasicTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         # node0: main
@@ -26,7 +27,7 @@ class TokensBasicTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         self.nodes[0].generate(100)
         self.sync_blocks()
@@ -35,7 +36,7 @@ class TokensBasicTest (DefiTestFramework):
         self.stop_node(2)
 
         # CREATION:
-        #========================
+        # ========================
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
         # Fail to create: Insufficient funds (not matured coins)
@@ -47,7 +48,7 @@ class TokensBasicTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Insufficient funds" in errorString)
+        assert ("Insufficient funds" in errorString)
 
         self.nodes[0].generate(1)
 
@@ -60,9 +61,9 @@ class TokensBasicTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("token symbol should not contain '#'" in errorString)
+        assert ("token symbol should not contain '#'" in errorString)
 
-        print ("Create token 'GOLD' (128)...")
+        print("Create token 'GOLD' (128)...")
         createTokenTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
@@ -70,7 +71,7 @@ class TokensBasicTest (DefiTestFramework):
         }, [])
 
         # Create and sign (only) collateral spending tx
-        spendTx = self.nodes[0].createrawtransaction([{'txid':createTokenTx, 'vout':1}],[{collateral0:9.999}])
+        spendTx = self.nodes[0].createrawtransaction([{'txid': createTokenTx, 'vout': 1}], [{collateral0: 9.999}])
         signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
         assert_equal(signedTx['complete'], True)
 
@@ -79,7 +80,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[0].sendrawtransaction(signedTx['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("collateral-locked-in-mempool," in errorString)
+        assert ("collateral-locked-in-mempool," in errorString)
 
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
@@ -110,7 +111,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[0].gettoken("GOLD")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Token not found" in errorString)
+        assert ("Token not found" in errorString)
 
         # Stop node #1 for future revert
         self.stop_node(1)
@@ -120,7 +121,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[0].sendrawtransaction(signedTx['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("collateral-locked," in errorString)
+        assert ("collateral-locked," in errorString)
 
         # Create new GOLD token, mintable and tradable by default
         self.nodes[0].createtoken({
@@ -143,7 +144,8 @@ class TokensBasicTest (DefiTestFramework):
 
         assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
-        assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
+        assert_equal(self.nodes[0].listtokens()['128']['destructionTx'],
+                     '0000000000000000000000000000000000000000000000000000000000000000')
 
         # Create new neither mintable nor tradable token
         self.nodes[0].createtoken({
@@ -161,5 +163,6 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(t130['130']['mintable'], False)
         assert_equal(t130['130']['tradeable'], False)
 
+
 if __name__ == '__main__':
-    TokensBasicTest ().main ()
+    TokensBasicTest().main()

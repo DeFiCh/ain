@@ -19,8 +19,10 @@ REGEX_ARG = '(?:ForceSet|SoftSet|Get|Is)(?:Bool)?Args?(?:Set)?\("(-[^"]+)"'
 REGEX_DOC = 'AddArg\("(-[^"=]+?)(?:=|")'
 CMD_ROOT_DIR = '$(git rev-parse --show-toplevel)/{}'.format(FOLDER_GREP)
 CMD_GREP_ARGS = r"git grep --perl-regexp '{}' -- {} ':(exclude){}'".format(REGEX_ARG, CMD_ROOT_DIR, FOLDER_TEST)
-CMD_GREP_WALLET_ARGS = r"git grep --function-context 'void WalletInit::AddWalletOptions' -- {} | grep AddArg".format(CMD_ROOT_DIR)
-CMD_GREP_WALLET_HIDDEN_ARGS = r"git grep --function-context 'void DummyWalletInit::AddWalletOptions' -- {}".format(CMD_ROOT_DIR)
+CMD_GREP_WALLET_ARGS = r"git grep --function-context 'void WalletInit::AddWalletOptions' -- {} | grep AddArg".format(
+    CMD_ROOT_DIR)
+CMD_GREP_WALLET_HIDDEN_ARGS = r"git grep --function-context 'void DummyWalletInit::AddWalletOptions' -- {}".format(
+    CMD_ROOT_DIR)
 CMD_GREP_DOCS = r"git grep --perl-regexp '{}' {}".format(REGEX_DOC, CMD_ROOT_DIR)
 # list unsupported, deprecated and duplicate args as they need no documentation
 SET_DOC_OPTIONAL = set([
@@ -36,7 +38,7 @@ SET_DOC_OPTIONAL = set([
     '-mocknet-blocktime',
     '-checkpoints-file',
     '-negativeinterest',
-    ])
+])
 
 
 def lint_missing_argument_documentation():

@@ -55,7 +55,8 @@ def main():
         sys.exit(1)
 
     # Build list of tests
-    test_list_all = parse_test_list(makefile=os.path.join(config["environment"]["SRCDIR"], 'src', 'Makefile.test.include'))
+    test_list_all = parse_test_list(
+        makefile=os.path.join(config["environment"]["SRCDIR"], 'src', 'Makefile.test.include'))
 
     if not test_list_all:
         logging.error("No fuzz targets found")

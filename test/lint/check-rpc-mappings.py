@@ -36,10 +36,12 @@ SOURCE_CLIENT = 'src/rpc/client.cpp'
 # Argument names that should be ignored in consistency checks
 IGNORE_DUMMY_ARGS = {'dummy', 'arg0', 'arg1', 'arg2', 'arg3', 'arg4', 'arg5', 'arg6', 'arg7', 'arg8', 'arg9'}
 
+
 class RPCCommand:
     def __init__(self, name, args):
         self.name = name
         self.args = args
+
 
 class RPCArgument:
     def __init__(self, names, idx):
@@ -47,10 +49,12 @@ class RPCArgument:
         self.idx = idx
         self.convert = False
 
+
 def parse_string(s):
     assert s[0] == '"'
     assert s[-1] == '"'
     return s[1:-1]
+
 
 def process_commands(fname):
     """Find and parse dispatch table in implementation file `fname`."""
@@ -71,12 +75,14 @@ def process_commands(fname):
                     name = parse_string(m.group(2))
                     args_str = m.group(4).strip()
                     if args_str:
-                        args = [RPCArgument(parse_string(x.strip()).split('|'), idx) for idx, x in enumerate(args_str.split(','))]
+                        args = [RPCArgument(parse_string(x.strip()).split('|'), idx) for idx, x in
+                                enumerate(args_str.split(','))]
                     else:
                         args = []
                     cmds.append(RPCCommand(name, args))
     assert not in_rpcs and cmds, "Something went wrong with parsing the C++ file: update the regexps"
     return cmds
+
 
 def process_mapping(fname):
     """Find and parse conversion table in implementation file `fname`."""
@@ -100,6 +106,7 @@ def process_mapping(fname):
                     cmds.append((name, idx, argname))
     assert not in_rpcs and cmds
     return cmds
+
 
 def main():
     if len(sys.argv) != 2:
@@ -129,11 +136,13 @@ def main():
         try:
             rargnames = cmds_by_name[cmdname].args[argidx].names
         except IndexError:
-            print('ERROR: %s argument %i (named %s in vRPCConvertParams) is not defined in dispatch table' % (cmdname, argidx, argname))
+            print('ERROR: %s argument %i (named %s in vRPCConvertParams) is not defined in dispatch table' % (
+            cmdname, argidx, argname))
             errors += 1
             continue
         if argname not in rargnames:
-            print('ERROR: %s argument %i is named %s in vRPCConvertParams but %s in dispatch table' % (cmdname, argidx, argname, rargnames), file=sys.stderr)
+            print('ERROR: %s argument %i is named %s in vRPCConvertParams but %s in dispatch table' % (
+            cmdname, argidx, argname, rargnames), file=sys.stderr)
             errors += 1
 
     # Check for conflicts in vRPCConvertParams conversion
@@ -144,7 +153,8 @@ def main():
         for arg in cmd.args:
             convert = [((cmd.name, arg.idx, argname) in mapping) for argname in arg.names]
             if any(convert) != all(convert):
-                print('ERROR: %s argument %s has conflicts in vRPCConvertParams conversion specifier %s' % (cmd.name, arg.names, convert))
+                print('ERROR: %s argument %s has conflicts in vRPCConvertParams conversion specifier %s' % (
+                cmd.name, arg.names, convert))
                 errors += 1
             arg.convert = all(convert)
 

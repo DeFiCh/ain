@@ -63,8 +63,8 @@ class WalletBackupTest(DefiTestFramework):
         connect_nodes(self.nodes[2], 0)
 
     def one_send(self, from_node, to_address):
-        if (randint(1,2) == 1):
-            amount = Decimal(randint(1,10)) / Decimal(10)
+        if (randint(1, 2) == 1):
+            amount = Decimal(randint(1, 10)) / Decimal(10)
             self.nodes[from_node].sendtoaddress(to_address, amount)
 
     def do_one_round(self):
@@ -81,10 +81,10 @@ class WalletBackupTest(DefiTestFramework):
 
         # Have the miner (node3) mine a block.
         # Must sync mempools before mining.
-        print ("bef mempool", TestNode.Mocktime)
+        print("bef mempool", TestNode.Mocktime)
         set_node_times(self.nodes, 0)
         self.sync_mempools()
-        print (TestNode.Mocktime)
+        print(TestNode.Mocktime)
         self.nodes[3].generate(1)
         self.sync_blocks()
 
@@ -170,9 +170,12 @@ class WalletBackupTest(DefiTestFramework):
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         # Restore wallets from backup
-        shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'), os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, 'wallet.bak'), os.path.join(self.nodes[1].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        shutil.copyfile(os.path.join(self.nodes[2].datadir, 'wallet.bak'), os.path.join(self.nodes[2].datadir, 'regtest', 'wallets', 'wallet.dat'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'),
+                        os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, 'wallet.bak'),
+                        os.path.join(self.nodes[1].datadir, 'regtest', 'wallets', 'wallet.dat'))
+        shutil.copyfile(os.path.join(self.nodes[2].datadir, 'wallet.bak'),
+                        os.path.join(self.nodes[2].datadir, 'regtest', 'wallets', 'wallet.dat'))
 
         self.log.info("Re-starting nodes")
         self.start_three()
@@ -186,7 +189,7 @@ class WalletBackupTest(DefiTestFramework):
         self.stop_three()
         self.erase_three()
 
-        #start node2 with no chain
+        # start node2 with no chain
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'enhancedcs'))

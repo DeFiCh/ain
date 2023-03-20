@@ -31,6 +31,7 @@ from test_framework.util import (
 WALLET_PASSPHRASE = "test"
 WALLET_PASSPHRASE_TIMEOUT = 3600
 
+
 class BumpFeeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -184,8 +185,8 @@ def test_small_output_fails(rbf_node, dest_address):
     rbfid = spend_one_input(rbf_node, dest_address)
     assert_raises_rpc_error(-4, "Change output is too small", rbf_node.bumpfee, rbfid, {"totalFee": 50001})
 
-def test_small_output_with_feerate_succeeds(rbf_node, dest_address):
 
+def test_small_output_with_feerate_succeeds(rbf_node, dest_address):
     # Make sure additional inputs exist
     rbf_node.generate(nblocks=101, address=rbf_node.getnewaddress())
     rbfid = spend_one_input(rbf_node, dest_address)
@@ -218,6 +219,7 @@ def test_small_output_with_feerate_succeeds(rbf_node, dest_address):
 
     rbf_node.generate(nblocks=1, address=rbf_node.getnewaddress())
     assert_equal(rbf_node.gettransaction(rbfid)["confirmations"], 1)
+
 
 def test_dust_to_fee(rbf_node, dest_address):
     # check that if output is reduced to dust, it will be converted to fee
@@ -253,7 +255,8 @@ def test_maxtxfee_fails(test, rbf_node, dest_address):
     test.restart_node(1, ['-maxtxfee=0.00003'] + test.extra_args[1])
     rbf_node.walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)
     rbfid = spend_one_input(rbf_node, dest_address)
-    assert_raises_rpc_error(-4, "Unable to create transaction: Fee exceeds maximum configured by -maxtxfee", rbf_node.bumpfee, rbfid)
+    assert_raises_rpc_error(-4, "Unable to create transaction: Fee exceeds maximum configured by -maxtxfee",
+                            rbf_node.bumpfee, rbfid)
     test.restart_node(1, test.extra_args[1])
     rbf_node.walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)
 
@@ -294,7 +297,8 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
     block = submit_block_with_tx(rbf_node, rbftx)
 
     # Can not abandon conflicted tx
-    assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: rbf_node.abandontransaction(txid=bumpid))
+    assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment',
+                            lambda: rbf_node.abandontransaction(txid=bumpid))
     rbf_node.invalidateblock(block.hash)
 
     # Call abandon to make sure the wallet doesn't attempt to resubmit
@@ -302,7 +306,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
     try:
         rbf_node.abandontransaction(bumpid)
     except:
-        pass # make sure test not fail due to missing tx
+        pass  # make sure test not fail due to missing tx
     assert bumpid not in rbf_node.getrawmempool()
     assert rbfid in rbf_node.getrawmempool()
 
@@ -319,7 +323,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
 
 
 def test_bumpfee_metadata(rbf_node, dest_address):
-    assert(rbf_node.getbalance() < 49)
+    assert (rbf_node.getbalance() < 49)
     rbf_node.generate(nblocks=101, address=rbf_node.getnewaddress())
     rbfid = rbf_node.sendtoaddress(dest_address, 49, "comment value", "to value")
     bumped_tx = rbf_node.bumpfee(rbfid)
@@ -335,8 +339,10 @@ def test_locked_wallet_fails(rbf_node, dest_address):
                             rbf_node.bumpfee, rbfid)
     rbf_node.walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)
 
+
 def test_change_script_match(rbf_node, dest_address):
     """Test that the same change addresses is used for the replacement transaction when possible."""
+
     def get_change_address(tx):
         tx_details = rbf_node.getrawtransaction(tx, 1)
         txout_addresses = [txout['scriptPubKey']['addresses'][0] for txout in tx_details["vout"]]
@@ -353,6 +359,7 @@ def test_change_script_match(rbf_node, dest_address):
     bumped_rate_tx = rbf_node.bumpfee(bumped_total_tx["txid"])
     assert_equal(change_addresses, get_change_address(bumped_rate_tx['txid']))
 
+
 def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
     tx_input = dict(
         sequence=BIP125_SEQUENCE_NUMBER, **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000")))
@@ -363,6 +370,7 @@ def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
     signedtx = node.signrawtransactionwithwallet(rawtx)
     txid = node.sendrawtransaction(signedtx["hex"])
     return txid
+
 
 def submit_block_with_tx(node, tx):
     ctx = CTransaction()
@@ -380,12 +388,14 @@ def submit_block_with_tx(node, tx):
     node.submitblock(block.serialize().hex())
     return block
 
+
 def test_no_more_inputs_fails(rbf_node, dest_address):
     # feerate rbf requires confirmed outputs when change output doesn't exist or is insufficient
     rbf_node.generate(nblocks=1, address=dest_address)
     # spend all funds, no change output
     rbfid = rbf_node.sendtoaddress(rbf_node.getnewaddress(), rbf_node.getbalance(), "", "", True)
     assert_raises_rpc_error(-4, "Unable to create transaction: Insufficient funds", rbf_node.bumpfee, rbfid)
+
 
 if __name__ == "__main__":
     BumpFeeTest().main()

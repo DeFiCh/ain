@@ -9,6 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+
 class TokensMultisigOwnerTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -16,7 +17,7 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         self.nodes[0].generate(101)
 
@@ -74,10 +75,10 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Payloads to change name.
-        creationTxReversed = "".join(reversed([createTokenTx[i:i+2] for i in range(0, len(createTokenTx), 2)]))
-        name_change_1 = "446654786e" + creationTxReversed + "04474f4c44034f4e4508000000000000000003" # name ONE
-        name_change_2 = "446654786e" + creationTxReversed + "04474f4c440354574f08000000000000000003" # name TWO
-        name_change_3 = "446654786e" + creationTxReversed + "04474f4c4405544852454508000000000000000003" # name THREE
+        creationTxReversed = "".join(reversed([createTokenTx[i:i + 2] for i in range(0, len(createTokenTx), 2)]))
+        name_change_1 = "446654786e" + creationTxReversed + "04474f4c44034f4e4508000000000000000003"  # name ONE
+        name_change_2 = "446654786e" + creationTxReversed + "04474f4c440354574f08000000000000000003"  # name TWO
+        name_change_3 = "446654786e" + creationTxReversed + "04474f4c4405544852454508000000000000000003"  # name THREE
 
         # Make sure member of multisig cannot change token without using multisig
         txid_owner_1 = self.nodes[0].sendtoaddress(owner_1, 1)
@@ -93,22 +94,34 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create, sign, check and send
-        rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_owner_1,"vout":vout_owner_1}], [{"data":name_change_1},{owner_1:0.9999}])
-        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [{"txid":txid_owner_1,"vout":vout_owner_1,"scriptPubKey":owner_1_scriptpubkey}])
+        rawtx_1 = self.nodes[0].createrawtransaction([{"txid": txid_owner_1, "vout": vout_owner_1}],
+                                                     [{"data": name_change_1}, {owner_1: 0.9999}])
+        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [
+            {"txid": txid_owner_1, "vout": vout_owner_1, "scriptPubKey": owner_1_scriptpubkey}])
         assert_equal(signed_rawtx_1['complete'], True)
 
         # Send should fail as transaction is invalid
-        assert_raises_rpc_error(-26, "tx must have at least one input from the owner", self.nodes[0].sendrawtransaction, signed_rawtx_1['hex'])
+        assert_raises_rpc_error(-26, "tx must have at least one input from the owner", self.nodes[0].sendrawtransaction,
+                                signed_rawtx_1['hex'])
 
         # Test that multisig TXs can change names
-        rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_1,"vout":vout_1}], [{"data":name_change_1},{owner_1:0.9999}])
-        rawtx_2 = self.nodes[0].createrawtransaction([{"txid":txid_2,"vout":vout_2}], [{"data":name_change_2},{owner_2:0.9999}])
-        rawtx_3 = self.nodes[0].createrawtransaction([{"txid":txid_3,"vout":vout_3}], [{"data":name_change_3},{owner_3:0.9999}])
+        rawtx_1 = self.nodes[0].createrawtransaction([{"txid": txid_1, "vout": vout_1}],
+                                                     [{"data": name_change_1}, {owner_1: 0.9999}])
+        rawtx_2 = self.nodes[0].createrawtransaction([{"txid": txid_2, "vout": vout_2}],
+                                                     [{"data": name_change_2}, {owner_2: 0.9999}])
+        rawtx_3 = self.nodes[0].createrawtransaction([{"txid": txid_3, "vout": vout_3}],
+                                                     [{"data": name_change_3}, {owner_3: 0.9999}])
 
         # Sign TXs
-        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [{"txid":txid_1,"vout":vout_1,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])
-        signed_rawtx_2 = self.nodes[0].signrawtransactionwithkey(rawtx_2, [owner_2_privkey], [{"txid":txid_2,"vout":vout_2,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])
-        signed_rawtx_3 = self.nodes[0].signrawtransactionwithkey(rawtx_3, [owner_3_privkey], [{"txid":txid_3,"vout":vout_3,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])
+        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [
+            {"txid": txid_1, "vout": vout_1, "scriptPubKey": multisig_scriptpubkey,
+             "redeemScript": multisig['redeemScript']}])
+        signed_rawtx_2 = self.nodes[0].signrawtransactionwithkey(rawtx_2, [owner_2_privkey], [
+            {"txid": txid_2, "vout": vout_2, "scriptPubKey": multisig_scriptpubkey,
+             "redeemScript": multisig['redeemScript']}])
+        signed_rawtx_3 = self.nodes[0].signrawtransactionwithkey(rawtx_3, [owner_3_privkey], [
+            {"txid": txid_3, "vout": vout_3, "scriptPubKey": multisig_scriptpubkey,
+             "redeemScript": multisig['redeemScript']}])
 
         # Check TXs marked as complete
         assert_equal(signed_rawtx_1['complete'], True)
@@ -170,21 +183,27 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Payload to change name.
-        creationTxReversed = "".join(reversed([createTokenTx[i:i+2] for i in range(0, len(createTokenTx), 2)]))
-        name_change = "446654786e" + creationTxReversed + "0653494c564552034f4e4508000000000000000003" # name ONE
+        creationTxReversed = "".join(reversed([createTokenTx[i:i + 2] for i in range(0, len(createTokenTx), 2)]))
+        name_change = "446654786e" + creationTxReversed + "0653494c564552034f4e4508000000000000000003"  # name ONE
 
         # Test that single signature on 2-of-3 multisig fails to update token
-        rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_1,"vout":vout_4}], [{"data":name_change},{owner_1:0.9999}])
-        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [{"txid":txid_1,"vout":vout_4,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])
+        rawtx_1 = self.nodes[0].createrawtransaction([{"txid": txid_1, "vout": vout_4}],
+                                                     [{"data": name_change}, {owner_1: 0.9999}])
+        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [
+            {"txid": txid_1, "vout": vout_4, "scriptPubKey": multisig_scriptpubkey,
+             "redeemScript": multisig['redeemScript']}])
 
         # Check TX marked as not complete
         assert_equal(signed_rawtx_1['complete'], False)
 
         # Try to send partially signed multisig, expect failure
-        assert_raises_rpc_error(-26, "Signature must be zero for failed CHECK(MULTI)SIG operation", self.nodes[0].sendrawtransaction, signed_rawtx_1['hex'])
+        assert_raises_rpc_error(-26, "Signature must be zero for failed CHECK(MULTI)SIG operation",
+                                self.nodes[0].sendrawtransaction, signed_rawtx_1['hex'])
 
         # Add second signate and try again
-        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(signed_rawtx_1['hex'], [owner_2_privkey], [{"txid":txid_1,"vout":vout_4,"scriptPubKey":multisig_scriptpubkey,"redeemScript":multisig['redeemScript']}])
+        signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(signed_rawtx_1['hex'], [owner_2_privkey], [
+            {"txid": txid_1, "vout": vout_4, "scriptPubKey": multisig_scriptpubkey,
+             "redeemScript": multisig['redeemScript']}])
 
         # Check TX now marked as complete
         assert_equal(signed_rawtx_1['complete'], True)
@@ -196,6 +215,7 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         # Check that name has changed as expected
         t129 = self.nodes[0].gettoken(129)
         assert_equal(t129['129']['name'], "ONE")
+
 
 if __name__ == '__main__':
     TokensMultisigOwnerTest().main()

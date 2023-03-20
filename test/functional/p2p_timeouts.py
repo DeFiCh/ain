@@ -27,10 +27,12 @@ from test_framework.messages import msg_ping
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import DefiTestFramework
 
+
 class TestP2PConn(P2PInterface):
     def on_version(self, message):
         # Don't send a verack in response
         pass
+
 
 class TimeoutsTest(DefiTestFramework):
     def set_test_params(self):
@@ -80,6 +82,7 @@ class TimeoutsTest(DefiTestFramework):
             assert not no_verack_node.is_connected
             assert not no_version_node.is_connected
             assert not no_send_node.is_connected
+
 
 if __name__ == '__main__':
     TimeoutsTest().main()

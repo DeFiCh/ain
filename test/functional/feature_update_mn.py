@@ -15,13 +15,18 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
-class MasternodesRpcBasicTest (DefiTestFramework):
+
+class MasternodesRpcBasicTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136',
+             '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136',
+             '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136',
+             '-eunosheight=140', '-eunospayaheight=140', '-fortcanningheight=145']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
@@ -29,21 +34,22 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.sync_blocks()
 
         # CREATION:
-        #========================
+        # ========================
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
         # Create node0
         self.nodes[0].generate(1)
         collateral1 = self.nodes[1].getnewaddress("", "legacy")
-        assert_raises_rpc_error(-8, "Address ({}) is not owned by the wallet".format(collateral1),  self.nodes[0].createmasternode, collateral1)
+        assert_raises_rpc_error(-8, "Address ({}) is not owned by the wallet".format(collateral1),
+                                self.nodes[0].createmasternode, collateral1)
 
         idnode0 = self.nodes[0].createmasternode(
             collateral0
         )
 
         # Create and sign (only) collateral spending tx
-        spendTx = self.nodes[0].createrawtransaction([{'txid':idnode0, 'vout':1}],[{collateral0:9.999}])
+        spendTx = self.nodes[0].createrawtransaction([{'txid': idnode0, 'vout': 1}], [{collateral0: 9.999}])
         signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
         assert_equal(signedTx['complete'], True)
 
@@ -58,7 +64,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         assert_equal(self.nodes[1].listmasternodes()[idnode0]["operatorAuthAddress"], collateral0)
 
         # RESIGNING:
-        #========================
+        # ========================
 
         # Funding auth address and successful resign
         self.nodes[0].sendtoaddress(collateral0, 1)
@@ -79,5 +85,6 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
 
+
 if __name__ == '__main__':
-    MasternodesRpcBasicTest ().main ()
+    MasternodesRpcBasicTest().main()

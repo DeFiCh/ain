@@ -4,7 +4,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Reference implementation for Bech32 and segwit addresses."""
 
-
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 
@@ -52,10 +51,10 @@ def bech32_decode(bech):
     pos = bech.rfind('1')
     if pos < 1 or pos + 7 > len(bech) or len(bech) > 90:
         return (None, None)
-    if not all(x in CHARSET for x in bech[pos+1:]):
+    if not all(x in CHARSET for x in bech[pos + 1:]):
         return (None, None)
     hrp = bech[:pos]
-    data = [CHARSET.find(x) for x in bech[pos+1:]]
+    data = [CHARSET.find(x) for x in bech[pos + 1:]]
     if not bech32_verify_checksum(hrp, data):
         return (None, None)
     return (hrp, data[:-6])

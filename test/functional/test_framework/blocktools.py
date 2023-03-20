@@ -67,10 +67,12 @@ def create_block(hashprev, coinbase, ntime=None, *, version=1):
     block.calc_sha256()
     return block
 
+
 def get_witness_script(witness_root, witness_nonce):
     witness_commitment = uint256_from_str(hash256(ser_uint256(witness_root) + ser_uint256(witness_nonce)))
     output_data = WITNESS_COMMITMENT_HEADER + ser_uint256(witness_commitment)
     return CScript([OP_RETURN, output_data])
+
 
 def add_witness_commitment(block, nonce=0):
     """Add a witness commitment to the block's coinbase transaction.
@@ -119,6 +121,7 @@ def create_coinbase(height, pubkey=None):
     coinbase.calc_sha256()
     return coinbase
 
+
 def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=CScript()):
     """Return one-input, one-output transaction object
        spending the prevtx's n-th output with the given amount.
@@ -132,6 +135,7 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=C
     tx.calc_sha256()
     return tx
 
+
 def create_transaction(node, txid, to_address, *, amount):
     """ Return signed transaction spending the first output of the
         input txid. Note that the node must be able to sign for the
@@ -142,6 +146,7 @@ def create_transaction(node, txid, to_address, *, amount):
     tx = CTransaction()
     tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx)))
     return tx
+
 
 def create_raw_transaction(node, txid, to_address, *, amount):
     """ Return raw signed transaction spending the first output of the
@@ -154,11 +159,13 @@ def create_raw_transaction(node, txid, to_address, *, amount):
     assert_equal(signresult["complete"], True)
     return signresult['hex']
 
+
 def get_legacy_sigopcount_block(block, accurate=True):
     count = 0
     for tx in block.vtx:
         count += get_legacy_sigopcount_tx(tx, accurate)
     return count
+
 
 def get_legacy_sigopcount_tx(tx, accurate=True):
     count = 0
@@ -168,6 +175,7 @@ def get_legacy_sigopcount_tx(tx, accurate=True):
         # scriptSig might be of type bytes, so convert to CScript for the moment
         count += CScript(j.scriptSig).GetSigOpCount(accurate)
     return count
+
 
 def witness_script(use_p2wsh, pubkey):
     """Create a scriptPubKey for a pay-to-witness TxOut.
@@ -186,6 +194,7 @@ def witness_script(use_p2wsh, pubkey):
         pkscript = CScript([OP_0, scripthash])
     return pkscript.hex()
 
+
 def create_witness_tx(node, use_p2wsh, utxo, pubkey, encode_p2sh, amount):
     """Return a transaction (in hex) that spends the given utxo to a segwit output.
 
@@ -198,6 +207,7 @@ def create_witness_tx(node, use_p2wsh, utxo, pubkey, encode_p2sh, amount):
     if not encode_p2sh:
         assert_equal(node.getaddressinfo(addr)['scriptPubKey'], witness_script(use_p2wsh, pubkey))
     return node.createrawtransaction([utxo], {addr: amount})
+
 
 def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
     """Create a transaction spending a given utxo to a segwit output.
