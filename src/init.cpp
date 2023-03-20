@@ -1252,7 +1252,7 @@ bool AppInitParameterInteraction()
     }
 
     maxAddrRatePerSecond = gArgs.GetDoubleArg("-maxaddrratepersecond", Params().NetworkIDString() == CBaseChainParams::REGTEST ? MAX_ADDR_RATE_PER_SECOND_REGTEST : MAX_ADDR_RATE_PER_SECOND);
-    std::cout << maxAddrRatePerSecond << std::endl;
+
     if (maxAddrRatePerSecond <= static_cast<double>(0)) {
         return InitError("maxaddrratepersecond cannot be configured with a negative value.");
     }
