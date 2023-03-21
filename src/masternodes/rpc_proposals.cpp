@@ -597,7 +597,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                              {"decision", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The vote decision (yes/no/neutral)"},
                             }
                     },
-                    {"sleepTime", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Sets sleeping time for voteGovBatch, by default the value is set to 500ms"}
+                    {"sleepTime", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "No. of milliseconds to wait between each vote. A small wait time is required for large number of votes to prevent the node from being too busy to broadcast TXs (default: 500)"}
             },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
             RPCExamples{HelpExampleCli("votegovbatch", "{{proposalId, masternodeId, yes}...}") +
