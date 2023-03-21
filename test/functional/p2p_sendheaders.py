@@ -169,7 +169,7 @@ class BaseNode(P2PInterface):
                 self.message_count[command] += 1
                 self.last_message[command] = message
                 getattr(self, 'on_' + command)(message)
-            except:
+            except Exception:
                 print("ERROR delivering %s (%s)" % (repr(message), sys.exc_info()[0]))
                 raise
 
