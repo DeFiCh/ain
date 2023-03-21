@@ -221,7 +221,7 @@ public:
         double f2 = a_size * b_mod_fee;
 
         if (f1 == f2) {
-            return a.GetTime() >= b.GetTime();
+            return a.GetTime() < b.GetTime();
         }
         return f1 < f2;
     }
@@ -259,7 +259,7 @@ public:
         double f1 = (double)a.GetFee() * b.GetTxSize();
         double f2 = (double)b.GetFee() * a.GetTxSize();
         if (f1 == f2) {
-            return b.GetTx().GetHash() < a.GetTx().GetHash();
+            return a.GetTime() < b.GetTime();
         }
         return f1 > f2;
     }
@@ -294,7 +294,7 @@ public:
         double f2 = a_size * b_mod_fee;
 
         if (f1 == f2) {
-            return a.GetTx().GetHash() < b.GetTx().GetHash();
+            return a.GetTime() < b.GetTime();
         }
         return f1 > f2;
     }
