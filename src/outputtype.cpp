@@ -63,7 +63,7 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
             return witdest;
         }
     }
-    case OutputType::ETH: return EthHash(key);
+    case OutputType::ETH: return WitnessV16EthHash(key);
     default: assert(false);
     }
 }

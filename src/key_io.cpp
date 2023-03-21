@@ -61,7 +61,7 @@ public:
         return bech32::Encode(m_params.Bech32HRP(), data);
     }
 
-    std::string operator()(const EthHash& id) const
+    std::string operator()(const WitnessV16EthHash& id) const
     {
         return ETH_ADDR_PREFIX + HexStr(id);
     }
@@ -80,7 +80,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             return CNoDestination();
         }
         data = ParseHex(hex);
-        return EthHash(uint160(data));
+        return WitnessV16EthHash(uint160(data));
     }
     if (DecodeBase58Check(str, data)) {
         // base58-encoded DFI addresses.

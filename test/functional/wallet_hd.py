@@ -156,5 +156,16 @@ class WalletHDTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Already have this key", self.nodes[1].sethdseed, False, new_seed)
         assert_raises_rpc_error(-5, "Already have this key", self.nodes[1].sethdseed, False, self.nodes[1].dumpprivkey(self.nodes[1].getnewaddress()))
 
+        eth_addr = self.nodes[0].getnewaddress("", "eth")
+        result = self.nodes[0].validateaddress(eth_addr)
+        assert_equal(result['isvalid'], True)
+
+        result = self.nodes[0].getaddressinfo(eth_addr)
+        assert_equal(result['ismine'], True)
+        assert_equal(result['solvable'], False)
+        assert_equal(result['iswitness'], True)
+        assert_equal(result['witness_version'], 16)
+        assert_equal(result['labels'][0]['purpose'], 'eth')
+
 if __name__ == '__main__':
     WalletHDTest().main ()

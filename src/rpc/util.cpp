@@ -253,9 +253,14 @@ public:
         return obj;
     }
 
-    UniValue operator()(const EthHash& id) const
+    UniValue operator()(const WitnessV16EthHash& id) const
     {
-        return UniValue(UniValue::VOBJ);
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", false);
+        obj.pushKV("iswitness", true);
+        obj.pushKV("witness_version", 16);
+        obj.pushKV("witness_program", HexStr(id.begin(), id.end()));
+        return obj;
     }
 };
 

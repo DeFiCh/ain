@@ -3697,7 +3697,14 @@ public:
 
     UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
 
-    UniValue operator()(const EthHash& dest) const { return UniValue(UniValue::VOBJ); }
+    UniValue operator()(const WitnessV16EthHash& id) const {
+        UniValue obj(UniValue::VOBJ);
+        CPubKey pubkey;
+        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+            obj.pushKV("pubkey", HexStr(pubkey));
+        }
+        return obj;
+    }
 };
 
 static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& dest)

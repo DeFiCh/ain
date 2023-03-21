@@ -25,7 +25,7 @@ WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
 
-EthHash::EthHash(const CPubKey& pubkey) : uint160(pubkey.GetEthID()) {}
+WitnessV16EthHash::WitnessV16EthHash(const CPubKey& pubkey) : uint160(pubkey.GetEthID()) {}
 
 const char* GetTxnOutputType(txnouttype t)
 {
@@ -39,6 +39,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_NULL_DATA: return "nulldata";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
+    case TX_WITNESS_V16_ETHHASH: return "witness_v16_ethhash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
     }
     return nullptr;
@@ -114,6 +115,10 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
             vSolutionsRet.push_back(witnessprogram);
             return TX_WITNESS_V0_SCRIPTHASH;
         }
+        if (witnessversion == 16 && witnessprogram.size() == WITNESS_V16_ETHHASH_SIZE) {
+            vSolutionsRet.push_back(witnessprogram);
+            return TX_WITNESS_V16_ETHHASH;
+        }
         if (witnessversion != 0) {
             vSolutionsRet.push_back(std::vector<unsigned char>{(unsigned char)witnessversion});
             vSolutionsRet.push_back(std::move(witnessprogram));
@@ -184,6 +189,11 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         return true;
     } else if (whichType == TX_WITNESS_V0_SCRIPTHASH) {
         WitnessV0ScriptHash hash;
+        std::copy(vSolutions[0].begin(), vSolutions[0].end(), hash.begin());
+        addressRet = hash;
+        return true;
+    } else if (whichType == TX_WITNESS_V16_ETHHASH) {
+        WitnessV16EthHash hash;
         std::copy(vSolutions[0].begin(), vSolutions[0].end(), hash.begin());
         addressRet = hash;
         return true;
@@ -273,7 +283,7 @@ public:
         return CScript() << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
     }
 
-    CScript operator()(const EthHash& id) const
+    CScript operator()(const WitnessV16EthHash& id) const
     {
         return CScript() << OP_16 << ToByteVector(id);
     }
