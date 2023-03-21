@@ -11,11 +11,15 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
+
 class TokensRPCGetVaultHistory(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=100', '-eunosheight=100', '-eunospayaheight=100', '-fortcanningheight=100', '-fortcanninghillheight=200', '-fortcanningepilogueheight=200', '-vaultindex=1']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=100',
+             '-eunosheight=100', '-eunospayaheight=100', '-fortcanningheight=100', '-fortcanninghillheight=200',
+             '-fortcanningepilogueheight=200', '-vaultindex=1']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -25,11 +29,13 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Appoint oracle
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
-        appoint_oracle_tx = self.nodes[0].appointoracle(oracle_address, [{"currency": "USD", "token": "DFI"},{"currency": "USD", "token": "TSLA"}], 10)
+        appoint_oracle_tx = self.nodes[0].appointoracle(oracle_address, [{"currency": "USD", "token": "DFI"},
+                                                                         {"currency": "USD", "token": "TSLA"}], 10)
         self.nodes[0].generate(1)
 
         # Test set oracle data
-        oracle_prices = [{"currency": "USD", "tokenAmount": "100.00000000@DFI"},{"currency": "USD", "tokenAmount": "100.00000000@TSLA"}]
+        oracle_prices = [{"currency": "USD", "tokenAmount": "100.00000000@DFI"},
+                         {"currency": "USD", "tokenAmount": "100.00000000@TSLA"}]
         self.nodes[0].setoracledata(appoint_oracle_tx, int(time.time()), oracle_prices)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
@@ -55,11 +61,11 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Set loan token
         self.nodes[0].setloantoken({
-                                    'symbol': 'TSLA',
-                                    'name': "Tesla stock token",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': True,
-                                    'interest': 1})
+            'symbol': 'TSLA',
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 1})
         self.nodes[0].generate(1)
 
         # Create pool pairs
@@ -96,19 +102,19 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         pool_share = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].addpoolliquidity({
             self.nodes[0].get_genesis_keys().ownerAuthAddress: ['100@TSLA', '100@DUSD']
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity({
             self.nodes[0].get_genesis_keys().ownerAuthAddress: ['100@DUSD', '100@DFI']
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
 
         # Set collateral token
         self.nodes[0].setcollateraltoken({
-                                    'token': "DFI",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': "DFI",
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
@@ -189,7 +195,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        takeloan_tx = self.nodes[0].takeloan({'vaultId':create_vault_tx,'amounts': "1@TSLA"})
+        takeloan_tx = self.nodes[0].takeloan({'vaultId': create_vault_tx, 'amounts': "1@TSLA"})
         self.nodes[0].generate(1)
 
         # Update loan scheme
@@ -199,10 +205,10 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         # Pay back loan
         vault = self.nodes[0].getvault(create_vault_tx)
         payback_tx = self.nodes[0].paybackloan({
-            'vaultId':create_vault_tx,
-            'from':self.nodes[0].get_genesis_keys().ownerAuthAddress,
-            'amounts':vault['loanAmounts']
-            })
+            'vaultId': create_vault_tx,
+            'from': self.nodes[0].get_genesis_keys().ownerAuthAddress,
+            'amounts': vault['loanAmounts']
+        })
         self.nodes[0].generate(1)
 
         # Withdraw from vault
@@ -273,7 +279,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[11]['txid'], create_vault_tx)
 
         # Test listvaulthistory block height and depth
-        result = self.nodes[0].listvaulthistory(create_vault_tx, {'maxBlockHeight':withdraw_height,'depth':1})
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'maxBlockHeight': withdraw_height, 'depth': 1})
         assert_equal(len(result), 4)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
         assert_equal(result[0]['address'], 'vaultCollateral')
@@ -293,7 +299,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[3]['txid'], payback_tx)
 
         # Test listvaulthistory token type
-        result = self.nodes[0].listvaulthistory(create_vault_tx, {'token':'TSLA'})
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'token': 'TSLA'})
         assert_equal(len(result), 2)
         assert_equal(result[0]['type'], 'PaybackLoan')
         assert_equal(result[0]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
@@ -305,7 +311,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[1]['txid'], takeloan_tx)
 
         # Test listvaulthistory TX type
-        result = self.nodes[0].listvaulthistory(create_vault_tx, {'txtype':'J'})
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'txtype': 'J'})
         assert_equal(len(result), 2)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
         assert_equal(result[0]['address'], 'vaultCollateral')
@@ -317,7 +323,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[1]['txid'], withdraw_tx)
 
         # Test listvaulthistory limit
-        result = self.nodes[0].listvaulthistory(create_vault_tx, {'limit':1})
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'limit': 1})
         assert_equal(len(result), 1)
         assert_equal(result[0]['type'], 'CloseVault')
         assert_equal(result[0]['address'], close_address)
@@ -350,7 +356,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        takeloan_tx = self.nodes[0].takeloan({'vaultId': new_vault,'amounts': '6.68896@TSLA'})
+        takeloan_tx = self.nodes[0].takeloan({'vaultId': new_vault, 'amounts': '6.68896@TSLA'})
         self.nodes[0].generate(2)
 
         # Test state change
@@ -367,11 +373,13 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Fund another bidding address
         new_bidding_address = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {new_bidding_address: "10@TSLA"})
+        self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress,
+                                       {new_bidding_address: "10@TSLA"})
         self.nodes[0].generate(1)
 
         # Place bids
-        bid1_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, '8@TSLA')
+        bid1_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress,
+                                                '8@TSLA')
         self.nodes[0].generate(1)
         bid2_tx = self.nodes[0].placeauctionbid(new_vault, 0, new_bidding_address, '9@TSLA')
         self.nodes[0].generate(35)
@@ -397,7 +405,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
             assert_equal(result[2]['address'], new_bidding_address)
             assert_equal(result[2]['amounts'], ['-9.00000000@TSLA'])
         else:
-            assert('Expected address not found in results')
+            assert ('Expected address not found in results')
 
         assert_equal(result[3]['type'], 'AuctionBid')
         assert_equal(result[3]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
@@ -433,7 +441,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Enable collateral payback
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idDUSD + '/loan_payback_collateral':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + self.idDUSD + '/loan_payback_collateral': 'true'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -451,7 +459,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@DUSD"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@DUSD"})
         self.nodes[0].generate(10)
 
         # Payback with collateral
@@ -469,6 +477,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[1]['address'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
         assert_equal(result[1]['amounts'], ['0.00001142@DUSD'])
         assert_equal(result[1]['txid'], payback_tx)
+
 
 if __name__ == '__main__':
     TokensRPCGetVaultHistory().main()

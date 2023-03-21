@@ -12,7 +12,8 @@ import calendar
 import time
 from decimal import Decimal
 
-class LoanGetInterestTest (DefiTestFramework):
+
+class LoanGetInterestTest(DefiTestFramework):
     symbolDFI = "DFI"
     symbolBTC = "BTC"
     symboldUSD = "DUSD"
@@ -22,7 +23,8 @@ class LoanGetInterestTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
-                '-fortcanningheight=50', '-fortcanningmuseumheight=200', '-fortcanningparkheight=270', '-fortcanninghillheight=300', '-eunosheight=50', '-txindex=1']
+             '-fortcanningheight=50', '-fortcanningmuseumheight=200', '-fortcanningparkheight=270',
+             '-fortcanninghillheight=300', '-eunosheight=50', '-txindex=1']
         ]
 
     def setup(self):
@@ -79,8 +81,8 @@ class LoanGetInterestTest (DefiTestFramework):
             'symbol': self.symboldUSD,
             'name': "DUSD stable token",
             'fixedIntervalPriceId': "DUSD/USD",
-                                    'mintable': True,
-                                    'interest': 1
+            'mintable': True,
+            'interest': 1
         })
         self.nodes[0].generate(1)
 
@@ -124,7 +126,7 @@ class LoanGetInterestTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        self.nodes[0].generate(25) # Accrue interest
+        self.nodes[0].generate(25)  # Accrue interest
 
         getInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
         assert_equal(getInterest[0]['totalInterest'], Decimal('0.99923876'))
@@ -143,7 +145,7 @@ class LoanGetInterestTest (DefiTestFramework):
         assert_equal(getInterest[0]['totalInterest'], Decimal('1.08571134'))
         assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.04804032'))
 
-        self.nodes[0].generate(10) # Activate FCM
+        self.nodes[0].generate(10)  # Activate FCM
 
         self.nodes[0].takeloan({
             'vaultId': vaultId,
@@ -183,7 +185,9 @@ class LoanGetInterestTest (DefiTestFramework):
             })
             self.nodes[0].generate(1)
             newInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
-            assert_equal(newInterest[0]['totalInterest'], Decimal('2.69987797') + newInterest[0]['interestPerBlock'] * i)
+            assert_equal(newInterest[0]['totalInterest'],
+                         Decimal('2.69987797') + newInterest[0]['interestPerBlock'] * i)
+
 
 if __name__ == '__main__':
     LoanGetInterestTest().main()

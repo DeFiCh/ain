@@ -11,6 +11,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
+
 class ImportPrunedFundsTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -109,6 +110,7 @@ class ImportPrunedFundsTest(DefiTestFramework):
 
         self.nodes[1].removeprunedfunds(txnid3)
         assert not [tx for tx in self.nodes[1].listtransactions(include_watchonly=True) if tx['txid'] == txnid3]
+
 
 if __name__ == '__main__':
     ImportPrunedFundsTest().main()

@@ -24,22 +24,26 @@ from test_framework.util import (
 
 from test_framework.messages import BLOCK_HEADER_SIZE
 
+
 class ReqType(Enum):
     JSON = 1
     BIN = 2
     HEX = 3
+
 
 class RetType(Enum):
     OBJ = 1
     BYTES = 2
     JSON = 3
 
+
 def filter_output_indices_by_value(vouts, value):
     for vout in vouts:
         if vout['value'] == value:
             yield vout['n']
 
-class RESTTest (DefiTestFramework):
+
+class RESTTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -48,7 +52,8 @@ class RESTTest (DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    def test_rest_request(self, uri, http_method='GET', req_type=ReqType.JSON, body='', status=200, ret_type=RetType.JSON):
+    def test_rest_request(self, uri, http_method='GET', req_type=ReqType.JSON, body='', status=200,
+                          ret_type=RetType.JSON):
         rest_uri = '/rest' + uri
         if req_type == ReqType.JSON:
             rest_uri += '.json'
@@ -99,9 +104,10 @@ class RESTTest (DefiTestFramework):
         # Check hex format response
         hex_response = self.test_rest_request("/tx/{}".format(txid), req_type=ReqType.HEX, ret_type=RetType.OBJ)
         assert_greater_than_or_equal(int(hex_response.getheader('content-length')),
-                                     json_obj['size']*2)
+                                     json_obj['size'] * 2)
 
-        spent = (json_obj['vin'][0]['txid'], json_obj['vin'][0]['vout'])  # get the vin to later check for utxo (should be spent by then)
+        spent = (json_obj['vin'][0]['txid'],
+                 json_obj['vin'][0]['vout'])  # get the vin to later check for utxo (should be spent by then)
         # get n of 0.1 outpoint
         n, = filter_output_indices_by_value(json_obj['vout'], Decimal('0.1'))
         spending = (txid, n)
@@ -149,7 +155,8 @@ class RESTTest (DefiTestFramework):
             bin_request += hex_str_to_bytes(txid)
             bin_request += pack("i", n)
 
-        bin_response = self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.BIN, body=bin_request, ret_type=RetType.BYTES)
+        bin_response = self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.BIN, body=bin_request,
+                                              ret_type=RetType.BYTES)
         output = BytesIO(bin_response)
         chain_height, = unpack("i", output.read(4))
         response_hash = output.read(32)[::-1].hex()
@@ -193,13 +200,17 @@ class RESTTest (DefiTestFramework):
         assert_equal(len(json_obj['utxos']), 1)
 
         # Do some invalid requests
-        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.JSON, body='{"checkmempool', status=400, ret_type=RetType.OBJ)
-        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.BIN, body='{"checkmempool', status=400, ret_type=RetType.OBJ)
-        self.test_rest_request("/getutxos/checkmempool", http_method='POST', req_type=ReqType.JSON, status=400, ret_type=RetType.OBJ)
+        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.JSON, body='{"checkmempool',
+                               status=400, ret_type=RetType.OBJ)
+        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.BIN, body='{"checkmempool', status=400,
+                               ret_type=RetType.OBJ)
+        self.test_rest_request("/getutxos/checkmempool", http_method='POST', req_type=ReqType.JSON, status=400,
+                               ret_type=RetType.OBJ)
 
         # Test limits
         long_uri = '/'.join(["{}-{}".format(txid, n_) for n_ in range(20)])
-        self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=400, ret_type=RetType.OBJ)
+        self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=400,
+                               ret_type=RetType.OBJ)
 
         long_uri = '/'.join(['{}-{}'.format(txid, n_) for n_ in range(15)])
         self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=200)
@@ -211,8 +222,10 @@ class RESTTest (DefiTestFramework):
         bb_hash = self.nodes[0].getbestblockhash()
 
         # Check result if block does not exists
-        assert_equal(self.test_rest_request('/headers/1/0000000000000000000000000000000000000000000000000000000000000000'), [])
-        self.test_rest_request('/block/0000000000000000000000000000000000000000000000000000000000000000', status=404, ret_type=RetType.OBJ)
+        assert_equal(
+            self.test_rest_request('/headers/1/0000000000000000000000000000000000000000000000000000000000000000'), [])
+        self.test_rest_request('/block/0000000000000000000000000000000000000000000000000000000000000000', status=404,
+                               ret_type=RetType.OBJ)
 
         # Check result if block is not in the active chain
         self.nodes[0].invalidateblock(bb_hash)
@@ -226,32 +239,37 @@ class RESTTest (DefiTestFramework):
         response_bytes = response.read()
 
         # Compare with block header
-        response_header = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.BIN, ret_type=RetType.OBJ)
+        response_header = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.BIN,
+                                                 ret_type=RetType.OBJ)
         assert_equal(int(response_header.getheader('content-length')), BLOCK_HEADER_SIZE)
         response_header_bytes = response_header.read()
         assert_equal(response_bytes[:BLOCK_HEADER_SIZE], response_header_bytes)
 
         # Check block hex format
         response_hex = self.test_rest_request("/block/{}".format(bb_hash), req_type=ReqType.HEX, ret_type=RetType.OBJ)
-        assert_greater_than(int(response_hex.getheader('content-length')), BLOCK_HEADER_SIZE*2)
+        assert_greater_than(int(response_hex.getheader('content-length')), BLOCK_HEADER_SIZE * 2)
         response_hex_bytes = response_hex.read().strip(b'\n')
         assert_equal(binascii.hexlify(response_bytes), response_hex_bytes)
 
         # Compare with hex block header
-        response_header_hex = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.HEX, ret_type=RetType.OBJ)
-        assert_greater_than(int(response_header_hex.getheader('content-length')), BLOCK_HEADER_SIZE*2)
-        response_header_hex_bytes = response_header_hex.read(BLOCK_HEADER_SIZE*2)
+        response_header_hex = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.HEX,
+                                                     ret_type=RetType.OBJ)
+        assert_greater_than(int(response_header_hex.getheader('content-length')), BLOCK_HEADER_SIZE * 2)
+        response_header_hex_bytes = response_header_hex.read(BLOCK_HEADER_SIZE * 2)
         assert_equal(binascii.hexlify(response_bytes[:BLOCK_HEADER_SIZE]), response_header_hex_bytes)
 
         # Check json format
         block_json_obj = self.test_rest_request("/block/{}".format(bb_hash))
         assert_equal(block_json_obj['hash'], bb_hash)
-        assert_equal(self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']))['blockhash'], bb_hash)
+        assert_equal(self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']))['blockhash'],
+                     bb_hash)
 
         # Check hex/bin format
-        resp_hex = self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']), req_type=ReqType.HEX, ret_type=RetType.OBJ)
+        resp_hex = self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']),
+                                          req_type=ReqType.HEX, ret_type=RetType.OBJ)
         assert_equal(resp_hex.read().decode('utf-8').rstrip(), bb_hash)
-        resp_bytes = self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']), req_type=ReqType.BIN, ret_type=RetType.BYTES)
+        resp_bytes = self.test_rest_request("/blockhashbyheight/{}".format(block_json_obj['height']),
+                                            req_type=ReqType.BIN, ret_type=RetType.BYTES)
         blockhash = resp_bytes[::-1].hex()
         assert_equal(blockhash, bb_hash)
 
@@ -271,7 +289,8 @@ class RESTTest (DefiTestFramework):
 
         # Compare with normal RPC block response
         rpc_block_json = self.nodes[0].getblock(bb_hash)
-        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'bits', 'difficulty', 'chainwork', 'previousblockhash']:
+        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'bits', 'difficulty',
+                    'chainwork', 'previousblockhash']:
             assert_equal(json_obj[0][key], rpc_block_json[key])
 
         # See if we can get 5 headers in one response
@@ -323,6 +342,7 @@ class RESTTest (DefiTestFramework):
 
         json_obj = self.test_rest_request("/chaininfo")
         assert_equal(json_obj['bestblockhash'], bb_hash)
+
 
 if __name__ == '__main__':
     RESTTest().main()

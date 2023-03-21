@@ -10,6 +10,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
+
 class SendUTXOsFromTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -31,7 +32,7 @@ class SendUTXOsFromTest(DefiTestFramework):
             self.nodes[1].sendutxosfrom(address, to, 0.1)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Insufficient funds" in errorString)
+        assert ("Insufficient funds" in errorString)
 
         # Fund from address
         for _ in range(10):
@@ -44,29 +45,28 @@ class SendUTXOsFromTest(DefiTestFramework):
             self.nodes[1].sendutxosfrom("", to, 0.1)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid from address" in errorString)
+        assert ("Invalid from address" in errorString)
 
         # Invalid to address
         try:
             self.nodes[1].sendutxosfrom(address, "", 0.1)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid to address" in errorString)
-
+        assert ("Invalid to address" in errorString)
 
         # Invalid change address
         try:
             self.nodes[1].sendutxosfrom(address, to, 0.1, "")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid change address" in errorString)
+        assert ("Invalid change address" in errorString)
 
         # Try sending too little
         try:
             self.nodes[1].sendutxosfrom(address, to, 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid amount" in errorString)
+        assert ("Invalid amount" in errorString)
 
         # Fund many addresses
         for _ in range(100):
@@ -92,7 +92,7 @@ class SendUTXOsFromTest(DefiTestFramework):
             if change in vout['scriptPubKey']['addresses']:
                 found = True
 
-        assert(found)
+        assert (found)
 
         # Test send with change to default from address
         txid = self.nodes[1].sendutxosfrom(address, to, 1.5)
@@ -112,7 +112,7 @@ class SendUTXOsFromTest(DefiTestFramework):
             if address in vout['scriptPubKey']['addresses']:
                 found = True
 
-        assert(found)
+        assert (found)
 
         # Test fee is not deducted from recipient 'to'
         amount = 2.5
@@ -128,7 +128,8 @@ class SendUTXOsFromTest(DefiTestFramework):
                 found = True
                 assert_equal(vout['value'], amount)
 
-        assert(found)
+        assert (found)
+
 
 if __name__ == '__main__':
     SendUTXOsFromTest().main()

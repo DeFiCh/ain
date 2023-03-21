@@ -11,6 +11,7 @@ from test_framework.util import assert_equal
 
 from decimal import Decimal
 
+
 class TransferBurnTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -18,7 +19,6 @@ class TransferBurnTest(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=200', '-dakotaheight=1']]
 
     def run_test(self):
-
         # Burn address
         old_burn_address = "mfdefichainDSTBurnAddressXXXZcE1vs"
         burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -48,7 +48,8 @@ class TransferBurnTest(DefiTestFramework):
 
         # Check token burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'], "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003") # OP_RETURN data
+        assert_equal(result[0]['owner'],
+                     "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003")  # OP_RETURN data
         assert_equal(result[0]['txn'], 1)
         assert_equal(result[0]['type'], 'CreateToken')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
@@ -62,7 +63,8 @@ class TransferBurnTest(DefiTestFramework):
 
         # Check token burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'], "6a2344665478540653494c5645520c7368696e792073696c76657208000000000000000003") # OP_RETURN data
+        assert_equal(result[0]['owner'],
+                     "6a2344665478540653494c5645520c7368696e792073696c76657208000000000000000003")  # OP_RETURN data
         assert_equal(result[0]['txn'], 1)
         assert_equal(result[0]['type'], 'CreateToken')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
@@ -75,10 +77,10 @@ class TransferBurnTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Send tokens to burn address
-        self.nodes[0].accounttoaccount(address, {old_burn_address:"100@128"})
+        self.nodes[0].accounttoaccount(address, {old_burn_address: "100@128"})
         self.nodes[0].generate(1)
 
-        self.nodes[0].accounttoaccount(address, {old_burn_address:"100@129"})
+        self.nodes[0].accounttoaccount(address, {old_burn_address: "100@129"})
         self.nodes[0].generate(1)
 
         # Check balance
@@ -87,9 +89,9 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(result[1], "100.00000000@SILVER#129")
 
         # Send funds to destruction addresses
-        self.nodes[0].utxostoaccount({destruction_one:"5@0"})
-        self.nodes[0].utxostoaccount({destruction_one:"5@0"})
-        self.nodes[0].utxostoaccount({destruction_two:"20@0"})
+        self.nodes[0].utxostoaccount({destruction_one: "5@0"})
+        self.nodes[0].utxostoaccount({destruction_one: "5@0"})
+        self.nodes[0].utxostoaccount({destruction_two: "20@0"})
         self.nodes[0].generate(1)
 
         # Check destruction balance
@@ -138,7 +140,7 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(result[0], "100.00000000@GOLD#128")
         assert_equal(result[1], "100.00000000@SILVER#129")
 
-        assert_equal(len(self.nodes[0].listburnhistory()), 2) # Creation fee burns still present
+        assert_equal(len(self.nodes[0].listburnhistory()), 2)  # Creation fee burns still present
 
         result = self.nodes[0].getburninfo()
         assert_equal(result['address'], burn_address)
@@ -180,6 +182,7 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(len(result), 0)
         result = self.nodes[0].getaccount(destruction_two)
         assert_equal(len(result), 0)
+
 
 if __name__ == '__main__':
     TransferBurnTest().main()

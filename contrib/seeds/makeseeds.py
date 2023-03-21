@@ -139,7 +139,7 @@ def filterbyasn(ips, max_per_asn, max_total):
                 continue
             asn_count[asn] += 1
             result.append(ip)
-        except:
+        except ModuleNotFoundError:
             sys.stderr.write('ERR: Could not resolve ASN for "' + ip['ip'] + '"\n')
 
     # Add back Onions

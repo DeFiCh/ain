@@ -39,7 +39,7 @@ class MultiWalletTest(DefiTestFramework):
                 return wallet_dir(name, "wallet.dat")
             return wallet_dir(name)
 
-        assert_equal(self.nodes[0].listwalletdir(), { 'wallets': [{ 'name': '' }] })
+        assert_equal(self.nodes[0].listwalletdir(), {'wallets': [{'name': ''}]})
 
         # check wallet.dat is created
         self.stop_nodes()
@@ -68,10 +68,12 @@ class MultiWalletTest(DefiTestFramework):
         #   w7_symlink - to verify symlinked wallet path is initialized correctly
         #   w8         - to verify existing wallet file is loaded correctly
         #   ''         - to verify default wallet file is created correctly
-        wallet_names = ['w1', 'w2', 'w3', 'w', 'sub/w5', os.path.join(self.options.tmpdir, 'extern/w6'), 'w7_symlink', 'w8', '']
+        wallet_names = ['w1', 'w2', 'w3', 'w', 'sub/w5', os.path.join(self.options.tmpdir, 'extern/w6'), 'w7_symlink',
+                        'w8', '']
         extra_args = ['-wallet={}'.format(n) for n in wallet_names]
         self.start_node(0, extra_args)
-        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])), ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
+        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])),
+                     ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
 
         assert_equal(set(node.listwallets()), set(wallet_names))
 
@@ -82,43 +84,62 @@ class MultiWalletTest(DefiTestFramework):
 
         # should not initialize if wallet path can't be created
         exp_stderr = "boost::filesystem::create_directory:"
-        self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr,
+                                                     match=ErrorMatch.PARTIAL_REGEX)
 
-        self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" does not exist')
-        self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" is a relative path', cwd=data_dir())
-        self.nodes[0].assert_start_raises_init_error(['-walletdir=debug.log'], 'Error: Specified -walletdir "debug.log" is not a directory', cwd=data_dir())
+        self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'],
+                                                     'Error: Specified -walletdir "wallets" does not exist')
+        self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'],
+                                                     'Error: Specified -walletdir "wallets" is a relative path',
+                                                     cwd=data_dir())
+        self.nodes[0].assert_start_raises_init_error(['-walletdir=debug.log'],
+                                                     'Error: Specified -walletdir "debug.log" is not a directory',
+                                                     cwd=data_dir())
 
         # should not initialize if there are duplicate wallets
-        self.nodes[0].assert_start_raises_init_error(['-wallet=w1', '-wallet=w1'], 'Error: Error loading wallet w1. Duplicate -wallet filename specified.')
+        self.nodes[0].assert_start_raises_init_error(['-wallet=w1', '-wallet=w1'],
+                                                     'Error: Error loading wallet w1. Duplicate -wallet filename specified.')
 
         # should not initialize if one wallet is a copy of another
         shutil.copyfile(wallet_dir('w8'), wallet_dir('w8_copy'))
-        exp_stderr = "BerkeleyBatch: Can't open database w8_copy \(duplicates fileid \w+ from w8\)"
-        self.nodes[0].assert_start_raises_init_error(['-wallet=w8', '-wallet=w8_copy'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
+        exp_stderr = r"BerkeleyBatch: Can't open database w8_copy \(duplicates fileid \w+ from w8\)"
+        self.nodes[0].assert_start_raises_init_error(['-wallet=w8', '-wallet=w8_copy'], exp_stderr,
+                                                     match=ErrorMatch.PARTIAL_REGEX)
 
         # should not initialize if wallet file is a symlink
         os.symlink('w8', wallet_dir('w8_symlink'))
-        self.nodes[0].assert_start_raises_init_error(['-wallet=w8_symlink'], 'Error: Invalid -wallet path \'w8_symlink\'\. .*', match=ErrorMatch.FULL_REGEX)
+        self.nodes[0].assert_start_raises_init_error(['-wallet=w8_symlink'],
+                                                     r"Error: Invalid -wallet path \'w8_symlink'\. .*",
+                                                     match=ErrorMatch.FULL_REGEX)
 
         # should not initialize if the specified walletdir does not exist
-        self.nodes[0].assert_start_raises_init_error(['-walletdir=bad'], 'Error: Specified -walletdir "bad" does not exist')
+        self.nodes[0].assert_start_raises_init_error(['-walletdir=bad'],
+                                                     'Error: Specified -walletdir "bad" does not exist')
         # should not initialize if the specified walletdir is not a directory
         not_a_dir = wallet_dir('notadir')
         open(not_a_dir, 'a', encoding="utf8").close()
-        self.nodes[0].assert_start_raises_init_error(['-walletdir=' + not_a_dir], 'Error: Specified -walletdir "' + not_a_dir + '" is not a directory')
+        self.nodes[0].assert_start_raises_init_error(['-walletdir=' + not_a_dir],
+                                                     'Error: Specified -walletdir "' + not_a_dir + '" is not a directory')
 
         self.log.info("Do not allow -zapwallettxes with multiwallet")
-        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes', '-wallet=w1', '-wallet=w2'], "Error: -zapwallettxes is only allowed with a single wallet file")
-        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes=1', '-wallet=w1', '-wallet=w2'], "Error: -zapwallettxes is only allowed with a single wallet file")
-        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes=2', '-wallet=w1', '-wallet=w2'], "Error: -zapwallettxes is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -zapwallettxes is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes=1', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -zapwallettxes is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-zapwallettxes=2', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -zapwallettxes is only allowed with a single wallet file")
 
         self.log.info("Do not allow -salvagewallet with multiwallet")
-        self.nodes[0].assert_start_raises_init_error(['-salvagewallet', '-wallet=w1', '-wallet=w2'], "Error: -salvagewallet is only allowed with a single wallet file")
-        self.nodes[0].assert_start_raises_init_error(['-salvagewallet=1', '-wallet=w1', '-wallet=w2'], "Error: -salvagewallet is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-salvagewallet', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -salvagewallet is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-salvagewallet=1', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -salvagewallet is only allowed with a single wallet file")
 
         self.log.info("Do not allow -upgradewallet with multiwallet")
-        self.nodes[0].assert_start_raises_init_error(['-upgradewallet', '-wallet=w1', '-wallet=w2'], "Error: -upgradewallet is only allowed with a single wallet file")
-        self.nodes[0].assert_start_raises_init_error(['-upgradewallet=1', '-wallet=w1', '-wallet=w2'], "Error: -upgradewallet is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-upgradewallet', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -upgradewallet is only allowed with a single wallet file")
+        self.nodes[0].assert_start_raises_init_error(['-upgradewallet=1', '-wallet=w1', '-wallet=w2'],
+                                                     "Error: -upgradewallet is only allowed with a single wallet file")
 
         # if wallets/ doesn't exist, datadir should be the default wallet dir
         wallet_dir2 = data_dir('walletdir')
@@ -140,13 +161,15 @@ class MultiWalletTest(DefiTestFramework):
         competing_wallet_dir = os.path.join(self.options.tmpdir, 'competing_walletdir')
         os.mkdir(competing_wallet_dir)
         self.restart_node(0, ['-walletdir=' + competing_wallet_dir])
-        exp_stderr = "Error: Error initializing wallet database environment \"\S+competing_walletdir\"!"
-        self.nodes[1].assert_start_raises_init_error(['-walletdir=' + competing_wallet_dir], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
+        exp_stderr = r"Error: Error initializing wallet database environment \"\S+competing_walletdir\"!"
+        self.nodes[1].assert_start_raises_init_error(['-walletdir=' + competing_wallet_dir], exp_stderr,
+                                                     match=ErrorMatch.PARTIAL_REGEX)
 
         self.restart_node(0, extra_args)
 
         wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
-        assert_equal(wallets, ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy'])
+        assert_equal(wallets,
+                     ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy'])
 
         wallets = [wallet(w) for w in wallet_names]
         wallet_bad = wallet("bad")
@@ -223,24 +246,31 @@ class MultiWalletTest(DefiTestFramework):
         assert_raises_rpc_error(-18, 'Wallet wallets not found.', self.nodes[0].loadwallet, 'wallets')
 
         # Fail to load duplicate wallets
-        assert_raises_rpc_error(-4, 'Wallet file verification failed: Error loading wallet w1. Duplicate -wallet filename specified.', self.nodes[0].loadwallet, wallet_names[0])
+        assert_raises_rpc_error(-4,
+                                'Wallet file verification failed: Error loading wallet w1. Duplicate -wallet filename specified.',
+                                self.nodes[0].loadwallet, wallet_names[0])
 
         # Fail to load duplicate wallets by different ways (directory and filepath)
-        assert_raises_rpc_error(-4, "Wallet file verification failed: Error loading wallet wallet.dat. Duplicate -wallet filename specified.", self.nodes[0].loadwallet, 'wallet.dat')
+        assert_raises_rpc_error(-4,
+                                "Wallet file verification failed: Error loading wallet wallet.dat. Duplicate -wallet filename specified.",
+                                self.nodes[0].loadwallet, 'wallet.dat')
 
         # Fail to load if one wallet is a copy of another
-        assert_raises_rpc_error(-1, "BerkeleyBatch: Can't open database w8_copy (duplicates fileid", self.nodes[0].loadwallet, 'w8_copy')
+        assert_raises_rpc_error(-1, "BerkeleyBatch: Can't open database w8_copy (duplicates fileid",
+                                self.nodes[0].loadwallet, 'w8_copy')
 
         # Fail to load if one wallet is a copy of another, test this twice to make sure that we don't re-introduce #14304
-        assert_raises_rpc_error(-1, "BerkeleyBatch: Can't open database w8_copy (duplicates fileid", self.nodes[0].loadwallet, 'w8_copy')
-
+        assert_raises_rpc_error(-1, "BerkeleyBatch: Can't open database w8_copy (duplicates fileid",
+                                self.nodes[0].loadwallet, 'w8_copy')
 
         # Fail to load if wallet file is a symlink
-        assert_raises_rpc_error(-4, "Wallet file verification failed: Invalid -wallet path 'w8_symlink'", self.nodes[0].loadwallet, 'w8_symlink')
+        assert_raises_rpc_error(-4, "Wallet file verification failed: Invalid -wallet path 'w8_symlink'",
+                                self.nodes[0].loadwallet, 'w8_symlink')
 
         # Fail to load if a directory is specified that doesn't contain a wallet
         os.mkdir(wallet_dir('empty_wallet_dir'))
-        assert_raises_rpc_error(-18, "Directory empty_wallet_dir does not contain a wallet.dat file", self.nodes[0].loadwallet, 'empty_wallet_dir')
+        assert_raises_rpc_error(-18, "Directory empty_wallet_dir does not contain a wallet.dat file",
+                                self.nodes[0].loadwallet, 'empty_wallet_dir')
 
         self.log.info("Test dynamic wallet creation.")
 
@@ -269,8 +299,10 @@ class MultiWalletTest(DefiTestFramework):
 
         # Test `unloadwallet` errors
         assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].unloadwallet)
-        assert_raises_rpc_error(-18, "Requested wallet does not exist or is not loaded", self.nodes[0].unloadwallet, "dummy")
-        assert_raises_rpc_error(-18, "Requested wallet does not exist or is not loaded", node.get_wallet_rpc("dummy").unloadwallet)
+        assert_raises_rpc_error(-18, "Requested wallet does not exist or is not loaded", self.nodes[0].unloadwallet,
+                                "dummy")
+        assert_raises_rpc_error(-18, "Requested wallet does not exist or is not loaded",
+                                node.get_wallet_rpc("dummy").unloadwallet)
         assert_raises_rpc_error(-8, "Cannot unload the requested wallet", w1.unloadwallet, "w2"),
 
         # Successfully unload the specified wallet name
@@ -289,14 +321,16 @@ class MultiWalletTest(DefiTestFramework):
         for wallet_name in self.nodes[0].listwallets():
             self.nodes[0].unloadwallet(wallet_name)
         assert_equal(self.nodes[0].listwallets(), [])
-        assert_raises_rpc_error(-32601, "Method not found (wallet method is disabled because no wallet is loaded)", self.nodes[0].getwalletinfo)
+        assert_raises_rpc_error(-32601, "Method not found (wallet method is disabled because no wallet is loaded)",
+                                self.nodes[0].getwalletinfo)
 
         # Successfully load a previously unloaded wallet
         self.nodes[0].loadwallet('w1')
         assert_equal(self.nodes[0].listwallets(), ['w1'])
         assert_equal(w1.getwalletinfo()['walletname'], 'w1')
 
-        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])), ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy', 'w9'])
+        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])),
+                     ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy', 'w9'])
 
         # Test backing up and restoring wallets
         self.log.info("Test wallet backup")

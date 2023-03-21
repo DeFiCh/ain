@@ -12,12 +12,13 @@ import os
 import sys
 import unittest
 
+
 class TestRPCAuth(unittest.TestCase):
     def setUp(self):
         config = configparser.ConfigParser()
         config_path = os.path.abspath(
             os.path.join(os.sep, os.path.abspath(os.path.dirname(__file__)),
-            "../config.ini"))
+                         "../config.ini"))
         with open(config_path, encoding="utf8") as config_file:
             config.read_file(config_file)
         sys.path.insert(0, os.path.dirname(config['environment']['RPCAUTH']))
@@ -39,10 +40,11 @@ class TestRPCAuth(unittest.TestCase):
         password_hmac = self.rpcauth.password_to_hmac(salt, password)
 
         m = hmac.new(bytearray(salt, 'utf-8'),
-            bytearray(password, 'utf-8'), 'SHA256')
+                     bytearray(password, 'utf-8'), 'SHA256')
         expected_password_hmac = m.hexdigest()
 
         self.assertEqual(expected_password_hmac, password_hmac)
+
 
 if __name__ == '__main__':
     unittest.main()

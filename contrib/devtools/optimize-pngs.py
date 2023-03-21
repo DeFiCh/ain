@@ -44,8 +44,8 @@ for folder in folders:
 
             try:
                 subprocess.call([pngcrush, "-brute", "-ow", "-rem", "gAMA", "-rem", "cHRM", "-rem", "iCCP", "-rem", "sRGB", "-rem", "alla", "-rem", "text", file_path],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except:
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except FileNotFoundError:
                 print("pngcrush is not installed, aborting...")
                 sys.exit(0)
 

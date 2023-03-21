@@ -19,7 +19,7 @@ Tests correspond to code in rpc/blockchain.cpp.
 """
 
 from decimal import Decimal
-# import http.client
+import http.client
 import subprocess
 
 from test_framework.test_framework import DefiTestFramework
@@ -52,7 +52,8 @@ class BlockchainTest(DefiTestFramework):
 
     def run_test(self):
         self.mine_chain()
-        self.restart_node(0, extra_args=['-stopatheight=207', '-prune=1'])  # Set extra args with pruning after rescan is complete
+        self.restart_node(0, extra_args=['-stopatheight=207',
+                                         '-prune=1'])  # Set extra args with pruning after rescan is complete
 
         self._test_getblockchaininfo()
         self._test_getchaintxstats()
@@ -67,7 +68,7 @@ class BlockchainTest(DefiTestFramework):
     def mine_chain(self):
         self.log.info('Create some old blocks')
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        for t in range(TIME_GENESIS_BLOCK+1, TIME_GENESIS_BLOCK + 200 * 600 +1, 600):
+        for t in range(TIME_GENESIS_BLOCK + 1, TIME_GENESIS_BLOCK + 200 * 600 + 1, 600):
             # ten-minute steps from genesis block time
             self.nodes[0].setmocktime(t)
             self.nodes[0].generatetoaddress(1, address)
@@ -169,14 +170,22 @@ class BlockchainTest(DefiTestFramework):
 
         # Test `getchaintxstats` invalid `nblocks`
         assert_raises_rpc_error(-1, "JSON value is not an integer as expected", self.nodes[0].getchaintxstats, '')
-        assert_raises_rpc_error(-8, "Invalid block count: should be between 0 and the block's height - 1", self.nodes[0].getchaintxstats, -1)
-        assert_raises_rpc_error(-8, "Invalid block count: should be between 0 and the block's height - 1", self.nodes[0].getchaintxstats, self.nodes[0].getblockcount())
+        assert_raises_rpc_error(-8, "Invalid block count: should be between 0 and the block's height - 1",
+                                self.nodes[0].getchaintxstats, -1)
+        assert_raises_rpc_error(-8, "Invalid block count: should be between 0 and the block's height - 1",
+                                self.nodes[0].getchaintxstats, self.nodes[0].getblockcount())
 
         # Test `getchaintxstats` invalid `blockhash`
-        assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].getchaintxstats, blockhash=0)
-        assert_raises_rpc_error(-8, "blockhash must be of length 64 (not 1, for '0')", self.nodes[0].getchaintxstats, blockhash='0')
-        assert_raises_rpc_error(-8, "blockhash must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')", self.nodes[0].getchaintxstats, blockhash='ZZZ0000000000000000000000000000000000000000000000000000000000000')
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].getchaintxstats, blockhash='0000000000000000000000000000000000000000000000000000000000000000')
+        assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].getchaintxstats,
+                                blockhash=0)
+        assert_raises_rpc_error(-8, "blockhash must be of length 64 (not 1, for '0')", self.nodes[0].getchaintxstats,
+                                blockhash='0')
+        assert_raises_rpc_error(-8,
+                                "blockhash must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')",
+                                self.nodes[0].getchaintxstats,
+                                blockhash='ZZZ0000000000000000000000000000000000000000000000000000000000000')
+        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].getchaintxstats,
+                                blockhash='0000000000000000000000000000000000000000000000000000000000000000')
         blockhash = self.nodes[0].getblockhash(200)
         self.nodes[0].invalidateblock(blockhash)
         assert_raises_rpc_error(-8, "Block is not in main chain", self.nodes[0].getchaintxstats, blockhash=blockhash)
@@ -184,7 +193,7 @@ class BlockchainTest(DefiTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats(nblocks=1)
         # 200 txs plus genesis tx
-        assert_equal(chaintxstats['txcount'], 201 +8) # +8 due to genesis mn txs
+        assert_equal(chaintxstats['txcount'], 201 + 8)  # +8 due to genesis mn txs
         # tx rate should be 1 per 10 minutes, or 1/600
         # we have to round because of binary math
         assert_equal(round(chaintxstats['txrate'] * 600, 10), Decimal(1))
@@ -197,7 +206,7 @@ class BlockchainTest(DefiTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats()
         assert_equal(chaintxstats['time'], b200['time'])
-        assert_equal(chaintxstats['txcount'], 201 +8) # +8 due to genesis mn txs
+        assert_equal(chaintxstats['txcount'], 201 + 8)  # +8 due to genesis mn txs
         assert_equal(chaintxstats['window_final_block_hash'], b200_hash)
         assert_equal(chaintxstats['window_final_block_height'], 200)
         assert_equal(chaintxstats['window_block_count'], 199)
@@ -207,7 +216,7 @@ class BlockchainTest(DefiTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats(blockhash=b1_hash)
         assert_equal(chaintxstats['time'], b1['time'])
-        assert_equal(chaintxstats['txcount'], 2 +8) # +8 due to genesis mn txs
+        assert_equal(chaintxstats['txcount'], 2 + 8)  # +8 due to genesis mn txs
         assert_equal(chaintxstats['window_final_block_hash'], b1_hash)
         assert_equal(chaintxstats['window_final_block_height'], 1)
         assert_equal(chaintxstats['window_block_count'], 0)
@@ -220,11 +229,11 @@ class BlockchainTest(DefiTestFramework):
         res = node.gettxoutsetinfo()
 
         # genesis txs are now taken into account too!!!
-        assert_equal(res['total_amount'], Decimal('8855.00000000')) # old value '8725.00000000'
-        assert_equal(res['transactions'], 209) # old value 200
+        assert_equal(res['total_amount'], Decimal('8855.00000000'))  # old value '8725.00000000'
+        assert_equal(res['transactions'], 209)  # old value 200
         assert_equal(res['height'], 200)
-        assert_equal(res['txouts'], 209) # old value 200
-        assert_equal(res['bogosize'], 15669) # old value 15000
+        assert_equal(res['txouts'], 209)  # old value 200
+        assert_equal(res['bogosize'], 15669)  # old value 15000
         assert_equal(res['bestblock'], node.getblockhash(200))
         size = res['disk_size']
         assert size > 6400
@@ -237,11 +246,11 @@ class BlockchainTest(DefiTestFramework):
         node.invalidateblock(b1hash)
 
         res2 = node.gettxoutsetinfo()
-        assert_equal(res2['transactions'], 9) # old value 0
-        assert_equal(res2['total_amount'], Decimal('130')) # old value 0
+        assert_equal(res2['transactions'], 9)  # old value 0
+        assert_equal(res2['total_amount'], Decimal('130'))  # old value 0
         assert_equal(res2['height'], 0)
-        assert_equal(res2['txouts'], 9) # old value 0
-        assert_equal(res2['bogosize'], 669), # old value 0
+        assert_equal(res2['txouts'], 9)  # old value 0
+        assert_equal(res2['bogosize'], 669),  # old value 0
         assert_equal(res2['bestblock'], node.getblockhash(0))
         assert_equal(len(res2['hash_serialized_2']), 64)
 
@@ -257,9 +266,13 @@ class BlockchainTest(DefiTestFramework):
     def _test_getblockheader(self):
         node = self.nodes[0]
 
-        assert_raises_rpc_error(-8, "hash must be of length 64 (not 8, for 'nonsense')", node.getblockheader, "nonsense")
-        assert_raises_rpc_error(-8, "hash must be hexadecimal string (not 'ZZZ7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844')", node.getblockheader, "ZZZ7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844")
-        assert_raises_rpc_error(-5, "Block not found", node.getblockheader, "0cf7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844")
+        assert_raises_rpc_error(-8, "hash must be of length 64 (not 8, for 'nonsense')", node.getblockheader,
+                                "nonsense")
+        assert_raises_rpc_error(-8,
+                                "hash must be hexadecimal string (not 'ZZZ7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844')",
+                                node.getblockheader, "ZZZ7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844")
+        assert_raises_rpc_error(-5, "Block not found", node.getblockheader,
+                                "0cf7bb8b1697ea987f3b223ba7819250cae33efacb068d23dc24859824a77844")
 
         besthash = node.getbestblockhash()
         secondbesthash = node.getblockhash(199)
@@ -286,7 +299,7 @@ class BlockchainTest(DefiTestFramework):
         difficulty = self.nodes[0].getdifficulty()
         # 1 hash in 2 should be valid, so difficulty should be 1/2**31
         # binary => decimal => binary math is why we do this check
-        assert abs(difficulty * 2**31 - 1) < 0.0001
+        assert abs(difficulty * 2 ** 31 - 1) < 0.0001
 
     def _test_getnetworkhashps(self):
         hashes_per_second = self.nodes[0].getnetworkhashps()
@@ -301,7 +314,7 @@ class BlockchainTest(DefiTestFramework):
         assert_raises(subprocess.TimeoutExpired, lambda: self.nodes[0].process.wait(timeout=3))
         try:
             self.nodes[0].generate(1)
-        except: # (ConnectionError, http.client.BadStatusLine): # pass on ANY exception
+        except (ConnectionError, http.client.BadStatusLine):
             pass  # The node already shut down before response
         self.log.debug('Node should stop at this height...')
         self.nodes[0].wait_until_stopped()

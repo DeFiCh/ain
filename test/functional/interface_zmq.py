@@ -12,8 +12,10 @@ from test_framework.util import assert_equal, connect_nodes
 from io import BytesIO
 from time import sleep
 
+
 def hash256_reversed(byte_str):
     return hash256(byte_str)[::-1]
+
 
 class ZMQSubscriber:
     def __init__(self, socket, topic):
@@ -34,7 +36,7 @@ class ZMQSubscriber:
         return body
 
 
-class ZMQTest (DefiTestFramework):
+class ZMQTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
 
@@ -69,7 +71,8 @@ class ZMQTest (DefiTestFramework):
         rawblock = ZMQSubscriber(socket, b"rawblock")
         rawtx = ZMQSubscriber(socket, b"rawtx")
 
-        self.restart_node(0, ["-zmqpub%s=%s" % (sub.topic.decode(), address) for sub in [hashblock, hashtx, rawblock, rawtx]])
+        self.restart_node(0, ["-zmqpub%s=%s" % (sub.topic.decode(), address) for sub in
+                              [hashblock, hashtx, rawblock, rawtx]])
         connect_nodes(self.nodes[0], 1)
         socket.connect(address)
         # Relax so that the subscriber is ready before publishing zmq messages
@@ -114,7 +117,6 @@ class ZMQTest (DefiTestFramework):
             hex = rawtx.receive()
             assert_equal(payment_txid, hash256_reversed(hex).hex())
 
-
         self.log.info("Test the getzmqnotifications RPC")
         assert_equal(self.nodes[0].getzmqnotifications(), [
             {"type": "pubhashblock", "address": address, "hwm": 1000},
@@ -150,6 +152,7 @@ class ZMQTest (DefiTestFramework):
 
         # Should receive nodes[1] tip
         assert_equal(self.nodes[1].getbestblockhash(), hashblock.receive().hex())
+
 
 if __name__ == '__main__':
     ZMQTest().main()

@@ -75,7 +75,8 @@ class MempoolPersistTest(DefiTestFramework):
         fees = self.nodes[0].getmempoolentry(txid=last_txid)['fees']
         assert_equal(fees['base'] + Decimal('0.00001000'), fees['modified'])
 
-        self.log.debug("Stop-start the nodes. Verify that node0 has the transactions in its mempool and node1 does not. Verify that node2 calculates its balance correctly after loading wallet transactions.")
+        self.log.debug(
+            "Stop-start the nodes. Verify that node0 has the transactions in its mempool and node1 does not. Verify that node2 calculates its balance correctly after loading wallet transactions.")
         self.stop_nodes()
         # Give this node a head-start, so we can be "extra-sure" that it didn't load anything later
         # Also don't store the mempool, to keep the datadir clean

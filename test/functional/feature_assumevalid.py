@@ -47,11 +47,13 @@ from test_framework.script import (CScript, OP_TRUE)
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
+
 class BaseNode(P2PInterface):
     def send_header_for_blocks(self, new_blocks):
         headers_message = msg_headers()
         headers_message.headers = [CBlockHeader(b) for b in new_blocks]
         self.send_message(headers_message)
+
 
 class AssumeValidTest(DefiTestFramework):
     def set_test_params(self):
@@ -186,6 +188,7 @@ class AssumeValidTest(DefiTestFramework):
         # Send blocks to node2. Block 102 will be rejected.
         self.send_blocks_until_disconnected(p2p2)
         self.assert_blockchain_height(self.nodes[2], 101)
+
 
 if __name__ == '__main__':
     AssumeValidTest().main()

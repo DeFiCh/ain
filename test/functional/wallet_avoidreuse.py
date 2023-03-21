@@ -11,6 +11,7 @@ from test_framework.util import (
     connect_nodes_bi,
 )
 
+
 # TODO: Copied from wallet_groups.py -- should perhaps move into util.py
 def assert_approx(v, vexp, vspan=0.00001):
     if v < vexp - vspan:
@@ -18,11 +19,13 @@ def assert_approx(v, vexp, vspan=0.00001):
     if v > vexp + vspan:
         raise AssertionError("%s > [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan)))
 
+
 def reset_balance(node, discardaddr):
     '''Throw away all owned coins by the node so it gets a balance of 0.'''
     balance = node.getbalance(avoid_reuse=False)
     if balance > 0.5:
         node.sendtoaddress(address=discardaddr, amount=balance, subtractfeefromamount=True, avoid_reuse=False)
+
 
 def count_unspent(node):
     '''Count the unspent outputs for the given node and return various statistics'''
@@ -49,6 +52,7 @@ def count_unspent(node):
     r["reused"]["supported"] = supports_reused
     return r
 
+
 def assert_unspent(node, total_count=None, total_sum=None, reused_supported=None, reused_count=None, reused_sum=None):
     '''Make assertions about a node's unspent output statistics'''
     stats = count_unspent(node)
@@ -63,11 +67,13 @@ def assert_unspent(node, total_count=None, total_sum=None, reused_supported=None
     if reused_sum is not None:
         assert_approx(stats["reused"]["sum"], reused_sum, 0.001)
 
+
 def assert_balances(node, mine):
     '''Make assertions about a node's getbalances output'''
     got = node.getbalances()["mine"]
-    for k,v in mine.items():
+    for k, v in mine.items():
         assert_approx(got[k], v, 0.001)
+
 
 class AvoidReuseTest(DefiTestFramework):
 
@@ -112,8 +118,10 @@ class AvoidReuseTest(DefiTestFramework):
         assert_equal(self.nodes[1].getwalletinfo()["avoid_reuse"], True)
 
         # Attempting to set flag to its current state should throw
-        assert_raises_rpc_error(-8, "Wallet flag is already set to false", self.nodes[0].setwalletflag, 'avoid_reuse', False)
-        assert_raises_rpc_error(-8, "Wallet flag is already set to true", self.nodes[1].setwalletflag, 'avoid_reuse', True)
+        assert_raises_rpc_error(-8, "Wallet flag is already set to false", self.nodes[0].setwalletflag, 'avoid_reuse',
+                                False)
+        assert_raises_rpc_error(-8, "Wallet flag is already set to true", self.nodes[1].setwalletflag, 'avoid_reuse',
+                                True)
 
     def test_immutable(self):
         '''Test immutable wallet flags'''
@@ -151,7 +159,7 @@ class AvoidReuseTest(DefiTestFramework):
         # getbalances should show no used, 10 btc trusted
         assert_balances(self.nodes[1], mine={"used": 0, "trusted": 10})
         # node 0 should not show a used entry, as it does not enable avoid_reuse
-        assert("used" not in self.nodes[0].getbalances()["mine"])
+        assert ("used" not in self.nodes[0].getbalances()["mine"])
 
         self.nodes[1].sendtoaddress(retaddr, 5)
         self.nodes[0].generate(1)
@@ -238,6 +246,7 @@ class AvoidReuseTest(DefiTestFramework):
         # node 1 should now have about 1 btc left (no dirty) and 11 (including dirty)
         assert_approx(self.nodes[1].getbalance(), 1, 0.001)
         assert_approx(self.nodes[1].getbalance(avoid_reuse=False), 11, 0.001)
+
 
 if __name__ == '__main__':
     AvoidReuseTest().main()

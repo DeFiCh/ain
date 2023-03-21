@@ -15,6 +15,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
+
 class IsMineCachedTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -27,7 +28,7 @@ class IsMineCachedTest(DefiTestFramework):
         ]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         self.nodes[0].generate(101)
         self.sync_blocks()
@@ -46,6 +47,7 @@ class IsMineCachedTest(DefiTestFramework):
         self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(wallet1_addr))
 
         self.nodes[0].sendtokenstoaddress({}, to)
+
 
 if __name__ == '__main__':
     IsMineCachedTest().main()

@@ -41,8 +41,7 @@ def applies_to_file(filename):
     for excluded_dir in EXCLUDE_DIRS:
         if filename.startswith(excluded_dir):
             return False
-    return ((EXCLUDE_COMPILED.match(filename) is None) and
-            (INCLUDE_COMPILED.match(filename) is not None))
+    return ((EXCLUDE_COMPILED.match(filename) is None) and (INCLUDE_COMPILED.match(filename) is not None))
 
 ################################################################################
 # obtain list of files in repo according to INCLUDE and EXCLUDE
@@ -71,7 +70,7 @@ def get_filenames_to_examine(base_directory):
 ################################################################################
 
 
-COPYRIGHT_WITH_C = 'Copyright \(c\)'
+COPYRIGHT_WITH_C = 'Copyright (c)'
 COPYRIGHT_WITHOUT_C = 'Copyright'
 ANY_COPYRIGHT_STYLE = '(%s|%s)' % (COPYRIGHT_WITH_C, COPYRIGHT_WITHOUT_C)
 
@@ -90,8 +89,8 @@ def compile_copyright_regex(copyright_style, year_style, name):
 EXPECTED_HOLDER_NAMES = [
     "Satoshi Nakamoto\n",
     "The Bitcoin Core developers\n",
-    "BitPay Inc\.\n",
-    "University of Illinois at Urbana-Champaign\.\n",
+    "BitPay Inc.\n",
+    "University of Illinois at Urbana-Champaign.\n",
     "Pieter Wuille\n",
     "Wladimir J. van der Laan\n",
     "Jeff Garzik\n",
@@ -330,7 +329,7 @@ def write_file_lines(filename, file_lines):
 # update header years execution
 ################################################################################
 
-COPYRIGHT = 'Copyright \(c\)'
+COPYRIGHT = 'Copyright (c)'
 YEAR = "20[0-9][0-9]"
 YEAR_RANGE = '(%s)(-%s)?' % (YEAR, YEAR)
 HOLDER = 'The Bitcoin Core developers'
@@ -369,9 +368,7 @@ def create_updated_copyright_line(line, last_git_change_year):
     start_year, end_year = parse_year_range(year_range)
     if end_year == last_git_change_year:
         return line
-    return (before_copyright + copyright_splitter +
-            year_range_to_str(start_year, last_git_change_year) + ' ' +
-            ' '.join(space_split[1:]))
+    return (before_copyright + copyright_splitter + year_range_to_str(start_year, last_git_change_year) + ' ' + ' '.join(space_split[1:]))
 
 def update_updatable_copyright(filename):
     file_lines = read_file_lines(filename)
