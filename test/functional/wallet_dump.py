@@ -60,7 +60,7 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
                 # count key types
                 for addrObj in addrs:
                     if addrObj['address'] == addr.split(",")[0] and addrObj[
-                        'hdkeypath'] == keypath and keytype == "label=":
+                            'hdkeypath'] == keypath and keytype == "label=":
                         if addr.startswith('m') or addr.startswith('n'):
                             # P2PKH address
                             found_legacy_addr += 1

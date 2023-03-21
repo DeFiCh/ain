@@ -4,7 +4,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test the preciousblock RPC."""
 
-from test_framework.test_framework import DefiTestFramework
+from test_framework.test_framework import DefiTestFramework, JSONRPCException
 from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
@@ -18,7 +18,7 @@ def unidirectional_node_sync_via_rpc(node_src, node_dest):
         try:
             assert len(node_dest.getblock(blockhash, False)) > 0
             break
-        except:
+        except JSONRPCException:
             blocks_to_copy.append(blockhash)
             blockhash = node_src.getblockheader(blockhash, True)['previousblockhash']
     blocks_to_copy.reverse()

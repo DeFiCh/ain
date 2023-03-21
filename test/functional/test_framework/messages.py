@@ -1062,7 +1062,7 @@ class msg_version:
             # Relay field is optional for version 70001 onwards
             try:
                 self.nRelay = struct.unpack("<b", f.read(1))[0]
-            except:
+            except struct.error:
                 self.nRelay = 0
         else:
             self.nRelay = 0

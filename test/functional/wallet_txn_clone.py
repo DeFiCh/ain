@@ -78,7 +78,7 @@ class TxnMallTest(DefiTestFramework):
         clone_tx = CTransaction()
         clone_tx.deserialize(io.BytesIO(bytes.fromhex(clone_raw)))
         if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40 * COIN or rawtx1["vout"][0][
-            "value"] != 40 and clone_tx.vout[0].nValue == 40 * COIN):
+                "value"] != 40 and clone_tx.vout[0].nValue == 40 * COIN):
             (clone_tx.vout[0], clone_tx.vout[1]) = (clone_tx.vout[1], clone_tx.vout[0])
 
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
