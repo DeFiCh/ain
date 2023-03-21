@@ -7,7 +7,6 @@
 #ifndef DEFI_PUBKEY_H
 #define DEFI_PUBKEY_H
 
-#include <crypto/sha3.h>
 #include <hash.h>
 #include <serialize.h>
 #include <uint256.h>
@@ -163,14 +162,8 @@ public:
 
     CKeyID GetEthID() const
     {
-        std::vector<unsigned char> input(vch + 1, vch + size());
-        std::vector<unsigned char> output;
-
-        sha3(input, output);
-
-        std::vector<unsigned char> address(output.begin() + 12, output.end());
-
-        return CKeyID(uint160(address));
+        const size_t HEADER_OFFSET{1};
+        return CKeyID(Sha3({vch + HEADER_OFFSET, vch + size()}));
     }
 
     //! Get the 256-bit hash of this public key.
