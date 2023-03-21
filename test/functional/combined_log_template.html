@@ -6,25 +6,32 @@
             list-style-type: none;
             font-family: monospace;
         }
+
         li {
             border: 1px solid slategray;
             margin-bottom: 1px;
         }
+
         li:hover {
             filter: brightness(85%);
         }
+
         li.log-test {
             background-color: cyan;
         }
+
         li.log-node0 {
             background-color: lightblue;
         }
+
         li.log-node1 {
             background-color: lightgreen;
         }
+
         li.log-node2 {
             background-color: lightsalmon;
         }
+
         li.log-node3 {
             background-color: lightyellow;
         }
@@ -32,9 +39,9 @@
 </head>
 <body>
 <ul>
-{% for event in log_events %}
-<li class="log-{{ event.source }}"> {{ event.source }} {{ event.timestamp }} {{event.event}}</li>
-{% endfor %}
+    {% for event in log_events %}
+    <li class="log-{{ event.source }}"> {{ event.source }} {{ event.timestamp }} {{event.event}}</li>
+    {% endfor %}
 </ul>
 </body>
 </html>

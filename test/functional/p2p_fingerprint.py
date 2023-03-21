@@ -25,6 +25,7 @@ from test_framework.util import (
     wait_until,
 )
 
+
 class P2PFingerprintTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -110,7 +111,7 @@ class P2PFingerprintTest(DefiTestFramework):
         wait_until(test_function, timeout=3)
 
         # Longest chain is extended so stale is much older than chain tip
-        self.nodes[0].set_mocktime(int(time.time())) # NOT 0 NOR None, but current time
+        self.nodes[0].set_mocktime(int(time.time()))  # NOT 0 NOR None, but current time
         tip = self.nodes[0].generate(1)[0]
         assert_equal(self.nodes[0].getblockcount(), 14)
 
@@ -143,6 +144,7 @@ class P2PFingerprintTest(DefiTestFramework):
         self.send_header_request(block_hash, node0)
         test_function = lambda: self.last_header_equals(block_hash, node0)
         wait_until(test_function, timeout=3)
+
 
 if __name__ == '__main__':
     P2PFingerprintTest().main()

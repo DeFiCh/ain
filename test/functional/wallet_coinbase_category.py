@@ -12,6 +12,7 @@ from test_framework.util import (
     assert_array_result
 )
 
+
 class CoinbaseCategoryTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -54,6 +55,7 @@ class CoinbaseCategoryTest(DefiTestFramework):
         self.nodes[0].invalidateblock(hash)
         # Coinbase transaction is now orphaned
         self.assert_category("orphan", address, txid, 100)
+
 
 if __name__ == '__main__':
     CoinbaseCategoryTest().main()

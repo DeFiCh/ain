@@ -10,18 +10,18 @@ from test_framework.util import assert_equal, str_to_b64str
 import http.client
 import urllib.parse
 
-class HTTPCorsTest (DefiTestFramework):
+
+class HTTPCorsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.cors_origin = "http://localhost:8000"
         self.extra_args = [["-rpcallowcors=" + self.cors_origin]]
 
     def run_test(self):
-
         url = urllib.parse.urlparse(self.nodes[0].url)
         authpair = url.username + ':' + url.password
 
-        #same should be if we add keep-alive because this should be the std. behaviour
+        # same should be if we add keep-alive because this should be the std. behaviour
         headers = {"Authorization": "Basic " + str_to_b64str(authpair), "Connection": "keep-alive"}
 
         conn = http.client.HTTPConnection(url.hostname, url.port)
@@ -31,7 +31,6 @@ class HTTPCorsTest (DefiTestFramework):
         self.check_cors_headers(res)
         assert_equal(res.status, http.client.OK)
         res.close()
-
 
         conn.request('OPTIONS', '/', '{"method": "getbestblockhash"}', headers)
         res = conn.getresponse()
@@ -47,4 +46,4 @@ class HTTPCorsTest (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    HTTPCorsTest ().main ()
+    HTTPCorsTest().main()

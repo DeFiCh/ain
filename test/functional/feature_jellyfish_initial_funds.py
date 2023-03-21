@@ -11,7 +11,8 @@ from test_framework.util import (
     assert_equal,
 )
 
-class JellyfishInitialFundsTest (DefiTestFramework):
+
+class JellyfishInitialFundsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -23,10 +24,11 @@ class JellyfishInitialFundsTest (DefiTestFramework):
         # generate one block
         node.generate(1)
 
-        #check balances. should have 200000100 DFI immature balance
+        # check balances. should have 200000100 DFI immature balance
         walletinfo = node.getwalletinfo()
         assert_equal(walletinfo['immature_balance'], 200000100)
         assert_equal(walletinfo['balance'], 0)
 
+
 if __name__ == '__main__':
-    JellyfishInitialFundsTest ().main ()
+    JellyfishInitialFundsTest().main()

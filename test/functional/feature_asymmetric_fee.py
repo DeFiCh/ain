@@ -12,11 +12,15 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 from math import trunc
 
-class PoolPairAsymmetricTest (DefiTestFramework):
+
+class PoolPairAsymmetricTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningspringheight=150', '-jellyfish_regtest=1']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningspringheight=150', '-jellyfish_regtest=1']]
 
     def run_test(self):
 
@@ -35,7 +39,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.nodes[0].generate(150 - self.nodes[0].getblockcount())
 
         # Set DUSD fee on in only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_pct': '0.05',
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'in'
         }})
@@ -45,10 +49,10 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
         assert_equal(result['dexFeePctTokenA'], Decimal('0.05000000'))
         assert_equal(result['dexFeeInPctTokenA'], Decimal('0.05000000'))
-        assert('dexFeeOutPctTokenA' not in result)
-        assert('dexFeePctTokenB' not in result)
-        assert('dexFeeInPctTokenB' not in result)
-        assert('dexFeeOutPctTokenB' not in result)
+        assert ('dexFeeOutPctTokenA' not in result)
+        assert ('dexFeePctTokenB' not in result)
+        assert ('dexFeeInPctTokenB' not in result)
+        assert ('dexFeeOutPctTokenB' not in result)
 
         # Test DFI to DUSD, no fees incurred
         self.test_swap(self.symbolDFI, self.symbolDUSD, 0, 0)
@@ -57,7 +61,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, Decimal('0.05'), 0)
 
         # Set DUSD fee on out only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'out'
         }})
         self.nodes[0].generate(1)
@@ -65,11 +69,11 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         # Check poolpair
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
         assert_equal(result['dexFeePctTokenA'], Decimal('0.05000000'))
-        assert('dexFeeInPctTokenA' not in result)
+        assert ('dexFeeInPctTokenA' not in result)
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.05000000'))
-        assert('dexFeePctTokenB' not in result)
-        assert('dexFeeInPctTokenB' not in result)
-        assert('dexFeeOutPctTokenB' not in result)
+        assert ('dexFeePctTokenB' not in result)
+        assert ('dexFeeInPctTokenB' not in result)
+        assert ('dexFeeOutPctTokenB' not in result)
 
         # Test DFI to DUSD, 5% fee on DUSD
         self.test_swap(self.symbolDFI, self.symbolDUSD, 0, Decimal('0.05'))
@@ -78,7 +82,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, 0, 0)
 
         # Set DFI fee on in only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_pct': '0',
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'both',
             f'v0/poolpairs/{self.idDD}/token_b_fee_pct': '0.05',
@@ -88,12 +92,12 @@ class PoolPairAsymmetricTest (DefiTestFramework):
 
         # Check poolpair
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
-        assert('dexFeePctTokenA' not in result)
-        assert('dexFeeInPctTokenA' not in result)
-        assert('dexFeeOutPctTokenA' not in result)
+        assert ('dexFeePctTokenA' not in result)
+        assert ('dexFeeInPctTokenA' not in result)
+        assert ('dexFeeOutPctTokenA' not in result)
         assert_equal(result['dexFeePctTokenB'], Decimal('0.05000000'))
         assert_equal(result['dexFeeInPctTokenB'], Decimal('0.05000000'))
-        assert('dexFeeOutPctTokenB' not in result)
+        assert ('dexFeeOutPctTokenB' not in result)
 
         # Test DFI to DUSD, 5% fee on DFI
         self.test_swap(self.symbolDFI, self.symbolDUSD, Decimal('0.05'), 0)
@@ -102,18 +106,18 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, 0, 0)
 
         # Set DFI fee on out only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_b_fee_direction': 'out',
         }})
         self.nodes[0].generate(1)
 
         # Check poolpair
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
-        assert('dexFeePctTokenA' not in result)
-        assert('dexFeeInPctTokenA' not in result)
-        assert('dexFeeOutPctTokenA' not in result)
+        assert ('dexFeePctTokenA' not in result)
+        assert ('dexFeeInPctTokenA' not in result)
+        assert ('dexFeeOutPctTokenA' not in result)
         assert_equal(result['dexFeePctTokenB'], Decimal('0.05000000'))
-        assert('dexFeeInPctTokenB' not in result)
+        assert ('dexFeeInPctTokenB' not in result)
         assert_equal(result['dexFeeOutPctTokenB'], Decimal('0.05000000'))
 
         # Test DFI to DUSD, no fees incurred
@@ -123,7 +127,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, 0, Decimal('0.05'))
 
         # Set DFI and DUSD fee on in only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_pct': '0.05',
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'in',
             f'v0/poolpairs/{self.idDD}/token_b_fee_direction': 'in',
@@ -134,10 +138,10 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
         assert_equal(result['dexFeePctTokenA'], Decimal('0.05000000'))
         assert_equal(result['dexFeeInPctTokenA'], Decimal('0.05000000'))
-        assert('dexFeeOutPctTokenA' not in result)
+        assert ('dexFeeOutPctTokenA' not in result)
         assert_equal(result['dexFeePctTokenB'], Decimal('0.05000000'))
         assert_equal(result['dexFeeInPctTokenB'], Decimal('0.05000000'))
-        assert('dexFeeOutPctTokenB' not in result)
+        assert ('dexFeeOutPctTokenB' not in result)
 
         # Test DFI to DUSD, 5% fee on DFI
         self.test_swap(self.symbolDFI, self.symbolDUSD, Decimal('0.05'), 0)
@@ -146,7 +150,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, Decimal('0.05'), 0)
 
         # Set DFI and DUSD fee on out only
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'out',
             f'v0/poolpairs/{self.idDD}/token_b_fee_direction': 'out',
         }})
@@ -155,10 +159,10 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         # Check poolpair
         result = self.nodes[0].getpoolpair(self.idDD)[self.idDD]
         assert_equal(result['dexFeePctTokenA'], Decimal('0.05000000'))
-        assert('dexFeeInPctTokenA' not in result)
+        assert ('dexFeeInPctTokenA' not in result)
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.05000000'))
         assert_equal(result['dexFeePctTokenB'], Decimal('0.05000000'))
-        assert('dexFeeInPctTokenB' not in result)
+        assert ('dexFeeInPctTokenB' not in result)
         assert_equal(result['dexFeeOutPctTokenB'], Decimal('0.05000000'))
 
         # Test DFI to DUSD, 5% fee on DUSD
@@ -168,7 +172,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         self.test_swap(self.symbolDUSD, self.symbolDFI, 0, Decimal('0.05'))
 
         # Set DFI and DUSD fee on both, normal behaviour.
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.idDD}/token_a_fee_direction': 'both',
             f'v0/poolpairs/{self.idDD}/token_b_fee_direction': 'both',
         }})
@@ -232,7 +236,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
             "commission": Decimal('0'),
             "status": True,
             "ownerAddress": self.address,
-            "symbol" : self.symbolDD
+            "symbol": self.symbolDD
         })
         self.nodes[0].generate(1)
 
@@ -294,6 +298,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         # Rewind
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
+
 
 if __name__ == '__main__':
     PoolPairAsymmetricTest().main()

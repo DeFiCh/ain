@@ -10,11 +10,16 @@ Version 2 compact blocks are post-segwit (wtxids)
 import random
 
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, msg_no_witness_block, msg_no_witness_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_block, msg_blocktxn, MSG_WITNESS_FLAG, NODE_NETWORK, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
+from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, \
+    CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, \
+    msg_no_witness_block, msg_no_witness_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, \
+    msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_block, msg_blocktxn, MSG_WITNESS_FLAG, \
+    NODE_NETWORK, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, wait_until
+
 
 # TestP2PConn: A peer we use to send messages to defid, and store responses.
 class TestP2PConn(P2PInterface):
@@ -81,6 +86,7 @@ class TestP2PConn(P2PInterface):
     def wait_for_block_announcement(self, block_hash, timeout=30):
         def received_hash():
             return (block_hash in self.announced_blockhashes)
+
         wait_until(received_hash, timeout=timeout, lock=mininode_lock)
 
     def send_await_disconnect(self, message, timeout=30):
@@ -90,6 +96,7 @@ class TestP2PConn(P2PInterface):
         will get us disconnected, eg an invalid block."""
         self.send_message(message)
         wait_until(lambda: not self.is_connected, timeout=timeout, lock=mininode_lock)
+
 
 class CompactBlocksTest(DefiTestFramework):
     def set_test_params(self):
@@ -137,7 +144,6 @@ class CompactBlocksTest(DefiTestFramework):
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block2.sha256)
         self.utxos.extend([[tx.sha256, i, out_value] for i in range(10)])
 
-
     # Test "sendcmpct" (between peers preferring the same version):
     # - No compact block announcements unless sendcmpct is sent.
     # - If sendcmpct is sent with version > preferred_version, the message is ignored.
@@ -154,6 +160,7 @@ class CompactBlocksTest(DefiTestFramework):
         # Make sure we get a SENDCMPCT message from our peer
         def received_sendcmpct():
             return (len(test_node.last_sendcmpct) > 0)
+
         wait_until(received_sendcmpct, timeout=30, lock=mininode_lock)
         with mininode_lock:
             # Check that the first version received is the preferred one
@@ -180,7 +187,8 @@ class CompactBlocksTest(DefiTestFramework):
 
         # Try one more time, this time after requesting headers.
         test_node.request_headers_and_sync(locator=[tip])
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message and "inv" in p.last_message)
+        check_announcement_of_new_block(node, test_node,
+                                        lambda p: "cmpctblock" not in p.last_message and "inv" in p.last_message)
 
         # Test a few ways of using sendcmpct that should NOT
         # result in compact block announcements.
@@ -229,7 +237,8 @@ class CompactBlocksTest(DefiTestFramework):
         sendcmpct.version = preferred_version
         sendcmpct.announce = False
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message and "headers" in p.last_message)
+        check_announcement_of_new_block(node, test_node,
+                                        lambda p: "cmpctblock" not in p.last_message and "headers" in p.last_message)
 
         if old_node is not None:
             # Verify that a peer using an older protocol version can receive
@@ -569,7 +578,8 @@ class CompactBlocksTest(DefiTestFramework):
         # We should receive a getdata request
         wait_until(lambda: "getdata" in test_node.last_message, timeout=10, lock=mininode_lock)
         assert_equal(len(test_node.last_message["getdata"].inv), 1)
-        assert test_node.last_message["getdata"].inv[0].type == 2 or test_node.last_message["getdata"].inv[0].type == 2 | MSG_WITNESS_FLAG
+        assert test_node.last_message["getdata"].inv[0].type == 2 or test_node.last_message["getdata"].inv[
+            0].type == 2 | MSG_WITNESS_FLAG
         assert_equal(test_node.last_message["getdata"].inv[0].hash, block.sha256)
 
         # Deliver the block

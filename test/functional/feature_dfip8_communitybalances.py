@@ -10,6 +10,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 from decimal import Decimal
 
+
 class Dfip8Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -79,7 +80,7 @@ class Dfip8Test(DefiTestFramework):
         assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.07966488'))
         assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('245.92550726'))
 
-        #Go forward again to first reduction
+        # Go forward again to first reduction
         self.nodes[0].generate(1)
 
         result = self.nodes[0].listcommunitybalances()
@@ -104,6 +105,7 @@ class Dfip8Test(DefiTestFramework):
 
         assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.06853592'))
         assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('211.57039811'))
+
 
 if __name__ == '__main__':
     Dfip8Test().main()

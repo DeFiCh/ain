@@ -8,12 +8,15 @@
 from test_framework.test_framework import DefiTestFramework
 
 
-class SkipCollateralFactorTest (DefiTestFramework):
+class SkipCollateralFactorTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1',
-                            '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=200', '-regtest-skip-loan-collateral-validation', '-jellyfish_regtest=1']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1',
+             '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1',
+             '-fortcanningepilogueheight=200', '-regtest-skip-loan-collateral-validation', '-jellyfish_regtest=1']]
 
     def run_test(self):
         # Generate chain

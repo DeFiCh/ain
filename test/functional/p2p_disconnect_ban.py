@@ -13,6 +13,7 @@ from test_framework.util import (
     wait_until,
 )
 
+
 class DisconnectBanTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -39,7 +40,8 @@ class DisconnectBanTest(DefiTestFramework):
 
         self.log.info("setban: fail to ban an invalid subnet")
         assert_raises_rpc_error(-30, "Error: Invalid IP/Subnet", self.nodes[1].setban, "127.0.0.1/42", "add")
-        assert_equal(len(self.nodes[1].listbanned()), 1)  # still only one banned ip because 127.0.0.1 is within the range of 127.0.0.0/24
+        assert_equal(len(self.nodes[1].listbanned()),
+                     1)  # still only one banned ip because 127.0.0.1 is within the range of 127.0.0.0/24
 
         self.log.info("setban remove: fail to unban a non-banned subnet")
         assert_raises_rpc_error(-30, "Error: Unban failed", self.nodes[1].setban, "127.0.0.1", "remove")
@@ -82,10 +84,12 @@ class DisconnectBanTest(DefiTestFramework):
         self.log.info("disconnectnode: fail to disconnect when calling with address and nodeid")
         address1 = self.nodes[0].getpeerinfo()[0]['addr']
         node1 = self.nodes[0].getpeerinfo()[0]['addr']
-        assert_raises_rpc_error(-32602, "Only one of address and nodeid should be provided.", self.nodes[0].disconnectnode, address=address1, nodeid=node1)
+        assert_raises_rpc_error(-32602, "Only one of address and nodeid should be provided.",
+                                self.nodes[0].disconnectnode, address=address1, nodeid=node1)
 
         self.log.info("disconnectnode: fail to disconnect when calling with junk address")
-        assert_raises_rpc_error(-29, "Node not found in connected nodes", self.nodes[0].disconnectnode, address="221B Baker Street")
+        assert_raises_rpc_error(-29, "Node not found in connected nodes", self.nodes[0].disconnectnode,
+                                address="221B Baker Street")
 
         self.log.info("disconnectnode: successfully disconnect node by address")
         address1 = self.nodes[0].getpeerinfo()[0]['addr']
@@ -103,6 +107,7 @@ class DisconnectBanTest(DefiTestFramework):
         self.nodes[0].disconnectnode(nodeid=id1)
         wait_until(lambda: len(self.nodes[0].getpeerinfo()) == 1, timeout=10)
         assert not [node for node in self.nodes[0].getpeerinfo() if node['id'] == id1]
+
 
 if __name__ == '__main__':
     DisconnectBanTest().main()

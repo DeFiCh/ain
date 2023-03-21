@@ -8,6 +8,7 @@ keys, and is trivially vulnerable to side channel attacks. Do not use for
 anything but tests."""
 import random
 
+
 def modinv(a, n):
     """Compute the modular inverse of a modulo n
 
@@ -24,6 +25,7 @@ def modinv(a, n):
     if t1 < 0:
         t1 += n
     return t1
+
 
 def jacobi_symbol(n, k):
     """Compute the Jacobi symbol of n modulo k
@@ -46,6 +48,7 @@ def jacobi_symbol(n, k):
         return -1 if t else 1
     return 0
 
+
 def modsqrt(a, p):
     """Compute the square root of a modulo p when p % 4 = 3.
 
@@ -59,10 +62,11 @@ def modsqrt(a, p):
     """
     if p % 4 != 3:
         raise NotImplementedError("modsqrt only implemented for p % 4 = 3")
-    sqrt = pow(a, (p + 1)//4, p)
+    sqrt = pow(a, (p + 1) // 4, p)
     if pow(sqrt, 2, p) == a % p:
         return sqrt
     return None
+
 
 class EllipticCurve:
     def __init__(self, p, a, b):
@@ -79,7 +83,7 @@ class EllipticCurve:
         if z1 == 0:
             return None
         inv = modinv(z1, self.p)
-        inv_2 = (inv**2) % self.p
+        inv_2 = (inv ** 2) % self.p
         inv_3 = (inv_2 * inv) % self.p
         return ((inv_2 * x1) % self.p, (inv_3 * y1) % self.p, 1)
 
@@ -116,17 +120,17 @@ class EllipticCurve:
         x1, y1, z1 = p1
         if z1 == 0:
             return (0, 1, 0)
-        y1_2 = (y1**2) % self.p
-        y1_4 = (y1_2**2) % self.p
-        x1_2 = (x1**2) % self.p
-        s = (4*x1*y1_2) % self.p
-        m = 3*x1_2
+        y1_2 = (y1 ** 2) % self.p
+        y1_4 = (y1_2 ** 2) % self.p
+        x1_2 = (x1 ** 2) % self.p
+        s = (4 * x1 * y1_2) % self.p
+        m = 3 * x1_2
         if self.a:
             m += self.a * pow(z1, 4, self.p)
         m = m % self.p
-        x2 = (m**2 - 2*s) % self.p
-        y2 = (m*(s - x2) - 8*y1_4) % self.p
-        z2 = (2*y1*z1) % self.p
+        x2 = (m ** 2 - 2 * s) % self.p
+        y2 = (m * (s - x2) - 8 * y1_4) % self.p
+        z2 = (2 * y1 * z1) % self.p
         return (x2, y2, z2)
 
     def add_mixed(self, p1, p2):
@@ -135,11 +139,11 @@ class EllipticCurve:
         See https://en.wikibooks.org/wiki/Cryptography/Prime_Curve/Jacobian_Coordinates - Point Addition (with affine point)"""
         x1, y1, z1 = p1
         x2, y2, z2 = p2
-        assert(z2 == 1)
+        assert (z2 == 1)
         # Adding to the point at infinity is a no-op
         if z1 == 0:
             return p2
-        z1_2 = (z1**2) % self.p
+        z1_2 = (z1 ** 2) % self.p
         z1_3 = (z1_2 * z1) % self.p
         u2 = (x2 * z1_2) % self.p
         s2 = (y2 * z1_3) % self.p
@@ -151,12 +155,12 @@ class EllipticCurve:
             return self.double(p1)
         h = u2 - x1
         r = s2 - y1
-        h_2 = (h**2) % self.p
+        h_2 = (h ** 2) % self.p
         h_3 = (h_2 * h) % self.p
         u1_h_2 = (x1 * h_2) % self.p
-        x3 = (r**2 - h_3 - 2*u1_h_2) % self.p
-        y3 = (r*(u1_h_2 - x3) - y1*h_3) % self.p
-        z3 = (h*z1) % self.p
+        x3 = (r ** 2 - h_3 - 2 * u1_h_2) % self.p
+        y3 = (r * (u1_h_2 - x3) - y1 * h_3) % self.p
+        z3 = (h * z1) % self.p
         return (x3, y3, z3)
 
     def add(self, p1, p2):
@@ -175,9 +179,9 @@ class EllipticCurve:
             return self.add_mixed(p2, p1)
         if z2 == 1:
             return self.add_mixed(p1, p2)
-        z1_2 = (z1**2) % self.p
+        z1_2 = (z1 ** 2) % self.p
         z1_3 = (z1_2 * z1) % self.p
-        z2_2 = (z2**2) % self.p
+        z2_2 = (z2 ** 2) % self.p
         z2_3 = (z2_2 * z2) % self.p
         u1 = (x1 * z2_2) % self.p
         u2 = (x2 * z1_2) % self.p
@@ -191,12 +195,12 @@ class EllipticCurve:
             return self.double(p1)
         h = u2 - u1
         r = s2 - s1
-        h_2 = (h**2) % self.p
+        h_2 = (h ** 2) % self.p
         h_3 = (h_2 * h) % self.p
         u1_h_2 = (u1 * h_2) % self.p
-        x3 = (r**2 - h_3 - 2*u1_h_2) % self.p
-        y3 = (r*(u1_h_2 - x3) - s1*h_3) % self.p
-        z3 = (h*z1*z2) % self.p
+        x3 = (r ** 2 - h_3 - 2 * u1_h_2) % self.p
+        y3 = (r * (u1_h_2 - x3) - s1 * h_3) % self.p
+        z3 = (h * z1 * z2) % self.p
         return (x3, y3, z3)
 
     def mul(self, ps):
@@ -212,10 +216,13 @@ class EllipticCurve:
                     r = self.add(r, p)
         return r
 
-SECP256K1 = EllipticCurve(2**256 - 2**32 - 977, 0, 7)
-SECP256K1_G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798, 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8, 1)
+
+SECP256K1 = EllipticCurve(2 ** 256 - 2 ** 32 - 977, 0, 7)
+SECP256K1_G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+               0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8, 1)
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 SECP256K1_ORDER_HALF = SECP256K1_ORDER // 2
+
 
 class ECPubKey():
     """A secp256k1 public key"""
@@ -257,7 +264,7 @@ class ECPubKey():
         return self.valid
 
     def get_bytes(self):
-        assert(self.valid)
+        assert (self.valid)
         p = SECP256K1.affine(self.p)
         if p is None:
             return None
@@ -271,7 +278,7 @@ class ECPubKey():
 
         See https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm for the
         ECDSA verifier algorithm"""
-        assert(self.valid)
+        assert (self.valid)
 
         # Extract r and s from the DER formatted signature. Return false for
         # any DER encoding errors.
@@ -292,19 +299,19 @@ class ECPubKey():
             return False
         if (rlen > 1 and (sig[4] == 0) and not (sig[5] & 0x80)):
             return False
-        r = int.from_bytes(sig[4:4+rlen], 'big')
-        if (sig[4+rlen] != 0x02):
+        r = int.from_bytes(sig[4:4 + rlen], 'big')
+        if (sig[4 + rlen] != 0x02):
             return False
-        slen = sig[5+rlen]
+        slen = sig[5 + rlen]
         if slen < 1 or slen > 33:
             return False
         if (len(sig) != 6 + rlen + slen):
             return False
-        if sig[6+rlen] >= 0x80:
+        if sig[6 + rlen] >= 0x80:
             return False
-        if (slen > 1 and (sig[6+rlen] == 0) and not (sig[7+rlen] & 0x80)):
+        if (slen > 1 and (sig[6 + rlen] == 0) and not (sig[7 + rlen] & 0x80)):
             return False
-        s = int.from_bytes(sig[6+rlen:6+rlen+slen], 'big')
+        s = int.from_bytes(sig[6 + rlen:6 + rlen + slen], 'big')
 
         # Verify that r and s are within the group order
         if r < 1 or s < 1 or r >= SECP256K1_ORDER or s >= SECP256K1_ORDER:
@@ -315,12 +322,13 @@ class ECPubKey():
 
         # Run verifier algorithm on r, s
         w = modinv(s, SECP256K1_ORDER)
-        u1 = z*w % SECP256K1_ORDER
-        u2 = r*w % SECP256K1_ORDER
+        u1 = z * w % SECP256K1_ORDER
+        u2 = r * w % SECP256K1_ORDER
         R = SECP256K1.affine(SECP256K1.mul([(SECP256K1_G, u1), (self.p, u2)]))
         if R is None or R[0] != r:
             return False
         return True
+
 
 class ECKey():
     """A secp256k1 private key"""
@@ -330,7 +338,7 @@ class ECKey():
 
     def set(self, secret, compressed):
         """Construct a private key object with given 32-byte secret and compressed flag."""
-        assert(len(secret) == 32)
+        assert (len(secret) == 32)
         secret = int.from_bytes(secret, 'big')
         self.valid = (secret > 0 and secret < SECP256K1_ORDER)
         if self.valid:
@@ -343,7 +351,7 @@ class ECKey():
 
     def get_bytes(self):
         """Retrieve the 32-byte representation of this key."""
-        assert(self.valid)
+        assert (self.valid)
         return self.secret.to_bytes(32, 'big')
 
     @property
@@ -356,7 +364,7 @@ class ECKey():
 
     def get_pubkey(self):
         """Compute an ECPubKey object for this secret key."""
-        assert(self.valid)
+        assert (self.valid)
         ret = ECPubKey()
         p = SECP256K1.mul([(SECP256K1_G, self.secret)])
         ret.p = p
@@ -369,7 +377,7 @@ class ECKey():
 
         See https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm for the
         ECDSA signer algorithm."""
-        assert(self.valid)
+        assert (self.valid)
         z = int.from_bytes(msg, 'big')
         # Note: no RFC6979, but a simple random nonce (some tests rely on distinct transactions for the same operation)
         k = random.randrange(1, SECP256K1_ORDER)

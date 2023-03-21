@@ -11,8 +11,10 @@ from test_framework.test_framework import DefiTestFramework
 from decimal import Decimal
 import time
 
+
 def truncate(str, decimal):
     return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
+
 
 class TokenSplitMechanismTest(DefiTestFramework):
     def set_test_params(self):
@@ -20,7 +22,9 @@ class TokenSplitMechanismTest(DefiTestFramework):
         self.FCC_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.FCC_HEIGHT}', '-jellyfish_regtest=1', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             f'-fortcanningcrunchheight={self.FCC_HEIGHT}', '-jellyfish_regtest=1', '-subsidytest=1']]
 
     def setup_oracles(self):
         # Symbols
@@ -143,8 +147,10 @@ class TokenSplitMechanismTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].accounttoaccount(self.account1, {self.account2: ["55039700.499@DUSD", "49900@DFI", "54890@T1", "102295@T2", "49900000@T3"]})
-        self.nodes[0].accounttoaccount(self.account1, {self.account3: ["110300.0010@DUSD", "100@DFI", "110@T1", "205@T2", "100000@T3"]})
+        self.nodes[0].accounttoaccount(self.account1, {
+            self.account2: ["55039700.499@DUSD", "49900@DFI", "54890@T1", "102295@T2", "49900000@T3"]})
+        self.nodes[0].accounttoaccount(self.account1, {
+            self.account3: ["110300.0010@DUSD", "100@DFI", "110@T1", "205@T2", "100000@T3"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -208,7 +214,6 @@ class TokenSplitMechanismTest(DefiTestFramework):
         self.symbolT1_T2 = "T1-T2"
         self.idT1_T2 = list(self.nodes[0].gettoken(self.symbolT1_T2).keys())[0]
 
-
         # Add liquidity
         for _ in range(10):
             self.nodes[0].addpoolliquidity({self.account1: ["5000@DFI", "15000@DUSD"]}, self.account1)
@@ -266,17 +271,17 @@ class TokenSplitMechanismTest(DefiTestFramework):
     # Make the split and return split height for revert if needed
     def split(self, tokenId, keepLocked=False):
         tokenSymbol = self.getTokenSymbolFromId(tokenId)
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/locks/token/{tokenId}': 'true'}})
         self.nodes[0].generate(1)
 
         # Token split
         splitHeight = self.nodes[0].getblockcount() + 2
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/oracles/splits/{str(splitHeight)}': f'{tokenId}/2'}})
         self.nodes[0].generate(2)
 
         tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
         if not keepLocked:
-            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
+            self.nodes[0].setgov({"ATTRIBUTES": {f'v0/locks/token/{tokenId}': 'false'}})
             self.nodes[0].generate(1)
 
         return splitHeight
@@ -294,7 +299,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
         for pool in currentPools:
             if tokenSymbol in currentPools[pool]["symbol"] and currentPools[pool]["status"]:
                 tokenPools[pool] = currentPools[pool]
-        assert(len(tokenPools) > 0)
+        assert (len(tokenPools) > 0)
         return tokenPools
 
     def check_attributes_on_split(self, tokenId, revert=False):
@@ -308,19 +313,19 @@ class TokenSplitMechanismTest(DefiTestFramework):
 
         # set LP and Tokens gov vars
         for poolId in pools:
-            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{poolId}/token_a_fee_pct': '0.01',
-                                                f'v0/poolpairs/{poolId}/token_b_fee_pct': '0.03'}})
+            self.nodes[0].setgov({"ATTRIBUTES": {f'v0/poolpairs/{poolId}/token_a_fee_pct': '0.01',
+                                                 f'v0/poolpairs/{poolId}/token_b_fee_pct': '0.03'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{tokenId}/dex_in_fee_pct': '0.02',
-                                            f'v0/token/{tokenId}/dex_out_fee_pct': '0.005'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{tokenId}/dex_in_fee_pct': '0.02',
+                                             f'v0/token/{tokenId}/dex_out_fee_pct': '0.005'}})
         self.nodes[0].generate(1)
 
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
-        assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+        assert (f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+        assert (f'v0/token/{tokenId}/dex_out_fee_pct' in result)
         for poolId in pools:
-            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
-            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+            assert (f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+            assert (f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
 
         splitHeight = self.split(tokenId) - 2
         self.nodes[0].generate(1)
@@ -333,16 +338,16 @@ class TokenSplitMechanismTest(DefiTestFramework):
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
 
         for poolId in pools:
-            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
-            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
-        assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
-        assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
+            assert (f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
+            assert (f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
+        assert (f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
+        assert (f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
 
         for new_pool_id in new_pools:
-            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' in result)
-            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' in result)
-        assert(f'v0/token/{new_token_id}/dex_in_fee_pct' in result)
-        assert(f'v0/token/{new_token_id}/dex_out_fee_pct' in result)
+            assert (f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' in result)
+            assert (f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' in result)
+        assert (f'v0/token/{new_token_id}/dex_in_fee_pct' in result)
+        assert (f'v0/token/{new_token_id}/dex_out_fee_pct' in result)
 
         if not revert:
             return new_token_id
@@ -350,23 +355,23 @@ class TokenSplitMechanismTest(DefiTestFramework):
             self.rollback_to(splitHeight)
             result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
             for poolId in pools:
-                assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
-                assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
-            assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
-            assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+                assert (f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+                assert (f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+            assert (f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+            assert (f'v0/token/{tokenId}/dex_out_fee_pct' in result)
             for new_pool_id in new_pools:
-                assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
-                assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+                assert (f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+                assert (f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert (f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert (f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
 
             self.rollback_to(revert_block)
             result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
             for new_pool_id in new_pools:
-                assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
-                assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+                assert (f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+                assert (f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert (f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert (f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
             return 0
 
     def getAmountFromAccount(self, account, symbol):
@@ -391,13 +396,13 @@ class TokenSplitMechanismTest(DefiTestFramework):
         amountLPBeforeAcc2 = self.getAmountFromAccount(self.account2, poolSymbol)
         amountLPBeforeAcc3 = self.getAmountFromAccount(self.account3, poolSymbol)
         if amountLPBeforeAcc1 != '0':
-            self.nodes[0].removepoolliquidity(self.account1, amountLPBeforeAcc1+"@"+poolSymbol, [])
+            self.nodes[0].removepoolliquidity(self.account1, amountLPBeforeAcc1 + "@" + poolSymbol, [])
             self.nodes[0].generate(1)
         if amountLPBeforeAcc2 != '0':
-            self.nodes[0].removepoolliquidity(self.account2, amountLPBeforeAcc2+"@"+poolSymbol, [])
+            self.nodes[0].removepoolliquidity(self.account2, amountLPBeforeAcc2 + "@" + poolSymbol, [])
             self.nodes[0].generate(1)
         if amountLPBeforeAcc3 != '0':
-            self.nodes[0].removepoolliquidity(self.account3, amountLPBeforeAcc3+"@"+poolSymbol, [])
+            self.nodes[0].removepoolliquidity(self.account3, amountLPBeforeAcc3 + "@" + poolSymbol, [])
             self.nodes[0].generate(1)
 
         amountTokenBeforeAcc1 = self.getAmountFromAccount(self.account1, tokenSymbol)
@@ -415,11 +420,11 @@ class TokenSplitMechanismTest(DefiTestFramework):
         amountLPAfterAcc1 = self.getAmountFromAccount(self.account1, poolSymbol)
         amountLPAfterAcc2 = self.getAmountFromAccount(self.account2, poolSymbol)
         amountLPAfterAcc3 = self.getAmountFromAccount(self.account3, poolSymbol)
-        self.nodes[0].removepoolliquidity(self.account1, amountLPAfterAcc1+"@"+poolSymbol, [])
+        self.nodes[0].removepoolliquidity(self.account1, amountLPAfterAcc1 + "@" + poolSymbol, [])
         self.nodes[0].generate(1)
-        self.nodes[0].removepoolliquidity(self.account2, amountLPAfterAcc2+"@"+poolSymbol, [])
+        self.nodes[0].removepoolliquidity(self.account2, amountLPAfterAcc2 + "@" + poolSymbol, [])
         self.nodes[0].generate(1)
-        self.nodes[0].removepoolliquidity(self.account3, amountLPAfterAcc3+"@"+poolSymbol, [])
+        self.nodes[0].removepoolliquidity(self.account3, amountLPAfterAcc3 + "@" + poolSymbol, [])
         self.nodes[0].generate(1)
         amountTokenAfterAcc1 = self.getAmountFromAccount(self.account1, tokenSymbol)
         amountTokenB_AfterAcc1 = self.getAmountFromAccount(self.account1, tokenBSymbol)
@@ -428,12 +433,18 @@ class TokenSplitMechanismTest(DefiTestFramework):
         amountTokenAfterAcc3 = self.getAmountFromAccount(self.account3, tokenSymbol)
         amountTokenB_AfterAcc3 = self.getAmountFromAccount(self.account3, tokenBSymbol)
         # Check difference is not grater than 0,001% rounding difference
-        assert((Decimal(amountTokenB_BeforeAcc1) - Decimal(amountTokenB_AfterAcc1)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc1)))
-        assert((Decimal(amountTokenB_BeforeAcc2) - Decimal(amountTokenB_AfterAcc2)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc2)))
-        assert((Decimal(amountTokenB_BeforeAcc3) - Decimal(amountTokenB_AfterAcc3)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc3)))
-        assert(((Decimal(amountTokenBeforeAcc1)*2) - Decimal(amountTokenAfterAcc1)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc1))
-        assert(((Decimal(amountTokenBeforeAcc2)*2) - Decimal(amountTokenAfterAcc2)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc2))
-        assert(((Decimal(amountTokenBeforeAcc3)*2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc3))
+        assert ((Decimal(amountTokenB_BeforeAcc1) - Decimal(amountTokenB_AfterAcc1)).copy_abs() <= (
+                    Decimal(0.00001) * Decimal(amountTokenB_BeforeAcc1)))
+        assert ((Decimal(amountTokenB_BeforeAcc2) - Decimal(amountTokenB_AfterAcc2)).copy_abs() <= (
+                    Decimal(0.00001) * Decimal(amountTokenB_BeforeAcc2)))
+        assert ((Decimal(amountTokenB_BeforeAcc3) - Decimal(amountTokenB_AfterAcc3)).copy_abs() <= (
+                    Decimal(0.00001) * Decimal(amountTokenB_BeforeAcc3)))
+        assert (((Decimal(amountTokenBeforeAcc1) * 2) - Decimal(amountTokenAfterAcc1)).copy_abs() <= Decimal(
+            0.00001) * Decimal(amountTokenBeforeAcc1))
+        assert (((Decimal(amountTokenBeforeAcc2) * 2) - Decimal(amountTokenAfterAcc2)).copy_abs() <= Decimal(
+            0.00001) * Decimal(amountTokenBeforeAcc2))
+        assert (((Decimal(amountTokenBeforeAcc3) * 2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(
+            0.00001) * Decimal(amountTokenBeforeAcc3))
 
         if revert:
             self.rollback_to(revertHeight)
@@ -478,6 +489,6 @@ class TokenSplitMechanismTest(DefiTestFramework):
         self.idT3 = self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=False)
         self.idT2 = self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=False)
 
+
 if __name__ == '__main__':
     TokenSplitMechanismTest().main()
-
