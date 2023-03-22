@@ -58,11 +58,9 @@ public:
     }
 
     static CoinSelectionOptions CreateDefault() {
-        if (DEFAULT == nullptr) {
-            // We still return a default so tests, benches that don't use it
-            // still work as expected.
-            return CoinSelectionOptions{};
-        }
+        // We still return a default so tests, benches that don't use it
+        // still work as expected.        
+        if (DEFAULT == nullptr) return CoinSelectionOptions{};
         // Create a copy
         return *DEFAULT;
     }
