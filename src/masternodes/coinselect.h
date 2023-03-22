@@ -36,8 +36,8 @@ public:
     static void InitFromArgs(ArgsManager& args) {
         auto m = std::make_unique<CoinSelectionOptions>();
         FromArgs(*m, args);
-        CoinSelectionOptions::DEFAULT = std::move(m);
         LogValues(*m);
+        CoinSelectionOptions::DEFAULT = std::move(m);
     }
 
     static void LogValues(const CoinSelectionOptions& m) {
