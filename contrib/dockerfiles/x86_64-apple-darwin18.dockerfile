@@ -10,7 +10,7 @@ COPY ./make.sh .
 
 ENV TZ=UTC
 RUN echo $TZ > /etc/timezone
-RUN apt update && apt dist-upgrade -y
+RUN export DEBIAN_FRONTEND=noninteractive && apt update && apt dist-upgrade -y
 
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
