@@ -30,7 +30,7 @@ task:
 task:
   name: "x86_64 Linux  [GOAL: install]  [bionic]  [Using ./ci/ system]"
   container:
-    image: ubuntu:18.04
+    image: ubuntu:20.04
     cpu: 8
     memory: 8G
   timeout_in: 60m

@@ -136,6 +136,8 @@ static int AppInitRPC(int argc, char* argv[])
         tfm::format(std::cerr, "Error reading configuration file: %s\n", error.c_str());
         return EXIT_FAILURE;
     }
+    RPCMetadata::InitFromArgs(gArgs);
+    
     // Check for -testnet or -regtest parameter (BaseParams() calls are only valid after this clause)
     try {
         SelectBaseParams(gArgs.GetChainName());
