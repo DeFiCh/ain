@@ -9,7 +9,7 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-RUN export DEBIAN_FRONTEND=noninteractive && apt ./make.sh pkg_install_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
 
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
