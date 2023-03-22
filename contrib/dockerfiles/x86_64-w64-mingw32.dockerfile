@@ -15,7 +15,7 @@ RUN apt install -y software-properties-common build-essential git libtool autoto
 pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
 libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
 libminiupnpc-dev libzmq3-dev libqrencode-dev \
-curl cmake \
+curl cmake unzip \
 g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
 
 # install protobuf

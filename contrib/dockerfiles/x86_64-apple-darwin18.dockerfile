@@ -19,7 +19,7 @@ curl cmake unzip \
 python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 
 # install protobuf
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-osx-x86_64.zip
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
 RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
 RUN chmod 755 -R ./proto/bin
 RUN cp ./proto/bin/protoc /usr/local/bin/
