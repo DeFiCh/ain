@@ -33,13 +33,6 @@ public:
     bool IsSkipSolvableEnabled() const { return skipSolvable.value_or(false); }
     bool IsEagerSelectEnabled() const { return eagerSelect.value_or(false); }
 
-    static void InitFromArgs(ArgsManager& args) {
-        auto m = std::make_unique<CoinSelectionOptions>();
-        FromArgs(*m, args);
-        LogValues(*m);
-        CoinSelectionOptions::DEFAULT = std::move(m);
-    }
-
     static void LogValues(const CoinSelectionOptions& m) {
         struct V { const std::optional<bool> v; const std::string& arg; };
         for (auto &[v, arg]: std::vector<V> { 
@@ -57,15 +50,14 @@ public:
         args.AddArg(ARG_STR_WALLET_COIN_OPT_EAGER_SELECT, strprintf("Coin select option: Take fast path and eagerly exit on match even without having through the entire set (default: %u)", DEFAULT_COIN_SELECT_EAGER_SELECT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     }
 
-    static CoinSelectionOptions CreateDefault() {
-        // We still return a default so tests, benches that don't use it
-        // still work as expected.        
-        if (DEFAULT == nullptr) return CoinSelectionOptions{};
-        // Create a copy
-        return *DEFAULT;
+    static void InitFromArgs(const ArgsManager& args) {
+        auto m = std::make_unique<CoinSelectionOptions>();
+        FromArgs(*m, args);
+        LogValues(*m);
+        CoinSelectionOptions::DEFAULT = std::move(m);
     }
 
-    static void FromArgs(CoinSelectionOptions& m, ArgsManager& args) {
+    static void FromArgs(CoinSelectionOptions& m, const ArgsManager& args) {
         struct V {
             std::optional<bool>& target;
             const std::string& arg;
@@ -85,6 +77,14 @@ public:
                 v = args.GetBoolArg(str, def);
             #endif
         }
+    }
+
+    static CoinSelectionOptions CreateDefault() {
+        // Default to basic init, so tests, benches or other scenarios
+        // before init still falls back to expected.        
+        if (DEFAULT == nullptr) return CoinSelectionOptions{};
+        // Create a copy
+        return *DEFAULT;
     }
 
     static void FromHTTPHeader(CoinSelectionOptions &m, const HTTPHeaderQueryFunc headerFunc) {

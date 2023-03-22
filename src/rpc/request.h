@@ -30,22 +30,23 @@ struct RPCMetadata {
     public:
     CoinSelectionOptions coinSelectOpts;
 
-    static void InitFromArgs(ArgsManager& args) {
-        CoinSelectionOptions::InitFromArgs(args);
-    }
 
     static void SetupArgs(ArgsManager& args) {
         CoinSelectionOptions::SetupArgs(args);
+    }
+
+    static void InitFromArgs(const ArgsManager& args) {
+        CoinSelectionOptions::InitFromArgs(args);
+    }
+
+    static void FromArgs(RPCMetadata &m, const ArgsManager& args) {
+        CoinSelectionOptions::FromArgs(m.coinSelectOpts, args);
     }
 
     static RPCMetadata CreateDefault() {
         return RPCMetadata {
             CoinSelectionOptions::CreateDefault(),
         };
-    }
-
-    static void FromArgs(RPCMetadata &m, ArgsManager& args) {
-        CoinSelectionOptions::FromArgs(m.coinSelectOpts, args);
     }
 
     static void FromHTTPHeader(RPCMetadata &m, const HTTPHeaderQueryFunc headerFunc) {
