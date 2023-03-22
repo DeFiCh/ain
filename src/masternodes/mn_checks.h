@@ -142,6 +142,9 @@ enum class CustomTxType : uint8_t {
     CreateVoc                 = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
+    // EVM
+    TransferBalance                  = '8',
+    EvmTx                     = '9',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -206,6 +209,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
+        case CustomTxType::TransferBalance:
+        case CustomTxType::EvmTx:
         case CustomTxType::None:
             return type;
     }
@@ -443,7 +448,9 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
                                       CCreateProposalMessage,
-                                      CProposalVoteMessage>;
+                                      CProposalVoteMessage,
+                                      CTransferBalanceMessage,
+                                      CEvmTxMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);

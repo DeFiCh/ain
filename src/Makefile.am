@@ -167,7 +167,10 @@ DEFI_CORE_H = \
   masternodes/anchors.h \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
+  masternodes/coinselect.h \
   masternodes/communityaccounttypes.h \
+  masternodes/errors.h \
+  masternodes/evm.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -187,7 +190,6 @@ DEFI_CORE_H = \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
-  masternodes/errors.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
   masternodes/proposals.h \
@@ -395,7 +397,6 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/oracles.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -413,8 +414,12 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/oracles.cpp \
+  masternodes/poolpairs.cpp \
+  masternodes/proposals.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
+  masternodes/rpc_evm.cpp \
   masternodes/rpc_masternodes.cpp \
   masternodes/rpc_icxorderbook.cpp \
   masternodes/rpc_loan.cpp \
@@ -423,11 +428,9 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
+  masternodes/skipped_txs.cpp \
   masternodes/tokens.cpp \
   masternodes/threadpool.cpp \
-  masternodes/poolpairs.cpp \
-  masternodes/proposals.cpp \
-  masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
   masternodes/validation.cpp \
   masternodes/vault.cpp \

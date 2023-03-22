@@ -141,6 +141,10 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
+        case CustomTxType::TransferBalance:
+            return "TransferBalance";
+        case CustomTxType::EvmTx:
+            return "EvmTx";
         case CustomTxType::None:
             return "None";
     }
@@ -298,6 +302,10 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
+        case CustomTxType::TransferBalance:
+            return CTransferBalanceMessage{};
+        case CustomTxType::EvmTx:
+            return CEvmTxMessage{};
         case CustomTxType::None:
             return CCustomTxMessageNone{};
     }
@@ -424,6 +432,10 @@ public:
                 CProposalVoteMessage,
                 CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
+        else if constexpr (IsOneOf<T,
+                CTransferBalanceMessage,
+                CEvmTxMessage>())
+            return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
         else if constexpr (IsOneOf<T,
                 CCreateMasterNodeMessage,
                 CResignMasterNodeMessage>())
@@ -3440,7 +3452,7 @@ public:
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
                 if (!loanAmounts) return DeFiErrors::LoanInvalidVault(obj.vaultId);
 
-                if (!loanAmounts->balances.count(loanTokenId)) 
+                if (!loanAmounts->balances.count(loanTokenId))
                     return DeFiErrors::LoanInvalidTokenForSymbol(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
@@ -3786,6 +3798,64 @@ public:
         }
         auto vote = static_cast<CProposalVoteType>(obj.vote);
         return mnview.AddProposalVote(obj.propId, obj.masternodeId, vote);
+    }
+
+    Res operator()(const CTransferBalanceMessage &obj) const {
+        auto res = Res::Ok();
+
+        // owner auth
+        if (obj.type != CTransferBalanceType::EvmOut)
+            for (const auto &kv : obj.from) {
+                res = HasAuth(kv.first);
+                if (!res)
+                    return res;
+            }
+
+        // compare
+        const auto sumFrom = SumAllTransfers(obj.from);
+        const auto sumTo   = SumAllTransfers(obj.to);
+
+        if (obj.type == CTransferBalanceType::EvmIn || obj.type == CTransferBalanceType::EvmOut) {
+            for (const auto& [id, _] : sumFrom.balances)
+                if (id != DCT_ID{0})
+                    return Res::Err("For EVM in/out transfers only DFI token is currently supported");
+        }
+
+        if (sumFrom != sumTo)
+            return Res::Err("sum of inputs (from) != sum of outputs (to)");
+
+        if (obj.type == CTransferBalanceType::AccountToAccount) {
+            res = SubBalancesDelShares(obj.from);
+            if (!res)
+                return res;
+            res = AddBalancesSetShares(obj.to);
+            if (!res)
+                return res;
+        } else if (obj.type == CTransferBalanceType::EvmIn) {
+            for (const auto& [addr, _] : obj.to) {
+                CTxDestination dest;
+                if (ExtractDestination(addr, dest)) {
+                    if (dest.index() != WitV16KeyEthHashType) {
+                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
+                    }
+                }
+            }
+            res = SubBalancesDelShares(obj.from);
+            if (!res)
+                return res;
+        } else if (obj.type == CTransferBalanceType::EvmOut) {
+            res = AddBalancesSetShares(obj.to);
+            if (!res)
+                return res;
+        }
+
+        return res;
+    }
+
+    Res operator()(const CEvmTxMessage &obj) const {
+        if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
+            return Res::Err("evm tx size too large");
+        return Res::Ok();
     }
 
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
