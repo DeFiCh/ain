@@ -402,7 +402,7 @@ pkg_install_deps_docker_mac() {
         python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 }
 
-pkg_install_deps_docker_windows() {
+pkg_install_deps_windows() {
   apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
@@ -414,11 +414,6 @@ pkg_install_deps_docker_windows() {
 
 pkg_install_llvm() {
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 16
-}
-
-pkg_install_deps_mac() {
-    apt install -y \
-    python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 }
 
 pkg_ensure_mac_sdk() {
