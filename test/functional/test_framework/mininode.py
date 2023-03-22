@@ -87,9 +87,9 @@ MESSAGEMAP = {
 }
 
 MAGIC_BYTES = {
-    "mainnet": b"\xf9\xbe\xb4\xd9",   # mainnet
+    "mainnet": b"\xf9\xbe\xb4\xd9",  # mainnet
     "testnet3": b"\x0b\x11\x09\x07",  # testnet3
-    "regtest": b"\xfa\xbf\xb5\xda",   # regtest
+    "regtest": b"\xfa\xbf\xb5\xda",  # regtest
 }
 
 
@@ -175,22 +175,24 @@ class P2PConnection(asyncio.Protocol):
                 if len(self.recvbuf) < 4:
                     return
                 if self.recvbuf[:4] != self.magic_bytes:
-                    raise ValueError("magic bytes mismatch: {} != {}".format(repr(self.magic_bytes), repr(self.recvbuf)))
+                    raise ValueError(
+                        "magic bytes mismatch: {} != {}".format(repr(self.magic_bytes), repr(self.recvbuf)))
                 if len(self.recvbuf) < 4 + 12 + 4 + 4:
                     return
-                command = self.recvbuf[4:4+12].split(b"\x00", 1)[0]
-                msglen = struct.unpack("<i", self.recvbuf[4+12:4+12+4])[0]
-                checksum = self.recvbuf[4+12+4:4+12+4+4]
+                command = self.recvbuf[4:4 + 12].split(b"\x00", 1)[0]
+                msglen = struct.unpack("<i", self.recvbuf[4 + 12:4 + 12 + 4])[0]
+                checksum = self.recvbuf[4 + 12 + 4:4 + 12 + 4 + 4]
                 if len(self.recvbuf) < 4 + 12 + 4 + 4 + msglen:
                     return
-                msg = self.recvbuf[4+12+4+4:4+12+4+4+msglen]
+                msg = self.recvbuf[4 + 12 + 4 + 4:4 + 12 + 4 + 4 + msglen]
                 th = sha256(msg)
                 h = sha256(th)
                 if checksum != h[:4]:
                     raise ValueError("got bad checksum " + repr(self.recvbuf))
-                self.recvbuf = self.recvbuf[4+12+4+4+msglen:]
+                self.recvbuf = self.recvbuf[4 + 12 + 4 + 4 + msglen:]
                 if command not in MESSAGEMAP:
-                    raise ValueError("Received unknown command from %s:%d: '%s' %s" % (self.dstaddr, self.dstport, command, repr(msg)))
+                    raise ValueError("Received unknown command from %s:%d: '%s' %s" % (
+                    self.dstaddr, self.dstport, command, repr(msg)))
                 f = BytesIO(msg)
                 t = MESSAGEMAP[command]()
                 t.deserialize(f)
@@ -225,6 +227,7 @@ class P2PConnection(asyncio.Protocol):
             if self._transport.is_closing():
                 return
             self._transport.write(raw_message_bytes)
+
         NetworkThread.network_event_loop.call_soon_threadsafe(maybe_write)
 
     # Class utility methods
@@ -264,6 +267,7 @@ class P2PInterface(P2PConnection):
 
     Individual testcases should subclass this and override the on_* methods
     if they want to alter message handling behaviour."""
+
     def __init__(self):
         super().__init__()
 
@@ -278,7 +282,7 @@ class P2PInterface(P2PConnection):
         # The network services received from the peer
         self.nServices = 0
 
-    def peer_connect(self, *args, services=NODE_NETWORK|NODE_WITNESS, send_version=True, **kwargs):
+    def peer_connect(self, *args, services=NODE_NETWORK | NODE_WITNESS, send_version=True, **kwargs):
         create_conn = super().peer_connect(*args, **kwargs)
 
         if send_version:
@@ -306,7 +310,7 @@ class P2PInterface(P2PConnection):
                 self.message_count[command] += 1
                 self.last_message[command] = message
                 getattr(self, 'on_' + command)(message)
-            except:
+            except Exception:
                 print("ERROR delivering %s (%s)" % (repr(message), sys.exc_info()[0]))
                 raise
 
@@ -319,26 +323,65 @@ class P2PInterface(P2PConnection):
     def on_close(self):
         pass
 
-    def on_addr(self, message): pass
-    def on_anchorauth(self, message): pass
-    def on_block(self, message): pass
-    def on_blocktxn(self, message): pass
-    def on_cmpctblock(self, message): pass
-    def on_feefilter(self, message): pass
-    def on_getaddr(self, message): pass
-    def on_getauths(self, message): pass
-    def on_getblocks(self, message): pass
-    def on_getblocktxn(self, message): pass
-    def on_getdata(self, message): pass
-    def on_getheaders(self, message): pass
-    def on_headers(self, message): pass
-    def on_mempool(self, message): pass
-    def on_notfound(self, message): pass
-    def on_pong(self, message): pass
-    def on_reject(self, message): pass
-    def on_sendcmpct(self, message): pass
-    def on_sendheaders(self, message): pass
-    def on_tx(self, message): pass
+    def on_addr(self, message):
+        pass
+
+    def on_anchorauth(self, message):
+        pass
+
+    def on_block(self, message):
+        pass
+
+    def on_blocktxn(self, message):
+        pass
+
+    def on_cmpctblock(self, message):
+        pass
+
+    def on_feefilter(self, message):
+        pass
+
+    def on_getaddr(self, message):
+        pass
+
+    def on_getauths(self, message):
+        pass
+
+    def on_getblocks(self, message):
+        pass
+
+    def on_getblocktxn(self, message):
+        pass
+
+    def on_getdata(self, message):
+        pass
+
+    def on_getheaders(self, message):
+        pass
+
+    def on_headers(self, message):
+        pass
+
+    def on_mempool(self, message):
+        pass
+
+    def on_notfound(self, message):
+        pass
+
+    def on_pong(self, message):
+        pass
+
+    def on_reject(self, message):
+        pass
+
+    def on_sendcmpct(self, message):
+        pass
+
+    def on_sendheaders(self, message):
+        pass
+
+    def on_tx(self, message):
+        pass
 
     def on_inv(self, message):
         want = msg_getdata()
@@ -355,7 +398,8 @@ class P2PInterface(P2PConnection):
         pass
 
     def on_version(self, message):
-        assert message.nVersion >= MIN_VERSION_SUPPORTED, "Version {} received. Test framework only supports versions greater than {}".format(message.nVersion, MIN_VERSION_SUPPORTED)
+        assert message.nVersion >= MIN_VERSION_SUPPORTED, "Version {} received. Test framework only supports versions greater than {}".format(
+            message.nVersion, MIN_VERSION_SUPPORTED)
         self.send_message(msg_verack())
         self.nServices = message.nServices
 
@@ -429,8 +473,8 @@ class P2PInterface(P2PConnection):
         def test_function():
             assert self.is_connected
             return self.last_message.get("inv") and \
-                                self.last_message["inv"].inv[0].type == expected_inv[0].type and \
-                                self.last_message["inv"].inv[0].hash == expected_inv[0].hash
+                self.last_message["inv"].inv[0].type == expected_inv[0].type and \
+                self.last_message["inv"].inv[0].hash == expected_inv[0].hash
 
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
@@ -545,7 +589,8 @@ class P2PDataStore(P2PInterface):
         if response is not None:
             self.send_message(response)
 
-    def send_blocks_and_test(self, blocks, node, *, success=True, force_send=False, reject_reason=None, expect_disconnect=False, timeout=60):
+    def send_blocks_and_test(self, blocks, node, *, success=True, force_send=False, reject_reason=None,
+                             expect_disconnect=False, timeout=60):
         """Send blocks to test node and test whether the tip advances.
 
          - add all blocks to our block_store

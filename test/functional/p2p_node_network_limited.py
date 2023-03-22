@@ -23,18 +23,23 @@ from test_framework.util import (
 
 class P2PIgnoreInv(P2PInterface):
     firstAddrnServices = 0
+
     def on_inv(self, message):
         # The node will send us invs for other blocks. Ignore them.
         pass
+
     def on_addr(self, message):
         self.firstAddrnServices = message.addrs[0].nServices
+
     def wait_for_addr(self, timeout=5):
         test_function = lambda: self.last_message.get("addr")
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
+
     def send_getdata_for_block(self, blockhash):
         getdata_request = msg_getdata()
         getdata_request.inv.append(CInv(2, int(blockhash, 16)))
         self.send_message(getdata_request)
+
 
 class NodeNetworkLimitedTest(DefiTestFramework):
     def set_test_params(self):
@@ -86,7 +91,7 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         node1.send_message(msg_verack())
 
         node1.wait_for_addr()
-        #must relay address with NODE_NETWORK_LIMITED
+        # must relay address with NODE_NETWORK_LIMITED
         assert_equal(node1.firstAddrnServices, expected_services)
 
         self.nodes[0].disconnect_p2ps()
@@ -97,7 +102,7 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         try:
             self.sync_blocks([self.nodes[0], self.nodes[2]], timeout=5)
-        except:
+        except Exception:
             pass
         # node2 must remain at height 0
         assert_equal(self.nodes[2].getblockheader(self.nodes[2].getbestblockhash())['height'], 0)
@@ -119,6 +124,7 @@ class NodeNetworkLimitedTest(DefiTestFramework):
 
         # sync must be possible, node 1 is no longer in IBD and should therefore connect to node 0 (NODE_NETWORK_LIMITED)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
+
 
 if __name__ == '__main__':
     NodeNetworkLimitedTest().main()

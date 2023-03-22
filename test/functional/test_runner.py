@@ -42,6 +42,7 @@ except UnicodeDecodeError:
 if os.name != 'nt' or sys.getwindowsversion() >= (10, 0, 14393):
     if os.name == 'nt':
         import ctypes
+
         kernel32 = ctypes.windll.kernel32
         ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4
         STD_OUTPUT_HANDLE = -11
@@ -72,10 +73,10 @@ EXTENDED_SCRIPTS = [
     'example_block_hash.py',
     'feature_pruning.py',
     'feature_dbcrash.py',
-    'feature_block.py', # moved to ext due to heavy load for trevis
-    'wallet_hd.py',     # moved to ext due to heavy load for trevis
-    'mempool_accept.py',# moved to ext due to heavy load for trevis
-    'wallet_backup.py', # moved to ext due to heavy load for trevis
+    'feature_block.py',  # moved to ext due to heavy load for trevis
+    'wallet_hd.py',  # moved to ext due to heavy load for trevis
+    'mempool_accept.py',  # moved to ext due to heavy load for trevis
+    'wallet_backup.py',  # moved to ext due to heavy load for trevis
     'feature_on_chain_government_govvar_update.py',
 ]
 
@@ -239,7 +240,7 @@ BASE_SCRIPTS = [
     'rpc_signmessage.py',
     'wallet_balance.py',
     'feature_nulldummy.py',
-    'wallet_import_rescan.py', # nodes = 6
+    'wallet_import_rescan.py',  # nodes = 6
     'wallet_import_with_label.py',
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
@@ -282,7 +283,7 @@ BASE_SCRIPTS = [
     'rpc_listvaulthistory.py',
     'feature_logging.py',
     'feature_loan_scheme.py',
-    #'feature_forced_reward_address.py',
+    # 'feature_forced_reward_address.py',
     'feature_loan_vault.py',
     'feature_loan_deposittovault.py',
     'feature_loan_interest.py',
@@ -335,6 +336,7 @@ NON_SCRIPTS = [
     "test_runner.py",
 ]
 
+
 def main():
     # Parse arguments and pass through unrecognised args
     parser = argparse.ArgumentParser(add_help=False,
@@ -343,15 +345,22 @@ def main():
                                      epilog='''
     Help text and arguments for individual test script:''',
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--ansi', action='store_true', default=sys.stdout.isatty(), help="Use ANSI colors and dots in output (enabled by default when standard output is a TTY)")
-    parser.add_argument('--combinedlogslen', '-c', type=int, default=0, metavar='n', help='On failure, print a log (of length n lines) to the console, combined from the test framework and all test nodes.')
-    parser.add_argument('--coverage', action='store_true', help='generate a basic coverage report for the RPC interface')
-    parser.add_argument('--ci', action='store_true', help='Run checks and code that are usually only enabled in a continuous integration environment')
+    parser.add_argument('--ansi', action='store_true', default=sys.stdout.isatty(),
+                        help="Use ANSI colors and dots in output (enabled by default when standard output is a TTY)")
+    parser.add_argument('--combinedlogslen', '-c', type=int, default=0, metavar='n',
+                        help='On failure, print a log (of length n lines) to the console, combined from the test framework and all test nodes.')
+    parser.add_argument('--coverage', action='store_true',
+                        help='generate a basic coverage report for the RPC interface')
+    parser.add_argument('--ci', action='store_true',
+                        help='Run checks and code that are usually only enabled in a continuous integration environment')
     parser.add_argument('--exclude', '-x', help='specify a comma-separated-list of scripts to exclude.')
-    parser.add_argument('--extended', action='store_true', help='run the extended test suite in addition to the basic tests')
+    parser.add_argument('--extended', action='store_true',
+                        help='run the extended test suite in addition to the basic tests')
     parser.add_argument('--help', '-h', '-?', action='store_true', help='print help text and exit')
-    parser.add_argument('--jobs', '-j', type=int, default=4, help='how many test scripts to run in parallel. Default=4.')
-    parser.add_argument('--keepcache', '-k', action='store_true', help='the default behavior is to flush the cache directory on startup. --keepcache retains the cache from the previous testrun.')
+    parser.add_argument('--jobs', '-j', type=int, default=4,
+                        help='how many test scripts to run in parallel. Default=4.')
+    parser.add_argument('--keepcache', '-k', action='store_true',
+                        help='the default behavior is to flush the cache directory on startup. --keepcache retains the cache from the previous testrun.')
     parser.add_argument('--quiet', '-q', action='store_true', help='only print dots, results summary and failure logs')
     parser.add_argument('--tmpdirprefix', '-t', default=tempfile.gettempdir(), help="Root directory for datadirs")
     parser.add_argument('--failfast', action='store_true', help='stop execution after the first test failure')
@@ -445,7 +454,8 @@ def main():
     if args.help:
         # Print help for test_runner.py, then print help of the first script (with args removed) and exit.
         parser.print_help()
-        subprocess.check_call([sys.executable, os.path.join(config["environment"]["SRCDIR"], 'test', 'functional', test_list[0].split()[0]), '-h'])
+        subprocess.check_call([sys.executable, os.path.join(config["environment"]["SRCDIR"], 'test', 'functional',
+                                                            test_list[0].split()[0]), '-h'])
         sys.exit(0)
 
     check_script_list(src_dir=config["environment"]["SRCDIR"], fail_on_warn=args.ci)
@@ -468,20 +478,26 @@ def main():
         use_term_control=args.ansi,
     )
 
-def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, runs_ci, use_term_control):
+
+def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0,
+              failfast=False, runs_ci, use_term_control):
     args = args or []
 
     # Warn if defid is already running (unix only)
     try:
         if subprocess.check_output(["pidof", "defid"]) is not None:
-            print("%sWARNING!%s There is already a defid process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
+            print(
+                "%sWARNING!%s There is already a defid process running on this system. Tests may fail unexpectedly due to resource contention!" % (
+                BOLD[1], BOLD[0]))
     except (OSError, subprocess.SubprocessError):
         pass
 
     # Warn if there is a cache directory
     cache_dir = "%s/test/cache" % build_dir
     if os.path.isdir(cache_dir):
-        print("%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (BOLD[1], BOLD[0], cache_dir))
+        print(
+            "%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (
+            BOLD[1], BOLD[0], cache_dir))
 
     tests_dir = src_dir + '/test/functional/'
 
@@ -497,12 +513,13 @@ def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=
     if len(test_list) > 1 and jobs > 1:
         # Populate cache
         try:
-            subprocess.check_output([sys.executable, tests_dir + 'create_cache.py'] + flags + ["--tmpdir=%s/cache" % tmpdir])
+            subprocess.check_output(
+                [sys.executable, tests_dir + 'create_cache.py'] + flags + ["--tmpdir=%s/cache" % tmpdir])
         except subprocess.CalledProcessError as e:
             sys.stdout.buffer.write(e.output)
             raise
 
-    #Run Tests
+    # Run Tests
     job_queue = TestHandler(
         num_tests_parallel=jobs,
         tests_dir=tests_dir,
@@ -531,14 +548,16 @@ def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=
             print(BOLD[1] + 'stderr:\n' + BOLD[0] + stderr + '\n')
             if combined_logs_len and os.path.isdir(testdir):
                 # Print the final `combinedlogslen` lines of the combined logs
-                print('{}Combine the logs and print the last {} lines ...{}'.format(BOLD[1], combined_logs_len, BOLD[0]))
+                print(
+                    '{}Combine the logs and print the last {} lines ...{}'.format(BOLD[1], combined_logs_len, BOLD[0]))
                 print('\n============')
                 print('{}Combined log for {}:{}'.format(BOLD[1], testdir, BOLD[0]))
                 print('============\n')
                 combined_logs_args = [sys.executable, os.path.join(tests_dir, 'combine_logs.py'), testdir]
                 if BOLD[0]:
                     combined_logs_args += ['--color']
-                combined_logs, _ = subprocess.Popen(combined_logs_args, universal_newlines=True, stdout=subprocess.PIPE).communicate()
+                combined_logs, _ = subprocess.Popen(combined_logs_args, universal_newlines=True,
+                                                    stdout=subprocess.PIPE).communicate()
                 print("\n".join(deque(combined_logs.splitlines(), combined_logs_len)))
 
             if failfast:
@@ -567,6 +586,7 @@ def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=
 
     sys.exit(not all_passed)
 
+
 def print_results(test_results, max_len_name, runtime):
     results = "\n" + BOLD[1] + "%s | %s | %s\n\n" % ("TEST".ljust(max_len_name), "STATUS   ", "DURATION") + BOLD[0]
 
@@ -583,11 +603,13 @@ def print_results(test_results, max_len_name, runtime):
     status = TICK + "Passed" if all_passed else CROSS + "Failed"
     if not all_passed:
         results += RED[1]
-    results += BOLD[1] + "\n%s | %s | %s s (accumulated) \n" % ("ALL".ljust(max_len_name), status.ljust(9), time_sum) + BOLD[0]
+    results += BOLD[1] + "\n%s | %s | %s s (accumulated) \n" % ("ALL".ljust(max_len_name), status.ljust(9), time_sum) + \
+               BOLD[0]
     if not all_passed:
         results += RED[0]
     results += "Runtime: %s s\n" % (runtime)
     print(results)
+
 
 class TestHandler:
     """
@@ -613,14 +635,15 @@ class TestHandler:
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
             portseed_arg = ["--portseed={}".format(portseed)]
-            log_stdout = tempfile.SpooledTemporaryFile(max_size=2**16)
-            log_stderr = tempfile.SpooledTemporaryFile(max_size=2**16)
+            log_stdout = tempfile.SpooledTemporaryFile(max_size=2 ** 16)
+            log_stderr = tempfile.SpooledTemporaryFile(max_size=2 ** 16)
             test_argv = test.split()
             testdir = "{}/{}_{}".format(self.tmpdir, re.sub(".py$", "", test_argv[0]), portseed)
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
             self.jobs.append((test,
                               time.time(),
-                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
+                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[
+                                                                                                 1:] + self.flags + portseed_arg + tmpdir_arg,
                                                universal_newlines=True,
                                                stdout=log_stdout,
                                                stderr=log_stderr),
@@ -702,7 +725,8 @@ class TestResult():
             color = GREY
             glyph = CIRCLE
 
-        return color[1] + "%s | %s%s | %s s\n" % (self.name.ljust(self.padding), glyph, self.status.ljust(7), self.time) + color[0]
+        return color[1] + "%s | %s%s | %s s\n" % (
+        self.name.ljust(self.padding), glyph, self.status.ljust(7), self.time) + color[0]
 
     @property
     def was_successful(self):
@@ -730,7 +754,8 @@ def check_script_list(*, src_dir, fail_on_warn):
     python_files = set([test_file for test_file in os.listdir(script_dir) if test_file.endswith(".py")])
     missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS)))
     if len(missed_tests) != 0:
-        print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (BOLD[1], BOLD[0], str(missed_tests)))
+        print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (
+        BOLD[1], BOLD[0], str(missed_tests)))
         if fail_on_warn:
             # On CI this warning is an error to prevent merging incomplete commits into master
             sys.exit(1)
@@ -751,6 +776,7 @@ class RPCCoverage():
     See also: test/functional/test_framework/coverage.py
 
     """
+
     def __init__(self):
         self.dir = tempfile.mkdtemp(prefix="coverage")
         self.flag = '--coveragedir=%s' % self.dir

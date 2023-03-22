@@ -13,6 +13,7 @@ from test_framework.util import (
 )
 from test_framework.messages import CTransaction, COIN
 
+
 class TxnMallTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -66,7 +67,8 @@ class TxnMallTest(DefiTestFramework):
 
         # Construct a clone of tx1, to be malleated
         rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
-        clone_inputs = [{"txid": rawtx1["vin"][0]["txid"], "vout": rawtx1["vin"][0]["vout"], "sequence": rawtx1["vin"][0]["sequence"]}]
+        clone_inputs = [{"txid": rawtx1["vin"][0]["txid"], "vout": rawtx1["vin"][0]["vout"],
+                         "sequence": rawtx1["vin"][0]["sequence"]}]
         clone_outputs = {rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][0]["value"],
                          rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][1]["value"]}
         clone_locktime = rawtx1["locktime"]
@@ -75,7 +77,8 @@ class TxnMallTest(DefiTestFramework):
         # createrawtransaction randomizes the order of its outputs, so swap them if necessary.
         clone_tx = CTransaction()
         clone_tx.deserialize(io.BytesIO(bytes.fromhex(clone_raw)))
-        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40*COIN or rawtx1["vout"][0]["value"] != 40 and clone_tx.vout[0].nValue == 40*COIN):
+        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40 * COIN or rawtx1["vout"][0][
+                "value"] != 40 and clone_tx.vout[0].nValue == 40 * COIN):
             (clone_tx.vout[0], clone_tx.vout[1]) = (clone_tx.vout[1], clone_tx.vout[0])
 
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
@@ -140,6 +143,7 @@ class TxnMallTest(DefiTestFramework):
         if (self.options.mine_block):
             expected -= 50
         assert_equal(self.nodes[0].getbalance(), expected)
+
 
 if __name__ == '__main__':
     TxnMallTest().main()

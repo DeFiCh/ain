@@ -30,7 +30,8 @@ class MempoolCoinbaseTest(DefiTestFramework):
 
         b = [self.nodes[0].getblockhash(n) for n in range(1, 4)]
         coinbase_txids = [self.nodes[0].getblock(h)['tx'][0] for h in b]
-        spends1_raw = [create_raw_transaction(self.nodes[0], txid, node0_address, amount=49.99) for txid in coinbase_txids]
+        spends1_raw = [create_raw_transaction(self.nodes[0], txid, node0_address, amount=49.99) for txid in
+                       coinbase_txids]
         spends1_id = [self.nodes[0].sendrawtransaction(tx) for tx in spends1_raw]
 
         blocks = []
@@ -43,7 +44,7 @@ class MempoolCoinbaseTest(DefiTestFramework):
 
         # mempool should be empty, all txns confirmed
         assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in spends1_id+spends2_id:
+        for txid in spends1_id + spends2_id:
             tx = self.nodes[0].gettransaction(txid)
             assert tx["confirmations"] > 0
 
@@ -52,8 +53,8 @@ class MempoolCoinbaseTest(DefiTestFramework):
             node.invalidateblock(blocks[0])
 
         # All txns should be back in mempool with 0 confirmations
-        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id))
-        for txid in spends1_id+spends2_id:
+        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id + spends2_id))
+        for txid in spends1_id + spends2_id:
             tx = self.nodes[0].gettransaction(txid)
             assert tx["confirmations"] == 0
 
@@ -61,7 +62,7 @@ class MempoolCoinbaseTest(DefiTestFramework):
         self.nodes[0].generate(1)
         # mempool should be empty, all txns confirmed
         assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in spends1_id+spends2_id:
+        for txid in spends1_id + spends2_id:
             tx = self.nodes[0].gettransaction(txid)
             assert tx["confirmations"] > 0
 

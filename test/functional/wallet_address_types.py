@@ -160,7 +160,7 @@ class AddressTypeTest(DefiTestFramework):
         # Use a ridiculously roundabout way to find the key origin info through
         # the PSBT logic. However, this does test consistency between the PSBT reported
         # fingerprints/paths and the descriptor logic.
-        psbt = self.nodes[node].createpsbt([{'txid':utxo['txid'], 'vout':utxo['vout']}],[{address:0.00010000}])
+        psbt = self.nodes[node].createpsbt([{'txid': utxo['txid'], 'vout': utxo['vout']}], [{address: 0.00010000}])
         psbt = self.nodes[node].walletprocesspsbt(psbt, False, "ALL", True)
         decode = self.nodes[node].decodepsbt(psbt['psbt'])
         key_descs = {}
@@ -191,13 +191,16 @@ class AddressTypeTest(DefiTestFramework):
             assert_equal(info['desc'], descsum_create("wpkh(%s)" % key_descs[info['pubkey']]))
         elif typ == 'legacy':
             # P2SH-multisig
-            assert_equal(info['desc'], descsum_create("sh(multi(2,%s,%s))" % (key_descs[info['pubkeys'][0]], key_descs[info['pubkeys'][1]])))
+            assert_equal(info['desc'], descsum_create(
+                "sh(multi(2,%s,%s))" % (key_descs[info['pubkeys'][0]], key_descs[info['pubkeys'][1]])))
         elif typ == 'p2sh-segwit':
             # P2SH-P2WSH-multisig
-            assert_equal(info['desc'], descsum_create("sh(wsh(multi(2,%s,%s)))" % (key_descs[info['embedded']['pubkeys'][0]], key_descs[info['embedded']['pubkeys'][1]])))
+            assert_equal(info['desc'], descsum_create("sh(wsh(multi(2,%s,%s)))" % (
+            key_descs[info['embedded']['pubkeys'][0]], key_descs[info['embedded']['pubkeys'][1]])))
         elif typ == 'bech32':
             # P2WSH-multisig
-            assert_equal(info['desc'], descsum_create("wsh(multi(2,%s,%s))" % (key_descs[info['pubkeys'][0]], key_descs[info['pubkeys'][1]])))
+            assert_equal(info['desc'], descsum_create(
+                "wsh(multi(2,%s,%s))" % (key_descs[info['pubkeys'][0]], key_descs[info['pubkeys'][1]])))
         else:
             # Unknown type
             assert False
@@ -231,14 +234,21 @@ class AddressTypeTest(DefiTestFramework):
 
         # addmultisigaddress with at least 1 uncompressed key should return a legacy address.
         for node in range(4):
-            self.test_address(node, self.nodes[node].addmultisigaddress(2, [uncompressed_1, uncompressed_2])['address'], True, 'legacy')
-            self.test_address(node, self.nodes[node].addmultisigaddress(2, [compressed_1, uncompressed_2])['address'], True, 'legacy')
-            self.test_address(node, self.nodes[node].addmultisigaddress(2, [uncompressed_1, compressed_2])['address'], True, 'legacy')
+            self.test_address(node, self.nodes[node].addmultisigaddress(2, [uncompressed_1, uncompressed_2])['address'],
+                              True, 'legacy')
+            self.test_address(node, self.nodes[node].addmultisigaddress(2, [compressed_1, uncompressed_2])['address'],
+                              True, 'legacy')
+            self.test_address(node, self.nodes[node].addmultisigaddress(2, [uncompressed_1, compressed_2])['address'],
+                              True, 'legacy')
         # addmultisigaddress with all compressed keys should return the appropriate address type (even when the keys are not ours).
-        self.test_address(0, self.nodes[0].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True, 'legacy')
-        self.test_address(1, self.nodes[1].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True, 'p2sh-segwit')
-        self.test_address(2, self.nodes[2].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True, 'p2sh-segwit')
-        self.test_address(3, self.nodes[3].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True, 'bech32')
+        self.test_address(0, self.nodes[0].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True,
+                          'legacy')
+        self.test_address(1, self.nodes[1].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True,
+                          'p2sh-segwit')
+        self.test_address(2, self.nodes[2].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True,
+                          'p2sh-segwit')
+        self.test_address(3, self.nodes[3].addmultisigaddress(2, [compressed_1, compressed_2])['address'], True,
+                          'bech32')
 
         for explicit_type, multisig, from_node in itertools.product([False, True], [False, True], range(4)):
             address_type = None
@@ -249,7 +259,10 @@ class AddressTypeTest(DefiTestFramework):
                     address_type = 'p2sh-segwit'
                 else:
                     address_type = 'legacy'
-            self.log.info("Sending from node {} ({}) with{} multisig using {}".format(from_node, self.extra_args[from_node], "" if multisig else "out", "default" if address_type is None else address_type))
+            self.log.info(
+                "Sending from node {} ({}) with{} multisig using {}".format(from_node, self.extra_args[from_node],
+                                                                            "" if multisig else "out",
+                                                                            "default" if address_type is None else address_type))
             old_balances = self.get_balances()
             self.log.debug("Old balances are {}".format(old_balances))
             to_send = (old_balances[from_node] / 101).quantize(Decimal("0.00000001"))
@@ -336,7 +349,8 @@ class AddressTypeTest(DefiTestFramework):
         self.log.info("Nodes with addresstype=legacy never use a P2WPKH change output")
         self.test_change_output_type(0, [to_address_bech32_1], 'legacy')
 
-        self.log.info("Nodes with addresstype=p2sh-segwit only use a P2WPKH change output if any destination address is bech32:")
+        self.log.info(
+            "Nodes with addresstype=p2sh-segwit only use a P2WPKH change output if any destination address is bech32:")
         self.test_change_output_type(1, [to_address_p2sh], 'p2sh-segwit')
         self.test_change_output_type(1, [to_address_bech32_1], 'bech32')
         self.test_change_output_type(1, [to_address_p2sh, to_address_bech32_1], 'bech32')
@@ -346,7 +360,8 @@ class AddressTypeTest(DefiTestFramework):
         self.test_change_output_type(2, [to_address_bech32_1], 'bech32')
         self.test_change_output_type(2, [to_address_p2sh], 'bech32')
 
-        self.log.info("Nodes with addresstype=bech32 always use a P2WPKH change output (unless changetype is set otherwise):")
+        self.log.info(
+            "Nodes with addresstype=bech32 always use a P2WPKH change output (unless changetype is set otherwise):")
         self.test_change_output_type(3, [to_address_bech32_1], 'bech32')
         self.test_change_output_type(3, [to_address_p2sh], 'bech32')
 
@@ -354,7 +369,8 @@ class AddressTypeTest(DefiTestFramework):
         self.test_address(3, self.nodes[3].getrawchangeaddress(), multisig=False, typ='bech32')
 
         self.log.info('test invalid address type arguments')
-        assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].addmultisigaddress, 2, [compressed_1, compressed_2], None, '')
+        assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].addmultisigaddress, 2,
+                                [compressed_1, compressed_2], None, '')
         assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].getnewaddress, None, '')
         assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].getrawchangeaddress, '')
         assert_raises_rpc_error(-5, "Unknown address type 'bech23'", self.nodes[3].getrawchangeaddress, 'bech23')
@@ -365,6 +381,7 @@ class AddressTypeTest(DefiTestFramework):
         self.log.info("Except for getrawchangeaddress if specified:")
         self.test_address(4, self.nodes[4].getrawchangeaddress(), multisig=False, typ='p2sh-segwit')
         self.test_address(4, self.nodes[4].getrawchangeaddress('bech32'), multisig=False, typ='bech32')
+
 
 if __name__ == '__main__':
     AddressTypeTest().main()

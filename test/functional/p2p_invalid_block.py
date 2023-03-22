@@ -18,6 +18,7 @@ from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
+
 class InvalidBlockRequestTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1

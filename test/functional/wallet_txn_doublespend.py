@@ -13,6 +13,7 @@ from test_framework.util import (
     find_output,
 )
 
+
 class TxnMallTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -137,6 +138,7 @@ class TxnMallTest(DefiTestFramework):
 
         # Node1's balance should be its initial balance (1250 for 25 block rewards) plus the doublespend:
         assert_equal(self.nodes[1].getbalance(), 1250 + 1240)
+
 
 if __name__ == '__main__':
     TxnMallTest().main()

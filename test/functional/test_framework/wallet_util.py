@@ -49,6 +49,7 @@ Multisig = namedtuple('Multisig', ['privkeys',
                                    'p2sh_p2wsh_script',
                                    'p2sh_p2wsh_addr'])
 
+
 def get_key(node):
     """Generate a fresh key on node
 
@@ -65,6 +66,7 @@ def get_key(node):
                p2sh_p2wpkh_script=CScript([OP_HASH160, hash160(CScript([OP_0, pkh])), OP_EQUAL]).hex(),
                p2sh_p2wpkh_redeem_script=CScript([OP_0, pkh]).hex(),
                p2sh_p2wpkh_addr=key_to_p2sh_p2wpkh(pubkey))
+
 
 def get_multisig(node):
     """Generate a fresh 2-of-3 multisig on node
@@ -87,6 +89,7 @@ def get_multisig(node):
                     p2wsh_addr=script_to_p2wsh(script_code),
                     p2sh_p2wsh_script=CScript([OP_HASH160, witness_script, OP_EQUAL]).hex(),
                     p2sh_p2wsh_addr=script_to_p2sh_p2wsh(script_code))
+
 
 def test_address(node, address, **kwargs):
     """Get address info for `address` and test whether the returned values are as expected."""

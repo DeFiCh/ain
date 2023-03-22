@@ -13,14 +13,19 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
 
-class VaultTest (DefiTestFramework):
+
+class VaultTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700', '-jellyfish_regtest=1', '-simulatemainnet'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700', '-jellyfish_regtest=1', '-simulatemainnet']
-            ]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700',
+             '-jellyfish_regtest=1', '-simulatemainnet'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700',
+             '-jellyfish_regtest=1', '-simulatemainnet']
+        ]
         self.vaults = []
         self.owner_addresses = []
         self.oracles = []
@@ -91,7 +96,7 @@ class VaultTest (DefiTestFramework):
     def create_vaults(self):
         owner_addr_0 = self.nodes[0].getnewaddress('', 'legacy')
         self.owner_addresses.append(owner_addr_0)
-        vault_id_0 = self.nodes[0].createvault(owner_addr_0) # default loan scheme
+        vault_id_0 = self.nodes[0].createvault(owner_addr_0)  # default loan scheme
         self.vaults.append(vault_id_0)
 
         owner_addr_1 = self.nodes[0].getnewaddress('', 'legacy')
@@ -105,7 +110,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def setup_accounts_and_tokens(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
         self.nodes[0].generate(25)
         self.sync_blocks()
         self.nodes[1].generate(102)
@@ -176,43 +181,44 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].utxostoaccount({self.accountDFI: "100@" + self.symbolDFI})
         self.nodes[0].generate(1)
         self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla Token",
-                            'fixedIntervalPriceId': "TSLA/USD",
-                            'mintable': True,
-                            'interest': 2})
+            'symbol': "TSLA",
+            'name': "Tesla Token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 2})
         self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
-                                    'token': self.idDFI,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': self.idDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
-                                    'token': self.idBTC,
-                                    'factor': 0.8,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': self.idBTC,
+            'factor': 0.8,
+            'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(120)
         self.sync_blocks()
         self.nodes[0].setloantoken({
-                                    'symbol': "DUSD",
-                                    'name': "DUSD stable token",
-                                    'fixedIntervalPriceId': "DUSD/USD",
-                                    'mintable': True,
-                                    'interest': 1})
+            'symbol': "DUSD",
+            'name': "DUSD stable token",
+            'fixedIntervalPriceId': "DUSD/USD",
+            'mintable': True,
+            'interest': 1})
         self.nodes[0].generate(120)
-
-
 
     def setup_oracles(self):
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}, {"currency": "USD", "token": "GOOGL"}, {"currency": "USD", "token": "ETH"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"},
+                        {"currency": "USD", "token": "TSLA"}, {"currency": "USD", "token": "GOOGL"},
+                        {"currency": "USD", "token": "ETH"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.oracles.append(oracle_id1)
         self.nodes[0].generate(1)
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@BTC"}, {"currency": "USD", "tokenAmount": "1@TSLA"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@BTC"},
+                          {"currency": "USD", "tokenAmount": "1@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
@@ -258,7 +264,6 @@ class VaultTest (DefiTestFramework):
         }, self.accountDFI, [])
         self.nodes[0].generate(1)
 
-
     def setup(self):
         self.nodes[0].generate(120)
         self.setup_loanschemes()
@@ -267,13 +272,12 @@ class VaultTest (DefiTestFramework):
         self.setup_accounts_and_tokens()
         self.create_poolpairs()
 
-
     def createvault_with_invalid_parameters(self):
         try:
             self.nodes[0].createvault('ffffffffff')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('recipient script (ffffffffff) does not solvable/non-standard' in errorString)
+        assert ('recipient script (ffffffffff) does not solvable/non-standard' in errorString)
 
         # Create vault with invalid loanschemeid and default owner address
         owner = self.nodes[0].getnewaddress('', 'legacy')
@@ -281,7 +285,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].createvault(owner, 'FAKELOAN')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Cannot find existing loan scheme with id FAKELOAN' in errorString)
+        assert ('Cannot find existing loan scheme with id FAKELOAN' in errorString)
 
     def listvaults_and_filtering(self):
         # check listvaults
@@ -289,13 +293,13 @@ class VaultTest (DefiTestFramework):
         assert_equal(len(list_vault), 4)
 
         # check listVaults filter by owner_address
-        list_vault = self.nodes[0].listvaults({ "ownerAddress": self.owner_addresses[1] })
+        list_vault = self.nodes[0].listvaults({"ownerAddress": self.owner_addresses[1]})
         assert_equal(len(list_vault), 3)
         for vault in list_vault:
             assert_equal(vault["ownerAddress"], self.owner_addresses[1])
 
         # check listVaults filter by loanSchemeId
-        list_vault = self.nodes[0].listvaults({ "loanSchemeId": "LOAN0003" })
+        list_vault = self.nodes[0].listvaults({"loanSchemeId": "LOAN0003"})
         assert_equal(len(list_vault), 2)
         for vault in list_vault:
             assert_equal(vault["loanSchemeId"], "LOAN0003")
@@ -312,7 +316,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].getvault('5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
+        assert ('Vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
 
     def test_getvault(self):
         vault = self.nodes[0].getvault(self.vaults[0])
@@ -331,7 +335,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(self.vaults[0], params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least ownerAddress OR loanSchemeId must be set" in errorString)
+        assert ("At least ownerAddress OR loanSchemeId must be set" in errorString)
 
         # bad loan scheme id
         try:
@@ -339,7 +343,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(self.vaults[0], params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id FAKELOAN" in errorString)
+        assert ("Cannot find existing loan scheme with id FAKELOAN" in errorString)
 
         # bad owner address
         try:
@@ -347,7 +351,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(self.vaults[0], params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Error: Invalid owner address" in errorString)
+        assert ("Error: Invalid owner address" in errorString)
 
     def actions_on_vault_with_scheme_to_be_destroyed(self):
         # Create or update vault with loan scheme planned to be destroyed
@@ -356,10 +360,12 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # create
-        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed', self.nodes[0].createvault, self.owner_addresses[0], 'LOAN0002')
+        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed',
+                                self.nodes[0].createvault, self.owner_addresses[0], 'LOAN0002')
 
         # update
-        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed', self.nodes[0].updatevault, self.vaults[1], {'loanSchemeId':'LOAN0002'})
+        assert_raises_rpc_error(-32600, 'Cannot set LOAN0002 as loan scheme, set to be destroyed',
+                                self.nodes[0].updatevault, self.vaults[1], {'loanSchemeId': 'LOAN0002'})
 
     def update_vault_scheme(self):
         new_address = self.nodes[0].getnewaddress('', 'legacy')
@@ -387,7 +393,6 @@ class VaultTest (DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaults[1])
         assert_equal(vault['loanSchemeId'], 'LOAN0001')
 
-
     def automatic_update_after_loanscheme_delete_with_delay(self):
         # back to non-default loan scheme and delete scheme with delay
         params = {'loanSchemeId': 'LOAN0004'}
@@ -407,32 +412,31 @@ class VaultTest (DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaults[1])
         assert_equal(vault['loanSchemeId'], 'LOAN0001')
 
-
     def deposittovault_with_invalid_params(self):
         # Insufficient funds
         try:
             self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '101@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Insufficient funds" in errorString)
+        assert ("Insufficient funds" in errorString)
         # Check from auth
         try:
             self.nodes[0].deposittovault(self.vaults[0], self.accountBTC, '1@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Incorrect authorization for {}".format(self.accountBTC) in errorString)
+        assert ("Incorrect authorization for {}".format(self.accountBTC) in errorString)
         # Check negative amount
         try:
             self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '-1@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Amount out of range" in errorString)
+        assert ("Amount out of range" in errorString)
         # Check too small amount
         try:
             self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '0.000000001@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid amount" in errorString)
+        assert ("Invalid amount" in errorString)
 
     def test_deposittovault(self):
         # Check deposit 1 satoshi
@@ -450,9 +454,10 @@ class VaultTest (DefiTestFramework):
         assert_equal(acBTC, ['9.30000000@BTC'])
 
     def takeloan_breaking_50pctDFI_rule(self):
-        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].takeloan, {
-            'vaultId': self.vaults[0],
-            'amounts': "0.1@TSLA"})
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI",
+                                self.nodes[0].takeloan, {
+                                    'vaultId': self.vaults[0],
+                                    'amounts': "0.1@TSLA"})
 
     def takeloan_with_50pctDFI(self):
         self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '0.7@DFI')
@@ -473,13 +478,14 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         vault = self.nodes[1].getvault(self.vaults[0])
-        assert_equal(vault['collateralAmounts'],['1.00000000@DFI', '1.00000000@BTC'])
+        assert_equal(vault['collateralAmounts'], ['1.00000000@DFI', '1.00000000@BTC'])
         acBTC = self.nodes[1].getaccount(self.accountBTC)
         assert_equal(acBTC, ['9.00000000@BTC'])
         acDFI = self.nodes[0].getaccount(self.accountDFI)
         assert_equal(acDFI, ['99.00000000@DFI', '173.20507075@DUSD-DFI', '99.99999000@DUSD-TSLA'])
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"},
+                          {"currency": "USD", "tokenAmount": "1@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle1_prices)
 
@@ -487,8 +493,8 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': self.vaults[0],
-                    'amounts': "0.5@TSLA"})
+            'vaultId': self.vaults[0],
+            'amounts': "0.5@TSLA"})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -499,19 +505,19 @@ class VaultTest (DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaults[0])
         assert_equal(vault['loanAmounts'], ['0.50000003@TSLA'])
         assert_equal(vault['collateralValue'], Decimal('1.80000000'))
-        assert_equal(vault['loanValue'],Decimal('0.50000003'))
-        assert_equal(vault['interestValue'],Decimal('0.00000003'))
-        assert_equal(vault['interestAmounts'],['0.00000003@TSLA'])
+        assert_equal(vault['loanValue'], Decimal('0.50000003'))
+        assert_equal(vault['interestValue'], Decimal('0.00000003'))
+        assert_equal(vault['interestAmounts'], ['0.00000003@TSLA'])
 
     def withdraw_breaking_50pctDFI_rule(self):
         try:
             self.nodes[0].withdrawfromvault(self.vaults[0], self.accountDFI, "0.8@DFI")
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI" in error_str)
+        assert ("At least 50% of the minimum required collateral must be in DFI" in error_str)
 
     def move_interest_from_old_scheme(self):
-        params = {'loanSchemeId':'LOAN000A'}
+        params = {'loanSchemeId': 'LOAN000A'}
         self.nodes[0].updatevault(self.vaults[0], params)
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -533,7 +539,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault['liquidationPenalty'], Decimal('5.00000000'))
         assert_equal(vault['batchCount'], 1)
 
-        assert_raises_rpc_error(-26, 'Vault is under liquidation', self.nodes[0].closevault, self.vaults[0], self.owner_addresses[0])
+        assert_raises_rpc_error(-26, 'Vault is under liquidation', self.nodes[0].closevault, self.vaults[0],
+                                self.owner_addresses[0])
 
     def updatevault_to_scheme_with_lower_collateralization_ratio(self):
         self.nodes[0].deposittovault(self.vaults[1], self.accountDFI, '2.5@DFI')
@@ -545,8 +552,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(self.owner_addresses[1]), [])
 
         self.nodes[0].takeloan({
-                    'vaultId': self.vaults[1],
-                    'amounts': "0.355@TSLA"})
+            'vaultId': self.vaults[1],
+            'amounts': "0.355@TSLA"})
         self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(self.vaults[1])
         self.nodes[0].createloanscheme(200, 2.5, 'LOAN0005')
@@ -559,7 +566,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(self.vaults[1], params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Vault does not have enough collateralization ratio defined by loan scheme - 176 < 200" in errorString)
+        assert ("Vault does not have enough collateralization ratio defined by loan scheme - 176 < 200" in errorString)
         self.nodes[0].generate(1)
 
     def closevault_with_active_loans(self):
@@ -567,7 +574,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].closevault(self.vaults[1], self.owner_addresses[1])
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Vault <"+self.vaults[1]+"> has loans" in error_str)
+        assert ("Vault <" + self.vaults[1] + "> has loans" in error_str)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -583,7 +590,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[1].getvault(self.vaults[3])
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Vault <"+self.vaults[3]+"> not found" in error_str)
+        assert ("Vault <" + self.vaults[3] + "> not found" in error_str)
 
     def estimatevault_with_invalid_params(self):
         # Invalid loan token
@@ -591,25 +598,25 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@TSLAA')
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Invalid Defi token: TSLAA" in error_str)
+        assert ("Invalid Defi token: TSLAA" in error_str)
         # Invalid collateral token
         try:
             self.nodes[0].estimatevault('3.00000000@DFII', '3.00000000@TSLA')
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Invalid Defi token: DFII" in error_str)
+        assert ("Invalid Defi token: DFII" in error_str)
         # Token not set as a collateral
         try:
             self.nodes[0].estimatevault('3.00000000@TSLA', '3.00000000@TSLA')
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Token with id (6) is not a valid collateral!" in error_str)
+        assert ("Token with id (6) is not a valid collateral!" in error_str)
         # Token not set as loan token
         try:
             self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@DFI')
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Token with id (0) is not a loan token!" in error_str)
+        assert ("Token with id (0) is not a loan token!" in error_str)
 
     def test_estimatevault(self):
         vault = self.nodes[0].getvault(self.vaults[1])
@@ -621,7 +628,8 @@ class VaultTest (DefiTestFramework):
 
     def test_50pctDFI_fresh_vault_takeloan_withdraw(self):
         # Reset price
-        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
+        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"},
+                         {"currency": "USD", "tokenAmount": "1@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle_prices)
         self.nodes[0].generate(240)
@@ -631,21 +639,21 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
         self.owner_addresses.append(address)
-        self.nodes[1].sendtokenstoaddress({}, { address: '1.50@BTC'})
+        self.nodes[1].sendtokenstoaddress({}, {address: '1.50@BTC'})
         self.nodes[1].generate(1)
         self.sync_blocks()
         vault_id = self.nodes[0].createvault(address, 'LOAN000A')
         self.vaults.append(vault_id)
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[0].deposittovault(vault_id, address, '1.25@BTC') # 1.25@BTC as collateral factor 0.8
+        self.nodes[0].deposittovault(vault_id, address, '1.25@BTC')  # 1.25@BTC as collateral factor 0.8
         self.nodes[0].deposittovault(vault_id, self.accountDFI, '1@DFI')
         self.nodes[0].generate(1)
         self.sync_blocks()
         self.nodes[0].takeloan({
-                        'vaultId': vault_id,
-                        'amounts': "1@TSLA"
-                    })
+            'vaultId': vault_id,
+            'amounts': "1@TSLA"
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].deposittovault(vault_id, address, '0.2@BTC')
@@ -659,13 +667,13 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(vault_id, address, "-0.00000001@BTC")
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Amount out of range" in error_str)
+        assert ("Amount out of range" in error_str)
         # try withdraw too small amount
         try:
             self.nodes[0].withdrawfromvault(vault_id, address, "0.000000001@BTC")
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("Invalid amount" in error_str)
+        assert ("Invalid amount" in error_str)
         # try withdraw 1 satoshi
         self.nodes[0].withdrawfromvault(vault_id, address, "0.00000001@BTC")
         self.nodes[0].withdrawfromvault(vault_id, address, "0.09999999@BTC")
@@ -675,7 +683,8 @@ class VaultTest (DefiTestFramework):
 
     def test_50pctDFI_rule_after_BTC_price_increase(self):
         # BTC triplicates in price
-        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "3@BTC"}]
+        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"},
+                         {"currency": "USD", "tokenAmount": "3@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle_prices)
         self.nodes[0].generate(240)
@@ -689,7 +698,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(self.vaults[4], self.accountDFI, "0.25@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI" in errorString)
+        assert ("At least 50% of the minimum required collateral must be in DFI" in errorString)
 
         # Should be able to take 0.10@TSLA and respect 50% DFI ratio
         self.nodes[0].takeloan({
@@ -714,18 +723,23 @@ class VaultTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "9999999999@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}, {"currency": "USD", "tokenAmount": "1@ETH"}, {"currency": "USD", "tokenAmount": "2@GOOGL"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "9999999999@DFI"},
+                          {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"},
+                          {"currency": "USD", "tokenAmount": "1@ETH"}, {"currency": "USD", "tokenAmount": "2@GOOGL"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle1_prices)
         self.nodes[0].generate(240)
 
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['collateralValue'], 0) # collateral value overflowed
+        assert_equal(vault['collateralValue'], 0)  # collateral value overflowed
 
         # Actions on vault should be blocked
-        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].takeloan, {'vaultId': vault_id,'amounts': "0.5@TSLA"})
-        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].deposittovault, vault_id, self.accountDFI, "1@" + self.symbolDFI)
-        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].withdrawfromvault, vault_id, address, "1@DFI")
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].takeloan,
+                                {'vaultId': vault_id, 'amounts': "0.5@TSLA"})
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].deposittovault, vault_id, self.accountDFI,
+                                "1@" + self.symbolDFI)
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].withdrawfromvault, vault_id, address,
+                                "1@DFI")
 
         # Should be able to close vault
         self.nodes[0].paybackloan({'vaultId': vault_id, 'from': address, 'amounts': ["1@TSLA"]})
@@ -738,7 +752,8 @@ class VaultTest (DefiTestFramework):
         self.move_to_fork()
 
         # Test setting collateral token partially
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/fixed_interval_price_id': 'ETH/USD',
+                                             f'v0/token/{self.idETH}/loan_collateral_enabled': 'true'}})
         self.nodes[0].generate(1)
 
         # Should not show up as collateral token
@@ -749,7 +764,8 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test setting collateral token partially
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/fixed_interval_price_id': 'ETH/USD',
+                                             f'v0/token/{self.idETH}/loan_collateral_factor': '0.5'}})
         self.nodes[0].generate(1)
 
         # Should not show up as collateral token
@@ -760,11 +776,15 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Set collateral token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true', f'v0/token/{self.idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/fixed_interval_price_id': 'ETH/USD',
+                                             f'v0/token/{self.idETH}/loan_collateral_enabled': 'true',
+                                             f'v0/token/{self.idETH}/loan_collateral_factor': '0.5'}})
         self.nodes[0].generate(1)
 
         # Test setting it again, should not be a problem.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true', f'v0/token/{self.idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/fixed_interval_price_id': 'ETH/USD',
+                                             f'v0/token/{self.idETH}/loan_collateral_enabled': 'true',
+                                             f'v0/token/{self.idETH}/loan_collateral_factor': '0.5'}})
         self.nodes[0].generate(1)
 
         # Should now show up as collateral token
@@ -778,7 +798,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken(self.idGOOGL)[self.idGOOGL]['isLoanToken'], False)
 
         # Test setting loan token partially.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idGOOGL}/loan_minting_enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/fixed_interval_price_id': 'GOOGL/USD',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_enabled': 'true'}})
         self.nodes[0].generate(1)
 
         # Should not show up as loan token
@@ -790,7 +811,8 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test setting loan token partially.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/fixed_interval_price_id': 'GOOGL/USD',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Should not show up as loan token
@@ -802,11 +824,15 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Set loan token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idGOOGL}/loan_minting_enabled':'true', f'v0/token/{self.idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/fixed_interval_price_id': 'GOOGL/USD',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_enabled': 'true',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Test setting it again, should not be a problem.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idGOOGL}/loan_minting_enabled':'true', f'v0/token/{self.idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/fixed_interval_price_id': 'GOOGL/USD',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_enabled': 'true',
+                                             f'v0/token/{self.idGOOGL}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Should now show up as loan token
@@ -819,7 +845,9 @@ class VaultTest (DefiTestFramework):
         assert_equal(result[0]['interest'], Decimal('1.00000000'))
 
         # Set oracle price
-        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "0.5@BTC"}, {"currency": "USD", "tokenAmount": "1@ETH"}, {"currency": "USD", "tokenAmount": "2@GOOGL"}]
+        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"},
+                         {"currency": "USD", "tokenAmount": "0.5@BTC"}, {"currency": "USD", "tokenAmount": "1@ETH"},
+                         {"currency": "USD", "tokenAmount": "2@GOOGL"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle_prices)
         self.nodes[0].generate(240)
@@ -842,10 +870,13 @@ class VaultTest (DefiTestFramework):
         # Try and deposit more GOOGL to vault
         self.nodes[0].minttokens("1@" + self.symbolGOOGL)
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600, f'Collateral token with id ({self.idGOOGL}) does not exist!', self.nodes[0].deposittovault, vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@GOOGL')
+        assert_raises_rpc_error(-32600, f'Collateral token with id ({self.idGOOGL}) does not exist!',
+                                self.nodes[0].deposittovault, vaultId6,
+                                self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@GOOGL')
 
         # Try and take collateral token as loan
-        assert_raises_rpc_error(-32600, f'Loan token with id ({self.idETH}) does not exist!', self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@ETH"})
+        assert_raises_rpc_error(-32600, f'Loan token with id ({self.idETH}) does not exist!', self.nodes[0].takeloan,
+                                {'vaultId': vaultId6, 'amounts': "1@ETH"})
 
         # Take loan
         self.nodes[0].takeloan({'vaultId': vaultId6, 'amounts': "1@GOOGL"})
@@ -855,33 +886,37 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 375)
 
         # Change collateral ratio
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/loan_collateral_factor':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/loan_collateral_factor': '1'}})
         self.nodes[0].generate(2)
 
         # Check new ratio
         assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 500)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/loan_collateral_factor'], '1')
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/loan_collateral_factor'],
+                     '1')
 
         # Change collateral currency pair
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'BTC/USD'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/fixed_interval_price_id': 'BTC/USD'}})
         self.nodes[0].generate(1)
 
         # Check new ratio and currency pair
         assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 375)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/fixed_interval_price_id'], 'BTC/USD')
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/fixed_interval_price_id'],
+                     'BTC/USD')
 
         # Disable collateral token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/loan_collateral_enabled':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idETH}/loan_collateral_enabled': 'false'}})
         self.nodes[0].generate(1)
 
         # Check ETH collateral token disabled
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/loan_collateral_enabled'], 'false')
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'][f'v0/token/{self.idETH}/loan_collateral_enabled'],
+                     'false')
 
         # Try and deposit disabled collateral to vault
-        assert_raises_rpc_error(-32600, f'Collateral token ({self.idETH}) is disabled', self.nodes[0].deposittovault, vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@ETH')
+        assert_raises_rpc_error(-32600, f'Collateral token ({self.idETH}) is disabled', self.nodes[0].deposittovault,
+                                vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@ETH')
 
         # Reduce interest to zero
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/loan_minting_interest':'0'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/loan_minting_interest': '0'}})
         self.nodes[0].generate(1)
 
         # Take new loan with zero interest on the loan token
@@ -894,7 +929,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].getvault(vaultId6)['interestValue'], interest + Decimal('0.000000120'))
 
         # Set loan token to also be a collateral token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/loan_collateral_enabled':'true', f'v0/token/{self.idGOOGL}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/loan_collateral_enabled': 'true',
+                                             f'v0/token/{self.idGOOGL}/loan_collateral_factor': '0.5'}})
         self.nodes[0].generate(1)
 
         # Deposit GOOGL to vault
@@ -907,7 +943,7 @@ class VaultTest (DefiTestFramework):
         assert_equal(result['collateralAmounts'], ['5.00000000@DFI', '5.00000000@ETH', '1.00000000@GOOGL'])
 
         # Disable loan token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idGOOGL}/loan_minting_enabled':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idGOOGL}/loan_minting_enabled': 'false'}})
         self.nodes[0].generate(1)
 
         # Check loan token is false, still shows up in listloantokens as per previous behaviour.
@@ -915,12 +951,19 @@ class VaultTest (DefiTestFramework):
         assert_equal(result['token'][str(self.idGOOGL)]['isLoanToken'], False)
 
         # Check that taking loan now fails
-        assert_raises_rpc_error(-32600, f'Loan cannot be taken on token with id ({self.idGOOGL}) as "mintable" is currently false', self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@GOOGL"})
+        assert_raises_rpc_error(-32600,
+                                f'Loan cannot be taken on token with id ({self.idGOOGL}) as "mintable" is currently false',
+                                self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@GOOGL"})
 
         # Set collateral and loan tokens for 10 blocks time
         activation_height = self.nodes[0].getblockcount() + 10
-        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/token/{self.idAAPL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idAAPL}/loan_minting_enabled':'true', f'v0/token/{self.idAAPL}/loan_minting_interest':'1',
-                                                  f'v0/token/{self.idUSDT}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{self.idUSDT}/loan_collateral_enabled':'true', f'v0/token/{self.idUSDT}/loan_collateral_factor':'1'}}, activation_height)
+        self.nodes[0].setgovheight({"ATTRIBUTES": {f'v0/token/{self.idAAPL}/fixed_interval_price_id': 'GOOGL/USD',
+                                                   f'v0/token/{self.idAAPL}/loan_minting_enabled': 'true',
+                                                   f'v0/token/{self.idAAPL}/loan_minting_interest': '1',
+                                                   f'v0/token/{self.idUSDT}/fixed_interval_price_id': 'GOOGL/USD',
+                                                   f'v0/token/{self.idUSDT}/loan_collateral_enabled': 'true',
+                                                   f'v0/token/{self.idUSDT}/loan_collateral_factor': '1'}},
+                                   activation_height)
         self.nodes[0].generate(1)
 
         # Check pending tokens
@@ -972,6 +1015,7 @@ class VaultTest (DefiTestFramework):
         self.test_50pctDFI_rule_after_BTC_price_increase()
         self.overflowed_collateral_value()
         self.loan_and_collateral_token_to_govvar()
+
 
 if __name__ == '__main__':
     VaultTest().main()

@@ -14,14 +14,17 @@ import calendar
 import time
 from decimal import Decimal
 
-class LoanTest (DefiTestFramework):
+
+class LoanTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
-            ]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1']
+        ]
 
     def run_test(self):
         self.nodes[0].generate(300)
@@ -52,7 +55,8 @@ class LoanTest (DefiTestFramework):
 
         # setup oracle
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"},
+                       {"currency": "USD", "token": "TSLA"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds, 10)
         self.nodes[0].generate(1)
         oracle_address2 = self.nodes[0].getnewaddress("", "legacy")
@@ -60,25 +64,27 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # feed oracle
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"},
+                          {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(1)
-        oracle2_prices = [{"currency": "USD", "tokenAmount": "15@TSLA"}, {"currency": "USD", "tokenAmount": "15@DFI"}, {"currency": "USD", "tokenAmount": "15@BTC"}]
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "15@TSLA"}, {"currency": "USD", "tokenAmount": "15@DFI"},
+                          {"currency": "USD", "tokenAmount": "15@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
         self.nodes[0].generate(1)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
-                                    'token': "DFI",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': "DFI",
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].generate(1)
         self.nodes[0].setcollateraltoken({
-                                    'token': "BTC",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': "BTC",
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"})
         self.nodes[0].generate(1)
 
         # Create loan schemes
@@ -88,7 +94,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create vault
-        vaultId1 = self.nodes[0].createvault(account, '') # default loan scheme
+        vaultId1 = self.nodes[0].createvault(account, '')  # default loan scheme
         self.nodes[0].generate(5)
 
         # deposit DFI and BTC to vault1
@@ -99,27 +105,27 @@ class LoanTest (DefiTestFramework):
 
         # set TSLA as loan token
         self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla Token",
-                            'fixedIntervalPriceId': "TSLA/USD",
-                            'mintable': True,
-                            'interest': 1})
+            'symbol': "TSLA",
+            'name': "Tesla Token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 1})
         self.nodes[0].generate(6)
 
         # take loan
         self.nodes[0].takeloan({
-                    'vaultId': vaultId1,
-                    'amounts': "1000@TSLA"})
+            'vaultId': vaultId1,
+            'amounts': "1000@TSLA"})
         self.nodes[0].generate(1)
         accountBal = self.nodes[0].getaccount(account)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
-        self.nodes[0].generate(60) # ~10 hours
+        self.nodes[0].generate(60)  # ~10 hours
         vault1 = self.nodes[0].getvault(vaultId1)
         interests = self.nodes[0].getinterest(
             vault1['loanSchemeId'],
             'TSLA'
         )
-        totalLoanAmount = (1000+interests[0]['totalInterest']) # Initial loan taken
+        totalLoanAmount = (1000 + interests[0]['totalInterest'])  # Initial loan taken
         assert_equal(Decimal(vault1['loanAmounts'][0].split("@")[0]), totalLoanAmount)
 
         # Trigger liquidation updating price in oracle
@@ -143,7 +149,7 @@ class LoanTest (DefiTestFramework):
             self.nodes[0].placeauctionbid(vaultId1, 0, account, "410@TSLA")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("First bid should include liquidation penalty of 5%" in errorString)
+        assert ("First bid should include liquidation penalty of 5%" in errorString)
 
         self.nodes[0].minttokens("1000@TSLA")
         self.nodes[0].generate(1)
@@ -161,17 +167,17 @@ class LoanTest (DefiTestFramework):
         # new account for new bidder
         self.nodes[0].generate(1)
         account2 = self.nodes[0].getnewaddress()
-        self.nodes[0].accounttoaccount(account, {account2: "1000@TSLA"} )
+        self.nodes[0].accounttoaccount(account, {account2: "1000@TSLA"})
         self.nodes[0].generate(1)
 
         # Fail auction bid less that 1% higher
         try:
-            self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555@TSLA") # just under 1%
+            self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555@TSLA")  # just under 1%
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Bid override should be at least 1% higher than current one" in errorString)
+        assert ("Bid override should be at least 1% higher than current one" in errorString)
 
-        self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555.5@TSLA") # above 1%
+        self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555.5@TSLA")  # above 1%
         self.nodes[0].generate(1)
 
         # check balances are right after greater bid
@@ -205,8 +211,9 @@ class LoanTest (DefiTestFramework):
         auctionlist = self.nodes[0].listauctions()
         assert_equal(len(auctionlist[0]['batches']), 2)
 
-        self.nodes[0].placeauctionbid(vaultId1, 0, account, "515@TSLA") # above 5% and leave vault with some loan to exit liquidation state
-        self.nodes[0].generate(40) # let auction end
+        self.nodes[0].placeauctionbid(vaultId1, 0, account,
+                                      "515@TSLA")  # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].generate(40)  # let auction end
 
         auction = self.nodes[0].listauctionhistory(account)[0]
         assert_equal(auction['winner'], account)
@@ -217,7 +224,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(auction['auctionWon'].sort(), ['399.99999600@DFI', '399.99999600@DFI'].sort())
 
         self.nodes[0].placeauctionbid(vaultId1, 0, account, "259@TSLA")
-        self.nodes[0].generate(40) # let auction end
+        self.nodes[0].generate(40)  # let auction end
 
         auctions = self.nodes[0].listauctionhistory()
         assert_equal(len(auctions), 3)
@@ -240,7 +247,6 @@ class LoanTest (DefiTestFramework):
 
         assert_equal(vault1['state'], "active")
         assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '226.00000000@TSLA'])
-
 
         self.nodes[0].deposittovault(vaultId1, account, '600@DFI')
         self.nodes[0].generate(1)
@@ -275,14 +281,16 @@ class LoanTest (DefiTestFramework):
             self.nodes[0].placeauctionbid(vaultId1, 0, "*", "1600@TSLA")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
+        assert ("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
 
         newAddress = self.nodes[0].getnewaddress("")
-        self.nodes[0].sendtokenstoaddress({}, {newAddress: "1600@TSLA"}) # newAddress has now the highest amount of TSLA token
+        self.nodes[0].sendtokenstoaddress({}, {
+            newAddress: "1600@TSLA"})  # newAddress has now the highest amount of TSLA token
         self.nodes[0].generate(1)
 
-        self.nodes[0].placeauctionbid(vaultId1, 0, "*", "1600@TSLA") # Autoselect address with highest amount of TSLA token
-        self.nodes[0].generate(40) # let auction end
+        self.nodes[0].placeauctionbid(vaultId1, 0, "*",
+                                      "1600@TSLA")  # Autoselect address with highest amount of TSLA token
+        self.nodes[0].generate(40)  # let auction end
 
         auction = self.nodes[0].listauctionhistory(newAddress)[0]
         assert_equal(auction['winner'], newAddress)
@@ -291,6 +299,6 @@ class LoanTest (DefiTestFramework):
         assert_equal(auction['batchIndex'], 0)
         assert_equal(auction['auctionBid'], "1600.00000000@TSLA")
 
+
 if __name__ == '__main__':
     LoanTest().main()
-

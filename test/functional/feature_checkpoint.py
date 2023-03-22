@@ -11,7 +11,8 @@ from test_framework.util import (
     assert_equal
 )
 
-class CheckpointTest (DefiTestFramework):
+
+class CheckpointTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
@@ -42,7 +43,7 @@ class CheckpointTest (DefiTestFramework):
         headblock = self.nodes[0].getblockcount()
 
         # REVERTING:
-        #========================
+        # ========================
         self.start_node(1)
         self.nodes[1].generate(10)
 
@@ -50,5 +51,6 @@ class CheckpointTest (DefiTestFramework):
         # reverting prior last checkpoint is forbidden
         assert_equal(self.nodes[0].getblockcount(), headblock)
 
+
 if __name__ == '__main__':
-    CheckpointTest ().main ()
+    CheckpointTest().main()

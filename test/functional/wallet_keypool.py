@@ -9,6 +9,7 @@ import time
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+
 class KeyPoolTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -81,6 +82,7 @@ class KeyPoolTest(DefiTestFramework):
         wi = nodes[0].getwalletinfo()
         assert_equal(wi['keypoolsize_hd_internal'], 100)
         assert_equal(wi['keypoolsize'], 100)
+
 
 if __name__ == '__main__':
     KeyPoolTest().main()

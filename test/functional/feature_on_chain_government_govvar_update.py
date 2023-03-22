@@ -13,18 +13,31 @@ from test_framework.util import (
 from decimal import ROUND_DOWN, Decimal
 
 VOTING_PERIOD = 70
-EMERGENCY_PERIOD=100
-EMERGENCY_FEE=0.1
+EMERGENCY_PERIOD = 100
+EMERGENCY_FEE = 0.1
+
 
 class CFPFeeDistributionTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-grandcentralheight=101'],
         ]
 
     def test_cfp_update_automatic_payout(self):
@@ -36,7 +49,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -68,16 +82,20 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # Activate payout on second cycle
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov-payout': 'true'}})
         self.nodes[0].generate(1)
 
         # Import MN keys into MN0
-        self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(self.nodes[0].getmasternode(self.mn1)[self.mn1]['ownerAuthAddress']))
-        self.nodes[0].importprivkey(self.nodes[2].dumpprivkey(self.nodes[0].getmasternode(self.mn2)[self.mn2]['ownerAuthAddress']))
-        self.nodes[0].importprivkey(self.nodes[3].dumpprivkey(self.nodes[0].getmasternode(self.mn3)[self.mn3]['ownerAuthAddress']))
+        self.nodes[0].importprivkey(
+            self.nodes[1].dumpprivkey(self.nodes[0].getmasternode(self.mn1)[self.mn1]['ownerAuthAddress']))
+        self.nodes[0].importprivkey(
+            self.nodes[2].dumpprivkey(self.nodes[0].getmasternode(self.mn2)[self.mn2]['ownerAuthAddress']))
+        self.nodes[0].importprivkey(
+            self.nodes[3].dumpprivkey(self.nodes[0].getmasternode(self.mn3)[self.mn3]['ownerAuthAddress']))
 
         # Vote during second cycle using multi-vote
-        self.nodes[0].votegovbatch([[propId, self.mn0, "yes"], [propId, self.mn1, "yes"], [propId, self.mn2, "yes"], [propId, self.mn3, "yes"]])
+        self.nodes[0].votegovbatch([[propId, self.mn0, "yes"], [propId, self.mn1, "yes"], [propId, self.mn2, "yes"],
+                                    [propId, self.mn3, "yes"]])
         self.nodes[0].generate(1)
 
         # End proposal
@@ -103,7 +121,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -114,7 +133,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update quorum during first cycle.
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/quorum':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/quorum': '80%'}})
         self.nodes[0].generate(1)
 
         # Vote during first cycle
@@ -167,7 +186,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -178,7 +198,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update majority threshold during first cycle
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_approval_threshold': '80%'}})
         self.nodes[0].generate(1)
 
         # Vote during first cycle
@@ -204,7 +224,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'0.8'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_approval_threshold': '0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -240,7 +260,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -270,7 +291,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1, [])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -307,7 +328,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -329,8 +351,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'50%'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_fee': '50%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -368,7 +390,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -389,7 +412,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voting_period': '200'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/voting_period': '200'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -421,7 +444,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # Set longer emergency period
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
         self.nodes[0].generate(1)
 
         # Move to next cycle
@@ -450,8 +473,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].votegov(propId, self.mn0, "yes")
@@ -488,7 +511,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": 1, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": 1, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -519,7 +543,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update quorum after end of proposal.
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/cfp_approval_threshold': '80%'}})
         self.nodes[0].generate(1)
 
         # Attributes change should not impact state of resolved proposals
@@ -562,8 +586,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/params/feature/gov':'true',
+        self.nodes[0].setgov({"ATTRIBUTES": {
+            'v0/params/feature/gov': 'true',
             'v0/gov/proposals/voting_period': str(VOTING_PERIOD),
         }})
         self.nodes[0].generate(1)
@@ -571,7 +595,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks(timeout=120)
 
     def run_test(self):
-
         self.setup()
 
         self.test_cfp_update_automatic_payout()
@@ -581,7 +604,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_update_cfp_fee()
         self.test_cfp_update_voting_period()
 
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD),
             'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE),
         }})
@@ -593,5 +616,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.test_cfp_state_after_update()
 
+
 if __name__ == '__main__':
-    CFPFeeDistributionTest().main ()
+    CFPFeeDistributionTest().main()

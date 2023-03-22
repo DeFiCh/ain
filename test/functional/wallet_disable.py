@@ -11,13 +11,14 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_raises_rpc_error
 
-class DisableWalletTest (DefiTestFramework):
+
+class DisableWalletTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
         self.extra_args = [["-disablewallet"]]
 
-    def run_test (self):
+    def run_test(self):
         # Make sure wallet is really disabled
         assert_raises_rpc_error(-32601, 'Method not found', self.nodes[0].getwalletinfo)
         x = self.nodes[0].validateaddress('3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')
@@ -29,7 +30,9 @@ class DisableWalletTest (DefiTestFramework):
         # but generating to an invalid address will fail.
         # NO! we can't mine w/o a wallet!
         # self.nodes[0].generatetoaddress(1, 'mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ')
-        assert_raises_rpc_error(-5, "Invalid address", self.nodes[0].generatetoaddress, 1, '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')
+        assert_raises_rpc_error(-5, "Invalid address", self.nodes[0].generatetoaddress, 1,
+                                '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')
+
 
 if __name__ == '__main__':
-    DisableWalletTest ().main ()
+    DisableWalletTest().main()

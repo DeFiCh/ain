@@ -40,22 +40,27 @@ class AbandonConflictTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Can not abandon non-wallet transaction
-        assert_raises_rpc_error(-5, 'Invalid or non-wallet transaction id', lambda: self.nodes[0].abandontransaction(txid='ff' * 32))
+        assert_raises_rpc_error(-5, 'Invalid or non-wallet transaction id',
+                                lambda: self.nodes[0].abandontransaction(txid='ff' * 32))
         # Can not abandon confirmed transaction
-        assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: self.nodes[0].abandontransaction(txid=txA))
+        assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment',
+                                lambda: self.nodes[0].abandontransaction(txid=txA))
 
         self.sync_blocks()
         newbalance = self.nodes[0].getbalance()
-        assert balance - newbalance < Decimal("0.001")  #no more than fees lost
+        assert balance - newbalance < Decimal("0.001")  # no more than fees lost
         balance = newbalance
 
         # Disconnect nodes so node0's transactions don't get into node1's mempool
         disconnect_nodes(self.nodes[0], 1)
 
         # Identify the 10btc outputs
-        nA = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txA)["details"] if tx_out["amount"] == Decimal("10"))
-        nB = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txB)["details"] if tx_out["amount"] == Decimal("10"))
-        nC = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txC)["details"] if tx_out["amount"] == Decimal("10"))
+        nA = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txA)["details"] if
+                  tx_out["amount"] == Decimal("10"))
+        nB = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txB)["details"] if
+                  tx_out["amount"] == Decimal("10"))
+        nC = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txC)["details"] if
+                  tx_out["amount"] == Decimal("10"))
 
         inputs = []
         # spend 10btc outputs from txA and txB
@@ -69,9 +74,10 @@ class AbandonConflictTest(DefiTestFramework):
         txAB1 = self.nodes[0].sendrawtransaction(signed["hex"])
 
         # Identify the 14.99998btc output
-        nAB = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txAB1)["details"] if tx_out["amount"] == Decimal("14.99998"))
+        nAB = next(tx_out["vout"] for tx_out in self.nodes[0].gettransaction(txAB1)["details"] if
+                   tx_out["amount"] == Decimal("14.99998"))
 
-        #Create a child tx spending AB1 and C
+        # Create a child tx spending AB1 and C
         inputs = []
         inputs.append({"txid": txAB1, "vout": nAB})
         inputs.append({"txid": txC, "vout": nC})
@@ -173,8 +179,9 @@ class AbandonConflictTest(DefiTestFramework):
         # Don't think C's should either
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
         newbalance = self.nodes[0].getbalance()
-        #assert_equal(newbalance, balance - Decimal("10"))
-        self.log.info("If balance has not declined after invalidateblock then out of mempool wallet tx which is no longer")
+        # assert_equal(newbalance, balance - Decimal("10"))
+        self.log.info(
+            "If balance has not declined after invalidateblock then out of mempool wallet tx which is no longer")
         self.log.info("conflicted has not resumed causing its inputs to be seen as spent.  See Issue #7315")
         self.log.info(str(balance) + " -> " + str(newbalance) + " ?")
 

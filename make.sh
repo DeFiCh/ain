@@ -32,7 +32,7 @@ setup_vars() {
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
         "${TARGET}" == "x86_64-apple-darwin11" ]]; then
-        default_compiler_flags="CC=clang-14 CXX=clang++-14"
+        default_compiler_flags="CC=clang-16 CXX=clang++-16"
     fi
 
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -382,6 +382,12 @@ git_version() {
     fi
 }
 
+pkg_install_base() {
+  apt update
+  apt install -y apt-transport-https
+  apt dist-upgrade -y
+}
+
 pkg_install_deps_x86_64() {
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
@@ -392,18 +398,18 @@ pkg_install_deps_x86_64() {
         curl cmake unzip
 }
 
+pkg_install_mac_sdk_deps() {
+  apt install -y \
+        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+}
+
+pkg_install_deps_mingw_x86_64() {
+  apt install -y \
+        g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
+}
+
 pkg_install_llvm() {
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
-}
-
-pkg_install_llvm_ubuntu_18_04() {
-    add-apt-repository ppa:ubuntu-toolchain-r/test
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
-}
-
-pkg_install_deps_mac() {
-    apt install -y \
-    python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 16
 }
 
 pkg_ensure_mac_sdk() {

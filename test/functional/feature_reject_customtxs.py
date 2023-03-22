@@ -10,11 +10,14 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
+
 class RejectCustomTx(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=120']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1',
+             '-fortcanningheight=120']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -53,7 +56,9 @@ class RejectCustomTx(DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test sending DfTx in a vout other than 0
-        rawtx_opreturn_vout1 = self.nodes[0].createrawtransaction([{"txid":rawtx['vin'][0]['txid'], "vout":rawtx['vin'][0]['vout']}], [{collateral:0.99999000},{"data":pushdata[2:]}])
+        rawtx_opreturn_vout1 = self.nodes[0].createrawtransaction(
+            [{"txid": rawtx['vin'][0]['txid'], "vout": rawtx['vin'][0]['vout']}],
+            [{collateral: 0.99999000}, {"data": pushdata[2:]}])
         signed_opreturn_vout1 = self.nodes[0].signrawtransactionwithwallet(rawtx_opreturn_vout1)
         self.nodes[0].sendrawtransaction(signed_opreturn_vout1['hex'])
 
@@ -61,7 +66,9 @@ class RejectCustomTx(DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test sending DfTx with None type
-        rawtx_none = self.nodes[0].createrawtransaction([{"txid":rawtx['vin'][0]['txid'], "vout":rawtx['vin'][0]['vout']}], [{collateral:0.99999000},{"data":"4466547800"}])
+        rawtx_none = self.nodes[0].createrawtransaction(
+            [{"txid": rawtx['vin'][0]['txid'], "vout": rawtx['vin'][0]['vout']}],
+            [{collateral: 0.99999000}, {"data": "4466547800"}])
         signed_none = self.nodes[0].signrawtransactionwithwallet(rawtx_none)
         self.nodes[0].sendrawtransaction(signed_none['hex'])
 
@@ -69,7 +76,9 @@ class RejectCustomTx(DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test sending DfTx with unknown type z
-        rawtx_unknown = self.nodes[0].createrawtransaction([{"txid":rawtx['vin'][0]['txid'], "vout":rawtx['vin'][0]['vout']}], [{collateral:0.99999000},{"data":"4466547879"}])
+        rawtx_unknown = self.nodes[0].createrawtransaction(
+            [{"txid": rawtx['vin'][0]['txid'], "vout": rawtx['vin'][0]['vout']}],
+            [{collateral: 0.99999000}, {"data": "4466547879"}])
         signed_unknown = self.nodes[0].signrawtransactionwithwallet(rawtx_unknown)
         self.nodes[0].sendrawtransaction(signed_unknown['hex'])
 
@@ -85,34 +94,35 @@ class RejectCustomTx(DefiTestFramework):
         # Try and send multi opcode TX after hard fork
         try:
             self.nodes[0].sendrawtransaction(signed_multiop['hex'])
-            assert(False)
+            assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid custom transaction" in errorString)
+        assert ("Invalid custom transaction" in errorString)
 
         # Try and send DfTx in a vout other than 0 after hard fork
         try:
             self.nodes[0].sendrawtransaction(signed_opreturn_vout1['hex'])
-            assert(False)
+            assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid custom transaction" in errorString)
+        assert ("Invalid custom transaction" in errorString)
 
         # Try and send DfTx with None type after hard fork
         try:
             self.nodes[0].sendrawtransaction(signed_none['hex'])
-            assert(False)
+            assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid custom transaction" in errorString)
+        assert ("Invalid custom transaction" in errorString)
 
         # Try and send DfTx with unknown type after hard fork
         try:
             self.nodes[0].sendrawtransaction(signed_unknown['hex'])
-            assert(False)
+            assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid custom transaction" in errorString)
+        assert ("Invalid custom transaction" in errorString)
+
 
 if __name__ == '__main__':
     RejectCustomTx().main()

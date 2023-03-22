@@ -14,11 +14,12 @@ from test_framework.util import assert_equal
 
 import time
 
-class AnchorsAuthsPruningTest (DefiTestFramework):
+
+class AnchorsAuthsPruningTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1", '-amkheight=0', "-dakotaheight=1", "-fortcanningheight=1"],
+            ["-dummypos=1", "-spv=1", '-amkheight=0', "-dakotaheight=1", "-fortcanningheight=1"],
         ]
         self.setup_clean_chain = True
 
@@ -35,7 +36,7 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].spv_listanchors()), 0)
 
         # Checking starting set
-        assert_equal(len(self.nodes[0].spv_listanchorauths()), 2) # 15,30
+        assert_equal(len(self.nodes[0].spv_listanchorauths()), 2)  # 15,30
 
         # Setting anchor
         self.nodes[0].spv_setlastheight(1)
@@ -50,22 +51,23 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
         assert_equal(txinfo['defiHeight'], 30)
 
         # Still the same
-        assert_equal(len(self.nodes[0].spv_listanchorauths()), 2) # 15,30
+        assert_equal(len(self.nodes[0].spv_listanchorauths()), 2)  # 15,30
         self.genmocktime(int(time.time() + (12 * 60 * 60)), 6)
 
         # Couple of auths added
-        assert_equal(len(self.nodes[0].spv_listanchorauths()), 4) # + 45,60
+        assert_equal(len(self.nodes[0].spv_listanchorauths()), 4)  # + 45,60
 
         # Nothing should change
         self.nodes[0].spv_setlastheight(5)
-        assert_equal(len(self.nodes[0].spv_listanchorauths()), 4) # 15,30,45,60
+        assert_equal(len(self.nodes[0].spv_listanchorauths()), 4)  # 15,30,45,60
 
         # Pruning should occur
         self.nodes[0].spv_setlastheight(6)
-        auths = self.nodes[0].spv_listanchorauths() # 45,60 only
+        auths = self.nodes[0].spv_listanchorauths()  # 45,60 only
         assert_equal(len(auths), 2)
         assert_equal(auths[0]['blockHeight'], 60)
         assert_equal(auths[1]['blockHeight'], 45)
 
+
 if __name__ == '__main__':
-    AnchorsAuthsPruningTest ().main ()
+    AnchorsAuthsPruningTest().main()

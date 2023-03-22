@@ -19,6 +19,7 @@ from test_framework.util import wait_until
 
 banscore = 10
 
+
 class CLazyNode(P2PInterface):
     def __init__(self):
         super().__init__()
@@ -33,27 +34,49 @@ class CLazyNode(P2PInterface):
         self.ever_connected = True
 
     def on_version(self, message): self.bad_message(message)
+
     def on_verack(self, message): self.bad_message(message)
+
     def on_reject(self, message): self.bad_message(message)
+
     def on_inv(self, message): self.bad_message(message)
+
     def on_addr(self, message): self.bad_message(message)
+
     def on_getdata(self, message): self.bad_message(message)
+
     def on_getblocks(self, message): self.bad_message(message)
+
     def on_tx(self, message): self.bad_message(message)
+
     def on_block(self, message): self.bad_message(message)
+
     def on_getaddr(self, message): self.bad_message(message)
+
     def on_headers(self, message): self.bad_message(message)
+
     def on_anchorauth(self, message): self.bad_message(message)
+
     def on_getheaders(self, message): self.bad_message(message)
+
     def on_ping(self, message): self.bad_message(message)
+
     def on_mempool(self, message): self.bad_message(message)
+
     def on_pong(self, message): self.bad_message(message)
+
     def on_feefilter(self, message): self.bad_message(message)
+
     def on_sendheaders(self, message): self.bad_message(message)
+
     def on_sendcmpct(self, message): self.bad_message(message)
+
     def on_cmpctblock(self, message): self.bad_message(message)
+
     def on_getblocktxn(self, message): self.bad_message(message)
+
     def on_blocktxn(self, message): self.bad_message(message)
+
 
 # Node that never sends a version. We'll use this to send a bunch of messages
 # anyway, and eventually get disconnected.
@@ -67,11 +90,13 @@ class CNodeNoVersionBan(CLazyNode):
 
     def on_reject(self, message): pass
 
+
 # Node that never sends a version. This one just sits idle and hopes to receive
 # any message (it shouldn't!)
 class CNodeNoVersionIdle(CLazyNode):
     def __init__(self):
         super().__init__()
+
 
 # Node that sends a version but not a verack.
 class CNodeNoVerackIdle(CLazyNode):
@@ -80,7 +105,9 @@ class CNodeNoVerackIdle(CLazyNode):
         super().__init__()
 
     def on_reject(self, message): pass
+
     def on_verack(self, message): pass
+
     # When version is received, don't reply with a verack. Instead, see if the
     # node will give us a message that it shouldn't. This is not an exhaustive
     # list!
@@ -89,14 +116,17 @@ class CNodeNoVerackIdle(CLazyNode):
         self.send_message(msg_ping())
         self.send_message(msg_getaddr())
 
+
 class P2PLeakTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [['-banscore=' + str(banscore)]]
 
     def run_test(self):
-        no_version_bannode = self.nodes[0].add_p2p_connection(CNodeNoVersionBan(), send_version=False, wait_for_verack=False)
-        no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(), send_version=False, wait_for_verack=False)
+        no_version_bannode = self.nodes[0].add_p2p_connection(CNodeNoVersionBan(), send_version=False,
+                                                              wait_for_verack=False)
+        no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(), send_version=False,
+                                                               wait_for_verack=False)
         no_verack_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVerackIdle())
 
         wait_until(lambda: no_version_bannode.ever_connected, timeout=10, lock=mininode_lock)
@@ -106,10 +136,10 @@ class P2PLeakTest(DefiTestFramework):
         # Mine a block and make sure that it's not sent to the connected nodes
         self.nodes[0].generate(1)
 
-        #Give the node enough time to possibly leak out a message
+        # Give the node enough time to possibly leak out a message
         time.sleep(5)
 
-        #This node should have been banned
+        # This node should have been banned
         assert not no_version_bannode.is_connected
 
         self.nodes[0].disconnect_p2ps()

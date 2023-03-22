@@ -12,6 +12,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import wait_until
 
+
 class ReindexTest(DefiTestFramework):
 
     def set_test_params(self):
@@ -32,6 +33,7 @@ class ReindexTest(DefiTestFramework):
         self.reindex(True)
         self.reindex(False)
         self.reindex(True)
+
 
 if __name__ == '__main__':
     ReindexTest().main()

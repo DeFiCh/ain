@@ -15,6 +15,7 @@ from test_framework.util import assert_equal
 
 BUFFER_SIZE = 16 * 1024
 
+
 class ToolWalletTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -26,7 +27,8 @@ class ToolWalletTest(DefiTestFramework):
     def defi_wallet_process(self, *args):
         binary = self.config["environment"]["BUILDDIR"] + '/src/defi-wallet' + self.config["environment"]["EXEEXT"]
         args = ['-datadir={}'.format(self.nodes[0].datadir), '-regtest'] + list(args)
-        return subprocess.Popen([binary] + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        return subprocess.Popen([binary] + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                universal_newlines=True)
 
     def assert_raises_tool_error(self, error, *args):
         p = self.defi_wallet_process(*args)
@@ -46,7 +48,7 @@ class ToolWalletTest(DefiTestFramework):
         h = hashlib.sha1()
         mv = memoryview(bytearray(BUFFER_SIZE))
         with open(self.wallet_path, 'rb', buffering=0) as f:
-            for n in iter(lambda : f.readinto(mv), 0):
+            for n in iter(lambda: f.readinto(mv), 0):
                 h.update(mv[:n])
         return h.hexdigest()
 
@@ -65,9 +67,11 @@ class ToolWalletTest(DefiTestFramework):
         self.assert_raises_tool_error('Invalid command: foo', 'foo')
         # `defi-wallet help` raises an error. Use `defi-wallet -help`.
         self.assert_raises_tool_error('Invalid command: help', 'help')
-        self.assert_raises_tool_error('Error: two methods provided (info and create). Only one method should be provided.', 'info', 'create')
+        self.assert_raises_tool_error(
+            'Error: two methods provided (info and create). Only one method should be provided.', 'info', 'create')
         self.assert_raises_tool_error('Error parsing command line arguments: Invalid parameter -foo', '-foo')
-        self.assert_raises_tool_error('Error loading wallet.dat. Is wallet being used by other process?', '-wallet=wallet.dat', 'info')
+        self.assert_raises_tool_error('Error loading wallet.dat. Is wallet being used by other process?',
+                                      '-wallet=wallet.dat', 'info')
         self.assert_raises_tool_error('Error: no wallet file at nonexistent.dat', '-wallet=nonexistent.dat', 'info')
 
     def test_tool_wallet_info(self):
@@ -101,7 +105,7 @@ class ToolWalletTest(DefiTestFramework):
         self.log_wallet_timestamp_comparison(timestamp_before, timestamp_after)
         self.log.debug('Setting wallet file permissions back to 600 (read/write)')
         os.chmod(self.wallet_path, stat.S_IRUSR | stat.S_IWUSR)
-        assert(self.wallet_permissions() in ['600', '666']) # Sanity check. 666 because Appveyor.
+        assert (self.wallet_permissions() in ['600', '666'])  # Sanity check. 666 because Appveyor.
         #
         # TODO: Wallet tool info should not write to the wallet file.
         # The following lines should be uncommented and the tests still succeed:
@@ -116,7 +120,8 @@ class ToolWalletTest(DefiTestFramework):
         Mutate the wallet with a transaction to verify that the info command
         output changes accordingly.
         """
-        self.start_node(0, ['-regtest', '-txnotokens=0']) # looks like we ought to enforce back "normal" serialization here
+        self.start_node(0, ['-regtest',
+                            '-txnotokens=0'])  # looks like we ought to enforce back "normal" serialization here
         self.log.info('Generating transaction to mutate wallet')
         self.nodes[0].generate(1)
         self.stop_node(0)
@@ -172,7 +177,8 @@ class ToolWalletTest(DefiTestFramework):
 
     def test_getwalletinfo_on_different_wallet(self):
         self.log.info('Starting node with arg -wallet=foo')
-        self.start_node(0, ['-wallet=foo', '-regtest', '-txnotokens=0']) # looks like we ought to enforce back "normal" serialization here
+        self.start_node(0, ['-wallet=foo', '-regtest',
+                            '-txnotokens=0'])  # looks like we ought to enforce back "normal" serialization here
 
         self.log.info('Calling getwalletinfo on a different wallet ("foo"), testing output')
         shasum_before = self.wallet_shasum()

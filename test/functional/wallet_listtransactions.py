@@ -14,11 +14,13 @@ from test_framework.util import (
     hex_str_to_bytes,
 )
 
+
 def tx_from_hex(hexstring):
     tx = CTransaction()
     f = BytesIO(hex_str_to_bytes(hexstring))
     tx.deserialize(f)
     return tx
+
 
 class ListTransactionsTest(DefiTestFramework):
     def set_test_params(self):
@@ -204,6 +206,7 @@ class ListTransactionsTest(DefiTestFramework):
         assert txid_3b not in self.nodes[0].getrawmempool()
         assert_equal(self.nodes[0].gettransaction(txid_3b)["bip125-replaceable"], "no")
         assert_equal(self.nodes[0].gettransaction(txid_4)["bip125-replaceable"], "unknown")
+
 
 if __name__ == '__main__':
     ListTransactionsTest().main()

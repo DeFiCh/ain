@@ -29,20 +29,19 @@ class GetStoredInterestTest(DefiTestFramework):
         self.fortcanninggreatworldheight = 700
         self.extra_args = [
             ['-txnotokens=0',
-            '-amkheight=1',
-            '-bayfrontheight=1',
-            '-eunosheight=1',
-            '-fortcanningheight=1',
-            '-fortcanningmuseumheight=1',
-            '-fortcanningparkheight=1',
-            '-fortcanninghillheight=1',
-            '-fortcanningroadheight=1',
-            '-fortcanningcrunchheight=1',
-            '-fortcanningspringheight=1',
-            f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
-            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+             '-amkheight=1',
+             '-bayfrontheight=1',
+             '-eunosheight=1',
+             '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1',
+             '-fortcanningparkheight=1',
+             '-fortcanninghillheight=1',
+             '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1',
+             '-fortcanningspringheight=1',
+             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
+             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
-
 
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -1257,6 +1256,7 @@ class GetStoredInterestTest(DefiTestFramework):
         self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
+
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()

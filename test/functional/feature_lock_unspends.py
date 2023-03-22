@@ -7,11 +7,13 @@
 
 from test_framework.test_framework import DefiTestFramework
 
+
 class TestLockUnspends(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
+        self.extra_args = [
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
 
     def run_test(self):
         self.nodes[0].generate(105)
@@ -38,6 +40,7 @@ class TestLockUnspends(DefiTestFramework):
             self.nodes[0].minttokens(["100@" + token_a])
 
         self.nodes[0].generate(1)
+
 
 if __name__ == '__main__':
     TestLockUnspends().main()

@@ -25,17 +25,18 @@ class NotificationsTest(DefiTestFramework):
 
         # -alertnotify and -blocknotify on node0, walletnotify on node1
         self.extra_args = [[
-                            "-alertnotify=echo > {}".format(os.path.join(self.alertnotify_dir, '%s')),
-                            "-blocknotify=echo > {}".format(os.path.join(self.blocknotify_dir, '%s'))],
-                           ["-blockversion=211",
-                            "-rescan",
-                            "-walletnotify=echo > {}".format(os.path.join(self.walletnotify_dir, '%s'))]]
+            "-alertnotify=echo > {}".format(os.path.join(self.alertnotify_dir, '%s')),
+            "-blocknotify=echo > {}".format(os.path.join(self.blocknotify_dir, '%s'))],
+            ["-blockversion=211",
+             "-rescan",
+             "-walletnotify=echo > {}".format(os.path.join(self.walletnotify_dir, '%s'))]]
         super().setup_network()
 
     def run_test(self):
         self.log.info("test -blocknotify")
         block_count = 10
-        blocks = self.nodes[1].generate(nblocks=block_count, address=self.nodes[1].getnewaddress() if self.is_wallet_compiled() else ADDRESS_BCRT1_UNSPENDABLE)
+        blocks = self.nodes[1].generate(nblocks=block_count, address=self.nodes[
+            1].getnewaddress() if self.is_wallet_compiled() else ADDRESS_BCRT1_UNSPENDABLE)
 
         # wait at most 10 seconds for expected number of files before reading the content
         wait_until(lambda: len(os.listdir(self.blocknotify_dir)) == block_count, timeout=10)
@@ -46,10 +47,11 @@ class NotificationsTest(DefiTestFramework):
         if self.is_wallet_compiled():
             self.log.info("test -walletnotify")
             # wait at most 10 seconds for expected number of files before reading the content
-            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count+1, timeout=10) # block_count+1 due to +1 genesis mn tx
+            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count + 1,
+                       timeout=10)  # block_count+1 due to +1 genesis mn tx
 
             # directory content should equal the generated transaction hashes
-            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count+1)))
+            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count + 1)))
             assert_equal(sorted(txids_rpc), sorted(os.listdir(self.walletnotify_dir)))
             self.stop_node(1)
             for tx_file in os.listdir(self.walletnotify_dir):
@@ -60,13 +62,14 @@ class NotificationsTest(DefiTestFramework):
             self.start_node(1)
             connect_nodes_bi(self.nodes, 0, 1)
 
-            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count+1, timeout=10)
+            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count + 1, timeout=10)
 
             # directory content should equal the generated transaction hashes
-            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count+1)))
+            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count + 1)))
             assert_equal(sorted(txids_rpc), sorted(os.listdir(self.walletnotify_dir)))
 
         # TODO: add test for `-alertnotify` large fork notifications
+
 
 if __name__ == '__main__':
     NotificationsTest().main()

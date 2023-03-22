@@ -12,19 +12,31 @@ from test_framework.util import (
 
 from decimal import Decimal
 
+
 class OnChainGovernanceTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1', '-txindex=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-subsidytest=1'],
         ]
 
     def run_test(self):
-
         # Get MN addresses
         address1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
         address2 = self.nodes[2].get_genesis_keys().ownerAuthAddress
@@ -56,15 +68,17 @@ class OnChainGovernanceTest(DefiTestFramework):
         context = "<Git issue url>"
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true',
-                                            'v0/gov/proposals/voting_period':'40'}}, )
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true',
+                                             'v0/gov/proposals/voting_period': '40'}}, )
         self.nodes[0].generate(1)
         self.sync_blocks()
         # voting period
         votingPeriod = 40
 
         # Create CFP
-        tx = self.nodes[0].creategovcfp({"title": "Single cycle CFP (70)", "context": context, "amount": 100, "cycles": 1, "payoutAddress": address})
+        tx = self.nodes[0].creategovcfp(
+            {"title": "Single cycle CFP (70)", "context": context, "amount": 100, "cycles": 1,
+             "payoutAddress": address})
 
         # Generate a block
         self.nodes[0].generate(1)
@@ -72,7 +86,9 @@ class OnChainGovernanceTest(DefiTestFramework):
         creationHeight = self.nodes[0].getblockcount()
 
         # Create CFP with 2 cycles
-        tx1 = self.nodes[2].creategovcfp({"title": "Multi cycle CFP (70)", "context": context, "amount": 100, "cycles": 2, "payoutAddress": address2})
+        tx1 = self.nodes[2].creategovcfp(
+            {"title": "Multi cycle CFP (70)", "context": context, "amount": 100, "cycles": 2,
+             "payoutAddress": address2})
 
         self.nodes[2].generate(1)
         self.sync_blocks()
@@ -124,7 +140,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["fee"], Decimal("10"))
 
         # Change voting period at height - 1 when voting period ends
-        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/gov/proposals/voting_period':'130'}}, cycleAlignemnt - 1)
+        self.nodes[0].setgovheight({"ATTRIBUTES": {'v0/gov/proposals/voting_period': '130'}}, cycleAlignemnt - 1)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -135,7 +151,9 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Create CFP in new voting period
-        tx2 = self.nodes[0].creategovcfp({"title": "Single cycle CFP (200)", "context": context, "amount": 100, "cycles": 1, "payoutAddress": address})
+        tx2 = self.nodes[0].creategovcfp(
+            {"title": "Single cycle CFP (200)", "context": context, "amount": 100, "cycles": 1,
+             "payoutAddress": address})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -176,5 +194,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["cycleEndHeight"], proposalEndHeight)
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
 
+
 if __name__ == '__main__':
-    OnChainGovernanceTest().main ()
+    OnChainGovernanceTest().main()

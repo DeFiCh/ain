@@ -9,6 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, disconnect_nodes
 
+
 class TestRestoreUTXOs(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -74,6 +75,7 @@ class TestRestoreUTXOs(DefiTestFramework):
                 self.nodes[1].generate(1)
             self.rollback_to(block)
             assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
+
 
 if __name__ == '__main__':
     TestRestoreUTXOs().main()

@@ -9,6 +9,7 @@ from test_framework.util import (
     connect_nodes_bi,
 )
 
+
 class TestMasternodeOperator(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -31,7 +32,7 @@ class TestMasternodeOperator(DefiTestFramework):
         self.log.info("Restart nodes...")
         self.restart_node(0, ['-gen', '-masternode_operator=' + operators[0]])
         self.restart_node(1, ['-gen', '-rewardaddress=' + operators[1]] +
-                             ['-masternode_operator=' + x for x in operators])
+                          ['-masternode_operator=' + x for x in operators])
 
         connect_nodes_bi(self.nodes, 0, 1)
 
