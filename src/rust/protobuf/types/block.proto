@@ -1,0 +1,52 @@
+syntax = "proto3";
+package types;
+
+import "types/tx.proto";
+
+message Block {
+    string hash = 1; // Block hash (same as input, if any)
+    int64 confirmations = 2; // The number of confirmations, or -1 if the block is not on the main chain
+    uint64 size = 3; // Block size
+    uint64 strippedsize = 4; // Block size without witness data
+    uint64 weight = 5; // The block weight as defined in BIP 141
+    uint64 height = 6; // The block height or index
+    uint64 version = 7; // The block version
+    string version_hex = 8; // The block version in hex
+    string merkleroot = 9; // The merkle root
+    repeated types.Transaction tx = 10; // List of transaction IDs
+    uint64 time = 11; // The block time in seconds since UNIX epoch
+    uint64 mediantime = 12; // The median block time in seconds since UNIX epoch
+    uint64 nonce = 13; // The nonce used to generate the block (property exists only when PoW is used)
+    string bits = 14; // The bits which represent the target difficulty
+    double difficulty = 15; // The difficulty of the block
+    string chainwork = 16; // Expected number of hashes required to produce the chain up to this block (in hex)
+    uint32 n_tx = 17; // Number of transactions in the block
+    string previous_block_hash = 18; // The hash of the previous block
+    string next_block_hash = 19; // The hash of the next block
+
+    // DeFiChain fields
+    string masternode = 101;
+    string minter = 102;
+    uint64 minted_blocks = 103;
+    string stake_modifier = 104;
+    repeated NonUTXO nonutxo = 105;
+}
+
+message NonUTXO {
+    double anchor_reward = 1;
+    double burnt = 2;
+    double incentive_funding = 3;
+    double loan = 4;
+    double options = 5;
+    double unknown = 6;
+}
+
+message BlockInput {
+    string blockhash = 1; // Block hash
+    uint32 verbosity = 2; // 0 for hex-encoded data, 1 for a json object, and 2 for json object with transaction data [default: 1]
+}
+
+message BlockResult {
+    string hash = 1; // Hex-encoded data for block hash (for verbosity 0)
+    Block block = 2; // Block data (for verbosity 1 and 2)
+}

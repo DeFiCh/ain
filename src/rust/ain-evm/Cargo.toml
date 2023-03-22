@@ -1,0 +1,19 @@
+[package]
+name = "ain-evm"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+evm = { version = "0.37", default-features = false }
+
+# Build
+cxx = "1.0"
+
+[build-dependencies]
+substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
+cxx-gen = "0.7"
+proc-macro2 = "1.0"
