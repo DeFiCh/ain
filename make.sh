@@ -392,6 +392,26 @@ pkg_install_deps_x86_64() {
         curl cmake
 }
 
+pkg_install_deps_docker_mac() {
+  apt install -y \
+        software-properties-common build-essential git libtool autotools-dev automake \
+        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
+        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev \
+        curl cmake \
+        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+}
+
+pkg_install_deps_docker_windows() {
+  apt install -y \
+        software-properties-common build-essential git libtool autotools-dev automake \
+        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
+        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev \
+        curl cmake \
+        g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
+}
+
 pkg_install_llvm() {
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 16
 }
