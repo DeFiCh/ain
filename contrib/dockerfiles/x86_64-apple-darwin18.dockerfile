@@ -15,7 +15,8 @@ RUN apt update && apt dist-upgrade -y
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
 
-RUN DEBIAN_FRONTEND=noninteractive ./make.sh pkg_install_deps_mac
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mac
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev

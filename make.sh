@@ -392,23 +392,13 @@ pkg_install_deps_x86_64() {
         curl cmake
 }
 
-pkg_install_deps_mac() {
+pkg_install_mac_sdk_deps() {
   apt install -y \
-        software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev \
-        curl cmake \
-        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 }
 
-pkg_install_deps_windows() {
+pkg_install_deps_mingw_x86_64() {
   apt install -y \
-        software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev \
-        curl cmake \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
 }
 

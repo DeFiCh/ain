@@ -15,7 +15,8 @@ RUN apt update && apt dist-upgrade -y
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
 
-RUN DEBIAN_FRONTEND=noninteractive ./make.sh pkg_install_deps_windows
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
 
 # Set the default mingw32 g++ compiler option to posix.
 RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
