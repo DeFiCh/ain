@@ -167,5 +167,10 @@ class WalletHDTest(DefiTestFramework):
         assert_equal(result['witness_version'], 16)
         assert_equal(result['labels'][0]['purpose'], 'eth')
 
+        # Make sure TX to Eth address does not get braodcasted
+        self.nodes[0].sendtoaddress(eth_addr, 1)
+        txs = self.nodes[0].getrawmempool()
+        assert_equal(txs, [])
+
 if __name__ == '__main__':
     WalletHDTest().main ()
