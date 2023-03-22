@@ -63,7 +63,7 @@ service eth {
 
   rpc Eth_CompileSolidity(types.EthCompileSolidityInput) returns (types.EthCompileSolidityResult);
 
-//  rpc Eth_CompileLLL(types.EthCompileLLLInput) returns (types.EthCompileLLLResult);
+  rpc Eth_CompileLll(types.EthCompileLllInput) returns (types.EthCompileLllResult);
 
   rpc Eth_CompileSerpent(types.EthCompileSerpentInput) returns (types.EthCompileSerpentResult);
 

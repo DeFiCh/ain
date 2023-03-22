@@ -315,16 +315,16 @@ void Eth_CompileSolidity(EthCompileSolidityInput& request, EthCompileSolidityRes
     // result.data = "done";
 }
 
-//void Eth_CompileLLL(EthCompileLLLInput& request, EthCompileLLLResult& result)
-//{
-//    LOCK(cs_main);
-//
-//    // TODO
-//    // Call sputnikVM FFI call method with request fields
-//    // return output of sputnikVM call
-//
-//    // result.data = "done";
-//}
+void Eth_CompileLll(EthCompileLllInput& request, EthCompileLllResult& result)
+{
+    LOCK(cs_main);
+
+    // TODO
+    // Call sputnikVM FFI call method with request fields
+    // return output of sputnikVM call
+
+    // result.data = "done";
+}
 
 void Eth_CompileSerpent(EthCompileSerpentInput& request, EthCompileSerpentResult& result)
 {

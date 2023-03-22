@@ -259,11 +259,11 @@ message EthCompileSolidityResult {
     string compiledCode = 1;
 }
 
-message EthCompileLLLInput {
+message EthCompileLllInput {
     string code = 1;
 }
 
-message EthCompileLLLResult {
+message EthCompileLllResult {
     string compiledCode = 1;
 }
 

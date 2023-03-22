@@ -29,7 +29,7 @@ void Eth_GetUncleByBlockHashAndIndex(EthGetUncleByBlockHashAndIndexInput& reques
 void Eth_GetUncleByBlockNumberAndIndex(EthGetUncleByBlockNumberAndIndexInput& request, EthGetUncleByBlockNumberAndIndexResult& result);
 void Eth_GetCompilers(EthGetCompilersResult& result);
 void Eth_CompileSolidity(EthCompileSolidityInput& request, EthCompileSolidityResult& result);
-//void Eth_CompileLLL(EthCompileLLLInput& request, EthCompileLLLResult& result);
+void Eth_CompileLll(EthCompileLllInput& request, EthCompileLllResult& result);
 void Eth_CompileSerpent(EthCompileSerpentInput& request, EthCompileSerpentResult& result);
 void Eth_ProtocolVersion(EthProtocolVersionResult& result);
 void Eth_Web3Sha3(Web3Sha3Input& request, Web3Sha3Result& result);
