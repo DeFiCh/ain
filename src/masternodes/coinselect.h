@@ -41,13 +41,13 @@ public:
     }
 
     static void LogValues(const CoinSelectionOptions& m) {
-        struct V { const bool v; const std::string& arg; };
+        struct V { const std::optional<bool> v; const std::string& arg; };
         for (auto &[v, arg]: std::vector<V> { 
-            { m.IsFastSelectEnabled(), ARG_STR_WALLET_FAST_SELECT },
-            { m.IsSkipSolvableEnabled(), ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE },
-            { m.IsEagerSelectEnabled(), ARG_STR_WALLET_COIN_OPT_EAGER_SELECT },
+            { m.fastSelect, ARG_STR_WALLET_FAST_SELECT },
+            { m.skipSolvable, ARG_STR_WALLET_COIN_OPT_SKIP_SOLVABLE },
+            { m.eagerSelect, ARG_STR_WALLET_COIN_OPT_EAGER_SELECT },
         }) {
-            if (v) LogPrintf("conf: %s: %s\n", arg.substr(1), "true");
+            if (v) LogPrintf("conf: %s: %s\n", arg.substr(1), *v ? "true" : "false");
         }
     }
 
