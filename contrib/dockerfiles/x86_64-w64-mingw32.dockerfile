@@ -8,15 +8,14 @@ LABEL org.defichain.arch=${TARGET}
 
 COPY ./make.sh .
 
-ENV TZ=Etc/UTC
-ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
 RUN echo $TZ > /etc/timezone
 RUN apt update && apt dist-upgrade -y
 
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
 
-RUN ./make.sh pkg_install_deps_windows
+RUN DEBIAN_FRONTEND=noninteractive ./make.sh pkg_install_deps_windows
 
 # Set the default mingw32 g++ compiler option to posix.
 RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
