@@ -392,7 +392,7 @@ pkg_install_deps_x86_64() {
         curl cmake
 }
 
-pkg_install_deps_docker_mac() {
+pkg_install_deps_mac() {
   apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
