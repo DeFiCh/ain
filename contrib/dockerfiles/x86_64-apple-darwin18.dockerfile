@@ -16,7 +16,7 @@ RUN apt update && apt dist-upgrade -y
 # from the source root for info on the builder setup
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mac
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_mac_sdk_deps
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
