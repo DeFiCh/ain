@@ -20,7 +20,7 @@ pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
 libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
 libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake \
-python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
+python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
