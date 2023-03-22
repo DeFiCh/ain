@@ -26,7 +26,7 @@ private:
     std::optional<bool> skipSolvable{};
     std::optional<bool> eagerSelect{};
 
-    inline static std::shared_ptr<CoinSelectionOptions> DEFAULT;
+    inline static std::unique_ptr<CoinSelectionOptions> DEFAULT;
 
 public:
     bool IsFastSelectEnabled() const { return fastSelect.value_or(false); }
@@ -34,9 +34,9 @@ public:
     bool IsEagerSelectEnabled() const { return eagerSelect.value_or(false); }
 
     static void InitFromArgs(ArgsManager& args) {
-        auto m = std::make_shared<CoinSelectionOptions>();
+        auto m = std::make_unique<CoinSelectionOptions>();
         FromArgs(*m, args);
-        CoinSelectionOptions::DEFAULT = m;
+        CoinSelectionOptions::DEFAULT = std::move(m);
         LogValues(*m);
     }
 
@@ -58,6 +58,9 @@ public:
     }
 
     static CoinSelectionOptions CreateDefault() {
+        if (DEFAULT == nullptr) {
+            throw std::runtime_error("CreateDefault called before Init");
+        }
         // Create a copy
         return *DEFAULT;
     }
