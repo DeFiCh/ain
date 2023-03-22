@@ -382,6 +382,12 @@ git_version() {
     fi
 }
 
+pkg_install_base() {
+  apt update
+  apt install -y apt-transport-https
+  apt dist-upgrade -y
+}
+
 pkg_install_deps_x86_64() {
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \

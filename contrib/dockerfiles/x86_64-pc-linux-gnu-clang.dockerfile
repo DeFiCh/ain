@@ -9,7 +9,7 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-RUN apt update && apt install -y apt-transport-https
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
