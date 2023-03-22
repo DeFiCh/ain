@@ -394,7 +394,7 @@ pkg_install_deps_x86_64() {
 
 pkg_install_mac_sdk_deps() {
   apt install -y \
-        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
+        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 }
 
 pkg_install_deps_mingw_x86_64() {
