@@ -32,7 +32,7 @@ setup_vars() {
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
         "${TARGET}" == "x86_64-apple-darwin11" ]]; then
-        default_compiler_flags="CC=clang-14 CXX=clang++-14"
+        default_compiler_flags="CC=clang-16 CXX=clang++-16"
     fi
 
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -393,7 +393,7 @@ pkg_install_deps_x86_64() {
 }
 
 pkg_install_llvm() {
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 16
 }
 
 pkg_install_deps_mac() {
