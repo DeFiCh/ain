@@ -9,6 +9,7 @@
 #include <crypto/common.h>
 #include <crypto/ripemd160.h>
 #include <crypto/sha256.h>
+#include <crypto/sha3.h>
 #include <prevector.h>
 #include <serialize.h>
 #include <uint256.h>
@@ -125,6 +126,13 @@ template<unsigned int N>
 inline uint160 Hash160(const prevector<N, unsigned char>& vch)
 {
     return Hash160(vch.begin(), vch.end());
+}
+
+inline uint160 Sha3(const std::vector<unsigned char> &input) {
+    std::vector<unsigned char> output;
+    sha3(input, output);
+    const size_t ADDRESS_OFFSET{12};
+    return uint160({output.begin() + ADDRESS_OFFSET, output.end()});
 }
 
 /** A writer stream (for serialization) that computes a 256-bit hash. */

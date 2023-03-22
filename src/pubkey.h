@@ -14,6 +14,9 @@
 #include <stdexcept>
 #include <vector>
 
+#include "logging.h"
+#include <util/strencodings.h>
+
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
 /** A reference to a CKey: the Hash160 of its serialized public key */
@@ -155,6 +158,12 @@ public:
     CKeyID GetID() const
     {
         return CKeyID(Hash160(vch, vch + size()));
+    }
+
+    CKeyID GetEthID() const
+    {
+        const size_t HEADER_OFFSET{1};
+        return CKeyID(Sha3({vch + HEADER_OFFSET, vch + size()}));
     }
 
     //! Get the 256-bit hash of this public key.

@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include "logging.h"
 
 namespace {
 class DestinationEncoder
@@ -60,6 +61,11 @@ public:
         return bech32::Encode(m_params.Bech32HRP(), data);
     }
 
+    std::string operator()(const WitnessV16EthHash& id) const
+    {
+        return ETH_ADDR_PREFIX + HexStr(id);
+    }
+
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 } // namespace
@@ -68,6 +74,14 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 {
     std::vector<unsigned char> data;
     uint160 hash;
+    if (str.size() == ETH_ADDR_LENGTH_INC_PREFIX && str.substr(0, 2) == ETH_ADDR_PREFIX) {
+        const auto hex = str.substr(2);
+        if (!IsHex(str.substr(2))) {
+            return CNoDestination();
+        }
+        data = ParseHex(hex);
+        return WitnessV16EthHash(uint160(data));
+    }
     if (DecodeBase58Check(str, data)) {
         // base58-encoded DFI addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).

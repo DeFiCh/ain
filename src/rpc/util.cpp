@@ -252,6 +252,16 @@ public:
         obj.pushKV("witness_program", HexStr(id.program, id.program + id.length));
         return obj;
     }
+
+    UniValue operator()(const WitnessV16EthHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", false);
+        obj.pushKV("iswitness", true);
+        obj.pushKV("witness_version", 16);
+        obj.pushKV("witness_program", HexStr(id.begin(), id.end()));
+        return obj;
+    }
 };
 
 UniValue DescribeAddress(const CTxDestination& dest)
