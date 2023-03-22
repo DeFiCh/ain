@@ -350,6 +350,6 @@ message EthSyncingInfo {
 
 // TODO make it oneof
 message EthSyncingResult {
-        bool status = 1;
-        EthSyncingInfo syncInfo = 2;
+        optional bool status = 1;
+        optional EthSyncingInfo syncInfo = 2;
 }

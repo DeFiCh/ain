@@ -10,4 +10,82 @@ service eth {
     
     /// Call contract, returning the output data.
 	rpc Eth_Call(types.EthCallInput) returns (types.EthCallResult);
+
+  rpc Eth_Sign(types.EthSignInput) returns (types.EthSignResult);
+
+  rpc Eth_GetBalance(types.EthGetBalanceInput) returns (types.EthGetBalanceResult);
+
+  rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);
+
+  rpc Eth_CoinBase(google.protobuf.Empty) returns (types.EthCoinBaseResult);
+
+  rpc Eth_MiningResult(google.protobuf.Empty) returns (types.EthMiningResult);
+
+  rpc Eth_HashRate(google.protobuf.Empty) returns (types.EthHashRateResult);
+
+  rpc Eth_GasPrice(google.protobuf.Empty) returns (types.EthGasPriceResult);
+
+  rpc Eth_BlockNumber(google.protobuf.Empty) returns (types.EthBlockNumberResult);
+
+  rpc Eth_GetTransactionCount(types.EthGetTransactionCountInput) returns (types.EthGetTransactionCountResult);
+
+  rpc Eth_GetBlockCountByHash(types.EthGetBlockTransactionCountByHashInput) returns (types.EthGetBlockTransactionCountByHashResult);
+
+  rpc Eth_GetBlockTransactionCountByNumber(types.EthGetBlockTransactionCountByNumberInput) returns (types.EthGetBlockTransactionCountByNumberResult);
+
+  rpc Eth_GetUncleCountByBlockHash(types.EthGetUncleCountByBlockHashInput) returns (types.EthGetUncleCountByBlockHashResult);
+
+  rpc Eth_GetUncleCountByBlockNumber(types.EthGetUncleCountByBlockNumberInput) returns (types.EthGetUncleCountByBlockNumberResult);
+
+  rpc Eth_GetCode(types.EthGetCodeInput) returns (types.EthGetCodeResult);
+
+  rpc Eth_SignTransaction(types.EthSignTransactionInput) returns (types.EthSignTransactionResult);
+
+  rpc Eth_SendRawTransaction(types.EthSendRawTransactionInput) returns (types.EthSendRawTransactionResult);
+
+  rpc Eth_EstimateGas(types.EthEstimateGasInput) returns (types.EthEstimateGasResult);
+
+  rpc Eth_GetBlockByHash(types.EthGetBlockByHashInput) returns (types.EthGetBlockByHashResult);
+
+  rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthGetBlockByNumberResult);
+
+  rpc Eth_GetTransactionByHash(types.EthGetTransactionByHashInput) returns (types.EthGetTransactionByHashResult);
+
+  rpc Eth_GetTransactionByBlockHashAndIndex(types.EthGetTransactionByBlockHashAndIndexInput) returns (types.EthGetTransactionByBlockHashAndIndexResult);
+
+  rpc Eth_GetTransactionByBlockNumberAndIndex(types.EthGetTransactionByBlockNumberAndIndexInput) returns (types.EthGetTransactionByBlockNumberAndIndexResult);
+
+  rpc Eth_GetUncleByBlockHashAndIndex(types.EthGetUncleByBlockHashAndIndexInput) returns (types.EthGetUncleByBlockHashAndIndexResult);
+
+  rpc Eth_GetUncleByBlockNumberAndIndex(types.EthGetUncleByBlockNumberAndIndexInput) returns (types.EthGetUncleByBlockNumberAndIndexResult);
+
+  rpc Eth_GetCompilers(google.protobuf.Empty) returns (types.EthGetCompilersResult);
+
+  rpc Eth_CompileSolidity(types.EthCompileSolidityInput) returns (types.EthCompileSolidityResult);
+
+//  rpc Eth_CompileLLL(types.EthCompileLLLInput) returns (types.EthCompileLLLResult);
+
+  rpc Eth_CompileSerpent(types.EthCompileSerpentInput) returns (types.EthCompileSerpentResult);
+
+  rpc Eth_ProtocolVersion(google.protobuf.Empty) returns (types.EthProtocolVersionResult);
+
+  rpc Eth_Web3Sha3(types.Web3Sha3Input) returns (types.Web3Sha3Result);
+
+  rpc Eth_NetPeerCount(google.protobuf.Empty) returns (types.NetPeerCountResult);
+
+  rpc Eth_NetVersion(google.protobuf.Empty) returns (types.NetVersionResult);
+
+  rpc Eth_Web3ClientVersion(google.protobuf.Empty) returns (types.Web3ClientVersionResult);
+
+  rpc Eth_GetWork(google.protobuf.Empty) returns (types.EthGetWorkResult);
+
+  rpc Eth_SubmitWork(types.EthSubmitWorkInput) returns (types.EthSubmitWorkResult);
+
+  rpc Eth_SubmitHashRate(types.EthSubmitHashrateInput) returns (types.EthSubmitHashrateResult);
+
+  rpc Eth_GetStorageAt(types.EthGetStorageAtInput) returns (types.EthGetStorageAtResult);
+
+  rpc Eth_GetTransactionReceipt(types.EthGetTransactionReceiptInput) returns (types.EthGetTransactionReceiptResult);
+
+  rpc Eth_Syncing(google.protobuf.Empty) returns (types.EthSyncingResult);
 }
