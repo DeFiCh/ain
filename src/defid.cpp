@@ -68,8 +68,6 @@ static bool AppInit(int argc, char* argv[])
     util::ThreadRename("init");
     init_runtime();
 
-    start_servers("127.0.0.1:50050", "127.0.0.1:50051");
-
     //
     // Parameters
     //
@@ -112,6 +110,10 @@ static bool AppInit(int argc, char* argv[])
         } catch (const std::exception& e) {
             return InitError(strprintf("%s\n", e.what()));
         }
+
+        // Start GRPC after BaseParams() has been initialised
+        int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+        start_servers("127.0.0.1:" + std::to_string(grpc_port), "127.0.0.1:" +  std::to_string(grpc_port + 1));
 
         // Error out when loose non-argument tokens are encountered on command line
         for (int i = 1; i < argc; i++) {
