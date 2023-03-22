@@ -7,8 +7,9 @@ LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
 
 ENV TZ=Etc/UTC
+ENV DEBIAN_FRONTEND=noninteractive
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-RUN export DEBIAN_FRONTEND=noninteractive && apt update && apt dist-upgrade -y
+RUN apt update && apt dist-upgrade -y
 
 # Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
 # from the source root for info on the builder setup
