@@ -59,7 +59,9 @@ public:
 
     static CoinSelectionOptions CreateDefault() {
         if (DEFAULT == nullptr) {
-            throw std::runtime_error("CreateDefault called before Init");
+            // We still return a default so tests, benches that don't use it
+            // still work as expected.
+            return CoinSelectionOptions{};
         }
         // Create a copy
         return *DEFAULT;
