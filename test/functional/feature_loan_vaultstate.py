@@ -13,13 +13,15 @@ from test_framework.util import assert_equal
 import calendar
 import time
 
-class VaultStateTest (DefiTestFramework):
+
+class VaultStateTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1']
-            ]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1']
+        ]
 
     def run_test(self):
         self.nodes[0].generate(500)
@@ -56,32 +58,34 @@ class VaultStateTest (DefiTestFramework):
 
         # setup oracle
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"},
+                        {"currency": "USD", "token": "TSLA"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
         # feed oracle
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"},
+                          {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(6)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
-                                    'token': "DFI",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': "DFI",
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].setcollateraltoken({
-                                    'token': "BTC",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': "BTC",
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"})
         self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla Token",
-                            'fixedIntervalPriceId': "TSLA/USD",
-                            'mintable': True,
-                            'interest': 1})
-        self.nodes[0].generate(6) # let active price update
+            'symbol': "TSLA",
+            'name': "Tesla Token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 1})
+        self.nodes[0].generate(6)  # let active price update
 
         idDFI = list(self.nodes[0].gettoken("DFI").keys())[0]
         iddUSD = list(self.nodes[0].gettoken("DUSD").keys())[0]
@@ -141,14 +145,15 @@ class VaultStateTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].takeloan({
-                'vaultId': vaultId1,
-                'amounts': "5@TSLA"})
+            'vaultId': vaultId1,
+            'amounts': "5@TSLA"})
         self.nodes[0].generate(1)
         # trigger liquidation
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "134@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "134@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"},
+                          {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(6) # let price enter invalid state
+        self.nodes[0].generate(6)  # let price enter invalid state
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
@@ -159,7 +164,7 @@ class VaultStateTest (DefiTestFramework):
         assert_equal(len(listvaults), 1)
         listvaults = self.nodes[0].listvaults({"state": "active"})
         assert_equal(len(listvaults), 0)
-        self.nodes[0].generate(6) # let price update and trigger liquidation of vault
+        self.nodes[0].generate(6)  # let price update and trigger liquidation of vault
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
@@ -169,44 +174,47 @@ class VaultStateTest (DefiTestFramework):
         auctionlist = self.nodes[0].listauctions()
         assert_equal(auctionlist[0]["liquidationHeight"], 570)
 
-        self.nodes[0].generate(36) # let auction end without bids
+        self.nodes[0].generate(36)  # let auction end without bids
         auctionlist = self.nodes[0].listauctions()
         assert_equal(auctionlist[0]["liquidationHeight"], 607)
         assert_equal(len(auctionlist), 1)
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"},
+                          {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(6) # update price
-        self.nodes[0].generate(30) # let auction end without bids and open vault again
+        self.nodes[0].generate(6)  # update price
+        self.nodes[0].generate(30)  # let auction end without bids and open vault again
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
         assert_equal(vault1["state"], "active")
         assert_equal(listvaults[0]["state"], "active")
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "101@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "101@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"},
+                          {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(6) # let price update
+        self.nodes[0].generate(6)  # let price update
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
         assert_equal(vault1["state"], "mayLiquidate")
         assert_equal(listvaults[0]["state"], "mayLiquidate")
 
-        self.nodes[0].generate(6) # let vault enter liquidation state
+        self.nodes[0].generate(6)  # let vault enter liquidation state
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "136@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "136@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"},
+                          {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(6) # let price update
+        self.nodes[0].generate(6)  # let price update
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
         assert_equal(vault1["state"], "inLiquidation")
         assert_equal(listvaults[0]["state"], "inLiquidation")
 
+
 if __name__ == '__main__':
     VaultStateTest().main()
-

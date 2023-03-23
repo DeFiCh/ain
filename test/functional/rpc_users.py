@@ -20,6 +20,7 @@ import string
 import configparser
 import sys
 
+
 def call_with_auth(node, user, password):
     url = urllib.parse.urlparse(node.url)
     headers = {"Authorization": "Basic " + str_to_b64str('{}:{}'.format(user, password))}
@@ -38,7 +39,7 @@ class HTTPBasicsTest(DefiTestFramework):
 
     def setup_chain(self):
         super().setup_chain()
-        #Append rpcauth to defi.conf before initialization
+        # Append rpcauth to defi.conf before initialization
         self.rtpassword = "cA773lm788buwYe4g4WT+05pKyNruVKjQ25x3n0DQcM="
         rpcauth = "rpcauth=rt:93648e835a54c573682c2eb19f882535$7681e9c5b74bdd85e78166031d2058e1069b3ed7ed967c93fc63abba06f31144"
 
@@ -51,7 +52,8 @@ class HTTPBasicsTest(DefiTestFramework):
 
         # Generate RPCAUTH with specified password
         self.rt2password = "8/F3uMDw4KSEbw96U3CA1C4X05dkHDN2BPFjTgZW4KI="
-        p = subprocess.Popen([sys.executable, gen_rpcauth, 'rt2', self.rt2password], stdout=subprocess.PIPE, universal_newlines=True)
+        p = subprocess.Popen([sys.executable, gen_rpcauth, 'rt2', self.rt2password], stdout=subprocess.PIPE,
+                             universal_newlines=True)
         lines = p.stdout.read().splitlines()
         rpcauth2 = lines[1]
 
@@ -63,9 +65,9 @@ class HTTPBasicsTest(DefiTestFramework):
         self.password = lines[3]
 
         with open(os.path.join(get_datadir_path(self.options.tmpdir, 0), "defi.conf"), 'a', encoding='utf8') as f:
-            f.write(rpcauth+"\n")
-            f.write(rpcauth2+"\n")
-            f.write(rpcauth3+"\n")
+            f.write(rpcauth + "\n")
+            f.write(rpcauth2 + "\n")
+            f.write(rpcauth3 + "\n")
         with open(os.path.join(get_datadir_path(self.options.tmpdir, 1), "defi.conf"), 'a', encoding='utf8') as f:
             f.write("rpcuser={}\n".format(self.rpcuser))
             f.write("rpcpassword={}\n".format(self.rpcpassword))
@@ -75,16 +77,15 @@ class HTTPBasicsTest(DefiTestFramework):
         assert_equal(200, call_with_auth(node, user, password).status)
 
         self.log.info('Wrong...')
-        assert_equal(401, call_with_auth(node, user, password+'wrong').status)
+        assert_equal(401, call_with_auth(node, user, password + 'wrong').status)
 
         self.log.info('Wrong...')
-        assert_equal(401, call_with_auth(node, user+'wrong', password).status)
+        assert_equal(401, call_with_auth(node, user + 'wrong', password).status)
 
         self.log.info('Wrong...')
-        assert_equal(401, call_with_auth(node, user+'wrong', password+'wrong').status)
+        assert_equal(401, call_with_auth(node, user + 'wrong', password + 'wrong').status)
 
     def run_test(self):
-
         ##################################################
         # Check correctness of the rpcauth config option #
         ##################################################
@@ -102,5 +103,6 @@ class HTTPBasicsTest(DefiTestFramework):
 
         self.test_auth(self.nodes[1], self.rpcuser, self.rpcpassword)
 
+
 if __name__ == '__main__':
-    HTTPBasicsTest ().main ()
+    HTTPBasicsTest().main()

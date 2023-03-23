@@ -13,14 +13,24 @@ from test_framework.util import (
 
 from decimal import Decimal
 
+
 class CommunityDevelopmentFunds(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70',
+             '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100',
+             '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130',
+             '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70',
+             '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100',
+             '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130',
+             '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70',
+             '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100',
+             '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130',
+             '-grandcentralheight=201', '-subsidytest=1'],
         ]
 
     def run_test(self):
@@ -54,17 +64,19 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node1.getbalances()['mine']['immature'], foundation['mine']['immature'] - Decimal("19.887464"))
 
         # check that funds are not trasfered yet before governance is activated
-        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]), balanceLessFee + Decimal("19.887464"))
+        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]),
+                     balanceLessFee + Decimal("19.887464"))
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
         # activate on-chain governance
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
+        node0.setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true'}})
         node0.generate(1)
         self.sync_blocks(self.nodes[:2])
 
         # check that funds are not trasfered yet before governance is activated
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + 2*Decimal("19.887464"))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'],
+                     balanceLessFee + 2 * Decimal("19.887464"))
 
         foundation1 = node1.getbalances()
         foundationBalance1 = foundation1['mine']['trusted']
@@ -74,19 +86,20 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(before_hardfork + Decimal("19.887464"), after_hardfork + foundationBalance)
 
         # activate on-chain governance
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'false'}})
+        node0.setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'false'}})
         node0.generate(1)
         self.sync_blocks(self.nodes[:2])
 
         # check that funds are not trasfered yet before governance is activated
-        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]), balanceLessFee + 3*Decimal("19.887464"))
+        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]),
+                     balanceLessFee + 3 * Decimal("19.887464"))
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
         # foundation coins are locked
         node0.generate(2)
         self.sync_blocks(self.nodes[:2])
 
-        print ("Reverting...")
+        print("Reverting...")
         self.start_node(2)
 
         # GrandCnetral hardfork height
@@ -101,14 +114,17 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
         assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
+        node0.setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true'}})
         node0.generate(1)
         self.sync_blocks()
 
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
-        assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
-        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'],
+                     balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+        assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'],
+                     balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'],
+                     balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
 
         node0.generate(93)
         self.sync_blocks()
@@ -126,12 +142,13 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node0.getaccount('mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ'), [])
 
         # Enable unused emission to address
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/emission-unused-fund':'true'}})
+        node0.setgov({"ATTRIBUTES": {'v0/params/feature/emission-unused-fund': 'true'}})
         node0.generate(1)
         self.sync_blocks(self.nodes[:2])
 
         # Check unused balance now going to emission address
         assert_equal(node0.getaccount('mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ'), ['46.24546710@DFI'])
 
+
 if __name__ == '__main__':
-    CommunityDevelopmentFunds().main ()
+    CommunityDevelopmentFunds().main()

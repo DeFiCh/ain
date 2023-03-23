@@ -11,6 +11,7 @@ from test_framework.util import assert_equal, connect_nodes, disconnect_nodes
 
 from decimal import Decimal
 
+
 class CommunityBalanceReorg(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -49,6 +50,7 @@ class CommunityBalanceReorg(DefiTestFramework):
         # Should be one more than before
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('3.10000000'))
         assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 310)
+
 
 if __name__ == '__main__':
     CommunityBalanceReorg().main()

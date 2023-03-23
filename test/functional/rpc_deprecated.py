@@ -4,6 +4,8 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test deprecation of RPC calls."""
 from test_framework.test_framework import DefiTestFramework
+
+
 # from test_framework.util import assert_raises_rpc_error
 
 class DeprecatedRpcTest(DefiTestFramework):
@@ -24,6 +26,7 @@ class DeprecatedRpcTest(DefiTestFramework):
         # assert_raises_rpc_error(-32, 'The wallet generate rpc method is deprecated', self.nodes[0].rpc.generate, 1)
         # self.nodes[1].generate(1)
         self.log.info("No tested deprecated RPC methods")
+
 
 if __name__ == '__main__':
     DeprecatedRpcTest().main()

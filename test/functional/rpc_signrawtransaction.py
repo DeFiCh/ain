@@ -11,6 +11,7 @@ from test_framework.script import CScript, OP_0
 
 from decimal import Decimal
 
+
 class SignRawTransactionsTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -26,7 +27,8 @@ class SignRawTransactionsTest(DefiTestFramework):
 
         1) The transaction has a complete set of signatures
         2) No script verification error occurred"""
-        privKeys = ['cUeKHd5orzT3mz8P9pxyREHfsWtVfgsfDjiZZBcjUBAaGk1BTj7N', 'cVKpPfVKSJxKqVpE9awvXNWuLHCa5j5tiE7K6zbUSptFpTEtiFrA']
+        privKeys = ['cUeKHd5orzT3mz8P9pxyREHfsWtVfgsfDjiZZBcjUBAaGk1BTj7N',
+                    'cVKpPfVKSJxKqVpE9awvXNWuLHCa5j5tiE7K6zbUSptFpTEtiFrA']
 
         inputs = [
             # Valid pay-to-pubkey scripts
@@ -53,7 +55,8 @@ class SignRawTransactionsTest(DefiTestFramework):
 
         rawTx = '020000000156b958f78e3f24e0b2f4e4db1255426b0902027cb37e3ddadb52e37c3557dddb0000000000ffffffff01c0a6b929010000001600149a2ee8c77140a053f36018ac8124a6ececc1668a00000000'
 
-        assert_raises_rpc_error(-13, "Please enter the wallet passphrase with walletpassphrase first", self.nodes[0].signrawtransactionwithwallet, rawTx)
+        assert_raises_rpc_error(-13, "Please enter the wallet passphrase with walletpassphrase first",
+                                self.nodes[0].signrawtransactionwithwallet, rawTx)
 
     def script_verification_error_test(self):
         """Create and sign a raw transaction with valid (vin 0), invalid (vin 1) and one missing (vin 2) input script.
@@ -142,7 +145,9 @@ class SignRawTransactionsTest(DefiTestFramework):
         assert 'error' in rawTxSigned['errors'][0]
 
         # Non-empty witness checked here
-        assert_equal(rawTxSigned['errors'][1]['witness'], ["304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee01", "025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6357"])
+        assert_equal(rawTxSigned['errors'][1]['witness'], [
+            "304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee01",
+            "025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6357"])
         assert not rawTxSigned['errors'][0]['witness']
 
     def witness_script_test(self):
@@ -162,7 +167,8 @@ class SignRawTransactionsTest(DefiTestFramework):
         p2sh_redeemScript = CScript([OP_0, sha256(hex_str_to_bytes(p2sh_p2wsh_address["redeemScript"]))])
         assert_equal(unspent_output["redeemScript"], p2sh_redeemScript.hex())
         # Now create and sign a transaction spending that output on node[0], which doesn't know the scripts or keys
-        spending_tx = self.nodes[0].createrawtransaction([unspent_output], {self.nodes[1].getnewaddress(): Decimal("49.998")})
+        spending_tx = self.nodes[0].createrawtransaction([unspent_output],
+                                                         {self.nodes[1].getnewaddress(): Decimal("49.998")})
         spending_tx_signed = self.nodes[0].signrawtransactionwithkey(spending_tx, [embedded_privkey], [unspent_output])
         # Check the signing completed successfully
         assert 'complete' in spending_tx_signed

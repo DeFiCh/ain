@@ -9,6 +9,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_greater_than_or_equal
 
+
 def expect_http_status(expected_http_status, expected_rpc_code,
                        fcn, *args):
     try:
@@ -17,6 +18,7 @@ def expect_http_status(expected_http_status, expected_rpc_code,
     except JSONRPCException as exc:
         assert_equal(exc.error["code"], expected_rpc_code)
         assert_equal(exc.http_status, expected_http_status)
+
 
 class RPCInterfaceTest(DefiTestFramework):
     def set_test_params(self):

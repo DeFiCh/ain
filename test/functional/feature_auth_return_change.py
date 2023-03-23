@@ -10,21 +10,23 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 from decimal import Decimal
 
+
 class TokensAuthChange(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
+        self.extra_args = [
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
 
     # Move all coins to new address and change address to test auto auth
     def clear_auth_utxos(self):
         non_auth_address = self.nodes[0].getnewaddress("", "legacy")
         balance = self.nodes[0].getbalance()
-        self.nodes[0].sendtoaddress(non_auth_address, balance - Decimal("0.1")) # 0.1 to cover fee
+        self.nodes[0].sendtoaddress(non_auth_address, balance - Decimal("0.1"))  # 0.1 to cover fee
         self.nodes[0].generate(1, 1000000, non_auth_address)
 
     # Check output/input count and addresses are expected
-    def check_auto_auth_txs(self, tx, owner, outputs = 2):
+    def check_auto_auth_txs(self, tx, owner, outputs=2):
         # Get auto auth TXs
         final_rawtx = self.nodes[0].getrawtransaction(tx, 1)
         auth_tx = self.nodes[0].getrawtransaction(final_rawtx['vin'][0]['txid'], 1)
@@ -88,7 +90,7 @@ class TokensAuthChange(DefiTestFramework):
         self.clear_auth_utxos()
 
         # Update token
-        updatetx = self.nodes[0].updatetoken(token_a, {"symbol":"SILVER"})
+        updatetx = self.nodes[0].updatetoken(token_a, {"symbol": "SILVER"})
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Make sure token updated as expected
@@ -158,7 +160,8 @@ class TokensAuthChange(DefiTestFramework):
 
         # Change to pool collateral address
         final_rawtx = self.nodes[0].getrawtransaction(poolpair_tx, 1)
-        assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0], self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+        assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0],
+                     self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
 
         # Clear auth UTXOs
         self.clear_auth_utxos()
@@ -177,7 +180,7 @@ class TokensAuthChange(DefiTestFramework):
         pool_share = self.nodes[0].getnewaddress("", "legacy")
         liquidity_tx = self.nodes[0].addpoolliquidity({
             collateral_a: ['100@' + token_a, '100@' + token_b]
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check auto auth TX
@@ -233,7 +236,7 @@ class TokensAuthChange(DefiTestFramework):
         self.clear_auth_utxos()
 
         # Test setgox TX
-        setgov_tx = self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35})
+        setgov_tx = self.nodes[0].setgov({"LP_DAILY_DFI_REWARD": 35})
         self.nodes[0].generate(1)
 
         # Check auto auth TX
@@ -243,7 +246,7 @@ class TokensAuthChange(DefiTestFramework):
         self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1)
 
-        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a:"1@0"}, {collateral_b:"1@0"})
+        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a: "1@0"}, {collateral_b: "1@0"})
         self.nodes[0].generate(1)
 
         # Check auto auth TX
@@ -277,13 +280,14 @@ class TokensAuthChange(DefiTestFramework):
 
         # Check auto auth TX
         final_rawtx = self.nodes[0].getrawtransaction(create_tx, 1)
-        assert_equal(final_rawtx['vout'][2]['scriptPubKey']['addresses'][0], self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+        assert_equal(final_rawtx['vout'][2]['scriptPubKey']['addresses'][0],
+                     self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
 
         # Clear auth UTXOs
         self.clear_auth_utxos()
 
         # Update DAT token
-        updatetx = self.nodes[0].updatetoken(token_c, {"symbol":"COPPER"})
+        updatetx = self.nodes[0].updatetoken(token_c, {"symbol": "COPPER"})
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Make sure token updated as expected
@@ -292,6 +296,7 @@ class TokensAuthChange(DefiTestFramework):
 
         # Check auto auth TX
         self.check_auto_auth_txs(updatetx, self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+
 
 if __name__ == '__main__':
     TokensAuthChange().main()

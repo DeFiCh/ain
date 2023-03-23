@@ -11,9 +11,11 @@ import calendar
 import time
 from decimal import Decimal
 
+
 def get_decimal_amount(amount):
     account_tmp = amount.split('@')[0]
     return Decimal(account_tmp)
+
 
 def token_index_in_account(accounts, symbol):
     for id in range(len(accounts)):
@@ -21,8 +23,10 @@ def token_index_in_account(accounts, symbol):
             return id
     return -1
 
+
 ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI"
 ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50% of the minimum required collateral must be in DFI or DUSD"
+
 
 class DUSDLoanTests(DefiTestFramework):
 
@@ -35,17 +39,17 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningepilogueheight = 4000
         self.extra_args = [
             ['-txnotokens=0',
-            '-amkheight=1',
-            '-bayfrontheight=1',
-            '-eunosheight=1',
-            '-fortcanningheight=1',
-            '-fortcanningmuseumheight=1',
-            '-fortcanningparkheight=1',
-            f'-fortcanninghillheight={self.fortcanninghillheight}',
-            f'-fortcanningroadheight={self.fortcanningroadheight}',
-            f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
-            f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
-            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+             '-amkheight=1',
+             '-bayfrontheight=1',
+             '-eunosheight=1',
+             '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1',
+             '-fortcanningparkheight=1',
+             f'-fortcanninghillheight={self.fortcanninghillheight}',
+             f'-fortcanningroadheight={self.fortcanningroadheight}',
+             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
+             f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
+             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
     def takeloan_withdraw(self, vaultId, amount, type='takeloan'):
@@ -72,7 +76,7 @@ class DUSDLoanTests(DefiTestFramework):
 
     # Utils
 
-    def new_vault(self, loan_scheme, amounts = None):
+    def new_vault(self, loan_scheme, amounts=None):
         if amounts is None:
             amounts = []
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -111,7 +115,6 @@ class DUSDLoanTests(DefiTestFramework):
             self.nodes[0].generate((self.fortcanningepilogueheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], True)
-
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -210,7 +213,7 @@ class DUSDLoanTests(DefiTestFramework):
                          {"currency": "USD", "tokenAmount": "1@BTC"},
                          {"currency": "USD", "tokenAmount": "10@DFI"}]
 
-        mock_time = int(time.time()+add_time)
+        mock_time = int(time.time() + add_time)
         self.nodes[0].setmocktime(mock_time)
         self.nodes[0].setoracledata(self.oracle_id1, mock_time, oracle_prices)
         self.nodes[0].generate(120)
@@ -261,7 +264,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
-    def rollback_checks(self, vaults = None):
+    def rollback_checks(self, vaults=None):
         if vaults is None:
             vaults = []
         for vault in vaults:
@@ -269,7 +272,7 @@ class DUSDLoanTests(DefiTestFramework):
                 self.nodes[0].getvault(vault)
             except JSONRPCException as e:
                 errorString = e.error['message']
-            assert(f"Vault <{vault}> not found" in errorString)
+            assert (f"Vault <{vault}> not found" in errorString)
 
     # TESTS
     def pre_FCH_DFI_minimum_check_withdraw(self):
@@ -332,7 +335,7 @@ class DUSDLoanTests(DefiTestFramework):
                                 ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
                                 self.takeloan_withdraw, vault_id, "0.50000000@DFI", 'withdraw')
 
-        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC","30.00000000@DUSD"])
+        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC", "30.00000000@DUSD"])
         self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
         self.takeloan_withdraw(vault_id_1, "20.00000000@DUSD", 'withdraw')
         assert_raises_rpc_error(-32600,
@@ -445,7 +448,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
 
-
     def post_FCR_DFI_minimum_check_takeloan(self):
         block_height = self.nodes[0].getblockcount()
 
@@ -508,8 +510,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
 
-
-
     def run_test(self):
         # Initial set up
         self.setup()
@@ -534,6 +534,7 @@ class DUSDLoanTests(DefiTestFramework):
         # self._rollback_to(block)
         # File "/Users/diegodelcorral/workspace/fce-no-dusd-loop/test/functional/test_framework/test_framework.py", line 414, in _rollback_to
         # node.invalidateblock(blockhash)
+
 
 if __name__ == '__main__':
     DUSDLoanTests().main()

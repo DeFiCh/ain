@@ -110,6 +110,7 @@ from test_framework.util import (
 
 DIRECT_FETCH_RESPONSE_TIME = 0.05
 
+
 class BaseNode(P2PInterface):
     def __init__(self):
         super().__init__()
@@ -150,7 +151,8 @@ class BaseNode(P2PInterface):
         if hash_list == []:
             return
 
-        test_function = lambda: "getdata" in self.last_message and [x.hash for x in self.last_message["getdata"].inv] == hash_list
+        test_function = lambda: "getdata" in self.last_message and [x.hash for x in
+                                                                    self.last_message["getdata"].inv] == hash_list
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
     def wait_for_block_announcement(self, block_hash, timeout=60):
@@ -162,12 +164,12 @@ class BaseNode(P2PInterface):
         with mininode_lock:
             try:
                 command = message.command.decode('ascii')
-                if command == 'inv' and message.inv[-1].type == 5: # 'anchorauth' - ignore anchor auths!!!!
+                if command == 'inv' and message.inv[-1].type == 5:  # 'anchorauth' - ignore anchor auths!!!!
                     return
                 self.message_count[command] += 1
                 self.last_message[command] = message
                 getattr(self, 'on_' + command)(message)
-            except:
+            except Exception:
                 print("ERROR delivering %s (%s)" % (repr(message), sys.exc_info()[0]))
                 raise
 
@@ -190,7 +192,6 @@ class BaseNode(P2PInterface):
             self.last_message.pop("inv", None)
             self.last_message.pop("headers", None)
             self.recent_headers_announced = []
-
 
     def check_last_headers_announcement(self, headers):
         """Test whether the last headers announcements received are right.
@@ -218,6 +219,7 @@ class BaseNode(P2PInterface):
             self.block_announced = False
             self.last_message.pop("inv", None)
 
+
 class SendHeadersTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -228,7 +230,7 @@ class SendHeadersTest(DefiTestFramework):
 
         # Clear out block announcements from each p2p listener
         [x.clear_block_announcements() for x in self.nodes[0].p2ps]
-        self.nodes[0].pullup_mocktime() # Need to! Cause 'generate' interleaved with manual block's creation/sending
+        self.nodes[0].pullup_mocktime()  # Need to! Cause 'generate' interleaved with manual block's creation/sending
         self.nodes[0].generate(count)
         return int(self.nodes[0].getbestblockhash(), 16)
 
@@ -395,7 +397,8 @@ class SendHeadersTest(DefiTestFramework):
 
         self.log.info("Part 2: success!")
 
-        self.log.info("Part 3: headers announcements can stop after large reorg, and resume after headers/inv from peer...")
+        self.log.info(
+            "Part 3: headers announcements can stop after large reorg, and resume after headers/inv from peer...")
 
         # PART 3.  Headers announcements can stop after large reorg, and resume after
         # getheaders or inv from peer.
@@ -617,6 +620,7 @@ class SendHeadersTest(DefiTestFramework):
         # Finally, check that the inv node never received a getdata request,
         # throughout the test
         assert "getdata" not in inv_node.last_message
+
 
 if __name__ == '__main__':
     SendHeadersTest().main()

@@ -663,7 +663,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, {});
+    fund(rawTx, pwallet, {}, nullptr, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight);
@@ -806,7 +806,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -818,7 +818,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -911,7 +911,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -923,7 +923,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // re-encode with filled mintingOutputsStart
     {
@@ -1909,7 +1909,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         auths.emplace(acc.first);
     }
     CTransactionRef optAuthTx;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1923,7 +1923,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -2300,7 +2300,7 @@ UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsU
     coinControl.matchDestination = dest;
 
     // fund
-    fund(rawTx, pwallet, {}, &coinControl);
+    fund(rawTx, pwallet, {}, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight);
@@ -2338,14 +2338,14 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
 
     CTransactionRef optAuthTx;
     std::set<CScript> auth{script};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     // Set change address
     CCoinControl coinControl;
     coinControl.destChange = dest;
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -2487,14 +2487,14 @@ UniValue futureswap(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auth{msg.owner};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     // Set change address
     CCoinControl coinControl;
     coinControl.destChange = dest;
 
     // Fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // Check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -2578,14 +2578,14 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auth{msg.owner};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     // Set change address
     CCoinControl coinControl;
     coinControl.destChange = dest;
 
     // Fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // Check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

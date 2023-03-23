@@ -12,12 +12,16 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, disconnect_nodes, connect_nodes
 
-class MasternodesTimelockTest (DefiTestFramework):
+
+class MasternodesTimelockTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140'],
-                           ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
+        self.extra_args = [
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1',
+             '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1',
+             '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
 
     def run_test(self):
 
@@ -34,7 +38,7 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].createmasternode(collateral5, "", [], "FIVEYEARTIMELOCK")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Timelock cannot be specified before EunosPaya hard fork" in errorString)
+        assert ("Timelock cannot be specified before EunosPaya hard fork" in errorString)
 
         # Create regular MN to make sure accrued multiplier moves over
         nodeid_pre = self.nodes[0].createmasternode(collateral_prefork)
@@ -82,7 +86,7 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].sendrawtransaction(nodeid20_raw)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Timelock must be set to either 0, 5 or 10 years" in errorString)
+        assert ("Timelock must be set to either 0, 5 or 10 years" in errorString)
 
         # Check state and timelock length
         result = self.nodes[0].getmasternode(nodeid)
@@ -118,7 +122,7 @@ class MasternodesTimelockTest (DefiTestFramework):
 
         result5 = self.nodes[0].getmasternode(nodeid5)
         assert_equal(result5[nodeid5]['targetMultipliers'], [1, 1, 1])
-        assert('multiplierSubnode3' not in result5[nodeid5])
+        assert ('multiplierSubnode3' not in result5[nodeid5])
 
         result10 = self.nodes[0].getmasternode(nodeid10)
         assert_equal(result10[nodeid10]['targetMultipliers'], [1, 1, 1, 1])
@@ -170,13 +174,13 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].resignmasternode(nodeid5)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before timelock expiration" in errorString)
+        assert ("Trying to resign masternode before timelock expiration" in errorString)
 
         try:
             self.nodes[0].resignmasternode(nodeid10)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before timelock expiration" in errorString)
+        assert ("Trying to resign masternode before timelock expiration" in errorString)
 
         # Time travel five years, add a day as we moved forward a day at the start
         self.nodes[0].set_mocktime(int(time.time()) + (5 * 365 * 24 * 60 * 60) + (24 * 60 * 60))
@@ -199,7 +203,7 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].resignmasternode(nodeid10)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before timelock expiration" in errorString)
+        assert ("Trying to resign masternode before timelock expiration" in errorString)
 
         # Generate enough blocks to confirm resignation
         self.nodes[0].generate(41)
@@ -226,6 +230,7 @@ class MasternodesTimelockTest (DefiTestFramework):
         self.nodes[0].generate(41)
         result10 = self.nodes[0].getmasternode(nodeid10)
         assert_equal(result10[nodeid10]['state'], 'RESIGNED')
+
 
 if __name__ == '__main__':
     MasternodesTimelockTest().main()

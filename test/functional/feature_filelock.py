@@ -8,6 +8,7 @@ import os
 from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import ErrorMatch
 
+
 class FilelockTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -23,14 +24,18 @@ class FilelockTest(DefiTestFramework):
         self.log.info("Using datadir {}".format(datadir))
 
         self.log.info("Check that we can't start a second defid instance using the same datadir")
-        expected_msg = "Error: Cannot obtain a lock on data directory {0}. {1} is probably already running.".format(datadir, self.config['environment']['PACKAGE_NAME'])
-        self.nodes[1].assert_start_raises_init_error(extra_args=['-datadir={}'.format(self.nodes[0].datadir), '-noserver'], expected_msg=expected_msg)
+        expected_msg = "Error: Cannot obtain a lock on data directory {0}. {1} is probably already running.".format(
+            datadir, self.config['environment']['PACKAGE_NAME'])
+        self.nodes[1].assert_start_raises_init_error(
+            extra_args=['-datadir={}'.format(self.nodes[0].datadir), '-noserver'], expected_msg=expected_msg)
 
         if self.is_wallet_compiled():
             wallet_dir = os.path.join(datadir, 'wallets')
             self.log.info("Check that we can't start a second defid instance using the same wallet")
             expected_msg = "Error: Error initializing wallet database environment"
-            self.nodes[1].assert_start_raises_init_error(extra_args=['-walletdir={}'.format(wallet_dir), '-noserver'], expected_msg=expected_msg, match=ErrorMatch.PARTIAL_REGEX)
+            self.nodes[1].assert_start_raises_init_error(extra_args=['-walletdir={}'.format(wallet_dir), '-noserver'],
+                                                         expected_msg=expected_msg, match=ErrorMatch.PARTIAL_REGEX)
+
 
 if __name__ == '__main__':
     FilelockTest().main()

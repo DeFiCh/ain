@@ -11,11 +11,14 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 
+
 class SmartContractTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-jellyfish_regtest=1']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-jellyfish_regtest=1']]
 
     def run_test(self):
         self.nodes[0].generate(1000)
@@ -27,10 +30,14 @@ class SmartContractTest(DefiTestFramework):
         dfip = 'dbtcdfiswap'
 
         # Check invalid calls
-        assert_raises_rpc_error(-5, 'Incorrect authorization for {}'.format(invalid_address), self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', invalid_address)
-        assert_raises_rpc_error(-4, 'Insufficient funds', self.nodes[0].executesmartcontract, dfip, str(dfi_amount) + '@0')
-        assert_raises_rpc_error(-8, 'Specified smart contract not found', self.nodes[0].executesmartcontract, 'DFIP9999', str(dfi_amount) + '@0')
-        assert_raises_rpc_error(-8, 'BTC source address must be provided for DFIP2201', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2')
+        assert_raises_rpc_error(-5, 'Incorrect authorization for {}'.format(invalid_address),
+                                self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', invalid_address)
+        assert_raises_rpc_error(-4, 'Insufficient funds', self.nodes[0].executesmartcontract, dfip,
+                                str(dfi_amount) + '@0')
+        assert_raises_rpc_error(-8, 'Specified smart contract not found', self.nodes[0].executesmartcontract,
+                                'DFIP9999', str(dfi_amount) + '@0')
+        assert_raises_rpc_error(-8, 'BTC source address must be provided for DFIP2201',
+                                self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2')
 
         # Create tokens
         self.nodes[0].createtoken({
@@ -56,36 +63,44 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check invalid calls
-        assert_raises_rpc_error(-32600, 'called before FortCanningHill height', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', address)
+        assert_raises_rpc_error(-32600, 'called before FortCanningHill height', self.nodes[0].executesmartcontract,
+                                dfip, str(btc_amount) + '@2', address)
 
         # Move to FortCanningHill
         self.nodes[0].generate(1010 - self.nodes[0].getblockcount())
 
         # Check invalid call
-        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', address)
+        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract,
+                                dfip, str(btc_amount) + '@2', address)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/active':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/active': 'false'}})
         self.nodes[0].generate(1)
 
         # Check invalid call
-        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', address)
+        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract,
+                                dfip, str(btc_amount) + '@2', address)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/active':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/active': 'true'}})
         self.nodes[0].generate(1)
 
         # Check invalid calls
-        assert_raises_rpc_error(-32600, 'is less than', self.nodes[0].executesmartcontract, dfip, '20000.00000001@2', address)
+        assert_raises_rpc_error(-32600, 'is less than', self.nodes[0].executesmartcontract, dfip, '20000.00000001@2',
+                                address)
         assert_raises_rpc_error(-3, 'Amount out of range', self.nodes[0].executesmartcontract, dfip, '0@2', address)
-        assert_raises_rpc_error(-32600, 'Specified token not found', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@9999', address)
-        assert_raises_rpc_error(-32600, 'Only Bitcoin can be swapped in DFIP2201', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@1', address)
-        assert_raises_rpc_error(-32600, 'fixedIntervalPrice with id <BTC/USD> not found', self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', address)
+        assert_raises_rpc_error(-32600, 'Specified token not found', self.nodes[0].executesmartcontract, dfip,
+                                str(btc_amount) + '@9999', address)
+        assert_raises_rpc_error(-32600, 'Only Bitcoin can be swapped in DFIP2201', self.nodes[0].executesmartcontract,
+                                dfip, str(btc_amount) + '@1', address)
+        assert_raises_rpc_error(-32600, 'fixedIntervalPrice with id <BTC/USD> not found',
+                                self.nodes[0].executesmartcontract, dfip, str(btc_amount) + '@2', address)
 
         # Test min swap
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00001'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/minswap': '0.00001'}})
         self.nodes[0].generate(1)
 
         # Check invalid calls
-        assert_raises_rpc_error(-32600, 'Below minimum swapable amount, must be at least 0.00001000 BTC', self.nodes[0].executesmartcontract, dfip, '0.00000999@2', address)
+        assert_raises_rpc_error(-32600, 'Below minimum swapable amount, must be at least 0.00001000 BTC',
+                                self.nodes[0].executesmartcontract, dfip, '0.00000999@2', address)
 
         # Set up oracles
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
@@ -100,14 +115,14 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
-                                    'token': 'DFI',
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': 'DFI',
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
-                                    'token': 'BTC',
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': 'BTC',
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(7)
 
@@ -116,14 +131,15 @@ class SmartContractTest(DefiTestFramework):
         balance = self.nodes[0].getbalance()
 
         # Try and fund more than is in community balance
-        assert_raises_rpc_error(-4, 'Insufficient funds', self.nodes[0].executesmartcontract, dfip, '18336.22505381@0', address)
+        assert_raises_rpc_error(-4, 'Insufficient funds', self.nodes[0].executesmartcontract, dfip, '18336.22505381@0',
+                                address)
 
         # Check smart contract details and balance
         result = self.nodes[0].listsmartcontracts()
         assert_equal(result[0]['name'], 'DFIP2201')
         assert_equal(result[0]['call'], 'dbtcdfiswap')
         assert_equal(result[0]['address'], 'bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202')
-        assert('0' not in result[0])
+        assert ('0' not in result[0])
 
         # Fund smart contract
         tx = self.nodes[0].executesmartcontract(dfip, '18336.225@0')
@@ -139,19 +155,21 @@ class SmartContractTest(DefiTestFramework):
         staker_reward = rewards[0]['value']
         community_reward = rewards[1]['value']
         fee = self.nodes[0].gettransaction(tx)['fee']
-        assert_equal(balance + staker_reward + community_reward - Decimal('18336.225') + fee, self.nodes[0].getbalance())
+        assert_equal(balance + staker_reward + community_reward - Decimal('18336.225') + fee,
+                     self.nodes[0].getbalance())
 
         # Test swap for more than in community fund by 1 Sat
         block = self.nodes[0].getblockcount()
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/premium': '0.00000000'}})
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600, 'amount 18336.22500000 is less than 18336.22500001', self.nodes[0].executesmartcontract, dfip, '18336.22500001@2', address)
+        assert_raises_rpc_error(-32600, 'amount 18336.22500000 is less than 18336.22500001',
+                                self.nodes[0].executesmartcontract, dfip, '18336.22500001@2', address)
 
         # Test again for full amount in community balance
         self.nodes[0].executesmartcontract(dfip, '18336.22500000@2', address)
         self.nodes[0].generate(1)
         assert_equal(18336.22500000, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
-        assert('0' not in self.nodes[0].listsmartcontracts())
+        assert ('0' not in self.nodes[0].listsmartcontracts())
 
         # Set "real world" prices
         self.rollback_to(block)
@@ -168,7 +186,7 @@ class SmartContractTest(DefiTestFramework):
 
         # Test 5% premium
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.05'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/premium': '0.05'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.09999999@2', address)
         self.nodes[0].generate(1)
@@ -176,7 +194,7 @@ class SmartContractTest(DefiTestFramework):
 
         # Test 0.1% premium
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.001'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/premium': '0.001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.09999999@2', address)
         self.nodes[0].generate(1)
@@ -184,7 +202,7 @@ class SmartContractTest(DefiTestFramework):
 
         # Test 0.000001% premium
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000001'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/premium': '0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.1@2', address)
         self.nodes[0].generate(1)
@@ -192,7 +210,7 @@ class SmartContractTest(DefiTestFramework):
 
         # Test 0% premium
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/premium': '0.00000000'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.1@2', address)
         self.nodes[0].generate(1)
@@ -206,7 +224,7 @@ class SmartContractTest(DefiTestFramework):
 
         # Test smallest min amount
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/minswap': '0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.00000001@2', address)
         self.nodes[0].generate(1)
@@ -214,17 +232,18 @@ class SmartContractTest(DefiTestFramework):
 
         # Test no smallest min amount
         self.rollback_to(block)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/minswap': '0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.00000001@2', address)
         self.nodes[0].generate(1)
         assert_equal(0.000205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test disabling DFIP201
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/active':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/active': 'false'}})
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract, dfip, '1@2', address)
+        assert_raises_rpc_error(-32600, 'DFIP2201 smart contract is not enabled', self.nodes[0].executesmartcontract,
+                                dfip, '1@2', address)
+
 
 if __name__ == '__main__':
     SmartContractTest().main()
-

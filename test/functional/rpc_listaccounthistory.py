@@ -50,7 +50,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "GOLD"):
+            if token["symbol"] == "GOLD":
                 token_a = idx
 
         # Mint some tokens

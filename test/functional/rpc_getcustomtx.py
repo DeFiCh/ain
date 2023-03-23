@@ -13,13 +13,21 @@ from decimal import Decimal
 import calendar
 import time
 
+
 class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189']] # Will not find historical TXs
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120',
+             '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122',
+             '-grandcentralheight=189'],  # Wallet TXs
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120',
+             '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122',
+             '-grandcentralheight=189', '-txindex=1'],  # Transaction index
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120',
+             '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122',
+             '-grandcentralheight=189']]  # Will not find historical TXs
 
     def check_result(self, result):
         # Get block hash and height
@@ -100,7 +108,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No such mempool or wallet transaction. Use -txindex or provide a block hash." in errorString)
+        assert ("No such mempool or wallet transaction. Use -txindex or provide a block hash." in errorString)
 
         # Try and get history node 2 using block hash
         result = self.nodes[2].getcustomtx(minttx, self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -113,7 +121,8 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         disconnect_nodes(self.nodes[1], 2)
 
         # Update token
-        updatetx = self.nodes[0].updatetoken(token_silver, {"symbol":"SILVER","name":"silver","mintable":False,"tradeable":False})
+        updatetx = self.nodes[0].updatetoken(token_silver, {"symbol": "SILVER", "name": "silver", "mintable": False,
+                                                            "tradeable": False})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -231,7 +240,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         pool_share = self.nodes[0].getnewaddress("", "legacy")
         add_liquidity_tx = self.nodes[0].addpoolliquidity({
             collateral_a: ['100@' + token_silver, '100@' + token_gold]
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -328,12 +337,11 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(list(result['results']['to'].keys())[0], collateral_b)
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
 
-
         # Test send tokens to address TX
         self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1)
 
-        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a:"1@0"}, {collateral_b:"1@0"})
+        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a: "1@0"}, {collateral_b: "1@0"})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -347,7 +355,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
 
         # Test setgox TX
-        setgov_tx = self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35})
+        setgov_tx = self.nodes[0].setgov({"LP_DAILY_DFI_REWARD": 35})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -433,7 +441,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Test appoint oracle
         new_oracle_address = self.nodes[0].getnewaddress("", "legacy")
-        update_oracle_tx = self.nodes[0].updateoracle(appoint_oracle_tx, new_oracle_address, [{"currency": "USD", "token": "DFI"},{"currency": "USD", "token": "TSLA"}], 10)
+        update_oracle_tx = self.nodes[0].updateoracle(appoint_oracle_tx, new_oracle_address,
+                                                      [{"currency": "USD", "token": "DFI"},
+                                                       {"currency": "USD", "token": "TSLA"}], 10)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -444,10 +454,12 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['oracleId'], appoint_oracle_tx)
         assert_equal(result['results']['oracleAddress'], new_oracle_address)
         assert_equal(result['results']['weightage'], 10)
-        assert_equal(result['results']['availablePairs'], [{'token': 'DFI', 'currency': 'USD'}, {'token': 'TSLA', 'currency': 'USD'}])
+        assert_equal(result['results']['availablePairs'],
+                     [{'token': 'DFI', 'currency': 'USD'}, {'token': 'TSLA', 'currency': 'USD'}])
 
         # Test set oracle data
-        oracle_prices = [{"currency": "USD", "tokenAmount": "100.00000000@DFI"},{"currency": "USD", "tokenAmount": "100.00000000@TSLA"}]
+        oracle_prices = [{"currency": "USD", "tokenAmount": "100.00000000@DFI"},
+                         {"currency": "USD", "tokenAmount": "100.00000000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         oracle_data_tx = self.nodes[0].setoracledata(appoint_oracle_tx, timestamp, oracle_prices)
         self.nodes[0].generate(1)
@@ -489,7 +501,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         self.nodes[0].addpoolliquidity({
             collateral_a: ['100@' + token_silver, '100@' + token_googl]
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
 
         self.nodes[0].updatepoolpair({
@@ -525,7 +537,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['compositeDex'], 'SILVGOOGL/SILVGOLD')
 
         # Test set Governanace variable by height
-        setgov_height_tx = self.nodes[0].setgovheight({ "ORACLE_DEVIATION": Decimal('0.04000000')}, 1000)
+        setgov_height_tx = self.nodes[0].setgovheight({"ORACLE_DEVIATION": Decimal('0.04000000')}, 1000)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -553,11 +565,11 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Test set loan token
         loan_token_tx = self.nodes[0].setloantoken({
-                                    'symbol': 'TSLA',
-                                    'name': "TSLA",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': False,
-                                    'interest': 5})
+            'symbol': 'TSLA',
+            'name': "TSLA",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': False,
+            'interest': 5})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -571,10 +583,10 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['interest'], Decimal('5.00000000'))
 
         # Test update loan token
-        update_token_tx = self.nodes[0].updateloantoken(loan_token_tx ,{
-                                    'name': "Tesla stock token",
-                                    'mintable': True,
-                                    'interest': 1})
+        update_token_tx = self.nodes[0].updateloantoken(loan_token_tx, {
+            'name': "Tesla stock token",
+            'mintable': True,
+            'interest': 1})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -616,19 +628,19 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         self.nodes[0].addpoolliquidity({
             self.nodes[0].get_genesis_keys().ownerAuthAddress: ['100@TSLA', '100@DUSD']
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity({
             self.nodes[0].get_genesis_keys().ownerAuthAddress: ['100@DUSD', '100@DFI']
-            }, pool_share)
+        }, pool_share)
         self.nodes[0].generate(1)
 
         # Test set collateral token
         collateral_toke_tx = self.nodes[0].setcollateraltoken({
-                                    'token': "DFI",
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': "DFI",
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].generate(1)
 
         # Get custom TX
@@ -659,7 +671,8 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Test update vault
         new_vault_owner = self.nodes[0].getnewaddress("", "legacy")
-        update_vault_tx = self.nodes[0].updatevault(create_vault_tx, {'ownerAddress':new_vault_owner,'loanSchemeId': 'LOAN0001'})
+        update_vault_tx = self.nodes[0].updatevault(create_vault_tx,
+                                                    {'ownerAddress': new_vault_owner, 'loanSchemeId': 'LOAN0001'})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -685,7 +698,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['amount'], '10.00000000@0')
 
         # Test take loan
-        take_loan_tx = self.nodes[0].takeloan({'vaultId':create_vault_tx,'amounts': "1@TSLA"})
+        take_loan_tx = self.nodes[0].takeloan({'vaultId': create_vault_tx, 'amounts': "1@TSLA"})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -703,10 +716,10 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test pay back loan
         vault = self.nodes[0].getvault(create_vault_tx)
         payback_loan_tx = self.nodes[0].paybackloan({
-            'vaultId':create_vault_tx,
-            'from':new_vault_owner,
-            'amounts':vault['loanAmounts']
-            })
+            'vaultId': create_vault_tx,
+            'from': new_vault_owner,
+            'amounts': vault['loanAmounts']
+        })
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -750,11 +763,12 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         self.nodes[0].deposittovault(new_vault, new_vault_owner, '10@DFI')
         self.nodes[0].generate(1)
 
-        self.nodes[0].takeloan({'vaultId': new_vault,'amounts': '6.68896@TSLA'})
+        self.nodes[0].takeloan({'vaultId': new_vault, 'amounts': '6.68896@TSLA'})
         self.nodes[0].generate(5)
 
         # Test auction bid
-        auction_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, '7.1@TSLA')
+        auction_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress,
+                                                   '7.1@TSLA')
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -777,7 +791,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "RemoveOracleAppoint")
         assert_equal(result['results']['oracleId'], appoint_oracle_tx)
 
-        setgov_tx = self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/active':'true','v0/params/dfip2201/minswap':'0.001','v0/params/dfip2201/premium':'0.025'}})
+        setgov_tx = self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2201/active': 'true',
+                                                         'v0/params/dfip2201/minswap': '0.001',
+                                                         'v0/params/dfip2201/premium': '0.025'}})
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -791,5 +807,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(attributes['v0/params/dfip2201/premium'], '0.025')
         assert_equal(attributes['v0/params/dfip2201/minswap'], '0.001')
 
+
 if __name__ == '__main__':
-    TokensRPCGetCustomTX().main ()
+    TokensRPCGetCustomTX().main()

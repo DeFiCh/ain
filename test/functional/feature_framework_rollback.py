@@ -8,16 +8,32 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
-class RollbackFrameworkTest (DefiTestFramework):
+
+class RollbackFrameworkTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
-
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50',
+             '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50',
+             '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350',
+             '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50',
+             '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50',
+             '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350',
+             '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50',
+             '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50',
+             '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350',
+             '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50',
+             '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50',
+             '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-grandcentralepilogueheight=350',
+             '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
 
     def init_chain(self):
         print("Generating initial chain...")
@@ -41,7 +57,6 @@ class RollbackFrameworkTest (DefiTestFramework):
     @DefiTestFramework.capture_rollback_verify
     def set_accounts_with_rollback(self):
         self.set_accounts()
-
 
     def create_tokens(self, rollback=None):
         self.symbolBTC = "BTC"
@@ -99,9 +114,8 @@ class RollbackFrameworkTest (DefiTestFramework):
         self.mint_extra()
 
     def run_test(self):
-
         self.init_chain()
-        height = self.nodes[0].getblockcount() # block 100
+        height = self.nodes[0].getblockcount()  # block 100
 
         # rollback
         self.set_accounts_with_rollback()
@@ -111,7 +125,7 @@ class RollbackFrameworkTest (DefiTestFramework):
         # no rollback
         self.set_accounts(rollback=False)
         height2 = self.nodes[3].getblockcount()
-        assert(height != height2)
+        assert (height != height2)
 
         # rollback
         self.create_tokens_with_rollback()
@@ -121,7 +135,7 @@ class RollbackFrameworkTest (DefiTestFramework):
         # no rollback
         self.create_tokens()
         height4 = self.nodes[0].getblockcount()
-        assert(height3 != height4)
+        assert (height3 != height4)
 
         # rollback
         self.mint_extra_with_rollback()
@@ -131,7 +145,8 @@ class RollbackFrameworkTest (DefiTestFramework):
         # no rollback
         self.mint_extra()
         height6 = self.nodes[0].getblockcount()
-        assert(height6 != height5)
+        assert (height6 != height5)
+
 
 if __name__ == '__main__':
     RollbackFrameworkTest().main()
