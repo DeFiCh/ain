@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "logging.h"
+#include <logging.h>
 #include <util/strencodings.h>
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;

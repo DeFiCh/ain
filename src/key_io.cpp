@@ -9,7 +9,7 @@
 
 #include <assert.h>
 #include <string.h>
-#include "logging.h"
+#include <logging.h>
 
 namespace {
 class DestinationEncoder
