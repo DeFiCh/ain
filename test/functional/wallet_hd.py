@@ -13,7 +13,11 @@ from test_framework.util import (
     connect_nodes_bi,
     assert_raises_rpc_error
 )
+import string
 
+def is_hex(s):
+    hex_digits = set(string.hexdigits)
+    return all(c in hex_digits for c in s)
 
 class WalletHDTest(DefiTestFramework):
     def set_test_params(self):
@@ -162,17 +166,60 @@ class WalletHDTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Already have this key", self.nodes[1].sethdseed, False,
                                 self.nodes[1].dumpprivkey(self.nodes[1].getnewaddress()))
 
-
+        # Get and check eth address
         eth_addr = self.nodes[0].getnewaddress("", "eth")
+        assert_equal(eth_addr[0:2], '0x')
+        assert_equal(len(eth_addr), 42)
+        assert_equal(is_hex(eth_addr[2:]), True)
+
+        print(eth_addr)
+        print(self.nodes[0].dumpprivkey(eth_addr))
+
+        # Validate Eth address
         result = self.nodes[0].validateaddress(eth_addr)
         assert_equal(result['isvalid'], True)
 
+        # Check Eth address info
         result = self.nodes[0].getaddressinfo(eth_addr)
         assert_equal(result['ismine'], True)
         assert_equal(result['solvable'], False)
         assert_equal(result['iswitness'], True)
         assert_equal(result['witness_version'], 16)
         assert_equal(result['labels'][0]['purpose'], 'eth')
+
+        # Dump and import address into node 1
+        priv_key = self.nodes[0].dumpprivkey(eth_addr)
+        self.nodes[1].importprivkey(priv_key)
+
+        # Check key is now present in node 1
+        result = self.nodes[1].getaddressinfo(eth_addr)
+        assert_equal(result['ismine'], True)
+
+        # Get another eth address
+        eth_addr = self.nodes[0].getnewaddress("", "eth")
+        priv_key = self.nodes[0].dumpprivkey(eth_addr)
+
+        # Import multi into node 1
+        self.nodes[1].importmulti([{"scriptPubKey": {"address": eth_addr},
+                                    "timestamp": "now",
+                                    "keys": [priv_key]}])
+
+        # Check key is now present in node 1
+        result = self.nodes[1].getaddressinfo(eth_addr)
+        assert_equal(result['ismine'], True)
+
+        # Get another eth address
+        eth_addr = self.nodes[0].getnewaddress("", "eth")
+
+        # Dump wallet to file
+        self.nodes[0].dumpwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
+
+        # Import wallet from file
+        self.nodes[1].importwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
+
+        # Check key is now present in node 1
+        result = self.nodes[1].getaddressinfo(eth_addr)
+        assert_equal(result['ismine'], True)
 
 if __name__ == '__main__':
     WalletHDTest().main()
