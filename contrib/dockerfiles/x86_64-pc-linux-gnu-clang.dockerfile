@@ -9,6 +9,8 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
+RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
+
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
