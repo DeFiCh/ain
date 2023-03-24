@@ -81,7 +81,7 @@ if TARGET_DARWIN
 bench_bench_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
 endif
 if BUILD_NOT_DARWIN
-bench_bench_defi_LDFLAGS += -Wl,--allow-multiple-definition
+bench_bench_defi_LDFLAGS += -Wl --allow-multiple-definition
 endif
 if TARGET_NOT_WINDOWS
 bench_bench_defi_LDADD += -ldl
