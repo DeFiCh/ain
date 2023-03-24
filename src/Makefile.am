@@ -722,7 +722,7 @@ defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS
 if TARGET_DARWIN
 defid_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
 endif
-if BUILD_NOT_DARWIN
+if TARGET_NOT_DARWIN
 defid_LDFLAGS += -Wl,--allow-multiple-definition
 endif
 if TARGET_NOT_WINDOWS
