@@ -195,14 +195,14 @@ test_test_defi_LDADD += $(LIBDEFI_SERVER) $(LIBDEFI_CLI) $(LIBDEFI_COMMON) $(LIB
   $(LIBDEFI_SPV) $(LIBLEVELDB) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
 test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-test_test_defi_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS) $(LIBEVM)
+test_test_defi_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS) $(LIBAIN_EVM) $(LIBAIN_GPRC)
 test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
 if TARGET_DARWIN
 test_test_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
 endif
 if BUILD_NOT_DARWIN
-test_test_defi_LDFLAGS += -Wl,--allow-multiple-definition
+test_test_defi_LDFLAGS += -Wl
 endif
 if TARGET_NOT_WINDOWS
 test_test_defi_LDADD += -ldl
