@@ -172,9 +172,6 @@ class WalletHDTest(DefiTestFramework):
         assert_equal(len(eth_addr), 42)
         assert_equal(is_hex(eth_addr[2:]), True)
 
-        print(eth_addr)
-        print(self.nodes[0].dumpprivkey(eth_addr))
-
         # Validate Eth address
         result = self.nodes[0].validateaddress(eth_addr)
         assert_equal(result['isvalid'], True)
@@ -182,7 +179,7 @@ class WalletHDTest(DefiTestFramework):
         # Check Eth address info
         result = self.nodes[0].getaddressinfo(eth_addr)
         assert_equal(result['ismine'], True)
-        assert_equal(result['solvable'], False)
+        assert_equal(result['solvable'], True)
         assert_equal(result['iswitness'], True)
         assert_equal(result['witness_version'], 16)
         assert_equal(result['labels'][0]['purpose'], 'eth')

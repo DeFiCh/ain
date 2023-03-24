@@ -164,6 +164,7 @@ enum opcodetype
     // crypto
     OP_RIPEMD160 = 0xa6,
     OP_SHA1 = 0xa7,
+    OP_SHA3 = 0xc0,
     OP_SHA256 = 0xa8,
     OP_HASH160 = 0xa9,
     OP_HASH256 = 0xaa,
