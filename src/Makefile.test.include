@@ -201,8 +201,8 @@ test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -stat
 if TARGET_DARWIN
 test_test_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
 endif
-if BUILD_NOT_DARWIN
-test_test_defi_LDFLAGS += -Wl
+if TARGET_NOT_DARWIN
+defid_LDFLAGS += -Wl,--allow-multiple-definition
 endif
 if TARGET_NOT_WINDOWS
 test_test_defi_LDADD += -ldl

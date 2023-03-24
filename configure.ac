@@ -1416,6 +1416,7 @@ if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_d
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
+AM_CONDITIONAL([TARGET_NOT_DARWIN], [test x$TARGET_OS != xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([BUILD_NOT_DARWIN], [test x$BUILD_OS != xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
