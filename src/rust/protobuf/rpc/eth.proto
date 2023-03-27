@@ -7,7 +7,14 @@ import "types/eth.proto";
 service eth {
     /// Returns eth_accounts list.
     rpc Eth_Accounts(google.protobuf.Empty) returns (types.EthAccountsResult);
-    
-    /// Call contract, returning the output data.
+
+    /// Call contract, returning the output data. Does not create a transaction.
 	rpc Eth_Call(types.EthCallInput) returns (types.EthCallResult);
+
+    /// Returns the balance for the given address.
+	rpc Eth_GetBalance(types.EthGetBalanceInput) returns (types.EthGetBalanceResult);
+
+    /// [ignore]
+    /// Returns the balance for the given address.
+	rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);
 }
