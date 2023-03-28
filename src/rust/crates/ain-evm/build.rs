@@ -14,6 +14,7 @@ fn main() {
     let mut root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let parent = root.clone();
     root.pop();
+    root.pop();
     let lib_path = &parent.join("src").join("lib.rs");
     let target_dir = &root.join("target");
 
