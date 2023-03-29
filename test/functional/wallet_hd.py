@@ -184,6 +184,11 @@ class WalletHDTest(DefiTestFramework):
         assert_equal(result['witness_version'], 16)
         assert_equal(result['labels'][0]['purpose'], 'eth')
 
+        # Make sure TX to Eth address does not get braodcasted
+        self.nodes[0].sendtoaddress(eth_addr, 1)
+        txs = self.nodes[0].getrawmempool()
+        assert_equal(txs, [])
+
         # Dump and import address into node 1
         priv_key = self.nodes[0].dumpprivkey(eth_addr)
         self.nodes[1].importprivkey(priv_key)
@@ -217,6 +222,7 @@ class WalletHDTest(DefiTestFramework):
         # Check key is now present in node 1
         result = self.nodes[1].getaddressinfo(eth_addr)
         assert_equal(result['ismine'], True)
+
 
 if __name__ == '__main__':
     WalletHDTest().main()
