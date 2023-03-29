@@ -797,14 +797,14 @@ fn generate_cxx_glue(tt: TokenStream, target_dir: &Path) {
         .write_all(&codegen.header)
         .unwrap();
 
-    opt.include.push(cxx_gen::Include {
-        path: "libain_grpc.h".to_string(),
-        kind: cxx_gen::IncludeKind::Bracketed,
-    });
-    opt.include.push(cxx_gen::Include {
-        path: "rpc/libain_wrapper.h".to_string(),
-        kind: cxx_gen::IncludeKind::Bracketed,
-    });
+    // opt.include.push(cxx_gen::Include {
+    //     path: "libain_grpc.h".to_string(),
+    //     kind: cxx_gen::IncludeKind::Bracketed,
+    // });
+    // opt.include.push(cxx_gen::Include {
+    //     path: "rpc/libain_wrapper.h".to_string(),
+    //     kind: cxx_gen::IncludeKind::Bracketed,
+    // });
     let codegen = cxx_gen::generate_header_and_cc(tt, &opt).unwrap();
     let mut cpp_stuff = String::from_utf8(codegen.implementation).unwrap();
     for (src, dest) in PATCHES {
@@ -837,5 +837,5 @@ fn main() {
         "cargo:rerun-if-changed={}",
         parent.join("src").join("rpc.rs").to_string_lossy()
     );
-    generate_cxx_glue(tt, &root.join("target"));
+    // generate_cxx_glue(tt, &root.join("target"));
 }
