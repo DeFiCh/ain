@@ -53,28 +53,19 @@ pub fn add_grpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Erro
     Ok(())
 }
 
-#[cxx::bridge]
-mod server {
-    extern "Rust" {
-        fn init_runtime();
-        fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
-        fn stop_runtime();
-    }
-}
-
-fn init_runtime() {
+pub fn init_runtime() {
     log::info!("Starting gRPC and JSON RPC servers");
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str())).init();
     let _ = &*RUNTIME;
 }
 
-fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
     add_json_rpc_server(&RUNTIME, json_addr)?;
     add_grpc_server(&RUNTIME, grpc_addr)?;
     Ok(())
 }
 
-fn stop_runtime() {
+pub fn stop_runtime() {
     log::info!("Stopping gRPC and JSON RPC servers");
     RUNTIME.stop();
 }
