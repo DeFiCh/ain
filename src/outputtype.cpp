@@ -76,7 +76,8 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
         CTxDestination p2sh = ScriptHash(GetScriptForDestination(segwit));
         return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit)};
     } else {
-        return std::vector<CTxDestination>{std::move(keyid)};
+        CTxDestination eth = WitnessV16EthHash(key);
+        return std::vector<CTxDestination>{std::move(keyid), std::move(eth)};
     }
 }
 

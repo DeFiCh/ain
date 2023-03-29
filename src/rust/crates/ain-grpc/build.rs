@@ -287,11 +287,14 @@ fn modify_codegen(
         .unwrap()
         .read_to_string(&mut contents)
         .unwrap();
+
     let mut codegen = String::new();
-    codegen.push_str("\n#[cxx::bridge]\nmod ffi {\n");
+    codegen.push_str("\n#[cxx::bridge]\npub mod ffi {\n");
     codegen.push_str(&ffi_tt.to_string());
     codegen.push_str("\n}\n");
+
     codegen.push_str(&impl_tt.to_string());
+
     for (server_mod, (jrpc_tt, grpc_tt)) in rpc_tt {
         let (server, service, svc_mod, svc_trait) = (
             Ident::new(
@@ -310,17 +313,27 @@ fn modify_codegen(
         );
         codegen.push_str(
             &quote!(
-                pub struct #service;
+                #[derive(Clone)]
+                pub struct #service {
+                    adapter: Arc<EVMHandler>
+                }
 
                 impl #service {
                     #[inline]
                     #[allow(dead_code)]
-                    pub fn service() -> #svc_mod::#server<#service> {
-                        #svc_mod::#server::new(#service)
+                    pub fn new(adapter: Arc<EVMHandler>) -> #service {
+                        #service {
+                            adapter
+                        }
+                    }
+                    #[inline]
+                    #[allow(dead_code)]
+                    pub fn service(&self) -> #svc_mod::#server<#service> {
+                        #svc_mod::#server::new(self.clone())
                     }
                     #[inline]
                     #[allow(unused_mut, dead_code)]
-                    pub fn module() -> Result<jsonrpsee_http_server::RpcModule<()>, jsonrpsee_core::Error> {
+                    pub fn module(&self) -> Result<jsonrpsee_http_server::RpcModule<()>, jsonrpsee_core::Error> {
                         let mut module = jsonrpsee_http_server::RpcModule::new(());
                         #jrpc_tt
                         Ok(module)
@@ -410,7 +423,7 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
         modified.extend(quote!(#s));
         map.insert(s.ident.to_string(), s.clone());
 
-        s.attrs = Attr::parse("#[derive(Debug, Default)]");
+        s.attrs = Attr::parse("#[derive(Debug, Default, Serialize , Deserialize)]");
         let fields = match &mut s.fields {
             Fields::Named(ref mut f) => f,
             _ => unreachable!(),
@@ -444,9 +457,12 @@ fn apply_substitutions(
         use jsonrpsee_core::client::ClientT;
         use jsonrpsee_http_client::{HttpClient, HttpClientBuilder};
         use std::sync::Arc;
-        use crate::{CLIENTS, RUNTIME};
+        use crate::{CLIENTS};
+        use ain_evm_runtime::RUNTIME;
+        use crate::rpc::*;
         #[allow(unused_imports)]
         use self::ffi::*;
+        use ain_evm_state::handler::EVMHandler;
         #[derive(Clone)]
         pub struct Client {
             inner: Arc<HttpClient>,
@@ -466,19 +482,6 @@ fn apply_substitutions(
             Ok(Box::new(CLIENTS.read().unwrap().get(addr).unwrap().clone()))
         }
         #[allow(dead_code)]
-        fn extract_error(exc: cxx::Exception) -> jsonrpsee_core::Error {
-            let msg = exc.what();
-            let error: jsonrpsee_types::ErrorObject<'_> = match serde_json::from_str(msg) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::warn!("Unable to deserialize exception message: {:?}", e);
-                    return jsonrpsee_core::Error::Custom(msg.into());
-                },
-            };
-
-            jsonrpsee_core::Error::Call(jsonrpsee_types::error::CallError::Custom(error.into_owned()))
-        }
-        #[allow(dead_code)]
         fn missing_param(field: &str) -> jsonrpsee_core::Error {
             jsonrpsee_core::Error::Call(jsonrpsee_types::error::CallError::Custom(
                 jsonrpsee_types::ErrorObject::borrowed(-1, &format!("Missing required parameter '{field}'"), None).into_owned()
@@ -487,7 +490,7 @@ fn apply_substitutions(
     };
     let (mut funcs, mut sigs) = (quote!(), quote!());
     let mut calls = HashMap::new();
-    for (name, s) in &map {
+    for (_name, s) in &map {
         let mut copy_block_rs = quote!();
         let mut copy_block_ffi = quote!();
         let fields = match &s.fields {
@@ -495,18 +498,18 @@ fn apply_substitutions(
             _ => unreachable!(),
         };
 
-        let s_name = Ident::new(name, Span::call_site());
-        let fn_name = Ident::new(&("Make".to_owned() + name), Span::call_site());
-        sigs.extend(quote!(
-            fn #fn_name() -> #s_name;
-        ));
-        funcs.extend(quote!(
-            #[inline]
-            #[allow(non_snake_case)]
-            fn #fn_name() -> ffi::#s_name {
-                Default::default()
-            }
-        ));
+        // let s_name = Ident::new(name, Span::call_site());
+        // let fn_name = Ident::new(&("Make".to_owned() + name), Span::call_site());
+        // sigs.extend(quote!(
+        //     fn #fn_name() -> #s_name;
+        // ));
+        // funcs.extend(quote!(
+        //     #[inline]
+        //     #[allow(non_snake_case)]
+        //     fn #fn_name() -> ffi::#s_name {
+        //         Default::default()
+        //     }
+        // ));
 
         for field in &fields.named {
             let name = &field.ident;
@@ -586,7 +589,8 @@ fn apply_substitutions(
                             let params = jsonrpsee_core::rpc_params![];
                         },
                         quote!(),
-                        quote!(&mut out),
+                        quote!(),
+                        // quote!(&mut out),
                     )
                 } else {
                     let mut values = quote!();
@@ -637,8 +641,9 @@ fn apply_substitutions(
                             let #ivar = super::types::#ity::from(#ivar);
                             let params = jsonrpsee_core::rpc_params![#values];
                         },
-                        quote! { let mut input = request.into_inner().into(); },
-                        quote!(&mut input, &mut out),
+                        quote! { let input = request.into_inner().into(); },
+                        quote!(input),
+                        // quote!(input, &mut out),
                     )
                 };
 
@@ -686,21 +691,27 @@ fn apply_substitutions(
             }
             if method.server {
                 server_mod.0.extend(quote!(
-                    module.register_blocking_method(#rpc_name, |_params, _| {
+                    let adapter = self.adapter.clone();
+                    module.register_method(#rpc_name, move |_params, _| {
                         #param_ffi
-                        let mut out = ffi::#oty::default();
-                        ffi::#name(#call_ffi).map(|_| super::types::#oty::from(out))
-                            .map_err(extract_error)
+                        // let mut out = ffi::#oty::default();
+                        Self::#name(adapter.clone(), #call_ffi)
+                        // #name(adapter.clone(), #call_ffi)
+                            // .map(|_| out)
                     })?;
                 ));
             }
             if method.server {
                 server_mod.1.extend(quote!(
                         async fn #name_rs(#input_rs) -> Result<tonic::Response<super::types::#oty>, tonic::Status> {
-                            let result = tokio::task::spawn_blocking(|| {
+                            let adapter = self.adapter.clone();
+                            let result = tokio::task::spawn_blocking(move || {
                                 let mut out = ffi::#oty::default();
                                 #into_ffi
-                                ffi::#name(#call_ffi).map(|_| out).map_err(|e| tonic::Status::unknown(e.to_string()))
+                                Self::#name(adapter.clone(), #call_ffi).map_err(|e| tonic::Status::unknown(e.to_string()))
+                                // #name(adapter.clone(), #call_ffi)
+                                // .map(|_| out)
+                                // .map_err(|e| tonic::Status::unknown(e.to_string()))
                             }).await
                             .map_err(|e| {
                                 tonic::Status::unknown(format!("failed to invoke RPC call: {}", e))
@@ -721,9 +732,7 @@ fn apply_substitutions(
             type Client;
             fn NewClient(addr: &str) -> Result<Box<Client>>;
             #sigs
-        }
-        unsafe extern "C++" {
-            #rpc
+            // #rpc
         }
     ));
 
@@ -788,14 +797,14 @@ fn generate_cxx_glue(tt: TokenStream, target_dir: &Path) {
         .write_all(&codegen.header)
         .unwrap();
 
-    opt.include.push(cxx_gen::Include {
-        path: "libain_grpc.h".to_string(),
-        kind: cxx_gen::IncludeKind::Bracketed,
-    });
-    opt.include.push(cxx_gen::Include {
-        path: "rpc/libain_wrapper.h".to_string(),
-        kind: cxx_gen::IncludeKind::Bracketed,
-    });
+    // opt.include.push(cxx_gen::Include {
+    //     path: "libain_grpc.h".to_string(),
+    //     kind: cxx_gen::IncludeKind::Bracketed,
+    // });
+    // opt.include.push(cxx_gen::Include {
+    //     path: "rpc/libain_wrapper.h".to_string(),
+    //     kind: cxx_gen::IncludeKind::Bracketed,
+    // });
     let codegen = cxx_gen::generate_header_and_cc(tt, &opt).unwrap();
     let mut cpp_stuff = String::from_utf8(codegen.implementation).unwrap();
     for (src, dest) in PATCHES {
@@ -815,6 +824,7 @@ fn main() {
     let mut root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let parent = root.clone();
     root.pop();
+    root.pop();
     let out_dir = env::var("OUT_DIR").unwrap();
     let methods = generate_from_protobuf(&root.join("protobuf"), Path::new(&out_dir));
     let tt = modify_codegen(
@@ -823,5 +833,9 @@ fn main() {
         &Path::new(&out_dir).join("rpc.rs"),
         &parent.join("src").join("lib.rs"),
     );
-    generate_cxx_glue(tt, &root.join("target"));
+    println!(
+        "cargo:rerun-if-changed={}",
+        parent.join("src").join("rpc.rs").to_string_lossy()
+    );
+    // generate_cxx_glue(tt, &root.join("target"));
 }

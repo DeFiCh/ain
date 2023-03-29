@@ -5,8 +5,9 @@ import "google/protobuf/empty.proto";
 import "types/block.proto";
 
 service Blockchain {
+    // [ignore]
     // Returns the hash of the best (tip) block in the most-work fully-validated chain.
-    rpc GetBestBlockHash(google.protobuf.Empty) returns (types.BlockResult);
+    rpc GetBestBlockHash(google.protobuf.Empty) returns (types.BlockHashResult);
     // [ignore]
     rpc GetBlock(types.BlockInput) returns (types.BlockResult);
 }

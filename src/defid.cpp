@@ -21,7 +21,7 @@
 #include <util/threadnames.h>
 #include <util/translation.h>
 
-#include <libain_grpc.h>
+#include <libain_evm.h>
 
 #include <functional>
 
@@ -67,6 +67,8 @@ static bool AppInit(int argc, char* argv[])
 
     util::ThreadRename("init");
     init_runtime();
+    // Test linking to dummy address
+    evm_add_balance("0xf3088943Fa15Ff33D5C3Af9845dc65073Ae2bAc8", 100);
 
     //
     // Parameters

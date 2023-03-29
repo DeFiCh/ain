@@ -54,7 +54,7 @@ RUN ./make.sh purge && rm -rf ./depends
 COPY --from=depends-builder /work/depends ./depends
 
 RUN ./make.sh clean && ./autogen.sh
-RUN export MAKE_COMPILER="CC=clang-16 CCX=clang++-16" && \
+RUN export MAKE_COMPILER="CC=clang-16 CXX=clang++-16" && \
     ./make.sh build-conf && ./make.sh build-make
 
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.

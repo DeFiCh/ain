@@ -1,0 +1,19 @@
+[package]
+name = "ain-evm-runtime"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ain-evm-state = { path = "../ain-evm-state" }
+
+lazy_static = "1.4"
+jsonrpsee-core = "0.15"
+jsonrpsee-http-server = "0.15"
+jsonrpsee-types = "0.15"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.1", features = ["rt-multi-thread"] }
+primitive-types = "0.12.1"

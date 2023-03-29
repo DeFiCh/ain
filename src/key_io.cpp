@@ -5,11 +5,9 @@
 #include <base58.h>
 #include <bech32.h>
 #include <chainparams.h>
-#include <util/strencodings.h>
 
 #include <assert.h>
 #include <string.h>
-#include "logging.h"
 
 namespace {
 class DestinationEncoder
