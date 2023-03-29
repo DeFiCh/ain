@@ -11,12 +11,15 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
-class StoredInterestTest (DefiTestFramework):
+
+class StoredInterestTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-jellyfish_regtest=1', '-negativeinterest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1',
+             '-jellyfish_regtest=1', '-negativeinterest=1']]
 
     def run_test(self):
         # Create tokens for tests
@@ -94,7 +97,6 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def setup_test_pools(self):
-
         # Create pool pair
         self.nodes[0].createpoolpair({
             "tokenA": self.symbolDFI,
@@ -110,11 +112,10 @@ class StoredInterestTest (DefiTestFramework):
             self.address: [
                 '10000@' + self.symbolDFI,
                 '10000@' + self.symbolDUSD]
-            }, self.address)
+        }, self.address)
         self.nodes[0].generate(1)
 
     def setup_test_oracles(self):
-
         # Create Oracle address
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
 
@@ -136,10 +137,10 @@ class StoredInterestTest (DefiTestFramework):
 
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
-                                    'token': self.symbolDFI,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"
-                                    })
+            'token': self.symbolDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"
+        })
         self.nodes[0].generate(1)
 
         # Create loan scheme
@@ -151,7 +152,6 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def test_token_interest_change(self):
-
         # Create vault
         vault_address = self.nodes[0].getnewaddress('', 'legacy')
         vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
@@ -166,11 +166,11 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Change token interest to create positive interestToHeight value
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Check stored interest increased as expected
@@ -181,11 +181,11 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set negative interest to be inverse of positive interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(6)
 
         # Apply again to update stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(10)
 
         # Check interest is now set to be negative and that interest to height has reduced
@@ -195,7 +195,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 9)
 
         # Apply again to update stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Check amount negated shown in attributes, 5 * negative_stored_ipb
@@ -215,7 +215,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 4)
 
         # Apply again to update stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Check amount negated shown in attributes, 10 * negative_stored_ipb
@@ -229,11 +229,11 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set positive token interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(6)
 
         # Apply again to update stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(10)
 
         # Check interest to height has additional negative interest
@@ -243,7 +243,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 9)
 
         # Apply again to update stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Check interest to height has additional negative interest
@@ -253,9 +253,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
     def test_scheme_change(self):
-
         # Reset token interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -272,7 +271,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Change vault scheme to create positive interest to height
@@ -291,7 +290,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set negative interest to be inverse of positive interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(6)
 
         # Apply scheme change to update stored interest
@@ -338,7 +337,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set positive token interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(6)
 
         # Apply scheme change to update stored interest
@@ -370,9 +369,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
     def test_take_loan_neg_ipb_pos_ith(self):
-
         # Reset token interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -389,7 +387,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Check interest
@@ -397,7 +395,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest, '0.000000380517503805175038')
 
         # Take another loan to update stored interest
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest has updated as expected
@@ -407,7 +405,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set negative interest to be inverse of positive interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(6)
 
         # Check negative rate
@@ -415,13 +413,13 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestPerBlock'], '-0.000000380517507610350076')
 
         # Take another loan to update stored interest
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(6)
 
         # Check interest has reduced as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '-0.000000380517511415525114')
-        assert_equal(stored_interest['interestToHeight'], '0.000001902587500000000000') # Reduced 6 * IPB
+        assert_equal(stored_interest['interestToHeight'], '0.000001902587500000000000')  # Reduced 6 * IPB
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
 
         # Check loan amount before taking new loan
@@ -429,7 +427,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, [f'1.00000002@{self.symbolDUSD}'])
 
         # Take another loan to update stored interest
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000040@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000040@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check amount negated shown in attributes
@@ -454,7 +452,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Take another loan to update stored interest
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check ITH is wiped and IPB decreased slightly
@@ -472,11 +470,11 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-1000000'}})
         self.nodes[0].generate(10)
 
         # Update token rate to negative
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Check ITH is more than loan amount
@@ -486,7 +484,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Take new loan. Old loan amount should be paid off only.
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.50000000@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.50000000@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check loan amount only shows new loan
@@ -504,9 +502,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
     def test_payback_loan(self):
-
         # Reset token interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -523,7 +520,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Check interest
@@ -531,17 +528,18 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest, '0.000000380517503805175038')
 
         # Payback DUSD loan to update stored interest
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest has updated as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
-        assert_equal(stored_interest['interestToHeight'], '0.000003795175038051750380') # Less 1 Sat payback
+        assert_equal(stored_interest['interestToHeight'], '0.000003795175038051750380')  # Less 1 Sat payback
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Set negative interest to be inverse of positive interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(6)
 
         # Check negative rate
@@ -549,7 +547,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestPerBlock'], '-0.000000380517503805175038')
 
         # Payback DUSD loan to update stored interest
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(6)
 
         # Check interest has reduced as expected
@@ -559,7 +558,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
 
         # Payback DUSD loan to update stored interest
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(6)
 
         # Check attributes. Amount was 2.00000003 before.
@@ -577,7 +577,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, ['0.99999959@DUSD'])
 
         # Apply token interest to update interest to height
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Check interest increased as expected
@@ -587,7 +587,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Payback loan in full
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": self.address, "amounts": self.nodes[0].getloantokens(vault_id)[0]})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": self.address, "amounts": self.nodes[0].getloantokens(vault_id)[0]})
         self.nodes[0].generate(6)
 
         # Check interest has wiped as expected
@@ -597,7 +598,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
 
         # Apply token interest to update interest to height
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Make sure that interest is still wiped and not updated
@@ -607,9 +608,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 6)
 
     def test_takeloan_close_loan(self):
-
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-200000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-200000'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -626,7 +626,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(60)
 
         # Check interest
@@ -634,7 +634,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest, '-0.000000000380515601217656')
 
         # Set resonable negative interest. Ends up at 0% in vault.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-1'}})
         self.nodes[0].generate(1)
 
         # Check interest fully negates loan amount of 1 Sat
@@ -643,7 +643,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestToHeight'], '-0.000000022830936073059360')
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest and interest to height are both zero
@@ -655,9 +655,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(self.nodes[0].getloantokens(vault_id), ['1.00000000@DUSD'])
 
     def test_payback_close_loan(self):
-
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-200000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-200000'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -674,7 +673,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(60)
 
         # Check interest
@@ -682,7 +681,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest, '-0.000000000380515601217656')
 
         # Set resonable negative interest. Ends up at 0% in vault.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-1'}})
         self.nodes[0].generate(1)
 
         # Check interest fully negates loan amount of 1 Sat
@@ -691,7 +690,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestToHeight'], '-0.000000022830936073059360')
 
         # Payback loan
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest and interest to height are both zero
@@ -708,9 +708,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, [])
 
     def test_payback_partial_close_loan(self):
-
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-100000'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -727,7 +726,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(27)
 
         # Check interest
@@ -735,7 +734,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest, '-0.019025684931506849315068')
 
         # Set resonable negative interest. Ends up at 0% in vault.
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-1'}})
         self.nodes[0].generate(1)
 
         # Check interest fully negates loan amount of 1 Sat
@@ -748,7 +747,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(vault['interestAmounts'], [f'-0.51369349@{self.symbolDUSD}'])
 
         # Payback loan
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan({"vaultId": vault_id, "from": vault_address, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest and interest to height are both zero
@@ -765,9 +764,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, [])
 
     def test_take_loan_pos_ipb_neg_ith(self):
-
         # Set negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -784,11 +782,11 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Set interest to for positive IPB
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(20)
 
         # Check interest has updated as expected
@@ -798,7 +796,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 19)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Accrued interes should have wiped negative interest and left positive ITH
@@ -816,15 +814,15 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, [f'1.00000001@{self.symbolDUSD}'])
 
         # Set negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-3'}})
         self.nodes[0].generate(20)
 
         # Set positive interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000400@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000400@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Accrued interes should have wiped negative interest and left positive ITH
@@ -846,7 +844,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Take DUSD loan smaller than negative interest
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000100@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000100@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Accrued interes should have wiped negative interest and left positive ITH
@@ -868,11 +866,11 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-1000000'}})
         self.nodes[0].generate(10)
 
         # Update token interest to positive
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '1'}})
         self.nodes[0].generate(1)
 
         # Check ITH is more than loan amount
@@ -882,7 +880,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Take new loan. Old loan amount should be paid off only.
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.50000000@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.50000000@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check loan amount only shows new loan
@@ -900,9 +898,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
     def check_minimum_interest_takeloan(self):
-
         # Set negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-2'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-2'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -919,7 +916,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB is sub satoshi
@@ -929,7 +926,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Take new Sat loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB is doubled and ITH updated
@@ -946,11 +943,9 @@ class StoredInterestTest (DefiTestFramework):
         account = self.nodes[0].getaccount(vault_address)
         assert_equal(account, [f'0.00000002@{self.symbolDUSD}'])
 
-
     def check_minimum_interest_payback(self):
-
         # Set negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-2'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-2'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -967,7 +962,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000003@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"0.00000003@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB is sub satoshi
@@ -977,7 +972,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Payback part of the DUSD loan
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB is doubled and ITH updated
@@ -995,7 +991,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(account, [f'0.00000002@{self.symbolDUSD}'])
 
         # Payback the rest of the DUSD loan
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB is doubled and ITH updated
@@ -1013,7 +1010,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(account, [f'0.00000001@{self.symbolDUSD}'])
 
         # Payback the rest of the DUSD loan
-        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].paybackloan(
+            {"vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check IPB and ITH now wiped
@@ -1031,9 +1029,8 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(account, [])
 
     def test_withdraw_from_vault(self):
-
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-100000'}})
         self.nodes[0].generate(1)
 
         # Create vault
@@ -1050,11 +1047,11 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(26)
 
         # Set same interest to update and check stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-100000'}})
         self.nodes[0].generate(1)
 
         # Check interest
@@ -1087,7 +1084,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(loan_tokens, [f'0.48630651@{self.symbolDUSD}'])
 
         # Set same interest to update and check stored interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-100000'}})
         self.nodes[0].generate(1)
 
         # Check interest now enough to fully negate loan
@@ -1096,7 +1093,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestToHeight'], '-0.555138866364041095890360')
 
         # Set mega negative interest
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_minting_interest': '-100000'}})
         self.nodes[0].generate(1)
 
         # Withdraw the rest of the collateral from vault
@@ -1115,6 +1112,7 @@ class StoredInterestTest (DefiTestFramework):
         # Check loan amount is nil
         loan_tokens = self.nodes[0].getloantokens(vault_id)
         assert_equal(loan_tokens, [])
+
 
 if __name__ == '__main__':
     StoredInterestTest().main()

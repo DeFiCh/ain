@@ -11,7 +11,8 @@ from test_framework.util import assert_equal
 import calendar
 import time
 
-class PoolPairTestPoolSwapTest (DefiTestFramework):
+
+class PoolPairTestPoolSwapTest(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
@@ -26,22 +27,22 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
             '-fortcanningspringheight=1',
             '-jellyfish_regtest=1',
             '-simulatemainnet=1'
-            ]]
+        ]]
 
     def createOracles(self):
         self.oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds = [{"currency": "USD", "token": "DFI"},
-                        {"currency": "USD", "token": "DUSD"},
-                        {"currency": "USD", "token": "TSLA"},
-                        {"currency": "USD", "token": "BTC"}]
+                       {"currency": "USD", "token": "DUSD"},
+                       {"currency": "USD", "token": "TSLA"},
+                       {"currency": "USD", "token": "BTC"}]
         self.oracle_id1 = self.nodes[0].appointoracle(self.oracle_address1, price_feeds, 10)
         self.nodes[0].generate(1)
 
         # feed oracle
         oracle_prices = [{"currency": "USD", "tokenAmount": "1@TSLA"},
-                        {"currency": "USD", "tokenAmount": "1@DUSD"},
-                        {"currency": "USD", "tokenAmount": "1@BTC"},
-                        {"currency": "USD", "tokenAmount": "10@DFI"}]
+                         {"currency": "USD", "tokenAmount": "1@DUSD"},
+                         {"currency": "USD", "tokenAmount": "1@BTC"},
+                         {"currency": "USD", "tokenAmount": "10@DFI"}]
 
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracle_id1, timestamp, oracle_prices)
@@ -140,22 +141,25 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
             self.mn_address: [
                 '10000@' + self.symbolDFI,
                 '10000@' + self.symbolDUSD]
-            }, self.mn_address)
+        }, self.mn_address)
         self.nodes[0].addpoolliquidity({
             self.mn_address: [
                 '10000@' + self.symbolTSLA,
                 '10000@' + self.symbolDFI]
-            }, self.mn_address)
+        }, self.mn_address)
         self.nodes[0].addpoolliquidity({
             self.mn_address: [
                 '10000@' + self.symbolTSLA,
                 '10000@' + self.symbolBTC]
-            }, self.mn_address)
+        }, self.mn_address)
         self.nodes[0].generate(1)
 
-        self.nodes[0].accounttoaccount(self.mn_address, {self.account0: str(self.swapAmount * 2) + "@" + self.symbolDFI})
-        self.nodes[0].accounttoaccount(self.mn_address, {self.account0: str(self.swapAmount * 2) + "@" + self.symbolTSLA})
-        self.nodes[0].accounttoaccount(self.mn_address, {self.account0: str(self.swapAmount * 2) + "@" + self.symbolBTC})
+        self.nodes[0].accounttoaccount(self.mn_address,
+                                       {self.account0: str(self.swapAmount * 2) + "@" + self.symbolDFI})
+        self.nodes[0].accounttoaccount(self.mn_address,
+                                       {self.account0: str(self.swapAmount * 2) + "@" + self.symbolTSLA})
+        self.nodes[0].accounttoaccount(self.mn_address,
+                                       {self.account0: str(self.swapAmount * 2) + "@" + self.symbolBTC})
         self.nodes[0].generate(1)
 
     def assert_testpoolswap_amount(self, swap_fn, tokenFrom, path):
@@ -179,7 +183,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_in(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'in'
         }})
@@ -187,7 +191,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_b_fee_in(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_direction': 'in'
         }})
@@ -195,7 +199,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_out(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'out'
         }})
@@ -203,7 +207,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_b_fee_out(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_direction': 'out'
         }})
@@ -211,7 +215,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_in_token_b_fee_in(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'in',
@@ -221,7 +225,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_in_token_b_fee_out(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'in',
@@ -231,7 +235,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_out_token_b_fee_in(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'out',
@@ -241,7 +245,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_token_a_fee_out_token_b_fee_out(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_b_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'out',
@@ -251,7 +255,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
 
     def test_testpoolswap_with_multi_pool_fee(self, swap_fn, tokenFrom, path):
-        self.nodes[0].setgov({"ATTRIBUTES":{
+        self.nodes[0].setgov({"ATTRIBUTES": {
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_pct': '0.10',
             f'v0/poolpairs/{self.DUSD_DFIPoolID}/token_a_fee_direction': 'in',
             f'v0/poolpairs/{self.DFI_TSLAPoolID}/token_a_fee_pct': '0.10',
@@ -289,7 +293,8 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
             # comspositeswap BTC -> DUSD swap through BTC-TSLA -> TSLA-DFI -> DFI-DUSD pools
             (self.nodes[0].compositeswap, self.symbolBTC, "auto"),
             (self.nodes[0].compositeswap, self.symbolBTC, "composite"),
-            (self.nodes[0].compositeswap, self.symbolBTC, [str(self.BTC_TSLAPoolID), str(self.DFI_TSLAPoolID), str(self.DUSD_DFIPoolID)]),
+            (self.nodes[0].compositeswap, self.symbolBTC,
+             [str(self.BTC_TSLAPoolID), str(self.DFI_TSLAPoolID), str(self.DUSD_DFIPoolID)]),
         ]
 
         testCases = [
@@ -311,6 +316,7 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
             for test in testCases:
                 test(swap_fn, tokenFrom, path)
                 self.rollback_to(height)
+
 
 if __name__ == '__main__':
     PoolPairTestPoolSwapTest().main()

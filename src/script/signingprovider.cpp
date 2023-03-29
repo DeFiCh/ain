@@ -192,6 +192,9 @@ CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& 
     if (auto witness_id = std::get_if<WitnessV0KeyHash>(&dest)) {
         return CKeyID(*witness_id);
     }
+    if (auto witness_id = std::get_if<WitnessV16EthHash>(&dest)) {
+        return CKeyID(*witness_id);
+    }
     if (auto script_hash = std::get_if<ScriptHash>(&dest)) {
         CScript script;
         CScriptID script_id(*script_hash);

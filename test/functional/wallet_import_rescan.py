@@ -88,7 +88,8 @@ class Variant(collections.namedtuple("Variant", "call data address_type rescan p
         current_height = self.node.getblockcount()
         assert_equal(len(txs), self.expected_txs)
 
-        addresses = self.node.listreceivedbyaddress(minconf=0, include_watchonly=True, address_filter=self.address['address'])
+        addresses = self.node.listreceivedbyaddress(minconf=0, include_watchonly=True,
+                                                    address_filter=self.address['address'])
         if self.expected_txs:
             assert_equal(len(addresses[0]["txids"]), self.expected_txs)
 
@@ -144,7 +145,7 @@ def get_rand_amount():
 
 class ImportRescanTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2 + len(IMPORT_NODES) # 6
+        self.num_nodes = 2 + len(IMPORT_NODES)  # 6
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -190,7 +191,7 @@ class ImportRescanTest(DefiTestFramework):
             self.nodes,
             self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"] + TIMESTAMP_WINDOW + 1,
         )
-        self.nodes[0].reset_mocktime() # reset generate's inner Mocktime to mint with those from set_node_times()
+        self.nodes[0].reset_mocktime()  # reset generate's inner Mocktime to mint with those from set_node_times()
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -226,6 +227,7 @@ class ImportRescanTest(DefiTestFramework):
             variant.expected_balance += variant.sent_amount
             variant.expected_txs += 1
             variant.check(variant.sent_txid, variant.sent_amount, variant.confirmation_height)
+
 
 if __name__ == "__main__":
     ImportRescanTest().main()

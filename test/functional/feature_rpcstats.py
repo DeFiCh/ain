@@ -13,13 +13,15 @@ from test_framework.util import (
 )
 from test_framework.authproxy import JSONRPCException
 
+
 class RPCstats(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
             ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-rpcstats=0'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
+             '-rpcstats=0'],
         ]
 
     def run_test(self):
@@ -29,12 +31,12 @@ class RPCstats(DefiTestFramework):
         self.nodes[0].getnewaddress("", "legacy")
 
         self.nodes[0].listunspent()
-        time.sleep(1) # sleep to get different timestamp
+        time.sleep(1)  # sleep to get different timestamp
         self.nodes[0].listunspent()
 
         listrpcstats = self.nodes[0].listrpcstats()
-        assert(any(elem for elem in listrpcstats if elem["name"] == "getnewaddress"))
-        assert(any(elem for elem in listrpcstats if elem["name"] == "listunspent"))
+        assert (any(elem for elem in listrpcstats if elem["name"] == "getnewaddress"))
+        assert (any(elem for elem in listrpcstats if elem["name"] == "listunspent"))
 
         getrpcstats = self.nodes[0].getrpcstats("listunspent")
         assert_equal(getrpcstats["name"], "listunspent")
@@ -48,26 +50,27 @@ class RPCstats(DefiTestFramework):
 
         getrpcstats = self.nodes[0].getrpcstats("listunspent")
         assert_equal(getrpcstats["count"], 6)
-        assert(historyEntry1 not in getrpcstats["history"])
+        assert (historyEntry1 not in getrpcstats["history"])
         assert_equal(getrpcstats["history"][0], historyEntry2)
 
         try:
             self.nodes[0].getrpcstats("WRONGCMD")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No stats for this command." in errorString)
+        assert ("No stats for this command." in errorString)
 
         try:
             self.nodes[1].getrpcstats("listunspent")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Rpcstats is desactivated." in errorString)
+        assert ("Rpcstats is desactivated." in errorString)
 
         try:
             self.nodes[1].listrpcstats()
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Rpcstats is desactivated." in errorString)
+        assert ("Rpcstats is desactivated." in errorString)
+
 
 if __name__ == '__main__':
-    RPCstats().main ()
+    RPCstats().main()

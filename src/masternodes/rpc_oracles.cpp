@@ -152,7 +152,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     UniValue const &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -165,7 +165,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -267,7 +267,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     UniValue const &txInputs = request.params[4];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;//    std::string oracles;
 
@@ -280,7 +280,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -347,7 +347,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     UniValue const &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -361,7 +361,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     }
 
     // fund
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -509,7 +509,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     std::set<CScript> auths{oracleAddress};
 
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -522,7 +522,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

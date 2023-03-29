@@ -9,6 +9,7 @@ from test_framework.messages import BIP125_SEQUENCE_NUMBER
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_raises_rpc_error
 
+
 class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -39,6 +40,7 @@ class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
         self.log.info("Testing bumpfee without totalFee argument does not raise")
         rbf_node.bumpfee(rbfid)
 
+
 def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
     tx_input = dict(sequence=BIP125_SEQUENCE_NUMBER,
                     **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000")))
@@ -48,6 +50,7 @@ def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
     signedtx = node.signrawtransactionwithwallet(rawtx)
     txid = node.sendrawtransaction(signedtx["hex"])
     return txid
+
 
 if __name__ == "__main__":
     BumpFeeWithTotalFeeArgumentDeprecationTest().main()

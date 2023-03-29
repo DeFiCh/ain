@@ -2,7 +2,7 @@ dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
 define(_CLIENT_VERSION_MAJOR, 3)
 define(_CLIENT_VERSION_MINOR, 2)
-define(_CLIENT_VERSION_REVISION, 7)
+define(_CLIENT_VERSION_REVISION, 8)
 define(_CLIENT_VERSION_BUILD, 0)
 define(_CLIENT_VERSION_RC, 0)
 define(_CLIENT_VERSION_IS_RELEASE, true)
@@ -1416,6 +1416,7 @@ if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_d
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
+AM_CONDITIONAL([TARGET_NOT_DARWIN], [test x$TARGET_OS != xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([BUILD_NOT_DARWIN], [test x$BUILD_OS != xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])

@@ -10,15 +10,16 @@ Runs automatically during `make check`.
 Can also be run manually."""
 
 import argparse
-#import binascii # TODO: (temp) it's used in bctest
+# import binascii # TODO: (temp) it's used in bctest
 import configparser
-#import difflib # TODO: (temp) it's used in bctest
+# import difflib # TODO: (temp) it's used in bctest
 import json
 import logging
 import os
 import pprint
-#import subprocess  # TODO: (temp) it's used in bctest
+# import subprocess  # TODO: (temp) it's used in bctest
 import sys
+
 
 def main():
     config = configparser.ConfigParser()
@@ -41,6 +42,7 @@ def main():
 
     bctester(os.path.join(env_conf["SRCDIR"], "test", "util", "data"), "defi-util-test.json", env_conf)
 
+
 def bctester(testDir, input_basename, buildenv):
     """ Loads and parses the input file, runs all tests and reports results"""
     input_filename = os.path.join(testDir, input_basename)
@@ -53,7 +55,7 @@ def bctester(testDir, input_basename, buildenv):
         try:
             bctest(testDir, testObj, buildenv)
             logging.info("PASSED: " + testObj["description"])
-        except:
+        except Exception:
             logging.info("FAILED: " + testObj["description"])
             failed_testcases.append(testObj["description"])
 
@@ -64,6 +66,7 @@ def bctester(testDir, input_basename, buildenv):
         sys.exit(1)
     else:
         sys.exit(0)
+
 
 def bctest(testDir, testObj, buildenv):
     """Runs a single test, comparing output and RC to expected output and RC.
@@ -160,6 +163,8 @@ def bctest(testDir, testObj, buildenv):
     #     if want_error not in outs[1]:
     #         logging.error("Error mismatch:\n" + "Expected: " + want_error + "\nReceived: " + outs[1].rstrip())
     #         raise Exception
+
+
 #
 # def parse_output(a, fmt):
 #     """Parse the output according to specified format.

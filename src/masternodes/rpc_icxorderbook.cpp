@@ -323,7 +323,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{order.ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -335,7 +335,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -465,7 +465,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{makeoffer.ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -477,7 +477,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx,&coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -607,7 +607,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{authScript};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -619,7 +619,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -753,7 +753,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{authScript};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -767,7 +767,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
             coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx,&coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -857,7 +857,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -869,7 +869,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -953,7 +953,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{authScript};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -965,7 +965,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx,&coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1050,7 +1050,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{authScript};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -1062,7 +1062,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx,&coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

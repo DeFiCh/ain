@@ -76,7 +76,7 @@ def compress(h0, h1, h2, h3, h4, block):
     # Right path variables.
     ar, br, cr, dr, er = h0, h1, h2, h3, h4
     # Message variables.
-    x = [int.from_bytes(block[4*i:4*(i+1)], 'little') for i in range(16)]
+    x = [int.from_bytes(block[4 * i:4 * (i + 1)], 'little') for i in range(16)]
 
     # Iterate over the 80 rounds of the compression.
     for j in range(80):
@@ -98,13 +98,13 @@ def ripemd160(data):
     state = (0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0)
     # Process full 64-byte blocks in the input.
     for b in range(len(data) >> 6):
-        state = compress(*state, data[64*b:64*(b+1)])
+        state = compress(*state, data[64 * b:64 * (b + 1)])
     # Construct final blocks (with padding and size).
     pad = b"\x80" + b"\x00" * ((119 - len(data)) & 63)
     fin = data[len(data) & ~63:] + pad + (8 * len(data)).to_bytes(8, 'little')
     # Process final blocks.
     for b in range(len(fin) >> 6):
-        state = compress(*state, fin[64*b:64*(b+1)])
+        state = compress(*state, fin[64 * b:64 * (b + 1)])
     # Produce output.
     return b"".join((h & 0xffffffff).to_bytes(4, 'little') for h in state)
 
@@ -119,11 +119,11 @@ class TestFrameworkKey(unittest.TestCase):
             (b"abc", "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
             (b"message digest", "5d0689ef49d2fae572b881b123a85ffa21595f36"),
             (b"abcdefghijklmnopqrstuvwxyz",
-                "f71c27109c692c1b56bbdceb5b9d2865b3708dbc"),
+             "f71c27109c692c1b56bbdceb5b9d2865b3708dbc"),
             (b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
-                "12a053384a9c0c88e405a06c27dcf49ada62eb2b"),
+             "12a053384a9c0c88e405a06c27dcf49ada62eb2b"),
             (b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-                "b0e20b6e3116640286ed3a87a5713079b21f5189"),
+             "b0e20b6e3116640286ed3a87a5713079b21f5189"),
             (b"1234567890" * 8, "9b752e45573d4b39f4dbd3323cab82bf63326bfb"),
             (b"a" * 1000000, "52783243c1697bdbe16d37f97f68f08325dc1528")
         ]:

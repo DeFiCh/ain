@@ -32,6 +32,7 @@ from test_framework.wallet_util import (
     test_address,
 )
 
+
 class ImportMultiTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -51,7 +52,7 @@ class ImportMultiTest(DefiTestFramework):
         result = self.nodes[1].importmulti([req])
         observed_warnings = []
         if 'warnings' in result[0]:
-           observed_warnings = result[0]['warnings']
+            observed_warnings = result[0]['warnings']
         assert_equal("\n".join(sorted(warnings)), "\n".join(sorted(observed_warnings)))
         assert_equal(result[0]['success'], success)
         if error_code is not None:
@@ -149,7 +150,8 @@ class ImportMultiTest(DefiTestFramework):
                                "pubkeys": [key.pubkey],
                                "internal": False},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -164,7 +166,8 @@ class ImportMultiTest(DefiTestFramework):
                                "pubkeys": [key.pubkey],
                                "internal": True},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -215,7 +218,8 @@ class ImportMultiTest(DefiTestFramework):
                                "keys": [key.privkey],
                                "watchonly": True},
                               success=True,
-                              warnings=["All private keys are provided, outputs will be considered spendable. If this is intentional, do not specify the watchonly flag."])
+                              warnings=[
+                                  "All private keys are provided, outputs will be considered spendable. If this is intentional, do not specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=False,
@@ -283,7 +287,8 @@ class ImportMultiTest(DefiTestFramework):
                                "timestamp": "now",
                                "redeemscript": multisig.redeem_script},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      multisig.p2sh_addr, timestamp=timestamp, iswatchonly=True, ismine=False, solvable=True)
 
@@ -304,7 +309,8 @@ class ImportMultiTest(DefiTestFramework):
                                "redeemscript": multisig.redeem_script,
                                "keys": multisig.privkeys[0:2]},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      multisig.p2sh_addr,
                      timestamp=timestamp,
@@ -345,7 +351,9 @@ class ImportMultiTest(DefiTestFramework):
                                "timestamp": "now",
                                "pubkeys": [wrong_key]},
                               success=True,
-                              warnings=["Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.", "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.",
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -362,7 +370,9 @@ class ImportMultiTest(DefiTestFramework):
                                "pubkeys": [wrong_key],
                                "internal": True},
                               success=True,
-                              warnings=["Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.", "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.",
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -377,8 +387,10 @@ class ImportMultiTest(DefiTestFramework):
         self.test_importmulti({"scriptPubKey": {"address": key.p2pkh_addr},
                                "timestamp": "now",
                                "keys": [wrong_privkey]},
-                               success=True,
-                               warnings=["Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.", "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              success=True,
+                              warnings=[
+                                  "Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.",
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -395,7 +407,9 @@ class ImportMultiTest(DefiTestFramework):
                                "keys": [wrong_privkey],
                                "internal": True},
                               success=True,
-                              warnings=["Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.", "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Importing as non-solvable: some required keys are missing. If this is intentional, don't provide any keys, pubkeys, witnessscript, or redeemscript.",
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      iswatchonly=True,
@@ -431,9 +445,9 @@ class ImportMultiTest(DefiTestFramework):
                                 self.nodes[1].importmulti, [{"scriptPubKey": key.p2pkh_script}])
         assert_raises_rpc_error(-3, 'Expected number or "now" timestamp value for key. got type string',
                                 self.nodes[1].importmulti, [{
-                                    "scriptPubKey": key.p2pkh_script,
-                                    "timestamp": ""
-                                }])
+                "scriptPubKey": key.p2pkh_script,
+                "timestamp": ""
+            }])
 
         # Import P2WPKH address as watch only
         self.log.info("Should import a P2WPKH address as watch only")
@@ -453,7 +467,8 @@ class ImportMultiTest(DefiTestFramework):
                                "timestamp": "now",
                                "pubkeys": [key.pubkey]},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2wpkh_addr,
                      ismine=False,
@@ -512,7 +527,8 @@ class ImportMultiTest(DefiTestFramework):
                                "redeemscript": key.p2sh_p2wpkh_redeem_script,
                                "pubkeys": [key.pubkey]},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2sh_p2wpkh_addr,
                      solvable=True,
@@ -539,7 +555,8 @@ class ImportMultiTest(DefiTestFramework):
                                "redeemscript": multisig.p2wsh_script,
                                "witnessscript": multisig.redeem_script},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      multisig.p2sh_p2wsh_addr,
                      solvable=True,
@@ -572,8 +589,10 @@ class ImportMultiTest(DefiTestFramework):
 
         # Test ranged descriptor fails if range is not specified
         xpriv = "tprv8ZgxMBicQKsPeuVhWwi6wuMQGfPKi9Li5GtX35jVNknACgqe3CY4g5xgkfDDJcmtF7o1QnxWDRYw4H5P26PXq7sbcUkEqeR4fg3Kxp2tigg"
-        addresses = ["2N7yv4p8G8yEaPddJxY41kPihnWvs39qCMf", "2MsHxyb2JS3pAySeNUsJ7mNnurtpeenDzLA"] # hdkeypath=m/0'/0'/0' and 1'
-        addresses += ["bcrt1qrd3n235cj2czsfmsuvqqpr3lu6lg0ju7scl8gn", "bcrt1qfqeppuvj0ww98r6qghmdkj70tv8qpchehegrg8"] # wpkh subscripts corresponding to the above addresses
+        addresses = ["2N7yv4p8G8yEaPddJxY41kPihnWvs39qCMf",
+                     "2MsHxyb2JS3pAySeNUsJ7mNnurtpeenDzLA"]  # hdkeypath=m/0'/0'/0' and 1'
+        addresses += ["bcrt1qrd3n235cj2czsfmsuvqqpr3lu6lg0ju7scl8gn",
+                      "bcrt1qfqeppuvj0ww98r6qghmdkj70tv8qpchehegrg8"]  # wpkh subscripts corresponding to the above addresses
         desc = "sh(wpkh(" + xpriv + "/0'/0'/*'" + "))"
         self.log.info("Ranged descriptor import should fail without a specified range")
         self.test_importmulti({"desc": descsum_create(desc),
@@ -600,11 +619,13 @@ class ImportMultiTest(DefiTestFramework):
         self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": [-1, 10]},
                               success=False, error_code=-8, error_message='Range should be greater or equal than 0')
 
-        self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": [(2 << 31 + 1) - 1000000, (2 << 31 + 1)]},
-                              success=False, error_code=-8, error_message='End of range is too high')
+        self.test_importmulti(
+            {"desc": descsum_create(desc), "timestamp": "now", "range": [(2 << 31 + 1) - 1000000, (2 << 31 + 1)]},
+            success=False, error_code=-8, error_message='End of range is too high')
 
         self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": [2, 1]},
-                              success=False, error_code=-8, error_message='Range specified as [begin,end] must not have begin after end')
+                              success=False, error_code=-8,
+                              error_message='Range specified as [begin,end] must not have begin after end')
 
         self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": [0, 1000001]},
                               success=False, error_code=-8, error_message='Range is too large')
@@ -633,7 +654,8 @@ class ImportMultiTest(DefiTestFramework):
                                "timestamp": "now",
                                "label": "Descriptor import test"},
                               True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         test_address(self.nodes[1],
                      key.p2pkh_addr,
                      solvable=True,
@@ -665,7 +687,8 @@ class ImportMultiTest(DefiTestFramework):
         self.test_importmulti({"desc": descsum_create("multi(1," + key1.pubkey + "," + key2.pubkey + ")"),
                                "timestamp": "now"},
                               success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              warnings=[
+                                  "Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         self.log.info("Should not treat individual keys from the imported bare multisig as watchonly")
         test_address(self.nodes[1],
                      key1.p2pkh_addr,
@@ -682,7 +705,7 @@ class ImportMultiTest(DefiTestFramework):
         pub_fpr = info['hdmasterfingerprint']
         result = self.nodes[0].importmulti(
             [{
-                'desc' : descsum_create("wpkh([" + pub_fpr + pub_keypath[1:] +"]" + pub + ")"),
+                'desc': descsum_create("wpkh([" + pub_fpr + pub_keypath[1:] + "]" + pub + ")"),
                 "timestamp": "now",
             }]
         )
@@ -700,7 +723,7 @@ class ImportMultiTest(DefiTestFramework):
         priv_fpr = info['hdmasterfingerprint']
         result = self.nodes[0].importmulti(
             [{
-                'desc' : descsum_create("wpkh([" + priv_fpr + priv_keypath[1:] + "]" + priv + ")"),
+                'desc': descsum_create("wpkh([" + priv_fpr + priv_keypath[1:] + "]" + priv + ")"),
                 "timestamp": "now",
             }]
         )
@@ -752,11 +775,11 @@ class ImportMultiTest(DefiTestFramework):
                 'keypool': True,
                 "timestamp": "now",
             },
-            {
-                'desc': descsum_create('wpkh(' + pub2 + ')'),
-                'keypool': True,
-                "timestamp": "now",
-            }]
+                {
+                    'desc': descsum_create('wpkh(' + pub2 + ')'),
+                    'keypool': True,
+                    "timestamp": "now",
+                }]
         )
         assert result[0]['success']
         assert result[1]['success']
@@ -779,12 +802,12 @@ class ImportMultiTest(DefiTestFramework):
                 'internal': True,
                 "timestamp": "now",
             },
-            {
-                'desc': descsum_create('wpkh(' + pub2 + ')'),
-                'keypool': True,
-                'internal': True,
-                "timestamp": "now",
-            }]
+                {
+                    'desc': descsum_create('wpkh(' + pub2 + ')'),
+                    'keypool': True,
+                    'internal': True,
+                    "timestamp": "now",
+                }]
         )
         assert result[0]['success']
         assert result[1]['success']
@@ -822,7 +845,8 @@ class ImportMultiTest(DefiTestFramework):
             }]
         )
         assert_equal(result[0]['error']['code'], -8)
-        assert_equal(result[0]['error']['message'], "Keys can only be imported to the keypool when private keys are disabled")
+        assert_equal(result[0]['error']['message'],
+                     "Keys can only be imported to the keypool when private keys are disabled")
 
         # Make sure ranged imports import keys in order
         self.log.info('Key ranges should be imported in order')
@@ -831,23 +855,24 @@ class ImportMultiTest(DefiTestFramework):
         assert_equal(wrpc.getwalletinfo()["private_keys_enabled"], False)
         xpub = "tpubDAXcJ7s7ZwicqjprRaEWdPoHKrCS215qxGYxpusRLLmJuT69ZSicuGdSfyvyKpvUNYBW1s2U3NSrT6vrCYB9e6nZUEvrqnwXPF8ArTCRXMY"
         addresses = [
-            'bcrt1qtmp74ayg7p24uslctssvjm06q5phz4yrxucgnv', # m/0'/0'/0
-            'bcrt1q8vprchan07gzagd5e6v9wd7azyucksq2xc76k8', # m/0'/0'/1
-            'bcrt1qtuqdtha7zmqgcrr26n2rqxztv5y8rafjp9lulu', # m/0'/0'/2
-            'bcrt1qau64272ymawq26t90md6an0ps99qkrse58m640', # m/0'/0'/3
-            'bcrt1qsg97266hrh6cpmutqen8s4s962aryy77jp0fg0', # m/0'/0'/4
+            'bcrt1qtmp74ayg7p24uslctssvjm06q5phz4yrxucgnv',  # m/0'/0'/0
+            'bcrt1q8vprchan07gzagd5e6v9wd7azyucksq2xc76k8',  # m/0'/0'/1
+            'bcrt1qtuqdtha7zmqgcrr26n2rqxztv5y8rafjp9lulu',  # m/0'/0'/2
+            'bcrt1qau64272ymawq26t90md6an0ps99qkrse58m640',  # m/0'/0'/3
+            'bcrt1qsg97266hrh6cpmutqen8s4s962aryy77jp0fg0',  # m/0'/0'/4
         ]
         result = wrpc.importmulti(
             [{
                 'desc': descsum_create('wpkh([80002067/0h/0h]' + xpub + '/*)'),
                 'keypool': True,
                 'timestamp': 'now',
-                'range' : [0, 4],
+                'range': [0, 4],
             }]
         )
         for i in range(0, 5):
             addr = wrpc.getnewaddress('', 'bech32')
             assert_equal(addr, addresses[i])
+
 
 if __name__ == '__main__':
     ImportMultiTest().main()

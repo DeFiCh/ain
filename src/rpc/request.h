@@ -30,18 +30,23 @@ struct RPCMetadata {
     public:
     CoinSelectionOptions coinSelectOpts;
 
-    static RPCMetadata CreateDefault() {
-        RPCMetadata m;
-        FromArgs(m, gArgs);
-        return m;
-    }
 
     static void SetupArgs(ArgsManager& args) {
         CoinSelectionOptions::SetupArgs(args);
     }
 
-    static void FromArgs(RPCMetadata &m, ArgsManager& args) {
+    static void InitFromArgs(const ArgsManager& args) {
+        CoinSelectionOptions::InitFromArgs(args);
+    }
+
+    static void FromArgs(RPCMetadata &m, const ArgsManager& args) {
         CoinSelectionOptions::FromArgs(m.coinSelectOpts, args);
+    }
+
+    static RPCMetadata CreateDefault() {
+        return RPCMetadata {
+            CoinSelectionOptions::CreateDefault(),
+        };
     }
 
     static void FromHTTPHeader(RPCMetadata &m, const HTTPHeaderQueryFunc headerFunc) {
@@ -66,7 +71,7 @@ public:
     std::string peerAddr;
     RPCMetadata metadata;
 
-    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
+    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false), metadata(RPCMetadata::CreateDefault()) {}
     void parse(const UniValue& valRequest);
 };
 

@@ -722,7 +722,7 @@ defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS
 if TARGET_DARWIN
 defid_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
 endif
-if BUILD_NOT_DARWIN
+if TARGET_NOT_DARWIN
 defid_LDFLAGS += -Wl,--allow-multiple-definition
 endif
 if TARGET_NOT_WINDOWS
@@ -737,6 +737,7 @@ $(defid_SOURCES): $(LIBAIN_GRPC)
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
 defi_cli_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CFLAGS)
+defi_cli_CPPFLAGS += -DDEFI_CLI
 defi_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defi_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 

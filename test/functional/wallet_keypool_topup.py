@@ -45,7 +45,7 @@ class KeypoolRestoreTest(DefiTestFramework):
         for i, output_type in enumerate(["legacy", "p2sh-segwit", "bech32"]):
 
             self.log.info("Generate keys for wallet with address type: {}".format(output_type))
-            idx = i+1
+            idx = i + 1
             for _ in range(90):
                 addr_oldpool = self.nodes[idx].getnewaddress(address_type=output_type)
             for _ in range(20):
@@ -59,7 +59,6 @@ class KeypoolRestoreTest(DefiTestFramework):
                 assert address_details["isscript"] and not address_details["iswitness"]
             else:
                 assert not address_details["isscript"] and address_details["iswitness"]
-
 
             self.log.info("Send funds to wallet")
             self.nodes[0].sendtoaddress(addr_oldpool, 10)
@@ -77,7 +76,7 @@ class KeypoolRestoreTest(DefiTestFramework):
 
             self.log.info("Verify keypool is restored and balance is correct")
             assert_equal(self.nodes[idx].getbalance(), 15)
-            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive") # cause [0] is genesis mn tx
+            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive")  # cause [0] is genesis mn tx
             assert_equal(self.nodes[idx].listtransactions()[2]['category'], "receive")
             # Check that we have marked all keys up to the used keypool key as used
             assert_equal(self.nodes[idx].getaddressinfo(self.nodes[idx].getnewaddress())['hdkeypath'], "m/0'/0'/110'")

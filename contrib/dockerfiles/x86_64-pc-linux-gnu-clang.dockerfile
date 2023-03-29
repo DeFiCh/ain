@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:18.04 as builder-base
+FROM ubuntu:20.04 as builder-base
 ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
@@ -9,9 +9,18 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-RUN apt update && apt install -y apt-transport-https
+RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
+
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm_ubuntu_18_04
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
+
+# install protobuf
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
+RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
+RUN chmod 755 -R ./proto/bin
+RUN cp ./proto/bin/protoc /usr/local/bin/
+RUN cp -R ./proto/include/* /usr/local/include/
 
 # install rustlang
 RUN curl https://sh.rustup.rs -sSf | \
@@ -45,14 +54,14 @@ RUN ./make.sh purge && rm -rf ./depends
 COPY --from=depends-builder /work/depends ./depends
 
 RUN ./make.sh clean && ./autogen.sh
-RUN export MAKE_COMPILER="CC=clang-14 CCX=clang++-14" && \
+RUN export MAKE_COMPILER="CC=clang-16 CXX=clang++-16" && \
     ./make.sh build-conf && ./make.sh build-make
 
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

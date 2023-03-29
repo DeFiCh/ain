@@ -9,9 +9,14 @@ crate-type = ["staticlib"]
 
 [dependencies]
 evm = { version = "0.37", default-features = false }
+primitive-types = "0.12.1"
+log = "0.4"
 
 # Build
 cxx = "1.0"
+
+ain-evm-runtime = { path = "../ain-evm-runtime" }
+ain-evm-state = { path = "../ain-evm-state" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }

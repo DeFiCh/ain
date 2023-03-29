@@ -6,10 +6,10 @@ etc.
 This directory contains the following sets of tests:
 
 - [functional](/test/functional) which test the functionality of
-defid and defi-qt by interacting with them through the RPC and P2P
-interfaces.
+  defid and defi-qt by interacting with them through the RPC and P2P
+  interfaces.
 - [util](/test/util) which tests the defi utilities, currently only
-defi-tx.
+  defi-tx.
 - [lint](/test/lint/) which perform various static analysis checks.
 
 The util tests are run as part of `make check` target. The functional
@@ -17,8 +17,7 @@ tests and lint scripts can be run as explained in the sections below.
 
 # Running tests locally
 
-Before tests can be run locally, DeFi Blockchain must be built.  See the [building instructions](/doc#building) for help.
-
+Before tests can be run locally, DeFi Blockchain must be built. See the [building instructions](/doc#building) for help.
 
 ### Functional tests
 
@@ -118,7 +117,6 @@ or
 ```bash
 pkill -9 defid
 ```
-
 
 ##### Data directory cache
 

@@ -14,13 +14,14 @@ import time
 from decimal import Decimal, ROUND_UP
 
 
-class PaybackDFILoanTest (DefiTestFramework):
+class PaybackDFILoanTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50',
-             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanningspringheight=200', '-debug=loan', '-txindex=1']
+             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196',
+             '-fortcanningspringheight=200', '-debug=loan', '-txindex=1']
         ]
 
     def run_test(self):
@@ -93,8 +94,8 @@ class PaybackDFILoanTest (DefiTestFramework):
             'symbol': symboldUSD,
             'name': "DUSD stable token",
             'fixedIntervalPriceId': "DUSD/USD",
-                                    'mintable': True,
-                                    'interest': 1
+            'mintable': True,
+            'interest': 1
         })
         self.nodes[0].generate(1)
 
@@ -144,28 +145,31 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
 
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
-            'vaultId': vaultId,
-            'from': account0,
-            'amounts': "1@DFI"
-        })
+        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active",
+                                self.nodes[0].paybackloan, {
+                                    'vaultId': vaultId,
+                                    'from': account0,
+                                    'amounts': "1@DFI"
+                                })
 
-        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: consortium, gov, locks, oracles, params, poolpairs, token,',
-                                self.nodes[0].setgov, {"ATTRIBUTES":{'v0/live/economy/dfi_payback_tokens':'1'}})
+        assert_raises_rpc_error(-5,
+                                'Unrecognised type argument provided, valid types are: consortium, gov, locks, oracles, params, poolpairs, token,',
+                                self.nodes[0].setgov, {"ATTRIBUTES": {'v0/live/economy/dfi_payback_tokens': '1'}})
 
         # Disable loan payback
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + iddUSD + '/payback_dfi': 'false'}})
         self.nodes[0].generate(1)
 
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
-            'vaultId': vaultId,
-            'from': account0,
-            'amounts': "1@DFI"
-        })
+        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active",
+                                self.nodes[0].paybackloan, {
+                                    'vaultId': vaultId,
+                                    'from': account0,
+                                    'amounts': "1@DFI"
+                                })
 
         # Enable loan payback
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + iddUSD + '/payback_dfi': 'true'}})
         self.nodes[0].generate(1)
 
         vaultBefore = self.nodes[0].getvault(vaultId)
@@ -194,7 +198,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - (10 * Decimal('0.99'))))
 
         # Test 5% penalty
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi_fee_pct':'0.05'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + iddUSD + '/payback_dfi_fee_pct': '0.05'}})
         self.nodes[0].generate(1)
 
         vaultBefore = self.nodes[0].getvault(vaultId)
@@ -242,7 +246,8 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         assert_equal(len(vaultAfter['loanAmounts']), 0)
         assert_equal(len(vaultAfter['interestAmounts']), 0)
-        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), (Decimal(amountBefore) / Decimal('9.5')).quantize(Decimal('1E-8'), rounding=ROUND_UP))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter),
+                     (Decimal(amountBefore) / Decimal('9.5')).quantize(Decimal('1E-8'), rounding=ROUND_UP))
 
         # Exact amount loan payback in DFI
 
@@ -300,7 +305,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         # Multiple token payback pre FCR
         # Disable loan payback
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + iddUSD + '/payback_dfi': 'false'}})
         self.nodes[0].generate(1)
         vaultId6 = self.nodes[0].createvault(account0, 'LOAN150')
         self.nodes[0].generate(1)
@@ -342,9 +347,9 @@ class PaybackDFILoanTest (DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Payback of loan via DFI token is not currently active" in errorString)
+        assert ("Payback of loan via DFI token is not currently active" in errorString)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + iddUSD + '/payback_dfi': 'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].paybackloan({
@@ -395,7 +400,9 @@ class PaybackDFILoanTest (DefiTestFramework):
             {account0: ["100@" + symbolBTC, "1000@" + symboldUSD]}, account0)
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/token/'+idTSLA+'/loan_payback/'+idBTC: 'true', 'v0/token/'+idTSLA+'/loan_payback/'+iddUSD: 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2206a/dusd_interest_burn': 'true',
+                                             'v0/token/' + idTSLA + '/loan_payback/' + idBTC: 'true',
+                                             'v0/token/' + idTSLA + '/loan_payback/' + iddUSD: 'true'}})
         self.nodes[0].generate(1)
 
         burnAddress = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -454,7 +461,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         balanceDFIBefore = balanceDFIAfter
         burn_before = burn_after
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/dfip2206a/dusd_loan_burn': 'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].paybackloan({
@@ -483,7 +490,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         balanceDFIBefore = balanceDFIAfter
         burn_before = burn_after
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idTSLA + '/payback_dfi':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + idTSLA + '/payback_dfi': 'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].paybackloan({
@@ -570,6 +577,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('10'))
         assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0'))
+
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()

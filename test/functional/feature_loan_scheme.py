@@ -11,14 +11,17 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 from decimal import Decimal
 
-class CreateLoanSchemeTest (DefiTestFramework):
+
+class CreateLoanSchemeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=110'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=110']
-            ]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1',
+             '-fortcanningheight=110'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1',
+             '-fortcanningheight=110']
+        ]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -28,7 +31,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].createloanscheme(1000, 0.5, 'LOANMAX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("called before FortCanning height" in errorString)
+        assert ("called before FortCanning height" in errorString)
 
         self.nodes[0].generate(9)
 
@@ -48,42 +51,42 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].createloanscheme(100, 1, 'LOANMAX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme already exist with id LOANMAX" in errorString)
+        assert ("Loan scheme already exist with id LOANMAX" in errorString)
 
         # Try and create a loan scheme with duplicate ratio and rate
         try:
             self.nodes[0].createloanscheme(999, 0.6, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme LOANMAX with same interestrate and mincolratio already exists" in errorString)
+        assert ("Loan scheme LOANMAX with same interestrate and mincolratio already exists" in errorString)
 
         # Try and create a loan scheme with too small ratio
         try:
             self.nodes[0].createloanscheme(99, 0.5, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("minimum collateral ratio cannot be less than 100" in errorString)
+        assert ("minimum collateral ratio cannot be less than 100" in errorString)
 
         # Try and create a loan scheme with too small rate
         try:
             self.nodes[0].createloanscheme(1000, 0.009, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("interest rate cannot be less than 0.01" in errorString)
+        assert ("interest rate cannot be less than 0.01" in errorString)
 
         # Try and create a loan scheme without ID
         try:
             self.nodes[0].createloanscheme(1000, 0.5, '')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Try and create a loan scheme with too long an ID
         try:
             self.nodes[0].createloanscheme(1000, 0.5, 'XXXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Create one more loan scheme
         self.nodes[0].createloanscheme(150, 5, 'LOAN0001')
@@ -94,14 +97,14 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].getloanscheme('scheme123')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Try getloanscheme with wrong id
         try:
             self.nodes[0].getloanscheme('scheme12')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id " in errorString)
+        assert ("Cannot find existing loan scheme with id " in errorString)
 
         # Get loan scheme
         loanscheme = self.nodes[0].getloanscheme('LOAN0001')
@@ -121,14 +124,14 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updateloanscheme(1000, 0.5, 'XXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
+        assert ("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
 
         # Try and update a loan scheme with same rate and ratio as another scheme
         try:
             self.nodes[0].updateloanscheme(150, 5, 'LOANMAX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme LOAN0001 with same interestrate and mincolratio already exists" in errorString)
+        assert ("Loan scheme LOAN0001 with same interestrate and mincolratio already exists" in errorString)
 
         # Update loan scheme
         self.nodes[0].updateloanscheme(1001, 0.7, 'LOANMAX')
@@ -146,7 +149,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updateloanscheme(1000, 0.5, 'LOANMAX', 112)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Update height below current block height, set future height" in errorString)
+        assert ("Update height below current block height, set future height" in errorString)
 
         # Update loan scheme after a delay
         self.nodes[0].updateloanscheme(1000, 0.5, 'LOANMAX', 115)
@@ -164,7 +167,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updateloanscheme(1000, 0.5, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme LOANMAX with same interestrate and mincolratio pending on block 115" in errorString)
+        assert ("Loan scheme LOANMAX with same interestrate and mincolratio pending on block 115" in errorString)
 
         # Move to update block and check loan scheme has updated
         self.nodes[0].generate(1)
@@ -229,28 +232,28 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].setdefaultloanscheme('')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Test changing the default loan scheme with too long an ID
         try:
             self.nodes[0].setdefaultloanscheme('XXXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Test changing the default loan scheme to one that does not exist
         try:
             self.nodes[0].setdefaultloanscheme('XXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
+        assert ("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
 
         # Test changing the default loan scheme to the existing loan scheme
         try:
             self.nodes[0].setdefaultloanscheme('LOANMAX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme with id LOANMAX is already set as default" in errorString)
+        assert ("Loan scheme with id LOANMAX is already set as default" in errorString)
 
         # Test changing the loan scheme
         self.nodes[0].setdefaultloanscheme('LOAN0001')
@@ -274,28 +277,28 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].destroyloanscheme('')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Test destroying a loan scheme with too long an ID
         try:
             self.nodes[0].destroyloanscheme('XXXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("id cannot be empty or more than 8 chars long" in errorString)
+        assert ("id cannot be empty or more than 8 chars long" in errorString)
 
         # Test destroying a loan scheme that does not exist
         try:
             self.nodes[0].destroyloanscheme('XXXXXXXX')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
+        assert ("Cannot find existing loan scheme with id XXXXXXXX" in errorString)
 
         # Test destroying the default loan scheme
         try:
             self.nodes[0].destroyloanscheme('LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot destroy default loan scheme, set new default first" in errorString)
+        assert ("Cannot destroy default loan scheme, set new default first" in errorString)
 
         # Destroy a loan scheme
         self.nodes[0].destroyloanscheme('LOANMAX')
@@ -323,7 +326,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].setdefaultloanscheme('LOAN0002')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as default, set to destroyed" in errorString)
+        assert ("Cannot set LOAN0002 as default, set to destroyed" in errorString)
 
         # Set update on same block and later on
         self.nodes[0].updateloanscheme(160, 4.5, 'LOAN0002', destruction_height)
@@ -346,7 +349,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan scheme LOAN0002 with same interestrate and mincolratio pending on block 131" in errorString)
+        assert ("Loan scheme LOAN0002 with same interestrate and mincolratio pending on block 131" in errorString)
 
         # Go forward again to destroy loan
         self.nodes[0].generate(2)
@@ -356,6 +359,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
 
         # Can now update loan scheme as pending updates deleted
         self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
+
 
 if __name__ == '__main__':
     CreateLoanSchemeTest().main()

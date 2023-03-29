@@ -13,8 +13,10 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_r
 
 MAX_REPLACEMENT_LIMIT = 100
 
+
 def txToHex(tx):
     return tx.serialize().hex()
+
 
 def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     """Create a txout with a given amount and scriptPubKey
@@ -24,12 +26,12 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     confirmed - txouts created will be confirmed in the blockchain;
                 unconfirmed otherwise.
     """
-    fee = 1*COIN
-    while node.getbalance() < satoshi_round((amount + fee)/COIN):
+    fee = 1 * COIN
+    while node.getbalance() < satoshi_round((amount + fee) / COIN):
         node.generate(100)
 
     new_addr = node.getnewaddress()
-    txid = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
+    txid = node.sendtoaddress(new_addr, satoshi_round((amount + fee) / COIN))
     tx1 = node.getrawtransaction(txid, 1)
     txid = int(txid, 16)
     i = None
@@ -83,7 +85,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         # Leave IBD
         self.nodes[0].generate(1)
 
-        make_utxo(self.nodes[0], 1*COIN)
+        make_utxo(self.nodes[0], 1 * COIN)
 
         self.log.info("Running test simple doublespend...")
         self.test_simple_doublespend()
@@ -119,7 +121,7 @@ class ReplaceByFeeTest(DefiTestFramework):
 
     def test_simple_doublespend(self):
         """Simple doublespend"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -154,14 +156,14 @@ class ReplaceByFeeTest(DefiTestFramework):
     def test_doublespend_chain(self):
         """Doublespend of a long chain"""
 
-        initial_nValue = 50*COIN
+        initial_nValue = 50 * COIN
         tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
 
         prevout = tx0_outpoint
         remaining_value = initial_nValue
         chain_txids = []
-        while remaining_value > 10*COIN:
-            remaining_value -= 1*COIN
+        while remaining_value > 10 * COIN:
+            remaining_value -= 1 * COIN
             tx = CTransaction()
             tx.vin = [CTxIn(prevout, nSequence=0)]
             tx.vout = [CTxOut(remaining_value, CScript([1, OP_DROP] * 15 + [1]))]
@@ -194,10 +196,10 @@ class ReplaceByFeeTest(DefiTestFramework):
     def test_doublespend_tree(self):
         """Doublespend of a big tree of transactions"""
 
-        initial_nValue = 50*COIN
+        initial_nValue = 50 * COIN
         tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
 
-        def branch(prevout, initial_value, max_txs, tree_width=5, fee=0.0001*COIN, _total_txs=None):
+        def branch(prevout, initial_value, max_txs, tree_width=5, fee=0.0001 * COIN, _total_txs=None):
             if _total_txs is None:
                 _total_txs = [0]
             if _total_txs[0] >= max_txs:
@@ -207,7 +209,7 @@ class ReplaceByFeeTest(DefiTestFramework):
             if txout_value < fee:
                 return
 
-            vout = [CTxOut(txout_value, CScript([i+1]))
+            vout = [CTxOut(txout_value, CScript([i + 1]))
                     for i in range(tree_width)]
             tx = CTransaction()
             tx.vin = [CTxIn(prevout, nSequence=0)]
@@ -223,12 +225,12 @@ class ReplaceByFeeTest(DefiTestFramework):
 
             for i, txout in enumerate(tx.vout):
                 for x in branch(COutPoint(txid, i), txout_value,
-                                  max_txs,
-                                  tree_width=tree_width, fee=fee,
-                                  _total_txs=_total_txs):
+                                max_txs,
+                                tree_width=tree_width, fee=fee,
+                                _total_txs=_total_txs):
                     yield x
 
-        fee = int(0.0001*COIN)
+        fee = int(0.0001 * COIN)
         n = MAX_REPLACEMENT_LIMIT
         tree_txs = list(branch(tx0_outpoint, initial_nValue, n, fee=fee))
         assert_equal(len(tree_txs), n)
@@ -256,8 +258,8 @@ class ReplaceByFeeTest(DefiTestFramework):
 
         # Try again, but with more total transactions than the "max txs
         # double-spent at once" anti-DoS limit.
-        for n in (MAX_REPLACEMENT_LIMIT+1, MAX_REPLACEMENT_LIMIT*2):
-            fee = int(0.0001*COIN)
+        for n in (MAX_REPLACEMENT_LIMIT + 1, MAX_REPLACEMENT_LIMIT * 2):
+            fee = int(0.0001 * COIN)
             tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
             tree_txs = list(branch(tx0_outpoint, initial_nValue, n, fee=fee))
             assert_equal(len(tree_txs), n)
@@ -267,7 +269,8 @@ class ReplaceByFeeTest(DefiTestFramework):
             dbl_tx.vout = [CTxOut(initial_nValue - 2 * fee * n, CScript([1] * 35))]
             dbl_tx_hex = txToHex(dbl_tx)
             # This will raise an exception
-            assert_raises_rpc_error(-26, "too many potential replacements", self.nodes[0].sendrawtransaction, dbl_tx_hex, 0)
+            assert_raises_rpc_error(-26, "too many potential replacements", self.nodes[0].sendrawtransaction,
+                                    dbl_tx_hex, 0)
 
             for tx in tree_txs:
                 tx.rehash()
@@ -275,7 +278,7 @@ class ReplaceByFeeTest(DefiTestFramework):
 
     def test_replacement_feeperkb(self):
         """Replacement requires fee-per-KB to be higher"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -287,7 +290,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         # rejected.
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*999000]))]
+        tx1b.vout = [CTxOut(int(0.001 * COIN), CScript([b'a' * 999000]))]
         tx1b_hex = txToHex(tx1b)
 
         # This will raise an exception due to insufficient fee
@@ -295,8 +298,8 @@ class ReplaceByFeeTest(DefiTestFramework):
 
     def test_spends_of_conflicting_outputs(self):
         """Replacements that spend conflicting tx outputs are rejected"""
-        utxo1 = make_utxo(self.nodes[0], int(1.2*COIN))
-        utxo2 = make_utxo(self.nodes[0], 3*COIN)
+        utxo1 = make_utxo(self.nodes[0], int(1.2 * COIN))
+        utxo2 = make_utxo(self.nodes[0], 3 * COIN)
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(utxo1, nSequence=0)]
@@ -335,8 +338,8 @@ class ReplaceByFeeTest(DefiTestFramework):
 
     def test_new_unconfirmed_inputs(self):
         """Replacements that add new unconfirmed inputs are rejected"""
-        confirmed_utxo = make_utxo(self.nodes[0], int(1.1*COIN))
-        unconfirmed_utxo = make_utxo(self.nodes[0], int(0.1*COIN), False)
+        confirmed_utxo = make_utxo(self.nodes[0], int(1.1 * COIN))
+        unconfirmed_utxo = make_utxo(self.nodes[0], int(0.1 * COIN), False)
 
         tx1 = CTransaction()
         tx1.vin = [CTxIn(confirmed_utxo)]
@@ -358,13 +361,13 @@ class ReplaceByFeeTest(DefiTestFramework):
         # transactions
 
         # Start by creating a single transaction with many outputs
-        initial_nValue = 10*COIN
+        initial_nValue = 10 * COIN
         utxo = make_utxo(self.nodes[0], initial_nValue)
-        fee = int(0.0001*COIN)
-        split_value = int((initial_nValue-fee)/(MAX_REPLACEMENT_LIMIT+1))
+        fee = int(0.0001 * COIN)
+        split_value = int((initial_nValue - fee) / (MAX_REPLACEMENT_LIMIT + 1))
 
         outputs = []
-        for i in range(MAX_REPLACEMENT_LIMIT+1):
+        for i in range(MAX_REPLACEMENT_LIMIT + 1):
             outputs.append(CTxOut(split_value, CScript([1])))
 
         splitting_tx = CTransaction()
@@ -376,7 +379,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         txid = int(txid, 16)
 
         # Now spend each of those outputs individually
-        for i in range(MAX_REPLACEMENT_LIMIT+1):
+        for i in range(MAX_REPLACEMENT_LIMIT + 1):
             tx_i = CTransaction()
             tx_i.vin = [CTxIn(COutPoint(txid, i), nSequence=0)]
             tx_i.vout = [CTxOut(split_value - fee, CScript([b'a' * 35]))]
@@ -386,9 +389,9 @@ class ReplaceByFeeTest(DefiTestFramework):
         # Now create doublespend of the whole lot; should fail.
         # Need a big enough fee to cover all spending transactions and have
         # a higher fee rate
-        double_spend_value = (split_value-100*fee)*(MAX_REPLACEMENT_LIMIT+1)
+        double_spend_value = (split_value - 100 * fee) * (MAX_REPLACEMENT_LIMIT + 1)
         inputs = []
-        for i in range(MAX_REPLACEMENT_LIMIT+1):
+        for i in range(MAX_REPLACEMENT_LIMIT + 1):
             inputs.append(CTxIn(COutPoint(txid, i), nSequence=0))
         double_tx = CTransaction()
         double_tx.vin = inputs
@@ -396,7 +399,8 @@ class ReplaceByFeeTest(DefiTestFramework):
         double_tx_hex = txToHex(double_tx)
 
         # This will raise an exception
-        assert_raises_rpc_error(-26, "too many potential replacements", self.nodes[0].sendrawtransaction, double_tx_hex, 0)
+        assert_raises_rpc_error(-26, "too many potential replacements", self.nodes[0].sendrawtransaction, double_tx_hex,
+                                0)
 
         # If we remove an input, it should pass
         double_tx = CTransaction()
@@ -407,7 +411,7 @@ class ReplaceByFeeTest(DefiTestFramework):
 
     def test_opt_in(self):
         """Replacing should only work if orig tx opted in"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         # Create a non-opting in transaction
         tx1a = CTransaction()
@@ -428,7 +432,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         # This will raise an exception
         assert_raises_rpc_error(-26, "txn-mempool-conflict", self.nodes[0].sendrawtransaction, tx1b_hex, 0)
 
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx1_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         # Create a different non-opting in transaction
         tx2a = CTransaction()
@@ -456,7 +460,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         tx3a = CTransaction()
         tx3a.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0xffffffff),
                     CTxIn(COutPoint(tx2a_txid, 0), nSequence=0xfffffffd)]
-        tx3a.vout = [CTxOut(int(0.9*COIN), CScript([b'c'])), CTxOut(int(0.9*COIN), CScript([b'd']))]
+        tx3a.vout = [CTxOut(int(0.9 * COIN), CScript([b'c'])), CTxOut(int(0.9 * COIN), CScript([b'd']))]
         tx3a_hex = txToHex(tx3a)
 
         tx3a_txid = self.nodes[0].sendrawtransaction(tx3a_hex, 0)
@@ -484,7 +488,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         # correctly used by replacement logic
 
         # 1. Check that feeperkb uses modified fees
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -495,14 +499,14 @@ class ReplaceByFeeTest(DefiTestFramework):
         # Higher fee, but the actual fee per KB is much lower.
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*740000]))]
+        tx1b.vout = [CTxOut(int(0.001 * COIN), CScript([b'a' * 740000]))]
         tx1b_hex = txToHex(tx1b)
 
         # Verify tx1b cannot replace tx1a.
         assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx1b_hex, 0)
 
         # Use prioritisetransaction to set tx1a's fee to 0.
-        self.nodes[0].prioritisetransaction(txid=tx1a_txid, fee_delta=int(-0.1*COIN))
+        self.nodes[0].prioritisetransaction(txid=tx1a_txid, fee_delta=int(-0.1 * COIN))
 
         # Now tx1b should be able to replace tx1a
         tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, 0)
@@ -510,7 +514,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         assert tx1b_txid in self.nodes[0].getrawmempool()
 
         # 2. Check that absolute fee checks use modified fee.
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx1_outpoint = make_utxo(self.nodes[0], int(1.1 * COIN))
 
         tx2a = CTransaction()
         tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0)]
@@ -529,7 +533,7 @@ class ReplaceByFeeTest(DefiTestFramework):
         assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx2b_hex, 0)
 
         # Now prioritise tx2b to have a higher modified fee
-        self.nodes[0].prioritisetransaction(txid=tx2b.hash, fee_delta=int(0.1*COIN))
+        self.nodes[0].prioritisetransaction(txid=tx2b.hash, fee_delta=int(0.1 * COIN))
 
         # tx2b should now be accepted
         tx2b_txid = self.nodes[0].sendrawtransaction(tx2b_hex, 0)
@@ -539,11 +543,11 @@ class ReplaceByFeeTest(DefiTestFramework):
     def test_rpc(self):
         us0 = self.nodes[0].listunspent()[0]
         ins = [us0]
-        outs = {self.nodes[0].getnewaddress() : Decimal(1.0000000)}
+        outs = {self.nodes[0].getnewaddress(): Decimal(1.0000000)}
         rawtx0 = self.nodes[0].createrawtransaction(ins, outs, 0, True)
         rawtx1 = self.nodes[0].createrawtransaction(ins, outs, 0, False)
-        json0  = self.nodes[0].decoderawtransaction(rawtx0)
-        json1  = self.nodes[0].decoderawtransaction(rawtx1)
+        json0 = self.nodes[0].decoderawtransaction(rawtx0)
+        json1 = self.nodes[0].decoderawtransaction(rawtx1)
         assert_equal(json0["vin"][0]["sequence"], 4294967293)
         assert_equal(json1["vin"][0]["sequence"], 4294967295)
 
@@ -551,10 +555,11 @@ class ReplaceByFeeTest(DefiTestFramework):
         frawtx2a = self.nodes[0].fundrawtransaction(rawtx2, {"replaceable": True})
         frawtx2b = self.nodes[0].fundrawtransaction(rawtx2, {"replaceable": False})
 
-        json0  = self.nodes[0].decoderawtransaction(frawtx2a['hex'])
-        json1  = self.nodes[0].decoderawtransaction(frawtx2b['hex'])
+        json0 = self.nodes[0].decoderawtransaction(frawtx2a['hex'])
+        json1 = self.nodes[0].decoderawtransaction(frawtx2b['hex'])
         assert_equal(json0["vin"][0]["sequence"], 4294967293)
         assert_equal(json1["vin"][0]["sequence"], 4294967294)
+
 
 if __name__ == '__main__':
     ReplaceByFeeTest().main()

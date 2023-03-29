@@ -28,6 +28,7 @@ TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{6})?Z
 
 LogEvent = namedtuple('LogEvent', ['timestamp', 'source', 'event'])
 
+
 def main():
     """Main function. Parses args, reads the log files and renders them as text or html."""
     parser = argparse.ArgumentParser(
@@ -36,8 +37,10 @@ def main():
         'testdir', nargs='?', default='',
         help=('temporary test directory to combine logs from. '
               'Defaults to the most recent'))
-    parser.add_argument('-c', '--color', dest='color', action='store_true', help='outputs the combined log with events colored by source (requires posix terminal colors. Use less -r for viewing)')
-    parser.add_argument('--html', dest='html', action='store_true', help='outputs the combined log as html. Requires jinja2. pip install jinja2')
+    parser.add_argument('-c', '--color', dest='color', action='store_true',
+                        help='outputs the combined log with events colored by source (requires posix terminal colors. Use less -r for viewing)')
+    parser.add_argument('--html', dest='html', action='store_true',
+                        help='outputs the combined log as html. Requires jinja2. pip install jinja2')
     args = parser.parse_args()
 
     if args.html and args.color:
@@ -81,7 +84,7 @@ def read_logs(tmp_dir):
     chain = glob.glob("{}/node0/*/debug.log".format(tmp_dir))
     if chain:
         chain = chain[0]  # pick the first one if more than one chain was found (should never happen)
-        chain = re.search('node0/(.+?)/debug\.log$', chain).group(1)  # extract the chain name
+        chain = re.search(r'node0/(.+?)/debug\.log$', chain).group(1)  # extract the chain name
     else:
         chain = 'regtest'  # fallback to regtest (should only happen when none exists)
 
@@ -125,9 +128,9 @@ def find_latest_test_dir():
     def is_valid_test_tmpdir(basename):
         fullpath = join_tmp(basename)
         return (
-            os.path.isdir(fullpath)
-            and basename.startswith(TMPDIR_PREFIX)
-            and os.access(fullpath, os.R_OK)
+                os.path.isdir(fullpath)
+                and basename.startswith(TMPDIR_PREFIX)
+                and os.access(fullpath, os.R_OK)
         )
 
     testdir_paths = [
@@ -190,8 +193,8 @@ def print_logs_html(log_events):
         print("jinja2 not found. Try `pip install jinja2`")
         sys.exit(1)
     print(jinja2.Environment(loader=jinja2.FileSystemLoader('./'))
-                    .get_template('combined_log_template.html')
-                    .render(title="Combined Logs from testcase", log_events=[event._asdict() for event in log_events]))
+          .get_template('combined_log_template.html')
+          .render(title="Combined Logs from testcase", log_events=[event._asdict() for event in log_events]))
 
 
 if __name__ == '__main__':

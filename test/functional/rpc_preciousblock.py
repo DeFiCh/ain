@@ -4,11 +4,12 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test the preciousblock RPC."""
 
-from test_framework.test_framework import DefiTestFramework
+from test_framework.test_framework import DefiTestFramework, JSONRPCException
 from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
 )
+
 
 def unidirectional_node_sync_via_rpc(node_src, node_dest):
     blocks_to_copy = []
@@ -17,7 +18,7 @@ def unidirectional_node_sync_via_rpc(node_src, node_dest):
         try:
             assert len(node_dest.getblock(blockhash, False)) > 0
             break
-        except:
+        except JSONRPCException:
             blocks_to_copy.append(blockhash)
             blockhash = node_src.getblockheader(blockhash, True)['previousblockhash']
     blocks_to_copy.reverse()
@@ -25,12 +26,14 @@ def unidirectional_node_sync_via_rpc(node_src, node_dest):
         blockdata = node_src.getblock(blockhash, False)
         assert node_dest.submitblock(blockdata) in (None, 'inconclusive')
 
+
 def node_sync_via_rpc(nodes):
     for node_src in nodes:
         for node_dest in nodes:
             if node_src is node_dest:
                 continue
             unidirectional_node_sync_via_rpc(node_src, node_dest)
+
 
 class PreciousTest(DefiTestFramework):
     def set_test_params(self):
@@ -60,7 +63,7 @@ class PreciousTest(DefiTestFramework):
         self.log.info("Connect nodes and check no reorg occurs")
         # Submit competing blocks via RPC so any reorg should occur before we proceed (no way to wait on inaction for p2p sync)
         node_sync_via_rpc(self.nodes[0:2])
-        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes, 0, 1)
         assert_equal(self.nodes[0].getbestblockhash(), hashC)
         assert_equal(self.nodes[1].getbestblockhash(), hashG)
         self.log.info("Make Node0 prefer block G")
@@ -97,8 +100,8 @@ class PreciousTest(DefiTestFramework):
         hashL = self.nodes[2].getbestblockhash()
         self.log.info("Connect nodes and check no reorg occurs")
         node_sync_via_rpc(self.nodes[1:3])
-        connect_nodes_bi(self.nodes,1,2)
-        connect_nodes_bi(self.nodes,0,2)
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 0, 2)
         assert_equal(self.nodes[0].getbestblockhash(), hashH)
         assert_equal(self.nodes[1].getbestblockhash(), hashH)
         assert_equal(self.nodes[2].getbestblockhash(), hashL)
@@ -108,6 +111,7 @@ class PreciousTest(DefiTestFramework):
         self.log.info("Make Node2 prefer block H")
         self.nodes[2].preciousblock(hashH)
         assert_equal(self.nodes[2].getbestblockhash(), hashH)
+
 
 if __name__ == '__main__':
     PreciousTest().main()

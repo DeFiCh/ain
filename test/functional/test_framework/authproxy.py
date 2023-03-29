@@ -49,6 +49,7 @@ USER_AGENT = "AuthServiceProxy/0.1"
 
 log = logging.getLogger("DefiRPC")
 
+
 class JSONRPCException(Exception):
     def __init__(self, rpc_error, http_status=None):
         try:
@@ -64,6 +65,7 @@ def EncodeDecimal(o):
     if isinstance(o, decimal.Decimal):
         return str(o)
     raise TypeError(repr(o) + " is not JSON serializable")
+
 
 class AuthServiceProxy():
     __id_count = 0
@@ -177,20 +179,24 @@ class AuthServiceProxy():
         content_type = http_response.getheader('Content-Type')
         if content_type != 'application/json':
             raise JSONRPCException(
-                {'code': -342, 'message': 'non-JSON HTTP response with \'%i %s\' from server' % (http_response.status, http_response.reason)},
+                {'code': -342, 'message': 'non-JSON HTTP response with \'%i %s\' from server' % (
+                http_response.status, http_response.reason)},
                 http_response.status)
 
         responsedata = http_response.read().decode('utf8')
         response = json.loads(responsedata, parse_float=decimal.Decimal)
         elapsed = time.time() - req_start_time
         if "error" in response and response["error"] is None:
-            log.debug("<-%s- [%.6f] %s" % (response["id"], elapsed, json.dumps(response["result"], default=EncodeDecimal, ensure_ascii=self.ensure_ascii)))
+            log.debug("<-%s- [%.6f] %s" % (response["id"], elapsed,
+                                           json.dumps(response["result"], default=EncodeDecimal,
+                                                      ensure_ascii=self.ensure_ascii)))
         else:
             log.debug("<-- [%.6f] %s" % (elapsed, responsedata))
         return response, http_response.status
 
     def __truediv__(self, relative_uri):
-        return AuthServiceProxy("{}/{}".format(self.__service_url, relative_uri), self._service_name, connection=self.__conn)
+        return AuthServiceProxy("{}/{}".format(self.__service_url, relative_uri), self._service_name,
+                                connection=self.__conn)
 
     def _set_conn(self, connection=None):
         port = 80 if self.__url.port is None else self.__url.port

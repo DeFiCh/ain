@@ -11,16 +11,19 @@ from test_framework.util import assert_equal
 
 from decimal import Decimal
 
-class ICXOrderbookTest (DefiTestFramework):
+
+class ICXOrderbookTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50',
+             '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50',
+             '-txindex=1']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         # Burn address
         burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -85,8 +88,8 @@ class ICXOrderbookTest (DefiTestFramework):
         # check tokens id
         pool = self.nodes[0].getpoolpair("BTC-DFI")
         idDFIBTC = list(self.nodes[0].gettoken("BTC-DFI").keys())[0]
-        assert(pool[idDFIBTC]['idTokenA'] == idBTC)
-        assert(pool[idDFIBTC]['idTokenB'] == idDFI)
+        assert (pool[idDFIBTC]['idTokenA'] == idBTC)
+        assert (pool[idDFIBTC]['idTokenB'] == idDFI)
 
         # transfer
         self.nodes[0].addpoolliquidity({
@@ -96,7 +99,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(len(self.nodes[0].getaccount(accountDFI, {}, True)), 2)
 
-        self.nodes[0].setgov({"ICX_TAKERFEE_PER_BTC":Decimal('0.001')})
+        self.nodes[0].setgov({"ICX_TAKERFEE_PER_BTC": Decimal('0.001')})
 
         self.nodes[0].generate(1)
 
@@ -106,12 +109,12 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # DFI/BTC Open and close an order
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idDFI,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 15,
-                                    'orderPrice':0.01})["txid"]
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -123,7 +126,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
-        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('15'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
@@ -133,9 +137,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.10,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.10,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -158,7 +162,7 @@ class ICXOrderbookTest (DefiTestFramework):
         for vout in authTx['vout']:
             if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountBTC:
                 found = True
-        assert(found)
+        assert (found)
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -185,7 +189,7 @@ class ICXOrderbookTest (DefiTestFramework):
         for vout in authTx['vout']:
             if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountDFI:
                 found = True
-        assert(found)
+        assert (found)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -201,11 +205,11 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # BTC/DFI Open and close an order
         orderTx = self.nodes[0].icx_createorder({
-                                    'chainFrom': "BTC",
-                                    'tokenTo': idDFI,
-                                    'ownerAddress': accountDFI,
-                                    'amountFrom': 2,
-                                    'orderPrice':100})["txid"]
+            'chainFrom': "BTC",
+            'tokenTo': idDFI,
+            'ownerAddress': accountDFI,
+            'amountFrom': 2,
+            'orderPrice': 100})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -213,10 +217,10 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 10,
-                                    'ownerAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
+            'orderTx': orderTx,
+            'amount': 10,
+            'ownerAddress': accountBTC,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -235,7 +239,7 @@ class ICXOrderbookTest (DefiTestFramework):
         for vout in authTx['vout']:
             if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountBTC:
                 found = True
-        assert(found)
+        assert (found)
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -258,7 +262,7 @@ class ICXOrderbookTest (DefiTestFramework):
         for vout in authTx['vout']:
             if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountDFI:
                 found = True
-        assert(found)
+        assert (found)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -267,19 +271,18 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(len(order), 1)
 
-
         # DFI/BTC scenario
         # Open an order
 
         beforeOrder = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idDFI,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 15,
-                                    'orderPrice':0.01})["txid"]
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -292,7 +295,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
-        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('15'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
@@ -302,9 +306,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.10,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.10,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -323,9 +327,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeDFCHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -351,12 +355,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -371,22 +375,23 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["amountInDFCAsset"], Decimal('10.00000000'))
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
-        assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
+        assert_equal(htlcs[exthtlcTx]["ownerPubkey"],
+                     '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
         assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
 
         assert_equal(len(htlcs), 4)
         assert_equal(htlcs[claimTx]["type"], 'CLAIM DFC')
@@ -416,18 +421,18 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
-        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('5'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
         assert_equal(order[orderTx]["amountToFillInToAsset"], Decimal('0.0500000'))
 
-
         # Make offer for more than is available to test partial fill
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.10,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.10,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -440,11 +445,10 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01000000'))
         assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 20)
 
-
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 5,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 5,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -468,12 +472,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.05,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.05,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -488,22 +492,23 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["amountInDFCAsset"], Decimal('5.00000000'))
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
-        assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
+        assert_equal(htlcs[exthtlcTx]["ownerPubkey"],
+                     '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
         assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
 
         assert_equal(len(htlcs), 4)
         assert_equal(htlcs[claimTx]["type"], 'CLAIM DFC')
@@ -533,11 +538,11 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # Open an order
         orderTx = self.nodes[0].icx_createorder({
-                                    'chainFrom': "BTC",
-                                    'tokenTo': idDFI,
-                                    'ownerAddress': accountDFI,
-                                    'amountFrom': 2,
-                                    'orderPrice':1000})["txid"]
+            'chainFrom': "BTC",
+            'tokenTo': idDFI,
+            'ownerAddress': accountDFI,
+            'amountFrom': 2,
+            'orderPrice': 1000})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -557,10 +562,10 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 3000,
-                                    'ownerAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
+            'orderTx': orderTx,
+            'amount': 3000,
+            'ownerAddress': accountBTC,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -573,18 +578,18 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('3000.00000000'))
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
-        assert_equal(offer[offerTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(offer[offerTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.30000000'))
         assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 20)
 
-
         exthtlcTx = self.nodes[0].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 2,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 72})["txid"]
+            'offerTx': offerTx,
+            'amount': 2,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 72})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -608,13 +613,14 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["amountInDFCAsset"], Decimal('2000.00000000'))
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
-        assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
+        assert_equal(htlcs[exthtlcTx]["ownerPubkey"],
+                     '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
         assert_equal(htlcs[exthtlcTx]["timeout"], 72)
 
         dfchtlcTx = self.nodes[1].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 2000,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 2000,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -630,18 +636,17 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[dfchtlcTx]["timeout"], 480)
 
-
         beforeClaim = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         claimTx = self.nodes[0].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
 
         assert_equal(len(htlcs), 4)
         assert_equal(htlcs[claimTx]["type"], 'CLAIM DFC')
@@ -651,7 +656,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["status"], 'CLAIMED')
 
         # claimed DFI + refunded makerDeposit + makerIncentive on maker address
-        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim + Decimal('2000.00000000') + Decimal('0.25000000'))
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI],
+                     beforeClaim + Decimal('2000.00000000') + Decimal('0.25000000'))
 
         # Make sure offer and order are now closed
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
@@ -661,15 +667,14 @@ class ICXOrderbookTest (DefiTestFramework):
         order = self.nodes[0].icx_listorders({"closed": True})
         assert_equal(order[orderTx]["status"], 'FILLED')
 
-
         # DFI/BTC partial offer acceptance
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idDFI,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 15,
-                                    'orderPrice':0.01})["txid"]
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -677,9 +682,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 1,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 1,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -694,9 +699,9 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.10000000'))
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 15,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 15,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -713,21 +718,20 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01500000'))
 
-
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.15,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.15,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -747,12 +751,12 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOrderDFI1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         orderTxDFI = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idDFI,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 15,
-                                    'orderPrice':0.01})["txid"]
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -760,9 +764,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTxDFI,
-                                    'amount': 0.1,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTxDFI,
+            'amount': 0.1,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -781,9 +785,9 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 1)
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTxDFI,
-                                    'amount': 0.1,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTxDFI,
+            'amount': 0.1,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -791,13 +795,12 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeDFCHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeDFCHTLC - Decimal('0.01000000'))
-
 
         self.nodes[0].generate(100)
         self.sync_blocks()
@@ -805,11 +808,11 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeDFCHTLC)
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
         offer = self.nodes[0].icx_listorders({
-                                    "orderTx": orderTxDFI,
-                                    "closed": True})
+            "orderTx": orderTxDFI,
+            "closed": True})
 
         assert_equal(len(htlcs), 2)
         assert_equal(htlcs[dfchtlcTx]["status"], 'EXPIRED')
@@ -818,11 +821,11 @@ class ICXOrderbookTest (DefiTestFramework):
         # BTC/DFI scenario expiration test
         # Open an order
         orderTxBTC = self.nodes[0].icx_createorder({
-                                    'chainFrom': "BTC",
-                                    'tokenTo': idDFI,
-                                    'ownerAddress': accountDFI,
-                                    'amountFrom': 1,
-                                    'orderPrice':10})["txid"]
+            'chainFrom': "BTC",
+            'tokenTo': idDFI,
+            'ownerAddress': accountDFI,
+            'amountFrom': 1,
+            'orderPrice': 10})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -830,17 +833,15 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTxBTC,
-                                    'amount': 10,
-                                    'ownerAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
-
+            'orderTx': orderTxBTC,
+            'amount': 10,
+            'ownerAddress': accountBTC,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.10000000'))
-
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxBTC})
         assert_equal(len(offer), 2)
@@ -850,16 +851,14 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
-
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxBTC})
         assert_equal(len(offer), 1)
 
-
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTxBTC,
-                                    'amount': 10,
-                                    'ownerAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
+            'orderTx': orderTxBTC,
+            'amount': 10,
+            'ownerAddress': accountBTC,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -867,19 +866,18 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeEXTHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         exthtlcTx = self.nodes[0].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 1,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 72})["txid"]
+            'offerTx': offerTx,
+            'amount': 1,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 72})["txid"]
 
         self.nodes[0].generate(1)
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx})
+            "offerTx": offerTx})
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeEXTHTLC - Decimal('0.10000000'))
-
 
         self.nodes[0].generate(100)
         self.sync_blocks()
@@ -887,50 +885,49 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeEXTHTLC)
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
         offer = self.nodes[0].icx_listorders({
-                                    "orderTx": orderTxBTC,
-                                    "closed": True})
+            "orderTx": orderTxBTC,
+            "closed": True})
 
         assert_equal(len(htlcs), 2)
         assert_equal(htlcs[exthtlcTx]["status"], 'EXPIRED')
         assert_equal(offer[offerTx]["status"], 'EXPIRED')
 
-
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idDFI,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 15,
-                                    'orderPrice':0.01})["txid"]
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.1,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.1,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.1,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.1,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -950,10 +947,9 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["status"], 'EXPIRED')
 
         htlcs = self.nodes[0].icx_listhtlcs({
-                                    "offerTx": offerTx,
-                                    "closed": True})
+            "offerTx": offerTx,
+            "closed": True})
         assert_equal(htlcs[dfchtlcTx]["status"], 'REFUNDED')
-
 
         # dBTC/BTC Scenario, tests 75% taker fee refund
         # both accounts have >=1BTC
@@ -964,12 +960,12 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOrder = self.nodes[0].getaccount(accountDFI, {}, True)[idBTC]
 
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idBTC,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 0.5,
-                                    'orderPrice': 1})["txid"]
+            'tokenFrom': idBTC,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 0.5,
+            'orderPrice': 1})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -982,7 +978,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["tokenFrom"], symbolBTC)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
-        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('0.5'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('0.5'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('1'))
@@ -992,15 +989,16 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.5,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.5,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         # taker fee
-        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.05')) # why 0.05 DFI? 0.5 * 0.001 * 100 (order amount * fee per btc * DFI price in BTC)
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal(
+            '0.05'))  # why 0.05 DFI? 0.5 * 0.001 * 100 (order amount * fee per btc * DFI price in BTC)
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
@@ -1014,9 +1012,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeDFCHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.5,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.5,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -1024,7 +1022,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeDFCHTLC - Decimal('0.05000000'))
 
         # Check burn
-        assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.80000000@DFI") # 0.7 from previous, 0.1 for this order
+        assert_equal(self.nodes[0].getburninfo()['tokens'][0],
+                     "0.80000000@DFI")  # 0.7 from previous, 0.1 for this order
         result = self.nodes[0].listburnhistory()
         assert_equal(result[0]['owner'], burn_address)
         assert_equal(result[0]['type'], 'ICXSubmitDFCHTLC')
@@ -1042,12 +1041,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.5,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.5,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -1062,21 +1061,23 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["amountInDFCAsset"], Decimal('0.5'))
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
-        assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
+        assert_equal(htlcs[exthtlcTx]["ownerPubkey"],
+                     '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
         assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0 + Decimal("0.05") + Decimal("0.0375")) # 0.05 lock refund + 0.75 * 0.05 taker fee refund
-        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1) # no refunds for taker
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0 + Decimal("0.05") + Decimal(
+            "0.0375"))  # 0.05 lock refund + 0.75 * 0.05 taker fee refund
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1)  # no refunds for taker
 
         # dBTC/BTC Scenario, tests 25% taker fee refund
         # both accounts have >=1BTC
@@ -1087,12 +1088,12 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOrder = self.nodes[0].getaccount(accountDFI, {}, True)[idBTC]
 
         orderTx = self.nodes[0].icx_createorder({
-                                    'tokenFrom': idBTC,
-                                    'chainTo': "BTC",
-                                    'ownerAddress': accountDFI,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
-                                    'amountFrom': 0.5,
-                                    'orderPrice': 0.9})["txid"]
+            'tokenFrom': idBTC,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 0.5,
+            'orderPrice': 0.9})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -1105,7 +1106,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(order[orderTx]["tokenFrom"], symbolBTC)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
-        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["receivePubkey"],
+                     '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('0.5'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('0.5'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.9'))
@@ -1115,15 +1117,16 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
-                                    'orderTx': orderTx,
-                                    'amount': 0.5,
-                                    'ownerAddress': accountBTC})["txid"]
+            'orderTx': orderTx,
+            'amount': 0.5,
+            'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         # taker fee
-        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.05')) # why 0.05 DFI? 0.5 * 0.001 * 100 (order amount * fee per btc * DFI price in BTC)
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal(
+            '0.05'))  # why 0.05 DFI? 0.5 * 0.001 * 100 (order amount * fee per btc * DFI price in BTC)
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
@@ -1137,9 +1140,9 @@ class ICXOrderbookTest (DefiTestFramework):
         beforeDFCHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.5,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.5,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -1147,7 +1150,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeDFCHTLC - Decimal('0.04500000'))
 
         # Check burn
-        assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.89000000@DFI") # 0.8 from previous, 0.09 for this order
+        assert_equal(self.nodes[0].getburninfo()['tokens'][0],
+                     "0.89000000@DFI")  # 0.8 from previous, 0.09 for this order
         result = self.nodes[0].listburnhistory()
         assert_equal(result[0]['owner'], burn_address)
         assert_equal(result[0]['type'], 'ICXSubmitDFCHTLC')
@@ -1165,12 +1169,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
-                                    'offerTx': offerTx,
-                                    'amount': 0.45,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
-                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 24})["txid"]
+            'offerTx': offerTx,
+            'amount': 0.45,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -1185,21 +1189,24 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["amountInDFCAsset"], Decimal('0.5'))
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
-        assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
+        assert_equal(htlcs[exthtlcTx]["ownerPubkey"],
+                     '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
         assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
-                                    'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0 + Decimal("0.045") + Decimal("0.01125")) # 0.045 lock refund + 0.25 * 0.045 taker fee refund
-        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1) # no refunds for taker
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0 + Decimal("0.045") + Decimal(
+            "0.01125"))  # 0.045 lock refund + 0.25 * 0.045 taker fee refund
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1)  # no refunds for taker
+
 
 if __name__ == '__main__':
     ICXOrderbookTest().main()

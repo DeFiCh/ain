@@ -16,14 +16,15 @@ from test_framework.mininode import P2PInterface, mininode_lock
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import wait_until
 
-VB_PERIOD = 144           # versionbits period length for regtest
-VB_THRESHOLD = 108        # versionbits activation threshold for regtest
+VB_PERIOD = 144  # versionbits period length for regtest
+VB_THRESHOLD = 108  # versionbits activation threshold for regtest
 VB_TOP_BITS = 0x20000000
-VB_UNKNOWN_BIT = 27       # Choose a bit unassigned to any deployment
+VB_UNKNOWN_BIT = 27  # Choose a bit unassigned to any deployment
 VB_UNKNOWN_VERSION = VB_TOP_BITS | (1 << VB_UNKNOWN_BIT)
 
 WARN_UNKNOWN_RULES_ACTIVE = "unknown new rules activated (versionbit {})".format(VB_UNKNOWN_BIT)
 VB_PATTERN = re.compile("Warning: unknown new rules activated.*versionbit")
+
 
 class VersionBitsWarningTest(DefiTestFramework):
     def set_test_params(self):
@@ -67,7 +68,8 @@ class VersionBitsWarningTest(DefiTestFramework):
         # Mine one period worth of blocks
         node.generate(VB_PERIOD)
 
-        self.log.info("Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version.")
+        self.log.info(
+            "Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version.")
         # Build one period of blocks with < VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD - 1, VB_UNKNOWN_VERSION)
         node.pullup_mocktime()
@@ -82,7 +84,8 @@ class VersionBitsWarningTest(DefiTestFramework):
         node.pullup_mocktime()
         node.generate(VB_PERIOD - VB_THRESHOLD)
 
-        self.log.info("Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version.")
+        self.log.info(
+            "Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version.")
         # Mine a period worth of expected blocks so the generic block-version warning
         # is cleared. This will move the versionbit state to ACTIVE.
         node.generate(VB_PERIOD)
@@ -100,6 +103,7 @@ class VersionBitsWarningTest(DefiTestFramework):
         assert WARN_UNKNOWN_RULES_ACTIVE in node.getnetworkinfo()["warnings"]
         # Check that the alert file shows the versionbits unknown rules warning
         wait_until(lambda: self.versionbits_in_alert_file(), timeout=60)
+
 
 if __name__ == '__main__':
     VersionBitsWarningTest().main()

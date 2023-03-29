@@ -15,15 +15,12 @@ endif
 
 ifeq ($(TARGET), x86_64-apple-darwin18)
 	ARCH=$(shell uname -s)
-	$(info $(ARCH))
 	ifeq ($(ARCH), arm64)
 			TARGET="aarch64-apple-darwin"
 	else
 			TARGET="x86_64-apple-darwin"
 	endif
 endif
-
-$(info $(TARGET))
 
 all: build-evm-pkg build-grpc-pkg
 

@@ -11,23 +11,24 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
+
 class TokenSplitMigrateLockTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
             ['-vaultindex=1', '-txnotokens=0',
-            '-amkheight=1',
-            '-bayfrontheight=1',
-            '-eunosheight=1',
-            '-fortcanningheight=1',
-            '-fortcanningmuseumheight=1',
-            '-fortcanninghillheight=1',
-            '-fortcanningroadheight=1',
-            '-fortcanningcrunchheight=200',
-            '-greatworldheight=200',
-            '-grandcentralheight=200',
-            '-subsidytest=1']]
+             '-amkheight=1',
+             '-bayfrontheight=1',
+             '-eunosheight=1',
+             '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1',
+             '-fortcanninghillheight=1',
+             '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=200',
+             '-greatworldheight=200',
+             '-grandcentralheight=200',
+             '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
@@ -80,7 +81,6 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def test_unlock_migration(self):
-
         # Move to FCC / GW
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
@@ -88,15 +88,16 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         split_height = self.nodes[0].getblockcount() + 11
 
         # Lock token
-        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'true'}}, split_height - 2)
+        self.nodes[0].setgovheight({"ATTRIBUTES": {f'v0/locks/token/{self.idGOOGL}': 'true'}}, split_height - 2)
         self.nodes[0].generate(1)
 
         # Token split
-        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/oracles/splits/{split_height}':f'{self.idGOOGL}/2'}}, split_height - 1)
+        self.nodes[0].setgovheight({"ATTRIBUTES": {f'v0/oracles/splits/{split_height}': f'{self.idGOOGL}/2'}},
+                                   split_height - 1)
         self.nodes[0].generate(1)
 
         # Token unlock
-        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'false'}}, split_height + 10)
+        self.nodes[0].setgovheight({"ATTRIBUTES": {f'v0/locks/token/{self.idGOOGL}': 'false'}}, split_height + 10)
         self.nodes[0].generate(1)
 
         # Move to split height
@@ -112,6 +113,7 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         # Check stored token unlock has migrated
         result = self.nodes[0].listgovs()[8][1]
         assert_equal(result[f'{split_height + 10}'], {f'v0/locks/token/{self.idGOOGL}': 'false'})
+
 
 if __name__ == '__main__':
     TokenSplitMigrateLockTest().main()

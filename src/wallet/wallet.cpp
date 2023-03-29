@@ -1814,13 +1814,12 @@ bool CWallet::ImportScripts(const std::set<CScript>& scripts, int64_t timestamp)
     return true;
 }
 
-bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const int64_t timestamp)
+bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, const int64_t timestamp)
 {
     WalletBatch batch(*database);
-    for (const auto& entry : privkey_map) {
-        const CKey& key = entry.second;
+    for (const auto& [id, keyPair] : privkey_map) {
+        const CKey& key = keyPair.first;
         CPubKey pubkey = key.GetPubKey();
-        const CKeyID& id = entry.first;
         assert(key.VerifyPubKey(pubkey));
         // Skip if we already have the key
         if (HaveKey(id)) {
@@ -1829,7 +1828,7 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         }
         mapKeyMetadata[id].nCreateTime = timestamp;
         // If the private key is not present in the wallet, insert it.
-        if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
+        if (!AddKeyPubKeyWithDB(batch, key, pubkey, keyPair.second)) {
             return false;
         }
         UpdateTimeFirstKey(timestamp);
@@ -2500,10 +2499,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
 
-    bool skipSolvable = coinSelectOpts.skipSolvable;
-    if (!skipSolvable) {
-        skipSolvable = coinSelectOpts.fastSelect;
-    }
+    bool skipSolvable = coinSelectOpts.IsSkipSolvableEnabled() || coinSelectOpts.IsFastSelectEnabled();
 
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
@@ -3021,10 +3017,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             nSubtractFeeFromAmount++;
     }
 
-    bool eagerSelect = coinSelectOpts.eagerSelect;
-    if (!eagerSelect) {
-        eagerSelect = coinSelectOpts.fastSelect;
-    }
+    bool eagerSelect = coinSelectOpts.IsEagerSelectEnabled() || coinSelectOpts.IsFastSelectEnabled();
+    
     const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
 
     if (vecSend.empty())
