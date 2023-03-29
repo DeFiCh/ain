@@ -21,6 +21,7 @@ cxx = "1.0"
 
 ain-evm-runtime = { path = "../ain-evm-runtime" }
 ain-evm-state = { path = "../ain-evm-state" }
+hex = "0.4.3"
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
