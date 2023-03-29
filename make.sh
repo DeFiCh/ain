@@ -411,7 +411,8 @@ pkg_install_deps_mingw_x86_64() {
 }
 
 pkg_install_llvm() {
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s "${CLANG_DEFAULT_VERSION}"
+    # shellcheck disable=SC2086
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
 }
 
 pkg_ensure_mac_sdk() {
