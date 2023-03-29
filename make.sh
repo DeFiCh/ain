@@ -16,6 +16,7 @@ setup_vars() {
     DOCKERFILE=${DOCKERFILE:-""}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
+    CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
 
     local default_target="x86_64-pc-linux-gnu"
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -32,7 +33,8 @@ setup_vars() {
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
         "${TARGET}" == "x86_64-apple-darwin11" ]]; then
-        default_compiler_flags="CC=clang-16 CXX=clang++-16"
+        local clang_ver="${CLANG_DEFAULT_VERSION}"
+        default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
 
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -409,7 +411,7 @@ pkg_install_deps_mingw_x86_64() {
 }
 
 pkg_install_llvm() {
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 16
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s "${CLANG_DEFAULT_VERSION}"
 }
 
 pkg_ensure_mac_sdk() {
