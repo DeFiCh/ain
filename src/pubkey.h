@@ -14,9 +14,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include <logging.h>
-#include <util/strencodings.h>
-
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
 /** A reference to a CKey: the Hash160 of its serialized public key */

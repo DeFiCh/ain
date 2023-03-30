@@ -55,7 +55,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     std::vector<std::vector<unsigned char> > vSolutions;
     whichType = Solver(scriptPubKey, vSolutions);
 
-    if (whichType == TX_NONSTANDARD) {
+    if (whichType == TX_NONSTANDARD || whichType == TX_WITNESS_V16_ETHHASH) {
         return false;
     } else if (whichType == TX_MULTISIG) {
         unsigned char m = vSolutions.front()[0];
@@ -113,7 +113,11 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
     txnouttype whichType;
     for (const CTxOut& txout : tx.vout) {
         if (!::IsStandard(txout.scriptPubKey, whichType)) {
-            reason = "scriptpubkey";
+            if (whichType == txnouttype::TX_WITNESS_V16_ETHHASH) {
+                reason = "eth-scriptpubkey";
+            } else {
+                reason = "scriptpubkey";
+            }
             return false;
         }
 

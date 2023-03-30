@@ -1814,13 +1814,12 @@ bool CWallet::ImportScripts(const std::set<CScript>& scripts, int64_t timestamp)
     return true;
 }
 
-bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const int64_t timestamp)
+bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, const int64_t timestamp)
 {
     WalletBatch batch(*database);
-    for (const auto& entry : privkey_map) {
-        const CKey& key = entry.second;
+    for (const auto& [id, keyPair] : privkey_map) {
+        const CKey& key = keyPair.first;
         CPubKey pubkey = key.GetPubKey();
-        const CKeyID& id = entry.first;
         assert(key.VerifyPubKey(pubkey));
         // Skip if we already have the key
         if (HaveKey(id)) {
@@ -1829,7 +1828,7 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         }
         mapKeyMetadata[id].nCreateTime = timestamp;
         // If the private key is not present in the wallet, insert it.
-        if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
+        if (!AddKeyPubKeyWithDB(batch, key, pubkey, keyPair.second)) {
             return false;
         }
         UpdateTimeFirstKey(timestamp);

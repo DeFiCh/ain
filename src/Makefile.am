@@ -38,8 +38,7 @@ LIBDEFI_UTIL=libdefi_util.a
 LIBDEFI_CRYPTO_BASE=crypto/libdefi_crypto_base.a
 LIBDEFIQT=qt/libdefiqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
-LIBAIN_EVM=rust/libain_evm.a
-LIBAIN_GRPC=rust/libain_grpc.a
+LIBAIN_EVM=rust/libain_evm_ffi.a
 
 if ENABLE_ZMQ
 LIBDEFI_ZMQ=libdefi_zmq.a
@@ -70,10 +69,7 @@ $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(w
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
 $(LIBAIN_EVM): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) build-evm-pkg -C rust
-
-$(LIBAIN_GRPC): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) build-grpc-pkg -C rust
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C rust
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -159,7 +155,6 @@ DEFI_CORE_H = \
   key_io.h \
   dbwrapper.h \
   libain_evm.h \
-  libain_grpc.h \
   limitedmap.h \
   logging.h \
   masternodes/accounts.h \
@@ -381,7 +376,6 @@ libdefi_server_a_SOURCES = \
   chain.cpp \
   consensus/tx_verify.cpp \
   rust/libain_evm.cpp \
-  rust/libain_grpc.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -468,7 +462,7 @@ libdefi_server_a_SOURCES = \
   versionbits.cpp \
   $(DEFI_CORE_H)
 
-$(libdefi_server_a_SOURCES): $(LIBAIN_EVM) $(LIBAIN_GRPC)
+$(libdefi_server_a_SOURCES): $(LIBAIN_EVM)
 
 if ENABLE_WALLET
 libdefi_server_a_SOURCES += wallet/init.cpp
@@ -693,7 +687,7 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # defid binary
-defid_SOURCES = defid.cpp rpc/libain_wrapper.cpp
+defid_SOURCES = defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -714,8 +708,7 @@ defid_LDADD = \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
-  $(LIBAIN_EVM) \
-  $(LIBAIN_GRPC)
+  $(LIBAIN_EVM)
 
 defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
@@ -732,7 +725,7 @@ if TARGET_WINDOWS
 defid_LDADD += -luserenv -lbcrypt
 endif
 
-$(defid_SOURCES): $(LIBAIN_GRPC)
+$(defid_SOURCES): $(LIBAIN_EVM)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp

@@ -2,10 +2,6 @@
 name = "ain-evm"
 version = "0.1.0"
 edition = "2021"
-build = "build.rs"
-
-[lib]
-crate-type = ["staticlib"]
 
 [dependencies]
 evm = { version = "0.37", default-features = false }
@@ -15,15 +11,8 @@ rlp = "0.5.2"
 libsecp256k1 = "0.7.1"
 ethereum = "0.14.0"
 sha3 = "0.10.6"
-
-# Build
-cxx = "1.0"
+hex = "0.4.3"
 
 ain-evm-runtime = { path = "../ain-evm-runtime" }
 ain-evm-state = { path = "../ain-evm-state" }
-hex = "0.4.3"
-
-[build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
-cxx-gen = "0.7"
-proc-macro2 = "1.0"
+ain-grpc = { path = "../ain-grpc" }

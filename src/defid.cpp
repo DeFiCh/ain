@@ -21,7 +21,6 @@
 #include <util/threadnames.h>
 #include <util/translation.h>
 
-#include <libain_grpc.h>
 #include <libain_evm.h>
 
 #include <functional>

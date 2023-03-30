@@ -17,11 +17,22 @@ version = "0.1.0"
 dependencies = [
  "ain-evm-runtime",
  "ain-evm-state",
- "cxx",
- "cxx-gen",
+ "ain-grpc",
  "evm",
  "log",
  "primitive-types",
+]
+
+[[package]]
+name = "ain-evm-ffi"
+version = "0.1.0"
+dependencies = [
+ "ain-evm",
+ "ain-evm-runtime",
+ "ain-evm-state",
+ "ain-grpc",
+ "cxx",
+ "cxx-gen",
  "proc-macro2",
  "substrate-build-script-utils",
 ]

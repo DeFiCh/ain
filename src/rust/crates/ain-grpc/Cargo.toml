@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
-[lib]
-crate-type = ["staticlib"]
-
 [dependencies]
 ain-evm-state = { path = "../ain-evm-state" }
 ain-evm-runtime = { path = "../ain-evm-runtime" }
