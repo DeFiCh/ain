@@ -2015,8 +2015,12 @@ UniValue transferbalance(const JSONRPCRequest& request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     if (msg.type != CTransferBalanceType::EvmOut)
-        for(auto& addresses : msg.from)
-            auths.insert(addresses.first);
+        for(auto& address : msg.from)
+            auths.insert(address.first);
+    else
+        for(auto& address : msg.from)
+            if (IsMine(*pwallet, address.first))
+                auths.insert(GetScriptForRawPubKey(AddrToPubKey(pwallet, ScriptToString(address.first))));
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);

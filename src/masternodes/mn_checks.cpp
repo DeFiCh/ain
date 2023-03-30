@@ -3804,12 +3804,14 @@ public:
         auto res = Res::Ok();
 
         // owner auth
-        if (obj.type != CTransferBalanceType::EvmOut)
-            for (const auto &kv : obj.from) {
+        for (const auto &kv : obj.from) {
+            if (obj.type != CTransferBalanceType::EvmOut)
                 res = HasAuth(kv.first);
-                if (!res)
-                    return res;
-            }
+            else
+                res = HasAuth(GetScriptForRawPubKey(AddrToPubKey(pwallet, ScriptToString(kv.first))))
+            if (!res)
+                return res;
+        }
 
         // compare
         const auto sumFrom = SumAllTransfers(obj.from);
