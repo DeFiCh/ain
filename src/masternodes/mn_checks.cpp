@@ -764,6 +764,17 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     return Res::Ok();
 }
 
+Res CCustomTxVisitor::IsEVMEnabled() const {
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+
+    auto attributes = mnview.GetAttributes();
+    Require(attributes, "Attributes unavailable");
+
+    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
+
+    return Res::Ok();
+}
+
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
@@ -3801,7 +3812,10 @@ public:
     }
 
     Res operator()(const CTransferBalanceMessage &obj) const {
-        auto res = Res::Ok();
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
 
         // owner auth
         if (obj.type != CTransferBalanceType::EvmOut)
@@ -3853,6 +3867,11 @@ public:
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
+
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
         return Res::Ok();

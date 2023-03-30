@@ -226,6 +226,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
+        // EVM chain id
+        consensus.evmChainId = 1130; // ETH main chain ID
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -499,6 +502,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
+        // EVM chain id
+        consensus.evmChainId = 1131; // test chain ID
+
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
@@ -710,6 +716,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+
+        // EVM chain id
+        consensus.evmChainId = 1132; // dev chain ID
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0c;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x10;
@@ -925,6 +934,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+
+        // EVM chain id
+        consensus.evmChainId = 1133; // regtest chain ID
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
