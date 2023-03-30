@@ -42,11 +42,11 @@ impl LegacyUnsignedTransaction {
         H256::from(output)
     }
 
-    pub fn sign(&self, key: &H256, chain_id: u64) -> TransactionV2 {
+    pub fn sign(&self, key: &H256, chain_id: u64) -> ethereum::LegacyTransaction {
         self.sign_with_chain_id(key, chain_id)
     }
 
-    pub fn sign_with_chain_id(&self, key: &H256, chain_id: u64) -> TransactionV2 {
+    pub fn sign_with_chain_id(&self, key: &H256, chain_id: u64) -> ethereum::LegacyTransaction {
         let hash = self.signing_hash(chain_id);
         let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
         let s = libsecp256k1::sign(
@@ -61,7 +61,7 @@ impl LegacyUnsignedTransaction {
             H256::from_slice(&sig[32..64]),
         ).unwrap();
 
-        TransactionV2::Legacy(ethereum::LegacyTransaction {
+        ethereum::LegacyTransaction {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
@@ -69,6 +69,21 @@ impl LegacyUnsignedTransaction {
             value: self.value,
             input: self.input.clone(),
             signature: sig,
-        })
+        }
+    }
+}
+
+impl From<&ethereum::LegacyTransaction> for LegacyUnsignedTransaction {
+    fn from(src: &ethereum::LegacyTransaction) -> LegacyUnsignedTransaction {
+        let t = LegacyUnsignedTransaction {
+            nonce: src.nonce,
+            gas_price: src.gas_price,
+            gas_limit: src.gas_limit,
+            action: src.action,
+            value: src.value,
+            input: src.input.clone(),
+            sig: src.signature.clone(),
+        };
+        t
     }
 }
