@@ -4,7 +4,7 @@ use ain_evm_runtime::RUNTIME;
 use std::error::Error;
 
 use primitive_types::{H160, H256, U256};
-use transaction::LegacyUnsignedTransaction;
+use transaction::{LOWER_H256, LegacyUnsignedTransaction};
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 
 #[cxx::bridge]
@@ -21,9 +21,9 @@ mod server {
             gas_limit: [u8; 32],
             to: [u8; 20],
             value: [u8; 32],
-            input: &str,
+            input: Vec<u8>,
             priv_key: [u8; 32],
-        ) -> String;
+        ) -> Vec<u8>;
     }
 }
 
@@ -46,9 +46,9 @@ fn create_and_sign_tx(
     gas_limit: [u8; 32],
     to: [u8; 20],
     value: [u8; 32],
-    input: &str,
+    input: Vec<u8>,
     priv_key: [u8; 32],
-) -> String {
+) -> Vec<u8> {
 
     let to_action : TransactionAction;
     if to.is_empty() {
@@ -62,32 +62,21 @@ fn create_and_sign_tx(
     let gas_limit_u256 = U256::from(gas_limit);
     let value_u256 = U256::from(value);
 
-    // Lowest acceptable value for r and s in sig.
-    const LOWER: H256 = H256([
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x01,
-    ]);
-
-    let sig = TransactionSignature::new(27,LOWER, LOWER).unwrap();
-
     // Create
-
     let t = LegacyUnsignedTransaction{
         nonce: nonce_u256,
         gas_price: gas_price_u256,
         gas_limit: gas_limit_u256,
         action: to_action,
         value: value_u256,
-        input: hex::decode(input).expect("Decoding failed"),
+        input,
         // Dummy sig for now. Needs 27, 28 or > 36 for valid v.
-        sig: TransactionSignature::new(27,LOWER, LOWER).unwrap(),
+        sig: TransactionSignature::new(27,LOWER_H256, LOWER_H256).unwrap(),
     };
-
-    let priv_key_h256 = H256::from(priv_key);
-
+    
     // Sign
+    let priv_key_h256 = H256::from(priv_key);
     let signed = t.sign(&priv_key_h256, chain_id);
 
-    hex::encode(signed.encode())
+    signed.encode().into()
 }
