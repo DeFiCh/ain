@@ -7,26 +7,6 @@ use primitive_types::{H160, H256, U256};
 use transaction::{LOWER_H256, LegacyUnsignedTransaction};
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 
-#[cxx::bridge]
-mod server {
-    extern "Rust" {
-        fn evm_add_balance(address: &str, amount: i64) -> Result<()>;
-        fn evm_sub_balance(address: &str, amount: i64) -> Result<()>;
-        fn evm_send_raw_tx(tx: &str) -> Result<()>;
-
-        fn create_and_sign_tx(
-            chain_id: u64,
-            nonce: [u8; 32],
-            gas_price: [u8; 32],
-            gas_limit: [u8; 32],
-            to: [u8; 20],
-            value: [u8; 32],
-            input: Vec<u8>,
-            priv_key: [u8; 32],
-        ) -> Vec<u8>;
-    }
-}
-
 pub fn evm_add_balance(address: &str, amount: i64) -> Result<(), Box<dyn Error>> {
     RUNTIME.evm.add_balance(address, amount)
 }
@@ -39,7 +19,7 @@ pub fn evm_send_raw_tx(_tx: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn create_and_sign_tx(
+pub fn create_and_sign_tx(
     chain_id: u64,
     nonce: [u8; 32],
     gas_price: [u8; 32],

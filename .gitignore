@@ -98,6 +98,9 @@ Makefile.am.user
 # Unit-tests
 Makefile.test
 
+# Rust
+**/cargo.lock
+
 # Resources cpp
 qrc_*.cpp
 
