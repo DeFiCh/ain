@@ -546,6 +546,16 @@ public:
         rpcInfo.pushKV("vote", CProposalVoteToString(vote));
     }
 
+    void operator()(const CTransferBalanceMessage &obj) const {
+        rpcInfo.pushKV("type", CTransferBalanceTypeToString(static_cast<CTransferBalanceType>(obj.type)));
+        rpcInfo.pushKV("from", accountsInfo(obj.from));
+        rpcInfo.pushKV("to", accountsInfo(obj.to));
+    }
+
+    void operator()(const CEvmTxMessage &obj) const {
+        rpcInfo.pushKV("evmTx", HexStr(obj.evmTx.begin(),obj.evmTx.end()));
+    }
+
     void operator()(const CCustomTxMessageNone &) const {}
 };
 
