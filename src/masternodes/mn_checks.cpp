@@ -3804,14 +3804,12 @@ public:
         auto res = Res::Ok();
 
         // owner auth
-        for (const auto &kv : obj.from) {
-            if (obj.type != CTransferBalanceType::EvmOut)
+        if (obj.type != CTransferBalanceType::EvmOut)
+            for (const auto &kv : obj.from) {
                 res = HasAuth(kv.first);
-            else
-                res = HasAuth(GetScriptForRawPubKey(AddrToPubKey(pwallet, ScriptToString(kv.first))))
-            if (!res)
-                return res;
-        }
+                if (!res)
+                    return res;
+            }
 
         // compare
         const auto sumFrom = SumAllTransfers(obj.from);
@@ -3846,6 +3844,30 @@ public:
             if (!res)
                 return res;
         } else if (obj.type == CTransferBalanceType::EvmOut) {
+            for (const auto& [addr, _] : obj.from) {
+                CTxDestination dest;
+                if (ExtractDestination(addr, dest)) {
+                    if (dest.index() != WitV16KeyEthHashType) {
+                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfertype");
+                    }
+                }
+                bool foundAuth = false;
+                for (const auto &input : tx.vin) {
+                    const Coin &coin = coins.AccessCoin(input.prevout);
+                    std::vector<TBytes> vRet;
+                    if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+                    {
+                        auto it = input.scriptSig.begin();
+                        CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                        if (script == addr)
+                            foundAuth = true;
+                    }
+                }
+                if (!foundAuth)
+                    return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
+            }
+
             res = AddBalancesSetShares(obj.to);
             if (!res)
                 return res;

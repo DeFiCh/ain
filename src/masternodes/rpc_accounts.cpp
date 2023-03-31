@@ -2020,7 +2020,11 @@ UniValue transferbalance(const JSONRPCRequest& request) {
     else
         for(auto& address : msg.from)
             if (IsMine(*pwallet, address.first))
-                auths.insert(GetScriptForRawPubKey(AddrToPubKey(pwallet, ScriptToString(address.first))));
+            {
+                const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+                auths.insert(auth);
+            }
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
@@ -2037,10 +2041,11 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
+    auto txRef = sign(rawTx, pwallet, optAuthTx);
     // check execution
-    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+    execTestTx(*txRef, targetHeight, optAuthTx);
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    return send(txRef, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue getburninfo(const JSONRPCRequest& request) {
