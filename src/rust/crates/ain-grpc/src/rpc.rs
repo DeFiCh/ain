@@ -42,9 +42,9 @@ impl EthServiceApi for EthService {
             nonce,
         } = transaction_info;
 
-        let from = from.parse().expect("Invalid from address");
-        let to = to.parse().expect("Invalid to address");
-        let (_, data) = handler.call_evm(from, to, value.into(), data.into(), gas, vec![]);
+        let from = from.parse().ok();
+        let to = to.parse().ok();
+        let (_, data) = handler.call(from, to, value.into(), data.as_bytes(), gas, vec![]);
 
         Ok(EthCallResult {
             data: String::from_utf8_lossy(&*data).to_string(),
