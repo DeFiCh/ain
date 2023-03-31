@@ -344,6 +344,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.FortCanningRoadHeight,        "called before FortCanningRoad height" },
                 { consensus.FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
+                { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
         if (startHeight && int(height) < startHeight) {
             auto it = hardforks.find(startHeight);
