@@ -289,6 +289,17 @@ public:
         return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
 
+    bool IsEVMTx() const
+    {
+        return (vin.size() == 2 &&
+                vin[0].prevout.IsNull() &&
+                vin[1].prevout.IsNull() &&
+                vout.size() == 1 &&
+                vout[0].scriptPubKey.size() > 0 &&
+                vout[0].scriptPubKey[0] == OP_RETURN &&
+                vout[0].nValue == 0);
+    }
+
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {
         return a.hash == b.hash;

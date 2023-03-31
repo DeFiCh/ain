@@ -38,7 +38,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     }
 
     // Check for duplicate inputs - note that this check is slow so we skip it in CheckBlock
-    if (fCheckDuplicateInputs) {
+    if (!tx.IsEVMTx() && fCheckDuplicateInputs) {
         std::set<COutPoint> vInOutPoints;
         for (const auto& txin : tx.vin)
         {
@@ -54,6 +54,11 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
+    }
+    else if (tx.IsEVMTx())
+    {
+        if (tx.vin[0].scriptSig.size() != 1 || tx.vin[1].scriptSig.size() != 1)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-evm-length");
     }
     else
     {
