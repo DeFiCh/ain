@@ -208,6 +208,27 @@ struct CUtxosToAccountMessage {
     }
 };
 
+enum CTransferBalanceType : uint8_t {
+    AccountToAccount = 0x00,
+    EvmIn            = 0x01,
+    EvmOut           = 0x02,
+};
+
+struct CTransferBalanceMessage {
+    uint8_t type;
+    CAccounts from;  // from -> balances
+    CAccounts to;    // to -> balances
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(type);
+        READWRITE(from);
+        READWRITE(to);
+    }
+};
+
 struct CSmartContractMessage {
     std::string name;
     CAccounts accounts;
