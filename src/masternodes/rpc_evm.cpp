@@ -1,11 +1,25 @@
 #include <masternodes/mn_rpc.h>
 
+#include <libain_evm.h>
+#include <key_io.h>
+
+const int64_t WEI_IN_GWEI    = 1000000000;
+const int64_t CAMOUNT_TO_WEI = 10;
+
 UniValue evmtx(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"evmtx",
-                "Creates (and submits to local node and network) a tx to send DFI token to EVM address.\n",
+                "Creates (and submits to local node and network) a tx to send DFI token to EVM address.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"rawEvmTx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Raw tx in hex"},
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "From Eth address"},
+                    {"nonce", RPCArg::Type::NUM, RPCArg::Optional::NO, "Transaction nonce"},
+                    {"gasPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas Price in Gwei"},
+                    {"gasLimit", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas limit"},
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "To address. Can be empty"},
+                    {"value", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount to send"},
+                    {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex encoded data. Can be blank."},
                 },
                 RPCResult{
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -15,13 +29,76 @@ UniValue evmtx(const JSONRPCRequest& request) {
                         },
     }.Check(request);
 
-    auto evmTx = ParseHex(request.params[0].get_str());
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto fromDest = DecodeDestination(request.params[0].get_str());
+    if (fromDest.index() != WitV16KeyEthHashType) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "from address not an Ethereum address");
+    }
+
+    const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
+    const CKeyID keyId{fromEth};
+
+    CKey key;
+    if (!pwallet->GetKey(keyId, key)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+    }
 
     int targetHeight;
     {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
     }
+
+    // TODO Get chain ID from Params when defined
+    const uint64_t chainID{1};
+
+    const arith_uint256 nonceParam = request.params[1].get_int64();
+    const auto nonce = ArithToUint256(nonceParam).ToArray();
+
+    arith_uint256 gasPriceArith = request.params[2].get_int64(); // Price as GWei
+    gasPriceArith *= WEI_IN_GWEI; // Convert to Wei
+    const uint256 gasPrice = ArithToUint256(gasPriceArith);
+
+    arith_uint256 gasLimitArith = request.params[3].get_int64();
+    const uint256 gasLimit = ArithToUint256(gasLimitArith);
+
+    const auto toStr = request.params[4].get_str();
+    std::array<uint8_t, 20> to{};
+    if (!toStr.empty()) {
+        const auto toDest = DecodeDestination(toStr);
+        if (toDest.index() != WitV16KeyEthHashType) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "to address not an Ethereum address");
+        }
+
+        const auto toEth = std::get<WitnessV16EthHash>(toDest);
+        std::copy(toEth.begin(), toEth.end(), to.begin());
+    }
+
+    const arith_uint256 valueParam = AmountFromValue(request.params[5]);
+    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_WEI * WEI_IN_GWEI).ToArray();
+
+    rust::Vec<uint8_t> input{};
+    if (!request.params[6].isNull()) {
+        const auto inputStr = request.params[6].get_str();
+        if (!IsHex(inputStr)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Input param expected to be in hex format");
+        }
+
+        const auto inputVec = ParseHex(inputStr);
+        input.reserve(inputVec.size());
+        std::copy(inputVec.begin(), inputVec.end(), input.begin());
+    }
+
+    std::array<uint8_t, 32> privKey{};
+    std::copy(key.begin(), key.end(), privKey.begin());
+
+    const auto signedTx = create_and_sign_tx(chainID, nonce, gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value, input, privKey);
+    std::vector<uint8_t> evmTx(signedTx.size());
+    std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)

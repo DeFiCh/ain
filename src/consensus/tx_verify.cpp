@@ -144,7 +144,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 {
     int64_t nSigOps = GetLegacySigOpCount(tx) * WITNESS_SCALE_FACTOR;
 
-    if (tx.IsCoinBase() || tx.IsEVMTx())
+    if (tx.IsCoinBase() || IsEVMTx(tx))
         return nSigOps;
 
     if (flags & SCRIPT_VERIFY_P2SH) {
@@ -163,7 +163,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
 bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CCustomCSView& mnview, int nSpendHeight, CAmount& txfee, const CChainParams& chainparams)
 {
-    if (tx.IsEVMTx()) {
+    if (IsEVMTx(tx)) {
         return true;
     }
 

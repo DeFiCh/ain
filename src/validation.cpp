@@ -586,7 +586,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.SetBackend(viewMemPool);
 
         // do all inputs exist?
-        if (!tx.IsEVMTx()) {
+        if (!IsEVMTx(tx)) {
             for (const CTxIn& txin : tx.vin) {
                 if (!coins_cache.HaveCoinInCache(txin.prevout)) {
                     coins_to_uncache.push_back(txin.prevout);
@@ -636,7 +636,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // let make sure we have needed coins
-        if (!tx.IsEVMTx() && view.GetValueIn(tx) < nFees) {
+        if (!IsEVMTx(tx) && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
@@ -653,11 +653,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
-        if (!tx.IsEVMTx() && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
+        if (!IsEVMTx(tx) && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !tx.IsEVMTx() && !AreInputsStandard(tx, view))
+        if (fRequireStandard && !IsEVMTx(tx) && !AreInputsStandard(tx, view))
             return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
         // Check for non-standard witness in P2WSH
@@ -695,7 +695,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (!tx.IsEVMTx() && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
+        if (!IsEVMTx(tx) && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
 
@@ -890,7 +890,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(::ChainActive().Tip(), chainparams.GetConsensus());
-        if (!tx.IsEVMTx() && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
+        if (!IsEVMTx(tx) && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
@@ -1374,7 +1374,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
-    if (tx.IsEVMTx()) {
+    if (IsEVMTx(tx)) {
         return;
     }
     // mark inputs spent
@@ -1461,7 +1461,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         return(state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBurnSpend: Trying to spend burnt outputs"), REJECT_INVALID, "burnt-output"));
     }
 
-    if (!tx.IsCoinBase() && !tx.IsEVMTx())
+    if (!tx.IsCoinBase() && !IsEVMTx(tx))
     {
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());

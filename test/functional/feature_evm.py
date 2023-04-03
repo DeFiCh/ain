@@ -23,13 +23,17 @@ class EVMTest(DefiTestFramework):
 
     def run_test(self):
 
-        assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, "AABBCCDDEEFF00112233445566778899")
-
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = self.nodes[0].getnewaddress("","eth")
+        to_address = self.nodes[0].getnewaddress("","eth")
 
         # Generate chain
-        self.nodes[0].generate(105)
+        self.nodes[0].generate(101)
+
+        assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, ethAddress, 0, 21, 21000, to_address, 0.1)
+
+        # Move to fork height
+        self.nodes[0].generate(4)
 
         self.nodes[0].getbalance()
         self.nodes[0].utxostoaccount({address: "101@DFI"})
@@ -60,7 +64,7 @@ class EVMTest(DefiTestFramework):
         # assert_equal(newETHbalance, ETHbalance)
 
         # Test EVM Tx
-        tx = self.nodes[0].evmtx("AABBCCDDEEFF00112233445566778899")
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 0.1)
         assert_equal(self.nodes[0].getrawmempool(), [tx])
         self.nodes[0].generate(1)
 

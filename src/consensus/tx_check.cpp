@@ -38,7 +38,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     }
 
     // Check for duplicate inputs - note that this check is slow so we skip it in CheckBlock
-    if (!tx.IsEVMTx() && fCheckDuplicateInputs) {
+    if (!IsEVMTx(tx) && fCheckDuplicateInputs) {
         std::set<COutPoint> vInOutPoints;
         for (const auto& txin : tx.vin)
         {
@@ -55,7 +55,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
     }
-    else if (tx.IsEVMTx())
+    else if (IsEVMTx(tx))
     {
         if (tx.vin[0].scriptSig.size() != 1 || tx.vin[1].scriptSig.size() != 1)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-evm-length");
@@ -136,4 +136,18 @@ bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metada
         return false;
     }
     return result;
+}
+
+bool IsEVMTx(const CTransaction &tx) {
+    std::vector<uint8_t> metadata;
+    auto hasAdditionalOpcodes{false};
+    return (tx.vin.size() == 2 &&
+            tx.vin[0].prevout.IsNull() &&
+            tx.vin[1].prevout.IsNull() &&
+            tx.vout.size() == 1 &&
+            tx.vout[0].scriptPubKey.size() > 0 &&
+            tx.vout[0].scriptPubKey[0] == OP_RETURN &&
+            tx.vout[0].nValue == 0 &&
+            ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes) &&
+            metadata[0] == '9');
 }

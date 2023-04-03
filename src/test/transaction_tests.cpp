@@ -871,13 +871,13 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
 
     const std::vector<uint8_t> privKeyVec{ParseHex("1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571")};
     std::array<uint8_t, 32> privKey{};
-    std::copy(privKeyVec.begin(), privKeyVec.end(), privKey.begin()); // Not need with nonce 0 but useful later
+    std::copy(privKeyVec.begin(), privKeyVec.end(), privKey.begin());
 
     rust::Vec<uint8_t> input{};
 
     const auto reply = create_and_sign_tx(chainID, nonce, gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value, input, privKey);
     std::vector<uint8_t> replyVector(reply.size());
-    std::copy(reply.begin(), reply.end(), replyVector.begin()); // Not need with nonce 0 but useful later
+    std::copy(reply.begin(), reply.end(), replyVector.begin());
     std::string transaction(HexStr(replyVector.begin(), replyVector.end()));
     const auto rawBytes = ParseHex(transaction);
     BOOST_CHECK_EQUAL(transaction, "f86b8085689451eee18252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc10000802da0ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46a01d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002");

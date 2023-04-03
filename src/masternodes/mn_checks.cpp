@@ -9,6 +9,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
+#include <libain_evm.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>
@@ -3856,6 +3857,13 @@ public:
     Res operator()(const CEvmTxMessage &obj) const {
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
+
+        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to validate");
+        }
+
+        // TODO Execute TX
+
         return Res::Ok();
     }
 
