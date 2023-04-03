@@ -16,37 +16,11 @@ setup_vars() {
     DOCKERFILE=${DOCKERFILE:-""}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
+
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
+    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
 
-    local default_target=""
-    if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin18"
-    elif [[ "${OSTYPE}" == "msys" ]]; then
-        default_target="x86_64-w64-mingw32"
-    else
-        # Note: make.sh only formally supports auto selection for 
-        # windows under msys, mac os and debian derivatives to build on.
-        # Also note: Support for auto selection on make.sh does not imply
-        # support for the architecture. 
-        # Only supported architectures are the ones with release builds
-        # enabled on the CI. 
-        local dpkg_arch=""
-        dpkg_arch=$(dpkg --print-architecture || true)
-        if [[ "$dpkg_arch" == "armhf" ]]; then
-            default_target="arm-linux-gnueabihf"
-        elif [[ "$dpkg_arch" == "aarch64" ]]; then
-            default_target="aarch64-linux-gnu"
-        else
-            # Global default if we can't determine it from the 
-            # above, which are our only supported list for auto select
-            default_target="x86_64-pc-linux-gnu"
-        fi
-    fi
-
-    # shellcheck disable=SC2206
-    # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
-    TARGET=${TARGET:-"${default_target}"}
+    TARGET=${TARGET:-"$(get_default_target)"}
 
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
@@ -62,19 +36,15 @@ setup_vars() {
 
     MAKE_JOBS=${MAKE_JOBS:-"${default_jobs}"}
     MAKE_COMPILER=${MAKE_COMPILER:-"${default_compiler_flags}"}
+
+    MAKE_CONF_ARGS="${MAKE_CONF_ARGS:-$(get_default_conf_args)}"
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
-    MAKE_ARGS=${MAKE_ARGS:-}
-    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
-    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
 
-    if [[ "$TARGET" =~ a(rm|arch64).* ]]; then
-      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-glibc-back-compat";
-      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-reduce-exports";
-      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} LDFLAGS=-static-libstdc++";
-    fi
+    MAKE_ARGS=${MAKE_ARGS:-}
+    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
 }
 
 main() {
@@ -356,6 +326,50 @@ docker_purge() {
 }
 
 # -------------- Misc -----------------
+
+get_default_target() {
+    local default_target=""
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        default_target="x86_64-apple-darwin18"
+    elif [[ "${OSTYPE}" == "msys" ]]; then
+        default_target="x86_64-w64-mingw32"
+    else
+        # Note: make.sh only formally supports auto selection for 
+        # windows under msys, mac os and debian derivatives to build on.
+        # Also note: Support for auto selection on make.sh does not imply
+        # support for the architecture. 
+        # Only supported architectures are the ones with release builds
+        # enabled on the CI. 
+        local dpkg_arch=""
+        dpkg_arch=$(dpkg --print-architecture || true)
+        if [[ "$dpkg_arch" == "armhf" ]]; then
+            default_target="arm-linux-gnueabihf"
+        elif [[ "$dpkg_arch" == "aarch64" ]]; then
+            default_target="aarch64-linux-gnu"
+        else
+            # Global default if we can't determine it from the 
+            # above, which are our only supported list for auto select
+            default_target="x86_64-pc-linux-gnu"
+        fi
+    fi
+
+    # shellcheck disable=SC2206
+    # This intentionally word-splits the array as env arg can only be strings.
+    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
+    echo "$default_target"
+}
+
+get_default_conf_args() {
+    local conf_args=""
+     # Add arm specific flags, but only if make_conf_args env is empty. 
+     # If it's explicitly being overridden and leave it as it is
+    if [[ "$TARGET" =~ a(rm|arch64).* ]]; then
+      conf_args="${conf_args} --enable-glibc-back-compat";
+      conf_args="${conf_args} --enable-reduce-exports";
+      conf_args="${conf_args} LDFLAGS=-static-libstdc++";
+    fi
+    echo "$conf_args"
+}
 
 sign() {
     # TODO: generate sha sums and sign
