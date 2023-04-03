@@ -38,12 +38,6 @@ COPY . .
 RUN ./make.sh purge && rm -rf ./depends
 COPY --from=depends-builder /work/depends ./depends
 
-# XREF: #make-configure
-# RUN ./configure --prefix=`pwd`/depends/${TARGET} \
-#     --enable-glibc-back-compat \
-#     --enable-reduce-exports \
-#     LDFLAGS="-static-libstdc++"
-
 RUN ./make.sh build-conf && ./make.sh build-make
 
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.

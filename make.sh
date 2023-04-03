@@ -25,7 +25,11 @@ setup_vars() {
         default_target="x86_64-w64-mingw32"
     else
         # Note: make.sh only formally supports auto selection for 
-        # windows under msys, mac os and debian derivatives to build on. 
+        # windows under msys, mac os and debian derivatives to build on.
+        # Also note: Support for auto selection on make.sh does not imply
+        # support for the architecture. 
+        # Only supported architectures are the ones with release builds
+        # enabled on the CI. 
         local dpkg_arch=""
         dpkg_arch=$(dpkg --print-architecture || true)
         if [[ "$dpkg_arch" == "armhf" ]]; then
