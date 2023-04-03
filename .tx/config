@@ -1,7 +1,0 @@
-[main]
-host = https://www.transifex.com
-
-[defi.qt-translation-018x]
-file_filter = src/qt/locale/defi_<lang>.ts
-source_file = src/qt/locale/defi_en.ts
-source_lang = en

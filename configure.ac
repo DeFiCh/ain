@@ -1329,10 +1329,6 @@ AC_MSG_RESULT($build_defi_wallet)
 
 AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_DEFI_LIBS], [test x$build_defi_libs = xyes])
-if test x$build_defi_libs = xyes; then
-  AC_DEFINE(HAVE_CONSENSUS_LIB, 1, [Define this symbol if the consensus lib has been built])
-  AC_CONFIG_FILES([libdeficonsensus.pc:libdeficonsensus.pc.in])
-fi
 AC_MSG_RESULT($build_defi_libs)
 
 AC_LANG_POP
