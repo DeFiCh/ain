@@ -352,10 +352,6 @@ get_default_target() {
             default_target="x86_64-pc-linux-gnu"
         fi
     fi
-
-    # shellcheck disable=SC2206
-    # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
     echo "$default_target"
 }
 
