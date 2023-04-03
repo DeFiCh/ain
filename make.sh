@@ -37,10 +37,15 @@ setup_vars() {
     MAKE_JOBS=${MAKE_JOBS:-"${default_jobs}"}
     MAKE_COMPILER=${MAKE_COMPILER:-"${default_compiler_flags}"}
 
-    MAKE_CONF_ARGS="${MAKE_CONF_ARGS:-$(get_default_conf_args)}"
+    MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
+    fi
+
+    MAKE_CONF_ARGS_OVERRIDE="${MAKE_CONF_ARGS_OVERRIDE:-}"
+    if [[ "${MAKE_CONF_ARGS_OVERRIDE}" ]]; then
+        MAKE_CONF_ARGS="${MAKE_CONF_ARGS_OVERRIDE}"
     fi
 
     MAKE_ARGS=${MAKE_ARGS:-}
@@ -167,11 +172,6 @@ package() {
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
-    if [[ ! -d "$release_dir" ]]; then
-        echo "> error: deployment required to package"
-        exit 1
-    fi
-
     # XREF: #pkg-name
     local pkg_name="${img_prefix}-${img_version}-${target}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
@@ -181,6 +181,11 @@ package() {
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
+
+    if [[ ! -d "$versioned_release_dir" ]]; then
+        echo "> error: deployment required to package"
+        exit 1
+    fi
 
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
@@ -330,11 +335,9 @@ get_default_conf_args() {
     local conf_args=""
      # Add arm specific flags, but only if make_conf_args env is empty. 
      # If it's explicitly being overridden and leave it as it is
-    if [[ "$TARGET" =~ a(rm|arch64).* ]]; then
-      conf_args="${conf_args} --enable-glibc-back-compat";
-      conf_args="${conf_args} --enable-reduce-exports";
-      conf_args="${conf_args} LDFLAGS=-static-libstdc++";
-    fi
+    conf_args="${conf_args} --enable-glibc-back-compat";
+    conf_args="${conf_args} --enable-reduce-exports";
+    conf_args="${conf_args} LDFLAGS=-static-libstdc++";
     echo "$conf_args"
 }
 
