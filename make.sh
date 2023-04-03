@@ -515,9 +515,9 @@ clean() {
         )
 
     for x in "${left_overs[@]}"; do
-        safe_rm_rf src/secp256k1/$x
-        safe_rm_rf src/univalue/$x
-        safe_rm_rf $x
+        safe_rm_rf "src/secp256k1/$x"
+        safe_rm_rf "src/univalue/$x"
+        safe_rm_rf "$x"
     done
 
     safe_rm_rf \
