@@ -18,21 +18,34 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
 
-    local default_target="x86_64-pc-linux-gnu"
+    local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
         default_target="x86_64-apple-darwin18"
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
+    else
+        # Note: make.sh only formally supports auto selection for 
+        # windows under msys, mac os and debian derivatives to build on. 
+        local dpkg_arch=""
+        dpkg_arch=$(dpkg --print-architecture || true)
+        if [[ "$dpkg_arch" == "armhf" ]]; then
+            default_target="arm-linux-gnueabihf"
+        elif [[ "$dpkg_arch" == "aarch64" ]]; then
+            default_target="aarch64-linux-gnu"
+        else
+            # Global default if we can't determine it from the 
+            # above, which are our only supported list for auto select
+            default_target="x86_64-pc-linux-gnu"
+        fi
     fi
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin11
+    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
     TARGET=${TARGET:-"${default_target}"}
 
     local default_compiler_flags=""
-    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
-        "${TARGET}" == "x86_64-apple-darwin11" ]]; then
+    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
         default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
@@ -51,6 +64,12 @@ setup_vars() {
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
+    fi
+
+    if [[ "$TARGET" =~ a(rm|arch64).* ]]; then
+      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-glibc-back-compat";
+      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-reduce-exports";
+      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} LDFLAGS=-static-libstdc++";
     fi
 }
 
@@ -214,9 +233,6 @@ docker_build() {
 
     echo "> docker-build";
 
-    if [[ "$target" == "x86_64-apple-darwin"* ]]; then
-        pkg_ensure_mac_sdk
-    fi
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
@@ -384,13 +400,13 @@ git_version() {
     fi
 }
 
-pkg_install_base() {
+pkg_update_base() {
   apt update
   apt install -y apt-transport-https
   apt dist-upgrade -y
 }
 
-pkg_install_deps_x86_64() {
+pkg_install_deps() {
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
@@ -400,14 +416,36 @@ pkg_install_deps_x86_64() {
         curl cmake
 }
 
-pkg_install_mac_sdk_deps() {
-  apt install -y \
-        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
-}
-
 pkg_install_deps_mingw_x86_64() {
   apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
+}
+
+pkg_install_deps_armhf() {
+  apt install -y \
+        g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+}
+
+pkg_install_deps_arm64() {
+  apt install -y \
+        g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+}
+
+pkg_install_deps_mac_tools() {
+  apt install -y \
+        python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+}
+
+pkg_local_mac_sdk() {
+    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
+    local pkg="${sdk_name}.tar.gz"
+
+    mkdir -p ./depends/SDKs
+    pushd ./depends/SDKs >/dev/null
+    wget https://bitcoincore.org/depends-sources/sdks/${pkg}
+    tar -zxvf "${pkg}"
+    rm "${pkg}" 2>/dev/null || true
+    popd >/dev/null
 }
 
 pkg_install_llvm() {
@@ -415,22 +453,8 @@ pkg_install_llvm() {
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
 }
 
-pkg_ensure_mac_sdk() {
-    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
-    local pkg="${sdk_name}.tar.gz"
-
-    echo "> ensuring mac sdk"
-
-    mkdir -p ./depends/SDKs
-    pushd ./depends/SDKs >/dev/null
-    if [[ ! -d "$sdk_name" ]]; then
-        if [[ ! -f "${pkg}" ]]; then
-            wget https://bitcoincore.org/depends-sources/sdks/${pkg}
-        fi
-        tar -zxvf "${pkg}"
-    fi
-    rm "${pkg}" 2>/dev/null || true
-    popd >/dev/null
+pkg_install_rust() {
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
 clean_mac_sdk() {

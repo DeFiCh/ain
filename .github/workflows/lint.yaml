@@ -1,26 +1,16 @@
 name: Lint
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "!v*"
     branches:
       - master
-      - staging
-      - develop
-      - ci/*
-      - epic/*
-      - v*
   pull_request:
     branches:
       - master
-      - develop
-      - staging
-      - ci/*
-      - epic/*
-      - v*
-      - "[0-9]+.[0-9]+.x"
-      
+
 jobs:
   unit_tests:
     name: Lint

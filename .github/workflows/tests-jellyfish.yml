@@ -1,13 +1,10 @@
 name: Tests - Jellyfish
 
 on:
-  push:
-    branches:
-      - epic/*
+  workflow_dispatch:
   pull_request:
     branches:
       - master
-      - epic/*
 
 jobs:
   test:

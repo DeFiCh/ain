@@ -1,4 +1,4 @@
-ARG TARGET=x86_64-apple-darwin18
+ARG TARGET=aarch64-linux-gnu
 
 # -----------
 FROM ubuntu:20.04 as builder-base
@@ -11,8 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mac_tools
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_local_mac_sdk
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_arm64
 
 # -----------
 FROM builder-base as depends-builder
@@ -39,6 +38,12 @@ COPY . .
 RUN ./make.sh purge && rm -rf ./depends
 COPY --from=depends-builder /work/depends ./depends
 
+# XREF: #make-configure
+# RUN ./configure --prefix=`pwd`/depends/${TARGET} \
+#     --enable-glibc-back-compat \
+#     --enable-reduce-exports \
+#     LDFLAGS="-static-libstdc++"
+
 RUN ./make.sh build-conf && ./make.sh build-make
 
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
@@ -53,4 +58,3 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /app
 
 COPY --from=builder /app/. ./
-

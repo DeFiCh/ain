@@ -7,36 +7,22 @@ on:
       - "!v*"
     branches:
       - master
-      - testnet
-      - epic/*
-      - t/*
-      - e/*
-      - v*
-      - "[0-9]+.[0-9]+.x"
   pull_request:
     branches:
       - master
-      - testnet
-      - epic/*
-      - t/*
-      - e/*
-      - v*
-      - "[0-9]+.[0-9]+.x"
 
 env:
   MAKE_CONF_ARGS: --disable-bench
+  BUILD_VERSION: latest # Computed
 
 jobs:
-
-  linux:
+  linux-x64:
   # We use a matrix since it's easier to migrate upwards, add new
   # test on multiple, then remove old without creating friction.
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
-    env:
-      BUILD_VERSION: latest # Computed
 
     steps:
     - uses: actions/checkout@v3
@@ -69,14 +55,28 @@ jobs:
         repository: defi/defichain
         tags: ${{ env.BUILD_VERSION }}
 
-  windows:
+  linux-armhf:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
-    env:
-      BUILD_VERSION: latest # Computed
+    steps:
+    - uses: actions/checkout@v3
 
+    - name: Build and package
+      run: DOCKERFILE="arm-linux-gnueabihf" TARGET="arm-linux-gnueabihf" ./make.sh docker-release-git
+
+    - name: Publish artifact - arm-linux-gnueabihf
+      uses: actions/upload-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
+
+  win-x64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v3
 
@@ -89,14 +89,11 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
 
-  macos:
+  mac-x64:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
-    env:
-      BUILD_VERSION: latest # Computed
-
     steps:
     - uses: actions/checkout@v3
 

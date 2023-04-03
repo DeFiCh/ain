@@ -6,20 +6,12 @@ ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
 
-RUN apt update && apt dist-upgrade -y
+WORKDIR /work
+COPY ./make.sh .
 
-# Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
-# from the source root for info on the builder setup
-
-RUN apt install -y software-properties-common build-essential git libtool autotools-dev automake \
-pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-libminiupnpc-dev libzmq3-dev libqrencode-dev \
-curl cmake \
-g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
-
-# For Berkeley DB - but we don't need as we do a depends build.
-# RUN apt install -y libdb-dev
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_armhf
 
 # -----------
 FROM builder-base as depends-builder
@@ -27,38 +19,38 @@ ARG TARGET
 LABEL org.defichain.name="defichain-depends-builder"
 LABEL org.defichain.arch=${TARGET}
 
-WORKDIR /work/depends
-COPY ./depends .
-# XREF: #make-deps
-RUN make HOST=${TARGET} -j $(nproc)
+WORKDIR /work
+COPY ./depends ./depends
+
+RUN ./make.sh clean-depends && ./make.sh build-deps
 
 # -----------
 FROM builder-base as builder
 ARG TARGET
+ARG BUILD_VERSION=
+
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 
-COPY --from=depends-builder /work/depends ./depends
 COPY . .
-
-RUN ./autogen.sh
+RUN ./make.sh purge && rm -rf ./depends
+COPY --from=depends-builder /work/depends ./depends
 
 # XREF: #make-configure
-RUN ./configure --prefix=`pwd`/depends/${TARGET} \
-    --enable-glibc-back-compat \
-    --enable-reduce-exports \
-    LDFLAGS="-static-libstdc++"
+# RUN ./configure --prefix=`pwd`/depends/${TARGET} \
+#     --enable-glibc-back-compat \
+#     --enable-reduce-exports \
+#     LDFLAGS="-static-libstdc++"
 
-ARG BUILD_VERSION=
+RUN ./make.sh build-conf && ./make.sh build-make
 
-RUN make -j $(nproc)
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
 ### Actual image that contains defi binaries
-FROM arm32v7/ubuntu:20.04
+FROM ubuntu:20.04
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
@@ -66,4 +58,3 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /app
 
 COPY --from=builder /app/. ./
-
