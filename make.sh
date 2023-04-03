@@ -472,7 +472,7 @@ pkg_install_rust() {
 }
 
 clean_mac_sdk() {
-    rm -rf ./depends/SDKs
+    safe_rm_rf ./depends/SDKs
 }
 
 purge() {
@@ -486,7 +486,7 @@ clean_depends() {
     pushd ./depends >/dev/null
     make clean-all || true
     clean_mac_sdk
-    rm -rf built \
+    safe_rm_rf built \
         work \
         sources \
         x86_64* \
@@ -507,66 +507,35 @@ clean() {
     # All untracked git files that's left over after clean
     find . -type d -name ".deps" -exec rm -rf {} + || true
 
-    rm -rf src/secp256k1/Makefile.in \
-        src/secp256k1/aclocal.m4 \
-        src/secp256k1/autom4te.cache/ \
-        src/secp256k1/build-aux/compile \
-        src/secp256k1/build-aux/config.guess \
-        src/secp256k1/build-aux/config.sub \
-        src/secp256k1/build-aux/depcomp \
-        src/secp256k1/build-aux/install-sh \
-        src/secp256k1/build-aux/ltmain.sh \
-        src/secp256k1/build-aux/m4/libtool.m4 \
-        src/secp256k1/build-aux/m4/ltoptions.m4 \
-        src/secp256k1/build-aux/m4/ltsugar.m4 \
-        src/secp256k1/build-aux/m4/ltversion.m4 \
-        src/secp256k1/build-aux/m4/lt~obsolete.m4 \
-        src/secp256k1/build-aux/missing \
-        src/secp256k1/build-aux/test-driver \
-        src/secp256k1/configure \
-        src/secp256k1/src/libsecp256k1-config.h.in \
-        src/secp256k1/src/libsecp256k1-config.h.in~ \
-        src/univalue/Makefile.in \
-        src/univalue/aclocal.m4 \
-        src/univalue/autom4te.cache/ \
-        src/univalue/build-aux/compile \
-        src/univalue/build-aux/config.guess \
-        src/univalue/build-aux/config.sub \
-        src/univalue/build-aux/depcomp \
-        src/univalue/build-aux/install-sh \
-        src/univalue/build-aux/ltmain.sh \
-        src/univalue/build-aux/m4/libtool.m4 \
-        src/univalue/build-aux/m4/ltoptions.m4 \
-        src/univalue/build-aux/m4/ltsugar.m4 \
-        src/univalue/build-aux/m4/ltversion.m4 \
-        src/univalue/build-aux/m4/lt~obsolete.m4 \
-        src/univalue/build-aux/missing \
-        src/univalue/build-aux/test-driver \
-        src/univalue/configure \
-        src/univalue/univalue-config.h.in \
-        src/univalue/univalue-config.h.in~
+    local left_overs=(\
+        Makefile.in aclocal.m4 autom4te.cache configure \
+        build-aux/{compile,config.guess,config.sub,depcomp,install-sh,ltmain.sh} \
+        build-aux/{missing,test-driver} \
+        build-aux/m4/{libtool.m4,ltoptions.m4,ltsugar.m4,ltversion.m4,lt~obsolete.m4} \
+        )
 
-    rm -rf ./autom4te.cache \
-        Makefile.in \
-        aclocal.m4 \
-        build-aux/compile \
-        build-aux/config.guess \
-        build-aux/config.sub \
-        build-aux/depcomp \
-        build-aux/install-sh \
-        build-aux/ltmain.sh \
-        build-aux/m4/libtool.m4 \
-        build-aux/m4/ltoptions.m4 \
-        build-aux/m4/ltsugar.m4 \
-        build-aux/m4/ltversion.m4 \
-        build-aux/m4/lt~obsolete.m4 \
-        build-aux/missing \
-        build-aux/test-driver \
-        configure \
-        doc/man/Makefile.in \
-        src/Makefile.in \
-        src/config/defi-config.h.in \
-        src/config/defi-config.h.in~
+    for x in "${left_overs[@]}"; do
+        safe_rm_rf src/secp256k1/$x
+        safe_rm_rf src/univalue/$x
+        safe_rm_rf $x
+    done
+
+    safe_rm_rf \
+        src/defi-config.h.{in,in~} \
+        src/Makefile.in doc/man/Makefile.in \
+        src/univalue/src/univalue-config.h.{in,in~} \
+        src/secp256k1/src/libsecp256k1-config.h.{in,in~}
+}
+
+safe_rm_rf() {
+    for x in "$@"; do
+        if [[ "$x" == "" || "$x" == "." || "$x" == ".." ]]; then 
+            # Safe guard against accidental rm -rfs
+            echo "error: unsafe delete attempted"
+            exit 1
+        fi
+        rm -rf "$x"
+    done
 }
 
 main "$@"
