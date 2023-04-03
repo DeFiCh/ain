@@ -333,8 +333,6 @@ get_default_target() {
 
 get_default_conf_args() {
     local conf_args=""
-     # Add arm specific flags, but only if make_conf_args env is empty. 
-     # If it's explicitly being overridden and leave it as it is
     if [[ "$TARGET" =~ .*linux.* ]]; then
         conf_args="${conf_args} --enable-glibc-back-compat";
     fi
