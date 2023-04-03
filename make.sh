@@ -153,7 +153,7 @@ deploy() {
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
-    rm -rf "./${versioned_name}" && mkdir "${versioned_name}"
+    safe_rm_rf "./${versioned_name}" && mkdir "${versioned_name}"
     popd >/dev/null
 
     make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
@@ -167,7 +167,10 @@ package() {
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
-    deploy "${target}"
+    if [[ ! -d "$release_dir" ]]; then
+        echo "> error: deployment required to package"
+        exit 1
+    fi
 
     # XREF: #pkg-name
     local pkg_name="${img_prefix}-${img_version}-${target}"
@@ -192,6 +195,7 @@ release() {
     local target=${1:-${TARGET}}
 
     build "${target}"
+    deploy "${target}"
     package "${target}"
     sign "${target}"
 }
@@ -213,31 +217,6 @@ docker_build() {
     docker build -f "${docker_file}" -t "${img}" "${docker_context}"
 }
 
-docker_package() {
-    local target=${1:-${TARGET}}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
-
-    echo "> docker-package";
-
-    local img="${img_prefix}-${target}:${img_version}"
-    echo "> packaging: ${img}"
-
-    # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_rel_path="${release_dir}/${pkg_tar_file_name}"
-    local versioned_name="${img_prefix}-${img_version}"
-
-    mkdir -p "${release_dir}"
-
-    docker run --rm "${img}" bash -c \
-        "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_rel_path}"
-
-    echo "> package: ${pkg_rel_path}"
-}
-
 docker_deploy() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
@@ -254,7 +233,7 @@ docker_deploy() {
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
 
-    rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
+    safe_rm_rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
     local cid
     cid=$(docker create "${img}")
@@ -266,19 +245,17 @@ docker_deploy() {
     if [[ "$e" == "1" ]]; then
         echo "> deployed into: ${versioned_release_dir}"
     else
-        echo "> failed: please sure package is built first"
+        echo "> failed: please ensure package is built first"
     fi
 }
 
 docker_release() {
-    docker_build "$@"
-    docker_package "$@"
-    sign "$@"
-}
+    local target=${1:-${TARGET}}
 
-docker_package_git() {
-    git_version
-    docker_package "$@"
+    docker_build "$target"
+    docker_deploy "$target"
+    package "$target"
+    sign "$target"
 }
 
 docker_release_git() {
@@ -286,14 +263,8 @@ docker_release_git() {
     docker_release "$@"
 }
 
-docker_build_deploy_git() {
-    git_version
-    docker_build "$@"
-    docker_deploy "$@"
-}
-
 docker_clean() {
-    rm -rf "${RELEASE_DIR}"
+    safe_rm_rf "${RELEASE_DIR}"
     docker_clean_images
 }
 
@@ -384,19 +355,9 @@ git_version() {
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-    if [[ -z $current_tag || "${current_branch}" == "hotfix" ]]; then
+    if [[ -z $current_tag ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
-        if [[ "${current_branch}" == "hotfix" ]]; then
-            # If the current branch is hotfix branch,
-            # prefix it with the last available tag.
-            local last_tag
-            last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
-            echo "> last tag: ${last_tag}"
-            if [[ -n "${last_tag}" ]]; then
-                IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
-            fi
-        fi
     else
         IMAGE_VERSION="${current_tag}"
         # strip the 'v' infront of version tags
@@ -471,7 +432,7 @@ pkg_install_rust() {
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
-clean_mac_sdk() {
+clean_pkg_local_mac_sdk() {
     safe_rm_rf ./depends/SDKs
 }
 
@@ -485,7 +446,7 @@ purge() {
 clean_depends() {
     pushd ./depends >/dev/null
     make clean-all || true
-    clean_mac_sdk
+    clean_pkg_local_mac_sdk
     safe_rm_rf built \
         work \
         sources \
@@ -502,7 +463,7 @@ clean_depends() {
 clean() {
     make clean || true
     make distclean || true
-    rm -rf "${RELEASE_DIR}"
+    safe_rm_rf "${RELEASE_DIR}"
 
     # All untracked git files that's left over after clean
     find . -type d -name ".deps" -exec rm -rf {} + || true
@@ -529,7 +490,7 @@ clean() {
 
 safe_rm_rf() {
     for x in "$@"; do
-        if [[ "$x" == "" || "$x" == "." || "$x" == ".." ]]; then 
+        if [[ "$x" =~ ^[[:space:]]*$ || "$x" =~ ^/*$ ]]; then 
             # Safe guard against accidental rm -rfs
             echo "error: unsafe delete attempted"
             exit 1
