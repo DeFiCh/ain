@@ -44,7 +44,7 @@ RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:20.04
+FROM arm64v8/ubuntu:20.04
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

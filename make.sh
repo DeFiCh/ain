@@ -515,14 +515,14 @@ clean() {
         )
 
     for x in "${left_overs[@]}"; do
+        safe_rm_rf "$x"
         safe_rm_rf "src/secp256k1/$x"
         safe_rm_rf "src/univalue/$x"
-        safe_rm_rf "$x"
     done
 
     safe_rm_rf \
-        src/defi-config.h.{in,in~} \
         src/Makefile.in doc/man/Makefile.in \
+        src/defi-config.h.{in,in~} \
         src/univalue/src/univalue-config.h.{in,in~} \
         src/secp256k1/src/libsecp256k1-config.h.{in,in~}
 }
