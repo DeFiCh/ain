@@ -75,6 +75,7 @@ CMutableTransaction fund(CMutableTransaction &mtx,
                          CCoinControl *coin_control = nullptr,
                          const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       int32_t txVersion,

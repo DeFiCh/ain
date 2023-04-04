@@ -6,7 +6,6 @@
 """Test EVM behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error
@@ -15,9 +14,6 @@ from test_framework.util import (
 from decimal import Decimal
 
 class EVMTest(DefiTestFramework):
-    mns = None
-    proposalId = ""
-
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -26,17 +22,22 @@ class EVMTest(DefiTestFramework):
         ]
 
     def run_test(self):
+
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = self.nodes[0].getnewaddress("","eth")
+        to_address = self.nodes[0].getnewaddress("","eth")
 
         # Generate chain
-        self.nodes[0].generate(105)
-        self.sync_blocks()
+        self.nodes[0].generate(101)
+
+        assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, ethAddress, 0, 21, 21000, to_address, 0.1)
+
+        # Move to fork height
+        self.nodes[0].generate(4)
 
         self.nodes[0].getbalance()
         self.nodes[0].utxostoaccount({address: "101@DFI"})
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         DFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         ETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
@@ -45,10 +46,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(ETHbalance), 0)
 
         self.nodes[0].transferbalance("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
-        self.nodes[0].evmtx("AABBCCDDEEFF00112233445566778899")
-
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
@@ -57,15 +55,22 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(newETHbalance), 0)
 
         self.nodes[0].transferbalance("evmout", {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
-
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         # newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)['0']
 
         assert_equal(newDFIbalance, DFIbalance)
         # assert_equal(newETHbalance, ETHbalance)
+
+        # Test EVM Tx
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 0.1)
+        assert_equal(self.nodes[0].getrawmempool(), [tx])
+        self.nodes[0].generate(1)
+
+        # Check EVM Tx is in block
+        block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        assert_equal(block['tx'][1], tx)
 
 if __name__ == '__main__':
     EVMTest().main()

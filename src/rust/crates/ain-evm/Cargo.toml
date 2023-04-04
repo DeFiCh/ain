@@ -13,6 +13,4 @@ ethereum = "0.14.0"
 sha3 = "0.10.6"
 hex = "0.4.3"
 
-ain-evm-runtime = { path = "../ain-evm-runtime" }
-ain-evm-state = { path = "../ain-evm-state" }
-ain-grpc = { path = "../ain-grpc" }
+ain-utils = { path = "../ain-utils" }

@@ -1,13 +1,17 @@
+use ain_evm::transaction::SignedTx;
+use anyhow::anyhow;
+use ethereum::{AccessList, TransactionAction, TransactionV2};
 use evm::{
-    backend::{MemoryBackend, MemoryVicinity},
+    backend::{Basic, MemoryAccount, MemoryBackend, MemoryVicinity},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
+    Memory,
 };
 pub use evm::{ExitReason, ExitSucceed};
-use primitive_types::H160;
-use primitive_types::{H256, U256};
-use std::collections::BTreeMap;
+use hex::FromHex;
+use primitive_types::{H160, H256, U256};
 use std::error::Error;
 use std::sync::{Arc, RwLock};
+use std::{collections::BTreeMap, sync::Mutex};
 
 use crate::traits::PersistentState;
 use crate::{EVMState, CONFIG, EVM_STATE_PATH, GAS_LIMIT};
@@ -15,6 +19,7 @@ use crate::{EVMState, CONFIG, EVM_STATE_PATH, GAS_LIMIT};
 #[derive(Clone, Debug)]
 pub struct EVMHandler {
     pub state: Arc<RwLock<EVMState>>,
+    pub tx_queue: Arc<Mutex<Vec<SignedTx>>>,
 }
 
 impl EVMHandler {
@@ -23,22 +28,23 @@ impl EVMHandler {
             state: Arc::new(RwLock::new(
                 EVMState::load_from_disk(EVM_STATE_PATH).unwrap(),
             )),
+            tx_queue: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub fn call_evm(
+    pub fn call(
         &self,
-        caller: H160,
-        address: H160,
+        caller: Option<H160>,
+        to: Option<H160>,
         value: U256,
-        data: Vec<u8>,
-        _gas_limit: u64,
-        access_list: Vec<(H160, Vec<H256>)>,
+        data: &[u8],
+        gas_limit: u64,
+        access_list: AccessList,
     ) -> (ExitReason, Vec<u8>) {
-        // TODO Add actual gas, chain_id, block_number
+        // TODO Add actual gas, chain_id, block_number from header
         let vicinity = MemoryVicinity {
             gas_price: U256::zero(),
-            origin: caller,
+            origin: caller.unwrap_or_default(),
             block_hashes: Vec::new(),
             block_number: Default::default(),
             block_coinbase: Default::default(),
@@ -50,11 +56,32 @@ impl EVMHandler {
         };
         let state = self.state.read().unwrap().clone();
         let backend = MemoryBackend::new(&vicinity, state);
+
         let metadata = StackSubstateMetadata::new(GAS_LIMIT, &CONFIG);
         let state = MemoryStackState::new(metadata, &backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
-        executor.transact_call(caller, address, value, data, GAS_LIMIT, access_list)
+        let access_list = access_list
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+        match to {
+            Some(address) => executor.transact_call(
+                caller.unwrap_or_default(),
+                address,
+                value,
+                data.to_vec(),
+                gas_limit,
+                access_list.into(),
+            ),
+            None => executor.transact_create(
+                caller.unwrap_or_default(),
+                value,
+                data.to_vec(),
+                gas_limit,
+                access_list,
+            ),
+        }
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
@@ -74,5 +101,50 @@ impl EVMHandler {
             account.balance = account.balance - value;
         }
         Ok(())
+    }
+
+    fn get_account(&self, address: &H160) -> MemoryAccount {
+        self.state
+            .read()
+            .unwrap()
+            .get(&address)
+            .map(|account| account.clone())
+            .unwrap_or_else(|| MemoryAccount {
+                nonce: U256::default(),
+                balance: U256::default(),
+                storage: BTreeMap::new(),
+                code: Vec::new(),
+            })
+    }
+
+    pub fn validate_raw_tx(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+        let buffer = <Vec<u8>>::from_hex(tx)?;
+        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+
+        // TODO Validate gas limit and chain_id
+
+        let sign_tx: SignedTx = tx.try_into()?;
+
+        // TODO validate account nonce and balance to pay gas
+        // let account = self.get_account(&sign_tx.sender);
+        // if account.nonce >= sign_tx.nonce() {
+        //     return Err(anyhow!("Invalid nonce").into());
+        // }
+        // if account.balance < MIN_GAS {
+        //     return Err(anyhow!("Insufficiant balance to pay fees").into());
+        // }
+
+        match self.call(
+            Some(sign_tx.sender),
+            sign_tx.to(),
+            sign_tx.value(),
+            sign_tx.data(),
+            sign_tx.gas_limit().as_u64(),
+            sign_tx.access_list(),
+        ) {
+            (exit_reason, _) if exit_reason.is_succeed() => Ok(()),
+            _ => Err(anyhow!("Error calling EVM").into()),
+        }
     }
 }

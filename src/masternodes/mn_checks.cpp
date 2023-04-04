@@ -9,6 +9,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
+#include <libain_evm.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>
@@ -344,6 +345,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.FortCanningRoadHeight,        "called before FortCanningRoad height" },
                 { consensus.FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
+                { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
         if (startHeight && int(height) < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -3855,6 +3857,13 @@ public:
     Res operator()(const CEvmTxMessage &obj) const {
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
+
+        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to validate");
+        }
+
+        // TODO Execute TX
+
         return Res::Ok();
     }
 

@@ -186,7 +186,7 @@ static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CT
     return MakeTransactionRef(std::move(mtx));
 }
 
-static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
 
     if (optAuthTx) {
         send(optAuthTx, {});
