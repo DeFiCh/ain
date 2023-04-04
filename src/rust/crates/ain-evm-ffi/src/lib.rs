@@ -11,6 +11,10 @@ mod ffi {
         fn evm_sub_balance(address: &str, amount: i64) -> Result<()>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
+        fn evm_get_context() -> u64;
+        fn evm_execute_tx(context: u64) -> Result<bool>;
+        fn evm_finalise(context: u64) -> Result<Vec<u8>>;
+
         fn init_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
         fn stop_runtime();
@@ -42,3 +46,18 @@ pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
         Err(_) => Ok(false),
     }
 }
+
+pub fn evm_get_context() -> u64 {
+    // TODO Generate unique contexts.
+    1
+}
+
+fn evm_execute_tx(context: u64) -> Result<bool, Box<dyn Error>> {
+    Ok(true)
+}
+
+fn evm_finalise(context: u64) -> Result<Vec<u8>, Box<dyn Error>> {
+    let block_and_failed_txs: Vec<u8> = Vec::new();
+    Ok(block_and_failed_txs)
+}
+
