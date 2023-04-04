@@ -1,4 +1,4 @@
-ARG TARGET=arm-linux-gnueabihf
+ARG TARGET=aarch64-linux-gnu
 
 # -----------
 FROM ubuntu:20.04 as builder-base
@@ -11,7 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_armhf
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_arm64
 
 # -----------
 FROM builder-base as depends-builder
@@ -44,7 +44,7 @@ RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/
 
 # -----------
 ### Actual image that contains defi binaries
-FROM arm32v7/ubuntu:20.04
+FROM arm64v8/ubuntu:20.04
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

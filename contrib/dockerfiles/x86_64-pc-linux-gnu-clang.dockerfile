@@ -9,8 +9,8 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
 # -----------
@@ -38,7 +38,6 @@ COPY . .
 RUN ./make.sh purge && rm -rf ./depends
 COPY --from=depends-builder /work/depends ./depends
 
-RUN ./make.sh clean && ./autogen.sh
 RUN export MAKE_COMPILER="CC=clang-16 CXX=clang++-16" && \
     ./make.sh build-conf && ./make.sh build-make
 

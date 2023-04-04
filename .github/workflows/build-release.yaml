@@ -1,15 +1,16 @@
 name: Build - Release
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
-jobs:
+env:
+  BUILD_VERSION: latest # Computed
 
+jobs:
   linux:
     runs-on: ubuntu-20.04
-    env:
-      BUILD_VERSION: latest # Computed
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -47,8 +48,6 @@ jobs:
 
   windows:
     runs-on: ubuntu-20.04
-    env:
-      BUILD_VERSION: latest # Computed
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -65,8 +64,6 @@ jobs:
 
   macos:
     runs-on: ubuntu-20.04
-    env:
-      BUILD_VERSION: latest # Computed
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -87,8 +84,6 @@ jobs:
       - windows
       - macos
     runs-on: ubuntu-20.04
-    env:
-      BUILD_VERSION: latest # Computed
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:

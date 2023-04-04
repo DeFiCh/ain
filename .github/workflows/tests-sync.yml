@@ -1,10 +1,5 @@
 name: Tests - Sync
 on:
-  pull_request:
-    branches:
-      - master
-      - epic/*
-    types: [labeled, opened, reopened, synchronize]
   workflow_dispatch:
     inputs:
       block_ranges:
@@ -12,7 +7,11 @@ on:
         required: false
       name:
         description: 'Workflow run custom name'
-        require: false
+        required: false
+  pull_request:
+    branches:
+      - master
+    types: [labeled, opened, reopened, synchronize]
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 

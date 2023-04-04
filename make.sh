@@ -18,21 +18,13 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
 
-    local default_target="x86_64-pc-linux-gnu"
-    if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin18"
-    elif [[ "${OSTYPE}" == "msys" ]]; then
-        default_target="x86_64-w64-mingw32"
-    fi
+    CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
+    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
 
-    # shellcheck disable=SC2206
-    # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin11
-    TARGET=${TARGET:-"${default_target}"}
+    TARGET=${TARGET:-"$(get_default_target)"}
 
     local default_compiler_flags=""
-    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
-        "${TARGET}" == "x86_64-apple-darwin11" ]]; then
+    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
         default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
@@ -45,13 +37,20 @@ setup_vars() {
 
     MAKE_JOBS=${MAKE_JOBS:-"${default_jobs}"}
     MAKE_COMPILER=${MAKE_COMPILER:-"${default_compiler_flags}"}
+
+    MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
-    MAKE_ARGS=${MAKE_ARGS:-}
-    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
-    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
+
+    MAKE_CONF_ARGS_OVERRIDE="${MAKE_CONF_ARGS_OVERRIDE:-}"
+    if [[ "${MAKE_CONF_ARGS_OVERRIDE}" ]]; then
+        MAKE_CONF_ARGS="${MAKE_CONF_ARGS_OVERRIDE}"
+    fi
+
+    MAKE_ARGS=${MAKE_ARGS:-}
+    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
 }
 
 main() {
@@ -160,7 +159,7 @@ deploy() {
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
-    rm -rf "./${versioned_name}" && mkdir "${versioned_name}"
+    safe_rm_rf "./${versioned_name}" && mkdir "${versioned_name}"
     popd >/dev/null
 
     make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
@@ -174,8 +173,6 @@ package() {
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
-    deploy "${target}"
-
     # XREF: #pkg-name
     local pkg_name="${img_prefix}-${img_version}-${target}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
@@ -185,6 +182,11 @@ package() {
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
+
+    if [[ ! -d "$versioned_release_dir" ]]; then
+        echo "> error: deployment required to package"
+        exit 1
+    fi
 
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
@@ -199,6 +201,7 @@ release() {
     local target=${1:-${TARGET}}
 
     build "${target}"
+    deploy "${target}"
     package "${target}"
     sign "${target}"
 }
@@ -214,38 +217,10 @@ docker_build() {
 
     echo "> docker-build";
 
-    if [[ "$target" == "x86_64-apple-darwin"* ]]; then
-        pkg_ensure_mac_sdk
-    fi
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
     docker build -f "${docker_file}" -t "${img}" "${docker_context}"
-}
-
-docker_package() {
-    local target=${1:-${TARGET}}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
-
-    echo "> docker-package";
-
-    local img="${img_prefix}-${target}:${img_version}"
-    echo "> packaging: ${img}"
-
-    # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_rel_path="${release_dir}/${pkg_tar_file_name}"
-    local versioned_name="${img_prefix}-${img_version}"
-
-    mkdir -p "${release_dir}"
-
-    docker run --rm "${img}" bash -c \
-        "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_rel_path}"
-
-    echo "> package: ${pkg_rel_path}"
 }
 
 docker_deploy() {
@@ -264,7 +239,7 @@ docker_deploy() {
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
 
-    rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
+    safe_rm_rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
     local cid
     cid=$(docker create "${img}")
@@ -276,19 +251,17 @@ docker_deploy() {
     if [[ "$e" == "1" ]]; then
         echo "> deployed into: ${versioned_release_dir}"
     else
-        echo "> failed: please sure package is built first"
+        echo "> failed: please ensure package is built first"
     fi
 }
 
 docker_release() {
-    docker_build "$@"
-    docker_package "$@"
-    sign "$@"
-}
+    local target=${1:-${TARGET}}
 
-docker_package_git() {
-    git_version
-    docker_package "$@"
+    docker_build "$target"
+    docker_deploy "$target"
+    package "$target"
+    sign "$target"
 }
 
 docker_release_git() {
@@ -296,14 +269,8 @@ docker_release_git() {
     docker_release "$@"
 }
 
-docker_build_deploy_git() {
-    git_version
-    docker_build "$@"
-    docker_deploy "$@"
-}
-
 docker_clean() {
-    rm -rf "${RELEASE_DIR}"
+    safe_rm_rf "${RELEASE_DIR}"
     docker_clean_images
 }
 
@@ -337,6 +304,44 @@ docker_purge() {
 
 # -------------- Misc -----------------
 
+get_default_target() {
+    local default_target=""
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        default_target="x86_64-apple-darwin18"
+    elif [[ "${OSTYPE}" == "msys" ]]; then
+        default_target="x86_64-w64-mingw32"
+    else
+        # Note: make.sh only formally supports auto selection for 
+        # windows under msys, mac os and debian derivatives to build on.
+        # Also note: Support for auto selection on make.sh does not imply
+        # support for the architecture. 
+        # Only supported architectures are the ones with release builds
+        # enabled on the CI. 
+        local dpkg_arch=""
+        dpkg_arch=$(dpkg --print-architecture || true)
+        if [[ "$dpkg_arch" == "armhf" ]]; then
+            default_target="arm-linux-gnueabihf"
+        elif [[ "$dpkg_arch" == "aarch64" ]]; then
+            default_target="aarch64-linux-gnu"
+        else
+            # Global default if we can't determine it from the 
+            # above, which are our only supported list for auto select
+            default_target="x86_64-pc-linux-gnu"
+        fi
+    fi
+    echo "$default_target"
+}
+
+get_default_conf_args() {
+    local conf_args=""
+    if [[ "$TARGET" =~ .*linux.* ]]; then
+        conf_args="${conf_args} --enable-glibc-back-compat";
+    fi
+    conf_args="${conf_args} --enable-reduce-exports";
+    conf_args="${conf_args} LDFLAGS=-static-libstdc++";
+    echo "$conf_args"
+}
+
 sign() {
     # TODO: generate sha sums and sign
     :
@@ -354,19 +359,9 @@ git_version() {
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-    if [[ -z $current_tag || "${current_branch}" == "hotfix" ]]; then
+    if [[ -z $current_tag ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
-        if [[ "${current_branch}" == "hotfix" ]]; then
-            # If the current branch is hotfix branch,
-            # prefix it with the last available tag.
-            local last_tag
-            last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
-            echo "> last tag: ${last_tag}"
-            if [[ -n "${last_tag}" ]]; then
-                IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
-            fi
-        fi
     else
         IMAGE_VERSION="${current_tag}"
         # strip the 'v' infront of version tags
@@ -384,13 +379,13 @@ git_version() {
     fi
 }
 
-pkg_install_base() {
+pkg_update_base() {
   apt update
   apt install -y apt-transport-https
   apt dist-upgrade -y
 }
 
-pkg_install_deps_x86_64() {
+pkg_install_deps() {
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
@@ -400,14 +395,36 @@ pkg_install_deps_x86_64() {
         curl cmake
 }
 
-pkg_install_mac_sdk_deps() {
-  apt install -y \
-        python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
-}
-
 pkg_install_deps_mingw_x86_64() {
   apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
+}
+
+pkg_install_deps_armhf() {
+  apt install -y \
+        g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+}
+
+pkg_install_deps_arm64() {
+  apt install -y \
+        g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+}
+
+pkg_install_deps_mac_tools() {
+  apt install -y \
+        python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+}
+
+pkg_local_mac_sdk() {
+    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
+    local pkg="${sdk_name}.tar.gz"
+
+    mkdir -p ./depends/SDKs
+    pushd ./depends/SDKs >/dev/null
+    wget https://bitcoincore.org/depends-sources/sdks/${pkg}
+    tar -zxvf "${pkg}"
+    rm "${pkg}" 2>/dev/null || true
+    popd >/dev/null
 }
 
 pkg_install_llvm() {
@@ -415,26 +432,12 @@ pkg_install_llvm() {
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
 }
 
-pkg_ensure_mac_sdk() {
-    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
-    local pkg="${sdk_name}.tar.gz"
-
-    echo "> ensuring mac sdk"
-
-    mkdir -p ./depends/SDKs
-    pushd ./depends/SDKs >/dev/null
-    if [[ ! -d "$sdk_name" ]]; then
-        if [[ ! -f "${pkg}" ]]; then
-            wget https://bitcoincore.org/depends-sources/sdks/${pkg}
-        fi
-        tar -zxvf "${pkg}"
-    fi
-    rm "${pkg}" 2>/dev/null || true
-    popd >/dev/null
+pkg_install_rust() {
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
-clean_mac_sdk() {
-    rm -rf ./depends/SDKs
+clean_pkg_local_mac_sdk() {
+    safe_rm_rf ./depends/SDKs
 }
 
 purge() {
@@ -447,8 +450,8 @@ purge() {
 clean_depends() {
     pushd ./depends >/dev/null
     make clean-all || true
-    clean_mac_sdk
-    rm -rf built \
+    clean_pkg_local_mac_sdk
+    safe_rm_rf built \
         work \
         sources \
         x86_64* \
@@ -464,71 +467,40 @@ clean_depends() {
 clean() {
     make clean || true
     make distclean || true
-    rm -rf "${RELEASE_DIR}"
+    safe_rm_rf "${RELEASE_DIR}"
 
     # All untracked git files that's left over after clean
     find . -type d -name ".deps" -exec rm -rf {} + || true
 
-    rm -rf src/secp256k1/Makefile.in \
-        src/secp256k1/aclocal.m4 \
-        src/secp256k1/autom4te.cache/ \
-        src/secp256k1/build-aux/compile \
-        src/secp256k1/build-aux/config.guess \
-        src/secp256k1/build-aux/config.sub \
-        src/secp256k1/build-aux/depcomp \
-        src/secp256k1/build-aux/install-sh \
-        src/secp256k1/build-aux/ltmain.sh \
-        src/secp256k1/build-aux/m4/libtool.m4 \
-        src/secp256k1/build-aux/m4/ltoptions.m4 \
-        src/secp256k1/build-aux/m4/ltsugar.m4 \
-        src/secp256k1/build-aux/m4/ltversion.m4 \
-        src/secp256k1/build-aux/m4/lt~obsolete.m4 \
-        src/secp256k1/build-aux/missing \
-        src/secp256k1/build-aux/test-driver \
-        src/secp256k1/configure \
-        src/secp256k1/src/libsecp256k1-config.h.in \
-        src/secp256k1/src/libsecp256k1-config.h.in~ \
-        src/univalue/Makefile.in \
-        src/univalue/aclocal.m4 \
-        src/univalue/autom4te.cache/ \
-        src/univalue/build-aux/compile \
-        src/univalue/build-aux/config.guess \
-        src/univalue/build-aux/config.sub \
-        src/univalue/build-aux/depcomp \
-        src/univalue/build-aux/install-sh \
-        src/univalue/build-aux/ltmain.sh \
-        src/univalue/build-aux/m4/libtool.m4 \
-        src/univalue/build-aux/m4/ltoptions.m4 \
-        src/univalue/build-aux/m4/ltsugar.m4 \
-        src/univalue/build-aux/m4/ltversion.m4 \
-        src/univalue/build-aux/m4/lt~obsolete.m4 \
-        src/univalue/build-aux/missing \
-        src/univalue/build-aux/test-driver \
-        src/univalue/configure \
-        src/univalue/univalue-config.h.in \
-        src/univalue/univalue-config.h.in~
+    local left_overs=(\
+        Makefile.in aclocal.m4 autom4te.cache configure \
+        build-aux/{compile,config.guess,config.sub,depcomp,install-sh,ltmain.sh} \
+        build-aux/{missing,test-driver} \
+        build-aux/m4/{libtool.m4,ltoptions.m4,ltsugar.m4,ltversion.m4,lt~obsolete.m4} \
+        )
 
-    rm -rf ./autom4te.cache \
-        Makefile.in \
-        aclocal.m4 \
-        build-aux/compile \
-        build-aux/config.guess \
-        build-aux/config.sub \
-        build-aux/depcomp \
-        build-aux/install-sh \
-        build-aux/ltmain.sh \
-        build-aux/m4/libtool.m4 \
-        build-aux/m4/ltoptions.m4 \
-        build-aux/m4/ltsugar.m4 \
-        build-aux/m4/ltversion.m4 \
-        build-aux/m4/lt~obsolete.m4 \
-        build-aux/missing \
-        build-aux/test-driver \
-        configure \
-        doc/man/Makefile.in \
-        src/Makefile.in \
-        src/config/defi-config.h.in \
-        src/config/defi-config.h.in~
+    for x in "${left_overs[@]}"; do
+        safe_rm_rf "$x"
+        safe_rm_rf "src/secp256k1/$x"
+        safe_rm_rf "src/univalue/$x"
+    done
+
+    safe_rm_rf \
+        src/Makefile.in doc/man/Makefile.in \
+        src/defi-config.h.{in,in~} \
+        src/univalue/src/univalue-config.h.{in,in~} \
+        src/secp256k1/src/libsecp256k1-config.h.{in,in~}
+}
+
+safe_rm_rf() {
+    for x in "$@"; do
+        if [[ "$x" =~ ^[[:space:]]*$ || "$x" =~ ^/*$ ]]; then 
+            # Safe guard against accidental rm -rfs
+            echo "error: unsafe delete attempted"
+            exit 1
+        fi
+        rm -rf "$x"
+    done
 }
 
 main "$@"
