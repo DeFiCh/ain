@@ -3865,7 +3865,7 @@ public:
             return Res::Err("evm tx failed to validate");
         }
 
-        if (!evm_queue_tx(evmContext)) {
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
             return Res::Err("evm tx failed to queue");
         }
 

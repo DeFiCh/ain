@@ -1,3 +1,6 @@
+pub mod block;
+pub mod executor;
+pub mod traits;
 pub mod transaction;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};

@@ -123,6 +123,21 @@ impl TryFrom<TransactionV2> for SignedTx {
     }
 }
 
+use anyhow::anyhow;
+use hex::FromHex;
+
+impl TryFrom<&str> for SignedTx {
+    type Error = Box<dyn std::error::Error>;
+
+    fn try_from(src: &str) -> Result<Self, Self::Error> {
+        let buffer = <Vec<u8>>::from_hex(src)?;
+        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+
+        tx.try_into().map_err(|e: libsecp256k1::Error| e.into())
+    }
+}
+
 impl SignedTx {
     pub fn nonce(&self) -> U256 {
         match &self.transaction {
@@ -133,11 +148,7 @@ impl SignedTx {
     }
 
     pub fn to(&self) -> Option<H160> {
-        let action = match &self.transaction {
-            TransactionV2::Legacy(t) => t.action,
-            TransactionV2::EIP2930(t) => t.action,
-            TransactionV2::EIP1559(t) => t.action,
-        };
+        let action = self.action();
         match action {
             TransactionAction::Call(to) => Some(to),
             TransactionAction::Create => None,
@@ -173,6 +184,14 @@ impl SignedTx {
             TransactionV2::Legacy(tx) => tx.gas_limit,
             TransactionV2::EIP2930(tx) => tx.gas_limit,
             TransactionV2::EIP1559(tx) => tx.gas_limit,
+        }
+    }
+
+    pub fn gas_price(&self) -> U256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.gas_price,
+            TransactionV2::EIP2930(tx) => tx.gas_price,
+            TransactionV2::EIP1559(tx) => tx.max_fee_per_gas.min(tx.max_priority_fee_per_gas), // TODO verify calculation
         }
     }
 
