@@ -14,7 +14,7 @@ mod ffi {
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
         fn evm_queue_tx(context: u64) -> Result<bool>;
-        fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<u8>>;
+        fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<Vec<u8>>>;
 
         fn init_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
@@ -61,8 +61,8 @@ fn evm_queue_tx(context: u64) -> Result<bool, Box<dyn Error>> {
     Ok(true)
 }
 
-fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<u8>, Box<dyn Error>> {
-    let block_and_failed_txs: Vec<u8> = Vec::new();
+fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+    let block_and_failed_txs: Vec<Vec<u8>> = Vec::new();
     Ok(block_and_failed_txs)
 }
 
