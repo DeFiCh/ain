@@ -53,6 +53,13 @@ public:
     void SetHex(const std::string& str);
     std::string ToString() const;
 
+    [[nodiscard]] std::array<uint8_t, WIDTH> ToArray() const
+    {
+        std::array<uint8_t, WIDTH> reversedArray;
+        std::copy(data, data + sizeof(data), reversedArray.begin());
+        return reversedArray;
+    }
+
     [[nodiscard]] std::array<uint8_t, WIDTH> ToArrayReversed() const
     {
         std::array<uint8_t, WIDTH> reversedArray;
