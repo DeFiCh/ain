@@ -42,7 +42,12 @@ impl PersistentState for EVMState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitive_types::{H256, U256};
+    use crate::handler::{EVMHandler, ExitReason, ExitSucceed};
+    use primitive_types::{H160, H256, U256};
+    use std::str::FromStr;
+
+    const ALICE: &str = "0x0000000000000000000000000000000000000000";
+    const BOB: &str = "0x0000000000000000000000000000000000000001";
 
     fn create_account(
         nonce: U256,
@@ -152,5 +157,21 @@ mod tests {
         let loaded_backend = EVMState::load_from_disk(path).unwrap();
 
         assert_eq!(state, loaded_backend);
+    }
+
+    #[test]
+    fn should_call_evm() {
+        let handler = EVMHandler::new();
+        let _ = handler.add_balance(ALICE, 1000);
+
+        let res = handler.call_evm(
+            H160::from_str(ALICE).unwrap(),
+            H160::from_str(BOB).unwrap(),
+            U256::from(1000u64),
+            vec![],
+            100000u64,
+            vec![(H160::default(), vec![H256::default()])],
+        );
+        assert_eq!(res, (ExitReason::Succeed(ExitSucceed::Stopped), vec![]))
     }
 }
