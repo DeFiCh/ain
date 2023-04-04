@@ -39,3 +39,23 @@ fn should_call() {
     assert!(res.is_ok());
     assert!(res.unwrap().data.len() > 0)
 }
+
+#[test]
+fn should_get_balance() {
+    let handler = Arc::new(EVMHandler::new());
+    let input = EthGetBalanceInput {
+        address: ALICE.to_string(),
+        block_number: "latest".to_string(),
+    };
+
+    let res = EthService::Eth_GetBalance(handler.clone(), input.clone().into());
+    assert_eq!(res.unwrap().balance, "0");
+
+    handler
+        .add_balance(ALICE, 1337)
+        .map_err(|err| println!("err: {:?}", err))
+        .ok();
+
+    let res2 = EthService::Eth_GetBalance(handler, input.into());
+    assert_eq!(res2.unwrap().balance, "1337");
+}
