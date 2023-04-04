@@ -45,8 +45,7 @@ where
         access_list: AccessList,
         apply: bool,
     ) -> TxResponse {
-        // let metadata = StackSubstateMetadata::new(gas_limit, &Self::CONFIG);
-        let metadata = StackSubstateMetadata::new(100000, &Self::CONFIG);
+        let metadata = StackSubstateMetadata::new(gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, &self.backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
