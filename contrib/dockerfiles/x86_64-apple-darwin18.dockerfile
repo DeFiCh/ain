@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-apple-darwin18
 
 # -----------
-FROM ubuntu:20.04 as builder-base
+FROM ubuntu:latest as builder-base
 ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
@@ -28,7 +28,6 @@ RUN ./make.sh clean-depends && ./make.sh build-deps
 # -----------
 FROM builder-base as builder
 ARG TARGET
-ARG BUILD_VERSION=
 
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
@@ -45,7 +44,7 @@ RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:20.04
+FROM ubuntu:latest
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

@@ -6,7 +6,7 @@
 
 export LC_ALL=C
 
-CPPCHECK_VERSION=1.86
+CPPCHECK_VERSION=2.10
 curl -s https://codeload.github.com/danmar/cppcheck/tar.gz/${CPPCHECK_VERSION} | tar -zxf - --directory /tmp/
 (cd /tmp/cppcheck-${CPPCHECK_VERSION}/ && make CFGDIR=/tmp/cppcheck-${CPPCHECK_VERSION}/cfg/ > /dev/null)
 export PATH="$PATH:/tmp/cppcheck-${CPPCHECK_VERSION}/"

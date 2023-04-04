@@ -79,7 +79,7 @@ RPC interface will be abused.
   configuration directory, and using these credentials is the preferred
   RPC authentication method.  If you need to generate static login
   credentials for your programs, you can use the script in the
-  `share/rpcauth` directory in the Bitcoin Core source tree.  As a final
+  `contrib/rpcauth` directory in the Bitcoin Core source tree.  As a final
   fallback, you can directly use manually-chosen `rpcuser` and
   `rpcpassword` configuration parameters---but you must ensure that you
   choose a strong and unique passphrase (and still don't use insecure

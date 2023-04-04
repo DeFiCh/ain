@@ -25,7 +25,7 @@ jobs:
         fetch-depth: 0
 
     - name: Build Node
-      run: MAKE_CONF_ARGS="--disable-bench --disable-tests" ./make.sh build
+      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
     - name: Upload Binaries
       uses: actions/upload-artifact@v3

@@ -5,7 +5,9 @@ on:
   pull_request:
     branches:
       - master
-
+env:
+  BUILD_VERSION: latest # Computed
+  
 jobs:
   test:
     name: Test
@@ -27,7 +29,7 @@ jobs:
       - name: Set build version
         run: |
           cd defichain
-          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh git_version
+          ./make.sh git_version
 
       - name: Build and package
         run: |

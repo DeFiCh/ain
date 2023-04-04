@@ -12,7 +12,6 @@ on:
       - master
 
 env:
-  MAKE_CONF_ARGS: --disable-bench
   BUILD_VERSION: latest # Computed
 
 jobs:
@@ -22,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
 
     steps:
     - uses: actions/checkout@v3
@@ -64,7 +63,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Build and package
-      run: DOCKERFILE="arm-linux-gnueabihf" TARGET="arm-linux-gnueabihf" ./make.sh docker-release-git
+      run: TARGET="arm-linux-gnueabihf" ./make.sh docker-release-git
 
     - name: Publish artifact - arm-linux-gnueabihf
       uses: actions/upload-artifact@v3

@@ -13,13 +13,13 @@ DEFID_BIN=$(top_builddir)/src/$(DEFI_DAEMON_NAME)$(EXEEXT)
 DEFI_CLI_BIN=$(top_builddir)/src/$(DEFI_CLI_NAME)$(EXEEXT)
 DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
 
-support_examples_dir = $(pkgdatadir)/examples
-support_examples__DATA = $(top_srcdir)/share/examples/default.conf \
-		$(top_srcdir)/share/examples/pruned.conf
+support_examples_dir = $(pkgdatadir)/conf-examples
+support_examples__DATA = $(top_srcdir)/contrib/conf-examples/default.conf \
+		$(top_srcdir)/contrib/conf-examples/pruned.conf
 
 support_rpcauth_dir = $(pkgdatadir)/rpcauth
-support_rpcauth__DATA = $(top_srcdir)/share/rpcauth/rpcauth.py \
-		$(top_srcdir)/share/rpcauth/README.md
+support_rpcauth__DATA = $(top_srcdir)/contrib/rpcauth/rpcauth.py \
+		$(top_srcdir)/contrib/rpcauth/README.md
 
 support_service_dir = $(pkgdatadir)/service
 support_service__DATA = \
@@ -29,22 +29,22 @@ support_service__DATA = \
 		$(top_srcdir)/contrib/init/defid.service
 
 support_bash_dir = $(datadir)/bash-completion/completions
-support_bash__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
-		$(top_srcdir)/contrib/defi-tx.bash-completion \
-		$(top_srcdir)/contrib/defid.bash-completion
+support_bash__DATA = $(top_srcdir)/contrib/bash-completion/defi-cli.bash-completion \
+		$(top_srcdir)/contrib/bash-completion/defi-tx.bash-completion \
+		$(top_srcdir)/contrib/bash-completion/defid.bash-completion
 
 empty :=
 space := $(empty) $(empty)
 
 DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
-DIST_CONTRIB = $(top_srcdir)/contrib/defi-cli.bash-completion \
-	       $(top_srcdir)/contrib/defi-tx.bash-completion \
-	       $(top_srcdir)/contrib/defid.bash-completion \
+DIST_CONTRIB = $(top_srcdir)/contrib/bash-completion/defi-cli.bash-completion \
+	       $(top_srcdir)/contrib/bash-completion/defi-tx.bash-completion \
+	       $(top_srcdir)/contrib/bash-completion/defid.bash-completion \
 	       $(top_srcdir)/contrib/init \
 	       $(top_srcdir)/contrib/install_db4.sh
 DIST_SHARE = \
-  $(top_srcdir)/share/genbuild.sh \
-  $(top_srcdir)/share/rpcauth
+  $(top_srcdir)/contrib/genbuild.sh \
+  $(top_srcdir)/contrib/rpcauth
 
 BIN_CHECKS=$(top_srcdir)/contrib/devtools/symbol-check.py \
            $(top_srcdir)/contrib/devtools/security-check.py
@@ -197,6 +197,6 @@ clean-docs:
 
 clean-local: clean-docs
 	rm -rf coverage_percent.txt test_defi.coverage/ total.coverage/ test/tmp/ cache/
-	rm -rf test/functional/__pycache__ test/functional/test_framework/__pycache__ test/cache share/rpcauth/__pycache__
+	rm -rf test/functional/__pycache__ test/functional/test_framework/__pycache__ test/cache contrib/rpcauth/__pycache__
 	rm -rf osx_volname dist/ dpi36.background.tiff dpi72.background.tiff
 
