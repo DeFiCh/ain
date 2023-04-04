@@ -12,7 +12,6 @@ on:
       - master
 
 env:
-  MAKE_CONF_ARGS: --disable-bench --disable-tests
   BUILD_VERSION: latest # Computed
 
 jobs:
@@ -22,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
 
     steps:
     - uses: actions/checkout@v3

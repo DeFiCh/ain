@@ -15,9 +15,6 @@ on:
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
-env:
-  MAKE_CONF_ARGS: --disable-bench --disable-tests
-
 jobs:
   build-binaries:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
@@ -28,7 +25,7 @@ jobs:
         fetch-depth: 0
 
     - name: Build Node
-      run: DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh build
+      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
     - name: Upload Binaries
       uses: actions/upload-artifact@v3

@@ -6,12 +6,11 @@ on:
     types: [published]
 
 env:
-  MAKE_CONF_ARGS: --disable-bench --disable-tests
   BUILD_VERSION: latest # Computed
 
 jobs:
   linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:

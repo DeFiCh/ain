@@ -32,8 +32,6 @@ jobs:
           ./make.sh git_version
 
       - name: Build and package
-        env:
-          MAKE_CONF_ARGS: --disable-bench --disable-tests
         run: |
           echo ">>> BUILD VERSION <<<"
           echo ${BUILD_VERSION}
