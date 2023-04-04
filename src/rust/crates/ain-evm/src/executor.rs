@@ -2,15 +2,16 @@ use std::collections::BTreeMap;
 
 use crate::{traits::Executor, transaction::SignedTx};
 use evm::{
-    backend::{ApplyBackend, Backend, MemoryAccount},
+    backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
 
-use ethereum::AccessList;
+use ethereum::{AccessList, Log};
 
 use primitive_types::{H160, U256};
 
+#[derive(Debug)]
 pub struct AinExecutor<B: Backend> {
     backend: B,
 }
@@ -43,7 +44,7 @@ where
         gas_limit: u64,
         access_list: AccessList,
         apply: bool,
-    ) -> (ExitReason, Vec<u8>) {
+    ) -> TxResponse {
         // let metadata = StackSubstateMetadata::new(gas_limit, &Self::CONFIG);
         let metadata = StackSubstateMetadata::new(100000, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, &self.backend);
@@ -70,14 +71,21 @@ where
                 access_list,
             ),
         };
+
+        let (values, logs) = executor.into_state().deconstruct();
+        let logs = logs.into_iter().collect::<Vec<_>>();
         if apply && exit_reason.is_succeed() {
-            let (values, logs) = executor.into_state().deconstruct();
-            self.backend.apply(values, logs, true);
+            self.backend.apply(values, logs.clone(), true);
         }
-        (exit_reason, data)
+
+        TxResponse {
+            exit_reason,
+            data,
+            logs: logs,
+        }
     }
 
-    fn exec(&mut self, signed_tx: &SignedTx) -> (ExitReason, Vec<u8>) {
+    fn exec(&mut self, signed_tx: &SignedTx) -> TxResponse {
         let apply = true;
         self.call(
             Some(signed_tx.sender),
@@ -89,4 +97,11 @@ where
             apply,
         )
     }
+}
+
+#[derive(Debug)]
+pub struct TxResponse {
+    pub exit_reason: ExitReason,
+    pub data: Vec<u8>,
+    pub logs: Vec<Log>,
 }

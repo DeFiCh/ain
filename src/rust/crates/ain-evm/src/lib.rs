@@ -1,4 +1,3 @@
-pub mod block;
 pub mod executor;
 pub mod traits;
 pub mod transaction;

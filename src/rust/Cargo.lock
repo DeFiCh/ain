@@ -38,6 +38,7 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "proc-macro2",
+ "rlp",
  "substrate-build-script-utils",
 ]
 
@@ -69,6 +70,7 @@ dependencies = [
  "hex",
  "primitive-types",
  "rand",
+ "rlp",
 ]
 
 [[package]]

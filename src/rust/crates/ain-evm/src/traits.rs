@@ -1,8 +1,8 @@
 use ethereum::AccessList;
-use evm::{backend::MemoryAccount, Config, ExitReason};
+use evm::Config;
 use primitive_types::{H160, U256};
 
-use crate::transaction::SignedTx;
+use crate::{executor::TxResponse, transaction::SignedTx};
 
 pub trait Executor {
     const CONFIG: Config = Config::london();
@@ -16,7 +16,7 @@ pub trait Executor {
         gas_limit: u64,
         access_list: AccessList,
         apply: bool,
-    ) -> (ExitReason, Vec<u8>);
+    ) -> TxResponse;
 
-    fn exec(&mut self, tx: &SignedTx) -> (ExitReason, Vec<u8>);
+    fn exec(&mut self, tx: &SignedTx) -> TxResponse;
 }

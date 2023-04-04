@@ -1,6 +1,6 @@
-use ain_evm::{block::Block, executor::AinExecutor, traits::Executor, transaction::SignedTx};
+use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
 use anyhow::anyhow;
-use ethereum::{AccessList, TransactionV2};
+use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},
     ExitReason,
@@ -41,7 +41,9 @@ impl EVMHandler {
 
         let state = self.state.read().unwrap().clone();
         let backend = MemoryBackend::new(&vicinity, state);
-        AinExecutor::new(backend).call(caller, to, value, data, gas_limit, access_list, false)
+        let tx_response =
+            AinExecutor::new(backend).call(caller, to, value, data, gas_limit, access_list, false);
+        (tx_response.exit_reason, tx_response.data)
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
@@ -112,22 +114,23 @@ impl EVMHandler {
         &self,
         context: u64,
         update_state: bool,
-    ) -> Result<(Block, Vec<H256>), Box<dyn Error>> {
+    ) -> Result<(Block<TransactionV2>, Vec<TransactionV2>), Box<dyn Error>> {
         let mut tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
         let mut failed_tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
-
         let vicinity = get_vicinity(None, None);
         let state = self.state.read().unwrap().clone();
         let backend = MemoryBackend::new(&vicinity, state);
         let mut executor = AinExecutor::new(backend);
 
         for signed_tx in self.tx_queues.drain_all(context) {
-            let (exit_reason, _) = executor.exec(&signed_tx);
+            let tx_response = executor.exec(&signed_tx);
+            println!("tx_response : {:#?}", tx_response);
 
-            if exit_reason.is_succeed() {
-                tx_hashes.push(signed_tx.transaction.hash());
+            if tx_response.exit_reason.is_succeed() {
+                // responses.push()
+                tx_hashes.push(signed_tx.transaction);
             } else {
-                failed_tx_hashes.push(signed_tx.transaction.hash())
+                failed_tx_hashes.push(signed_tx.transaction)
             }
         }
 
@@ -136,7 +139,25 @@ impl EVMHandler {
             *state = executor.backend().state().clone();
         }
 
-        let block = Block::new(tx_hashes);
+        let block = Block::new(
+            PartialHeader {
+                parent_hash: Default::default(),
+                beneficiary: Default::default(),
+                state_root: Default::default(),
+                receipts_root: Default::default(),
+                logs_bloom: Default::default(),
+                difficulty: Default::default(),
+                number: Default::default(),
+                gas_limit: Default::default(),
+                gas_used: Default::default(),
+                timestamp: Default::default(),
+                extra_data: Default::default(),
+                mix_hash: Default::default(),
+                nonce: Default::default(),
+            },
+            tx_hashes,
+            Vec::new(),
+        );
         Ok((block, failed_tx_hashes))
     }
 }
@@ -163,7 +184,7 @@ mod tests {
     use primitive_types::{H160, H256, U256};
 
     use super::EVMHandler;
-
+    use rlp::Encodable;
     #[test]
     fn test_finalize_block_and_update_test() {
         let handler = EVMHandler::new();
@@ -195,17 +216,17 @@ mod tests {
 
         let (block, failed_txs) = handler.finalize_block(context, true).unwrap();
         assert_eq!(
-            block.txs,
+            block.transactions,
             vec![tx1, tx2]
                 .into_iter()
-                .map(|t| t.transaction.hash())
+                .map(|t| t.transaction)
                 .collect::<Vec<_>>()
         );
         assert_eq!(
             failed_txs,
             vec![tx3]
                 .into_iter()
-                .map(|t| t.transaction.hash())
+                .map(|t| t.transaction)
                 .collect::<Vec<_>>()
         );
 
@@ -242,7 +263,12 @@ mod tests {
                 .unwrap()
                 .balance,
             U256::from_str_radix("0", 10).unwrap()
-        )
+        );
+
+        println!(
+            "block.header.rlp_bytes() : {}",
+            hex::encode(block.header.rlp_bytes().to_vec())
+        );
     }
 
     #[test]
