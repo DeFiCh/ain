@@ -40,7 +40,6 @@ DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
 DIST_CONTRIB = $(top_srcdir)/contrib/defi-cli.bash-completion \
 	       $(top_srcdir)/contrib/defi-tx.bash-completion \
 	       $(top_srcdir)/contrib/defid.bash-completion \
-	       $(top_srcdir)/contrib/debian/copyright \
 	       $(top_srcdir)/contrib/init \
 	       $(top_srcdir)/contrib/install_db4.sh
 DIST_SHARE = \
