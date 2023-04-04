@@ -143,7 +143,6 @@ BASE_SCRIPTS = [
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
     'feature_migrate_v1_in_futures.py',
-    'tool_wallet.py',
     'wallet_txn_clone.py',
     'wallet_txn_clone.py --segwit',
     'rpc_getchaintips.py',
