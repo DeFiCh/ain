@@ -12,7 +12,8 @@ mod ffi {
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
-        fn evm_execute_tx(context: u64) -> Result<bool>;
+        fn evm_discard_context(context: u64);
+        fn evm_queue_tx(context: u64) -> Result<bool>;
         fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<u8>>;
 
         fn init_runtime();
@@ -52,7 +53,11 @@ pub fn evm_get_context() -> u64 {
     1
 }
 
-fn evm_execute_tx(context: u64) -> Result<bool, Box<dyn Error>> {
+fn evm_discard_context(context: u64) {
+    // TODO discard
+}
+
+fn evm_queue_tx(context: u64) -> Result<bool, Box<dyn Error>> {
     Ok(true)
 }
 
