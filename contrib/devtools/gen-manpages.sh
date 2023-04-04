@@ -10,8 +10,6 @@ MANDIR=${MANDIR:-$TOPDIR/doc/man}
 DEFID=${DEFID:-$BINDIR/defid}
 DEFICLI=${DEFICLI:-$BINDIR/defi-cli}
 DEFITX=${DEFITX:-$BINDIR/defi-tx}
-WALLET_TOOL=${WALLET_TOOL:-$BINDIR/defi-wallet}
-DEFIQT=${DEFIQT:-$BINDIR/qt/defi-qt}
 
 [ ! -x $DEFID ] && echo "$DEFID not found or not executable." && exit 1
 
@@ -24,7 +22,7 @@ read -r -a BTCVER <<< "$($DEFICLI --version | head -n1 | awk -F'[ -]' '{ print $
 echo "[COPYRIGHT]" > footer.h2m
 $DEFID --version | sed -n '1!p' >> footer.h2m
 
-for cmd in $DEFID $DEFICLI $DEFITX $WALLET_TOOL $DEFIQT; do
+for cmd in $DEFID $DEFICLI $DEFITX; do
   cmdname="${cmd##*/}"
   help2man -N --version-string=${BTCVER[0]} --include=footer.h2m -o ${MANDIR}/${cmdname}.1 ${cmd}
   sed -i "s/\\\-${BTCVER[1]}//g" ${MANDIR}/${cmdname}.1

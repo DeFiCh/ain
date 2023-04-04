@@ -18,7 +18,6 @@ AC_CONFIG_MACRO_DIR([build-aux/m4])
 DEFI_DAEMON_NAME=defid
 DEFI_CLI_NAME=defi-cli
 DEFI_TX_NAME=defi-tx
-DEFI_WALLET_TOOL_NAME=defi-wallet
 
 dnl Unless the user specified ARFLAGS, force it to be cr
 AC_ARG_VAR(ARFLAGS, [Flags for the archiver, defaults to <cr> if not set])
@@ -443,7 +442,7 @@ CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS"
 
 AC_ARG_WITH([utils],
   [AS_HELP_STRING([--with-utils],
-  [build defi-cli defi-tx defi-wallet (default=yes)])],
+  [build defi-cli defi-tx (default=yes)])],
   [build_defi_utils=$withval],
   [build_defi_utils=yes])
 
@@ -467,9 +466,7 @@ AC_ARG_ENABLE([util-wallet],
 
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
-  [build libraries (default=yes)])],
-  [build_defi_libs=$withval],
-  [build_defi_libs=yes])
+  [build libraries (default=yes)])])
 
 AC_ARG_WITH([daemon],
   [AS_HELP_STRING([--with-daemon],
@@ -594,27 +591,6 @@ case $host in
    *linux*)
      TARGET_OS=linux
      LEVELDB_TARGET_FLAGS="-DOS_LINUX"
-     ;;
-   *kfreebsd*)
-     LEVELDB_TARGET_FLAGS="-DOS_KFREEBSD"
-     ;;
-   *freebsd*)
-     LEVELDB_TARGET_FLAGS="-DOS_FREEBSD"
-     ;;
-   *openbsd*)
-     LEVELDB_TARGET_FLAGS="-DOS_OPENBSD"
-     ;;
-   *netbsd*)
-     LEVELDB_TARGET_FLAGS="-DOS_NETBSD"
-     ;;
-   *dragonfly*)
-     LEVELDB_TARGET_FLAGS="-DOS_DRAGONFLYBSD"
-     ;;
-   *solaris*)
-     LEVELDB_TARGET_FLAGS="-DOS_SOLARIS"
-     ;;
-   *hpux*)
-     LEVELDB_TARGET_FLAGS="-DOS_HPUX"
      ;;
    *)
      AC_MSG_ERROR(Cannot build leveldb for $host. Please file a bug report.)
@@ -858,11 +834,6 @@ if test "x$use_thread_local" = xyes || { test "x$use_thread_local" = xauto && te
           # supported (per https://stackoverflow.com/a/29929949)
           AC_MSG_RESULT(no)
           ;;
-        *freebsd*)
-          # FreeBSD's implementation of thread_local is also buggy (per
-          # https://groups.google.com/d/msg/bsdmailinglist/22ncTZAbDp4/Dii_pII5AwAJ)
-          AC_MSG_RESULT(no)
-          ;;
         *)
           AC_DEFINE(HAVE_THREAD_LOCAL,1,[Define if thread_local is supported.])
           AC_MSG_RESULT(yes)
@@ -1025,7 +996,6 @@ if test "x$enable_fuzz" = "xyes"; then
   build_defi_tx=no
   build_defi_wallet=no
   build_defid=no
-  build_defi_libs=no
   enable_wallet=no
   use_bench=no
   use_upnp=no
@@ -1080,7 +1050,7 @@ define(MINIMUM_REQUIRED_BOOST, 1.47.0)
 dnl Check for boost libs
 AX_BOOST_BASE([MINIMUM_REQUIRED_BOOST])
 if test x$want_boost = xno; then
-    AC_MSG_ERROR([[only libdeficonsensus can be built without boost]])
+    AC_MSG_ERROR([[cannot be built without boost]])
 fi
 AX_BOOST_SYSTEM
 AX_BOOST_FILESYSTEM
@@ -1327,9 +1297,6 @@ AC_MSG_CHECKING([whether to build defi-wallet])
 AM_CONDITIONAL([BUILD_DEFI_WALLET], [test x$build_defi_wallet = xyes])
 AC_MSG_RESULT($build_defi_wallet)
 
-AC_MSG_CHECKING([whether to build libraries])
-AM_CONDITIONAL([BUILD_DEFI_LIBS], [test x$build_defi_libs = xyes])
-AC_MSG_RESULT($build_defi_libs)
 
 AC_LANG_POP
 
@@ -1408,7 +1375,7 @@ else
   AC_MSG_RESULT([no])
 fi
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_defid$use_bench$use_tests = xnononononononono; then
+if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_bench$use_tests = xnonononononono; then
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --enable-bench or --enable-tests])
 fi
 
@@ -1452,7 +1419,6 @@ AC_SUBST(COPYRIGHT_HOLDERS_FINAL, "_COPYRIGHT_HOLDERS_FINAL")
 AC_SUBST(DEFI_DAEMON_NAME)
 AC_SUBST(DEFI_CLI_NAME)
 AC_SUBST(DEFI_TX_NAME)
-AC_SUBST(DEFI_WALLET_TOOL_NAME)
 
 AC_SUBST(RELDFLAGS)
 AC_SUBST(DEBUG_CPPFLAGS)
@@ -1493,7 +1459,7 @@ AC_SUBST(HAVE_O_CLOEXEC)
 AC_SUBST(HAVE_BUILTIN_PREFETCH)
 AC_SUBST(HAVE_MM_PREFETCH)
 AC_SUBST(HAVE_STRONG_GETAUXVAL)
-AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi test/config.ini])
+AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
 AC_CONFIG_LINKS([contrib/filter-lcov.py:contrib/filter-lcov.py])
