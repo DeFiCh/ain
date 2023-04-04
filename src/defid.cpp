@@ -68,7 +68,6 @@ static bool AppInit(int argc, char* argv[])
     util::ThreadRename("init");
     init_runtime();
     // Test linking to dummy address
-    evm_add_balance("0xf3088943Fa15Ff33D5C3Af9845dc65073Ae2bAc8", ArithToUint256(100).ToArrayReversed());
 
     //
     // Parameters
