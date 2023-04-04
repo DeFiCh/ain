@@ -337,6 +337,7 @@ get_default_conf_args() {
     if [[ "$TARGET" =~ .*linux.* ]]; then
         conf_args="${conf_args} --enable-glibc-back-compat";
     fi
+    conf_args="${conf_args} --enable-static";
     conf_args="${conf_args} --enable-reduce-exports";
     conf_args="${conf_args} LDFLAGS=-static-libstdc++";
     echo "$conf_args"
@@ -486,7 +487,7 @@ clean() {
     done
 
     safe_rm_rf \
-        src/Makefile.in doc/man/Makefile.in \
+        src/Makefile.in \
         src/defi-config.h.{in,in~} \
         src/univalue/src/univalue-config.h.{in,in~} \
         src/secp256k1/src/libsecp256k1-config.h.{in,in~}

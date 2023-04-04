@@ -34,18 +34,13 @@ LIBDEFI_CONSENSUS=libdefi_consensus.a
 LIBDEFI_CLI=libdefi_cli.a
 LIBDEFI_UTIL=libdefi_util.a
 LIBDEFI_CRYPTO_BASE=crypto/libdefi_crypto_base.a
-LIBDEFIQT=qt/libdefiqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
 
 if ENABLE_ZMQ
 LIBDEFI_ZMQ=libdefi_zmq.a
 endif
-if BUILD_DEFI_LIBS
-LIBDEFICONSENSUS=libdeficonsensus.la
-endif
 if ENABLE_WALLET
 LIBDEFI_WALLET=libdefi_wallet.a
-LIBDEFI_WALLET_TOOL=libdefi_wallet_tool.a
 endif
 
 LIBDEFI_CRYPTO= $(LIBDEFI_CRYPTO_BASE)
@@ -69,17 +64,17 @@ $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(w
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
   $(LIBDEFI_CRYPTO) \
+  $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_COMMON) \
   $(LIBDEFI_SPV) \
-  $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_CLI) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_WALLET_TOOL) \
   $(LIBDEFI_ZMQ)
 
-lib_LTLIBRARIES = $(LIBDEFICONSENSUS)
+lib_LIBRARIES = $(LIBDEFI_CONSENSUS)
+lib_LTLIBRARIES = 
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -95,11 +90,6 @@ if BUILD_DEFI_CLI
 endif
 if BUILD_DEFI_TX
   bin_PROGRAMS += defi-tx
-endif
-if ENABLE_WALLET
-if BUILD_DEFI_WALLET
-  bin_PROGRAMS += defi-wallet
-endif
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -494,12 +484,6 @@ libdefi_wallet_a_SOURCES = \
   wallet/coinselection.cpp \
   $(DEFI_CORE_H)
 
-libdefi_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
-libdefi_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libdefi_wallet_tool_a_SOURCES = \
-  wallet/wallettool.cpp \
-  $(DEFI_CORE_H)
-
 # crypto primitives library
 crypto_libdefi_crypto_base_a_CPPFLAGS = $(AM_CPPFLAGS)
 crypto_libdefi_crypto_base_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -574,6 +558,7 @@ libdefi_consensus_a_SOURCES = \
   pubkey.cpp \
   pubkey.h \
   script/deficonsensus.cpp \
+  script/deficonsensus.h \
   script/interpreter.cpp \
   script/interpreter.h \
   script/script.cpp \
@@ -589,6 +574,10 @@ libdefi_consensus_a_SOURCES = \
   util/strencodings.cpp \
   util/strencodings.h \
   version.h
+
+if GLIBC_BACK_COMPAT
+  libdefi_consensus_a_SOURCES += compat/glibc_compat.cpp
+endif
 
 # common: shared between defid, and defi-qt and non-server tools
 libdefi_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
@@ -690,7 +679,6 @@ endif
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBDEFI_SPV) \
@@ -743,50 +731,6 @@ defi_tx_LDADD = \
   $(LIBSECP256K1)
 
 defi_tx_LDADD += $(BOOST_LIBS)
-#
-
-# defi-wallet binary #
-defi_wallet_SOURCES = defi-wallet.cpp
-defi_wallet_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
-defi_wallet_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-defi_wallet_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
-
-if TARGET_WINDOWS
-defi_wallet_SOURCES += defi-wallet-res.rc
-endif
-
-defi_wallet_LDADD = \
-  $(LIBDEFI_WALLET_TOOL) \
-  $(LIBDEFI_WALLET) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_CONSENSUS) \
-  $(LIBDEFI_SPV) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_ZMQ) \
-  $(LIBLEVELDB) \
-  $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBUNIVALUE)
-
-defi_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
-#
-
-# deficonsensus library #
-if BUILD_DEFI_LIBS
-include_HEADERS = script/deficonsensus.h
-libdeficonsensus_la_SOURCES = support/cleanse.cpp $(crypto_libdefi_crypto_base_a_SOURCES) $(libdefi_consensus_a_SOURCES)
-
-if GLIBC_BACK_COMPAT
-  libdeficonsensus_la_SOURCES += compat/glibc_compat.cpp
-endif
-
-libdeficonsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libdeficonsensus_la_LIBADD = $(LIBSECP256K1)
-libdeficonsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_DEFI_INTERNAL
-libdeficonsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-
-endif
 #
 
 CTAES_DIST =  crypto/ctaes/bench.c

@@ -1,3 +1,0 @@
-setup = "make -C depends && ./autogen.sh"
-build = "configure CC=clang-11 CXX=clang++-11 --prefix='$(pwd)/depends/x86_64-pc-linux-gnu'"
-tools = ["infer"]
