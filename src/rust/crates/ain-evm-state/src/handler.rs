@@ -1,8 +1,8 @@
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    ExitReason,
 };
+pub use evm::{ExitReason, ExitSucceed};
 use primitive_types::H160;
 use primitive_types::{H256, U256};
 use std::collections::BTreeMap;
