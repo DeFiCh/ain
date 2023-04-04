@@ -467,7 +467,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const int64_t evmContext = 0);
+                  const uint64_t evmContext = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
