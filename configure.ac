@@ -1049,25 +1049,6 @@ dnl counter implementations. In 1.63 and later the std::atomic approach is defau
 m4_pattern_allow(DBOOST_AC_USE_STD_ATOMIC) dnl otherwise it's treated like a macro
 BOOST_CPPFLAGS="-DBOOST_MPL_CFG_NO_PREPROCESSED_HEADERS -DBOOST_MPL_LIMIT_LIST_SIZE=50 -DBOOST_SP_USE_STD_ATOMIC -DBOOST_AC_USE_STD_ATOMIC $BOOST_CPPFLAGS"
 
-if test x$use_reduce_exports = xyes; then
-  AC_MSG_CHECKING([for working boost reduced exports])
-  TEMP_CPPFLAGS="$CPPFLAGS"
-  CPPFLAGS="$BOOST_CPPFLAGS $CPPFLAGS"
-  AC_PREPROC_IFELSE([AC_LANG_PROGRAM([[
-      @%:@include <boost/version.hpp>
-    ]], [[
-      #if BOOST_VERSION >= 104900
-      // Everything is okay
-      #else
-      #  error Boost version is too old
-      #endif
-    ]])],[
-      AC_MSG_RESULT(yes)
-    ],[
-    AC_MSG_ERROR([boost versions < 1.49 are known to be broken with reduced exports. Use --disable-reduce-exports.])
-  ])
-  CPPFLAGS="$TEMP_CPPFLAGS"
-fi
 fi
 
 if test x$use_reduce_exports = xyes; then
