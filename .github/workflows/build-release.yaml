@@ -6,6 +6,7 @@ on:
     types: [published]
 
 env:
+  MAKE_CONF_ARGS: --disable-bench --disable-tests
   BUILD_VERSION: latest # Computed
 
 jobs:

@@ -13,7 +13,7 @@ DEFID_BIN=$(top_builddir)/src/$(DEFI_DAEMON_NAME)$(EXEEXT)
 DEFI_CLI_BIN=$(top_builddir)/src/$(DEFI_CLI_NAME)$(EXEEXT)
 DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
 
-support_examples_dir = $(pkgdatadir)/examples
+support_examples_dir = $(pkgdatadir)/conf-examples
 support_examples__DATA = $(top_srcdir)/contrib/conf-examples/default.conf \
 		$(top_srcdir)/contrib/conf-examples/pruned.conf
 

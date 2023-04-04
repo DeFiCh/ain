@@ -12,7 +12,7 @@ on:
       - master
 
 env:
-  MAKE_CONF_ARGS: --disable-bench
+  MAKE_CONF_ARGS: --disable-bench --disable-tests
   BUILD_VERSION: latest # Computed
 
 jobs:

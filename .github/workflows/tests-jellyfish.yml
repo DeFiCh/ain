@@ -5,7 +5,10 @@ on:
   pull_request:
     branches:
       - master
-
+env:
+  MAKE_CONF_ARGS: --disable-bench --disable-tests
+  BUILD_VERSION: latest # Computed
+  
 jobs:
   test:
     name: Test
@@ -27,14 +30,14 @@ jobs:
       - name: Set build version
         run: |
           cd defichain
-          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh git_version
+          ./make.sh git_version
 
       - name: Build and package
         run: |
           echo ">>> BUILD VERSION <<<"
           echo ${BUILD_VERSION}
           cd defichain
-          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          ./make.sh docker-release-git
           docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
           docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
 
