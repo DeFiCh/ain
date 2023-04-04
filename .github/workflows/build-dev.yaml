@@ -64,7 +64,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Build and package
-      run: DOCKERFILE="arm-linux-gnueabihf" TARGET="arm-linux-gnueabihf" ./make.sh docker-release-git
+      run: TARGET="arm-linux-gnueabihf" ./make.sh docker-release-git
 
     - name: Publish artifact - arm-linux-gnueabihf
       uses: actions/upload-artifact@v3

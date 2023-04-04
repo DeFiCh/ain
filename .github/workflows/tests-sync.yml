@@ -28,7 +28,7 @@ jobs:
         fetch-depth: 0
 
     - name: Build Node
-      run: ./make.sh build
+      run: DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
     - name: Upload Binaries
       uses: actions/upload-artifact@v3
