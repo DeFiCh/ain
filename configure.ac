@@ -501,11 +501,6 @@ case $host in
      # In libtool-speak, it's -all-static.
      AX_CHECK_LINK_FLAG([[-static]],[LIBTOOL_APP_LDFLAGS="$LIBTOOL_APP_LDFLAGS -all-static"])
 
-     AC_PATH_PROG([MAKENSIS], [makensis], none)
-     if test x$MAKENSIS = xnone; then
-       AC_MSG_WARN("makensis not found. Cannot create installer.")
-     fi
-
      AC_PATH_TOOL(WINDRES, windres, none)
      if test x$WINDRES = xnone; then
        AC_MSG_ERROR("windres not found")
