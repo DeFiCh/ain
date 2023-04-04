@@ -67,7 +67,6 @@ static bool AppInit(int argc, char* argv[])
 
     util::ThreadRename("init");
     init_runtime();
-    // Test linking to dummy address
 
     //
     // Parameters
