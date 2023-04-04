@@ -54,7 +54,6 @@ src/config/defi-config.h
 src/config/defi-config.h.in
 src/config/stamp-h1
 src/obj
-share/setup.nsi
 
 .deps
 .dirstamp

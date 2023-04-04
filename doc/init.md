@@ -43,7 +43,7 @@ This allows for running defid without having to do any manual configuration.
 relative to the data directory. `wallet` *only* supports relative paths.
 
 For an example configuration file that describes the configuration settings,
-see `share/examples/defi.conf`.
+see `contrib/conf-examples/defi.conf`.
 
 Paths
 ---------------------------------
