@@ -212,12 +212,6 @@ AC_ARG_ENABLE([zmq],
   [use_zmq=$enableval],
   [use_zmq=yes])
 
-AC_ARG_ENABLE(man,
-    [AS_HELP_STRING([--disable-man],
-                    [do not install man pages (default is to install)])],,
-    enable_man=yes)
-AM_CONDITIONAL(ENABLE_MAN, test "$enable_man" != no)
-
 # Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
