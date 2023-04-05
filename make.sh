@@ -339,7 +339,7 @@ get_default_conf_args() {
     conf_args="${conf_args} --enable-reduce-exports";
     # Note: https://stackoverflow.com/questions/13636513/linking-libstdc-statically-any-gotchas
     # We don't use dynamic loading at the time being
-    conf_args="${conf_args} LDFLAGS='-static-libstdc++'";
+    conf_args="${conf_args} LDFLAGS=-static-libstdc++";
     # Other potential options: -static-libgcc on gcc, -static on clang
     echo "$conf_args"
 }
