@@ -73,7 +73,7 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
 
-lib_LIBRARIES = $(LIBDEFI_CONSENSUS)
+lib_LIBRARIES = 
 lib_LTLIBRARIES = 
 
 bin_PROGRAMS =
@@ -451,6 +451,7 @@ endif
 if !ENABLE_WALLET
 libdefi_server_a_SOURCES += dummywallet.cpp
 endif
+libdefi_server_a_LIBADD = $(LIBDEFI_CONSENSUS)
 
 if ENABLE_ZMQ
 libdefi_zmq_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(ZMQ_CFLAGS)
