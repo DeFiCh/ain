@@ -1,3 +1,6 @@
+use crate::traits::PersistentState;
+use ethereum::BlockAny;
+use primitive_types::{H256, U256};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
@@ -5,14 +8,9 @@ use std::io::{Read, Write};
 use std::ops::Index;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use ethereum::BlockAny;
-use primitive_types::{H256, U256};
-use crate::traits::PersistentState;
-
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
-
 
 type BlockHashtoBlock = HashMap<H256, U256>;
 type Blocks = Vec<BlockAny>;
@@ -85,8 +83,18 @@ impl BlockHandler {
     }
 
     pub fn flush(&self) {
-        let _ = self.block_map.write().unwrap().save_to_disk(BLOCK_MAP_PATH).unwrap();
-        let _ = self.blocks.write().unwrap().save_to_disk(BLOCK_DATA_PATH).unwrap();
+        let _ = self
+            .block_map
+            .write()
+            .unwrap()
+            .save_to_disk(BLOCK_MAP_PATH)
+            .unwrap();
+        let _ = self
+            .blocks
+            .write()
+            .unwrap()
+            .save_to_disk(BLOCK_DATA_PATH)
+            .unwrap();
     }
 
     pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, Box<dyn Error>> {

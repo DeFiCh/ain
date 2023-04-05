@@ -1,15 +1,15 @@
-use std::mem::{size_of, size_of_val};
 use crate::codegen::rpc::{
     ffi::{
-        EthAccountsResult, EthCallInput, EthCallResult, EthGetBalanceInput, EthGetBalanceResult,
-        EthTransactionInfo, EthGetBlockByHashInput, EthBlockInfo, EthGetBlockByHashResult
+        EthAccountsResult, EthBlockInfo, EthCallInput, EthCallResult, EthGetBalanceInput,
+        EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByHashResult, EthTransactionInfo,
     },
     EthService,
 };
-use ain_evm_state::handler::{Handlers};
-use std::sync::Arc;
+use ain_evm_state::handler::Handlers;
 use ethereum::BlockAny;
 use serde::Serialize;
+use std::mem::{size_of, size_of_val};
+use std::sync::Arc;
 
 pub trait EthServiceApi {
     // Read only call
@@ -27,7 +27,7 @@ pub trait EthServiceApi {
 
     fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
-        input: EthGetBlockByHashInput
+        input: EthGetBlockByHashInput,
     ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error>;
 }
 
@@ -52,7 +52,9 @@ impl EthServiceApi for EthService {
 
         let from = from.parse().ok();
         let to = to.parse().ok();
-        let (_, data) = handler.evm.call(from, to, value.into(), data.as_bytes(), gas, vec![]);
+        let (_, data) = handler
+            .evm
+            .call(from, to, value.into(), data.as_bytes(), gas, vec![]);
 
         Ok(EthCallResult {
             data: String::from_utf8_lossy(&*data).to_string(),
@@ -88,12 +90,9 @@ impl EthServiceApi for EthService {
 
     fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
-        input: EthGetBlockByHashInput
+        input: EthGetBlockByHashInput,
     ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error> {
-        let EthGetBlockByHashInput {
-            hash,
-            ..
-        } = input;
+        let EthGetBlockByHashInput { hash, .. } = input;
 
         let hash = hash.parse().expect("Invalid hash");
         let block = handler.block.get_block_hash(hash).unwrap();
@@ -117,9 +116,17 @@ impl EthServiceApi for EthService {
                 gas_limit: block.header.gas_limit.to_string(),
                 gas_used: block.header.gas_used.to_string(),
                 timestamps: block.header.timestamp.to_string(),
-                transactions: block.transactions.iter().map(|x| x.hash().to_string()).collect::<Vec<String>>(),
-                uncles: block.ommers.iter().map(|x| x.hash().to_string()).collect::<Vec<String>>()
-            }
+                transactions: block
+                    .transactions
+                    .iter()
+                    .map(|x| x.hash().to_string())
+                    .collect::<Vec<String>>(),
+                uncles: block
+                    .ommers
+                    .iter()
+                    .map(|x| x.hash().to_string())
+                    .collect::<Vec<String>>(),
+            },
         })
     }
 }

@@ -1,22 +1,22 @@
+use crate::traits::PersistentState;
+use crate::tx_queue::TransactionQueueMap;
+use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
+use anyhow::anyhow;
+use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
+use evm::backend::MemoryAccount;
+use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
+use evm::{
+    backend::{MemoryBackend, MemoryVicinity},
+    Config, ExitReason,
+};
+use hex::FromHex;
+use primitive_types::{H160, H256, U256};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
-use primitive_types::{H160, H256, U256};
-use crate::traits::PersistentState;
-use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
-use anyhow::anyhow;
-use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
-use evm::{
-    backend::{MemoryBackend, MemoryVicinity},
-    ExitReason, Config,
-};
-use hex::FromHex;
-use evm::backend::MemoryAccount;
-use crate::tx_queue::TransactionQueueMap;
 
 pub static CONFIG: Config = Config::london();
 pub static GAS_LIMIT: u64 = u64::MAX;
@@ -51,7 +51,6 @@ impl PersistentState for EVMState {
     }
 }
 
-
 impl EVMHandler {
     pub fn new() -> Self {
         Self {
@@ -61,7 +60,11 @@ impl EVMHandler {
     }
 
     pub fn flush(&self) {
-        self.state.write().unwrap().save_to_disk(EVM_STATE_PATH).unwrap()
+        self.state
+            .write()
+            .unwrap()
+            .save_to_disk(EVM_STATE_PATH)
+            .unwrap()
     }
 
     pub fn call(
@@ -199,7 +202,6 @@ impl EVMHandler {
     }
 }
 
-
 // TBD refine what vicinity we need. gas_price and origin only ?
 fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
     MemoryVicinity {
@@ -215,7 +217,6 @@ fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity
         block_base_fee_per_gas: U256::MAX,
     }
 }
-
 
 #[cfg(test)]
 mod tests {
