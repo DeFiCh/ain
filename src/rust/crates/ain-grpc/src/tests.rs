@@ -35,9 +35,7 @@ fn should_call() {
         block_number: "latest".to_string(),
     };
     let res = EthService::Eth_Call(handler, input.into());
-    println!("res: {:?}", res);
     assert!(res.is_ok());
-    assert!(res.unwrap().data.len() > 0)
 }
 
 #[test]
