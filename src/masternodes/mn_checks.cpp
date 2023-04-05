@@ -771,6 +771,7 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
+    uint64_t evmContext;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -779,11 +780,13 @@ public:
                           CCustomCSView &mnview,
                           const Consensus::Params &consensus,
                           uint64_t time,
-                          uint32_t txn)
+                          uint32_t txn,
+                          const uint64_t evmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
-          txn(txn) {}
+          txn(txn),
+          evmContext(evmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3862,7 +3865,9 @@ public:
             return Res::Err("evm tx failed to validate");
         }
 
-        // TODO Execute TX
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to queue");
+        }
 
         return Res::Ok();
     }
@@ -3945,12 +3950,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmContext), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4035,7 +4041,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time,
                   uint256 *canSpend,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;

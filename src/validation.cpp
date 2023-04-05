@@ -19,6 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <libain_evm.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
@@ -2289,7 +2290,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmContext)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2633,7 +2634,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2832,6 +2833,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
+
+    evm_finalise(evmContext, true);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3275,9 +3278,11 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
+        const auto evmContext = evm_get_context();
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
+            evm_discard_context(evmContext);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }

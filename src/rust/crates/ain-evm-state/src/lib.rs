@@ -1,18 +1,17 @@
 pub mod handler;
 pub mod traits;
+pub mod tx_queue;
 use std::collections::BTreeMap;
 
 use crate::traits::PersistentState;
 
 pub use evm::backend::Backend;
 use evm::backend::MemoryAccount;
-use evm::Config;
 use primitive_types::H160;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-pub static CONFIG: Config = Config::london();
 pub static GAS_LIMIT: u64 = u64::MAX;
 pub static EVM_STATE_PATH: &str = "evm_state.bin";
 
@@ -60,8 +59,8 @@ mod tests {
 
     #[test]
     fn test_load_non_existent_file() {
-        let state = EVMState::load_from_disk("non_existent_file.bin");
-        assert!(state.is_err());
+        let state = EVMState::load_from_disk("non_existent_file.bin").unwrap();
+        assert_eq!(state, EVMState::default());
     }
 
     #[test]

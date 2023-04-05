@@ -10,7 +10,12 @@ pub fn recover_public_key(
     recovery_id: u8,
 ) -> Result<PublicKey, Error> {
     let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
-    let signature = Signature::parse_standard_slice(&[r.as_bytes(), &s.as_bytes()].concat())?;
+
+    let mut standard_slice = [0u8; 64];
+    standard_slice[..32].copy_from_slice(r.as_fixed_bytes());
+    standard_slice[32..].copy_from_slice(s.as_fixed_bytes());
+    let signature = Signature::parse_standard_slice(&standard_slice)?;
+
     let recovery_id = RecoveryId::parse(recovery_id)?;
     libsecp256k1::recover(&msg, &signature, &recovery_id)
 }
