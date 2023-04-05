@@ -238,8 +238,8 @@ mod tests {
 
     #[test]
     fn test_load_non_existent_file() {
-        let state = EVMState::load_from_disk("non_existent_file.bin");
-        assert!(state.is_err());
+        let state = EVMState::load_from_disk("non_existent_file.bin").unwrap();
+        assert_eq!(state, EVMState::default());
     }
 
     #[test]
