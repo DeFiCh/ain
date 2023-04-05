@@ -11,10 +11,25 @@ use std::sync::{Arc, RwLock};
 
 use crate::traits::PersistentState;
 use crate::{EVMState, CONFIG, EVM_STATE_PATH, GAS_LIMIT};
+use crate::block::BlockHandler;
 
 #[derive(Clone, Debug)]
 pub struct EVMHandler {
     pub state: Arc<RwLock<EVMState>>,
+}
+
+pub struct Handlers {
+    pub evm: EVMHandler,
+    pub block: BlockHandler,
+}
+
+impl Handlers {
+    pub fn new() -> Self {
+        Self {
+            evm: EVMHandler::new(),
+            block: BlockHandler::new(),
+        }
+    }
 }
 
 impl EVMHandler {

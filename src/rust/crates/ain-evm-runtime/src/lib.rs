@@ -1,4 +1,5 @@
-use ain_evm_state::handler::EVMHandler;
+use ain_evm_state::handler::{EVMHandler, Handlers};
+use ain_evm_state::block::BlockHandler;
 use ain_evm_state::traits::PersistentState;
 use ain_evm_state::EVM_STATE_PATH;
 use jsonrpsee_http_server::HttpServerHandle;
@@ -17,7 +18,7 @@ pub struct Runtime {
     pub tx: Sender<()>,
     pub handle: Mutex<Option<JoinHandle<()>>>,
     pub jrpc_handle: Mutex<Option<HttpServerHandle>>, // dropping the handle kills server
-    pub evm: Arc<EVMHandler>,
+    pub handlers: Arc<Handlers>,
 }
 
 impl Runtime {
@@ -34,7 +35,7 @@ impl Runtime {
                 });
             }))),
             jrpc_handle: Mutex::new(None),
-            evm: Arc::new(EVMHandler::new()),
+            handlers: Arc::new(Handlers::new()),
         }
     }
 
@@ -49,11 +50,14 @@ impl Runtime {
             .unwrap();
 
         // Persist EVM State to disk
-        self.evm
+        self.handlers
+            .evm
             .state
             .write()
             .unwrap()
             .save_to_disk(EVM_STATE_PATH)
             .unwrap();
+
+        self.handlers.block.flush();
     }
 }

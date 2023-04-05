@@ -8,11 +8,11 @@ use transaction::{LOWER_H256, LegacyUnsignedTransaction};
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 
 pub fn evm_add_balance(address: &str, amount: i64) -> Result<(), Box<dyn Error>> {
-    RUNTIME.evm.add_balance(address, amount)
+    RUNTIME.handlers.evm.add_balance(address, amount)
 }
 
 pub fn evm_sub_balance(address: &str, amount: i64) -> Result<(), Box<dyn Error>> {
-    RUNTIME.evm.sub_balance(address, amount)
+    RUNTIME.handlers.evm.sub_balance(address, amount)
 }
 
 pub fn evm_send_raw_tx(_tx: &str) -> Result<(), Box<dyn Error>> {

@@ -315,13 +315,13 @@ fn modify_codegen(
             &quote!(
                 #[derive(Clone)]
                 pub struct #service {
-                    adapter: Arc<EVMHandler>
+                    adapter: Arc<Handlers>
                 }
 
                 impl #service {
                     #[inline]
                     #[allow(dead_code)]
-                    pub fn new(adapter: Arc<EVMHandler>) -> #service {
+                    pub fn new(adapter: Arc<Handlers>) -> #service {
                         #service {
                             adapter
                         }
@@ -462,7 +462,7 @@ fn apply_substitutions(
         use crate::rpc::*;
         #[allow(unused_imports)]
         use self::ffi::*;
-        use ain_evm_state::handler::EVMHandler;
+        use ain_evm_state::handler::Handlers;
         #[derive(Clone)]
         pub struct Client {
             inner: Arc<HttpClient>,

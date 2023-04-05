@@ -1,5 +1,6 @@
 pub mod handler;
 pub mod traits;
+pub mod block;
 use std::collections::BTreeMap;
 
 use crate::traits::PersistentState;

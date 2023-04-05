@@ -63,6 +63,7 @@ name = "ain-evm-state"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "ethereum",
  "evm",
  "primitive-types",
 ]
@@ -76,6 +77,7 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "env_logger",
+ "ethereum",
  "heck",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
