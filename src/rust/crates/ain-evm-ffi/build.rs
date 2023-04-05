@@ -11,6 +11,11 @@ fn main() {
 
     rerun_if_git_head_changed();
 
+    // Force re-run during development
+    if std::path::Path::new(".git/HEAD").exists() {
+        println!("cargo:rerun-if-changed=.git/HEAD");
+    }
+
     let mut root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let parent = root.clone();
     root.pop();

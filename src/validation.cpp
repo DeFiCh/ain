@@ -19,6 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <libain_evm.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
@@ -586,33 +587,35 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.SetBackend(viewMemPool);
 
         // do all inputs exist?
-        for (const CTxIn& txin : tx.vin) {
-            if (!coins_cache.HaveCoinInCache(txin.prevout)) {
-                coins_to_uncache.push_back(txin.prevout);
-            }
+        if (!IsEVMTx(tx)) {
+            for (const CTxIn& txin : tx.vin) {
+                if (!coins_cache.HaveCoinInCache(txin.prevout)) {
+                    coins_to_uncache.push_back(txin.prevout);
+                }
 
-            // Note: this call may add txin.prevout to the coins cache
-            // (CoinsTip().cacheCoins) by way of FetchCoin(). It should be removed
-            // later (via coins_to_uncache) if this tx turns out to be invalid.
-            if (!view.HaveCoin(txin.prevout)) {
-                // Are inputs missing because we already have the tx?
-                for (size_t out = 0; out < tx.vout.size(); out++) {
-                    // Optimistically just do efficient check of cache for outputs
-                    if (coins_cache.HaveCoinInCache(COutPoint(hash, out))) {
-                        return state.Invalid(ValidationInvalidReason::TX_CONFLICT, false, REJECT_DUPLICATE, "txn-already-known");
+                // Note: this call may add txin.prevout to the coins cache
+                // (CoinsTip().cacheCoins) by way of FetchCoin(). It should be removed
+                // later (via coins_to_uncache) if this tx turns out to be invalid.
+                if (!view.HaveCoin(txin.prevout)) {
+                    // Are inputs missing because we already have the tx?
+                    for (size_t out = 0; out < tx.vout.size(); out++) {
+                        // Optimistically just do efficient check of cache for outputs
+                        if (coins_cache.HaveCoinInCache(COutPoint(hash, out))) {
+                            return state.Invalid(ValidationInvalidReason::TX_CONFLICT, false, REJECT_DUPLICATE, "txn-already-known");
+                        }
                     }
+                    // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
+                    if (pfMissingInputs) {
+                        *pfMissingInputs = true;
+                    }
+                    return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
                 }
-                // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
-                if (pfMissingInputs) {
-                    *pfMissingInputs = true;
-                }
-                return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
-            }
 
-            // Special check of collateral spending for _not_created_ mn or token (cheating?), those creation tx yet in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
-            if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash)) {
+                // Special check of collateral spending for _not_created_ mn or token (cheating?), those creation tx yet in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
+                if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "collateral-locked-in-mempool",
                                          strprintf("tried to spend collateral of non-created mn or token %s, cheater?", txin.prevout.hash.ToString()));
+                }
             }
         }
 
@@ -634,7 +637,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // let make sure we have needed coins
-        if (view.GetValueIn(tx) < nFees) {
+        if (!IsEVMTx(tx) && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
@@ -651,11 +654,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
-        if (!CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
+        if (!IsEVMTx(tx) && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !AreInputsStandard(tx, view))
+        if (fRequireStandard && !IsEVMTx(tx) && !AreInputsStandard(tx, view))
             return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
         // Check for non-standard witness in P2WSH
@@ -693,7 +696,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (!bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
+        if (!IsEVMTx(tx) && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
 
@@ -888,7 +891,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(::ChainActive().Tip(), chainparams.GetConsensus());
-        if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
+        if (!IsEVMTx(tx) && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
@@ -1372,6 +1375,9 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
+    if (IsEVMTx(tx)) {
+        return;
+    }
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
@@ -1456,7 +1462,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         return(state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBurnSpend: Trying to spend burnt outputs"), REJECT_INVALID, "burnt-output"));
     }
 
-    if (!tx.IsCoinBase())
+    if (!tx.IsCoinBase() && !IsEVMTx(tx))
     {
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
@@ -2284,7 +2290,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmContext)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2628,7 +2634,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2827,6 +2833,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
+
+    evm_finalise(evmContext, true);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3270,9 +3278,11 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
+        const auto evmContext = evm_get_context();
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
+            evm_discard_context(evmContext);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }
