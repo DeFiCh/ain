@@ -14,6 +14,8 @@ service eth {
   /// Returns the balance for the given address.
   rpc Eth_GetBalance(types.EthGetBalanceInput) returns (types.EthGetBalanceResult);
 
+  rpc Eth_GetBlockByHash(types.EthGetBlockByHashInput) returns (types.EthGetBlockByHashResult);
+
   /// [ignore]
   /// Returns the balance for the given address.
   rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);

@@ -1,13 +1,15 @@
+use std::mem::{size_of, size_of_val};
 use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthCallInput, EthCallResult, EthGetBalanceInput, EthGetBalanceResult,
-        EthTransactionInfo, EthGetBlockByHashInput
+        EthTransactionInfo, EthGetBlockByHashInput, EthBlockInfo, EthGetBlockByHashResult
     },
     EthService,
 };
 use ain_evm_state::handler::{Handlers};
 use std::sync::Arc;
 use ethereum::BlockAny;
+use serde::Serialize;
 
 pub trait EthServiceApi {
     // Read only call
@@ -23,10 +25,10 @@ pub trait EthServiceApi {
         input: EthGetBalanceInput,
     ) -> Result<EthGetBalanceResult, jsonrpsee_core::Error>;
 
-    fn eth_getBlockByHash(
+    fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput
-    ) -> Result<BlockAny, jsonrpsee_core::Error>;
+    ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error>;
 }
 
 impl EthServiceApi for EthService {
@@ -84,10 +86,10 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn eth_getBlockByHash(
+    fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput
-    ) -> Result<BlockAny, jsonrpsee_core::Error> {
+    ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error> {
         let EthGetBlockByHashInput {
             hash,
             ..
@@ -96,6 +98,28 @@ impl EthServiceApi for EthService {
         let hash = hash.parse().expect("Invalid hash");
         let block = handler.block.get_block_hash(hash).unwrap();
 
-        Ok(block)
+        Ok(EthGetBlockByHashResult {
+            block_info: EthBlockInfo {
+                block_number: block.header.number.to_string(),
+                hash: block.header.hash().to_string(),
+                parent_hash: block.header.parent_hash.to_string(),
+                nonce: block.header.nonce.to_string(),
+                sha3_uncles: block.header.ommers_hash.to_string(),
+                logs_bloom: block.header.logs_bloom.to_string(),
+                transactions_root: block.header.transactions_root.to_string(),
+                state_root: block.header.state_root.to_string(),
+                receipt_root: block.header.receipts_root.to_string(),
+                miner: block.header.beneficiary.to_string(),
+                difficulty: block.header.difficulty.to_string(),
+                total_difficulty: block.header.difficulty.to_string(),
+                extra_data: String::from_utf8(block.header.extra_data.clone()).unwrap(),
+                size: size_of_val(&block).to_string(),
+                gas_limit: block.header.gas_limit.to_string(),
+                gas_used: block.header.gas_used.to_string(),
+                timestamps: block.header.timestamp.to_string(),
+                transactions: block.transactions.iter().map(|x| x.hash().to_string()).collect::<Vec<String>>(),
+                uncles: block.ommers.iter().map(|x| x.hash().to_string()).collect::<Vec<String>>()
+            }
+        })
     }
 }
