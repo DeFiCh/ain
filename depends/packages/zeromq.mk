@@ -1,16 +1,17 @@
 package=zeromq
-$(package)_version=4.3.1
+$(package)_version=4.3.4
 $(package)_download_path=https://github.com/zeromq/libzmq/releases/download/v$($(package)_version)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=bcbabe1e2c7d0eec4ed612e10b94b112dd5f06fcefa994a0c79a45d835cd21eb
-$(package)_patches=0001-fix-build-with-older-mingw64.patch 0002-disable-pthread_set_name_np.patch
+$(package)_sha256_hash=c593001a89f5a85dd2ddf564805deb860e02471171b3f204944857336295c3e5
+$(package)_patches=
 
 define $(package)_set_vars
-  $(package)_config_opts=--without-docs --disable-shared --disable-curve --disable-curve-keygen --disable-perf --disable-Werror --disable-drafts
+  $(package)_config_opts = --without-docs --disable-shared --disable-valgrind
+  $(package)_config_opts += --disable-perf --disable-curve-keygen --disable-curve --disable-libbsd
   $(package)_config_opts += --without-libsodium --without-libgssapi_krb5 --without-pgm --without-norm --without-vmci
-  $(package)_config_opts += --disable-libunwind --disable-radix-tree --without-gcov
+  $(package)_config_opts += --disable-libunwind --disable-radix-tree --without-gcov --disable-dependency-tracking
+  $(package)_config_opts += --disable-Werror --disable-drafts --enable-option-checking
   $(package)_config_opts_linux=--with-pic
-  $(package)_cxxflags=-std=c++17
 endef
 
 define $(package)_preprocess_cmds
@@ -20,6 +21,8 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
+  ./autogen.sh && \
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub config && \
   $($(package)_autoconf)
 endef
 
