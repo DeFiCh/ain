@@ -167,7 +167,7 @@ std::array<uint8_t, 32> GetKeyFromWallets(rust::Vec<uint8_t> input) {
         }
     }
 
-    std::array<uint32_t, 32> result{};
+    std::array<uint8_t, 32> result{};
     std::copy(key.begin(), key.end(), result.begin());
 
     return result;
