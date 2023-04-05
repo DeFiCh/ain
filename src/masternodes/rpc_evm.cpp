@@ -57,7 +57,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     const uint64_t chainID{1};
 
     const arith_uint256 nonceParam = request.params[1].get_int64();
-    const auto nonce = ArithToUint256(nonceParam).ToArray();
+    const auto nonce = ArithToUint256(nonceParam);
 
     arith_uint256 gasPriceArith = request.params[2].get_int64(); // Price as GWei
     gasPriceArith *= WEI_IN_GWEI; // Convert to Wei
@@ -79,7 +79,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     }
 
     const arith_uint256 valueParam = AmountFromValue(request.params[5]);
-    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_WEI * WEI_IN_GWEI).ToArray();
+    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_WEI * WEI_IN_GWEI);
 
     rust::Vec<uint8_t> input{};
     if (!request.params[6].isNull()) {
@@ -96,7 +96,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::array<uint8_t, 32> privKey{};
     std::copy(key.begin(), key.end(), privKey.begin());
 
-    const auto signedTx = create_and_sign_tx(chainID, nonce, gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value, input, privKey);
+    const auto signedTx = create_and_sign_tx(chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey);
     std::vector<uint8_t> evmTx(signedTx.size());
     std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
 

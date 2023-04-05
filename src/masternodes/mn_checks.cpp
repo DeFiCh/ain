@@ -766,11 +766,23 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     return Res::Ok();
 }
 
+Res CCustomTxVisitor::IsEVMEnabled() const {
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+
+    auto attributes = mnview.GetAttributes();
+    Require(attributes, "Attributes unavailable");
+
+    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
+
+    return Res::Ok();
+}
+
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
+    uint64_t evmContext;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -779,11 +791,13 @@ public:
                           CCustomCSView &mnview,
                           const Consensus::Params &consensus,
                           uint64_t time,
-                          uint32_t txn)
+                          uint32_t txn,
+                          const uint64_t evmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
-          txn(txn) {}
+          txn(txn),
+          evmContext(evmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3803,7 +3817,10 @@ public:
     }
 
     Res operator()(const CTransferBalanceMessage &obj) const {
-        auto res = Res::Ok();
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
 
         // owner auth
         if (obj.type != CTransferBalanceType::EvmOut)
@@ -3855,6 +3872,11 @@ public:
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
+
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
@@ -3862,7 +3884,9 @@ public:
             return Res::Err("evm tx failed to validate");
         }
 
-        // TODO Execute TX
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to queue");
+        }
 
         return Res::Ok();
     }
@@ -3945,12 +3969,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmContext), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4035,7 +4060,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time,
                   uint256 *canSpend,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;

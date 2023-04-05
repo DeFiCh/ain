@@ -223,6 +223,8 @@ struct Params {
 
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
+
+    uint64_t evmChainId;
 };
 } // namespace Consensus
 
