@@ -6,7 +6,7 @@
 
 export LC_ALL=C.UTF-8
 
-export HOST=x86_64-apple-darwin18
+export HOST=x86_64-apple-darwin
 export PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools"
 export XCODE_VERSION=12.2
 export XCODE_BUILD_ID=12B45b

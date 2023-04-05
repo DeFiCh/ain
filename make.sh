@@ -305,7 +305,7 @@ docker_purge() {
 get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin18"
+        default_target="x86_64-apple-darwin"
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
     else

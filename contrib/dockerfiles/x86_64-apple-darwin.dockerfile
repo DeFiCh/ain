@@ -1,4 +1,4 @@
-ARG TARGET=x86_64-apple-darwin18
+ARG TARGET=x86_64-apple-darwin
 
 # -----------
 FROM ubuntu:latest as builder-base

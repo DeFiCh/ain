@@ -14,10 +14,6 @@ define $(package)_set_vars
   $(package)_config_opts_linux=--with-pic
 endef
 
-define $(package)_preprocess_cmds
-   cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub config
-endef
-
 define $(package)_config_cmds
   ./autogen.sh && \
   cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub config && \
