@@ -418,7 +418,7 @@ pkg_install_deps_mac_tools() {
 }
 
 pkg_local_mac_sdk() {
-    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
+    local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
 
     mkdir -p ./depends/SDKs
