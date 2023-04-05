@@ -1,7 +1,5 @@
-use ain_evm_state::handler::{EVMHandler, Handlers};
-use ain_evm_state::block::BlockHandler;
+use ain_evm_state::handler::Handlers;
 use ain_evm_state::traits::PersistentState;
-use ain_evm_state::EVM_STATE_PATH;
 use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -50,14 +48,7 @@ impl Runtime {
             .unwrap();
 
         // Persist EVM State to disk
-        self.handlers
-            .evm
-            .state
-            .write()
-            .unwrap()
-            .save_to_disk(EVM_STATE_PATH)
-            .unwrap();
-
+        self.handlers.evm.flush();
         self.handlers.block.flush();
     }
 }

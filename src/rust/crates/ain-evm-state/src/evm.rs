@@ -52,6 +52,10 @@ impl EVMHandler {
         }
     }
 
+    pub fn flush(&self) {
+        self.state.write().unwrap().save_to_disk(EVM_STATE_PATH).unwrap()
+    }
+
     pub fn call_evm(
         &self,
         caller: H160,
