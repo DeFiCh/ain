@@ -25,6 +25,8 @@ jobs:
         fetch-depth: 0
 
     - name: Build Node
+      # TODO: Switch this to a docker build later and this builds on the native
+      # VM toolchain and loses disparity with the CI release builds
       run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
     - name: Upload Binaries
