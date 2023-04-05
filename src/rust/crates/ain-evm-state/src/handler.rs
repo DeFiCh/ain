@@ -13,17 +13,6 @@ use std::sync::{Arc, RwLock};
 use crate::tx_queue::TransactionQueueMap;
 use crate::EVMState;
 
-#[derive(Debug)]
-struct ErrorStr(String);
-
-impl std::fmt::Display for ErrorStr {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Error: {}", self.0)
-    }
-}
-
-impl Error for ErrorStr {}
-
 #[derive(Clone, Debug)]
 pub struct EVMHandler {
     pub state: Arc<RwLock<EVMState>>,
@@ -58,23 +47,17 @@ impl EVMHandler {
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
-    pub fn add_balance(&self, context: u64, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
-        let to = address.parse()?;
-        let mut state = self.state.write().unwrap();
-        let mut account = state.entry(to).or_default();
-        account.balance = account.balance + value;
-        Ok(())
+    pub fn add_balance(&self, context: u64, address: H160, value: U256) {
+        self.tx_queues.add_balance(context, address, value)
     }
 
-    pub fn sub_balance(&self, context: u64, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
-        let address = address.parse()?;
-        let mut state = self.state.write().unwrap();
-        let mut account = state.get_mut(&address).unwrap();
-        if account.balance > value {
-            account.balance = account.balance - value;
-            return Ok(());
-        }
-        Err(Box::new(ErrorStr("Sub balance failed".into())))
+    pub fn sub_balance(
+        &self,
+        context: u64,
+        address: H160,
+        value: U256,
+    ) -> Result<(), Box<dyn Error>> {
+        self.tx_queues.sub_balance(context, address, value)
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
@@ -109,7 +92,8 @@ impl EVMHandler {
     }
 
     pub fn get_context(&self) -> u64 {
-        self.tx_queues.get_context()
+        let state = self.state.read().unwrap().clone();
+        self.tx_queues.get_context(state)
     }
 
     pub fn discard_context(&self, context: u64) {
@@ -130,7 +114,7 @@ impl EVMHandler {
         let mut tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
         let mut failed_tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
         let vicinity = get_vicinity(None, None);
-        let state = self.state.read().unwrap().clone();
+        let state = self.tx_queues.state(context).expect("Wrong context");
         let backend = MemoryBackend::new(&vicinity, state);
         let mut executor = AinExecutor::new(backend);
 
@@ -145,6 +129,8 @@ impl EVMHandler {
                 failed_tx_hashes.push(signed_tx.transaction)
             }
         }
+
+        self.tx_queues.remove(context);
 
         if update_state {
             let mut state = self.state.write().unwrap();
@@ -200,23 +186,25 @@ mod tests {
     #[test]
     fn test_finalize_block_and_update_test() {
         let handler = EVMHandler::new();
-        handler
-            .add_balance(
-                "0x6745f998a96050bb9b0449e6bd4358138a519679",
-                U256::from_str_radix("100000000000000000000", 10).unwrap(),
-            )
-            .unwrap();
         let context = handler.get_context();
+        handler.add_balance(
+            context,
+            "0x6745f998a96050bb9b0449e6bd4358138a519679"
+                .parse()
+                .unwrap(),
+            U256::from_str_radix("100000000000000000000", 10).unwrap(),
+        );
 
         let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
         handler.tx_queues.add_signed_tx(context, tx1.clone());
 
-        handler
-            .add_balance(
-                "0xc0cd829081485e70348975d325fe5275140277bd",
-                U256::from_str_radix("100000000000000000000", 10).unwrap(),
-            )
-            .unwrap();
+        handler.add_balance(
+            context,
+            "0xc0cd829081485e70348975d325fe5275140277bd"
+                .parse()
+                .unwrap(),
+            U256::from_str_radix("100000000000000000000", 10).unwrap(),
+        );
         let tx2: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a01465e2d999c34b22bf4b8b5c9439918e46341f4f0da1b00a6b0479c541161d4aa074abe79c51bf57086e1e84b57ee483cbb2ecf30e8222bc0472436fabfc57dda8".try_into().unwrap();
         handler.tx_queues.add_signed_tx(context, tx2.clone());
 
@@ -281,13 +269,14 @@ mod tests {
     #[test]
     fn test_finalize_block_and_do_not_update_test() {
         let handler = EVMHandler::new();
-        handler
-            .add_balance(
-                "0x4a1080c5533cb89edc4b65013f08f78868e382de",
-                U256::from_str_radix("100000000000000000000", 10).unwrap(),
-            )
-            .unwrap();
         let context = handler.get_context();
+        handler.add_balance(
+            context,
+            "0x4a1080c5533cb89edc4b65013f08f78868e382de"
+                .parse()
+                .unwrap(),
+            U256::from_str_radix("100000000000000000000", 10).unwrap(),
+        );
 
         let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
         handler.tx_queues.add_signed_tx(context, tx1.clone());

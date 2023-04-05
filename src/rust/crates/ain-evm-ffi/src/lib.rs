@@ -33,11 +33,21 @@ mod ffi {
     }
 }
 
-pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<(), Box<dyn Error>> {
-    RUNTIME.evm.add_balance(context, address, amount.into())
+pub fn evm_add_balance(
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+) -> Result<(), Box<dyn Error>> {
+    let address = address.parse()?;
+    Ok(RUNTIME.evm.add_balance(context, address, amount.into()))
 }
 
-pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool, Box<dyn Error>> {
+pub fn evm_sub_balance(
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+) -> Result<bool, Box<dyn Error>> {
+    let address = address.parse()?;
     match RUNTIME.evm.sub_balance(context, address, amount.into()) {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
