@@ -13,6 +13,17 @@ use std::sync::{Arc, RwLock};
 use crate::tx_queue::TransactionQueueMap;
 use crate::EVMState;
 
+#[derive(Debug)]
+struct ErrorStr(String);
+
+impl std::fmt::Display for ErrorStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Error: {}", self.0)
+    }
+}
+
+impl Error for ErrorStr {}
+
 #[derive(Clone, Debug)]
 pub struct EVMHandler {
     pub state: Arc<RwLock<EVMState>>,
@@ -47,7 +58,7 @@ impl EVMHandler {
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
-    pub fn add_balance(&self, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
+    pub fn add_balance(&self, context: u64, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
         let to = address.parse()?;
         let mut state = self.state.write().unwrap();
         let mut account = state.entry(to).or_default();
@@ -55,14 +66,15 @@ impl EVMHandler {
         Ok(())
     }
 
-    pub fn sub_balance(&self, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
+    pub fn sub_balance(&self, context: u64, address: &str, value: U256) -> Result<(), Box<dyn Error>> {
         let address = address.parse()?;
         let mut state = self.state.write().unwrap();
         let mut account = state.get_mut(&address).unwrap();
         if account.balance > value {
             account.balance = account.balance - value;
+            return Ok(());
         }
-        Ok(())
+        Err(Box::new(ErrorStr("Sub balance failed".into())))
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
