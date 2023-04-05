@@ -57,7 +57,9 @@ impl EVMHandler {
         address: H160,
         value: U256,
     ) -> Result<(), Box<dyn Error>> {
-        self.tx_queues.sub_balance(context, address, value)
+        self.tx_queues
+            .sub_balance(context, address, value)
+            .map_err(|e| e.into())
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
