@@ -1,4 +1,4 @@
-use heck::{ToPascalCase, ToSnekCase};
+use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -672,7 +672,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lowercase());
+                .unwrap_or_else(|| method.name.to_lower_camel_case());
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]
