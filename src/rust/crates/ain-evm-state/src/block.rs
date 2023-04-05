@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::ops::Index;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use ethereum::BlockAny;
-use primitive_types::H256;
+use primitive_types::{H256, U256};
 use crate::traits::PersistentState;
 
 
@@ -13,7 +14,7 @@ pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
 
 
-type BlockHashtoBlock = HashMap<H256, BlockAny>;
+type BlockHashtoBlock = HashMap<H256, U256>;
 type Blocks = Vec<BlockAny>;
 
 pub struct BlockHandler {
@@ -33,7 +34,7 @@ impl PersistentState for BlockHashtoBlock {
             let mut file = File::open(path).map_err(|e| e.to_string())?;
             let mut data = Vec::new();
             file.read_to_end(&mut data).map_err(|e| e.to_string())?;
-            let new_state: HashMap<H256, BlockAny> =
+            let new_state: HashMap<H256, U256> =
                 bincode::deserialize(&data).map_err(|e| e.to_string())?;
             Ok(new_state)
         } else {
@@ -75,14 +76,25 @@ impl BlockHandler {
         }
     }
 
+    pub fn connect_block(&self, block: BlockAny) {
+        let mut blocks = self.blocks.write().unwrap();
+        blocks.push(block.clone());
+
+        let mut blockhash = self.block_map.write().unwrap();
+        blockhash.insert(block.header.hash(), block.header.number);
+    }
+
     pub fn flush(&self) {
         let _ = self.block_map.write().unwrap().save_to_disk(BLOCK_MAP_PATH).unwrap();
         let _ = self.blocks.write().unwrap().save_to_disk(BLOCK_DATA_PATH).unwrap();
     }
 
     pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, Box<dyn Error>> {
-        let blocks = self.block_map.read().unwrap();
-        let block = blocks.get(&hash).unwrap().clone();
+        let block_map = self.block_map.read().unwrap();
+        let block_number = block_map.get(&hash).unwrap().clone();
+
+        let blocks = self.blocks.read().unwrap();
+        let block = blocks.get(block_number.as_usize()).unwrap().clone();
 
         Ok(block)
     }
