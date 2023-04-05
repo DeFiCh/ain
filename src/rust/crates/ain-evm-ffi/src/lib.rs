@@ -7,8 +7,8 @@ use std::error::Error;
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
-        fn evm_add_balance(address: &str, amount: [u8; 32]) -> Result<()>;
-        fn evm_sub_balance(address: &str, amount: [u8; 32]) -> Result<()>;
+        fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
+        fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
@@ -33,12 +33,15 @@ mod ffi {
     }
 }
 
-pub fn evm_add_balance(address: &str, amount: [u8; 32]) -> Result<(), Box<dyn Error>> {
-    RUNTIME.evm.add_balance(address, amount.into())
+pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<(), Box<dyn Error>> {
+    RUNTIME.evm.add_balance(context, address, amount.into())
 }
 
-pub fn evm_sub_balance(address: &str, amount: [u8; 32]) -> Result<(), Box<dyn Error>> {
-    RUNTIME.evm.sub_balance(address, amount.into())
+pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool, Box<dyn Error>> {
+    match RUNTIME.evm.sub_balance(context, address, amount.into()) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
 }
 
 pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
