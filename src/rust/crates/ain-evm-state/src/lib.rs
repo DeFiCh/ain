@@ -42,6 +42,7 @@ impl PersistentState for EVMState {
 mod tests {
     use super::*;
     use crate::handler::{EVMHandler, ExitReason, ExitSucceed};
+    use ethereum::AccessListItem;
     use primitive_types::{H160, H256, U256};
     use std::str::FromStr;
 
@@ -161,15 +162,19 @@ mod tests {
     #[test]
     fn should_call_evm() {
         let handler = EVMHandler::new();
-        let _ = handler.add_balance(ALICE, 1000);
+        let _ = handler.add_balance(ALICE, U256::from(1000));
+        let item = AccessListItem {
+            address: H160::default(),
+            storage_keys: vec![H256::default()],
+        };
 
-        let res = handler.call_evm(
-            H160::from_str(ALICE).unwrap(),
-            H160::from_str(BOB).unwrap(),
+        let res = handler.call(
+            Some(H160::from_str(ALICE).unwrap()),
+            Some(H160::from_str(BOB).unwrap()),
             U256::from(1000u64),
-            vec![],
+            &vec![u8::default()],
             100000u64,
-            vec![(H160::default(), vec![H256::default()])],
+            vec![item],
         );
         assert_eq!(res, (ExitReason::Succeed(ExitSucceed::Stopped), vec![]))
     }

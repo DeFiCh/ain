@@ -1,9 +1,8 @@
 #![cfg(test)]
 
-use std::str::FromStr;
 use std::sync::Arc;
 
-use primitive_types::{H160, H256, U256};
+use primitive_types::U256;
 
 use ain_evm_state::handler::EVMHandler;
 
@@ -50,7 +49,7 @@ fn should_get_balance() {
     assert_eq!(res.unwrap().balance, "0");
 
     handler
-        .add_balance(ALICE, 1337)
+        .add_balance(ALICE, U256::from(1337))
         .map_err(|err| println!("err: {:?}", err))
         .ok();
 
