@@ -65,7 +65,7 @@ define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install && \
   mkdir -p $($(package)_staging_prefix_dir)/lib/ && \
   cd $($(package)_extract_dir) && \
-  cp lib/libtapi.so.6 $($(package)_staging_prefix_dir)/lib/ && \
+  cp lib/libtapi.so.* $($(package)_staging_prefix_dir)/lib/ && \
   cd $($(package)_extract_dir)/toolchain && \
   mkdir -p $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include && \
   mkdir -p $($(package)_staging_prefix_dir)/bin $($(package)_staging_prefix_dir)/include && \
