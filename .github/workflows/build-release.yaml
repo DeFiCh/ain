@@ -47,7 +47,7 @@ jobs:
         tags: latest,${{ env.BUILD_VERSION }}
 
   windows:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -63,7 +63,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
 
   macos:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -83,7 +83,7 @@ jobs:
       - linux
       - windows
       - macos
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
