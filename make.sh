@@ -17,8 +17,6 @@ setup_vars() {
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
-
-    CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
 
     TARGET=${TARGET:-"$(get_default_target)"}
@@ -401,7 +399,7 @@ pkg_install_deps() {
 
 pkg_install_deps_mingw_x86_64() {
   apt install -y \
-        g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
+        g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
 }
 
 pkg_install_deps_armhf() {
