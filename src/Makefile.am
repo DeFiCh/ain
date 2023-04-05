@@ -63,13 +63,13 @@ $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(w
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_CONSENSUS) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_SPV) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_CLI) \
+  $(LIBDEFI_UTIL) \
+  $(LIBDEFI_COMMON) \
+  $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_SPV) \
+  $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
 
