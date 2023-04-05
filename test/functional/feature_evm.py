@@ -37,6 +37,7 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].getbalance()
         self.nodes[0].utxostoaccount({address: "101@DFI"})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
         DFIbalance = self.nodes[0].getaccount(address, {}, True)['0']

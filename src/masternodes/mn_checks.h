@@ -58,6 +58,7 @@ protected:
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const;
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
+    Res IsEVMEnabled() const;
 };
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
