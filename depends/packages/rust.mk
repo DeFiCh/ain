@@ -43,10 +43,14 @@ define $(package)_build_cmds
 endef
 
 # We add the host os target
+# Calling rustup target add with the current installed again to ensure if
+# the target var is empty, the command still succeeds
 define $(package)_stage_cmds
     RUSTUP_HOME="$($(package)_RUSTUP_HOME)" \
     CARGO_HOME="$($(package)_CARGO_HOME)" \
-    $($(package)_CARGO_HOME)/bin/rustup target add $($(package)_target)
+    $($(package)_CARGO_HOME)/bin/rustup target add \
+      $$($($(package)_CARGO_HOME)/bin/rustup target list --installed) \
+      $($(package)_target)
 endef
 
 define $(package)_postprocess_cmds
