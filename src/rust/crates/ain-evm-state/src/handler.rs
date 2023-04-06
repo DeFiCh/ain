@@ -1,25 +1,12 @@
-use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
-use anyhow::anyhow;
-use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
-use evm::{
-    backend::{MemoryBackend, MemoryVicinity},
-    ExitReason,
-};
-use hex::FromHex;
-use primitive_types::{H160, H256, U256};
-use std::error::Error;
-use std::sync::{Arc, RwLock};
+use crate::block::BlockHandler;
+use crate::evm::EVMHandler;
 
-use crate::tx_queue::TransactionQueueMap;
-use crate::EVMState;
-
-#[derive(Clone, Debug)]
-pub struct EVMHandler {
-    pub state: Arc<RwLock<EVMState>>,
-    pub tx_queues: Arc<TransactionQueueMap>,
+pub struct Handlers {
+    pub evm: EVMHandler,
+    pub block: BlockHandler,
 }
 
-impl EVMHandler {
+impl Handlers {
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(EVMState::new())),
