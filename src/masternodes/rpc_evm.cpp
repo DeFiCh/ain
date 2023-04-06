@@ -3,9 +3,6 @@
 #include <libain_evm.h>
 #include <key_io.h>
 
-const int64_t WEI_IN_GWEI    = 1000000000;
-const int64_t CAMOUNT_TO_WEI = 10;
-
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 

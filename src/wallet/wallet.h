@@ -9,7 +9,6 @@
 #include <amount.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
-#include <libain_evm.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <script/sign.h>
@@ -59,7 +58,7 @@ bool HasWallets();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
 std::shared_ptr<CWallet> GetWallet(const std::string& name);
 std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocation& location, std::string& error, std::string& warning);
-std::array<uint8_t, 32> GetKeyFromWallets(rust::Vec<uint8_t> input);
+std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input);
 
 CKey GetWalletsKey(CKeyID const & keyid);
 
