@@ -1051,7 +1051,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
     auto price            = priceFeed.val->priceRecord[priceRecordIndex];
-    
+
     if (price <= 0) {
         return DeFiErrors::OracleNegativePrice(tokenSymbol, currency);
     }
