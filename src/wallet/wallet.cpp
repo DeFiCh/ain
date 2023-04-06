@@ -156,7 +156,7 @@ std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocati
     return wallet;
 }
 
-std::array<uint8_t, 32> GetKeyFromWallets(rust::Vec<uint8_t> input) {
+std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input) {
     CKey key;
     CKeyID keyID;
     std::copy(input.begin(), input.end(), keyID.begin());
@@ -167,7 +167,7 @@ std::array<uint8_t, 32> GetKeyFromWallets(rust::Vec<uint8_t> input) {
         }
     }
 
-    std::array<uint32_t, 32> result{};
+    std::array<uint8_t, 32> result{};
     std::copy(key.begin(), key.end(), result.begin());
 
     return result;
