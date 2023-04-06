@@ -1,4 +1,4 @@
-packages:=boost libevent
+packages:=boost libevent rust protobuf
 
 rapidcheck_packages = rapidcheck
 
