@@ -15,9 +15,8 @@ dependencies = [
 name = "ain-evm"
 version = "0.1.0"
 dependencies = [
- "ain-evm-runtime",
- "ain-evm-state",
- "ain-grpc",
+ "ain-utils",
+ "anyhow",
  "ethereum",
  "evm",
  "hex",
@@ -39,6 +38,7 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "proc-macro2",
+ "rlp",
  "substrate-build-script-utils",
 ]
 
@@ -62,9 +62,15 @@ dependencies = [
 name = "ain-evm-state"
 version = "0.1.0"
 dependencies = [
+ "ain-evm",
+ "anyhow",
  "bincode",
+ "ethereum",
  "evm",
+ "hex",
  "primitive-types",
+ "rand",
+ "rlp",
 ]
 
 [[package]]
@@ -76,6 +82,7 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "env_logger",
+ "ethereum",
  "heck",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -96,6 +103,17 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+]
+
+[[package]]
+name = "ain-utils"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "hex-literal",
+ "libsecp256k1",
+ "primitive-types",
+ "sha3",
 ]
 
 [[package]]
@@ -762,6 +780,12 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "hex-literal"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
 
 [[package]]
 name = "hmac"

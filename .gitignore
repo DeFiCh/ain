@@ -156,3 +156,4 @@ src/secp256k1/src/ecmult_static_context.h
 # EVM
 src/evm/Cargo.lock
 src/evm/target/
+*.bin

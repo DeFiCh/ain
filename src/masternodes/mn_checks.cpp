@@ -9,6 +9,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
+#include <libain_evm.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>
@@ -344,6 +345,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.FortCanningRoadHeight,        "called before FortCanningRoad height" },
                 { consensus.FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
+                { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
         if (startHeight && int(height) < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -764,11 +766,23 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     return Res::Ok();
 }
 
+Res CCustomTxVisitor::IsEVMEnabled() const {
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+
+    auto attributes = mnview.GetAttributes();
+    Require(attributes, "Attributes unavailable");
+
+    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
+
+    return Res::Ok();
+}
+
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
+    uint64_t evmContext;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -777,11 +791,13 @@ public:
                           CCustomCSView &mnview,
                           const Consensus::Params &consensus,
                           uint64_t time,
-                          uint32_t txn)
+                          uint32_t txn,
+                          const uint64_t evmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
-          txn(txn) {}
+          txn(txn),
+          evmContext(evmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3801,7 +3817,10 @@ public:
     }
 
     Res operator()(const CTransferBalanceMessage &obj) const {
-        auto res = Res::Ok();
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
 
         // owner auth
         if (obj.type != CTransferBalanceType::EvmOut)
@@ -3815,12 +3834,6 @@ public:
         const auto sumFrom = SumAllTransfers(obj.from);
         const auto sumTo   = SumAllTransfers(obj.to);
 
-        if (obj.type == CTransferBalanceType::EvmIn || obj.type == CTransferBalanceType::EvmOut) {
-            for (const auto& [id, _] : sumFrom.balances)
-                if (id != DCT_ID{0})
-                    return Res::Err("For EVM in/out transfers only DFI token is currently supported");
-        }
-
         if (sumFrom != sumTo)
             return Res::Err("sum of inputs (from) != sum of outputs (to)");
 
@@ -3832,18 +3845,32 @@ public:
             if (!res)
                 return res;
         } else if (obj.type == CTransferBalanceType::EvmIn) {
-            for (const auto& [addr, _] : obj.to) {
+            res = SubBalancesDelShares(obj.from);
+            if (!res)
+                return res;
+
+            for (const auto& [addr, balances] : obj.to) {
                 CTxDestination dest;
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
                         return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
                     }
                 }
+
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+
+                for (const auto& [id, amount] : balances.balances) {
+                    if (id != DCT_ID{0}) {
+                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
+                    }
+
+                    arith_uint256 balanceIn = amount;
+                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
+                }
             }
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
         } else if (obj.type == CTransferBalanceType::EvmOut) {
+
             for (const auto& [addr, _] : obj.from) {
                 CTxDestination dest;
                 if (ExtractDestination(addr, dest)) {
@@ -3866,6 +3893,20 @@ public:
                 }
                 if (!foundAuth)
                     return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
+
+                const auto fromAddress = std::get<WitnessV16EthHash>(dest);
+
+                for (const auto& [id, amount] : balances.balances) {
+                    if (id != DCT_ID{0}) {
+                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
+                    }
+
+                    arith_uint256 balanceIn = amount;
+                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
+                        return Res::Err("Not enough balance in %s to cover EVM out", EncodeDestination(dest));
+                    }
+                }
             }
 
             res = AddBalancesSetShares(obj.to);
@@ -3877,8 +3918,22 @@ public:
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
+        auto res = IsEVMEnabled();
+        if (!res) {
+            return res;
+        }
+
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
+
+        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to validate");
+        }
+
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
+            return Res::Err("evm tx failed to queue");
+        }
+
         return Res::Ok();
     }
 
@@ -3960,12 +4015,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmContext), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4050,7 +4106,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time,
                   uint256 *canSpend,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4074,7 +4131,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
