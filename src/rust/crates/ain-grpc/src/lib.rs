@@ -35,8 +35,8 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();
-    methods.merge(BlockchainService::new(Arc::clone(&runtime.evm)).module()?)?;
-    methods.merge(EthService::new(Arc::clone(&runtime.evm)).module()?)?;
+    methods.merge(BlockchainService::new(Arc::clone(&runtime.handlers)).module()?)?;
+    methods.merge(EthService::new(Arc::clone(&runtime.handlers)).module()?)?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
     Ok(())
@@ -46,8 +46,8 @@ pub fn add_grpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Erro
     log::info!("Starting gRPC server at {}", addr);
     runtime.rt_handle.spawn(
         Server::builder()
-            .add_service(BlockchainService::new(Arc::clone(&runtime.evm)).service())
-            .add_service(EthService::new(Arc::clone(&runtime.evm)).service())
+            .add_service(BlockchainService::new(Arc::clone(&runtime.handlers)).service())
+            .add_service(EthService::new(Arc::clone(&runtime.handlers)).service())
             .serve(addr.parse()?),
     );
     Ok(())
