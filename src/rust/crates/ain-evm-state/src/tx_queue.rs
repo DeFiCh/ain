@@ -7,7 +7,7 @@ use std::{
 
 use ain_evm::transaction::SignedTx;
 
-use crate::EVMState;
+use crate::evm::EVMState;
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
