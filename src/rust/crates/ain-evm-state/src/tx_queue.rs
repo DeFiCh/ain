@@ -27,8 +27,8 @@ impl TransactionQueueMap {
             let context = rng.gen();
             let mut write_guard = self.queues.write().unwrap();
 
-            if !write_guard.contains_key(&context) {
-                write_guard.insert(context, TransactionQueue::new(state));
+            if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {
+                e.insert(TransactionQueue::new(state));
                 return context;
             }
         }
@@ -84,11 +84,7 @@ impl TransactionQueueMap {
     }
 
     pub fn state(&self, context_id: u64) -> Option<EVMState> {
-        if let Some(queue) = self.queues.read().unwrap().get(&context_id) {
-            Some(queue.state())
-        } else {
-            None
-        }
+        self.queues.read().unwrap().get(&context_id).map(|queue| queue.state())
     }
 }
 
@@ -132,15 +128,15 @@ impl TransactionQueue {
 
     pub fn add_balance(&self, address: H160, value: U256) {
         let mut state = self.state.write().unwrap();
-        let mut account = state.entry(address).or_default();
-        account.balance = account.balance + value;
+        let account = state.entry(address).or_default();
+        account.balance += value;
     }
 
     pub fn sub_balance(&self, address: H160, value: U256) -> Result<(), QueueError> {
         let mut state = self.state.write().unwrap();
-        let mut account = state.get_mut(&address).unwrap();
+        let account = state.get_mut(&address).unwrap();
         if account.balance > value {
-            account.balance = account.balance - value;
+            account.balance -= value;
             Ok(())
         } else {
             Err(QueueError::InsufficientBalance)

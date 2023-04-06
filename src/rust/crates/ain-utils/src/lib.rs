@@ -28,15 +28,13 @@ pub fn public_key_to_address(pubkey: &PublicKey) -> H160 {
     ret
 }
 
+#[cfg(test)]
 mod tests {
-    #[macro_use]
     use hex_literal::hex;
 
-    use libsecp256k1::PublicKey;
-    use primitive_types::{H160, H256};
+    use primitive_types::H256;
 
     use super::{public_key_to_address, recover_public_key};
-    use hex::FromHex;
 
     #[test]
     fn test_recover_public_key_and_address() {

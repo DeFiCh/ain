@@ -6,9 +6,7 @@ use crate::codegen::rpc::{
     EthService,
 };
 use ain_evm_state::handler::Handlers;
-use ethereum::BlockAny;
-use serde::Serialize;
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of_val;
 use std::sync::Arc;
 
 pub trait EthServiceApi {
@@ -37,17 +35,15 @@ impl EthServiceApi for EthService {
         input: EthCallInput,
     ) -> Result<EthCallResult, jsonrpsee_core::Error> {
         let EthCallInput {
-            transaction_info,
-            block_number,
+            transaction_info, ..
         } = input;
         let EthTransactionInfo {
             from,
             to,
             gas,
-            price,
             value,
             data,
-            nonce,
+            ..
         } = transaction_info;
 
         let from = from.parse().ok();
@@ -61,7 +57,7 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Eth_Accounts(handler: Arc<Handlers>) -> Result<EthAccountsResult, jsonrpsee_core::Error> {
+    fn Eth_Accounts(_handler: Arc<Handlers>) -> Result<EthAccountsResult, jsonrpsee_core::Error> {
         // Get from wallet
         Ok(EthAccountsResult { accounts: vec![] })
     }
@@ -69,10 +65,7 @@ impl EthServiceApi for EthService {
         handler: Arc<Handlers>,
         input: EthGetBalanceInput,
     ) -> Result<EthGetBalanceResult, jsonrpsee_core::Error> {
-        let EthGetBalanceInput {
-            address,
-            block_number,
-        } = input;
+        let EthGetBalanceInput { address, .. } = input;
         let address = address.parse().expect("Wrong address");
         let balance = handler
             .evm
