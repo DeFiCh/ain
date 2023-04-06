@@ -356,7 +356,7 @@ git_version() {
     local current_commit
     local current_branch
 
-    git fetch --tags
+    git fetch --tags > /dev/null
     current_tag=$(git tag --points-at HEAD | head -1)
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
