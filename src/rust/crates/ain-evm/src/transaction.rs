@@ -123,7 +123,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     tx.signature.s(),
                     tx.signature.standard_v(),
                 )
-            }
+            },
             TransactionV2::EIP2930(tx) => {
                 let msg = ethereum::EIP2930TransactionMessage {
                     chain_id: tx.chain_id,
