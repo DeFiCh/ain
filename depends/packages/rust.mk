@@ -26,6 +26,9 @@ define $(package)_set_vars
   ifeq ($(host_os)-$(host_arch),darwin-arm)
     $(package)_target=aarch64-apple-darwin
   endif
+  ifeq ($(host_os)-$(host_arch),mingw32-x86_64)
+    $(package)_target=x86_64-pc-windows-gnu
+  endif
 endef
 
 # We don't limit at the moment
@@ -43,13 +46,13 @@ define $(package)_build_cmds
 endef
 
 # We add the host os target
-# Calling rustup target add with the current installed again to ensure if
+# We'll add the default toolchain always to ensure if
 # the target var is empty, the command still succeeds
 define $(package)_stage_cmds
     RUSTUP_HOME="$($(package)_RUSTUP_HOME)" \
     CARGO_HOME="$($(package)_CARGO_HOME)" \
     $($(package)_CARGO_HOME)/bin/rustup target add \
-      $$($($(package)_CARGO_HOME)/bin/rustup target list --installed) \
+      x86_64-unknown-linux-gnu \
       $($(package)_target)
 endef
 
