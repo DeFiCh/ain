@@ -121,7 +121,19 @@ impl TryFrom<TransactionV2> for SignedTx {
                 )
             },
             TransactionV2::EIP2930(tx) => {
-                recover_public_key(&tx.hash(), &tx.r, &tx.s, tx.odd_y_parity as u8)
+                let msg = ethereum::EIP2930TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    gas_price: tx.gas_price,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: vec![],
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let hash = H256::from(signing_message.serialize());
+                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
             }
             TransactionV2::EIP1559(tx) => {
                 let msg = ethereum::EIP1559TransactionMessage {
