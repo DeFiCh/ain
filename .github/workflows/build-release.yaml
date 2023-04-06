@@ -70,13 +70,13 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Build and package
-      run: TARGET="x86_64-apple-darwin18" ./make.sh docker-release-git
+      run: TARGET="x86_64-apple-darwin" ./make.sh docker-release-git
 
-    - name: Publish artifact - x86_64-apple-darwin18
+    - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
 
   create-release:
     needs:
@@ -120,8 +120,8 @@ jobs:
         sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
         cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
         sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip > ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
-        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz > ././defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz.SHA256
+        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
+        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz > ././defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
 
     - name: Upload release asset - linux
       uses: actions/upload-release-asset@v1
@@ -169,8 +169,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
         asset_content_type: application/gzip
 
     - name: Upload checksum asset - macos
@@ -179,6 +179,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz.SHA256
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
         asset_content_type: text/plain

@@ -63,13 +63,13 @@ $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(w
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_CONSENSUS) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_SPV) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_CLI) \
+  $(LIBDEFI_UTIL) \
+  $(LIBDEFI_COMMON) \
+  $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_SPV) \
+  $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
 
@@ -451,7 +451,6 @@ endif
 if !ENABLE_WALLET
 libdefi_server_a_SOURCES += dummywallet.cpp
 endif
-libdefi_server_a_LIBADD = $(LIBDEFI_CONSENSUS)
 
 if ENABLE_ZMQ
 libdefi_zmq_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(ZMQ_CFLAGS)
@@ -681,14 +680,14 @@ defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_COMMON) \
-  $(LIBUNIVALUE) \
-  $(LIBDEFI_SPV) \
   $(LIBDEFI_UTIL) \
-  $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_SPV) \
+  $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
+  $(LIBUNIVALUE) \
   $(LIBSECP256K1)
 
 defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)

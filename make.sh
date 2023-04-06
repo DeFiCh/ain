@@ -305,7 +305,7 @@ docker_purge() {
 get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin18"
+        default_target="x86_64-apple-darwin"
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
     else
@@ -337,10 +337,10 @@ get_default_conf_args() {
     fi
     conf_args="${conf_args} --enable-static";
     conf_args="${conf_args} --enable-reduce-exports";
-    conf_args="${conf_args} LDFLAGS=-static-libgcc";
     # Note: https://stackoverflow.com/questions/13636513/linking-libstdc-statically-any-gotchas
     # We don't use dynamic loading at the time being
     conf_args="${conf_args} LDFLAGS=-static-libstdc++";
+    # Other potential options: -static-libgcc on gcc, -static on clang
     echo "$conf_args"
 }
 
@@ -418,7 +418,7 @@ pkg_install_deps_mac_tools() {
 }
 
 pkg_local_mac_sdk() {
-    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
+    local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
 
     mkdir -p ./depends/SDKs
