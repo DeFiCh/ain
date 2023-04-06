@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-w64-mingw32
 
 # -----------
-FROM ubuntu:latest as builder-base
+FROM --platform=linux/amd64 ubuntu:latest as builder-base
 ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
@@ -46,7 +46,7 @@ RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:latest
+FROM --platform=linux/amd64 ubuntu:latest
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
