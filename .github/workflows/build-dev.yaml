@@ -70,7 +70,24 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
         path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
+  
+  linux-aarch64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+    - uses: actions/checkout@v3
 
+    - name: Build and package
+      run: TARGET="aarch64-linux-gnu" ./make.sh docker-release-git
+
+    - name: Publish artifact - aarch64-linux-gnu
+      uses: actions/upload-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz
+  
   win-x64:
     runs-on: ${{ matrix.os }}
     strategy:
