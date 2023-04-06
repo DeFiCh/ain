@@ -3834,6 +3834,12 @@ public:
         const auto sumFrom = SumAllTransfers(obj.from);
         const auto sumTo   = SumAllTransfers(obj.to);
 
+        if (obj.type == CTransferBalanceType::EvmIn || obj.type == CTransferBalanceType::EvmOut) {
+            for (const auto& [id, _] : sumFrom.balances)
+                if (id != DCT_ID{0})
+                    return Res::Err("For EVM in/out transfers only DFI token is currently supported");
+        }
+
         if (sumFrom != sumTo)
             return Res::Err("sum of inputs (from) != sum of outputs (to)");
 
@@ -3845,54 +3851,18 @@ public:
             if (!res)
                 return res;
         } else if (obj.type == CTransferBalanceType::EvmIn) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-
-            for (const auto& [addr, balances] : obj.to) {
+            for (const auto& [addr, _] : obj.to) {
                 CTxDestination dest;
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
                         return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
                     }
                 }
-
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
-                }
             }
+            res = SubBalancesDelShares(obj.from);
+            if (!res)
+                return res;
         } else if (obj.type == CTransferBalanceType::EvmOut) {
-            for (const auto& [addr, balances] : obj.from) {
-                CTxDestination dest;
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("Invalid destination");
-                    }
-                }
-
-                const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover EVM out", EncodeDestination(dest));
-                    }
-                }
-            }
-
             res = AddBalancesSetShares(obj.to);
             if (!res)
                 return res;
@@ -4115,7 +4085,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
