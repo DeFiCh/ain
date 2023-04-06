@@ -1,4 +1,4 @@
-use heck::{ToPascalCase, ToSnekCase};
+use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -315,13 +315,13 @@ fn modify_codegen(
             &quote!(
                 #[derive(Clone)]
                 pub struct #service {
-                    adapter: Arc<EVMHandler>
+                    adapter: Arc<Handlers>
                 }
 
                 impl #service {
                     #[inline]
                     #[allow(dead_code)]
-                    pub fn new(adapter: Arc<EVMHandler>) -> #service {
+                    pub fn new(adapter: Arc<Handlers>) -> #service {
                         #service {
                             adapter
                         }
@@ -462,7 +462,7 @@ fn apply_substitutions(
         use crate::rpc::*;
         #[allow(unused_imports)]
         use self::ffi::*;
-        use ain_evm_state::handler::EVMHandler;
+        use ain_evm_state::handler::Handlers;
         #[derive(Clone)]
         pub struct Client {
             inner: Arc<HttpClient>,
@@ -672,7 +672,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lowercase());
+                .unwrap_or_else(|| method.name.to_lower_camel_case());
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]
