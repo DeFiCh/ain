@@ -31,12 +31,11 @@ define $(package)_set_vars
   endif
 endef
 
-# We don't limit at the moment
-# define $(package)_preprocess_cmds
-#   test "x$($(package)_target)" = "x" && \
-#     echo "Unsupported host platform: $(HOST)" && \
-#     exit 1 || exit 0
-# endef
+define $(package)_preprocess_cmds
+  test "$($(package)_target)" = "" && \
+    echo "Unsupported host platform: $(HOST)" && \
+    exit 1 || exit 0
+endef
 
 # This autoinstalls the build os target
 define $(package)_build_cmds
@@ -46,8 +45,6 @@ define $(package)_build_cmds
 endef
 
 # We add the host os target
-# We'll add the default toolchain always to ensure if
-# the target var is empty, the command still succeeds
 define $(package)_stage_cmds
     RUSTUP_HOME="$($(package)_RUSTUP_HOME)" \
     CARGO_HOME="$($(package)_CARGO_HOME)" \
