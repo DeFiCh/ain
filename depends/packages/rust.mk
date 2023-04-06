@@ -52,7 +52,6 @@ define $(package)_stage_cmds
     RUSTUP_HOME="$($(package)_RUSTUP_HOME)" \
     CARGO_HOME="$($(package)_CARGO_HOME)" \
     $($(package)_CARGO_HOME)/bin/rustup target add \
-      x86_64-unknown-linux-gnu \
       $($(package)_target)
 endef
 
