@@ -2,15 +2,22 @@ SHELL := /bin/bash
 CARGO_TOOLCHAIN ?= stable
 CARGO_ARGS ?=
 CARGO ?= cargo
+LIB_ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+STAMP := $(LIB_ROOT_DIR)/target/.stamp
+
+# The file list to override for dep tracking
+export ALL_CARGO_SRC ?= 
 
 # On the makefile that calls it, we'll ensure to default it 0.
-# This makes for easier dev workflow
+# This makes for easier dev workflow since except for the final build and
+# select scenarios, debug builds are the more common workflow
 export DEBUG ?= 1
+export LIB_TARGET_DIR := $(if $(findstring 1,$(DEBUG)),$(LIB_ROOT_DIR)/target/debug,$(LIB_ROOT_DIR)/target/release)
 
 .ONESHELL:
 
-.PHONY: default
-default: build
+.PHONY:
+default:
 
 .PHONY: release
 release: DEBUG=0
@@ -20,13 +27,14 @@ release: clean build
 debug: DEBUG=1
 debug: build
 
-.PHONY: dev
-dev: DEBUG=1
-dev: run
+# For dev workflow
+.PHONY: prepare
+prepare: check fmt clippy
 
 .PHONY: clean
-clean:
+clean: 
 	@$(call cargo,clean)
+	@rm -f $(STAMP)
 
 .PHONY: build
 build: 
@@ -41,21 +49,19 @@ check:
 	@$(call cargo,check)
 
 .PHONY: test
-check: 
+test: 
 	@$(call cargo,test)
 
 .PHONY: fmt
 fmt: 
-	$(CARGO) +$(CARGO_TOOLCHAIN) fmt
+	@$(call cargo,fmt)
 
 .PHONY: clippy
 clippy: 
-	$(CARGO) +$(CARGO_TOOLCHAIN) clippy
+	@$(call cargo,clippy)
 
-# For dev workflow
-.PHONY: prepare
-prepare: check fmt clippy
-
+$(STAMP): $(ALL_CARGO_SRC) 
+	@touch $@
 
 define cargo =
 set -e;

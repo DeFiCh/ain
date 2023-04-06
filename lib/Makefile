@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 SUBDIRS := $(wildcard ain-*/.)
-SUB_TARGETS := build debug clean check test fmt clippy
+SUB_TARGETS := build debug clean check test fmt clippy prepare
 
 .ONESHELL:
 
