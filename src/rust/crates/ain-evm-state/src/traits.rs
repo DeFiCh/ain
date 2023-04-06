@@ -7,26 +7,13 @@ pub trait PersistentState {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::evm::EVMState;
     use crate::traits::PersistentState;
-    use crate::tx_queue::TransactionQueueMap;
-    use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
-    use anyhow::anyhow;
-    use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
     use evm::backend::MemoryAccount;
-    use evm::{
-        backend::{MemoryBackend, MemoryVicinity},
-        ExitReason,
-    };
-    use hex::FromHex;
     use primitive_types::{H160, H256, U256};
     use std::collections::BTreeMap;
-    use std::error::Error;
     use std::fs::File;
-    use std::io::{Read, Write};
-    use std::path::Path;
-    use std::sync::{Arc, RwLock};
+    use std::io::Write;
 
     fn create_account(
         nonce: U256,

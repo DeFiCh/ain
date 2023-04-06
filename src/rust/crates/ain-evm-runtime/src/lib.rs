@@ -1,5 +1,5 @@
 use ain_evm_state::handler::Handlers;
-use ain_evm_state::traits::PersistentState;
+
 use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
