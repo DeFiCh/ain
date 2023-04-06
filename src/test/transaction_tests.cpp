@@ -851,7 +851,11 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 // Demonstrates usage of FFI call to create, sign and execute Eth TXs
 BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     // Private key 1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571
-    // Address 0xf829754bae400b679febefdcfc9944c323e1f94e
+    // Public key 044c6412f7cd3ac0e2538c3c9843d27d1e03b422eaf655c6a699da22b57a89802989318dbaeea62f5fc751fa8cd1404e687d67b8ab8513fe0d37bafbf407aa6cf7
+    // From address 0xf829754bae400b679febefdcfc9944c323e1f94e
+    // v 45
+    // r ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46
+    // s 1d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002
 
     const uint64_t chainID{5}; // Goerli testnetwork
 

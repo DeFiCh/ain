@@ -41,22 +41,26 @@ mod tests {
     #[test]
     fn test_recover_public_key_and_address() {
         let hash = H256::from_slice(&hex!(
-            "6091be99153563845f8af2ff710a9854a70551a5a6b914a296931444fa360d40"
+            "d107d8794e181ce28f9d3e50312941a775e137c7b70b64bd9221db6a68ffd1ea"
         ));
         let r = H256::from_slice(&hex!(
-            "f53cdd6fad6cb1014486fbc626f0a8109cce5df1529e6070432bb8798642e548"
+            "ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46"
         ));
         let s = H256::from_slice(&hex!(
-            "759484f7adefce95559ed3c07bb179586ceb74bb4aac060dc1f6d6aa58b95a42"
+            "1d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002"
         ));
         let recovery_id = 0;
 
         let pubkey = recover_public_key(&hash, &r, &s, recovery_id);
         assert!(pubkey.is_ok());
+        assert_eq!(
+            hex::encode(&pubkey.unwrap().serialize()),
+            "044c6412f7cd3ac0e2538c3c9843d27d1e03b422eaf655c6a699da22b57a89802989318dbaeea62f5fc751fa8cd1404e687d67b8ab8513fe0d37bafbf407aa6cf7"
+        );
         let address = public_key_to_address(&pubkey.unwrap());
         assert_eq!(
             address,
-            "89790061e1efe88bda902193c8ab3b061aa4ef2c".parse().unwrap()
+            "f829754bae400b679febefdcfc9944c323e1f94e".parse().unwrap()
         );
     }
 }
