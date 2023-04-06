@@ -1,4 +1,4 @@
-use crate::traits::PersistentState;
+use crate::traits::{PersistentState, PersistentStateError};
 use ethereum::BlockAny;
 use primitive_types::{H256, U256};
 use std::collections::HashMap;
@@ -21,19 +21,19 @@ pub struct BlockHandler {
 }
 
 impl PersistentState for BlockHashtoBlock {
-    fn save_to_disk(&self, path: &str) -> Result<(), String> {
-        let serialized_state = bincode::serialize(self).map_err(|e| e.to_string())?;
-        let mut file = File::create(path).map_err(|e| e.to_string())?;
-        file.write_all(&serialized_state).map_err(|e| e.to_string())
+    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
+        let serialized_state = bincode::serialize(self)?;
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_state)?;
+        Ok(())
     }
 
-    fn load_from_disk(path: &str) -> Result<Self, String> {
+    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
         if Path::new(path).exists() {
-            let mut file = File::open(path).map_err(|e| e.to_string())?;
+            let mut file = File::open(path)?;
             let mut data = Vec::new();
-            file.read_to_end(&mut data).map_err(|e| e.to_string())?;
-            let new_state: HashMap<H256, U256> =
-                bincode::deserialize(&data).map_err(|e| e.to_string())?;
+            file.read_to_end(&mut data)?;
+            let new_state: HashMap<H256, U256> = bincode::deserialize(&data)?;
             Ok(new_state)
         } else {
             Ok(Self::new())
@@ -42,19 +42,19 @@ impl PersistentState for BlockHashtoBlock {
 }
 
 impl PersistentState for Blocks {
-    fn save_to_disk(&self, path: &str) -> Result<(), String> {
-        let serialized_state = bincode::serialize(self).map_err(|e| e.to_string())?;
-        let mut file = File::create(path).map_err(|e| e.to_string())?;
-        file.write_all(&serialized_state).map_err(|e| e.to_string())
+    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
+        let serialized_state = bincode::serialize(self)?;
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_state)?;
+        Ok(())
     }
 
-    fn load_from_disk(path: &str) -> Result<Self, String> {
+    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
         if Path::new(path).exists() {
-            let mut file = File::open(path).map_err(|e| e.to_string())?;
+            let mut file = File::open(path)?;
             let mut data = Vec::new();
-            file.read_to_end(&mut data).map_err(|e| e.to_string())?;
-            let new_state: Vec<BlockAny> =
-                bincode::deserialize(&data).map_err(|e| e.to_string())?;
+            file.read_to_end(&mut data)?;
+            let new_state: Vec<BlockAny> = bincode::deserialize(&data)?;
             Ok(new_state)
         } else {
             Ok(Self::new())
@@ -82,28 +82,43 @@ impl BlockHandler {
         blockhash.insert(block.header.hash(), block.header.number);
     }
 
-    pub fn flush(&self) {
-        self
-            .block_map
+    pub fn flush(&self) -> Result<(), PersistentStateError> {
+        self.block_map
             .write()
             .unwrap()
-            .save_to_disk(BLOCK_MAP_PATH)
-            .unwrap();
-        self
-            .blocks
-            .write()
-            .unwrap()
-            .save_to_disk(BLOCK_DATA_PATH)
-            .unwrap();
+            .save_to_disk(BLOCK_MAP_PATH)?;
+        self.blocks.write().unwrap().save_to_disk(BLOCK_DATA_PATH)
     }
 
-    pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, Box<dyn Error>> {
+    pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, BlockHandlerError> {
         let block_map = self.block_map.read().unwrap();
-        let block_number = *block_map.get(&hash).unwrap();
+        let block_number = *block_map
+            .get(&hash)
+            .ok_or(BlockHandlerError::BlockNotFound)?;
 
         let blocks = self.blocks.read().unwrap();
-        let block = blocks.get(block_number.as_usize()).unwrap().clone();
+        let block = blocks
+            .get(block_number.as_usize())
+            .ok_or(BlockHandlerError::BlockNotFound)?
+            .clone();
 
         Ok(block)
     }
 }
+
+use std::fmt;
+
+#[derive(Debug)]
+pub enum BlockHandlerError {
+    BlockNotFound,
+}
+
+impl fmt::Display for BlockHandlerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BlockHandlerError::BlockNotFound => write!(f, "Block not found"),
+        }
+    }
+}
+
+impl Error for BlockHandlerError {}
