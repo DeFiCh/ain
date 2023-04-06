@@ -147,3 +147,8 @@ compile_commands.json
 src/secp256k1/gen_context
 src/secp256k1/src/ecmult_static_context.h
 
+# rust
+
+!lib/Makefile
+!lib/**/*/Makefile
+lib/target/*
