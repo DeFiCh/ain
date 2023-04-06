@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::ops::Index;
+
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
@@ -83,13 +83,13 @@ impl BlockHandler {
     }
 
     pub fn flush(&self) {
-        let _ = self
+        self
             .block_map
             .write()
             .unwrap()
             .save_to_disk(BLOCK_MAP_PATH)
             .unwrap();
-        let _ = self
+        self
             .blocks
             .write()
             .unwrap()
@@ -99,7 +99,7 @@ impl BlockHandler {
 
     pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, Box<dyn Error>> {
         let block_map = self.block_map.read().unwrap();
-        let block_number = block_map.get(&hash).unwrap().clone();
+        let block_number = *block_map.get(&hash).unwrap();
 
         let blocks = self.blocks.read().unwrap();
         let block = blocks.get(block_number.as_usize()).unwrap().clone();

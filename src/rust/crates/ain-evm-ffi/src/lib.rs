@@ -39,10 +39,11 @@ pub fn evm_add_balance(
     amount: [u8; 32],
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
-    Ok(RUNTIME
-        .handlers
-        .evm
-        .add_balance(context, address, amount.into()))
+    RUNTIME
+    .handlers
+    .evm
+    .add_balance(context, address, amount.into());
+    Ok(())
 }
 
 pub fn evm_sub_balance(
