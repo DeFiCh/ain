@@ -124,7 +124,20 @@ impl TryFrom<TransactionV2> for SignedTx {
                 recover_public_key(&tx.hash(), &tx.r, &tx.s, tx.odd_y_parity as u8)
             }
             TransactionV2::EIP1559(tx) => {
-                recover_public_key(&tx.hash(), &tx.r, &tx.s, tx.odd_y_parity as u8)
+                let msg = ethereum::EIP1559TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+                    max_fee_per_gas: tx.max_fee_per_gas,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: vec![],
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let hash = H256::from(signing_message.serialize());
+                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
             }
         }?;
         Ok(SignedTx {
@@ -225,6 +238,10 @@ mod tests {
 
         assert_eq!(hex::encode(signed_tx.pubkey.serialize()), "044c6412f7cd3ac0e2538c3c9843d27d1e03b422eaf655c6a699da22b57a89802989318dbaeea62f5fc751fa8cd1404e687d67b8ab8513fe0d37bafbf407aa6cf7");
         assert_eq!(hex::encode(signed_tx.sender.as_fixed_bytes()), "f829754bae400b679febefdcfc9944c323e1f94e");
+
+        let signed_tx = crate::transaction::SignedTx::try_from("02f871018302fe7f80850735ebc84f827530942f777e9f26aa138ed21c404079e80656b448c7118774ab8279a9e27380c001a0f97db05e9814734c6d7bcca5ce644fc1b780c28e8617eec4a3142712777cabe7a01ad8667f28d7cc1b2e0884340c67d73644fac314da4bab3bfc068cf00c622774").unwrap();
+
+        assert_eq!(hex::encode(signed_tx.sender.as_fixed_bytes()), "95222290dd7278aa3ddd389cc1e1d165cc4bafe5");
     }
 }
 
