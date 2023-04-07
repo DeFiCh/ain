@@ -35,14 +35,13 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 
 COPY . .
-RUN ./make.sh purge && rm -rf ./depends
-COPY --from=depends-builder /work/depends ./depends
+COPY --from=depends-builder /work/build/depends ./build/depends
 
-RUN ./make.sh build-conf && ./make.sh build-make
+RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-make
 
 RUN mkdir /app && cd build && \
-    make prefix=/ DESTDIR=/app install && \
-    cp /work/{README.md,LICENSE} /app/.
+    make prefix=/ DESTDIR=/app install
 
 # -----------
 ### Actual image that contains defi binaries

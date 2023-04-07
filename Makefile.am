@@ -33,6 +33,9 @@ support_bash__DATA = $(top_srcdir)/contrib/bash-completion/defi-cli.bash-complet
 		$(top_srcdir)/contrib/bash-completion/defi-tx.bash-completion \
 		$(top_srcdir)/contrib/bash-completion/defid.bash-completion
 
+support_extra_dir = $(pkgdatadir)
+support_extra__DATA = $(top_srcdir)/README.md $(top_srcdir)/LICENSE
+
 empty :=
 space := $(empty) $(empty)
 

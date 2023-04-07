@@ -19,6 +19,7 @@ setup_vars() {
     ROOT_DIR="$(readlink -e "${_SCRIPT_DIR}")"
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
     RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
+    DEPENDS_DIR=${DEPENDS_DIR:-"${RELEASE_DIR}/depends"}
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
@@ -105,14 +106,14 @@ build_deps() {
     local target=${1:-${TARGET}}
     local make_deps_args=${MAKE_DEPS_ARGS:-}
     local make_jobs=${MAKE_JOBS}
-    local depends_dir=${ROOT_DIR}/depends
-    local release_depends_dir=${RELEASE_DIR}/depends
+    local src_depends_dir=${ROOT_DIR}/depends
+    local release_depends_dir=${DEPENDS_DIR}
 
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
     ensure_enter_dir "$release_depends_dir"
     # XREF: #make-deps
     # shellcheck disable=SC2086
-    make -C "${depends_dir}" DESTDIR="${release_depends_dir}" \
+    make -C "${src_depends_dir}" DESTDIR="${release_depends_dir}" \
         HOST="${target}" -j${make_jobs} ${make_deps_args}
     exit_dir
 }
@@ -123,7 +124,7 @@ build_conf() {
     local make_jobs=${MAKE_JOBS}
     local root_dir=${ROOT_DIR}
     local release_dir=${RELEASE_DIR}
-    local release_depends_dir=${RELEASE_DIR}/depends
+    local release_depends_dir=${DEPENDS_DIR}
 
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
@@ -132,8 +133,7 @@ build_conf() {
     # XREF: #make-configure
     # shellcheck disable=SC2086
     CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
-        $root_dir/configure \
-        --prefix="$root_dir/depends/${target}" ${make_conf_opts}
+        $root_dir/configure ${make_conf_opts}
     exit_dir
 }
 
@@ -147,7 +147,7 @@ build_make() {
 
     ensure_enter_dir "${release_dir}"
     # shellcheck disable=SC2086
-    make DESTDIR="${release_dir}" -j${make_jobs} ${make_args} install
+    make DESTDIR="${release_dir}" prefix=/ -j${make_jobs} ${make_args} install
     exit_dir
 }
 
@@ -283,37 +283,20 @@ docker_release_git() {
     docker_release "$@"
 }
 
+docker_clean_builds() {
+    echo "> clean: defichain build images"
+    _docker_clean "org.defichain.name=defichain"
+}
+
 docker_clean() {
-    safe_rm_rf "${RELEASE_DIR}"
-    docker_clean_images
-}
-
-docker_clean_images() {
-    echo "> clean: defichain images"
-
-    local imgs
-    imgs="$(docker images -f label=org.defichain.name=defichain -q)"
-    if [[ -n "${imgs}" ]]; then
-        # shellcheck disable=SC2086
-        docker rmi ${imgs} --force
-        _docker_clean_builder_base
-    fi
-}
-
-_docker_clean_builder_base() {
-    echo "> clean: defichain-builder-base images"
-
-    # shellcheck disable=SC2046
-    docker rmi $(docker images -f label=org.defichain.name=defichain-builder-base -q) \
-        2>/dev/null || true
-}
-
-docker_purge() {
     echo "> clean: defichain* images"
+    _docker_clean "org.defichain.name"
+}
 
-    # shellcheck disable=SC2046
-    docker rmi $(docker images -f label=org.defichain.name -q) \
-        2>/dev/null || true
+_docker_clean() {
+    local labels_to_clean=${1:?labels required}
+    docker rmi $(docker images -f label="${labels_to_clean}" -q) \
+        --force 2>/dev/null || true
 }
 
 # -------------- Misc -----------------
@@ -436,9 +419,9 @@ pkg_install_deps_mac_tools() {
 pkg_local_mac_sdk() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
+    local release_depends_dir=${DEPENDS_DIR}
 
-    mkdir -p ./depends/SDKs
-    ensure_enter_dir ./depends/SDKs
+    ensure_enter_dir "$release_depends_dir/SDKs"
     wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     tar -zxvf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
@@ -455,14 +438,23 @@ pkg_install_rust() {
 }
 
 clean_pkg_local_mac_sdk() {
-    safe_rm_rf ./depends/SDKs
+    local release_depends_dir=${DEPENDS_DIR}
+    safe_rm_rf "$release_depends_dir/SDKs"
 }
 
 purge() {
+    local release_dir="${RELEASE_DIR}"
+    local release_depends_dir=${DEPENDS_DIR}
+
     clean
+    ensure_enter_dir "${release_dir}"
+    make distclean || true
+    exit_dir
     clean_depends
-    # shellcheck disable=SC2119
-    docker_purge
+    safe_rm_rf "$release_depends_dir"
+    clean_conf
+    docker_clean
+    safe_rm_rf "$release_dir"
 }
 
 clean_conf() {
@@ -494,8 +486,12 @@ clean_conf() {
 }
 
 clean_depends() {
-    ensure_enter_dir ./depends
-    make clean-all || true
+    local root_dir="$ROOT_DIR"
+    local release_dir="${RELEASE_DIR}"
+    local release_depends_dir=${DEPENDS_DIR}
+
+    make -C "$root_dir/depends" DESTDIR="${release_depends_dir}" clean-all || true
+    ensure_enter_dir "$release_depends_dir"
     clean_pkg_local_mac_sdk
     safe_rm_rf built \
         work \
@@ -512,14 +508,9 @@ clean_depends() {
 
 clean() {
     local release_dir="${RELEASE_DIR}"
-
     ensure_enter_dir "${release_dir}"
     make clean || true
-    make distclean || true
     exit_dir
-
-    clean_conf
-    safe_rm_rf "${RELEASE_DIR}"
 }
 
 safe_rm_rf() {

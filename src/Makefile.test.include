@@ -29,7 +29,7 @@ FUZZ_TARGETS = \
 if ENABLE_FUZZ
 noinst_PROGRAMS += $(FUZZ_TARGETS:=)
 else
-bin_PROGRAMS += test/test_defi
+noinst_PROGRAMS += test/test_defi
 endif
 
 TEST_SRCDIR = test
