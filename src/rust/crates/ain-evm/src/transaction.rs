@@ -123,7 +123,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     tx.signature.s(),
                     tx.signature.standard_v(),
                 )
-            }
+            },
             TransactionV2::EIP2930(tx) => {
                 let msg = ethereum::EIP2930TransactionMessage {
                     chain_id: tx.chain_id,
@@ -135,11 +135,10 @@ impl TryFrom<TransactionV2> for SignedTx {
                     input: tx.input.clone(),
                     access_list: vec![],
                 };
-
                 let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
                 let hash = H256::from(signing_message.serialize());
                 recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
-            }
+            },
             TransactionV2::EIP1559(tx) => {
                 let msg = ethereum::EIP1559TransactionMessage {
                     chain_id: tx.chain_id,
@@ -316,11 +315,8 @@ mod tests {
         );
 
         // EIP-2930
-        let signed_tx = crate::transaction::SignedTx::try_from("01f8bb01808522ecb25c008307a120942a48420d75777af4c99970c0ed3c25effd1c08be80843ccfd60bf84ff794fbfed54d426217bf75d2ce86622c1e5faf16b0a6e1a00000000000000000000000000000000000000000000000000000000000000000d694d9db270c1b5e3bd161e8c8503c55ceabee709552c080a03057d1077af1fc48bdfe2a8eac03caf686145b52342e77ad6982566fe39e0691a00507044aa767a50dc926d0daa4dd616b1e5a8d2e5781df5bc9feeee5a5139d61").unwrap();
+        let signed_tx = crate::transaction::SignedTx::try_from("01f86d050185689451eee18252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc1000080c080a0632502442f6bd0dbe14c087798277ce04bdede53c4642559a0a7d7e20fc7e8f1a0517c7504cb9adfe67f58dd43e00e77b4b2159e9f2c378b7616ba30dfa711ec8f").unwrap();
 
-        assert_eq!(
-            hex::encode(signed_tx.sender.as_fixed_bytes()),
-            "4e2b6cc39e22026d8ce21214646a657ab7eb92b3"
-        );
+        assert_eq!(hex::encode(signed_tx.sender.as_fixed_bytes()), "f829754bae400b679febefdcfc9944c323e1f94e");
     }
 }
