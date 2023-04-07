@@ -18,6 +18,7 @@ setup_vars() {
 
     ROOT_DIR="$(readlink -e "${_SCRIPT_DIR}")"
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
+    RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
@@ -104,13 +105,15 @@ build_deps() {
     local target=${1:-${TARGET}}
     local make_deps_args=${MAKE_DEPS_ARGS:-}
     local make_jobs=${MAKE_JOBS}
-    local root_dir=${ROOT_DIR}
+    local depends_dir=${ROOT_DIR}/depends
+    local release_depends_dir=${RELEASE_DIR}/depends
 
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
-    ensure_enter_dir "$root_dir/depends"
+    ensure_enter_dir "$release_depends_dir"
     # XREF: #make-deps
     # shellcheck disable=SC2086
-    make HOST="${target}" -j${make_jobs} ${make_deps_args}
+    make -C "${depends_dir}" DESTDIR="${release_depends_dir}" \
+        HOST="${target}" -j${make_jobs} ${make_deps_args}
     exit_dir
 }
 
@@ -120,15 +123,17 @@ build_conf() {
     local make_jobs=${MAKE_JOBS}
     local root_dir=${ROOT_DIR}
     local release_dir=${RELEASE_DIR}
+    local release_depends_dir=${RELEASE_DIR}/depends
 
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
     "$root_dir/autogen.sh"
     # XREF: #make-configure
-    # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu" ${make_conf_opts}
     # shellcheck disable=SC2086
-    CONFIG_SITE="$root_dir/depends/${target}/share/config.site" "$root_dir/configure" --prefix="$root_dir/depends/${target}" ${make_conf_opts}
+    CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
+        $root_dir/configure \
+        --prefix="$root_dir/depends/${target}" ${make_conf_opts}
     exit_dir
 }
 
@@ -142,7 +147,7 @@ build_make() {
 
     ensure_enter_dir "${release_dir}"
     # shellcheck disable=SC2086
-    make -j${make_jobs} ${make_args}
+    make DESTDIR="${release_dir}" -j${make_jobs} ${make_args} install
     exit_dir
 }
 
@@ -460,6 +465,34 @@ purge() {
     docker_purge
 }
 
+clean_conf() {
+    local top_left_overs=(\
+        Makefile.in aclocal.m4 autom4te.cache configure configure~ )
+
+    local build_aux_left_overs=(\
+        ar-lib compile config.guess config.sub depcomp install-sh ltmain.sh
+        missing test-driver)
+
+    local build_aux_m4_left_overs=(\
+        libtool.m4 lt~obsolete.m4 ltoptions.m4 ltsugar.m4 ltversion.m4)
+
+    local left_overs=(${top_left_overs[@]} \
+        ${build_aux_left_overs[@]/#/build-aux/} \
+        ${build_aux_m4_left_overs[@]/#/build-aux/m4/})
+
+    for x in "${left_overs[@]} "; do
+        safe_rm_rf "$x"
+        safe_rm_rf "src/secp256k1/$x"
+        safe_rm_rf "src/univalue/$x"
+    done
+
+    safe_rm_rf \
+        src/Makefile.in \
+        src/defi-config.h.{in,in~} \
+        src/univalue/src/univalue-config.h.{in,in~} \
+        src/secp256k1/src/libsecp256k1-config.h.{in,in~}
+}
+
 clean_depends() {
     ensure_enter_dir ./depends
     make clean-all || true
@@ -478,28 +511,15 @@ clean_depends() {
 }
 
 clean() {
+    local release_dir="${RELEASE_DIR}"
+
+    ensure_enter_dir "${release_dir}"
     make clean || true
     make distclean || true
+    exit_dir
+
+    clean_conf
     safe_rm_rf "${RELEASE_DIR}"
-
-    local left_overs=(\
-        Makefile.in aclocal.m4 autom4te.cache configure configure~ \
-        build-aux/{ar-lib,compile,config.guess,config.sub,depcomp,install-sh,ltmain.sh} \
-        build-aux/{missing,test-driver} \
-        build-aux/m4/{libtool.m4,lt~obsolete.m4,ltoptions.m4,ltsugar.m4,ltversion.m4,} \
-        )
-
-    for x in "${left_overs[@]}"; do
-        safe_rm_rf "$x"
-        safe_rm_rf "src/secp256k1/$x"
-        safe_rm_rf "src/univalue/$x"
-    done
-
-    safe_rm_rf \
-        src/Makefile.in \
-        src/defi-config.h.{in,in~} \
-        src/univalue/src/univalue-config.h.{in,in~} \
-        src/secp256k1/src/libsecp256k1-config.h.{in,in~}
 }
 
 safe_rm_rf() {
