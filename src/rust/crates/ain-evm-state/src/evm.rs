@@ -155,7 +155,7 @@ impl EVMHandler {
 
         for signed_tx in self.tx_queues.drain_all(context) {
             let tx_response = executor.exec(&signed_tx);
-            println!("tx_response : {:#?}", tx_response);
+            // println!("tx_response : {:#?}", tx_response);
             if tx_response.exit_reason.is_succeed() {
                 // responses.push()
                 tx_hashes.push(signed_tx.transaction);

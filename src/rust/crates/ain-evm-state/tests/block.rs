@@ -18,7 +18,6 @@ fn test_finalize_block_and_do_not_update_state() {
     );
 
     let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
-    println!("tx1 : {:#?}", tx1);
     handler.evm.tx_queues.add_signed_tx(context, tx1);
 
     let old_state = handler.evm.state.read().unwrap();
@@ -113,7 +112,7 @@ fn test_finalize_block_and_update_state() {
 
 #[test]
 fn test_deploy_and_call_smart_contract() {
-    let smart_contract_address: H160 = "58f19e6c9967bc1d0455641f48885d64c895230b".parse().unwrap();
+    let smart_contract_address: H160 = "69762793de93f55ab919c5efdaafb63d413dcbb5".parse().unwrap();
 
     let handler = Handlers::new();
     let context = handler.evm.get_context();
@@ -142,8 +141,7 @@ fn test_deploy_and_call_smart_contract() {
             .unwrap(),
         U256::from_str_radix("100000000000000000000000000", 10).unwrap(),
     );
-    let call_smart_contract_tx: SignedTx = "f8ca018504a817c800830151f09458f19e6c9967bc1d0455641f48885d64c895230b80b864131a06800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000000000000000000000000000002aa0a4e99e9e4eb0e4a1e21dce20a5eed779753249ef0e56db54f9f4d61452401976a049ad099ba542cc68e4a2109bf2a83e0c73cbb0a92506dec05185729a30a72b45".try_into().unwrap();
-    println!("call_smart_contract_tx : {:#?}", call_smart_contract_tx);
+    let call_smart_contract_tx: SignedTx = "f8ca018504a817c8008302c1789469762793de93f55ab919c5efdaafb63d413dcbb580b864131a06800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20576f726c64210000000000000000000000000000000000000029a041fc9c0581885d77263dcba0603d8c6c164a9acfe803ad11188069eafa22169ca0018c1ba512639bd8ce32e76bcc2ea0759073a3f908014e47544d6c6674388b37".try_into().unwrap();
 
     // Each block requires a new context
     let context = handler.evm.get_context();
