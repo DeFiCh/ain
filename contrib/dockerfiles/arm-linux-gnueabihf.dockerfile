@@ -1,7 +1,7 @@
 ARG TARGET=arm-linux-gnueabihf
 
 # -----------
-FROM ubuntu:latest as builder-base
+FROM --platform=linux/amd64 ubuntu:latest as builder-base
 ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
