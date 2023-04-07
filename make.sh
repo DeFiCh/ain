@@ -474,12 +474,10 @@ clean_conf() {
         "${build_aux_m4_left_overs[@]/#/build-aux/m4/}")
 
     for x in "${left_overs[@]} "; do
-        echo "$x"
-        echo "src/secp256k1/$x"
-        echo "src/univalue/$x"
+        safe_rm_rf "$x"
+        safe_rm_rf "src/secp256k1/$x"
+        safe_rm_rf "src/univalue/$x"
     done
-
-    exit 1
 
     safe_rm_rf \
         src/Makefile.in \
