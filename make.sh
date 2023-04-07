@@ -295,6 +295,7 @@ docker_clean() {
 
 _docker_clean() {
     local labels_to_clean=${1:?labels required}
+    # shellcheck disable=SC2046
     docker rmi $(docker images -f label="${labels_to_clean}" -q) \
         --force 2>/dev/null || true
 }
@@ -468,15 +469,17 @@ clean_conf() {
     local build_aux_m4_left_overs=(\
         libtool.m4 lt~obsolete.m4 ltoptions.m4 ltsugar.m4 ltversion.m4)
 
-    local left_overs=(${top_left_overs[@]} \
-        ${build_aux_left_overs[@]/#/build-aux/} \
-        ${build_aux_m4_left_overs[@]/#/build-aux/m4/})
+    local left_overs=("${top_left_overs[@]}" \
+        "${build_aux_left_overs[@]/#/build-aux/}" \
+        "${build_aux_m4_left_overs[@]/#/build-aux/m4/}")
 
     for x in "${left_overs[@]} "; do
-        safe_rm_rf "$x"
-        safe_rm_rf "src/secp256k1/$x"
-        safe_rm_rf "src/univalue/$x"
+        echo "$x"
+        echo "src/secp256k1/$x"
+        echo "src/univalue/$x"
     done
+
+    exit 1
 
     safe_rm_rf \
         src/Makefile.in \
