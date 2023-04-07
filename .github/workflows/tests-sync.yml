@@ -34,16 +34,16 @@ jobs:
       with:
         name: defibins
         path: |
-         src/defid
-         src/defi-cli
+         build/src/defid
+         build/src/defi-cli
 
     - name: Archive Binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-          src/defid
-          src/defi-cli
+          build/src/defid
+          build/src/defi-cli
 
     - name: Archive Shell Commands
       uses: actions/upload-artifact@v3

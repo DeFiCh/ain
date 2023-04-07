@@ -39,7 +39,9 @@ COPY --from=depends-builder /work/depends ./depends
 RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
     ./make.sh build-conf && ./make.sh build-make
 
-RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
+RUN mkdir /app && cd build && \
+    make prefix=/ DESTDIR=/app install && \
+    cp /work/{README.md,LICENSE} /app/.
 
 # -----------
 ### Actual image that contains defi binaries
