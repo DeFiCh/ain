@@ -1,8 +1,44 @@
 pub trait PersistentState {
-    fn save_to_disk(&self, path: &str) -> Result<(), String>;
-    fn load_from_disk(path: &str) -> Result<Self, String>
+    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError>;
+    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError>
     where
         Self: Sized;
+}
+
+use std::fmt;
+use std::io;
+
+// Define a custom error type
+#[derive(Debug)]
+pub enum PersistentStateError {
+    IoError(io::Error),
+    BincodeError(bincode::Error),
+}
+
+// Implement std::fmt::Display for PersistentStateError
+impl fmt::Display for PersistentStateError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PersistentStateError::IoError(err) => write!(f, "IO error: {}", err),
+            PersistentStateError::BincodeError(err) => write!(f, "Bincode error: {}", err),
+        }
+    }
+}
+
+// Implement std::error::Error for PersistentStateError
+impl std::error::Error for PersistentStateError {}
+
+// Implement the From trait for the required error types
+impl From<io::Error> for PersistentStateError {
+    fn from(error: io::Error) -> Self {
+        PersistentStateError::IoError(error)
+    }
+}
+
+impl From<bincode::Error> for PersistentStateError {
+    fn from(error: bincode::Error) -> Self {
+        PersistentStateError::BincodeError(error)
+    }
 }
 
 #[cfg(test)]

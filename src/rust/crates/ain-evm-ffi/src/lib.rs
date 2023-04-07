@@ -29,7 +29,7 @@ mod ffi {
             value: [u8; 32],
             input: Vec<u8>,
             priv_key: [u8; 32],
-        ) -> Vec<u8>;
+        ) -> Result<Vec<u8>>;
     }
 }
 
@@ -40,9 +40,9 @@ pub fn evm_add_balance(
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
     RUNTIME
-    .handlers
-    .evm
-    .add_balance(context, address, amount.into());
+        .handlers
+        .evm
+        .add_balance(context, address, amount.into());
     Ok(())
 }
 

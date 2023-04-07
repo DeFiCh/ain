@@ -48,7 +48,10 @@ impl Runtime {
             .unwrap();
 
         // Persist EVM State to disk
-        self.handlers.evm.flush();
-        self.handlers.block.flush();
+        self.handlers
+            .evm
+            .flush()
+            .expect("Could not flush evm state");
+        self.handlers.block.flush().expect("Could not flush blocks");
     }
 }

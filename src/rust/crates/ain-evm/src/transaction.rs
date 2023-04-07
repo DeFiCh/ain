@@ -1,5 +1,8 @@
 use ain_utils::{public_key_to_address, recover_public_key};
-use ethereum::{AccessList, TransactionAction, TransactionSignature, TransactionV2};
+use ethereum::{
+    AccessList, EnvelopedDecoderError, LegacyTransaction, TransactionAction, TransactionSignature,
+    TransactionV2,
+};
 use libsecp256k1::PublicKey;
 use primitive_types::{H160, H256, U256};
 
@@ -44,17 +47,18 @@ impl LegacyUnsignedTransaction {
         H256::from(output)
     }
 
-    pub fn sign(&self, key: &H256, chain_id: u64) -> ethereum::LegacyTransaction {
+    pub fn sign(&self, key: &H256, chain_id: u64) -> Result<LegacyTransaction, TransactionError> {
         self.sign_with_chain_id(key, chain_id)
     }
 
-    pub fn sign_with_chain_id(&self, key: &H256, chain_id: u64) -> ethereum::LegacyTransaction {
+    pub fn sign_with_chain_id(
+        &self,
+        key: &H256,
+        chain_id: u64,
+    ) -> Result<LegacyTransaction, TransactionError> {
         let hash = self.signing_hash(chain_id);
         let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
-        let s = libsecp256k1::sign(
-            &msg,
-            &libsecp256k1::SecretKey::parse_slice(&key[..]).unwrap(),
-        );
+        let s = libsecp256k1::sign(&msg, &libsecp256k1::SecretKey::parse_slice(&key[..])?);
         let sig = s.0.serialize();
 
         let sig = TransactionSignature::new(
@@ -62,9 +66,9 @@ impl LegacyUnsignedTransaction {
             H256::from_slice(&sig[0..32]),
             H256::from_slice(&sig[32..64]),
         )
-        .unwrap();
+        .ok_or(TransactionError::SignatureError)?;
 
-        ethereum::LegacyTransaction {
+        Ok(LegacyTransaction {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
@@ -72,12 +76,12 @@ impl LegacyUnsignedTransaction {
             value: self.value,
             input: self.input.clone(),
             signature: sig,
-        }
+        })
     }
 }
 
-impl From<&ethereum::LegacyTransaction> for LegacyUnsignedTransaction {
-    fn from(src: &ethereum::LegacyTransaction) -> LegacyUnsignedTransaction {
+impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
+    fn from(src: &LegacyTransaction) -> LegacyUnsignedTransaction {
         LegacyUnsignedTransaction {
             nonce: src.nonce,
             gas_price: src.gas_price,
@@ -98,21 +102,59 @@ pub struct SignedTx {
 }
 
 impl TryFrom<TransactionV2> for SignedTx {
-    type Error = libsecp256k1::Error;
+    type Error = TransactionError;
 
     fn try_from(src: TransactionV2) -> Result<Self, Self::Error> {
         let pubkey = match &src {
-            TransactionV2::Legacy(tx) => recover_public_key(
-                &tx.hash(),
-                tx.signature.r(),
-                tx.signature.s(),
-                tx.signature.standard_v(),
-            ),
+            TransactionV2::Legacy(tx) => {
+                let t = LegacyUnsignedTransaction {
+                    nonce: tx.nonce,
+                    gas_price: tx.gas_price,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    sig: tx.signature.clone(),
+                };
+
+                recover_public_key(
+                    &t.signing_hash(t.sig.chain_id().unwrap()),
+                    tx.signature.r(),
+                    tx.signature.s(),
+                    tx.signature.standard_v(),
+                )
+            }
             TransactionV2::EIP2930(tx) => {
-                recover_public_key(&tx.hash(), &tx.r, &tx.s, tx.odd_y_parity as u8)
+                let msg = ethereum::EIP2930TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    gas_price: tx.gas_price,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: vec![],
+                };
+
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let hash = H256::from(signing_message.serialize());
+                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
             }
             TransactionV2::EIP1559(tx) => {
-                recover_public_key(&tx.hash(), &tx.r, &tx.s, tx.odd_y_parity as u8)
+                let msg = ethereum::EIP1559TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+                    max_fee_per_gas: tx.max_fee_per_gas,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: vec![],
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let hash = H256::from(signing_message.serialize());
+                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
             }
         }?;
         Ok(SignedTx {
@@ -123,18 +165,16 @@ impl TryFrom<TransactionV2> for SignedTx {
     }
 }
 
-use anyhow::anyhow;
 use hex::FromHex;
 
 impl TryFrom<&str> for SignedTx {
-    type Error = Box<dyn std::error::Error>;
+    type Error = TransactionError;
 
     fn try_from(src: &str) -> Result<Self, Self::Error> {
         let buffer = <Vec<u8>>::from_hex(src)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)?;
 
-        tx.try_into().map_err(|e: libsecp256k1::Error| e.into())
+        tx.try_into()
     }
 }
 
@@ -201,5 +241,86 @@ impl SignedTx {
             TransactionV2::EIP2930(tx) => tx.input.as_ref(),
             TransactionV2::EIP1559(tx) => tx.input.as_ref(),
         }
+    }
+}
+
+use std::convert::{TryFrom, TryInto};
+use std::fmt;
+
+#[derive(Debug)]
+pub enum TransactionError {
+    Secp256k1Error(libsecp256k1::Error),
+    DecodingError,
+    SignatureError,
+    FromHexError(hex::FromHexError),
+}
+
+impl fmt::Display for TransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            TransactionError::Secp256k1Error(ref e) => write!(f, "Secp256k1 error: {}", e),
+            TransactionError::DecodingError => {
+                write!(f, "Error decoding raw transaction")
+            }
+            TransactionError::SignatureError => {
+                write!(f, "Error creating new signature")
+            }
+            TransactionError::FromHexError(ref e) => {
+                write!(f, "Error parsing hex: {}", e)
+            }
+        }
+    }
+}
+
+impl std::error::Error for TransactionError {}
+
+use std::convert::From;
+
+impl From<libsecp256k1::Error> for TransactionError {
+    fn from(e: libsecp256k1::Error) -> Self {
+        TransactionError::Secp256k1Error(e)
+    }
+}
+
+impl From<hex::FromHexError> for TransactionError {
+    fn from(e: hex::FromHexError) -> Self {
+        TransactionError::FromHexError(e)
+    }
+}
+
+impl<T> From<EnvelopedDecoderError<T>> for TransactionError {
+    fn from(_: EnvelopedDecoderError<T>) -> Self {
+        TransactionError::DecodingError
+    }
+}
+
+mod tests {
+
+    #[test]
+    fn test_signed_tx_from_raw_tx() {
+        // Legacy
+        let signed_tx = crate::transaction::SignedTx::try_from("f86b8085689451eee18252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc10000802da0ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46a01d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002").unwrap();
+
+        assert_eq!(hex::encode(signed_tx.pubkey.serialize()), "044c6412f7cd3ac0e2538c3c9843d27d1e03b422eaf655c6a699da22b57a89802989318dbaeea62f5fc751fa8cd1404e687d67b8ab8513fe0d37bafbf407aa6cf7");
+        assert_eq!(
+            hex::encode(signed_tx.sender.as_fixed_bytes()),
+            "f829754bae400b679febefdcfc9944c323e1f94e"
+        );
+
+        // EIP-1559
+        let signed_tx = crate::transaction::SignedTx::try_from("02f871018302fe7f80850735ebc84f827530942f777e9f26aa138ed21c404079e80656b448c7118774ab8279a9e27380c001a0f97db05e9814734c6d7bcca5ce644fc1b780c28e8617eec4a3142712777cabe7a01ad8667f28d7cc1b2e0884340c67d73644fac314da4bab3bfc068cf00c622774").unwrap();
+
+        assert_eq!(
+            hex::encode(signed_tx.sender.as_fixed_bytes()),
+            "95222290dd7278aa3ddd389cc1e1d165cc4bafe5"
+        );
+
+        // EIP-2930
+        let signed_tx = crate::transaction::SignedTx::try_from("01f8bb01808522ecb25c008307a120942a48420d75777af4c99970c0ed3c25effd1c08be80843ccfd60bf84ff794fbfed54d426217bf75d2ce86622c1e5faf16b0a6e1a00000000000000000000000000000000000000000000000000000000000000000d694d9db270c1b5e3bd161e8c8503c55ceabee709552c080a03057d1077af1fc48bdfe2a8eac03caf686145b52342e77ad6982566fe39e0691a00507044aa767a50dc926d0daa4dd616b1e5a8d2e5781df5bc9feeee5a5139d61").unwrap();
+
+        assert_eq!(
+            hex::encode(signed_tx.sender.as_fixed_bytes()),
+            "4e2b6cc39e22026d8ce21214646a657ab7eb92b3"
+        );
     }
 }

@@ -34,7 +34,7 @@ fn test_finalize_block_and_update_state() {
     let context = handler.evm.get_context();
     handler.evm.add_balance(
         context,
-        "0x6745f998a96050bb9b0449e6bd4358138a519679"
+        "0xebf9844ba89c4975bbe4e621dbaf085e6357df3f"
             .parse()
             .unwrap(),
         U256::from_str_radix("100000000000000000000", 10).unwrap(),
@@ -45,7 +45,7 @@ fn test_finalize_block_and_update_state() {
 
     handler.evm.add_balance(
         context,
-        "0xc0cd829081485e70348975d325fe5275140277bd"
+        "0x47b16da33f4e7e4a4ed9e52cc561b9ffcb3daf56"
             .parse()
             .unwrap(),
         U256::from_str_radix("100000000000000000000", 10).unwrap(),
@@ -90,7 +90,7 @@ fn test_finalize_block_and_update_state() {
     assert_eq!(
         state
             .get(
-                &"0x6745f998a96050bb9b0449e6bd4358138a519679"
+                &"0x47b16da33f4e7e4a4ed9e52cc561b9ffcb3daf56"
                     .parse()
                     .unwrap()
             )
@@ -101,7 +101,7 @@ fn test_finalize_block_and_update_state() {
     assert_eq!(
         state
             .get(
-                &"0xc0cd829081485e70348975d325fe5275140277bd"
+                &"0xebf9844ba89c4975bbe4e621dbaf085e6357df3f"
                     .parse()
                     .unwrap()
             )

@@ -1,4 +1,4 @@
-use crate::traits::PersistentState;
+use crate::traits::{PersistentState, PersistentStateError};
 use crate::tx_queue::TransactionQueueMap;
 use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
 use anyhow::anyhow;
@@ -28,19 +28,19 @@ pub struct EVMHandler {
 }
 
 impl PersistentState for EVMState {
-    fn save_to_disk(&self, path: &str) -> Result<(), String> {
-        let serialized_state = bincode::serialize(self).map_err(|e| e.to_string())?;
-        let mut file = File::create(path).map_err(|e| e.to_string())?;
-        file.write_all(&serialized_state).map_err(|e| e.to_string())
+    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
+        let serialized_state = bincode::serialize(self)?;
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_state)?;
+        Ok(())
     }
 
-    fn load_from_disk(path: &str) -> Result<Self, String> {
+    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
         if Path::new(path).exists() {
-            let mut file = File::open(path).map_err(|e| e.to_string())?;
+            let mut file = File::open(path)?;
             let mut data = Vec::new();
-            file.read_to_end(&mut data).map_err(|e| e.to_string())?;
-            let new_state: BTreeMap<H160, MemoryAccount> =
-                bincode::deserialize(&data).map_err(|e| e.to_string())?;
+            file.read_to_end(&mut data)?;
+            let new_state: BTreeMap<H160, MemoryAccount> = bincode::deserialize(&data)?;
             Ok(new_state)
         } else {
             Ok(Self::new())
@@ -56,12 +56,8 @@ impl EVMHandler {
         }
     }
 
-    pub fn flush(&self) {
-        self.state
-            .write()
-            .unwrap()
-            .save_to_disk(EVM_STATE_PATH)
-            .unwrap()
+    pub fn flush(&self) -> Result<(), PersistentStateError> {
+        self.state.write().unwrap().save_to_disk(EVM_STATE_PATH)
     }
 
     pub fn call(
