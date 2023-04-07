@@ -15,10 +15,12 @@ setup_vars() {
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILE=${DOCKERFILE:-""}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+
+    ROOT_DIR="$(readlink -e "${_SCRIPT_DIR}")"
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
+
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
-
     TARGET=${TARGET:-"$(get_default_target)"}
 
     local default_compiler_flags=""
@@ -102,37 +104,46 @@ build_deps() {
     local target=${1:-${TARGET}}
     local make_deps_args=${MAKE_DEPS_ARGS:-}
     local make_jobs=${MAKE_JOBS}
+    local root_dir=${ROOT_DIR}
 
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
-    pushd ./depends >/dev/null
+    ensure_enter_dir "$root_dir/depends"
     # XREF: #make-deps
     # shellcheck disable=SC2086
     make HOST="${target}" -j${make_jobs} ${make_deps_args}
-    popd >/dev/null
+    exit_dir
 }
 
 build_conf() {
     local target=${1:-${TARGET}}
     local make_conf_opts=${MAKE_CONF_ARGS:-}
     local make_jobs=${MAKE_JOBS}
+    local root_dir=${ROOT_DIR}
+    local release_dir=${RELEASE_DIR}
 
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
-    ./autogen.sh
+    ensure_enter_dir "${release_dir}"
+    "$root_dir/autogen.sh"
     # XREF: #make-configure
     # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu" ${make_conf_opts}
     # shellcheck disable=SC2086
-    CONFIG_SITE="$(pwd)/depends/${target}/share/config.site" ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
+    CONFIG_SITE="$root_dir/depends/${target}/share/config.site" "$root_dir/configure" --prefix="$root_dir/depends/${target}" ${make_conf_opts}
+    exit_dir
 }
 
 build_make() {
     local target=${1:-${TARGET}}
     local make_args=${MAKE_ARGS:-}
     local make_jobs=${MAKE_JOBS}
+    local release_dir=${RELEASE_DIR}
 
     echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
+
+    ensure_enter_dir "${release_dir}"
     # shellcheck disable=SC2086
     make -j${make_jobs} ${make_args}
+    exit_dir
 }
 
 build() {
@@ -156,9 +167,9 @@ deploy() {
 
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
-    pushd "${release_dir}" >/dev/null
+    ensure_enter_dir "${release_dir}"
     safe_rm_rf "./${versioned_name}" && mkdir "${versioned_name}"
-    popd >/dev/null
+    exit_dir
 
     make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
 
@@ -188,9 +199,9 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
-    pushd "${versioned_release_dir}" >/dev/null
+    ensure_enter_dir "${versioned_release_dir}"
     tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
-    popd >/dev/null
+    exit_dir
 
     echo "> package: ${pkg_path}"
 }
@@ -422,11 +433,11 @@ pkg_local_mac_sdk() {
     local pkg="${sdk_name}.tar.gz"
 
     mkdir -p ./depends/SDKs
-    pushd ./depends/SDKs >/dev/null
+    ensure_enter_dir ./depends/SDKs
     wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     tar -zxvf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
-    popd >/dev/null
+    exit_dir
 }
 
 pkg_install_llvm() {
@@ -450,7 +461,7 @@ purge() {
 }
 
 clean_depends() {
-    pushd ./depends >/dev/null
+    ensure_enter_dir ./depends
     make clean-all || true
     clean_pkg_local_mac_sdk
     safe_rm_rf built \
@@ -463,7 +474,7 @@ clean_depends() {
         aarch64* \
         riscv32* \
         riscv64*
-    popd >/dev/null
+    exit_dir
 }
 
 clean() {
@@ -471,14 +482,11 @@ clean() {
     make distclean || true
     safe_rm_rf "${RELEASE_DIR}"
 
-    # All untracked git files that's left over after clean
-    find . -type d -name ".deps" -exec rm -rf {} + || true
-
     local left_overs=(\
-        Makefile.in aclocal.m4 autom4te.cache configure \
-        build-aux/{compile,config.guess,config.sub,depcomp,install-sh,ltmain.sh} \
+        Makefile.in aclocal.m4 autom4te.cache configure configure~ \
+        build-aux/{ar-lib,compile,config.guess,config.sub,depcomp,install-sh,ltmain.sh} \
         build-aux/{missing,test-driver} \
-        build-aux/m4/{libtool.m4,ltoptions.m4,ltsugar.m4,ltversion.m4,lt~obsolete.m4} \
+        build-aux/m4/{libtool.m4,lt~obsolete.m4,ltoptions.m4,ltsugar.m4,ltversion.m4,} \
         )
 
     for x in "${left_overs[@]}"; do
@@ -503,6 +511,15 @@ safe_rm_rf() {
         fi
         rm -rf "$x"
     done
+}
+
+ensure_enter_dir() {
+    local dir="${1?dir required}"
+    mkdir -p "${dir}" && pushd "${dir}" > /dev/null
+}
+
+exit_dir() {
+    popd > /dev/null
 }
 
 main "$@"
