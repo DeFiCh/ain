@@ -152,7 +152,11 @@ deploy() {
     # XREF: #pkg-name
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_path
-    versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        versioned_release_path="$(greadlink -m "${release_dir}/${versioned_name}")"
+    else
+        versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
+    fi
 
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
@@ -176,7 +180,11 @@ package() {
     local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(readlink -m "${release_dir}/${pkg_tar_file_name}")"
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        pkg_path="$(greadlink -m "${release_dir}/${pkg_tar_file_name}")"
+    else
+        pkg_path="$(readlink -m "${release_dir}/${pkg_tar_file_name}")"
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
@@ -189,7 +197,11 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     pushd "${versioned_release_dir}" >/dev/null
-    tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        gtar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    else
+        tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    fi
     popd >/dev/null
 
     echo "> package: ${pkg_path}"
