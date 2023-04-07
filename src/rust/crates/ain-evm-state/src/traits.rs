@@ -8,14 +8,12 @@ pub trait PersistentState {
 use std::fmt;
 use std::io;
 
-// Define a custom error type
 #[derive(Debug)]
 pub enum PersistentStateError {
     IoError(io::Error),
     BincodeError(bincode::Error),
 }
 
-// Implement std::fmt::Display for PersistentStateError
 impl fmt::Display for PersistentStateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -25,10 +23,8 @@ impl fmt::Display for PersistentStateError {
     }
 }
 
-// Implement std::error::Error for PersistentStateError
 impl std::error::Error for PersistentStateError {}
 
-// Implement the From trait for the required error types
 impl From<io::Error> for PersistentStateError {
     fn from(error: io::Error) -> Self {
         PersistentStateError::IoError(error)
@@ -76,7 +72,6 @@ mod tests {
         let state = BTreeMap::new();
         let path = "empty_test.bin";
 
-        // Save to an empty file
         state.save_to_disk(path).unwrap();
 
         let new_state = EVMState::load_from_disk(path).unwrap();
@@ -89,7 +84,6 @@ mod tests {
         let invalid_data = b"invalid_data";
         let path = "invalid_file_format.bin";
 
-        // Write invalid data to a file
         let mut file = File::create(path).unwrap();
         file.write_all(invalid_data).unwrap();
 
