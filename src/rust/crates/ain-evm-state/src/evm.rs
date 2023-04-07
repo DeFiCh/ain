@@ -9,7 +9,7 @@ use evm::{
     ExitReason,
 };
 use hex::FromHex;
-use primitive_types::{H160, U256};
+use primitive_types::{H160, H256, U256};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
@@ -155,9 +155,7 @@ impl EVMHandler {
 
         for signed_tx in self.tx_queues.drain_all(context) {
             let tx_response = executor.exec(&signed_tx);
-            println!("tx_response : {:#?}", tx_response);
             if tx_response.exit_reason.is_succeed() {
-                // responses.push()
                 tx_hashes.push(signed_tx.transaction);
             } else {
                 failed_tx_hashes.push(signed_tx.transaction)
@@ -191,6 +189,37 @@ impl EVMHandler {
             Vec::new(),
         );
         Ok((block, failed_tx_hashes))
+    }
+}
+
+impl EVMHandler {
+    pub fn get_account(&self, account: H160) -> MemoryAccount {
+        self.state
+            .read()
+            .unwrap()
+            .get(&account)
+            .unwrap_or(&MemoryAccount {
+                nonce: Default::default(),
+                balance: Default::default(),
+                storage: Default::default(),
+                code: Default::default(),
+            })
+            .to_owned()
+    }
+
+    pub fn get_code(&self, account: H160) -> Vec<u8> {
+        self.get_account(account).code
+    }
+
+    pub fn get_storage(&self, account: H160) -> BTreeMap<H256, H256> {
+        self.get_account(account).storage
+    }
+
+    pub fn get_balance(&self, account: H160) -> U256 {
+        self.get_account(account).balance
+    }
+    pub fn get_nonce(&self, account: H160) -> U256 {
+        self.get_account(account).nonce
     }
 }
 
