@@ -22,12 +22,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRCrypto.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
 #include <vector>
+
+#include <spv/support/BRCrypto.h>
 
 // endian swapping
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)

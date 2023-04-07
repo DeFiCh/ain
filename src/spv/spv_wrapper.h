@@ -10,8 +10,6 @@
 #include <shutdown.h>
 #include <uint256.h>
 
-#include <spv/support/BRLargeInt.h>
-
 #include <future>
 #include <map>
 #include <string>
@@ -25,6 +23,8 @@
 #include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+
+#include <spv/support/BRLargeInt.h>
 
 // Anchor DB storage version, increment to wipe anchor and SPV data.
 #define SPV_DB_VERSION 1

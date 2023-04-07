@@ -25,7 +25,7 @@
 #ifndef BRBIP38Key_h
 #define BRBIP38Key_h
 
-#include "BRKey.h"
+#include <spv/support/BRKey.h>
 
 #ifdef __cplusplus
 extern "C" {
