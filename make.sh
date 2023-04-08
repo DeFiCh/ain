@@ -163,7 +163,7 @@ build_make() {
     mkdir -p "${release_out}"
     local bins=(defid defi-cli defi-tx)
     for x in "${bins[@]}"; do
-        cp "${release_dir}/src/${x}" "${release_out}/" || true
+        cp -f "${release_dir}/src/${x}" "${release_out}/" || true
     done
 
     fold_end
