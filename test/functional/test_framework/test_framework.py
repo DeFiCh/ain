@@ -154,8 +154,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config.read_file(open(self.options.configfile))
         self.config = config
         self.options.defid = os.getenv("DEFID",
-                                       default=config["environment"]["BUILDDIR"] + 
-                                       '/src/defid' + 
+                                       default=config["environment"]["BUILDDIR"] +
+                                       '/src/defid' +
                                        config["environment"]["EXEEXT"])
         self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' +
                                                             config["environment"]["EXEEXT"])
@@ -337,7 +337,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["initialblockdownload"], False)
 
     # TODO: Does NOT belong in the framework. Refactor out as helpers
-    # It should be explicit on which node we're taking this from, as if the 
+    # It should be explicit on which node we're taking this from, as if the
     # test is specifically to check an unsynced pool or such, this results in
     # bad assumptions and flaky test results
     def get_id_token(self, symbol):
@@ -347,7 +347,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 return str(idx)
 
     # TODO: Does NOT belong in the framework. Refactor out as helpers
-    # Create a separate FixtureHelpers class that can contain all the 
+    # Create a separate FixtureHelpers class that can contain all the
     # common fixtures. This is really good example of what shouldn't be a part
     # of framework and how it trickles down to flaky tests downstream
     def setup_tokens(self, my_tokens=None):

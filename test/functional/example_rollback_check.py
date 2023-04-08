@@ -7,16 +7,16 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
-# NOTE: These functions are too unstable to be a part of the base framework. 
-# - These functions do not yet take into account the multi-node scenario. 
-# - These functions do not yet take into account pre-fork and post-fork scenarios 
+# NOTE: These functions are too unstable to be a part of the base framework.
+# - These functions do not yet take into account the multi-node scenario.
+# - These functions do not yet take into account pre-fork and post-fork scenarios
 #   where these will crash when called unexpectedly.
 # - Better to start these off out of framework simple helpers first that address
-#   use cases and that can be easily reused and overtime refactor 
+#   use cases and that can be easily reused and overtime refactor
 #   them into the framework if even needed.
 # - Very likely that just having them out of tree helpers that's optionally pulled
-#   in where needed can accomplish the same in a cleaner way but non intrusive 
-#   way to the framework without the error scenarios when part of the base 
+#   in where needed can accomplish the same in a cleaner way but non intrusive
+#   way to the framework without the error scenarios when part of the base
 #   framework. It's generally not a good idea to add something to the framework
 #   code unless these framework helpers are valid for the entire lifetime of
 #   the blockchain unchanged
