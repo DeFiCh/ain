@@ -11,7 +11,10 @@ DOCKER_EXEC echo \> \$HOME/.defi  # Make sure default datadir does not exist and
 # Note this still downloads and extract in source-tree which is not ideal, but we'll 
 # we'll keep this for now as this workflow is usually only run on the CI
 # and later, move to out-of-tree
-mkdir -p depends/SDKs 
+SRC_DEPENDS_DIR=$BASE_ROOT_DIR/depends
+DEPENDS_DIR=$BASE_BUILD_DIR/depends
+
+mkdir -p $DEPENDS_DIR/SDKs 
 
 OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
 OSX_SDK_TAR_FILE="${OSX_SDK_BASENAME}.tar.gz"
@@ -20,7 +23,7 @@ OSX_SDK_PATH="${DEPENDS_DIR}/SDKs/${OSX_SDK_BASENAME}"
 if [ -n "$XCODE_VERSION" ] && [ ! -f "$OSX_SDK_PATH" ]; then
   BEGIN_FOLD osx-sdk-download
   DOCKER_EXEC curl --location --fail "${SDK_URL}/${OSX_SDK_TAR_FILE}" -o "$OSX_SDK_TAR_FILE"
-  DOCKER_EXEC tar -C "${DEPENDS_DIR}/SDKs" -xf "$OSX_SDK_TAR_FILE"
+  DOCKER_EXEC tar -C "$DEPENDS_DIR/SDKs" -xf "$OSX_SDK_TAR_FILE"
   END_FOLD
 fi
 if [[ $HOST = *-mingw32 ]]; then
@@ -29,6 +32,6 @@ if [[ $HOST = *-mingw32 ]]; then
 fi
 if [ -z "$NO_DEPENDS" ]; then
   BEGIN_FOLD build-deps
-  DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
+  DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C $SRC_DEPENDS_DIR HOST=$HOST $DEP_OPTS DESTDIR=$DEPENDS_DIR
   END_FOLD
 fi

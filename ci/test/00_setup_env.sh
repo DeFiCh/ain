@@ -34,9 +34,7 @@ export DIR_QA_ASSETS=${DIR_QA_ASSETS:-${BASE_BUILD_DIR}/qa-assets}
 export PATH=${BASE_ROOT_DIR}/ci/retry:$PATH
 export CI_RETRY_EXE=${CI_RETRY_EXE:retry}
 
-# This is required so Github actions can see the env vars in the next step
-if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-{
+print_defaults_env() {
   echo "BASE_ROOT_DIR=${BASE_ROOT_DIR}"
   echo "MAKEJOBS=${MAKEJOBS}"
   echo "BASE_SCRATCH_DIR=${BASE_SCRATCH_DIR}"
@@ -59,7 +57,13 @@ if [[ -n "${GITHUB_ACTIONS-}" ]]; then
   echo "DIR_QA_ASSETS=${DIR_QA_ASSETS}"
   echo "PATH=${PATH}"
   echo "CI_RETRY_EXE=${CI_RETRY_EXE}"
-} >> $GITHUB_ENV
+}
+
+# This is required so Github actions can see the env vars in the next step
+if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+  print_defaults_env >> $GITHUB_ENV
+else
+  print_defaults_env
 fi
 
 echo "Setting specific values in env"
