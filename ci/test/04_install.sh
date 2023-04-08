@@ -46,5 +46,7 @@ fi
 DOCKER_EXEC free -m -h
 DOCKER_EXEC echo "Number of CPUs \(nproc\): $(nproc)"
 
+BEGIN_FOLD pkg-install
 ${CI_RETRY_EXE} DOCKER_EXEC apt-get update
 ${CI_RETRY_EXE} DOCKER_EXEC apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $DOCKER_PACKAGES
+END_FOLD pkg-install

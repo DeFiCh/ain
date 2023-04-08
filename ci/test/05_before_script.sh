@@ -18,8 +18,10 @@ OSX_SDK_TAR_FILE="${OSX_SDK_BASENAME}.tar.gz"
 OSX_SDK_PATH="${DEPENDS_DIR}/SDKs/${OSX_SDK_BASENAME}"
 
 if [ -n "$XCODE_VERSION" ] && [ ! -f "$OSX_SDK_PATH" ]; then
+  BEGIN_FOLD osx-sdk-download
   DOCKER_EXEC curl --location --fail "${SDK_URL}/${OSX_SDK_TAR_FILE}" -o "$OSX_SDK_TAR_FILE"
   DOCKER_EXEC tar -C "${DEPENDS_DIR}/SDKs" -xf "$OSX_SDK_TAR_FILE"
+  END_FOLD osx-sdk-download
 fi
 if [[ $HOST = *-mingw32 ]]; then
   DOCKER_EXEC update-alternatives --set $HOST-gcc \$\(which $HOST-gcc-posix\)
