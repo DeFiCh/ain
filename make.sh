@@ -161,7 +161,8 @@ build_make() {
     make DESTDIR="${release_dir}" -j${make_jobs} ${make_args}
 
     mkdir -p "${release_out}"
-    for x in (defid defi-cli defi-tx); do
+    local bins=(defid defi-cli defi-tx)
+    for x in "${bins[@]}"; do
         cp "${release_dir}/src/${x}" "${release_out}/" || true
     done
 
