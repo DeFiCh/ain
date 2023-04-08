@@ -28,5 +28,7 @@ if [[ $HOST = *-mingw32 ]]; then
   DOCKER_EXEC update-alternatives --set $HOST-g++ \$\(which $HOST-g++-posix\)
 fi
 if [ -z "$NO_DEPENDS" ]; then
+  BEGIN_FOLD build-deps
   DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
+  END_FOLD build-deps
 fi
