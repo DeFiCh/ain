@@ -7,7 +7,7 @@
 export LC_ALL=C.UTF-8
 
 export HOST=x86_64-w64-mingw32
-export PACKAGES="python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64"
+export PACKAGES="python3 g++-mingw-w64-x86-64 wine-binfmt wine64"
 export RUN_FUNCTIONAL_TESTS=false
-export GOAL="deploy"
+export GOAL="install"
 export DEFI_CONFIG="--enable-reduce-exports"

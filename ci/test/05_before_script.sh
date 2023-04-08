@@ -8,18 +8,21 @@ export LC_ALL=C.UTF-8
 
 DOCKER_EXEC echo \> \$HOME/.defi  # Make sure default datadir does not exist and is never read by creating a dummy file
 
-mkdir -p depends/SDKs depends/sdk-sources
+# Note this still downloads and extract in source-tree which is not ideal, but we'll 
+# we'll keep this for now as this workflow is usually only run on the CI
+# and later, move to out-of-tree
+mkdir -p depends/SDKs 
 
-OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers.tar.gz"
-OSX_SDK_PATH="${DEPENDS_DIR}/sdk-sources/${OSX_SDK_BASENAME}"
+OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
+OSX_SDK_TAR_FILE="${OSX_SDK_BASENAME}.tar.gz"
+OSX_SDK_PATH="${DEPENDS_DIR}/SDKs/${OSX_SDK_BASENAME}"
 
 if [ -n "$XCODE_VERSION" ] && [ ! -f "$OSX_SDK_PATH" ]; then
-  curl --location --fail "${SDK_URL}/${OSX_SDK_BASENAME}" -o "$OSX_SDK_PATH"
-fi
-if [ -n "$XCODE_VERSION" ] && [ -f "$OSX_SDK_PATH" ]; then
-  DOCKER_EXEC tar -C "${DEPENDS_DIR}/SDKs" -xf "$OSX_SDK_PATH"
+  DOCKER_EXEC curl --location --fail "${SDK_URL}/${OSX_SDK_TAR_FILE}" -o "$OSX_SDK_TAR_FILE"
+  DOCKER_EXEC tar -C "${DEPENDS_DIR}/SDKs" -xf "$OSX_SDK_TAR_FILE"
 fi
 if [[ $HOST = *-mingw32 ]]; then
+  DOCKER_EXEC update-alternatives --set $HOST-gcc \$\(which $HOST-gcc-posix\)
   DOCKER_EXEC update-alternatives --set $HOST-g++ \$\(which $HOST-g++-posix\)
 fi
 if [ -z "$NO_DEPENDS" ]; then

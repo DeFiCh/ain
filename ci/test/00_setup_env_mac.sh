@@ -12,5 +12,5 @@ export XCODE_VERSION=12.2
 export XCODE_BUILD_ID=12B45b
 export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
-export GOAL="deploy"
+export GOAL="install"
 export DEFI_CONFIG="--enable-reduce-exports --enable-werror"

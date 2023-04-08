@@ -29,6 +29,7 @@ END_FOLD
 BEGIN_FOLD distdir
 DOCKER_EXEC make distdir VERSION=$HOST
 DOCKER_EXEC cp -r ../contrib  "defi-$HOST/"
+DOCKER_EXEC cp ../README.md ../LICENSE "defi-$HOST/"
 END_FOLD
 
 cd "defi-$HOST" || (echo "could not enter distdir defi-$HOST"; exit 1)

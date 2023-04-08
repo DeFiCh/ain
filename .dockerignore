@@ -137,3 +137,6 @@ compile_commands.json
 
 /doc/doxygen/
 contrib/devtools/split-debug.sh
+
+# CI scratch area used for tests
+/ci/scratch/

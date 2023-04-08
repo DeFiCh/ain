@@ -7,10 +7,10 @@
 export LC_ALL=C.UTF-8
 
 export HOST=x86_64-unknown-linux-gnu
-export PACKAGES="clang llvm python3 libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-test-dev"
+export PACKAGES="python3 libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-test-dev"
 export NO_DEPENDS=1
 export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export RUN_FUZZ_TESTS=true
 export GOAL="install"
-export DEFI_CONFIG="--enable-fuzz --with-sanitizers=fuzzer,address CC=clang CXX=clang++"
+export DEFI_CONFIG="--enable-fuzz --with-sanitizers=fuzzer,address CC=clang-15 CXX=clang++-15"
