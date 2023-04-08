@@ -470,8 +470,10 @@ pkg_local_mac_sdk() {
 }
 
 pkg_install_llvm() {
+    echo "::group::pkg-install-llvm"
     # shellcheck disable=SC2086
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
+    echo "::endgroup::"
 }
 
 pkg_install_rust() {
