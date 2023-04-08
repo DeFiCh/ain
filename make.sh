@@ -112,13 +112,13 @@ build_deps() {
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
     
     ensure_enter_dir "$release_depends_dir"
-    echo "::group::build-deps"
+    fold_start "build-deps"
 
     # shellcheck disable=SC2086
     make -C "${src_depends_dir}" DESTDIR="${release_depends_dir}" \
         HOST="${target}" -j${make_jobs} ${make_deps_args}
 
-    echo "::endgroup::"
+    fold_end
     exit_dir
 }
 
@@ -134,14 +134,14 @@ build_conf() {
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
-    echo "::group::build-conf"
+    fold_start "build-conf"
 
     "$root_dir/autogen.sh"
     # shellcheck disable=SC2086
     CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
         $root_dir/configure ${make_conf_opts}
     
-    echo "::endgroup::"
+    fold_end
     exit_dir
 }
 
@@ -154,12 +154,12 @@ build_make() {
     echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
-    echo "::group::build_make"
+    fold_start "build_make"
 
     # shellcheck disable=SC2086
-    make DESTDIR="${release_dir}" prefix=/ -j${make_jobs} ${make_args} install
+    make DESTDIR="${release_dir}" -j${make_jobs} ${make_args}
 
-    echo "::endgroup::"
+    fold_end
     exit_dir
 }
 
@@ -394,17 +394,17 @@ git_version() {
 }
 
 pkg_update_base() {
-    echo "::group::pkg-update-base"
+    fold_start "pkg-update-base"
 
     apt update
     apt install -y apt-transport-https
     apt dist-upgrade -y
     
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_deps() {
-    echo "::group::pkg-install-deps"
+    fold_start "pkg-install-deps"
 
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
@@ -414,43 +414,43 @@ pkg_install_deps() {
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_deps_mingw_x86_64() {
-    echo "::group::pkg-install-deps-mingw-x86_64"
+    fold_start "pkg-install-deps-mingw-x86_64"
     
     apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_deps_armhf() {
-    echo "::group::pkg-install-deps-armhf"
+    fold_start "pkg-install-deps-armhf"
 
     apt install -y \
         g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_deps_arm64() {
-    echo "::group::pkg-install-deps-arm64"
+    fold_start "pkg-install-deps-arm64"
 
     apt install -y \
         g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_deps_mac_tools() {
-    echo "::group::pkg-install-deps-mac-tools"
+    fold_start "pkg-install-deps-mac-tools"
 
     apt install -y \
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_local_mac_sdk() {
@@ -459,21 +459,21 @@ pkg_local_mac_sdk() {
     local release_depends_dir=${DEPENDS_DIR}
 
     ensure_enter_dir "$release_depends_dir/SDKs"
-    echo "::group::pkg-local-mac-sdk"
+    fold_start "pkg-local-mac-sdk"
 
     wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     exit_dir
 
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_llvm() {
-    echo "::group::pkg-install-llvm"
+    fold_start "pkg-install-llvm"
     # shellcheck disable=SC2086
     wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
-    echo "::endgroup::"
+    fold_end
 }
 
 pkg_install_rust() {
@@ -565,6 +565,14 @@ safe_rm_rf() {
         fi
         rm -rf "$x"
     done
+}
+
+fold_start() {
+    echo "::group::${1:-}"
+}
+
+fold_end() {
+    echo "::endgroup::"
 }
 
 ensure_enter_dir() {
