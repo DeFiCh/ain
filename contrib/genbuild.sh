@@ -54,10 +54,6 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     fi
 fi
 
-echo "BUILD_DESC: $DESC"
-echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
-echo "BUILD_SUFFIX: $SUFFIX"
-
 if [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
 elif [ -n "$SUFFIX" ]; then

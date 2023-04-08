@@ -6,7 +6,7 @@
 
 export LC_ALL=C.UTF-8
 
-cd "build/defi-$HOST" || (echo "could not enter distdir build/defi-$HOST"; exit 1)
+cd "test-$HOST" || (echo "could not enter distdir test-$HOST"; exit 1)
 
 if [ "$RUN_UNIT_TESTS" = "true" ]; then
   BEGIN_FOLD unit-tests
@@ -16,7 +16,7 @@ fi
 
 if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
   BEGIN_FOLD functional-tests
-  DOCKER_EXEC test/functional/test_runner.py --ci $MAKEJOBS --tmpdirprefix "${BASE_SCRATCH_DIR}/test_runner/" --ansi --combinedlogslen=4000 ${TEST_RUNNER_EXTRA} --quiet --failfast
+  DOCKER_EXEC test/functional/test_runner.py --ci $MAKEJOBS --tmpdirprefix "${BASE_SCRATCH_DIR}/test_runner/" --ansi --combinedlogslen=10000 ${TEST_RUNNER_EXTRA} --quiet --failfast
   END_FOLD
 fi
 

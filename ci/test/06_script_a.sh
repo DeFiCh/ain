@@ -19,20 +19,17 @@ else
 fi
 END_FOLD
 
-mkdir -p build
-cd build || (echo "could not enter build directory"; exit 1)
-
 BEGIN_FOLD configure
 DOCKER_EXEC ../configure --cache-file=config.cache $DEFI_CONFIG_ALL $DEFI_CONFIG || ( cat config.log && false)
 END_FOLD
 
 BEGIN_FOLD distdir
 DOCKER_EXEC make distdir VERSION=$HOST
-DOCKER_EXEC cp -r ../contrib  "defi-$HOST/"
-DOCKER_EXEC cp ../README.md ../LICENSE "defi-$HOST/"
+DOCKER_EXEC cp -r ../contrib  "test-$HOST/"
+DOCKER_EXEC cp ../README.md ../LICENSE "test-$HOST/"
 END_FOLD
 
-cd "defi-$HOST" || (echo "could not enter distdir defi-$HOST"; exit 1)
+cd "test-$HOST" || (echo "could not enter distdir test-$HOST"; exit 1)
 
 BEGIN_FOLD configure
 DOCKER_EXEC ./configure --cache-file=../config.cache $DEFI_CONFIG_ALL $DEFI_CONFIG || ( cat config.log && false)
