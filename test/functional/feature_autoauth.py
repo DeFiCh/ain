@@ -29,9 +29,6 @@ class TokensAutoAuthTest(DefiTestFramework):
         self.nodes[0].generate(1, 1000000, non_auth_address)
 
     def run_test(self):
-        # Forced failure to test
-        assert_equal(0,1)
-        
         n0 = self.nodes[0]
 
         coinbase = n0.getnewaddress("", "legacy")
