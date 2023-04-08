@@ -1,11 +1,11 @@
-# #!/usr/bin/env python3
-# # Copyright (c) 2014-2019 The Bitcoin Core developers
-# # Copyright (c) DeFi Blockchain Developers
-# # Distributed under the MIT software license, see the accompanying
-# # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+#!/usr/bin/env python3
+# Copyright (c) 2014-2019 The Bitcoin Core developers
+# Copyright (c) DeFi Blockchain Developers
+# Distributed under the MIT software license, see the accompanying
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-# from test_framework.test_framework import DefiTestFramework
-# from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.test_framework import DefiTestFramework
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 # NOTE: These functions are too unstable to be a part of the base framework. 
 # - These functions do not yet take into account the multi-node scenario. 
