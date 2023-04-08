@@ -1,13 +1,63 @@
-#!/usr/bin/env python3
-# Copyright (c) 2014-2019 The Bitcoin Core developers
-# Copyright (c) DeFi Blockchain Developers
-# Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan - loan basics."""
+# #!/usr/bin/env python3
+# # Copyright (c) 2014-2019 The Bitcoin Core developers
+# # Copyright (c) DeFi Blockchain Developers
+# # Distributed under the MIT software license, see the accompanying
+# # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+# from test_framework.test_framework import DefiTestFramework
+# from test_framework.util import assert_equal, assert_raises_rpc_error
 
+# NOTE: These functions are too unstable to be a part of the base framework. 
+# - These functions do not yet take into account the multi-node scenario. 
+# - These functions do not yet take into account pre-fork and post-fork scenarios 
+#   where these will crash when called unexpectedly.
+# - Better to start these off out of framework simple helpers first that address
+#   use cases and that can be easily reused and overtime refactor 
+#   them into the framework if even needed.
+# - Very likely that just having them out of tree helpers that's optionally pulled
+#   in where needed can accomplish the same in a cleaner way but non intrusive 
+#   way to the framework without the error scenarios when part of the base 
+#   framework. It's generally not a good idea to add something to the framework
+#   code unless these framework helpers are valid for the entire lifetime of
+#   the blockchain unchanged
+
+# # build the data obj to be checked pre and post rollback
+# def _get_chain_data(self):
+#     return [
+#         self.nodes[0].logaccountbalances(),
+#         self.nodes[0].logstoredinterests(),
+#         self.nodes[0].listvaults(),
+#         self.nodes[0].listtokens(),
+#         self.nodes[0].listgovs(),
+#         self.nodes[0].listmasternodes(),
+#         self.nodes[0].listaccounthistory(),
+#         self.nodes[0].getburninfo(),
+#         self.nodes[0].getloaninfo(),
+#         self.nodes[0].listanchors(),
+#         self.nodes[0].listgovproposals(),
+#         self.nodes[0].listburnhistory(),
+#         self.nodes[0].listcommunitybalances()
+#     ]
+
+# # Captures the chain data, does a rollback and checks data has been restored
+# def _check_rollback(self, func, *args, **kwargs):
+#     init_height = self.nodes[0].getblockcount()
+#     init_data = self._get_chain_data()
+#     result = func(self, *args, **kwargs)
+#     self.rollback_to(init_height)
+#     final_data = self._get_chain_data()
+#     final_height = self.nodes[0].getblockcount()
+#     assert (init_data == final_data)
+#     assert (init_height == final_height)
+#     return result
+
+# # WARNING: This decorator uses _get_chain_data() internally which can be an expensive call if used in large test scenarios.
+# @classmethod
+# def capture_rollback_verify(cls, func):
+#     def wrapper(self, *args, **kwargs):
+#         return self._check_rollback(func, *args, **kwargs)
+
+#     return wrapper
 
 class RollbackFrameworkTest(DefiTestFramework):
     def set_test_params(self):
@@ -54,7 +104,7 @@ class RollbackFrameworkTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.capture_rollback_verify
+    # @DefiTestFramework.capture_rollback_verify
     def set_accounts_with_rollback(self):
         self.set_accounts()
 
@@ -100,7 +150,7 @@ class RollbackFrameworkTest(DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.capture_rollback_verify
+    # @DefiTestFramework.capture_rollback_verify
     def create_tokens_with_rollback(self):
         self.create_tokens()
 
@@ -109,7 +159,7 @@ class RollbackFrameworkTest(DefiTestFramework):
         self.nodes[3].generate(1)
         self.sync_blocks()
 
-    @DefiTestFramework.capture_rollback_verify
+    # @DefiTestFramework.capture_rollback_verify
     def mint_extra_with_rollback(self):
         self.mint_extra()
 

@@ -318,9 +318,9 @@ BASE_SCRIPTS = [
     'feature_update_mn.py',
     'feature_block_reward.py',
     'feature_negative_interest.py',
-    'feature_framework_rollback.py',
     'rpc_getstoredinterest.py',
     'feature_dusd_loans.py',
+    # 'example_rollback_check.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
