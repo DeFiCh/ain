@@ -142,6 +142,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         self.add_options(parser)
         self.options = parser.parse_args()
 
+        is_github_actions_env = os.getenv("GITHUB_ACTIONS")
+
         PortSeed.n = self.options.port_seed
 
         check_json_precision()
@@ -171,6 +173,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             self.options.tmpdir = tempfile.mkdtemp(prefix=TMPDIR_PREFIX)
         self._start_logging()
 
+        if (is_github_actions_env):
+            test_name = os.path.basename(sys.argv[0])
+            self.log.info("::group::test::{}".format(test_name))
 
         # Seed the PRNG. Note that test runs are reproducible if and only if
         # a single thread accesses the PRNG. For more information, see
@@ -261,6 +266,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"),
                 self.options.tmpdir))
             exit_code = TEST_EXIT_FAILED
+
+        if (is_github_actions_env):
+            self.log.info("::endgroup::")
 
         logging.shutdown()
         if cleanup_tree_on_exit:
