@@ -126,9 +126,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="The seed to use for assigning port numbers (default: current process id)")
         parser.add_argument("--coveragedir", dest="coveragedir",
                             help="Write tested RPC commands into this directory")
-        parser.add_argument("--configfile", dest="configfile",
-                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../config.ini"),
-                            help="Location of the test framework config file (default: %(default)s)")
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
@@ -139,6 +136,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="run nodes under the valgrind memory error detector: expect at least a ~10x slowdown, valgrind 3.14 or later required")
         parser.add_argument("--randomseed", type=int,
                             help="set a random seed for deterministically reproducing a previous test run")
+        parser.add_argument("--configfile", dest="configfile",
+                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../config.ini"),
+                            help="Location of the test framework config file (default: %(default)s)")
         self.add_options(parser)
         self.options = parser.parse_args()
 
@@ -152,14 +152,14 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config.read_file(open(self.options.configfile))
         self.config = config
         self.options.defid = os.getenv("DEFID",
-                                       default=config["environment"]["BUILDDIR"] + '/src/defid' + config["environment"][
-                                           "EXEEXT"])
+                                       default=config["environment"]["BUILDDIR"] + 
+                                       '/src/defid' + 
+                                       config["environment"]["EXEEXT"])
         self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' +
                                                             config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
-            os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
             os.environ['PATH']
         ])
 
@@ -170,6 +170,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         else:
             self.options.tmpdir = tempfile.mkdtemp(prefix=TMPDIR_PREFIX)
         self._start_logging()
+
 
         # Seed the PRNG. Note that test runs are reproducible if and only if
         # a single thread accesses the PRNG. For more information, see
@@ -260,6 +261,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"),
                 self.options.tmpdir))
             exit_code = TEST_EXIT_FAILED
+
         logging.shutdown()
         if cleanup_tree_on_exit:
             shutil.rmtree(self.options.tmpdir)
@@ -326,12 +328,20 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
 
+    # TODO: Does NOT belong in the framework. Refactor out as helpers
+    # It should be explicit on which node we're taking this from, as if the 
+    # test is specifically to check an unsynced pool or such, this results in
+    # bad assumptions and flaky test results
     def get_id_token(self, symbol):
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
             if (token["symbol"] == symbol):
                 return str(idx)
 
+    # TODO: Does NOT belong in the framework. Refactor out as helpers
+    # Create a separate FixtureHelpers class that can contain all the 
+    # common fixtures. This is really good example of what shouldn't be a part
+    # of framework and how it trickles down to flaky tests downstream
     def setup_tokens(self, my_tokens=None):
         assert (self.setup_clean_chain == True)
         assert ('-txnotokens=0' in self.extra_args[0])
