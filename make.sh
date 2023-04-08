@@ -110,11 +110,15 @@ build_deps() {
     local release_depends_dir=${DEPENDS_DIR}
 
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
+    
     ensure_enter_dir "$release_depends_dir"
-    # XREF: #make-deps
+    echo "::group::build-deps"
+
     # shellcheck disable=SC2086
     make -C "${src_depends_dir}" DESTDIR="${release_depends_dir}" \
         HOST="${target}" -j${make_jobs} ${make_deps_args}
+
+    echo "::endgroup::"
     exit_dir
 }
 
@@ -126,14 +130,18 @@ build_conf() {
     local release_dir=${RELEASE_DIR}
     local release_depends_dir=${DEPENDS_DIR}
 
+
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
+    echo "::group::build-conf"
+
     "$root_dir/autogen.sh"
-    # XREF: #make-configure
     # shellcheck disable=SC2086
     CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
         $root_dir/configure ${make_conf_opts}
+    
+    echo "::endgroup::"
     exit_dir
 }
 
@@ -146,8 +154,12 @@ build_make() {
     echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
+    echo "::group::build_make"
+
     # shellcheck disable=SC2086
     make DESTDIR="${release_dir}" prefix=/ -j${make_jobs} ${make_args} install
+    
+    echo "::endgroup::"
     exit_dir
 }
 
@@ -205,7 +217,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     ensure_enter_dir "${versioned_release_dir}"
-    tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
     exit_dir
 
     echo "> package: ${pkg_path}"
@@ -356,7 +368,7 @@ git_version() {
     local current_commit
     local current_branch
 
-    git fetch --tags
+    git fetch --tags &> /dev/null
     current_tag=$(git tag --points-at HEAD | head -1)
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -424,7 +436,7 @@ pkg_local_mac_sdk() {
 
     ensure_enter_dir "$release_depends_dir/SDKs"
     wget https://bitcoincore.org/depends-sources/sdks/${pkg}
-    tar -zxvf "${pkg}"
+    tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     exit_dir
 }
