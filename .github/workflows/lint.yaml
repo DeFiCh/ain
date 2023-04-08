@@ -41,11 +41,9 @@ jobs:
     - name: Lint
       run: |
           set -o errexit; source ./ci/lint/04_install.sh
-          set -o errexit; source ./ci/lint/05_before_script.sh
           set -o errexit; source ./ci/lint/06_script.sh
 
     - name: Extended Lint
       run: |
           set -o errexit; source ./ci/extended_lint/04_install.sh
-          set -o errexit; source ./ci/lint/05_before_script.sh
           set -o errexit; source ./ci/extended_lint/06_script.sh

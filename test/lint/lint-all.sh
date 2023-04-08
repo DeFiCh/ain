@@ -20,10 +20,12 @@ EXIT_CODE=0
 
 for f in "${SCRIPTDIR}"/lint-*.sh; do
   if [ "$(basename "$f")" != "$LINTALL" ]; then
+    echo "::group::$f"
     if ! "$f"; then
       echo "^---- failure generated from $f"
       EXIT_CODE=1
     fi
+    echo "::endgroup::"
   fi
 done
 

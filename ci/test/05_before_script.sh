@@ -21,7 +21,7 @@ if [ -n "$XCODE_VERSION" ] && [ ! -f "$OSX_SDK_PATH" ]; then
   BEGIN_FOLD osx-sdk-download
   DOCKER_EXEC curl --location --fail "${SDK_URL}/${OSX_SDK_TAR_FILE}" -o "$OSX_SDK_TAR_FILE"
   DOCKER_EXEC tar -C "${DEPENDS_DIR}/SDKs" -xf "$OSX_SDK_TAR_FILE"
-  END_FOLD osx-sdk-download
+  END_FOLD
 fi
 if [[ $HOST = *-mingw32 ]]; then
   DOCKER_EXEC update-alternatives --set $HOST-gcc \$\(which $HOST-gcc-posix\)
@@ -30,5 +30,5 @@ fi
 if [ -z "$NO_DEPENDS" ]; then
   BEGIN_FOLD build-deps
   DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
-  END_FOLD build-deps
+  END_FOLD
 fi
