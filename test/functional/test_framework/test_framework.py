@@ -77,6 +77,17 @@ class DefiTestMetaClass(type):
         return super().__new__(cls, clsname, bases, dct)
 
 
+def get_default_config_path():
+    current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+    default_config_paths = [
+        current_file_path + "/../../config.ini",
+        current_file_path + "/../../../build/test/config.ini",
+    ]
+    for p in default_config_paths:
+        if os.path.exists(p):
+            return os.path.abspath(p)
+    return None
+
 class DefiTestFramework(metaclass=DefiTestMetaClass):
     """Base class for a defi test script.
 
@@ -137,7 +148,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         parser.add_argument("--randomseed", type=int,
                             help="set a random seed for deterministically reproducing a previous test run")
         parser.add_argument("--configfile", dest="configfile",
-                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../config.ini"),
+                            default=get_default_config_path(),
                             help="Location of the test framework config file (default: %(default)s)")
         self.add_options(parser)
         self.options = parser.parse_args()
