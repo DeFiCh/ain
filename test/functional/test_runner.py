@@ -79,7 +79,6 @@ EXTENDED_SCRIPTS = [
     'mempool_accept.py',  # moved to ext due to heavy load for trevis
     'wallet_backup.py',  # moved to ext due to heavy load for trevis
     'feature_on_chain_government_govvar_update.py',
-    # 'example_rollback_check.py',
 ]
 
 BASE_SCRIPTS = [
@@ -326,6 +325,10 @@ BASE_SCRIPTS = [
     # Put them in a random line within the section that fits their approximate run-time
 ]
 
+EXPLICIT_IGNORES = [
+    'example_rollback_check.py',
+]
+
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
 ALL_SCRIPTS = EXTENDED_SCRIPTS + BASE_SCRIPTS
 
@@ -335,6 +338,8 @@ NON_SCRIPTS = [
     "create_cache.py",
     "test_runner.py",
 ]
+
+NON_SCRIPTS = NON_SCRIPTS + EXPLICIT_IGNORES
 
 
 def main():
