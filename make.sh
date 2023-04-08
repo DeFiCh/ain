@@ -150,6 +150,7 @@ build_make() {
     local make_args=${MAKE_ARGS:-}
     local make_jobs=${MAKE_JOBS}
     local release_dir=${RELEASE_DIR}
+    local release_out=${RELEASE_DIR}/bin
 
     echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
 
@@ -158,6 +159,11 @@ build_make() {
 
     # shellcheck disable=SC2086
     make DESTDIR="${release_dir}" -j${make_jobs} ${make_args}
+
+    mkdir -p "${release_out}"
+    for x in (defid defi-cli defi-tx); do
+        cp "${release_dir}/src/${x}" "${release_out}/" || true
+    done
 
     fold_end
     exit_dir
