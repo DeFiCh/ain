@@ -158,7 +158,7 @@ build_make() {
 
     # shellcheck disable=SC2086
     make DESTDIR="${release_dir}" prefix=/ -j${make_jobs} ${make_args} install
-    
+
     echo "::endgroup::"
     exit_dir
 }
@@ -394,12 +394,18 @@ git_version() {
 }
 
 pkg_update_base() {
-  apt update
-  apt install -y apt-transport-https
-  apt dist-upgrade -y
+    echo "::group::pkg-update-base"
+
+    apt update
+    apt install -y apt-transport-https
+    apt dist-upgrade -y
+    
+    echo "::endgroup::"
 }
 
 pkg_install_deps() {
+    echo "::group::pkg-install-deps"
+
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
@@ -407,26 +413,44 @@ pkg_install_deps() {
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake
+
+    echo "::endgroup::"
 }
 
 pkg_install_deps_mingw_x86_64() {
-  apt install -y \
+    echo "::group::pkg-install-deps-mingw-x86_64"
+    
+    apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+
+    echo "::endgroup::"
 }
 
 pkg_install_deps_armhf() {
-  apt install -y \
+    echo "::group::pkg-install-deps-armhf"
+
+    apt install -y \
         g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+
+    echo "::endgroup::"
 }
 
 pkg_install_deps_arm64() {
-  apt install -y \
+    echo "::group::pkg-install-deps-arm64"
+
+    apt install -y \
         g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+
+    echo "::endgroup::"
 }
 
 pkg_install_deps_mac_tools() {
-  apt install -y \
+    echo "::group::pkg-install-deps-mac-tools"
+
+    apt install -y \
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+
+    echo "::endgroup::"
 }
 
 pkg_local_mac_sdk() {
@@ -435,10 +459,14 @@ pkg_local_mac_sdk() {
     local release_depends_dir=${DEPENDS_DIR}
 
     ensure_enter_dir "$release_depends_dir/SDKs"
+    echo "::group::pkg-local-mac-sdk"
+
     wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     exit_dir
+
+    echo "::endgroup::"
 }
 
 pkg_install_llvm() {
