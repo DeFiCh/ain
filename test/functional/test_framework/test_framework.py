@@ -80,11 +80,7 @@ class DefiTestMetaClass(type):
 def get_default_config_path():
     current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     default_config_paths = [
-        # make.sh defaults
         current_file_path + "/../../../build/test/config.ini",
-        # test CI defaults
-        current_file_path + "/../../../build/ci/test-x86_64-unknown-linux-gnu/test/config.ini",
-        # src defaults
         current_file_path + "/../../config.ini",
     ]
     for p in default_config_paths:

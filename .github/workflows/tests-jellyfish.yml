@@ -37,9 +37,8 @@ jobs:
           echo ${BUILD_VERSION}
           cd defichain
           DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
-          docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
-          docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
-
+          docker build -t test-build-container -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile .
+          
       - name: Run tests
         run: |
           npm ci

@@ -181,7 +181,7 @@ CLEANFILES =
 
 .INTERMEDIATE: $(COVERAGE_INFO)
 
-DISTCHECK_CONFIGURE_FLAGS = --enable-man
+DISTCHECK_CONFIGURE_FLAGS = 
 
 doc/doxygen/.stamp: doc/Doxyfile FORCE
 	$(MKDIR_P) $(@D)

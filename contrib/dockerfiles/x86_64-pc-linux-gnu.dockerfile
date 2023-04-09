@@ -1,9 +1,9 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:latest as builder-base
+FROM ubuntu:latest as builder
 ARG TARGET
-LABEL org.defichain.name="defichain-builder-base"
+LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
@@ -12,32 +12,10 @@ COPY ./make.sh .
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 
-# -----------
-FROM builder-base as depends-builder
-ARG TARGET
-LABEL org.defichain.name="defichain-depends-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-COPY ./depends ./depends
-
-RUN ./make.sh clean-depends && ./make.sh build-deps
-
-# -----------
-FROM builder-base as builder
-ARG TARGET
-
-LABEL org.defichain.name="defichain-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-
 COPY . .
-COPY --from=depends-builder /work/build/depends ./build/depends
-
+RUN ./make.sh clean-depends && ./make.sh build-deps
 RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
     ./make.sh clean-conf && ./make.sh build-conf 
-
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build && \
@@ -51,5 +29,16 @@ LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-
 COPY --from=builder /app/. ./
+
+RUN useradd --create-home defi && \
+    mkdir -p /data && \
+    chown defi:defi /data && \
+    ln -s /data /home/defi/.defi
+
+VOLUME ["/data"]
+
+USER defi:defi
+CMD [ "/app/bin/defid" ]
+
+EXPOSE 8555 8554 18555 18554 19555 19554 20555 20554

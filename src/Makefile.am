@@ -19,8 +19,8 @@ LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
 LIBDEFI_SPV=libdefi_spv.a
-SPV_INCLUDES = -I$(srcdir) \
-	-I$(srcdir)/spv \
+LIBDEFI_SPV_INCLUDES = \
+  -I$(srcdir)/spv \
 	-I$(srcdir)/spv/support \
 	-I$(srcdir)/spv/bitcoin \
 	-I$(srcdir)/spv/bcash
@@ -29,7 +29,7 @@ DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS
 
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
-DEFI_INCLUDES += $(SPV_INCLUDES)
+DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -293,7 +293,7 @@ libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive \
   -I$(srcdir)/spv/support \
   -I$(srcdir)/secp256k1 \
   -I$(srcdir)/secp256k1/src \
-  -Wno-format-extra-args -lm -lbsd
+  -Wno-format-extra-args
   
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \

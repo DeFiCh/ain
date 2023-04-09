@@ -5,7 +5,7 @@
 
 # shellcheck disable=SC2155
 
-export LC_ALL=C
+# export LC_ALL=C
 set -Eeuo pipefail
 
 setup_vars() {
@@ -21,7 +21,7 @@ setup_vars() {
     RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
     DEPENDS_DIR=${DEPENDS_DIR:-"${RELEASE_DIR}/depends"}
 
-    CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"16"}
+    CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
     TARGET=${TARGET:-"$(get_default_target)"}
 
@@ -321,6 +321,40 @@ _docker_clean() {
 
 # -------------- Misc -----------------
 
+test() {
+    local make_jobs=${MAKE_JOBS}
+    local make_args=${MAKE_ARGS:-}
+    local release_dir=${RELEASE_DIR}
+
+    ensure_enter_dir "${release_dir}"
+    fold_start "unit-tests"
+    # shellcheck disable=SC2086
+    make -j$make_jobs check VERBOSE=1 $make_args
+    fold_end
+
+    fold_start "functional-tests"
+    ./test/functional/test_runner.py --ci j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
+    fold_end
+
+    exit_dir
+}
+
+exec() {
+    local cmdlist=${1?cmdlist to execute is required}
+    local make_jobs=${MAKE_JOBS}
+    local make_args=${MAKE_ARGS:-}
+    local release_dir=${RELEASE_DIR}
+
+    ensure_enter_dir "${release_dir}"
+    fold_start "exec:: $@"
+
+    # shellcheck disable=SC2086
+    make -j$make_jobs $make_args $@
+
+    fold_end
+    exit_dir
+}
+
 get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -497,9 +531,6 @@ purge() {
     local release_depends_dir=${DEPENDS_DIR}
 
     clean
-    ensure_enter_dir "${release_dir}"
-    make distclean || true
-    exit_dir
     clean_depends
     safe_rm_rf "$release_depends_dir"
     clean_conf
@@ -575,7 +606,7 @@ safe_rm_rf() {
 }
 
 fold_start() {
-    echo "::group::${1:-}"
+    echo "::group::${@:-}"
 }
 
 fold_end() {

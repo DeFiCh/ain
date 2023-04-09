@@ -65,5 +65,4 @@ fi
 # only update build.h if necessary
 if [ "$INFO" != "$NEWINFO" ]; then
     echo "$NEWINFO" >"$FILE"
-    echo "BUILD_INFO: $NEWINFO"
 fi

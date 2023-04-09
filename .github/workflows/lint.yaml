@@ -14,12 +14,7 @@ on:
 jobs:
   unit_tests:
     name: Lint
-    # We use a matrix since it's easier to migrate upwards, add new
-    # test on multiple, then remove old without creating friction.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     env:
       BUILD_VERSION: latest # Computed
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
@@ -30,20 +25,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v1
 
-    # This script has been modified to pipe variables to GITHUB_ENV, which allows them to be
-    # used by subsequent steps.
-    - name: Set Env
-      run: set -o errexit; source ./ci/test/00_setup_env.sh
-    
-    # The following scripts must be run in the same step as they reference Bash functions from
-    # previous scripts, which are difficult to expose globally in Github workflows
-
     - name: Lint
-      run: |
-          set -o errexit; source ./ci/lint/04_install.sh
-          set -o errexit; source ./ci/lint/06_script.sh
+      run: ./ci/lint/main.sh
 
     - name: Extended Lint
-      run: |
-          set -o errexit; source ./ci/extended_lint/04_install.sh
-          set -o errexit; source ./ci/extended_lint/06_script.sh
+      run: ./ci/extended_lint/main.sh

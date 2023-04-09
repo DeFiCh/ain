@@ -16,13 +16,7 @@ env:
 
 jobs:
   linux-x64:
-  # We use a matrix since it's easier to migrate upwards, add new
-  # test on multiple, then remove old without creating friction.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
@@ -35,30 +29,18 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
 
-    # Linux build additionally pushes the docker images to docker hub on successful build
-    - name: Tag dockerhub build
-      if: ${{ github.repository == 'DeFiCh/ain' }}
-      run: >
-        docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }}
-        defichain-x86_64-pc-linux-gnu:dockerhub-latest
-
     - uses: docker/build-push-action@v1
-    # Make sure to only build on ain repo. Also add in additional restrictions here if needed to
-    # make sure we don't push unnecessary images to docker
       if: ${{ github.repository == 'DeFiCh/ain' }}
       with:
         username: ${{ secrets.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
-        path: ./contrib/dockerfiles/dockerhub
-        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
+        path: ./contrib/dockerfiles
+        dockerfile: ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile
         repository: defi/defichain
         tags: ${{ env.BUILD_VERSION }}
 
   linux-armhf:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
@@ -72,10 +54,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
 
   win-x64:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
@@ -89,10 +68,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
 
   mac-x64:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 

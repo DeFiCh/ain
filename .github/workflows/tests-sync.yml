@@ -24,12 +24,12 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Build Node
+    - name: Build node
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
       run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
-    - name: Upload Binaries
+    - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
@@ -37,20 +37,11 @@ jobs:
          build/src/defid
          build/src/defi-cli
 
-    - name: Archive Binaries
-      uses: actions/upload-artifact@v3
-      with:
-        name: defibins
-        path: |
-          build/src/defid
-          build/src/defi-cli
-
-    - name: Archive Shell Commands
+    - name: Upload shell commands
       uses: actions/upload-artifact@v3
       with:
         name: sync
-        path: |
-          ci/parallel_sync/sync.sh
+        path: ci/sync/main.sh
 
   generate-matrix:
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
