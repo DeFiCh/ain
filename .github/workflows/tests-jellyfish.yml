@@ -30,8 +30,8 @@ jobs:
         run: cd defichain && ./make.sh git_version
 
       - name: Build and setup
-        run: "docker build -t test-build-container 
-          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
+        run: cd defichain && docker build -t test-build-container \
+          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile .
 
       - name: Run tests
         run: |
