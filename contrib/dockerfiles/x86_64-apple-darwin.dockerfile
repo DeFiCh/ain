@@ -19,7 +19,7 @@ RUN ./make.sh clean-depends && ./make.sh build-deps
 RUN ./make.sh clean-conf && ./make.sh build-conf 
 RUN ./make.sh build-make
 
-RUN mkdir /app && cd build && \
+RUN mkdir /app && cd build/${TARGET} && \
     make prefix=/ DESTDIR=/app install
 
 # NOTE: These are not runnable images. So we do not add into a scratch base image.

@@ -18,7 +18,7 @@ RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
     ./make.sh clean-conf && ./make.sh build-conf 
 RUN ./make.sh build-make
 
-RUN mkdir /app && cd build && \
+RUN mkdir /app && cd build/${TARGET} && \
     make prefix=/ DESTDIR=/app install
 
 # -----------

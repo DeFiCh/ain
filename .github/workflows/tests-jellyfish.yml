@@ -32,13 +32,11 @@ jobs:
           ./make.sh git_version
 
       - name: Build and package
-        run: |
-          echo ">>> BUILD VERSION <<<"
-          echo ${BUILD_VERSION}
-          cd defichain
-          DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
-          docker build -t test-build-container -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile .
-          
+        run: | 
+          docker build -t test-build-container \
+            -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile \ 
+            defichain
+
       - name: Run tests
         run: |
           npm ci

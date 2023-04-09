@@ -82,6 +82,11 @@ def get_default_config_path():
     default_config_paths = [
         current_file_path + "/../../../build/test/config.ini",
         current_file_path + "/../../config.ini",
+        current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
+        current_file_path + "/../../../build/x86_64-w64-mingw32/test/config.ini",
+        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
     ]
     for p in default_config_paths:
         if os.path.exists(p):

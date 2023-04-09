@@ -34,8 +34,8 @@ jobs:
       with:
         name: defibins
         path: |
-         build/src/defid
-         build/src/defi-cli
+         build/x86_64-pc-linux-gnu/src/defid
+         build/x86_64-pc-linux-gnu/src/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3

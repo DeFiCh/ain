@@ -15,13 +15,14 @@ setup_vars() {
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
 
     ROOT_DIR="$(readlink -e "${_SCRIPT_DIR}")"
-    RELEASE_DIR=${RELEASE_DIR:-"./build"}
-    RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
-    DEPENDS_DIR=${DEPENDS_DIR:-"${RELEASE_DIR}/depends"}
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     MAKE_DEBUG=${MAKE_DEBUG:-"0"}
     TARGET=${TARGET:-"$(get_default_target)"}
+
+    RELEASE_DIR=${RELEASE_DIR:-"./build/${TARGET}"}
+    RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
+    DEPENDS_DIR=${DEPENDS_DIR:-"${RELEASE_DIR}/depends"}
 
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
