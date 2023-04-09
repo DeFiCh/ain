@@ -6,9 +6,8 @@ set -Eeuo pipefail
 main() {
     _ensure_script_dir
     trap _cleanup 0 1 2 3 6 15 ERR
+    cd "$_SCRIPT_DIR/../../"
     
-    cd ../../
-
     test/lint/extended-lint-all.sh
 }
 

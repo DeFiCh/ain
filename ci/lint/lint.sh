@@ -6,8 +6,7 @@ set -Eeuo pipefail
 main() {
     _ensure_script_dir
     trap _cleanup 0 1 2 3 6 15 ERR
-    
-    cd ../../
+    cd "$_SCRIPT_DIR/../../"
 
     echo "::group::check-doc"
     test/lint/check-doc.py
