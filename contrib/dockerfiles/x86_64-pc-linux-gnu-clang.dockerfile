@@ -3,6 +3,7 @@ ARG TARGET=x86_64-pc-linux-gnu
 # -----------
 FROM debian:10 as builder
 ARG TARGET
+ARG CLANG_VERSION=15
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
@@ -15,9 +16,13 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
 COPY . .
 RUN ./make.sh clean-depends && \
-    export MAKE_DEPS_ARGS="x86_64_linux_CC=clang-16 x86_64_linux_CXX=clang++-16" && \
+    export MAKE_DEPS_ARGS="\
+        x86_64_linux_CC=clang-${CLANG_VERSION} \
+        x86_64_linux_CXX=clang++-${CLANG_VERSION}" && \
     ./make.sh build-deps
-RUN export MAKE_CONF_ARGS="CC=clang-16 CXX=clang++-16" && \
+RUN export MAKE_CONF_ARGS="\
+    CC=clang-${CLANG_VERSION} \
+    CXX=clang++-${CLANG_VERSION}" && \
     ./make.sh clean-conf && ./make.sh build-conf 
 RUN ./make.sh build-make
 
