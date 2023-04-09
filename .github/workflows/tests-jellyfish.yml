@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and setup
         run: "docker build -t test-build-container 
-          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile defichain"
+          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
 
       - name: Run tests
         run: |
