@@ -97,8 +97,7 @@ jobs:
         set -e
         cd defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
         tar xzf defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-        zip -r "defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip" \
-          defichain-${{ env.BUILD_VERSION }}/
+        zip -r "defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip" defichain-${{ env.BUILD_VERSION }}/
 
     - name: Get Release by Tag
       id: get_release_by_tag

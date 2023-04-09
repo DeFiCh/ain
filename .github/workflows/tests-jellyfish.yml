@@ -32,9 +32,10 @@ jobs:
           ./make.sh git_version
 
       - name: Build and package
-        run: | 
-          docker build -t test-build-container \
-            -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile defichain
+        run: >
+          docker build -t test-build-container 
+          -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile 
+          defichain
 
       - name: Run tests
         run: |
