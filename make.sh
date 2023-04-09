@@ -3,9 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-# shellcheck disable=SC2155
-
-# export LC_ALL=C
+export LC_ALL=C.UTF-8
 set -Eeuo pipefail
 
 setup_vars() {
@@ -329,26 +327,31 @@ test() {
     ensure_enter_dir "${release_dir}"
     fold_start "unit-tests"
     # shellcheck disable=SC2086
-    make -j$make_jobs check VERBOSE=1 $make_args
+    make -j$make_jobs check
     fold_end
 
     fold_start "functional-tests"
-    ./test/functional/test_runner.py --ci j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
+    # shellcheck disable=SC2086
+    ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
     fold_end
 
     exit_dir
 }
 
 exec() {
-    local cmdlist=${1?cmdlist to execute is required}
     local make_jobs=${MAKE_JOBS}
     local make_args=${MAKE_ARGS:-}
     local release_dir=${RELEASE_DIR}
 
-    ensure_enter_dir "${release_dir}"
-    fold_start "exec:: $@"
+    if [[ -z "$*" ]]; then
+        echo "cmd list to execute is required"
+        exit 1
+    fi
 
-    # shellcheck disable=SC2086
+    ensure_enter_dir "${release_dir}"
+    fold_start "exec:: $*"
+
+    # shellcheck disable=SC2086,SC2068
     make -j$make_jobs $make_args $@
 
     fold_end
@@ -606,7 +609,7 @@ safe_rm_rf() {
 }
 
 fold_start() {
-    echo "::group::${@:-}"
+    echo "::group::${*:-}"
 }
 
 fold_end() {

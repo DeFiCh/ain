@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export LC_ALL=C
+export LC_ALL=C.UTF-8
 set -Eeuo pipefail
 
 main() {
