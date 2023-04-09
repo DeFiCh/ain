@@ -9,7 +9,7 @@ main() {
     cd "$_SCRIPT_DIR"
     
     ./deps.sh
-    ./run.sh
+    ./lint.sh
 }
 
 _ensure_script_dir() {
