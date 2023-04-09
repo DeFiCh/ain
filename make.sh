@@ -325,6 +325,7 @@ test() {
     local release_dir=${RELEASE_DIR}
 
     ensure_enter_dir "${release_dir}"
+
     fold_start "unit-tests"
     # shellcheck disable=SC2086
     make -j$make_jobs check
