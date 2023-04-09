@@ -22,7 +22,8 @@ setup_vars() {
 
     RELEASE_DIR=${RELEASE_DIR:-"./build/${TARGET}"}
     RELEASE_DIR="$(readlink -m "$RELEASE_DIR")"
-    DEPENDS_DIR=${DEPENDS_DIR:-"${RELEASE_DIR}/depends"}
+    DEPENDS_DIR=${DEPENDS_DIR:-"./build/depends"}
+    DEPENDS_DIR="$(readlink -m "$DEPENDS_DIR")"
 
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
@@ -133,14 +134,25 @@ build_conf() {
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
-    fold_start "build-conf"
 
-    "$root_dir/autogen.sh"
-    # shellcheck disable=SC2086
-    CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
-        $root_dir/configure ${make_conf_opts}
-    
-    fold_end
+    if [[ -f "$root_dir/configure" ]]; then
+        echo "> build-conf: skipping autogen; clean-conf or purge to regenerate"
+    else
+        fold_start "build-conf::autogen"
+        "$root_dir/autogen.sh"
+        fold_end
+    fi
+
+    if [[ -f "./Makefile" ]]; then
+        echo "> build-conf: skipping configure; purge to reconf"
+    else
+        fold_start "build-conf::configure"
+        # shellcheck disable=SC2086
+        CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
+            $root_dir/configure ${make_conf_opts}
+        fold_end
+    fi 
+
     exit_dir
 }
 
@@ -160,9 +172,9 @@ build_make() {
     make DESTDIR="${release_dir}" -j${make_jobs} ${make_args}
 
     mkdir -p "${release_out}"
-    local bins=(defid defi-cli defi-tx)
+    local bins=(defid defid.exe defi-cli defi-cli.exe defi-tx defi-tx.exe)
     for x in "${bins[@]}"; do
-        cp -f "${release_dir}/src/${x}" "${release_out}/" || true
+        { cp -f "${release_dir}/src/${x}" "${release_out}/" || true; } 2> /dev/null
     done
 
     fold_end
