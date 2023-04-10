@@ -7,6 +7,7 @@ on:
 
 env:
   BUILD_VERSION: latest # Computed
+  DOCKER_HUB_USER: defi
 
 jobs:
   linux:
@@ -15,8 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
@@ -30,15 +32,16 @@ jobs:
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_HUB_USER }}
+        username: ${{ env.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
     - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
         for tag in $(echo $ver latest); do 
-          docker push defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${tag}
+          docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${tag}
         done
+        docker push defi/defichain:${ver}
 
   windows:
     runs-on: ubuntu-latest
@@ -46,6 +49,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
@@ -62,6 +68,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release
@@ -83,8 +92,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compute build version
-      run: ./make.sh git-version
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Cleanup work dir
       run: rm -rf *
@@ -94,10 +103,10 @@ jobs:
 
     - name: zip package for windows
       run: |
-        set -e
-        cd defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        tar xzf defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-        zip -r "defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip" defichain-${{ env.BUILD_VERSION }}/
+        set -e; ver=${{ env.BUILD_VERSION }}
+        cd defichain-${ver}-x86_64-w64-mingw32
+        tar xzf defichain-${ver}-x86_64-w64-mingw32.tar.gz
+        zip -r "defichain-${ver}-x86_64-w64-mingw32.zip" defichain-${ver}/
 
     - name: Get Release by Tag
       id: get_release_by_tag
@@ -109,12 +118,13 @@ jobs:
 
     - name: Generate SHA256 checksum
       run: |
-        cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
-        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip > ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
-        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz > ././defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
+        set -e; ver=${{ env.BUILD_VERSION }}
+        cd ./defichain-${ver}-x86_64-pc-linux-gnu
+        sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256
+        cd .. && cd ./defichain-${ver}-x86_64-w64-mingw32
+        sha256sum ./defichain-${ver}-x86_64-w64-mingw32.zip > ./defichain-${ver}-x86_64-w64-mingw32.zip.SHA256
+        cd .. && cd ./defichain-${ver}-x86_64-apple-darwin
+        sha256sum ./defichain-${ver}-x86_64-apple-darwin.tar.gz > ././defichain-${ver}-x86_64-apple-darwin.tar.gz.SHA256
 
     - name: Upload release asset - linux
       uses: actions/upload-release-asset@v1

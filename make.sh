@@ -381,12 +381,8 @@ git_version() {
     fi
 
     if [[ "$verbose" == "1" ]]; then 
-    echo "> git branch: ${current_branch}"
-    echo "> version: ${ver}"
-    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-        # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-    fi
+        echo "> git branch: ${current_branch}"
+        echo "> version: ${ver}"
     else
         echo "$ver"
     fi
@@ -637,6 +633,13 @@ _nproc() {
 
 # Misc
 # ---
+
+ci_export_vars() {
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        # GitHub Actions
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
+    fi
+}
 
 _sign() {
     # TODO: generate sha sums and sign
