@@ -609,9 +609,9 @@ _get_default_conf_args() {
 
 _platform_init() {
     # Lazy init functions
-    if [[ $(readlink -m .) != "${_SCRIPT_DIR}" ]]; then
-        if [[ $(greadlink -m .) != "${_SCRIPT_DIR}" ]]; then 
-            echo "readlink or greadlink with \`-m\` support is required"
+    if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
+        if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then 
+            echo "error: readlink or greadlink with \`-m\` support is required"
             echo "tip: debian/ubuntu: apt install coreutils"
             echo "tip: osx: brew install coreutils"
             exit 1
