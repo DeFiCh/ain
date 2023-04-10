@@ -84,7 +84,11 @@ impl TransactionQueueMap {
     }
 
     pub fn state(&self, context_id: u64) -> Option<EVMState> {
-        self.queues.read().unwrap().get(&context_id).map(|queue| queue.state())
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .map(|queue| queue.state())
     }
 }
 
