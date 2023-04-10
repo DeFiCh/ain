@@ -11,8 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mac_tools
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_local_mac_sdk
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_osx_tools
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps

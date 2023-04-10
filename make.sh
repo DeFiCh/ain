@@ -112,6 +112,10 @@ build_deps() {
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
     
     ensure_enter_dir "$release_depends_dir"
+    if [[ "$target" =~ .*darwin.* ]]; then
+        ensure_pkg_local_osx_sysroot
+    fi
+    
     fold_start "build-deps"
 
     # shellcheck disable=SC2086
@@ -491,7 +495,7 @@ pkg_install_deps_arm64() {
     fold_end
 }
 
-pkg_install_deps_mac_tools() {
+pkg_install_deps_osx_tools() {
     fold_start "pkg-install-deps-mac-tools"
 
     apt install -y \
@@ -500,15 +504,19 @@ pkg_install_deps_mac_tools() {
     fold_end
 }
 
-pkg_local_mac_sdk() {
+ensure_pkg_local_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
     local release_depends_dir=${DEPENDS_DIR}
 
     ensure_enter_dir "$release_depends_dir/SDKs"
+    if [[ -d "${sdk_name}" ]]; then return; fi
+
     fold_start "pkg-local-mac-sdk"
 
-    wget https://bitcoincore.org/depends-sources/sdks/${pkg}
+    if [[ ! -f "${pkg}" ]]; then 
+        wget https://bitcoincore.org/depends-sources/sdks/${pkg}
+    fi
     tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     exit_dir
@@ -527,7 +535,7 @@ pkg_install_rust() {
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
-clean_pkg_local_mac_sdk() {
+clean_pkg_local_osx_sysroot() {
     local release_depends_dir=${DEPENDS_DIR}
     safe_rm_rf "$release_depends_dir/SDKs"
 }
@@ -579,7 +587,7 @@ clean_depends() {
 
     make -C "$root_dir/depends" DESTDIR="${release_depends_dir}" clean-all || true
     ensure_enter_dir "$release_depends_dir"
-    clean_pkg_local_mac_sdk
+    clean_pkg_local_osx_sysroot
     safe_rm_rf built \
         work \
         sources \

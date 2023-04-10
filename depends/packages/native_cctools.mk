@@ -4,11 +4,10 @@ $(package)_download_path=https://github.com/tpoechtrager/cctools-port/archive
 $(package)_file_name=$($(package)_version).tar.gz
 $(package)_sha256_hash=4a1359b6a79738b375b39ae05852712a77ff24d7ef2a498e99d35de78fff42c7
 $(package)_build_subdir=cctools
-$(package)_clang_version=15
-$(package)_clang_long_version=15.0.6
-$(package)_clang_download_path=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_clang_long_version)
-$(package)_clang_download_file=clang+llvm-$($(package)_clang_long_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-$(package)_clang_file_name=clang-llvm-$($(package)_clang_long_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_clang_version=15.0.6
+$(package)_clang_download_path=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_clang_version)
+$(package)_clang_download_file=clang+llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_clang_file_name=clang-llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
 $(package)_clang_sha256_hash=38bc7f5563642e73e69ac5626724e206d6d539fbef653541b34cae0ba9c3f036
 
 $(package)_libtapi_version=b7b5bdbfda9e8062d405b48da3b811afad98ae76
@@ -83,7 +82,6 @@ define $(package)_stage_cmds
   cp bin/clang $($(package)_staging_prefix_dir)/bin/ &&\
   cp -P bin/clang++ $($(package)_staging_prefix_dir)/bin/ &&\
   cp lib/libLTO.so $($(package)_staging_prefix_dir)/lib/ && \
-  cp -rf lib/clang/$($(package)_clang_long_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include/ && \
+  cp -rf lib/clang/$($(package)_clang_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include/ && \
   cp bin/dsymutil $($(package)_staging_prefix_dir)/bin/$(host)-dsymutil
 endef
-
