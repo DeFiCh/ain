@@ -20,6 +20,9 @@ use std::sync::{Arc, RwLock};
 
 use ain_evm_runtime::{Runtime, RUNTIME};
 
+#[cfg(test)]
+mod tests;
+
 lazy_static::lazy_static! {
     // RPC clients cached globally based on address so that clients can be instantiated at will
     static ref CLIENTS: RwLock<HashMap<String, Client>> = RwLock::new(HashMap::new());
