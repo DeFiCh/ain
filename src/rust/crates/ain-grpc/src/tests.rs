@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use primitive_types::{H160, U256};
 
@@ -48,13 +48,13 @@ fn should_get_balance() {
 
     let res = EthService::Eth_GetBalance(handler.clone(), input.clone().into());
     assert_eq!(res.unwrap().balance, "0");
-    
+
     let ctx = handler.evm.get_context();
 
     handler
         .evm
         .add_balance(ctx, H160::from_str(ALICE).unwrap(), U256::from(1337));
-        
+
     let _ = handler.evm.finalize_block(ctx, true);
 
     let res2 = EthService::Eth_GetBalance(handler, input.into());
