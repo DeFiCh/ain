@@ -14,7 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps
-RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
+RUN export MAKE_CONF_ARGS="CC=gcc CXX=g++" && \
     ./make.sh clean-conf && ./make.sh build-conf 
 RUN ./make.sh build-make
 
