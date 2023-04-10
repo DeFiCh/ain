@@ -27,7 +27,7 @@ RUN export MAKE_CONF_ARGS="\
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/${TARGET} && \
-    make prefix=/ DESTDIR=/app install
+    make -s prefix=/ DESTDIR=/app install
 
 # -----------
 ### Actual image that contains defi binaries
