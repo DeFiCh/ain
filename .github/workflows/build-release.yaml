@@ -19,8 +19,7 @@ jobs:
         fetch-depth: 0
 
     - name: Build and package
-      run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" \
-        TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+      run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
     - name: Publish artifacts
       uses: actions/upload-artifact@v3

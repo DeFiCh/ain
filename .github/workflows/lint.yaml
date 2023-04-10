@@ -19,8 +19,6 @@ jobs:
       BUILD_VERSION: latest # Computed
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
       PYTHON: 3.8
-      TRAVIS_BUILD_DIR: ${{ github.workspace }}
-      TRAVIS_COMMIT: ${{ github.sha }}
     steps:
     - name: Checkout
       uses: actions/checkout@v1

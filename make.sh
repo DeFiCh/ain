@@ -95,7 +95,7 @@ _cleanup() {
 
 help() {
     echo "Usage: $0 <commands>"
-    printf "\n\`$0 build\` or \`$0 docker-build\` are your friends :) \n"
+    printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" $0 $0
     printf "\nCommands:\n"
     printf "\t%s\n" "${COMMANDS[@]//_/-}"
     printf "\nNote: All commands without docker-* prefix assume that it's run in\n" 
