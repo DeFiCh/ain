@@ -425,7 +425,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #error "crc32c library does not support hardware acceleration on 32-bit ARM"
 #endif
   ]])],
- [ AC_MSG_RESULT(yes); enable_arm_crc=yes; ],
+ [ AC_MSG_RESULT(yes); enable_arm_crc=yes; AC_DEFINE(ENABLE_ARM_CRC, 1, [Define this symbol to build code that uses ARM CRC intrinsics]) ],
  [ AC_MSG_RESULT(no)]
 )
 CXXFLAGS="$TEMP_CXXFLAGS"
@@ -1321,7 +1321,7 @@ AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
 AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet = xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$BUILD_TEST = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ],[test x$enable_fuzz = xyes])
-AM_CONDITIONAL([ENABLE_BENCH],[test x$use_bench = xyes])
+AM_CONDITIONAL([ENABLE_BENCH],[test x$use_bench = xno])
 AM_CONDITIONAL([USE_LCOV],[test x$use_lcov = xyes])
 AM_CONDITIONAL([GLIBC_BACK_COMPAT],[test x$use_glibc_compat = xyes])
 AM_CONDITIONAL([HARDEN],[test x$use_hardening = xyes])
@@ -1376,6 +1376,7 @@ AC_SUBST(SSE42_CXXFLAGS)
 AC_SUBST(SSE41_CXXFLAGS)
 AC_SUBST(AVX2_CXXFLAGS)
 AC_SUBST(SHANI_CXXFLAGS)
+AC_SUBST(ARM_CRC_CXXFLAGS)
 AC_SUBST(LIBTOOL_APP_LDFLAGS)
 AC_SUBST(USE_UPNP)
 AC_SUBST(USE_QRCODE)
