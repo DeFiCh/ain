@@ -2,7 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-bin_PROGRAMS += bench/bench_defi
+noinst_PROGRAMS += bench/bench_defi
 BENCH_SRCDIR = bench
 BENCH_BINARY = bench/bench_defi$(EXEEXT)
 
