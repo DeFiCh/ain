@@ -83,7 +83,7 @@ define $(package)_stage_cmds
   cp bin/clang $($(package)_staging_prefix_dir)/bin/ &&\
   cp -P bin/clang++ $($(package)_staging_prefix_dir)/bin/ &&\
   cp lib/libLTO.so $($(package)_staging_prefix_dir)/lib/ && \
-  cp -rf lib/clang/$($(package)_clang_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include/ && \
+  cp -rf lib/clang/$($(package)_clang_long_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include/ && \
   cp bin/dsymutil $($(package)_staging_prefix_dir)/bin/$(host)-dsymutil
 endef
 
