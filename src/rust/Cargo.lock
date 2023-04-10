@@ -83,6 +83,7 @@ dependencies = [
  "cxx-gen",
  "env_logger",
  "ethereum",
+ "fake",
  "heck",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -96,6 +97,7 @@ dependencies = [
  "prost",
  "prost-build",
  "quote",
+ "rand",
  "regex",
  "serde",
  "serde_json",
@@ -595,6 +597,15 @@ dependencies = [
  "evm-core",
  "primitive-types",
  "sha3",
+]
+
+[[package]]
+name = "fake"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d68f517805463f3a896a9d29c1d6ff09d3579ded64a7201b4069f8f9c0d52fd"
+dependencies = [
+ "rand",
 ]
 
 [[package]]
