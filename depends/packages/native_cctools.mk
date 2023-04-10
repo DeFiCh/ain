@@ -4,7 +4,7 @@ $(package)_download_path=https://github.com/tpoechtrager/cctools-port/archive
 $(package)_file_name=$($(package)_version).tar.gz
 $(package)_sha256_hash=4a1359b6a79738b375b39ae05852712a77ff24d7ef2a498e99d35de78fff42c7
 $(package)_build_subdir=cctools
-$(package)_clang_version=15.0.6
+$(package)_clang_version=15
 $(package)_clang_long_version=15.0.6
 $(package)_clang_download_path=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_clang_long_version)
 $(package)_clang_download_file=clang+llvm-$($(package)_clang_long_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
@@ -76,7 +76,7 @@ define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install && \
   mkdir -p $($(package)_staging_prefix_dir)/lib/ && \
   cd $($(package)_extract_dir) && \
-  cp lib/libtapi.so.* $($(package)_staging_prefix_dir)/lib/ && \
+  cp lib/libtapi.so* $($(package)_staging_prefix_dir)/lib/ && \
   cd $($(package)_extract_dir)/toolchain && \
   mkdir -p $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include && \
   mkdir -p $($(package)_staging_prefix_dir)/bin $($(package)_staging_prefix_dir)/include && \
