@@ -2,9 +2,10 @@ name: Tests - EVM
 
 on:
   push:
-    branches: [master]
+    paths: [ src/rust/** ]
+    
   pull_request:
-    branches: [master]
+    paths: [ src/rust/** ]
 
 jobs:
   lint_cargo_fmt:
