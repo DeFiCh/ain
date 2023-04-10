@@ -1,11 +1,8 @@
-packages:=boost libevent
+packages:=boost libevent rust protobuf
 
-rapidcheck_packages = rapidcheck
-
+rapidcheck_packages=rapidcheck
 wallet_packages=bdb
-
 zmq_packages=zeromq
-
 upnp_packages=miniupnpc
 
 darwin_native_packages = 

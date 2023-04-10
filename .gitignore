@@ -140,3 +140,9 @@ contrib/devtools/split-debug.sh
 
 # CI scratch area used for tests
 /ci/scratch/
+
+# rust
+
+!lib/Makefile
+!lib/**/*/Makefile
+lib/target/*
