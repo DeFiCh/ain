@@ -1,12 +1,12 @@
 [package]
-name = "ain-rs"
+name = "ain-ffi"
 version = "0.1.0"
 edition = "2021"
 
-# [lib]
-# crate_type = ["staticlib"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate_type = ["staticlib"]
+
 [dependencies]
-ain-grpc = { version = "0.1.0", path = "../ain-grpc" }
+ain-rs = { version = "0.1.0", path = "../ain-rs" }

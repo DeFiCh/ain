@@ -3,5 +3,19 @@
 version = 3
 
 [[package]]
+name = "ain-ffi"
+version = "0.1.0"
+dependencies = [
+ "ain-rs",
+]
+
+[[package]]
+name = "ain-grpc"
+version = "0.1.0"
+
+[[package]]
 name = "ain-rs"
 version = "0.1.0"
+dependencies = [
+ "ain-grpc",
+]

@@ -1,5 +1,5 @@
-pub fn add(left: usize, right: usize) -> usize {
-    ain_grpc::grpc_add(left, right)
+pub fn ffi_add(left: usize, right: usize) -> usize {
+    ain_rs::add(left, right)
 }
 
 #[cfg(test)]

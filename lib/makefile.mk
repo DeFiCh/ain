@@ -29,7 +29,7 @@ debug: build
 
 # For dev workflow
 .PHONY: prepare
-prepare: check fmt clippy
+prepare: fmt check clippy
 
 .PHONY: clean
 clean: 
