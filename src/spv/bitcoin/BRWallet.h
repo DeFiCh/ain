@@ -25,10 +25,10 @@
 #ifndef BRWallet_h
 #define BRWallet_h
 
-#include "BRTransaction.h"
-#include "BRAddress.h"
-#include "BRBIP32Sequence.h"
-#include "BRInt.h"
+#include <spv/bitcoin/BRTransaction.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRBIP32Sequence.h>
+#include <spv/support/BRInt.h>
 
 #include <string>
 #include <set>

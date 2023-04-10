@@ -25,11 +25,12 @@
 #ifndef BRBIP32Sequence_h
 #define BRBIP32Sequence_h
 
-#include "BRKey.h"
-#include "BRInt.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <spv/support/BRKey.h>
+#include <spv/support/BRInt.h>
 
 #ifdef __cplusplus
 extern "C" {
