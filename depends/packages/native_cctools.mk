@@ -4,12 +4,12 @@ $(package)_download_path=https://github.com/tpoechtrager/cctools-port/archive
 $(package)_file_name=$($(package)_version).tar.gz
 $(package)_sha256_hash=4a1359b6a79738b375b39ae05852712a77ff24d7ef2a498e99d35de78fff42c7
 $(package)_build_subdir=cctools
-$(package)_clang_version=16
-$(package)_clang_long_version=$($(package)_clang_version).0.0
+$(package)_clang_version=15.0.6
+$(package)_clang_long_version=15.0.6
 $(package)_clang_download_path=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_clang_long_version)
 $(package)_clang_download_file=clang+llvm-$($(package)_clang_long_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
 $(package)_clang_file_name=clang-llvm-$($(package)_clang_long_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-$(package)_clang_sha256_hash=2b8a69798e8dddeb57a186ecac217a35ea45607cb2b3cf30014431cff4340ad1
+$(package)_clang_sha256_hash=38bc7f5563642e73e69ac5626724e206d6d539fbef653541b34cae0ba9c3f036
 
 $(package)_libtapi_version=b7b5bdbfda9e8062d405b48da3b811afad98ae76
 $(package)_libtapi_download_path=https://github.com/tpoechtrager/apple-libtapi/archive
@@ -47,10 +47,21 @@ define $(package)_set_vars
   $(package)_cxx=$($(package)_extract_dir)/toolchain/bin/clang++
 endef
 
+# Note: Works around 2 bugs:
+# - DESTDIR isn't passed on in libtapi port. This patches that.
+# - DESTDIR behavior is buggy, likely due to symlinks involved in the tree and also
+#   different behaviors on headers and lib install.
+#   - Attempts to install to absolute path sometimes, and sometimes in the tree with nested prefix.
+#   - Workaround for now: 
+#       - DESTDIR tames it into the tree, despite having the nested prefix.
+#       - Then, just do a move to the right location where autoconf later expects it
 define $(package)_preprocess_cmds
-  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX=$($(package)_extract_dir) ./libtapi/build.sh && \
-  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX=$($(package)_extract_dir) ./libtapi/install.sh && \
-  sed -i.old "/define HAVE_PTHREADS/d" $($(package)_build_subdir)/ld64/src/ld/InputFiles.h
+  sed -i.old 's/$$MAKE install-libtapi/$$MAKE DESTDIR=\"$$$$INSTALLPREFIX\" install-libtapi/' ./libtapi/install.sh && \
+  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/build.sh && \
+  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/install.sh && \
+  sed -i.old "/define HAVE_PTHREADS/d" $($(package)_build_subdir)/ld64/src/ld/InputFiles.h && \
+  mv "$($(package)_extract_dir)/$($(package)_extract_dir)/include" $($(package)_extract_dir)/ && \
+  mv "$($(package)_extract_dir)/$($(package)_extract_dir)/lib" $($(package)_extract_dir)/
 endef
 
 define $(package)_config_cmds

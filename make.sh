@@ -130,29 +130,18 @@ build_conf() {
     local release_dir=${RELEASE_DIR}
     local release_depends_dir=${DEPENDS_DIR}
 
-
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ensure_enter_dir "${release_dir}"
+    fold_start "build-conf::autogen"
+    "$root_dir/autogen.sh"
+    fold_end
 
-    if [[ -f "$root_dir/configure" ]]; then
-        echo "> build-conf: skipping autogen; clean-conf or purge to regenerate"
-    else
-        fold_start "build-conf::autogen"
-        "$root_dir/autogen.sh"
-        fold_end
-    fi
-
-    if [[ -f "./Makefile" ]]; then
-        echo "> build-conf: skipping configure; purge to reconf"
-    else
-        fold_start "build-conf::configure"
-        # shellcheck disable=SC2086
-        CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
-            $root_dir/configure ${make_conf_opts}
-        fold_end
-    fi 
-
+    fold_start "build-conf::configure"
+    # shellcheck disable=SC2086
+    CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
+        $root_dir/configure ${make_conf_opts}
+    fold_end
     exit_dir
 }
 
