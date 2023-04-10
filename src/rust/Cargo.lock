@@ -82,6 +82,7 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "env_logger",
+ "ethereum",
  "heck",
  "jsonrpsee-core",
  "jsonrpsee-http-client",

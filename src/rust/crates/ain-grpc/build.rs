@@ -1,4 +1,4 @@
-use heck::{ToPascalCase, ToSnekCase};
+use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -106,12 +106,12 @@ const FIELD_ATTRS: &[Attr] = &[
         rename: None,
         skip: &[],
     },
-    Attr {
-        matcher: "currentblocktx|currentblockweight",
-        attr: Some("#[serde(skip_serializing_if = \"is_zero\")]"),
-        rename: None,
-        skip: &[],
-    },
+    // Attr {
+    //     matcher: "currentblocktx|currentblockweight",
+    // attr: Some("#[serde(skip_serializing_if = \"is_zero\")]"),
+    // rename: None,
+    // skip: &[],
+    // },
     Attr {
         matcher: "asm",
         attr: Some("#[serde(rename=\"asm\")]"),
@@ -142,23 +142,6 @@ const FIELD_ATTRS: &[Attr] = &[
         rename: None,
         skip: &[],
     },
-];
-
-const PATCHES: &[(&str, &str)] = &[
-    // We also throw Univalue, so that needs to be handled in addition to exceptions
-    (
-        "} catch (const ::std::exception &e) {",
-        "} catch (const UniValue &e) {
-  auto s = e.write();
-  fail(s.c_str());
-} catch (const ::std::exception &e) {",
-    ),
-    // Univalue header
-    (
-        "#include <utility>",
-        "#include <univalue.h>
-#include <utility>",
-    ),
 ];
 
 // Custom generator to collect RPC call signatures
@@ -315,13 +298,13 @@ fn modify_codegen(
             &quote!(
                 #[derive(Clone)]
                 pub struct #service {
-                    adapter: Arc<EVMHandler>
+                    adapter: Arc<Handlers>
                 }
 
                 impl #service {
                     #[inline]
                     #[allow(dead_code)]
-                    pub fn new(adapter: Arc<EVMHandler>) -> #service {
+                    pub fn new(adapter: Arc<Handlers>) -> #service {
                         #service {
                             adapter
                         }
@@ -370,9 +353,9 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
         fn ignore_integer<T: num_traits::PrimInt + num_traits::Signed + num_traits::NumCast>(i: &T) -> bool {
             T::from(-1).unwrap() == *i
         }
-        fn is_zero(i: &i64) -> bool {
-            *i == 0
-        }
+        // fn is_zero(i: &i64) -> bool {
+        //     *i == 0
+        // }
     };
 
     let mut copied = quote!();
@@ -462,7 +445,7 @@ fn apply_substitutions(
         use crate::rpc::*;
         #[allow(unused_imports)]
         use self::ffi::*;
-        use ain_evm_state::handler::EVMHandler;
+        use ain_evm_state::handler::Handlers;
         #[derive(Clone)]
         pub struct Client {
             inner: Arc<HttpClient>,
@@ -497,19 +480,6 @@ fn apply_substitutions(
             Fields::Named(ref f) => f,
             _ => unreachable!(),
         };
-
-        // let s_name = Ident::new(name, Span::call_site());
-        // let fn_name = Ident::new(&("Make".to_owned() + name), Span::call_site());
-        // sigs.extend(quote!(
-        //     fn #fn_name() -> #s_name;
-        // ));
-        // funcs.extend(quote!(
-        //     #[inline]
-        //     #[allow(non_snake_case)]
-        //     fn #fn_name() -> ffi::#s_name {
-        //         Default::default()
-        //     }
-        // ));
 
         for field in &fields.named {
             let name = &field.ident;
@@ -672,7 +642,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lowercase());
+                .unwrap_or_else(|| method.name.to_lower_camel_case());
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]
@@ -706,7 +676,7 @@ fn apply_substitutions(
                         async fn #name_rs(#input_rs) -> Result<tonic::Response<super::types::#oty>, tonic::Status> {
                             let adapter = self.adapter.clone();
                             let result = tokio::task::spawn_blocking(move || {
-                                let mut out = ffi::#oty::default();
+                                // let out = ffi::#oty::default();
                                 #into_ffi
                                 Self::#name(adapter.clone(), #call_ffi).map_err(|e| tonic::Status::unknown(e.to_string()))
                                 // #name(adapter.clone(), #call_ffi)
@@ -789,37 +759,6 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
     }
 }
 
-fn generate_cxx_glue(tt: TokenStream, target_dir: &Path) {
-    let mut opt = cxx_gen::Opt::default();
-    let codegen = cxx_gen::generate_header_and_cc(tt.clone(), &opt).unwrap();
-    File::create(target_dir.join("libain_grpc.h"))
-        .unwrap()
-        .write_all(&codegen.header)
-        .unwrap();
-
-    // opt.include.push(cxx_gen::Include {
-    //     path: "libain_grpc.h".to_string(),
-    //     kind: cxx_gen::IncludeKind::Bracketed,
-    // });
-    // opt.include.push(cxx_gen::Include {
-    //     path: "rpc/libain_wrapper.h".to_string(),
-    //     kind: cxx_gen::IncludeKind::Bracketed,
-    // });
-    let codegen = cxx_gen::generate_header_and_cc(tt, &opt).unwrap();
-    let mut cpp_stuff = String::from_utf8(codegen.implementation).unwrap();
-    for (src, dest) in PATCHES {
-        // assert!(cpp_stuff.contains(src));
-        // assert!(!cpp_stuff.contains(dest));
-        cpp_stuff = cpp_stuff.replace(src, dest);
-        // assert!(cpp_stuff.contains(dest));
-    }
-
-    File::create(target_dir.join("libain_grpc.cpp"))
-        .unwrap()
-        .write_all(cpp_stuff.as_bytes())
-        .unwrap();
-}
-
 fn main() {
     let mut root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let parent = root.clone();
@@ -827,7 +766,7 @@ fn main() {
     root.pop();
     let out_dir = env::var("OUT_DIR").unwrap();
     let methods = generate_from_protobuf(&root.join("protobuf"), Path::new(&out_dir));
-    let tt = modify_codegen(
+    let _tt = modify_codegen(
         methods,
         &Path::new(&out_dir).join("types.rs"),
         &Path::new(&out_dir).join("rpc.rs"),
@@ -837,5 +776,4 @@ fn main() {
         "cargo:rerun-if-changed={}",
         parent.join("src").join("rpc.rs").to_string_lossy()
     );
-    // generate_cxx_glue(tt, &root.join("target"));
 }

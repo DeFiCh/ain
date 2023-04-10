@@ -60,7 +60,7 @@ where
                 value,
                 data.to_vec(),
                 gas_limit,
-                access_list.into(),
+                access_list,
             ),
             None => executor.transact_create(
                 caller.unwrap_or_default(),
@@ -80,7 +80,7 @@ where
         TxResponse {
             exit_reason,
             data,
-            logs: logs,
+            logs,
         }
     }
 

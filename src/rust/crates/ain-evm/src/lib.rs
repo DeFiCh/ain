@@ -4,7 +4,7 @@ pub mod transaction;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
-use transaction::{LegacyUnsignedTransaction, LOWER_H256};
+use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 pub fn create_and_sign_tx(
     chain_id: u64,
@@ -15,7 +15,7 @@ pub fn create_and_sign_tx(
     value: [u8; 32],
     input: Vec<u8>,
     priv_key: [u8; 32],
-) -> Vec<u8> {
+) -> Result<Vec<u8>, TransactionError> {
     let to_action = if to.is_empty() {
         TransactionAction::Create
     } else {
@@ -41,7 +41,7 @@ pub fn create_and_sign_tx(
 
     // Sign
     let priv_key_h256 = H256::from(priv_key);
-    let signed = t.sign(&priv_key_h256, chain_id);
+    let signed = t.sign(&priv_key_h256, chain_id)?;
 
-    signed.encode().into()
+    Ok(signed.encode().into())
 }

@@ -1,10 +1,11 @@
 #![cfg(test)]
 
 use std::sync::Arc;
+use std::str::FromStr;
 
-use primitive_types::U256;
+use primitive_types::{H160, U256};
 
-use ain_evm_state::handler::EVMHandler;
+use ain_evm_state::handler::Handlers;
 
 use crate::{
     codegen::{
@@ -19,7 +20,7 @@ const BOB: &str = "0x0000000000000000000000000000000000000001";
 
 #[test]
 fn should_call() {
-    let handler = Arc::new(EVMHandler::new());
+    let handler = Arc::new(Handlers::new());
     let tx_info = EthTransactionInfo {
         from: ALICE.to_string(),
         to: BOB.to_string(),
@@ -39,7 +40,7 @@ fn should_call() {
 
 #[test]
 fn should_get_balance() {
-    let handler = Arc::new(EVMHandler::new());
+    let handler = Arc::new(Handlers::new());
     let input = EthGetBalanceInput {
         address: ALICE.to_string(),
         block_number: "latest".to_string(),
@@ -47,11 +48,14 @@ fn should_get_balance() {
 
     let res = EthService::Eth_GetBalance(handler.clone(), input.clone().into());
     assert_eq!(res.unwrap().balance, "0");
+    
+    let ctx = handler.evm.get_context();
 
     handler
-        .add_balance(ALICE, U256::from(1337))
-        .map_err(|err| println!("err: {:?}", err))
-        .ok();
+        .evm
+        .add_balance(ctx, H160::from_str(ALICE).unwrap(), U256::from(1337));
+        
+    let _ = handler.evm.finalize_block(ctx, true);
 
     let res2 = EthService::Eth_GetBalance(handler, input.into());
     assert_eq!(res2.unwrap().balance, "1337");
