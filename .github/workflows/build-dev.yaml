@@ -13,12 +13,16 @@ on:
 
 env:
   BUILD_VERSION: latest # Computed
+  DOCKER_HUB_USER: defi
 
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
@@ -32,18 +36,22 @@ jobs:
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        username: ${{ env.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
     - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker push defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker push defi/defichain:${ver}
 
   linux-armhf:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-release
@@ -59,6 +67,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
+    
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
 
@@ -72,6 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release

@@ -16,6 +16,7 @@ Commands:
         build-conf
         build-deps
         build-make
+        ci-export-vars
         clean
         clean-conf
         clean-depends
