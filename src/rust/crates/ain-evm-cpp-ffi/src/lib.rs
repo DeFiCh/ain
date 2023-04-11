@@ -1,3 +1,5 @@
+use std::error::Error;
+
 #[cxx::bridge]
 mod ffi {
     unsafe extern "C++" {
@@ -7,8 +9,8 @@ mod ffi {
     }
 }
 
-pub fn get_chain_id() -> u64 {
+pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
 
-    return chain_id;
+    return Ok(chain_id);
 }
