@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
 
-type BlockHashtoBlock = HashMap<H256, U256>;
+type BlockHashtoBlock = HashMap<H256, usize>;
 type Blocks = Vec<BlockAny>;
 
 pub struct BlockHandler {
@@ -33,7 +33,7 @@ impl PersistentState for BlockHashtoBlock {
             let mut file = File::open(path)?;
             let mut data = Vec::new();
             file.read_to_end(&mut data)?;
-            let new_state: HashMap<H256, U256> = bincode::deserialize(&data)?;
+            let new_state: HashMap<H256, usize> = bincode::deserialize(&data)?;
             Ok(new_state)
         } else {
             Ok(Self::new())
@@ -79,7 +79,7 @@ impl BlockHandler {
         blocks.push(block.clone());
 
         let mut blockhash = self.block_map.write().unwrap();
-        blockhash.insert(block.header.hash(), block.header.number);
+        blockhash.insert(block.header.hash(), blocks.len() + 1);
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
@@ -90,7 +90,7 @@ impl BlockHandler {
         self.blocks.write().unwrap().save_to_disk(BLOCK_DATA_PATH)
     }
 
-    pub fn get_block_hash(&self, hash: H256) -> Result<BlockAny, BlockHandlerError> {
+    pub fn get_block_by_hash(&self, hash: H256) -> Result<BlockAny, BlockHandlerError> {
         let block_map = self.block_map.read().unwrap();
         let block_number = *block_map
             .get(&hash)
@@ -98,7 +98,17 @@ impl BlockHandler {
 
         let blocks = self.blocks.read().unwrap();
         let block = blocks
-            .get(block_number.as_usize())
+            .get(block_number)
+            .ok_or(BlockHandlerError::BlockNotFound)?
+            .clone();
+
+        Ok(block)
+    }
+
+    pub fn get_block_by_number(&self, count: usize) -> Result<BlockAny, BlockHandlerError> {
+        let blocks = self.blocks.read().unwrap();
+        let block = blocks
+            .get(count)
             .ok_or(BlockHandlerError::BlockNotFound)?
             .clone();
 

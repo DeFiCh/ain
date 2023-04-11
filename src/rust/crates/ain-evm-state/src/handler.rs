@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::time::{SystemTime, UNIX_EPOCH};
 use ethereum::{Block, PartialHeader, TransactionV2};
 use evm::backend::{MemoryBackend, MemoryVicinity};
 use primitive_types::{H160, U256};
@@ -48,18 +49,22 @@ impl Handlers {
             *state = executor.backend().state().clone();
         }
 
+        let blocks = self.block.blocks.read().unwrap();
+        let parent_block = blocks.first().unwrap();
+        let number = blocks.len() + 1;
+
         let block = Block::new(
             PartialHeader {
-                parent_hash: Default::default(),
+                parent_hash: parent_block.header.hash(),
                 beneficiary: Default::default(),
                 state_root: Default::default(),
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
                 difficulty: Default::default(),
-                number: Default::default(),
+                number: U256::from(number),
                 gas_limit: Default::default(),
                 gas_used: Default::default(),
-                timestamp: Default::default(),
+                timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
                 extra_data: Default::default(),
                 mix_hash: Default::default(),
                 nonce: Default::default(),
