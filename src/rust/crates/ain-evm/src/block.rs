@@ -79,7 +79,7 @@ impl BlockHandler {
         blocks.push(block.clone());
 
         let mut blockhash = self.block_map.write().unwrap();
-        blockhash.insert(block.header.hash(), blocks.len());
+        blockhash.insert(block.header.hash(), blocks.len() - 1);
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {

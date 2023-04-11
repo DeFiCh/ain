@@ -7,7 +7,11 @@ use crate::codegen::rpc::{
     EthService,
 };
 use ain_evm::handler::Handlers;
+use primitive_types::{H256, U256};
+use prost::Message;
+use std::hash::Hash;
 use std::mem::size_of_val;
+use std::str::FromStr;
 use std::sync::Arc;
 
 pub trait EthServiceApi {
@@ -102,22 +106,22 @@ impl EthServiceApi for EthService {
         let block = handler.block.get_block_by_hash(hash).unwrap();
 
         Ok(EthBlockInfo {
-            block_number: block.header.number.to_string(),
-            hash: block.header.hash().to_string(),
-            parent_hash: block.header.parent_hash.to_string(),
-            nonce: block.header.nonce.to_string(),
-            sha3_uncles: block.header.ommers_hash.to_string(),
-            logs_bloom: block.header.logs_bloom.to_string(),
-            transactions_root: block.header.transactions_root.to_string(),
-            state_root: block.header.state_root.to_string(),
-            receipt_root: block.header.receipts_root.to_string(),
-            miner: block.header.beneficiary.to_string(),
-            difficulty: block.header.difficulty.to_string(),
-            total_difficulty: block.header.difficulty.to_string(),
-            extra_data: String::from_utf8(block.header.extra_data.clone()).unwrap(),
-            size: size_of_val(&block).to_string(),
-            gas_limit: block.header.gas_limit.to_string(),
-            gas_used: block.header.gas_used.to_string(),
+            block_number: format!("0x{:x}", block.header.number),
+            hash: format_hash(block.header.hash()),
+            parent_hash: format_hash(block.header.parent_hash),
+            nonce: format!("0x{:x}", block.header.nonce),
+            sha3_uncles: format_hash(block.header.ommers_hash),
+            logs_bloom: format!("0x{:x}", block.header.logs_bloom),
+            transactions_root: format_hash(block.header.transactions_root),
+            state_root: format_hash(block.header.state_root),
+            receipt_root: format_hash(block.header.receipts_root),
+            miner: format!("0x{:x}", block.header.beneficiary),
+            difficulty: format!("0x{:x}", block.header.difficulty),
+            total_difficulty: format_number(block.header.difficulty),
+            extra_data: format!("0x{:x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("0x{:x}", size_of_val(&block)),
+            gas_limit: format_number(block.header.gas_limit),
+            gas_used: format_number(block.header.gas_used),
             timestamps: format!("0x{:x}", block.header.timestamp),
             transactions: block
                 .transactions
@@ -152,22 +156,22 @@ impl EthServiceApi for EthService {
         let block = handler.block.get_block_by_number(number).unwrap();
 
         Ok(EthBlockInfo {
-            block_number: block.header.number.to_string(),
-            hash: block.header.hash().to_string(),
-            parent_hash: block.header.parent_hash.to_string(),
-            nonce: block.header.nonce.to_string(),
-            sha3_uncles: block.header.ommers_hash.to_string(),
-            logs_bloom: block.header.logs_bloom.to_string(),
-            transactions_root: block.header.transactions_root.to_string(),
-            state_root: block.header.state_root.to_string(),
-            receipt_root: block.header.receipts_root.to_string(),
-            miner: block.header.beneficiary.to_string(),
-            difficulty: block.header.difficulty.to_string(),
-            total_difficulty: block.header.difficulty.to_string(),
-            extra_data: String::from_utf8(block.header.extra_data.clone()).unwrap(),
-            size: size_of_val(&block).to_string(),
-            gas_limit: block.header.gas_limit.to_string(),
-            gas_used: block.header.gas_used.to_string(),
+            block_number: format!("0x{:x}", block.header.number),
+            hash: format_hash(block.header.hash()),
+            parent_hash: format_hash(block.header.parent_hash),
+            nonce: format!("0x{:x}", block.header.nonce),
+            sha3_uncles: format_hash(block.header.ommers_hash),
+            logs_bloom: format!("0x{:x}", block.header.logs_bloom),
+            transactions_root: format_hash(block.header.transactions_root),
+            state_root: format_hash(block.header.state_root),
+            receipt_root: format_hash(block.header.receipts_root),
+            miner: format!("0x{:x}", block.header.beneficiary),
+            difficulty: format!("0x{:x}", block.header.difficulty),
+            total_difficulty: format_number(block.header.difficulty),
+            extra_data: format!("0x{:x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("0x{:x}", size_of_val(&block)),
+            gas_limit: format_number(block.header.gas_limit),
+            gas_used: format_number(block.header.gas_used),
             timestamps: format!("0x{:x}", block.header.timestamp),
             transactions: block
                 .transactions
@@ -181,4 +185,12 @@ impl EthServiceApi for EthService {
                 .collect::<Vec<String>>(),
         })
     }
+}
+
+fn format_hash(hash: H256) -> String {
+    return format!("0x{:x}", hash);
+}
+
+fn format_number(number: U256) -> String {
+    return format!("0x{:x}", number);
 }
