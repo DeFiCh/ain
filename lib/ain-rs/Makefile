@@ -1,6 +1,6 @@
 ALL_CARGO_SRC = Cargo.toml $(shell find . -type f -name '*.rs')
 
-include ../makefiles/base.mk
+include ../make/base.mk
 
 LIB_AIN_RS := $(LIB_TARGET_DIR)/libain_rs.rlib
 
