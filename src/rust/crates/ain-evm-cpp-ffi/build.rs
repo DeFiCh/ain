@@ -12,6 +12,7 @@ fn main() {
         .include("../../../leveldb/include/")
         .include("../../../univalue/include/")
         .flag_if_supported("-std=c++17")
+        .flag_if_supported("-Wno-unused-parameter")
         .compile("ain-evm-cpp-ffi");
 
     println!("cargo:rerun-if-changed=src/lib.rs");
