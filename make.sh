@@ -11,7 +11,6 @@ setup_vars() {
     GIT_VERSION=${GIT_VERSION:-0}
     if [[ "$GIT_VERSION" == 1 ]]; then
         IMAGE_VERSION=${IMAGE_VERSION:-"$(git_version 0)"}
-        _ci_export_vars
     else 
         IMAGE_VERSION=${IMAGE_VERSION:-"latest"}
     fi
