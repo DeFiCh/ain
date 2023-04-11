@@ -147,7 +147,8 @@ build_conf() {
     _fold_start "build-conf::configure"
     # shellcheck disable=SC2086
     CONFIG_SITE="$release_depends_dir/${target}/share/config.site" \
-        $root_dir/configure ${make_conf_opts}
+        $root_dir/configure --prefix="$release_depends_dir/${target}" \
+        ${make_conf_opts}
     _fold_end
     _exit_dir
 }
