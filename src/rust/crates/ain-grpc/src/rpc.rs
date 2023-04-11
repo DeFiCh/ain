@@ -1,8 +1,8 @@
 use crate::codegen::rpc::{
     ffi::{
-        EthAccountsResult, EthBlockInfo, EthBlockNumberResult,
-        EthCallInput, EthCallResult, EthGetBalanceInput, EthGetBalanceResult,
-        EthGetBlockByHashInput, EthGetBlockByNumberInput, EthTransactionInfo,
+        EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
+        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByNumberInput,
+        EthTransactionInfo,
     },
     EthService,
 };
