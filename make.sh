@@ -389,13 +389,6 @@ git_version() {
     fi
 }
 
-_ci_export_vars() {
-    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-        # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-    fi
-}
-
 pkg_update_base() {
     _fold_start "pkg-update-base"
 
@@ -641,6 +634,13 @@ _nproc() {
 
 # Misc
 # ---
+
+ci_export_vars() {
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        # GitHub Actions
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
+    fi
+}
 
 _sign() {
     # TODO: generate sha sums and sign

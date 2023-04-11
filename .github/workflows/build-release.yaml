@@ -16,8 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
@@ -49,6 +50,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
+
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
 
@@ -64,6 +68,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release
@@ -85,8 +92,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compute build version
-      run: ./make.sh git-version
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Cleanup work dir
       run: rm -rf *
