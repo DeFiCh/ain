@@ -1,10 +1,7 @@
 [workspace]
 members = [
     "crates/ain-evm",
-    "crates/ain-evm-state",
-    "crates/ain-evm-runtime",
     "crates/ain-evm-ffi",
     "crates/ain-grpc",
-    "crates/ain-utils",
 ]
 

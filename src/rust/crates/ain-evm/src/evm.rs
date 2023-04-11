@@ -1,6 +1,6 @@
 use crate::traits::{PersistentState, PersistentStateError};
 use crate::tx_queue::TransactionQueueMap;
-use ain_evm::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
+use crate::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
 use anyhow::anyhow;
 use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
 use evm::backend::MemoryAccount;

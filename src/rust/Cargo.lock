@@ -15,16 +15,23 @@ dependencies = [
 name = "ain-evm"
 version = "0.1.0"
 dependencies = [
- "ain-utils",
  "anyhow",
+ "bincode",
  "ethereum",
  "evm",
  "hex",
+ "hex-literal",
+ "jsonrpsee-core",
+ "jsonrpsee-http-server",
+ "jsonrpsee-types",
+ "lazy_static",
  "libsecp256k1",
  "log",
  "primitive-types",
+ "rand",
  "rlp",
  "sha3",
+ "tokio",
 ]
 
 [[package]]
@@ -32,8 +39,6 @@ name = "ain-evm-ffi"
 version = "0.1.0"
 dependencies = [
  "ain-evm",
- "ain-evm-runtime",
- "ain-evm-state",
  "ain-grpc",
  "cxx",
  "cxx-gen",
@@ -43,42 +48,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ain-evm-runtime"
-version = "0.1.0"
-dependencies = [
- "ain-evm-state",
- "jsonrpsee-core",
- "jsonrpsee-http-server",
- "jsonrpsee-types",
- "lazy_static",
- "log",
- "primitive-types",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "ain-evm-state"
-version = "0.1.0"
-dependencies = [
- "ain-evm",
- "anyhow",
- "bincode",
- "ethereum",
- "evm",
- "hex",
- "primitive-types",
- "rand",
- "rlp",
-]
-
-[[package]]
 name = "ain-grpc"
 version = "0.1.0"
 dependencies = [
- "ain-evm-runtime",
- "ain-evm-state",
+ "ain-evm",
  "cxx",
  "cxx-gen",
  "env_logger",
@@ -103,17 +76,6 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
-]
-
-[[package]]
-name = "ain-utils"
-version = "0.1.0"
-dependencies = [
- "hex",
- "hex-literal",
- "libsecp256k1",
- "primitive-types",
- "sha3",
 ]
 
 [[package]]
