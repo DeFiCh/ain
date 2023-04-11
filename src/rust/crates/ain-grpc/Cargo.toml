@@ -5,8 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-ain-evm-state = { path = "../ain-evm-state" }
-ain-evm-runtime = { path = "../ain-evm-runtime" }
+ain-evm = { path = "../ain-evm" }
 
 cxx = "1.0"
 env_logger = "0.9"

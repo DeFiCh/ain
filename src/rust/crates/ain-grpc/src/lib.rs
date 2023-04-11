@@ -18,7 +18,7 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use ain_evm_runtime::{Runtime, RUNTIME};
+use ain_evm::runtime::{Runtime, RUNTIME};
 
 #[cfg(test)]
 mod tests;

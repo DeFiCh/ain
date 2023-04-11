@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use primitive_types::{H160, U256};
 
-use ain_evm_state::handler::Handlers;
+use ain_evm::handler::Handlers;
 
 use crate::{
     codegen::{
