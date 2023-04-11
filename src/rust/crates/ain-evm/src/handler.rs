@@ -1,7 +1,7 @@
 use crate::block::BlockHandler;
 use crate::evm::EVMHandler;
-use ain_evm::executor::AinExecutor;
-use ain_evm::traits::Executor;
+use crate::executor::AinExecutor;
+use crate::traits::Executor;
 use ethereum::{Block, PartialHeader, TransactionV2};
 use evm::backend::{MemoryBackend, MemoryVicinity};
 use primitive_types::{H160, H256, U256};

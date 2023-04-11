@@ -6,7 +6,7 @@ use crate::codegen::rpc::{
     },
     EthService,
 };
-use ain_evm_state::handler::Handlers;
+use ain_evm::handler::Handlers;
 use std::mem::size_of_val;
 use std::sync::Arc;
 
@@ -71,6 +71,7 @@ impl EthServiceApi for EthService {
         // Get from wallet
         Ok(EthAccountsResult { accounts: vec![] })
     }
+
     fn Eth_GetBalance(
         handler: Arc<Handlers>,
         input: EthGetBalanceInput,

@@ -1,7 +1,7 @@
 use ain_evm::*;
 use ain_grpc::*;
 
-use ain_evm_runtime::RUNTIME;
+use ain_evm::runtime::RUNTIME;
 use std::error::Error;
 
 #[cxx::bridge]

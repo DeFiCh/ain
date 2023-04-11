@@ -5,7 +5,7 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
-use ain_evm::transaction::SignedTx;
+use crate::transaction::SignedTx;
 
 use crate::evm::EVMState;
 
