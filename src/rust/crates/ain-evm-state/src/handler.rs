@@ -1,12 +1,12 @@
-use std::error::Error;
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::block::BlockHandler;
+use crate::evm::EVMHandler;
+use ain_evm::executor::AinExecutor;
+use ain_evm::traits::Executor;
 use ethereum::{Block, PartialHeader, TransactionV2};
 use evm::backend::{MemoryBackend, MemoryVicinity};
 use primitive_types::{H160, U256};
-use ain_evm::executor::AinExecutor;
-use ain_evm::traits::Executor;
-use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use std::error::Error;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Handlers {
     pub evm: EVMHandler,
@@ -64,7 +64,10 @@ impl Handlers {
                 number: U256::from(number),
                 gas_limit: Default::default(),
                 gas_used: Default::default(),
-                timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
                 extra_data: Default::default(),
                 mix_hash: Default::default(),
                 nonce: Default::default(),
