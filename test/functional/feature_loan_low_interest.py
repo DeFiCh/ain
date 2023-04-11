@@ -7,6 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
+from test_framework.fixtures_util import setup_loan_low_interest_tokens
 from test_framework.util import assert_equal
 
 import calendar
@@ -63,46 +64,6 @@ class LowInterestTest(DefiTestFramework):
         assert_equal(len(oracle_data["priceFeeds"]), 2)
         assert_equal(len(oracle_data["tokenPrices"]), 2)
 
-    def test_setup_tokens(self):
-        print('setting up loan and collateral tokens...')
-        self.nodes[0].setloantoken({
-            'symbol': self.symboldUSD,
-            'name': "DUSD stable token",
-            'fixedIntervalPriceId': "DUSD/USD",
-            'mintable': True,
-            'interest': 0})
-
-        self.tokenInterest = Decimal(1)
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolDOGE,
-            'name': "DOGE token",
-            'fixedIntervalPriceId': "DOGE/USD",
-            'mintable': True,
-            'interest': Decimal(self.tokenInterest * 100)})
-        self.nodes[0].generate(1)
-
-        # Set token ids
-        self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
-        self.idDFI = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
-        self.idDOGE = list(self.nodes[0].gettoken(self.symbolDOGE).keys())[0]
-
-        # Mint tokens
-        self.nodes[0].minttokens("1000000@DOGE")
-        self.nodes[0].generate(1)
-        self.nodes[0].minttokens("2000000@" + self.symboldUSD)  # necessary for pools
-        self.nodes[0].generate(1)
-
-        # Setup collateral tokens
-        self.nodes[0].setcollateraltoken({
-            'token': self.idDFI,
-            'factor': 1,
-            'fixedIntervalPriceId': "DFI/USD"})
-        self.nodes[0].generate(300)
-
-        assert_equal(len(self.nodes[0].listtokens()), 3)
-        assert_equal(len(self.nodes[0].listloantokens()), 2)
-        assert_equal(len(self.nodes[0].listcollateraltokens()), 1)
-
     def test_setup_poolpairs(self):
         print("setting up pool pairs...")
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
@@ -148,7 +109,7 @@ class LowInterestTest(DefiTestFramework):
         print('Generating initial chain...')
         self.test_load_account0_with_DFI()
         self.test_setup_oracles()
-        self.test_setup_tokens()
+        setup_loan_low_interest_tokens(self)
         self.test_setup_poolpairs()
         self.test_setup_loan_scheme()
 

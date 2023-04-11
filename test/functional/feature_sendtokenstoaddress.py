@@ -10,6 +10,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
+from test_framework.fixtures_util import setup_default_tokens
 from test_framework.util import assert_equal
 from decimal import Decimal
 
@@ -46,7 +47,7 @@ class SendTokensToAddressTest(DefiTestFramework):
             },
         ]
         # inside this function "tokenId" and "symbolId" will be assigned for each token obj
-        self.setup_tokens(tokens)
+        setup_default_tokens(self, tokens)
 
         token0_symbol = tokens[0]["symbolId"]
         token1_symbol = tokens[1]["symbolId"]

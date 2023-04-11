@@ -7,6 +7,8 @@
 """Test token split"""
 
 from test_framework.test_framework import DefiTestFramework
+
+from test_framework.fixtures_util import setup_split_usd_value_tokens
 from test_framework.util import assert_equal, assert_greater_than_or_equal
 
 from decimal import Decimal
@@ -55,45 +57,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
-
-    def setup_tokens(self):
-        # Set loan tokens
-
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolDUSD,
-            'name': self.symbolDUSD,
-            'fixedIntervalPriceId': f"{self.symbolDUSD}/USD",
-            'mintable': True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolT1,
-            'name': self.symbolT1,
-            'fixedIntervalPriceId': f"{self.symbolT1}/USD",
-            'mintable': True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolDUSD,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolDUSD}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolT1,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolT1}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        # Store token IDs
-        self.idDUSD = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
-        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
 
     def generate_and_fill_accounts(self, nAccounts=20):
         self.accounts = []
@@ -157,7 +120,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
-        self.setup_tokens()
+        setup_split_usd_value_tokens(self)
         self.setup_accounts()
         self.setup_pools()
         self.gotoFCC()

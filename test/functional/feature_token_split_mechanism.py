@@ -8,6 +8,8 @@
 
 from test_framework.test_framework import DefiTestFramework
 
+from test_framework.fixtures_util import setup_split_mechanism_tokens
+
 from decimal import Decimal
 import time
 
@@ -58,79 +60,6 @@ class TokenSplitMechanismTest(DefiTestFramework):
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
-
-    def setup_tokens(self):
-        # Set loan tokens
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolT2,
-            'name': self.symbolT2,
-            'fixedIntervalPriceId': f"{self.symbolT2}/USD",
-            "isDAT": True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolDUSD,
-            'name': self.symbolDUSD,
-            'fixedIntervalPriceId': f"{self.symbolDUSD}/USD",
-            'mintable': True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolT1,
-            'name': self.symbolT1,
-            'fixedIntervalPriceId': f"{self.symbolT1}/USD",
-            'mintable': True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolT3,
-            'name': self.symbolT3,
-            'fixedIntervalPriceId': f"{self.symbolT3}/USD",
-            'mintable': True,
-            'interest': 0
-        })
-        self.nodes[0].generate(1)
-
-        # Set collateral tokens
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolDFI,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolDFI}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolDUSD,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolDUSD}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolT2,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolT2}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolT1,
-            'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolT1}/USD"
-        })
-        self.nodes[0].generate(1)
-
-        # Store token IDs
-        self.idDUSD = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
-        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
-        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
-        self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
 
     def setup_accounts(self):
         self.account1 = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -263,7 +192,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
-        self.setup_tokens()
+        setup_split_mechanism_tokens(self)
         self.setup_accounts()
         self.setup_pools()
         self.gotoFCC()
