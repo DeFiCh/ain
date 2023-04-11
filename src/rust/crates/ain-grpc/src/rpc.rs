@@ -118,7 +118,7 @@ impl EthServiceApi for EthService {
                 size: size_of_val(&block).to_string(),
                 gas_limit: block.header.gas_limit.to_string(),
                 gas_used: block.header.gas_used.to_string(),
-                timestamps: block.header.timestamp.to_string(),
+                timestamps: format!("0x{:x}", block.header.timestamp),
                 transactions: block
                     .transactions
                     .iter()
@@ -170,7 +170,7 @@ impl EthServiceApi for EthService {
                 size: size_of_val(&block).to_string(),
                 gas_limit: block.header.gas_limit.to_string(),
                 gas_used: block.header.gas_used.to_string(),
-                timestamps: block.header.timestamp.to_string(),
+                timestamps: format!("0x{:x}", block.header.timestamp),
                 transactions: block
                     .transactions
                     .iter()

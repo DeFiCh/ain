@@ -4,7 +4,7 @@ use ain_evm::executor::AinExecutor;
 use ain_evm::traits::Executor;
 use ethereum::{Block, PartialHeader, TransactionV2};
 use evm::backend::{MemoryBackend, MemoryVicinity};
-use primitive_types::{H160, U256};
+use primitive_types::{H160, H256, U256};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -49,13 +49,19 @@ impl Handlers {
             *state = executor.backend().state().clone();
         }
 
+        let mut parent_hash: H256 = Default::default();
+        let mut number: usize = 0;
+
         let blocks = self.block.blocks.read().unwrap();
-        let parent_block = blocks.first().unwrap();
-        let number = blocks.len() + 1;
+        if !blocks.is_empty() {
+            parent_hash = blocks.first().unwrap().header.hash();
+            number = blocks.len() + 1;
+        }
+        drop(blocks);
 
         let block = Block::new(
             PartialHeader {
-                parent_hash: parent_block.header.hash(),
+                parent_hash,
                 beneficiary: Default::default(),
                 state_root: Default::default(),
                 receipts_root: Default::default(),
