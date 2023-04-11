@@ -61,6 +61,7 @@ impl EthServiceApi for EthService {
         // Get from wallet
         Ok(EthAccountsResult { accounts: vec![] })
     }
+
     fn Eth_GetBalance(
         handler: Arc<Handlers>,
         input: EthGetBalanceInput,

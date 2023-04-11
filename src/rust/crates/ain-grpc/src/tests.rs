@@ -22,8 +22,8 @@ const BOB: &str = "0x0000000000000000000000000000000000000001";
 fn should_call() {
     let handler = Arc::new(Handlers::new());
     let tx_info = EthTransactionInfo {
-        from: ALICE.to_string(),
-        to: BOB.to_string(),
+        from: Some(ALICE.to_string()),
+        to: Some(BOB.to_string()),
         gas: None,
         price: None,
         value: None,
