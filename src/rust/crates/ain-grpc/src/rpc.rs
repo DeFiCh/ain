@@ -106,20 +106,20 @@ impl EthServiceApi for EthService {
         let block = handler.block.get_block_by_hash(hash).unwrap();
 
         Ok(EthBlockInfo {
-            block_number: format!("0x{:x}", block.header.number),
+            block_number: format!("{:#x}", block.header.number),
             hash: format_hash(block.header.hash()),
             parent_hash: format_hash(block.header.parent_hash),
-            nonce: format!("0x{:x}", block.header.nonce),
+            nonce: format!("{:#x}", block.header.nonce),
             sha3_uncles: format_hash(block.header.ommers_hash),
-            logs_bloom: format!("0x{:x}", block.header.logs_bloom),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
             transactions_root: format_hash(block.header.transactions_root),
             state_root: format_hash(block.header.state_root),
             receipt_root: format_hash(block.header.receipts_root),
-            miner: format!("0x{:x}", block.header.beneficiary),
-            difficulty: format!("0x{:x}", block.header.difficulty),
+            miner: format!("{:#x}", block.header.beneficiary),
+            difficulty: format!("{:#x}", block.header.difficulty),
             total_difficulty: format_number(block.header.difficulty),
-            extra_data: format!("0x{:x?}", block.header.extra_data.to_ascii_lowercase()),
-            size: format!("0x{:x}", size_of_val(&block)),
+            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("{:#x}", size_of_val(&block)),
             gas_limit: format_number(block.header.gas_limit),
             gas_used: format_number(block.header.gas_used),
             timestamps: format!("0x{:x}", block.header.timestamp),
@@ -156,23 +156,23 @@ impl EthServiceApi for EthService {
         let block = handler.block.get_block_by_number(number).unwrap();
 
         Ok(EthBlockInfo {
-            block_number: format!("0x{:x}", block.header.number),
+            block_number: format!("{:#x}", block.header.number),
             hash: format_hash(block.header.hash()),
             parent_hash: format_hash(block.header.parent_hash),
-            nonce: format!("0x{:x}", block.header.nonce),
+            nonce: format!("{:#x}", block.header.nonce),
             sha3_uncles: format_hash(block.header.ommers_hash),
-            logs_bloom: format!("0x{:x}", block.header.logs_bloom),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
             transactions_root: format_hash(block.header.transactions_root),
             state_root: format_hash(block.header.state_root),
             receipt_root: format_hash(block.header.receipts_root),
-            miner: format!("0x{:x}", block.header.beneficiary),
-            difficulty: format!("0x{:x}", block.header.difficulty),
+            miner: format!("{:#x}", block.header.beneficiary),
+            difficulty: format!("{:#x}", block.header.difficulty),
             total_difficulty: format_number(block.header.difficulty),
-            extra_data: format!("0x{:x?}", block.header.extra_data.to_ascii_lowercase()),
-            size: format!("0x{:x}", size_of_val(&block)),
+            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("{:#x}", size_of_val(&block)),
             gas_limit: format_number(block.header.gas_limit),
             gas_used: format_number(block.header.gas_used),
-            timestamps: format!("0x{:x}", block.header.timestamp),
+            timestamps: format!("{:#x}", block.header.timestamp),
             transactions: block
                 .transactions
                 .iter()
@@ -188,9 +188,9 @@ impl EthServiceApi for EthService {
 }
 
 fn format_hash(hash: H256) -> String {
-    return format!("0x{:x}", hash);
+    return format!("{:#x}", hash);
 }
 
 fn format_number(number: U256) -> String {
-    return format!("0x{:x}", number);
+    return format!("{:#x}", number);
 }
