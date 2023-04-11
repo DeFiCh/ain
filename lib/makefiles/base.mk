@@ -2,17 +2,16 @@ SHELL := /bin/bash
 CARGO_TOOLCHAIN ?= stable
 CARGO_ARGS ?=
 CARGO ?= cargo
-LIB_ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-STAMP := $(LIB_ROOT_DIR)/target/.stamp
+LIB_ROOT_DIR := $(dir $(realpath ../$(lastword $(MAKEFILE_LIST))))
+BUILD_DIR ?= $(LIB_ROOT_DIR)/target
 
-# The file list to override for dep tracking
-export ALL_CARGO_SRC ?= 
+STAMP := $(BUILD_DIR)/.stamp
 
 # On the makefile that calls it, we'll ensure to default it 0.
 # This makes for easier dev workflow since except for the final build and
 # select scenarios, debug builds are the more common workflow
 export DEBUG ?= 1
-export LIB_TARGET_DIR := $(if $(findstring 1,$(DEBUG)),$(LIB_ROOT_DIR)/target/debug,$(LIB_ROOT_DIR)/target/release)
+export LIB_TARGET_DIR := $(if $(findstring 1,$(DEBUG)),$(BUILD_DIR)/debug,$(BUILD_DIR)/release)
 
 .ONESHELL:
 

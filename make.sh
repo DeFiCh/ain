@@ -11,6 +11,7 @@ setup_vars() {
     GIT_VERSION=${GIT_VERSION:-0}
     if [[ "$GIT_VERSION" == 1 ]]; then
         IMAGE_VERSION=${IMAGE_VERSION:-"$(git_version 0)"}
+        _ci_export_vars
     else 
         IMAGE_VERSION=${IMAGE_VERSION:-"latest"}
     fi
@@ -381,14 +382,17 @@ git_version() {
     fi
 
     if [[ "$verbose" == "1" ]]; then 
-    echo "> git branch: ${current_branch}"
-    echo "> version: ${ver}"
+        echo "> git branch: ${current_branch}"
+        echo "> version: ${ver}"
+    else
+        echo "$ver"
+    fi
+}
+
+_ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-    fi
-    else
-        echo "$ver"
     fi
 }
 

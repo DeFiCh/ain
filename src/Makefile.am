@@ -18,6 +18,14 @@ else
 LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
+# Placeholder for now
+LIBAIN_INCLUDES=-I$(srcdir)
+
+LIBAIN_FFI=libain_ffi.a
+
+$(LIBAIN_FFI): FORCE
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(top_srcdir)/lib version
+
 LIBDEFI_SPV=libdefi_spv.a
 LIBDEFI_SPV_INCLUDES = \
   -I$(srcdir)/spv \
@@ -29,7 +37,7 @@ DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS
 
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
-DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES)
+DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES) $(LIBAIN_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -72,9 +80,11 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_COMMON) \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_SPV) \
+  $(LIBAIN_FFI) \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
+
 
 lib_LIBRARIES = 
 lib_LTLIBRARIES = 
@@ -692,6 +702,7 @@ defid_LDADD = \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_SPV) \
+  $(LIBAIN_FFI) \
   $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
