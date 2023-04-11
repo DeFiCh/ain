@@ -49,15 +49,13 @@ impl Handlers {
             *state = executor.backend().state().clone();
         }
 
-        let mut parent_hash: H256 = Default::default();
-        let mut number: usize = 0;
-
-        let blocks = self.block.blocks.read().unwrap();
-        if !blocks.is_empty() {
-            parent_hash = blocks.first().unwrap().header.hash();
-            number = blocks.len() + 1;
-        }
-        drop(blocks);
+        let (parent_hash, number) = {
+            let blocks = self.block.blocks.read().unwrap();
+            blocks
+                .first()
+                .and_then(|first_block| Some((first_block.header.hash(), blocks.len() + 1)))
+                .unwrap_or((H256::default(), 0))
+        };
 
         let block = Block::new(
             PartialHeader {
