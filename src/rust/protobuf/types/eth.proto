@@ -191,7 +191,8 @@ message EthGetBlockByHashInput {
 }
 
 message EthGetBlockByHashResult {
-    EthBlockInfo blockInfo = 1;
+    optional EthBlockInfo blockInfo = 1;
+    optional string blockInfoString = 2;
 }
 
 message EthGetBlockByNumberInput {
