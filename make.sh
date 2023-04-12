@@ -96,7 +96,7 @@ _cleanup() {
 
 help() {
     echo "Usage: $0 <commands>"
-    printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" $0 $0
+    printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" "$0" "$0"
     printf "\nCommands:\n"
     printf "\t%s\n" "${COMMANDS[@]//_/-}"
     printf "\nNote: All commands without docker-* prefix assume that it's run in\n" 
@@ -501,6 +501,7 @@ clean_artifacts() {
     
     local x
     for x in "${items[@]}"; do
+        # shellcheck disable=SC2038,SC2046
         _safe_rm_rf $(find src -iname "$x" | xargs)
     done
 }
