@@ -2,6 +2,7 @@
 members = [
     "crates/ain-evm",
     "crates/ain-evm-ffi",
+    "crates/ain-evm-cpp-ffi",
     "crates/ain-grpc",
 ]
 
