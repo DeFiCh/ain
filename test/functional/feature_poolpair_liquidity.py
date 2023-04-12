@@ -11,8 +11,8 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.nodes_util import get_id_token
-from test_framework.fixtures_util import setup_default_tokens
+from test_framework.nodes_util import NodeUtils
+from test_framework.fixtures_util import Fixture
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
@@ -42,14 +42,14 @@ class PoolLiquidityTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         print("Generating initial chain...")
-        setup_default_tokens(self)
+        Fixture.setup_default_tokens(self)
 
         # stop node #2 for future revert
         self.stop_node(2)
         connect_nodes_bi(self.nodes, 0, 3)
 
-        symbolGOLD = "GOLD#" + get_id_token(self.nodes, "GOLD")
-        symbolSILVER = "SILVER#" + get_id_token(self.nodes, "SILVER")
+        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes, "GOLD")
+        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes, "SILVER")
 
         idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
         idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]

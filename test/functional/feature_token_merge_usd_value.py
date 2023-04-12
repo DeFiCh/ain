@@ -7,7 +7,7 @@
 """Test token merge"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.fixtures_util import setup_merge_usd_value_tokens
+from test_framework.fixtures_util import Fixture
 from test_framework.util import assert_equal, assert_greater_than_or_equal, almost_equal
 
 from decimal import Decimal
@@ -109,7 +109,7 @@ class TokenMergeUSDValueTest(DefiTestFramework):
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
-        setup_merge_usd_value_tokens(self)
+        Fixture.setup_merge_usd_value_tokens(self)
         self.setup_accounts()
         self.setup_pools()
 

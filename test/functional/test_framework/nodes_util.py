@@ -8,8 +8,13 @@
 from typing import List
 from .test_node import TestNode
 
-def get_id_token(nodes : List[TestNode], symbol):
-    list_tokens = nodes[0].listtokens()
-    for idx, token in list_tokens.items():
-        if (token["symbol"] == symbol):
-            return str(idx)
+class NodeUtils:
+    """
+    Class for node's utility functions. Contains the following methods:
+    - get_id_token()
+    """
+    def get_id_token(nodes : List[TestNode], symbol):
+        list_tokens = nodes[0].listtokens()
+        for idx, token in list_tokens.items():
+            if (token["symbol"] == symbol):
+                return str(idx)

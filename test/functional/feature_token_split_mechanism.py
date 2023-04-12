@@ -8,7 +8,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.fixtures_util import setup_split_mechanism_tokens
+from test_framework.fixtures_util import Fixture
 
 from decimal import Decimal
 import time
@@ -192,7 +192,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
-        setup_split_mechanism_tokens(self)
+        Fixture.setup_split_mechanism_tokens(self)
         self.setup_accounts()
         self.setup_pools()
         self.gotoFCC()

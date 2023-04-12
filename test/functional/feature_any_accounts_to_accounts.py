@@ -11,7 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.fixtures_util import setup_default_tokens
+from test_framework.fixtures_util import Fixture
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
@@ -68,7 +68,7 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
             }
         ]
         # inside this function "tokenId" and "symbolId" will be assigned for each token obj
-        setup_default_tokens(self, tokens)
+        Fixture.setup_default_tokens(self, tokens)
 
         # list_tokens = self.nodes[0].listtokens()
         # pprint(list_tokens)

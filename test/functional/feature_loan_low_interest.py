@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.fixtures_util import setup_loan_low_interest_tokens
+from test_framework.fixtures_util import Fixture
 from test_framework.util import assert_equal
 
 import calendar
@@ -109,7 +109,7 @@ class LowInterestTest(DefiTestFramework):
         print('Generating initial chain...')
         self.test_load_account0_with_DFI()
         self.test_setup_oracles()
-        setup_loan_low_interest_tokens(self)
+        Fixture.setup_loan_low_interest_tokens(self)
         self.test_setup_poolpairs()
         self.test_setup_loan_scheme()
 
