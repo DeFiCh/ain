@@ -1,4 +1,4 @@
-ARG TARGET=x86_64-w64-mingw32
+ARG TARGET=arm-apple-darwin
 
 # -----------
 FROM --platform=linux/amd64 ubuntu:latest as builder
@@ -11,10 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
-
-RUN update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
-RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_osx_tools
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps
