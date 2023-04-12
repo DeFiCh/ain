@@ -27,4 +27,6 @@ service eth {
   rpc Eth_BlockNumber(google.protobuf.Empty) returns (types.EthBlockNumberResult);
 
   rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);
+
+  rpc Eth_Mining(google.protobuf.Empty) returns (types.EthMiningResult);
 }

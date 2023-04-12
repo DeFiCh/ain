@@ -2,7 +2,7 @@ use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
         EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
-        EthGetBlockByNumberInput, EthTransactionInfo,
+        EthGetBlockByNumberInput, EthMiningResult, EthTransactionInfo,
     },
     EthService,
 };
@@ -43,6 +43,8 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetBlockByNumberInput,
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
+
+    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error>;
 }
 
 impl EthServiceApi for EthService {
@@ -202,6 +204,12 @@ impl EthServiceApi for EthService {
                 .map(|x| x.hash().to_string())
                 .collect::<Vec<String>>(),
         })
+    }
+
+    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
+        let mining = ain_evm_cpp_ffi::is_mining().unwrap();
+
+        Ok(EthMiningResult { is_mining: mining })
     }
 }
 

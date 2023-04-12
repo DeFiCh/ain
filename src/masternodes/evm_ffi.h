@@ -4,5 +4,6 @@
 #include <chainparams.h>
 
 uint64_t getChainId();
+bool isMining();
 
 #endif // DEFI_EVM_FFI_H
