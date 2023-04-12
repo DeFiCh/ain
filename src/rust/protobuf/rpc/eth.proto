@@ -20,6 +20,10 @@ service eth {
   /// Returns the balance for the given address.
   rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);
 
+  rpc Eth_ChainId(google.protobuf.Empty) returns (types.EthChainIdResult);
+
+  rpc Net_Version(google.protobuf.Empty) returns (types.EthChainIdResult);
+
   rpc Eth_BlockNumber(google.protobuf.Empty) returns (types.EthBlockNumberResult);
 
   rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);

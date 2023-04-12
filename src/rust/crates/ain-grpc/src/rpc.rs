@@ -1,17 +1,15 @@
 use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
-        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByNumberInput,
-        EthMiningResult, EthTransactionInfo,
+        EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
+        EthGetBlockByNumberInput, EthMiningResult, EthTransactionInfo,
     },
     EthService,
 };
 use ain_evm::handler::Handlers;
+use ain_evm_cpp_ffi::get_chain_id;
 use primitive_types::{H256, U256};
-use prost::Message;
-use std::hash::Hash;
 use std::mem::size_of_val;
-use std::str::FromStr;
 use std::sync::Arc;
 
 pub trait EthServiceApi {
@@ -32,6 +30,10 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput,
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
+
+    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
     fn Eth_BlockNumber(
         handler: Arc<Handlers>,
@@ -135,6 +137,22 @@ impl EthServiceApi for EthService {
                 .iter()
                 .map(|x| x.hash().to_string())
                 .collect::<Vec<String>>(),
+        })
+    }
+
+    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+        let chain_id = get_chain_id().unwrap();
+
+        Ok(EthChainIdResult {
+            id: format!("{:#x}", chain_id),
+        })
+    }
+
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+        let chain_id = get_chain_id().unwrap();
+
+        Ok(EthChainIdResult {
+            id: format!("{}", chain_id),
         })
     }
 
