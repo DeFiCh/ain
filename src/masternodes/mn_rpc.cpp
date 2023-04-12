@@ -146,7 +146,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     return mtx;
 }
 
-static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
 
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
@@ -316,7 +316,7 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
     return txin;
 }
 
-static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, 
+static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet,
     std::set<CScript> const & auths,
     int32_t txVersion,
     const CoinSelectionOptions &coinSelectOpts) {

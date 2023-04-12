@@ -14,7 +14,7 @@ service eth {
   /// Returns the balance for the given address.
   rpc Eth_GetBalance(types.EthGetBalanceInput) returns (types.EthGetBalanceResult);
 
-  rpc Eth_GetBlockByHash(types.EthGetBlockByHashInput) returns (types.EthGetBlockByHashResult);
+  rpc Eth_GetBlockByHash(types.EthGetBlockByHashInput) returns (types.EthBlockInfo);
 
   /// [ignore]
   /// Returns the balance for the given address.
@@ -23,4 +23,8 @@ service eth {
   rpc Eth_ChainId(google.protobuf.Empty) returns (types.EthChainIdResult);
 
   rpc Net_Version(google.protobuf.Empty) returns (types.EthChainIdResult);
+
+  rpc Eth_BlockNumber(google.protobuf.Empty) returns (types.EthBlockNumberResult);
+
+  rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);
 }

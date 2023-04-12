@@ -87,6 +87,6 @@ fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {
 
 use rlp::Encodable;
 fn evm_finalise(context: u64, update_state: bool) -> Result<Vec<u8>, Box<dyn Error>> {
-    let (block, _failed_tx) = RUNTIME.handlers.evm.finalize_block(context, update_state)?;
+    let (block, _failed_tx) = RUNTIME.handlers.finalize_block(context, update_state)?;
     Ok(block.header.rlp_bytes().into())
 }

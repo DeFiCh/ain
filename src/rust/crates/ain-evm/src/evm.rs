@@ -140,56 +140,6 @@ impl EVMHandler {
         self.tx_queues.add_signed_tx(context, signed_tx);
         Ok(())
     }
-
-    pub fn finalize_block(
-        &self,
-        context: u64,
-        update_state: bool,
-    ) -> Result<(Block<TransactionV2>, Vec<TransactionV2>), Box<dyn Error>> {
-        let mut tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
-        let mut failed_tx_hashes = Vec::with_capacity(self.tx_queues.len(context));
-        let vicinity = get_vicinity(None, None);
-        let state = self.tx_queues.state(context).expect("Wrong context");
-        let backend = MemoryBackend::new(&vicinity, state);
-        let mut executor = AinExecutor::new(backend);
-
-        for signed_tx in self.tx_queues.drain_all(context) {
-            let tx_response = executor.exec(&signed_tx);
-            if tx_response.exit_reason.is_succeed() {
-                tx_hashes.push(signed_tx.transaction);
-            } else {
-                failed_tx_hashes.push(signed_tx.transaction)
-            }
-        }
-
-        self.tx_queues.remove(context);
-
-        if update_state {
-            let mut state = self.state.write().unwrap();
-            *state = executor.backend().state().clone();
-        }
-
-        let block = Block::new(
-            PartialHeader {
-                parent_hash: Default::default(),
-                beneficiary: Default::default(),
-                state_root: Default::default(),
-                receipts_root: Default::default(),
-                logs_bloom: Default::default(),
-                difficulty: Default::default(),
-                number: Default::default(),
-                gas_limit: Default::default(),
-                gas_used: Default::default(),
-                timestamp: Default::default(),
-                extra_data: Default::default(),
-                mix_hash: Default::default(),
-                nonce: Default::default(),
-            },
-            tx_hashes,
-            Vec::new(),
-        );
-        Ok((block, failed_tx_hashes))
-    }
 }
 
 impl EVMHandler {

@@ -2015,8 +2015,16 @@ UniValue transferbalance(const JSONRPCRequest& request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     if (msg.type != CTransferBalanceType::EvmOut)
-        for(auto& addresses : msg.from)
-            auths.insert(addresses.first);
+        for(auto& address : msg.from)
+            auths.insert(address.first);
+    else
+        for(auto& address : msg.from)
+            if (IsMine(*pwallet, address.first))
+            {
+                const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+                auths.insert(auth);
+            }
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
@@ -2033,10 +2041,11 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
+    auto txRef = sign(rawTx, pwallet, optAuthTx);
     // check execution
-    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+    execTestTx(*txRef, targetHeight, optAuthTx);
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    return send(txRef, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue getburninfo(const JSONRPCRequest& request) {

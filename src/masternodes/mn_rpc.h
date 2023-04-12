@@ -74,6 +74,8 @@ CMutableTransaction fund(CMutableTransaction &mtx,
                          CTransactionRef optAuthTx,
                          CCoinControl *coin_control = nullptr,
                          const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
+CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
 CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);

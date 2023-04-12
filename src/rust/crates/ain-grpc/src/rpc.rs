@@ -1,14 +1,18 @@
 use crate::codegen::rpc::{
     ffi::{
-        EthAccountsResult, EthBlockInfo, EthCallInput, EthCallResult, EthChainIdResult,
-        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByHashResult,
-        EthTransactionInfo,
+        EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
+        EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
+        EthGetBlockByHashResult, EthGetBlockByNumberInput, EthTransactionInfo,
     },
     EthService,
 };
 use ain_evm::handler::Handlers;
 use ain_evm_cpp_ffi::get_chain_id;
+use primitive_types::{H256, U256};
+use prost::Message;
+use std::hash::Hash;
 use std::mem::size_of_val;
+use std::str::FromStr;
 use std::sync::Arc;
 
 pub trait EthServiceApi {
@@ -28,11 +32,20 @@ pub trait EthServiceApi {
     fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput,
-    ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error>;
+    ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
 
     fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
     fn Net_Version(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+
+    fn Eth_BlockNumber(
+        handler: Arc<Handlers>,
+    ) -> Result<EthBlockNumberResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetBlockByNumber(
+        handler: Arc<Handlers>,
+        input: EthGetBlockByNumberInput,
+    ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
 }
 
 impl EthServiceApi for EthService {
@@ -91,42 +104,40 @@ impl EthServiceApi for EthService {
     fn Eth_GetBlockByHash(
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput,
-    ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error> {
+    ) -> Result<EthBlockInfo, jsonrpsee_core::Error> {
         let EthGetBlockByHashInput { hash, .. } = input;
 
         let hash = hash.parse().expect("Invalid hash");
-        let block = handler.block.get_block_hash(hash).unwrap();
+        let block = handler.block.get_block_by_hash(hash).unwrap();
 
-        Ok(EthGetBlockByHashResult {
-            block_info: EthBlockInfo {
-                block_number: block.header.number.to_string(),
-                hash: block.header.hash().to_string(),
-                parent_hash: block.header.parent_hash.to_string(),
-                nonce: block.header.nonce.to_string(),
-                sha3_uncles: block.header.ommers_hash.to_string(),
-                logs_bloom: block.header.logs_bloom.to_string(),
-                transactions_root: block.header.transactions_root.to_string(),
-                state_root: block.header.state_root.to_string(),
-                receipt_root: block.header.receipts_root.to_string(),
-                miner: block.header.beneficiary.to_string(),
-                difficulty: block.header.difficulty.to_string(),
-                total_difficulty: block.header.difficulty.to_string(),
-                extra_data: String::from_utf8(block.header.extra_data.clone()).unwrap(),
-                size: size_of_val(&block).to_string(),
-                gas_limit: block.header.gas_limit.to_string(),
-                gas_used: block.header.gas_used.to_string(),
-                timestamps: block.header.timestamp.to_string(),
-                transactions: block
-                    .transactions
-                    .iter()
-                    .map(|x| x.hash().to_string())
-                    .collect::<Vec<String>>(),
-                uncles: block
-                    .ommers
-                    .iter()
-                    .map(|x| x.hash().to_string())
-                    .collect::<Vec<String>>(),
-            },
+        Ok(EthBlockInfo {
+            block_number: format!("{:#x}", block.header.number),
+            hash: format_hash(block.header.hash()),
+            parent_hash: format_hash(block.header.parent_hash),
+            nonce: format!("{:#x}", block.header.nonce),
+            sha3_uncles: format_hash(block.header.ommers_hash),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
+            transactions_root: format_hash(block.header.transactions_root),
+            state_root: format_hash(block.header.state_root),
+            receipt_root: format_hash(block.header.receipts_root),
+            miner: format!("{:#x}", block.header.beneficiary),
+            difficulty: format!("{:#x}", block.header.difficulty),
+            total_difficulty: format_number(block.header.difficulty),
+            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("{:#x}", size_of_val(&block)),
+            gas_limit: format_number(block.header.gas_limit),
+            gas_used: format_number(block.header.gas_used),
+            timestamps: format!("0x{:x}", block.header.timestamp),
+            transactions: block
+                .transactions
+                .iter()
+                .map(|x| x.hash().to_string())
+                .collect::<Vec<String>>(),
+            uncles: block
+                .ommers
+                .iter()
+                .map(|x| x.hash().to_string())
+                .collect::<Vec<String>>(),
         })
     }
 
@@ -145,4 +156,62 @@ impl EthServiceApi for EthService {
             id: format!("{}", chain_id),
         })
     }
+
+    fn Eth_BlockNumber(
+        handler: Arc<Handlers>,
+    ) -> Result<EthBlockNumberResult, jsonrpsee_core::Error> {
+        let count = handler.block.blocks.read().unwrap().len();
+
+        Ok(EthBlockNumberResult {
+            block_number: format!("0x{:x}", count),
+        })
+    }
+
+    fn Eth_GetBlockByNumber(
+        handler: Arc<Handlers>,
+        input: EthGetBlockByNumberInput,
+    ) -> Result<EthBlockInfo, jsonrpsee_core::Error> {
+        let EthGetBlockByNumberInput { number, .. } = input;
+
+        let number: usize = number.parse().ok().unwrap();
+        let block = handler.block.get_block_by_number(number).unwrap();
+
+        Ok(EthBlockInfo {
+            block_number: format!("{:#x}", block.header.number),
+            hash: format_hash(block.header.hash()),
+            parent_hash: format_hash(block.header.parent_hash),
+            nonce: format!("{:#x}", block.header.nonce),
+            sha3_uncles: format_hash(block.header.ommers_hash),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
+            transactions_root: format_hash(block.header.transactions_root),
+            state_root: format_hash(block.header.state_root),
+            receipt_root: format_hash(block.header.receipts_root),
+            miner: format!("{:#x}", block.header.beneficiary),
+            difficulty: format!("{:#x}", block.header.difficulty),
+            total_difficulty: format_number(block.header.difficulty),
+            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
+            size: format!("{:#x}", size_of_val(&block)),
+            gas_limit: format_number(block.header.gas_limit),
+            gas_used: format_number(block.header.gas_used),
+            timestamps: format!("{:#x}", block.header.timestamp),
+            transactions: block
+                .transactions
+                .iter()
+                .map(|x| x.hash().to_string())
+                .collect::<Vec<String>>(),
+            uncles: block
+                .ommers
+                .iter()
+                .map(|x| x.hash().to_string())
+                .collect::<Vec<String>>(),
+        })
+    }
+}
+
+fn format_hash(hash: H256) -> String {
+    return format!("{:#x}", hash);
+}
+
+fn format_number(number: U256) -> String {
+    return format!("{:#x}", number);
 }
