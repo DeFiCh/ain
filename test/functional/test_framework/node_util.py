@@ -7,7 +7,7 @@
 
 from .test_node import TestNode
 
-class NodeUtils:
+class NodeUtil:
     """
     Class for node's utility functions. Contains the following methods:
     - get_id_token()

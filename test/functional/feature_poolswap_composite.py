@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.nodes_util import NodeUtils
+from test_framework.node_util import NodeUtil
 from test_framework.fixtures_util import Fixture
 from test_framework.util import (
     assert_equal,
@@ -73,11 +73,11 @@ class PoolPairCompositeTest(DefiTestFramework):
         Fixture.setup_default_tokens(self, tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDOGE = "DOGE#" + NodeUtils.get_id_token(self.nodes[0], "DOGE")
-        symbolTSLA = "TSLA#" + NodeUtils.get_id_token(self.nodes[0], "TSLA")
-        symbolDUSD = "DUSD#" + NodeUtils.get_id_token(self.nodes[0], "DUSD")
-        symbolLTC = "LTC#" + NodeUtils.get_id_token(self.nodes[0], "LTC")
-        symbolUSDC = "USDC#" + NodeUtils.get_id_token(self.nodes[0], "USDC")
+        symbolDOGE = "DOGE#" + NodeUtil.get_id_token(self.nodes[0], "DOGE")
+        symbolTSLA = "TSLA#" + NodeUtil.get_id_token(self.nodes[0], "TSLA")
+        symbolDUSD = "DUSD#" + NodeUtil.get_id_token(self.nodes[0], "DUSD")
+        symbolLTC = "LTC#" + NodeUtil.get_id_token(self.nodes[0], "LTC")
+        symbolUSDC = "USDC#" + NodeUtil.get_id_token(self.nodes[0], "USDC")
 
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]
