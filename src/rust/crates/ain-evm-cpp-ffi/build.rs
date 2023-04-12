@@ -4,7 +4,6 @@ fn main() {
         .include("../../../")
         .include("../../../leveldb/include/")
         .include("../../../univalue/include/")
-        .include("../../../config/defi-config.h")
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-Wno-unused-parameter")
         .compile("ain-evm-cpp-ffi");
