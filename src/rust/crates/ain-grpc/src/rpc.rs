@@ -31,6 +31,8 @@ pub trait EthServiceApi {
     ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error>;
 
     fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+
+    fn Net_Version(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 }
 
 impl EthServiceApi for EthService {
@@ -133,6 +135,14 @@ impl EthServiceApi for EthService {
 
         Ok(EthChainIdResult {
             id: format!("{:#x}", chain_id),
+        })
+    }
+
+    fn Net_Version(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+        let chain_id = get_chain_id().unwrap();
+
+        Ok(EthChainIdResult {
+            id: format!("{}", chain_id),
         })
     }
 }
