@@ -1,4 +1,4 @@
-ARG TARGET=arm-apple-darwin
+ARG TARGET=aarch64-apple-darwin
 
 # -----------
 FROM --platform=linux/amd64 ubuntu:latest as builder

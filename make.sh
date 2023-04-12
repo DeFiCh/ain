@@ -589,7 +589,7 @@ _get_default_target() {
         if [[ "$macos_arch" == "x86_64" ]]; then
             default_target="x86_64-apple-darwin"
         else
-            default_target="arm-apple-darwin"
+            default_target="aarch64-apple-darwin"
         fi
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
