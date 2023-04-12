@@ -2,17 +2,14 @@ use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
         EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
-        EthGetBlockByHashResult, EthGetBlockByNumberInput, EthTransactionInfo,
+        EthGetBlockByNumberInput, EthTransactionInfo,
     },
     EthService,
 };
 use ain_evm::handler::Handlers;
 use ain_evm_cpp_ffi::get_chain_id;
 use primitive_types::{H256, U256};
-use prost::Message;
-use std::hash::Hash;
 use std::mem::size_of_val;
-use std::str::FromStr;
 use std::sync::Arc;
 
 pub trait EthServiceApi {
@@ -34,9 +31,9 @@ pub trait EthServiceApi {
         input: EthGetBlockByHashInput,
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
 
-    fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
-    fn Net_Version(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
     fn Eth_BlockNumber(
         handler: Arc<Handlers>,
@@ -141,7 +138,7 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
         let chain_id = get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
@@ -149,7 +146,7 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Net_Version(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
         let chain_id = get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
