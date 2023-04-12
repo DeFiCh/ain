@@ -501,8 +501,7 @@ clean_artifacts() {
     
     local x
     for x in "${items[@]}"; do
-        # shellcheck disable=SC2038,SC2046
-        _safe_rm_rf $(find src -iname "$x" | xargs)
+        _safe_rm_rf "$(find src -iname "$x" -print0 | xargs -0)"
     done
 }
 
