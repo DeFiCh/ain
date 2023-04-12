@@ -3871,7 +3871,7 @@ public:
             }
         } else if (obj.type == CTransferBalanceType::EvmOut) {
 
-            for (const auto& [addr, _] : obj.from) {
+            for (const auto& [addr, balances] : obj.from) {
                 CTxDestination dest;
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
