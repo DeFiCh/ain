@@ -15,6 +15,10 @@ message EthTransactionInfo {
     optional uint64 nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
 }
 
+message EthChainIdResult {
+    string id = 1;
+}
+
 message EthBlockInfo {
     string blockNumber = 1; // The block number. null when its pending block.
     string hash = 2; // Hash of the block. null when its pending block.

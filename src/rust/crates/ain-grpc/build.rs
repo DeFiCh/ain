@@ -642,7 +642,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lower_camel_case());
+                .unwrap_or_else(|| method.name.to_lowercase());
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]

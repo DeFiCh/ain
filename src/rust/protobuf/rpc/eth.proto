@@ -19,4 +19,6 @@ service eth {
   /// [ignore]
   /// Returns the balance for the given address.
   rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);
+
+  rpc Eth_ChainId(google.protobuf.Empty) returns (types.EthChainIdResult);
 }

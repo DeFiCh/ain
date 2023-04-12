@@ -1,11 +1,13 @@
 use crate::codegen::rpc::{
     ffi::{
-        EthAccountsResult, EthBlockInfo, EthCallInput, EthCallResult, EthGetBalanceInput,
-        EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByHashResult, EthTransactionInfo,
+        EthAccountsResult, EthBlockInfo, EthCallInput, EthCallResult, EthChainIdResult,
+        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByHashResult,
+        EthTransactionInfo,
     },
     EthService,
 };
 use ain_evm::handler::Handlers;
+use ain_evm_cpp_ffi::get_chain_id;
 use std::mem::size_of_val;
 use std::sync::Arc;
 
@@ -27,6 +29,8 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetBlockByHashInput,
     ) -> Result<EthGetBlockByHashResult, jsonrpsee_core::Error>;
+
+    fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 }
 
 impl EthServiceApi for EthService {
@@ -121,6 +125,14 @@ impl EthServiceApi for EthService {
                     .map(|x| x.hash().to_string())
                     .collect::<Vec<String>>(),
             },
+        })
+    }
+
+    fn Eth_ChainId(handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+        let chain_id = get_chain_id().unwrap();
+
+        Ok(EthChainIdResult {
+            id: format!("{:#x}", chain_id),
         })
     }
 }
