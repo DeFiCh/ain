@@ -406,7 +406,7 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
         modified.extend(quote!(#s));
         map.insert(s.ident.to_string(), s.clone());
 
-        s.attrs = Attr::parse("#[derive(Debug, Default, Serialize , Deserialize)]");
+        s.attrs = Attr::parse("#[derive(Debug, Default, Serialize , Deserialize, PartialEq)]");
         let fields = match &mut s.fields {
             Fields::Named(ref mut f) => f,
             _ => unreachable!(),
@@ -642,7 +642,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lower_camel_case());
+                .unwrap_or_else(|| method.name.to_lowercase());
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]
