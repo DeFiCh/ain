@@ -6,11 +6,18 @@ mod ffi {
         include!("masternodes/evm_ffi.h");
 
         fn getChainId() -> u64;
+        fn isMining() -> bool;
     }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
 
-    return Ok(chain_id);
+    Ok(chain_id)
+}
+
+pub fn is_mining() -> Result<bool, Box<dyn Error>> {
+    let is_mining = ffi::isMining();
+
+    Ok(is_mining)
 }
