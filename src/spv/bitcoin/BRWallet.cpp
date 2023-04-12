@@ -22,11 +22,6 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRWallet.h"
-#include "BRSet.h"
-#include "BRAddress.h"
-#include "BRArray.h"
-
 #include <logging.h>
 #include <util/strencodings.h>
 
@@ -35,6 +30,11 @@
 #include <inttypes.h>
 
 #include <assert.h>
+
+#include <spv/support/BRSet.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRArray.h>
+#include <spv/bitcoin/BRWallet.h>
 
 uint256 to_uint256(const UInt256 & i)
 {

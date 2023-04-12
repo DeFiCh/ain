@@ -14,17 +14,9 @@ on:
 jobs:
   unit_tests:
     name: Unit Tests
-    # We use a matrix since it's easier to migrate upwards, add new
-    # test on multiple, then remove old without creating friction.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
-      PYTHON: 3.6
-      TRAVIS_BUILD_DIR: ${{ github.workspace }}
-      TRAVIS_COMMIT: ${{ github.sha }}
     steps:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
@@ -36,18 +28,5 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
-    # This script has been modified to pipe variables to GITHUB_ENV, which allows them to be
-    # used by subsequent steps.
-    - name: Set Env
-      run: set -o errexit; source ./ci/test/00_setup_env.sh
-
-    # The following scripts must be run in the same step as they reference Bash functions from
-    # previous scripts, which are difficult to expose globally in Github workflows
-
     - name: Tests
-      run: |
-          set -o errexit; source ./ci/test/03_before_install.sh
-          set -o errexit; source ./ci/test/04_install.sh
-          set -o errexit; source ./ci/test/05_before_script.sh
-          set -o errexit; source ./ci/test/06_script_a.sh
-          set -o errexit; source ./ci/test/06_script_b.sh
+      run: ./ci/test/main.sh

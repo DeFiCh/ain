@@ -22,10 +22,6 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRKey.h"
-#include "BRAddress.h"
-#include "BRBase58.h"
-#include "../bitcoin/BRChainParams.h"
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -35,6 +31,11 @@
 
 #include <mutex> // for std::once_flag / std::call_once - not the 'boost' cause bitcore uses std:: for this calls (?)
 //#include <pthread.h>
+
+#include <spv/support/BRKey.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRBase58.h>
+#include <spv/bitcoin/BRChainParams.h>
 
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) ||\
     __ARMEB__ || __THUMBEB__ || __AARCH64EB__ || __MIPSEB__

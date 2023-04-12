@@ -522,7 +522,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     vaultIdCopy, collateralsCopy,
                     &cache, pindex,
                     useNextPrice, requireLivePrice,
-                    &g, &lv, &markCompleted] {
+                    &lv, &markCompleted] {
 
                     auto vaultId = vaultIdCopy;
                     auto collaterals = collateralsCopy;
