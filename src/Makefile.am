@@ -700,7 +700,6 @@ defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)
 defid_LDADD = \
-  $(LIBAIN_EVM) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
   $(LIBAIN_EVM) \
