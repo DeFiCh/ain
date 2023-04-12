@@ -2,7 +2,7 @@ use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
         EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByNumberInput,
-        EthTransactionInfo,EthMiningResult
+        EthMiningResult, EthTransactionInfo,
     },
     EthService,
 };
