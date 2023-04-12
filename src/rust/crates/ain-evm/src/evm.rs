@@ -148,12 +148,7 @@ impl EVMHandler {
             .read()
             .unwrap()
             .get(&account)
-            .unwrap_or(&MemoryAccount {
-                nonce: Default::default(),
-                balance: Default::default(),
-                storage: Default::default(),
-                code: Default::default(),
-            })
+            .unwrap_or(&Default::default())
             .to_owned()
     }
 
