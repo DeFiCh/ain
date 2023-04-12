@@ -70,6 +70,7 @@ main() {
     # Commands use `-` instead of `_` for getopts consistency. Flip this.
     local cmd=${1:-} && cmd="${cmd//-/_}"
 
+    local x
     for x in "${COMMANDS[@]}"; do
         if [[ "$x" == "$cmd" ]]; then
             shift
@@ -95,7 +96,7 @@ _cleanup() {
 
 help() {
     echo "Usage: $0 <commands>"
-    printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" $0 $0
+    printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" "$0" "$0"
     printf "\nCommands:\n"
     printf "\t%s\n" "${COMMANDS[@]//_/-}"
     printf "\nNote: All commands without docker-* prefix assume that it's run in\n" 
@@ -158,7 +159,6 @@ build_make() {
     local make_args=${MAKE_ARGS:-}
     local make_jobs=${MAKE_JOBS}
     local release_target_dir=${RELEASE_TARGET_DIR}
-    local release_out=${release_target_dir}/bin
 
     echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
 
@@ -168,11 +168,6 @@ build_make() {
     # shellcheck disable=SC2086
     make DESTDIR="${release_target_dir}" -j${make_jobs} ${make_args}
 
-    mkdir -p "${release_out}"
-    local bins=(defid defid.exe defi-cli defi-cli.exe defi-tx defi-tx.exe)
-    for x in "${bins[@]}"; do
-        { cp -f "${release_target_dir}/src/${x}" "${release_out}/" || true; } 2> /dev/null
-    done
 
     _fold_end
     _exit_dir
@@ -408,7 +403,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake
+        curl cmake unzip
 
     _fold_end
 }
@@ -492,13 +487,31 @@ purge() {
     clean_depends
     _safe_rm_rf "$release_depends_dir"
     clean_conf
+    clean_artifacts
     docker_clean_all
     _safe_rm_rf "$release_dir"
 }
 
+clean_artifacts() {
+    # If build is done out of tree, this is not needed at all. But when done
+    # in-tree, or helper tools that end up running configure in-tree, this is 
+    # a helpful method to clean up left overs. 
+    local items=(\
+        .libs .deps obj "*.dirstamp" "*.a" "*.o" "*.Po" "*.lo")
+    
+    local x
+    for x in "${items[@]}"; do
+        _safe_rm_rf "$(find src -iname "$x" -print0 | xargs -0)"
+    done
+}
+
 clean_conf() {
     local top_left_overs=(\
-        Makefile.in aclocal.m4 autom4te.cache configure configure~ )
+        Makefile.in aclocal.m4 autom4te.cache configure configure~)
+
+    # If things were built in-tree, help clean this up as well
+    local in_tree_conf_left_overs=(\
+        Makefile libtool config.log config.status)
 
     local build_aux_left_overs=(\
         ar-lib compile config.guess config.sub depcomp install-sh ltmain.sh
@@ -508,8 +521,16 @@ clean_conf() {
         libtool.m4 lt~obsolete.m4 ltoptions.m4 ltsugar.m4 ltversion.m4)
 
     local left_overs=("${top_left_overs[@]}" \
+        "${in_tree_conf_left_overs[@]}" \
         "${build_aux_left_overs[@]/#/build-aux/}" \
         "${build_aux_m4_left_overs[@]/#/build-aux/m4/}")
+
+    local individual_files=(./test/config.ini)
+
+    local x
+    for x in "${individual_files[@]}"; do
+        _safe_rm_rf "$x"
+    done
 
     for x in "${left_overs[@]} "; do
         _safe_rm_rf "$x"
@@ -520,8 +541,8 @@ clean_conf() {
     _safe_rm_rf \
         src/Makefile.in \
         src/defi-config.h.{in,in~} \
-        src/univalue/src/univalue-config.h.{in,in~} \
-        src/secp256k1/src/libsecp256k1-config.h.{in,in~}
+        src/univalue/univalue-config.h.{in,in~} \
+        src/secp256k1/libsecp256k1-config.h.{in,in~}
 }
 
 clean_depends() {
@@ -550,6 +571,7 @@ clean() {
     _ensure_enter_dir "${release_dir}"
     make clean || true
     _exit_dir
+    clean_artifacts
 }
 
 # ========
@@ -648,6 +670,7 @@ _sign() {
 }
 
 _safe_rm_rf() {
+    local x
     for x in "$@"; do
         if [[ "$x" =~ ^[[:space:]]*$ || "$x" =~ ^/*$ ]]; then 
             # Safe guard against accidental rm -rfs
