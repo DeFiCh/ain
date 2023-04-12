@@ -700,8 +700,10 @@ defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)
 defid_LDADD = \
+  $(LIBAIN_EVM) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
+  $(LIBAIN_EVM) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBUNIVALUE) \
@@ -712,8 +714,7 @@ defid_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBAIN_EVM)
+  $(LIBSECP256K1)
 
 defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
