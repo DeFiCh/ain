@@ -51,9 +51,9 @@ class PoolPairTest(DefiTestFramework):
             "collateralAddress": self.account0
         })
         self.nodes[0].generate(1)
-        self.symbol_key_GOLD = "GOLD#" + str(NodeUtils.get_id_token(self.nodes, self.symbolGOLD))
-        self.symbol_key_SILVER = "SILVER#" + str(NodeUtils.get_id_token(self.nodes, self.symbolSILVER))
-        self.symbol_key_DOGE = "DOGE#" + str(NodeUtils.get_id_token(self.nodes, self.symbolDOGE))
+        self.symbol_key_GOLD = "GOLD#" + str(NodeUtils.get_id_token(self.nodes[0], self.symbolGOLD))
+        self.symbol_key_SILVER = "SILVER#" + str(NodeUtils.get_id_token(self.nodes[0], self.symbolSILVER))
+        self.symbol_key_DOGE = "DOGE#" + str(NodeUtils.get_id_token(self.nodes[0], self.symbolDOGE))
 
     def mint_tokens(self, amount=1000):
 

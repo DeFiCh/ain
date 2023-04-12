@@ -52,8 +52,8 @@ class GovsetTest(DefiTestFramework):
         #
         # prepare the pools for LP_SPLITS
         #
-        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes, "GOLD")
-        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes, "SILVER")
+        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes[0], "GOLD")
+        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes[0], "SILVER")
 
         owner = self.nodes[0].getnewaddress("", "legacy")
 

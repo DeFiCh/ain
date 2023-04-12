@@ -36,8 +36,8 @@ class AccountsAndUTXOsTest(DefiTestFramework):
         # Stop node #2 for future revert
         self.stop_node(2)
 
-        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes, "GOLD")
-        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes, "SILVER")
+        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes[0], "GOLD")
+        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes[0], "SILVER")
 
         idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
         idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]

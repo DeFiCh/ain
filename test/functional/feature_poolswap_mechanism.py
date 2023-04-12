@@ -91,8 +91,8 @@ class PoolSwapTest(DefiTestFramework):
             tokenB = "SILVER" + str(i)
             self.create_token(tokenA, owner)
             self.create_token(tokenB, owner)
-            tokenA = tokenA + "#" + NodeUtils.get_id_token(self.nodes, tokenA)
-            tokenB = tokenB + "#" + NodeUtils.get_id_token(self.nodes, tokenB)
+            tokenA = tokenA + "#" + NodeUtils.get_id_token(self.nodes[0], tokenA)
+            tokenB = tokenB + "#" + NodeUtils.get_id_token(self.nodes[0], tokenB)
             self.create_pool(tokenA, tokenB, owner)
 
     def mint_tokens(self, owner):
@@ -100,7 +100,7 @@ class PoolSwapTest(DefiTestFramework):
         for item in self.tokens:
             self.nodes[0].sendmany("", {owner: 0.02})
             self.nodes[0].generate(1)
-            self.nodes[0].minttokens(mint_amount + "@" + NodeUtils.get_id_token(self.nodes, item), [])
+            self.nodes[0].minttokens(mint_amount + "@" + NodeUtils.get_id_token(self.nodes[0], item), [])
             self.nodes[0].generate(1)
             self.sync_blocks()
         return mint_amount
@@ -115,7 +115,7 @@ class PoolSwapTest(DefiTestFramework):
                 else:
                     end = start + 10
                 for idx in range(start, end):
-                    outputs[self.accounts[idx]] = send_amount + "@" + NodeUtils.get_id_token(self.nodes, token)
+                    outputs[self.accounts[idx]] = send_amount + "@" + NodeUtils.get_id_token(self.nodes[0], token)
                 self.nodes[0].sendmany("", {owner: 0.02})
                 self.nodes[0].generate(1)
                 self.nodes[0].accounttoaccount(owner, outputs, [])
@@ -126,8 +126,8 @@ class PoolSwapTest(DefiTestFramework):
         for item in range(self.COUNT_POOLS):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
-            self.liquidity[NodeUtils.get_id_token(self.nodes, tokenA)] = 0
-            self.liquidity[NodeUtils.get_id_token(self.nodes, tokenB)] = 0
+            self.liquidity[NodeUtils.get_id_token(self.nodes[0], tokenA)] = 0
+            self.liquidity[NodeUtils.get_id_token(self.nodes[0], tokenB)] = 0
             for start in range(0, self.COUNT_ACCOUNT, 10):
                 if start + 10 > self.COUNT_ACCOUNT:
                     end = self.COUNT_ACCOUNT
@@ -139,10 +139,10 @@ class PoolSwapTest(DefiTestFramework):
                 for idx in range(start, end):
                     amountA = random.randint(1, self.AMOUNT_TOKEN // 2)
                     amountB = random.randint(1, self.AMOUNT_TOKEN // 2)
-                    self.liquidity[NodeUtils.get_id_token(self.nodes, tokenA)] += amountA
-                    self.liquidity[NodeUtils.get_id_token(self.nodes, tokenB)] += amountB
-                    amountA = str(amountA) + "@" + NodeUtils.get_id_token(self.nodes, tokenA)
-                    amountB = str(amountB) + "@" + NodeUtils.get_id_token(self.nodes, tokenB)
+                    self.liquidity[NodeUtils.get_id_token(self.nodes[0], tokenA)] += amountA
+                    self.liquidity[NodeUtils.get_id_token(self.nodes[0], tokenB)] += amountB
+                    amountA = str(amountA) + "@" + NodeUtils.get_id_token(self.nodes[0], tokenA)
+                    amountB = str(amountB) + "@" + NodeUtils.get_id_token(self.nodes[0], tokenB)
                     self.nodes[0].addpoolliquidity({
                         self.accounts[idx]: [amountA, amountB]
                     }, self.accounts[idx], [])
@@ -183,15 +183,15 @@ class PoolSwapTest(DefiTestFramework):
 
                 for idx in range(start, end):
                     poolRewards[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0']
-                    amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[NodeUtils.get_id_token(self.nodes, tokenB)]
+                    amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[NodeUtils.get_id_token(self.nodes[0], tokenB)]
                     blockCommissionB += (amount * self.DECIMAL) * (
                                 commission * self.DECIMAL) / self.DECIMAL / self.DECIMAL
                     self.nodes[0].poolswap({
                         "from": self.accounts[idx],
-                        "tokenFrom": NodeUtils.get_id_token(self.nodes, tokenB),
+                        "tokenFrom": NodeUtils.get_id_token(self.nodes[0], tokenB),
                         "amountFrom": amount,
                         "to": self.accounts[idx],
-                        "tokenTo": str(NodeUtils.get_id_token(self.nodes, tokenA)),
+                        "tokenTo": str(NodeUtils.get_id_token(self.nodes[0], tokenA)),
                     }, [])
                 self.nodes[0].generate(1)
                 self.sync_blocks(nodes)
@@ -209,7 +209,7 @@ class PoolSwapTest(DefiTestFramework):
                     newReserveB = reserveB
 
                     assert_equal(amountsB[idx] - amount + Decimal(str(feeB / self.DECIMAL)),
-                                 self.nodes[0].getaccount(self.accounts[idx], {}, True)[NodeUtils.get_id_token(self.nodes, tokenB)])
+                                 self.nodes[0].getaccount(self.accounts[idx], {}, True)[NodeUtils.get_id_token(self.nodes[0], tokenB)])
 
                     realPoolReward = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0'] - poolRewards[idx]
 
@@ -267,7 +267,7 @@ class PoolSwapTest(DefiTestFramework):
         print("Sending tokens...")
         self.send_tokens(owner)
         for account in self.accounts:
-            assert_equal(self.nodes[0].getaccount(account, {}, True)[NodeUtils.get_id_token(self.nodes, self.tokens[0])],
+            assert_equal(self.nodes[0].getaccount(account, {}, True)[NodeUtils.get_id_token(self.nodes[0], self.tokens[0])],
                          self.AMOUNT_TOKEN)
         print("Tokens sent out")
 

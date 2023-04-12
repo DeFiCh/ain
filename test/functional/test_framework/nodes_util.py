@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Utility functions for testing node behaviour."""
 
-from typing import List
 from .test_node import TestNode
 
 class NodeUtils:
@@ -13,8 +12,8 @@ class NodeUtils:
     Class for node's utility functions. Contains the following methods:
     - get_id_token()
     """
-    def get_id_token(nodes : List[TestNode], symbol):
-        list_tokens = nodes[0].listtokens()
+    def get_id_token(node : TestNode, symbol):
+        list_tokens = node.listtokens()
         for idx, token in list_tokens.items():
             if (token["symbol"] == symbol):
                 return str(idx)

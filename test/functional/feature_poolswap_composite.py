@@ -73,11 +73,11 @@ class PoolPairCompositeTest(DefiTestFramework):
         Fixture.setup_default_tokens(self, tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDOGE = "DOGE#" + NodeUtils.get_id_token(self.nodes, "DOGE")
-        symbolTSLA = "TSLA#" + NodeUtils.get_id_token(self.nodes, "TSLA")
-        symbolDUSD = "DUSD#" + NodeUtils.get_id_token(self.nodes, "DUSD")
-        symbolLTC = "LTC#" + NodeUtils.get_id_token(self.nodes, "LTC")
-        symbolUSDC = "USDC#" + NodeUtils.get_id_token(self.nodes, "USDC")
+        symbolDOGE = "DOGE#" + NodeUtils.get_id_token(self.nodes[0], "DOGE")
+        symbolTSLA = "TSLA#" + NodeUtils.get_id_token(self.nodes[0], "TSLA")
+        symbolDUSD = "DUSD#" + NodeUtils.get_id_token(self.nodes[0], "DUSD")
+        symbolLTC = "LTC#" + NodeUtils.get_id_token(self.nodes[0], "LTC")
+        symbolUSDC = "USDC#" + NodeUtils.get_id_token(self.nodes[0], "USDC")
 
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]

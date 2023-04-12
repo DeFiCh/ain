@@ -56,7 +56,7 @@ class Fixture:
 
             # mint tokens
             for token in my_tokens:
-                token["tokenId"] = NodeUtils.get_id_token(test.nodes, token["symbol"])
+                token["tokenId"] = NodeUtils.get_id_token(test.nodes[0], token["symbol"])
                 token["symbolId"] = token["symbol"] + "#" + token["tokenId"]
                 token["wallet"].minttokens(str(token["amount"]) + "@" + token["symbolId"])
 
@@ -82,8 +82,8 @@ class Fixture:
             tokens = test.nodes[0].listtokens()
             assert_equal(len(tokens), 3)
 
-            symbolGOLD = "GOLD#" + NodeUtils.get_id_token(test.nodes, "GOLD")
-            symbolSILVER = "SILVER#" + NodeUtils.get_id_token(test.nodes, "SILVER")
+            symbolGOLD = "GOLD#" + NodeUtils.get_id_token(test.nodes[0], "GOLD")
+            symbolSILVER = "SILVER#" + NodeUtils.get_id_token(test.nodes[0], "SILVER")
 
             test.nodes[0].minttokens("1000@" + symbolGOLD)
             test.nodes[0].generate(1)
