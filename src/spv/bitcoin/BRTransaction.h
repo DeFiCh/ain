@@ -25,13 +25,13 @@
 #ifndef BRTransaction_h
 #define BRTransaction_h
 
-#include "BRKey.h"
-#include "BRAddress.h"
-#include "BRInt.h"
-
 #include <stddef.h>
 #include <inttypes.h>
 #include <string>
+
+#include <spv/support/BRKey.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRInt.h>
 
 #ifdef __cplusplus
 extern "C" {

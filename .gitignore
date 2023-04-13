@@ -1,20 +1,23 @@
 .code
 .idea
+
 # Editors.
 *.sw*
 .vscode
 .clangd
-build
 
+# Misc
 *.tar.gz
 *.tmp
-.DS_Store
 
-# Build directory.
+# Build
 build/
 out/
 *.exe
 *.pdb
+
+# Univalue 
+
 src/defi
 src/defid
 src/defi-cli
@@ -22,36 +25,46 @@ src/defi-tx
 src/defi-wallet
 src/test/test_defi
 src/test/test_defi_fuzzy
+src/config/defi-config.h
+src/config/defi-config.h.in
+src/obj
+src/univalue/gen
+src/secp256k1/gen_context
+src/secp256k1/src/ecmult_static_context.h
 
-# autoreconf
+# autotools
+
+Makefile
 Makefile.in
-aclocal.m4
-autom4te.cache/
-build-aux/config.guess
-build-aux/config.sub
-build-aux/depcomp
-build-aux/install-sh
-build-aux/ltmain.sh
-build-aux/m4/libtool.m4
-build-aux/m4/lt~obsolete.m4
-build-aux/m4/ltoptions.m4
-build-aux/m4/ltsugar.m4
-build-aux/m4/ltversion.m4
-build-aux/missing
-build-aux/compile
-build-aux/test-driver
+Makefile.am.user
+Makefile.test
+!depends/Makefile
+!src/leveldb*/Makefile
+
 config.log
 config.status
 configure
-libtool
-src/config/defi-config.h
-src/config/defi-config.h.in
-src/config/stamp-h1
-src/obj
-share/setup.nsi
-share/qt/Info.plist
+configure~
 
-src/univalue/gen
+aclocal.m4
+autom4te.cache/
+**/build-aux/config.guess
+**/build-aux/config.sub
+**/build-aux/depcomp
+**/build-aux/install-sh
+**/build-aux/ltmain.sh
+**/build-aux/m4/ar-lib.m4
+**/build-aux/m4/libtool.m4
+**/build-aux/m4/lt~obsolete.m4
+**/build-aux/m4/ltoptions.m4
+**/build-aux/m4/ltsugar.m4
+**/build-aux/m4/ltversion.m4
+**/build-aux/missing
+**/build-aux/compile
+**/build-aux/test-driver
+
+libtool
+stamp-h1
 
 .deps
 .dirstamp
@@ -87,26 +100,7 @@ src/univalue/gen
 
 # Compilation and Qt preprocessor part
 *.qm
-Makefile
-!depends/Makefile
 background.tiff*
-configure~
-
-# Qt Creator
-Makefile.am.user
-
-# Unit-tests
-Makefile.test
-
-# Rust
-**/cargo.lock
-
-# Resources cpp
-qrc_*.cpp
-
-# Mac specific
-.DS_Store
-build
 
 #lcov
 *.gcno
@@ -123,25 +117,15 @@ win32-build
 test/config.ini
 test/cache/*
 
-!src/leveldb*/Makefile
-
-/doc/doxygen/
-
-libdeficonsensus.pc
-contrib/devtools/split-debug.sh
-
 # Output from running db4 installation
 db4/
 
-# clang-check
+# Mac
+.DS_Store
 *.plist
-
 osx_volname
 dist/
 *.background.tiff
-
-# spv
-!src/spv/Makefile
 
 # VSCode extension LocalHistory
 .history
@@ -149,11 +133,15 @@ dist/
 # compile_commands.json
 compile_commands.json
 
-# secp256k1
-src/secp256k1/gen_context
-src/secp256k1/src/ecmult_static_context.h
+# Others
 
-# EVM
-src/evm/Cargo.lock
-src/evm/target/
-*.bin
+/doc/doxygen/
+contrib/devtools/split-debug.sh
+
+# CI scratch area used for tests
+/ci/scratch/
+
+# Potential rust paths to keep things clean
+# as we switch between branches
+/src/rust/target
+/lib/target

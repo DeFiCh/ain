@@ -653,7 +653,6 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, CCustomCSView *mnview, co
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        unsigned int i = 0;
         checkTotal += it->GetTxSize();
         innerUsage += it->DynamicMemoryUsage();
         const CTransaction& tx = it->GetTx();
@@ -679,7 +678,6 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, CCustomCSView *mnview, co
             assert(it3 != mapNextTx.end());
             assert(it3->first == &txin.prevout);
             assert(it3->second == &tx);
-            i++;
         }
         assert(setParentCheck == GetMemPoolParents(it));
         // Verify ancestor state is correct.

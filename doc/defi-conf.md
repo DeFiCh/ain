@@ -59,4 +59,4 @@ Windows | `%APPDATA%\DeFi Blockchain\` | `C:\Users\username\AppData\Roaming\DeFi
 Linux | `$HOME/.defi/` | `/home/username/.defi/defi.conf`
 macOS | `$HOME/Library/Application Support/DeFi/` | `/Users/username/Library/Application Support/DeFi/defi.conf`
 
-You can find an example defi.conf file in [share/examples/defi.conf](../share/examples/defi.conf).
+You can find an example defi.conf file in [contrib/conf-examples/defi.conf](../contrib/conf-examples/defi.conf).

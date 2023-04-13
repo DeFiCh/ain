@@ -1,18 +1,19 @@
 name: Tests - Sync
 on:
-  pull_request:
-    branches:
-      - master
-      - epic/*
-    types: [labeled, opened, reopened, synchronize]
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be formatted as multiple start block, such as "350000 50000 750000". Defaults to all block ranges'
+        description: 'Optionally restrict to specific block ranges. Should be 
+          formatted as multiple start block, such as "350000 50000 750000". 
+          Defaults to all block ranges'
         required: false
       name:
         description: 'Workflow run custom name'
-        require: false
+        required: false
+  pull_request:
+    branches:
+      - master
+    types: [labeled, opened, reopened, synchronize]
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
@@ -25,31 +26,24 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Build Node
-      run: MAKE_CONF_ARGS="--disable-bench --disable-tests" ./make.sh build
+    - name: Build node
+      # TODO: Switch this to a docker build later and this builds on the native
+      # VM toolchain and loses disparity with the CI release builds
+      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
 
-    - name: Upload Binaries
+    - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-         src/defid
-         src/defi-cli
+         build/x86_64-pc-linux-gnu/src/defid
+         build/x86_64-pc-linux-gnu/src/defi-cli
 
-    - name: Archive Binaries
-      uses: actions/upload-artifact@v3
-      with:
-        name: defibins
-        path: |
-          src/defid
-          src/defi-cli
-
-    - name: Archive Shell Commands
+    - name: Upload shell commands
       uses: actions/upload-artifact@v3
       with:
         name: sync
-        path: |
-          ci/parallel_sync/sync.sh
+        path: ci/sync/main.sh
 
   generate-matrix:
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'

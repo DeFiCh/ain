@@ -2,7 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-bin_PROGRAMS += bench/bench_defi
+noinst_PROGRAMS += bench/bench_defi
 BENCH_SRCDIR = bench
 BENCH_BINARY = bench/bench_defi$(EXEEXT)
 
@@ -49,7 +49,6 @@ nodist_bench_bench_defi_SOURCES = $(GENERATED_BENCH_FILES)
 bench_bench_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
 bench_bench_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bench_bench_defi_LDADD = \
-  $(LIBDEFI_MN) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_SERVER) \

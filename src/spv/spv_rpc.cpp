@@ -10,8 +10,6 @@
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
 #include <masternodes/mn_rpc.h>
-#include <spv/btctransaction.h>
-#include <spv/spv_wrapper.h>
 #include <univalue/include/univalue.h>
 
 //#ifdef ENABLE_WALLET
@@ -21,6 +19,9 @@
 
 #include <stdexcept>
 #include <future>
+
+#include <spv/btctransaction.h>
+#include <spv/spv_wrapper.h>
 
 // Minimum allowed block count in HTLC contract
 const uint32_t HTLC_MINIMUM_BLOCK_COUNT{9};
