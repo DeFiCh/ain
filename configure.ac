@@ -1421,7 +1421,7 @@ case $host in
   ;;
 esac
 
-AC_CONFIG_FILES([Makefile src/Makefile src/rust/Makefile test/config.ini])
+AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
 AC_CONFIG_LINKS([contrib/filter-lcov.py:contrib/filter-lcov.py])

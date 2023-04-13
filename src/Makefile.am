@@ -2,7 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-SUBDIRS = rust
+SUBDIRS = ../lib
 DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
@@ -26,15 +26,16 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bitcoin \
 	-I$(srcdir)/spv/bcash
 
-LIBAIN_RS_INCLUDES = -I$(builddir)/rust/include
-LIBAIN_RS_LIB = -L$(builddir)/rust/lib -lain_rs_exports
-LIBAIN_RS_SRC = $(builddir)/rust/src/ain_rs_exports.cpp
+LIBAIN_DIR = $(abs_top_builddir)/lib/gen
+LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
+LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
+LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
 LIBAIN_RS_H = ain_rs_exports.h
 
 $(LIBAIN_RS_SRC):
 $(LIBAIN_RS_H):
 $(LIBAIN_RS_LIB): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C rust
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_srcdir)/lib
 
 DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
