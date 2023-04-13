@@ -42,7 +42,7 @@ jobs:
     - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}-linux-x64
         docker push defi/defichain:${ver}
 
   win-x64:
