@@ -23,6 +23,7 @@ tokio = { version = "1.1", features = ["rt-multi-thread"] }
 tonic = "0.8"
 primitive-types = "0.12.1"
 ethereum = "0.14.0"
+hex = "0.4.3"
 
 [build-dependencies]
 cxx-gen = "0.7"
