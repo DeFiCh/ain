@@ -28,3 +28,4 @@ build-grpc-pkg:
 clean-local:
 	@cd $(abs_srcdir) && \
 	$(CARGO) clean --target-dir $(abs_builddir) && \
+	rm -rf {include,lib,src}
