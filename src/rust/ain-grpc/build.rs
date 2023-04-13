@@ -764,11 +764,10 @@ fn main() {
     let proto_path = manifest_path
         .parent()
         .unwrap()
-        .parent()
-        .unwrap()
-        .join("protobuf");
+        .join("proto");
     let src_path = manifest_path.join("src");
     let gen_path = src_path.join("gen");
+    std::fs::create_dir_all(&gen_path).unwrap();
 
     let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
     let _tt = modify_codegen(
@@ -777,6 +776,7 @@ fn main() {
         &Path::new(&gen_path).join("rpc.rs"),
         &src_path.join("lib.rs"),
     );
+
     println!(
         "cargo:rerun-if-changed={}",
         src_path.join("rpc.rs").to_string_lossy()
