@@ -62,7 +62,7 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
 
-  mac-x64:
+  osx-x64:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
