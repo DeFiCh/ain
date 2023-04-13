@@ -628,6 +628,7 @@ _get_default_conf_args() {
 # Dev tools
 # ---
 
+# shellcheck disable=SC2120
 git_precommit_hook() {
     local force_update=${1:-0}
     local file=".git/hooks/pre-commit"
@@ -635,6 +636,7 @@ git_precommit_hook() {
         return;
     fi
     echo "> adding pre-commit-hook"
+    mkdir -p "$(dirname $file)"
     cat <<END > "$file"
 #!/bin/bash
 set -Eeuo pipefail
