@@ -9,14 +9,13 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.fixtures_util import Fixture
-from test_framework.nodes_util import NodeUtils
-
 from test_framework.authproxy import JSONRPCException
+from test_framework.fixture_util import Fixture
 from test_framework.util import (
     assert_equal,
-    disconnect_nodes,
     assert_raises_rpc_error,
+    disconnect_nodes,
+    get_id_token,
 )
 
 from decimal import Decimal
@@ -42,8 +41,8 @@ class PoolPairTest(DefiTestFramework):
     def setup(self):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
         Fixture.setup_default_tokens(self)
-        self.symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes[0], "GOLD")
-        self.symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes[0], "SILVER")
+        self.symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        self.symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
         self.idGold = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
         self.idSilver = list(self.nodes[0].gettoken(self.symbolSILVER).keys())[0]
 

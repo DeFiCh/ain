@@ -9,11 +9,12 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.fixtures_util import Fixture
-from test_framework.util import assert_equal, \
-    connect_nodes_bi
+from test_framework.fixture_util import Fixture
+from test_framework.util import (
+    assert_equal,
+    connect_nodes_bi,
+)
 
 from decimal import Decimal
 

@@ -9,12 +9,15 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.nodes_util import NodeUtils
-from test_framework.fixtures_util import Fixture
-from test_framework.util import \
-    connect_nodes, disconnect_nodes, assert_equal, assert_raises_rpc_error
+from test_framework.fixture_util import Fixture
+from test_framework.util import (
+    assert_equal, 
+    assert_raises_rpc_error,
+    connect_nodes,
+    disconnect_nodes,
+    get_id_token,
+)
 from decimal import Decimal
 import time
 
@@ -52,8 +55,8 @@ class GovsetTest(DefiTestFramework):
         #
         # prepare the pools for LP_SPLITS
         #
-        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes[0], "GOLD")
-        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes[0], "SILVER")
+        symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
 
         owner = self.nodes[0].getnewaddress("", "legacy")
 

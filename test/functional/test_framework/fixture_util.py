@@ -6,8 +6,7 @@
 """Utility functions for containing common fixtures for testing."""
 
 from test_framework.test_framework import DefiTestFramework
-from .nodes_util import NodeUtils
-from .util import assert_equal
+from .util import assert_equal, get_id_token
 
 from decimal import Decimal
 
@@ -56,7 +55,7 @@ class Fixture:
 
             # mint tokens
             for token in my_tokens:
-                token["tokenId"] = NodeUtils.get_id_token(test.nodes[0], token["symbol"])
+                token["tokenId"] = get_id_token(test.nodes[0], token["symbol"])
                 token["symbolId"] = token["symbol"] + "#" + token["tokenId"]
                 token["wallet"].minttokens(str(token["amount"]) + "@" + token["symbolId"])
 
@@ -82,8 +81,8 @@ class Fixture:
             tokens = test.nodes[0].listtokens()
             assert_equal(len(tokens), 3)
 
-            symbolGOLD = "GOLD#" + NodeUtils.get_id_token(test.nodes[0], "GOLD")
-            symbolSILVER = "SILVER#" + NodeUtils.get_id_token(test.nodes[0], "SILVER")
+            symbolGOLD = "GOLD#" + get_id_token(test.nodes[0], "GOLD")
+            symbolSILVER = "SILVER#" + get_id_token(test.nodes[0], "SILVER")
 
             test.nodes[0].minttokens("1000@" + symbolGOLD)
             test.nodes[0].generate(1)

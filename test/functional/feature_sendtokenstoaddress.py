@@ -9,8 +9,7 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
-from test_framework.fixtures_util import Fixture
+from test_framework.fixture_util import Fixture
 from test_framework.util import assert_equal
 from decimal import Decimal
 

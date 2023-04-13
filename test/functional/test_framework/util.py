@@ -612,3 +612,13 @@ def find_vout_for_address(node, txid, addr):
         if any([addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
+
+
+def get_id_token(node, symbol):
+    """
+    Get the token ID
+    """
+    list_tokens = node.listtokens()
+    for idx, token in list_tokens.items():
+        if (token["symbol"] == symbol):
+            return str(idx)

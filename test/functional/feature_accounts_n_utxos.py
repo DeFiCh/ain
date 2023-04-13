@@ -9,12 +9,14 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.nodes_util import NodeUtils
-from test_framework.fixtures_util import Fixture
-from test_framework.util import assert_equal, assert_raises_rpc_error, \
-    connect_nodes_bi
+from test_framework.fixture_util import Fixture
+from test_framework.util import (
+    assert_equal, 
+    assert_raises_rpc_error,
+    connect_nodes_bi,
+    get_id_token,
+)
 
 
 class AccountsAndUTXOsTest(DefiTestFramework):
@@ -36,8 +38,8 @@ class AccountsAndUTXOsTest(DefiTestFramework):
         # Stop node #2 for future revert
         self.stop_node(2)
 
-        symbolGOLD = "GOLD#" + NodeUtils.get_id_token(self.nodes[0], "GOLD")
-        symbolSILVER = "SILVER#" + NodeUtils.get_id_token(self.nodes[0], "SILVER")
+        symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
 
         idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
         idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]
