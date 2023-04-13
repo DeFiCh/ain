@@ -1,6 +1,6 @@
 use crate::traits::{PersistentState, PersistentStateError};
 use ethereum::BlockAny;
-use primitive_types::{H256};
+use primitive_types::H256;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
