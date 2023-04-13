@@ -228,7 +228,7 @@ impl EthServiceApi for EthService {
         handler: Arc<Handlers>,
         input: EthGetBlockTransactionCountByHashInput,
     ) -> Result<EthGetBlockTransactionCountByHashResult, jsonrpsee_core::Error> {
-        let EthGetBlockTransactionCountByHashInput { block_hash, .. } = input;
+        let EthGetBlockTransactionCountByHashInput { block_hash } = input;
 
         let block_hash = block_hash.parse().expect("Invalid hash");
         let block = handler.block.get_block_by_hash(block_hash).unwrap();
