@@ -23,7 +23,7 @@
 #include <index/txindex.h>
 #include <key.h>
 #include <key_io.h>
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
