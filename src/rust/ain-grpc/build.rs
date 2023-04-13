@@ -298,7 +298,7 @@ fn modify_codegen(
             &quote!(
                 #[derive(Clone)]
                 pub struct #service {
-                    adapter: Arc<Handlers>
+                    #[allow(dead_code)] adapter: Arc<Handlers>
                 }
 
                 impl #service {

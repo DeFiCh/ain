@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ain-cpp-exports"
+name = "ain-cpp-imports"
 version = "0.1.0"
 dependencies = [
  "cxx",
@@ -46,7 +46,7 @@ dependencies = [
 name = "ain-grpc"
 version = "0.1.0"
 dependencies = [
- "ain-cpp-exports",
+ "ain-cpp-imports",
  "ain-evm",
  "cxx",
  "cxx-gen",

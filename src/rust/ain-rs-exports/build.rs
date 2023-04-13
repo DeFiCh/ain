@@ -35,18 +35,18 @@ fn main() {
     let tt: TokenStream = content.parse().unwrap();
     let mut opt = cxx_gen::Opt::default();
     opt.include.push(cxx_gen::Include {
-        path: "libain_evm.h".to_string(),
+        path: "libain_rs_exports.h".to_string(),
         kind: cxx_gen::IncludeKind::Bracketed,
     });
 
     let codegen = cxx_gen::generate_header_and_cc(tt, &opt).unwrap();
     let cpp_stuff = String::from_utf8(codegen.implementation).unwrap();
 
-    File::create(target_dir.join("libain_evm.h"))
+    File::create(target_dir.join("libain_rs_exports.h"))
         .unwrap()
         .write_all(&codegen.header)
         .unwrap();
-    File::create(target_dir.join("libain_evm.cpp"))
+    File::create(target_dir.join("libain_rs_exports.cpp"))
         .unwrap()
         .write_all(cpp_stuff.as_bytes())
         .unwrap();

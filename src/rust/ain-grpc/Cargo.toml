@@ -6,7 +6,7 @@ build = "build.rs"
 
 [dependencies]
 ain-evm = { path = "../ain-evm" }
-ain-cpp-exports = { path = "../ain-cpp-exports" }
+ain-cpp-imports = { path = "../ain-cpp-imports" }
 cxx = "1.0"
 env_logger = "0.9"
 jsonrpsee-core = "0.15"

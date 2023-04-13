@@ -141,7 +141,7 @@ impl EthServiceApi for EthService {
     }
 
     fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
-        let chain_id = ain_cpp_exports::get_chain_id().unwrap();
+        let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
             id: format!("{:#x}", chain_id),
@@ -149,7 +149,7 @@ impl EthServiceApi for EthService {
     }
 
     fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
-        let chain_id = ain_cpp_exports::get_chain_id().unwrap();
+        let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
             id: format!("{}", chain_id),
@@ -207,7 +207,7 @@ impl EthServiceApi for EthService {
     }
 
     fn Eth_Mining(_handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
-        let mining = ain_cpp_exports::is_mining().unwrap();
+        let mining = ain_cpp_imports::is_mining().unwrap();
 
         Ok(EthMiningResult { is_mining: mining })
     }

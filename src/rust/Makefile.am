@@ -9,12 +9,12 @@ all: build-evm-pkg build-grpc-pkg
 .PHONY:
 build-evm-pkg: build-grpc-pkg
 	@cd $(abs_srcdir) && \
-	CRATE_CC_NO_DEFAULTS=1 BUILD_DIR="$(abs_builddir)" $(CARGO) build --package ain-evm-ffi \
+	CRATE_CC_NO_DEFAULTS=1 BUILD_DIR="$(abs_builddir)" $(CARGO) build --package ain-rs-exports \
 		--release $(if $(RUST_TARGET),--target $(RUST_TARGET),) --target-dir $(abs_builddir)/target && \
 	mkdir -p $(abs_builddir)/{include,lib,src} && \
-	cp $(abs_builddir)/target/$(RUST_TARGET)/release/libain_evm_ffi.a $(abs_builddir)/lib/ && \
-	cp $(abs_builddir)/libain_evm.h $(abs_builddir)/include/ && \
-	cp $(abs_builddir)/libain_evm.cpp $(abs_builddir)/src/libain_evm.cpp
+	cp $(abs_builddir)/target/$(RUST_TARGET)/release/libain_rs_exports.a $(abs_builddir)/lib/ && \
+	cp $(abs_builddir)/libain_rs_exports.h $(abs_builddir)/include/ && \
+	cp $(abs_builddir)/libain_rs_exports.cpp $(abs_builddir)/src/libain_evm.cpp
 
 .PHONY:
 build-grpc-pkg:
