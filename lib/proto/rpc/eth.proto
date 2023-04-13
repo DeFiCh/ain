@@ -28,6 +28,15 @@ service eth {
 
   rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);
 
+  /// Returns the information about a transaction from a transaction hash.
+  rpc Eth_GetTransactionByHash(types.EthGetTransactionByHashInput) returns (types.EthTransactionInfo);
+
+  /// Returns information about a transaction given a blockhash and transaction index position.
+  rpc Eth_GetTransactionByBlockHashAndIndex(types.EthGetTransactionByBlockHashAndIndexInput) returns (types.EthTransactionInfo);
+
+  /// Returns information about a transaction given a block number and transaction index position.
+  rpc Eth_GetTransactionByBlockNumberAndIndex(types.EthGetTransactionByBlockNumberAndIndexInput) returns (types.EthTransactionInfo);
+
   rpc Eth_Mining(google.protobuf.Empty) returns (types.EthMiningResult);
 
   rpc Eth_GetBlockTransactionCountByHash(types.EthGetBlockTransactionCountByHashInput) returns (types.EthGetBlockTransactionCountByHashResult);

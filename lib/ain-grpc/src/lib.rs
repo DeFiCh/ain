@@ -3,6 +3,7 @@ extern crate serde;
 extern crate serde_json;
 
 mod codegen;
+mod impls;
 pub mod rpc;
 
 use env_logger::{Builder as LogBuilder, Env};

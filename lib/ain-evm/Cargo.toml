@@ -23,3 +23,6 @@ jsonrpsee-core = "0.15"
 jsonrpsee-http-server = "0.15"
 jsonrpsee-types = "0.15"
 tokio = { version = "1.1", features = ["rt-multi-thread"] }
+
+# Cache dependencies
+lru = "0.10.0"

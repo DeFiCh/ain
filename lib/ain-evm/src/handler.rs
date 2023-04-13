@@ -1,8 +1,9 @@
 use crate::block::BlockHandler;
 use crate::evm::EVMHandler;
 use crate::executor::AinExecutor;
+use crate::storage::Storage;
 use crate::traits::Executor;
-use ethereum::{Block, PartialHeader, TransactionV2};
+use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
 use evm::backend::{MemoryBackend, MemoryVicinity};
 use primitive_types::{H160, H256, U256};
 use std::error::Error;
@@ -11,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
+    pub storage: Storage,
 }
 
 impl Handlers {
@@ -18,6 +20,7 @@ impl Handlers {
         Self {
             evm: EVMHandler::new(),
             block: BlockHandler::new(),
+            storage: Storage::new(),
         }
     }
 
@@ -26,7 +29,7 @@ impl Handlers {
         context: u64,
         update_state: bool,
         miner_address: Option<H160>,
-    ) -> Result<(Block<TransactionV2>, Vec<TransactionV2>), Box<dyn Error>> {
+    ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
         let mut tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
         let vicinity = get_vicinity(None, None);
@@ -45,17 +48,13 @@ impl Handlers {
 
         self.evm.tx_queues.remove(context);
 
-        if update_state {
-            let mut state = self.evm.state.write().unwrap();
-            *state = executor.backend().state().clone();
-        }
-
         let (parent_hash, number) = {
-            let blocks = self.block.blocks.read().unwrap();
-            blocks
-                .first()
-                .and_then(|first_block| Some((first_block.header.hash(), blocks.len() + 1)))
-                .unwrap_or((H256::default(), 0))
+            self.storage
+                .get_latest_block()
+                .and_then(|first_block| {
+                    Some((first_block.header.hash(), first_block.header.number + 1))
+                })
+                .unwrap_or((H256::default(), U256::zero()))
         };
 
         let block = Block::new(
@@ -82,6 +81,14 @@ impl Handlers {
         );
 
         self.block.connect_block(block.clone());
+
+        if update_state {
+            let mut state = self.evm.state.write().unwrap();
+            *state = executor.backend().state().clone();
+
+            self.storage.put_latest_block(block.clone());
+            self.storage.put_block(block.clone());
+        }
 
         Ok((block, failed_tx_hashes))
     }

@@ -23,6 +23,7 @@ impl Runtime {
     pub fn new() -> Self {
         let r = Builder::new_multi_thread().enable_all().build().unwrap();
         let (tx, mut rx) = mpsc::channel(1);
+
         Runtime {
             tx,
             rt_handle: r.handle().clone(),
@@ -52,6 +53,5 @@ impl Runtime {
             .evm
             .flush()
             .expect("Could not flush evm state");
-        self.handlers.block.flush().expect("Could not flush blocks");
     }
 }
