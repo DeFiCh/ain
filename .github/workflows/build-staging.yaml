@@ -2,8 +2,6 @@ name: Build - Staging
 
 on:
   workflow_dispatch:
-  release:
-    types: [created]
 
 jobs:
   linux-x64:
