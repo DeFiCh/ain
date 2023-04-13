@@ -9,7 +9,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>

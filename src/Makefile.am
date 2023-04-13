@@ -27,9 +27,9 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bcash
 
 LIBAIN_RS_INCLUDES = -I$(builddir)/rust/include
-LIBAIN_RS_LIB = -L$(builddir)/rust/lib -lain_evm_ffi
-LIBAIN_RS_SRC = $(builddir)/rust/src/libain_evm.cpp
-LIBAIN_RS_H = libain_evm.h
+LIBAIN_RS_LIB = -L$(builddir)/rust/lib -lain_rs_exports
+LIBAIN_RS_SRC = $(builddir)/rust/src/ain_rs_exports.cpp
+LIBAIN_RS_H = ain_rs_exports.h
 
 $(LIBAIN_RS_SRC):
 $(LIBAIN_RS_H):
