@@ -3,6 +3,8 @@ use crate::codegen::rpc::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
         EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
         EthGetBlockByNumberInput, EthMiningResult, EthTransactionInfo,
+        EthGetBlockTransactionCountByHashInput, EthGetBlockTransactionCountByHashResult,
+        EthGetBlockTransactionCountByNumberInput,EthGetBlockTransactionCountByNumberResult,
     },
     EthService,
 };
@@ -45,6 +47,17 @@ pub trait EthServiceApi {
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
 
     fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetBlockTransactionCountByHash(
+        handler: Arc<Handlers>,
+        input: EthGetBlockTransactionCountByHashInput,
+    ) -> Result<EthGetBlockTransactionCountByHashResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetBlockTransactionCountByNumber(
+        handler: Arc<Handlers>,
+        input: EthGetBlockTransactionCountByNumberInput,
+    ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error>;
+
 }
 
 impl EthServiceApi for EthService {
@@ -210,6 +223,36 @@ impl EthServiceApi for EthService {
         let mining = ain_evm_cpp_ffi::is_mining().unwrap();
 
         Ok(EthMiningResult { is_mining: mining })
+    }
+
+    fn Eth_GetBlockTransactionCountByHash(
+        handler: Arc<Handlers>,
+        input: EthGetBlockTransactionCountByHashInput,
+    ) -> Result<EthGetBlockTransactionCountByHashResult, jsonrpsee_core::Error> {
+        let EthGetBlockTransactionCountByHashInput { block_hash, .. } = input;
+
+        let block_hash = block_hash.parse().expect("Invalid hash");
+        let block = handler.block.get_block_by_hash(block_hash).unwrap();
+        let count = block.transactions.len();
+
+        Ok(EthGetBlockTransactionCountByHashResult {
+            number_transaction: format!("0x{:x}", count),
+        })
+    }
+
+    fn Eth_GetBlockTransactionCountByNumber(
+        handler: Arc<Handlers>,
+        input: EthGetBlockTransactionCountByNumberInput,
+    ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error> {
+        let EthGetBlockTransactionCountByNumberInput { block_number, .. } = input;
+
+        let number: usize = block_number.parse().ok().unwrap();
+        let block = handler.block.get_block_by_number(number).unwrap();
+        let count = block.transactions.len();
+
+        Ok(EthGetBlockTransactionCountByNumberResult {
+            number_transaction: format!("0x{:x}", count),
+        })
     }
 }
 
