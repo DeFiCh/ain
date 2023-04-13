@@ -584,7 +584,13 @@ clean() {
 _get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin"
+        local macos_arch=""
+        macos_arch=$(uname -m || true)
+        if [[ "$macos_arch" == "x86_64" ]]; then
+            default_target="x86_64-apple-darwin"
+        else
+            default_target="aarch64-apple-darwin"
+        fi
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
     else
