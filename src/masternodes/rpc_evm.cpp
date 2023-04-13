@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <key_io.h>
 
 UniValue evmtx(const JSONRPCRequest& request) {

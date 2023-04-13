@@ -2,7 +2,7 @@ use crate::traits::{PersistentState, PersistentStateError};
 use crate::tx_queue::TransactionQueueMap;
 use crate::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
 use anyhow::anyhow;
-use ethereum::{AccessList, Block, PartialHeader, TransactionV2};
+use ethereum::{AccessList, TransactionV2};
 use evm::backend::MemoryAccount;
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},

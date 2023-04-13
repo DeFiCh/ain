@@ -7,11 +7,11 @@ use crate::codegen::rpc::{
     EthService,
 };
 use ain_evm::handler::Handlers;
-use ain_evm_cpp_ffi::get_chain_id;
 use primitive_types::{H256, U256};
 use std::mem::size_of_val;
 use std::sync::Arc;
 
+#[allow(non_snake_case)]
 pub trait EthServiceApi {
     // Read only call
     fn Eth_Call(
@@ -141,7 +141,7 @@ impl EthServiceApi for EthService {
     }
 
     fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
-        let chain_id = get_chain_id().unwrap();
+        let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
             id: format!("{:#x}", chain_id),
@@ -149,7 +149,7 @@ impl EthServiceApi for EthService {
     }
 
     fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
-        let chain_id = get_chain_id().unwrap();
+        let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(EthChainIdResult {
             id: format!("{}", chain_id),
@@ -206,8 +206,8 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
-        let mining = ain_evm_cpp_ffi::is_mining().unwrap();
+    fn Eth_Mining(_handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
+        let mining = ain_cpp_imports::is_mining().unwrap();
 
         Ok(EthMiningResult { is_mining: mining })
     }

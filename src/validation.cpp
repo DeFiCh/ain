@@ -19,7 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>

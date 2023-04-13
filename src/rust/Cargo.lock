@@ -12,6 +12,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ain-cpp-imports"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-build",
+]
+
+[[package]]
 name = "ain-evm"
 version = "0.1.0"
 dependencies = [
@@ -35,31 +43,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ain-evm-cpp-ffi"
-version = "0.1.0"
-dependencies = [
- "cxx",
- "cxx-build",
-]
-
-[[package]]
-name = "ain-evm-ffi"
-version = "0.1.0"
-dependencies = [
- "ain-evm",
- "ain-grpc",
- "cxx",
- "cxx-gen",
- "proc-macro2",
- "rlp",
-]
-
-[[package]]
 name = "ain-grpc"
 version = "0.1.0"
 dependencies = [
+ "ain-cpp-imports",
  "ain-evm",
- "ain-evm-cpp-ffi",
  "cxx",
  "cxx-gen",
  "env_logger",
@@ -84,6 +72,18 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+]
+
+[[package]]
+name = "ain-rs-exports"
+version = "0.1.0"
+dependencies = [
+ "ain-evm",
+ "ain-grpc",
+ "cxx",
+ "cxx-gen",
+ "proc-macro2",
+ "rlp",
 ]
 
 [[package]]

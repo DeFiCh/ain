@@ -1,4 +1,4 @@
-use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
+use heck::{ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -298,7 +298,7 @@ fn modify_codegen(
             &quote!(
                 #[derive(Clone)]
                 pub struct #service {
-                    adapter: Arc<Handlers>
+                    #[allow(dead_code)] adapter: Arc<Handlers>
                 }
 
                 impl #service {
@@ -761,14 +761,10 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
 
 fn main() {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let proto_path = manifest_path
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("protobuf");
+    let proto_path = manifest_path.parent().unwrap().join("proto");
     let src_path = manifest_path.join("src");
     let gen_path = src_path.join("gen");
+    std::fs::create_dir_all(&gen_path).unwrap();
 
     let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
     let _tt = modify_codegen(
@@ -777,6 +773,7 @@ fn main() {
         &Path::new(&gen_path).join("rpc.rs"),
         &src_path.join("lib.rs"),
     );
+
     println!(
         "cargo:rerun-if-changed={}",
         src_path.join("rpc.rs").to_string_lossy()

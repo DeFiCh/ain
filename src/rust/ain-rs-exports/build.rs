@@ -14,7 +14,7 @@ fn main() {
         println!("cargo:rerun-if-changed=.git/HEAD");
     }
 
-    let mut target_dir = if let Ok(v) = env::var("BUILD_DIR") {
+    let target_dir = if let Ok(v) = env::var("BUILD_DIR") {
         PathBuf::from(v)
     } else {
         manifest_path.clone()
@@ -22,9 +22,7 @@ fn main() {
     println!("BUILD_DIR: {:?}", target_dir);
     std::fs::create_dir_all(&target_dir).unwrap();
 
-    let parent = manifest_path.clone();
-
-    let lib_path = &parent.join("src").join("lib.rs");
+    let lib_path = &manifest_path.join("src").join("lib.rs");
 
     let mut content = String::new();
     File::open(lib_path)
@@ -32,21 +30,25 @@ fn main() {
         .read_to_string(&mut content)
         .unwrap();
 
+    let pkg_name_underscored = pkg_name.replace("-", "_");
+    let header_file_path = String::from(pkg_name_underscored.clone() + ".h");
+    let source_file_path = String::from(pkg_name_underscored.clone() + ".cpp");
+
     let tt: TokenStream = content.parse().unwrap();
     let mut opt = cxx_gen::Opt::default();
     opt.include.push(cxx_gen::Include {
-        path: "libain_evm.h".to_string(),
+        path: header_file_path.clone(),
         kind: cxx_gen::IncludeKind::Bracketed,
     });
 
     let codegen = cxx_gen::generate_header_and_cc(tt, &opt).unwrap();
     let cpp_stuff = String::from_utf8(codegen.implementation).unwrap();
 
-    File::create(target_dir.join("libain_evm.h"))
+    File::create(target_dir.join(header_file_path))
         .unwrap()
         .write_all(&codegen.header)
         .unwrap();
-    File::create(target_dir.join("libain_evm.cpp"))
+    File::create(target_dir.join(source_file_path))
         .unwrap()
         .write_all(cpp_stuff.as_bytes())
         .unwrap();

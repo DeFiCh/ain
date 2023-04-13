@@ -1,5 +1,5 @@
 [package]
-name = "ain-evm-cpp-ffi"
+name = "ain-cpp-imports"
 version = "0.1.0"
 edition = "2021"
 
