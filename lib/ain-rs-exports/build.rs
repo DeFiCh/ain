@@ -23,6 +23,7 @@ fn main() {
     std::fs::create_dir_all(&target_dir).unwrap();
 
     let lib_path = &manifest_path.join("src").join("lib.rs");
+    println!("cargo:rerun-if-changed={}", lib_path.as_path().display());
 
     let mut content = String::new();
     File::open(lib_path)
