@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM debian:10 as builder
+FROM --platform=linux/amd64 debian:10 as builder
 ARG TARGET
 ARG CLANG_VERSION=15
 LABEL org.defichain.name="defichain-builder"
@@ -31,7 +31,7 @@ RUN mkdir /app && cd build/${TARGET} && \
 
 # -----------
 ### Actual image that contains defi binaries
-FROM debian:10
+FROM --platform=linux/amd64 debian:10
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

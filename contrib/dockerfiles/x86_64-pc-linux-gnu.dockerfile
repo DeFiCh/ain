@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:latest as builder
+FROM --platform=linux/amd64 ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
@@ -23,7 +23,7 @@ RUN mkdir /app && cd build/${TARGET} && \
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:latest
+FROM --platform=linux/amd64 ubuntu:latest
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
