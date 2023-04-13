@@ -630,7 +630,7 @@ _get_default_conf_args() {
 
 # shellcheck disable=SC2120
 git_precommit_hook() {
-    local force_update=${1:-0}
+    local force_update=${1:-1}
     local file=".git/hooks/pre-commit"
     if [[ -f "$file" && $force_update == "0" ]]; then 
         return;
@@ -640,16 +640,29 @@ git_precommit_hook() {
     cat <<END > "$file"
 #!/bin/bash
 set -Eeuo pipefail
-cd lib/
-cargo build && cargo test && cargo clippy  || { 
-    echo "Error: Please resolve compiler checks before commit"; 
-    exit 1; }
-cargo fmt --all --check  || {
-    echo "Error: Please format code before commit"; 
-    exit 1; }
+dir="\$(dirname "\${BASH_SOURCE[0]}")"
+_SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
+cd \$_SCRIPT_DIR/../../
+./make.sh check
 END
     chmod +x "$file"
 }
+
+check() {
+    check_rs
+}
+
+check_rs() {
+    _ensure_enter_dir ./lib
+    cargo build && cargo test && cargo clippy  || { 
+        echo "Error: Please resolve compiler checks before commit"; 
+        exit 1; }
+    cargo fmt --all --check  || {
+        echo "Error: Please format code before commit"; 
+        exit 1; }
+    _exit_dir
+}
+
 
 # Platform specifics
 # ---
