@@ -236,7 +236,7 @@ impl EthServiceApi for EthService {
         let count = block.transactions.len();
 
         Ok(EthGetBlockTransactionCountByHashResult {
-            number_transaction: format!("0x{:x}", count),
+            number_transaction: format!("{:#x}", count),
         })
     }
 
