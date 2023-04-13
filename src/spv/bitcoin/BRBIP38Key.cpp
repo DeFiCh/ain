@@ -22,14 +22,14 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRBIP38Key.h"
-#include "BRAddress.h"
-#include "BRCrypto.h"
-#include "BRBase58.h"
-#include "BRInt.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <spv/bitcoin/BRBIP38Key.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRBase58.h>
+#include <spv/support/BRInt.h>
 
 #define BIP38_NOEC_PREFIX      0x0142
 #define BIP38_EC_PREFIX        0x0143

@@ -25,15 +25,15 @@
 #ifndef BRPeerManager_h
 #define BRPeerManager_h
 
-#include "BRPeer.h"
-#include "BRMerkleBlock.h"
-#include "BRTransaction.h"
-#include "BRWallet.h"
-#include "BRChainParams.h"
-
 #include <map>
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <spv/bitcoin/BRPeer.h>
+#include <spv/bitcoin/BRMerkleBlock.h>
+#include <spv/bitcoin/BRTransaction.h>
+#include <spv/bitcoin/BRChainParams.h>
+#include <spv/bitcoin/BRWallet.h>
 
 #define PEER_MAX_CONNECTIONS 3
 

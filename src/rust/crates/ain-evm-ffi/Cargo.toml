@@ -19,6 +19,5 @@ rlp = "0.5.2"
 cxx = "1.0"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
 cxx-gen = "0.7"
 proc-macro2 = "1.0"

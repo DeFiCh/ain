@@ -7,7 +7,6 @@ can be found in the contrib/init folder.
     contrib/init/defid.service:    systemd service unit configuration
     contrib/init/defid.openrc:     OpenRC compatible SysV style init script
     contrib/init/defid.openrcconf: OpenRC conf.d file
-    contrib/init/defid.conf:       Upstart service configuration file
     contrib/init/defid.init:       CentOS compatible SysV style init script
 
 Service User
@@ -44,7 +43,7 @@ This allows for running defid without having to do any manual configuration.
 relative to the data directory. `wallet` *only* supports relative paths.
 
 For an example configuration file that describes the configuration settings,
-see `share/examples/defi.conf`.
+see `contrib/conf-examples/defi.conf`.
 
 Paths
 ---------------------------------
@@ -108,16 +107,6 @@ Rename defid.openrc to defid and drop it in /etc/init.d.  Double
 check ownership and permissions and make it executable.  Test it with
 `/etc/init.d/defid start` and configure it to run on startup with
 `rc-update add defid`
-
-### Upstart (for Debian/Ubuntu based distributions)
-
-Upstart is the default init system for Debian/Ubuntu versions older than 15.04. If you are using version 15.04 or newer and haven't manually configured upstart you should follow the systemd instructions instead.
-
-Drop defid.conf in /etc/init.  Test by running `service defid start`
-it will automatically start on reboot.
-
-NOTE: This script is incompatible with CentOS 5 and Amazon Linux 2014 as they
-use old versions of Upstart and do not supply the start-stop-daemon utility.
 
 ### CentOS
 

@@ -5,6 +5,7 @@ name: Misc - Prune Artifacts
 # filling up the storage space
 
 on:
+  workflow_dispatch:
   schedule:
     # Every day at 1am
     - cron: '0 1 * * *'

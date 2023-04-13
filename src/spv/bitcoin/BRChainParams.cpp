@@ -25,7 +25,7 @@
 
 //
 
-#include "BRChainParams.h"
+#include <spv/bitcoin/BRChainParams.h>
 
 static const char *BRMainNetDNSSeeds[] = {
     "seed.breadwallet.com.", "seed.bitcoin.sipa.be.", "dnsseed.bluematt.me.", "dnsseed.bitcoin.dashjr.org.",
