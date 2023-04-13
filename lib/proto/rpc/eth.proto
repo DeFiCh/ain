@@ -29,4 +29,9 @@ service eth {
   rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);
 
   rpc Eth_Mining(google.protobuf.Empty) returns (types.EthMiningResult);
+
+  rpc Eth_GetBlockTransactionCountByHash(types.EthGetBlockTransactionCountByHashInput) returns (types.EthGetBlockTransactionCountByHashResult);
+
+  rpc Eth_GetBlockTransactionCountByNumber(types.EthGetBlockTransactionCountByNumberInput) returns (types.EthGetBlockTransactionCountByNumberResult);
+
 }
