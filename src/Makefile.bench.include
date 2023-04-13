@@ -48,6 +48,7 @@ nodist_bench_bench_defi_SOURCES = $(GENERATED_BENCH_FILES)
 
 bench_bench_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
 bench_bench_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+bench_bench_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 bench_bench_defi_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
@@ -68,13 +69,13 @@ if ENABLE_ZMQ
 bench_bench_defi_LDADD += $(LIBDEFI_ZMQ) $(ZMQ_LIBS)
 endif
 
+bench_bench_defi_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(LIBAIN_RS_LIB)
+
 if ENABLE_WALLET
 bench_bench_defi_SOURCES += bench/coin_selection.cpp
 bench_bench_defi_SOURCES += bench/wallet_balance.cpp
 endif
 
-bench_bench_defi_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(LIBAIN_EVM) $(LIBAIN_GPRC)
-bench_bench_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_DARWIN
 bench_bench_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
