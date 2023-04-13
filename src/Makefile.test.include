@@ -184,7 +184,7 @@ DEFI_TEST_SUITE += \
   wallet/test/init_test_fixture.h
 endif
 
-test_test_defi_SOURCES = $(DEFI_TEST_SUITE) $(DEFI_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES) $(RUST_INCLUDES)
+test_test_defi_SOURCES = $(DEFI_TEST_SUITE) $(DEFI_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
 test_test_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(TESTDEFS) $(EVENT_CFLAGS)
 test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
