@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 fn main() {
-    let pkg_name = env::var("CARGO_PKG_NAME").unwrap();
+    let _pkg_name = env::var("CARGO_PKG_NAME").unwrap();
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 
     // TODO: Use root path to force re-run during development
@@ -14,7 +14,7 @@ fn main() {
         println!("cargo:rerun-if-changed=.git/HEAD");
     }
 
-    let mut target_dir = if let Ok(v) = env::var("BUILD_DIR") {
+    let target_dir = if let Ok(v) = env::var("BUILD_DIR") {
         PathBuf::from(v)
     } else {
         manifest_path.clone()

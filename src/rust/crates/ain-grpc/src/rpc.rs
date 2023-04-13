@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
@@ -206,7 +207,7 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
+    fn Eth_Mining(_handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
         let mining = ain_evm_cpp_ffi::is_mining().unwrap();
 
         Ok(EthMiningResult { is_mining: mining })

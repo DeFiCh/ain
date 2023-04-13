@@ -1,4 +1,4 @@
-use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
+use heck::{ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};

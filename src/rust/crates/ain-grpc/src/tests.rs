@@ -86,9 +86,6 @@ fn should_get_block_by_hash() {
     );
     handler.block.connect_block(block.clone());
 
-    let binding = handler.block.block_map.read().unwrap();
-    let bno = binding.get(&block.header.hash()).unwrap();
-
     let input = EthGetBlockByHashInput {
         hash: format!("{:x}", block.header.hash()),
         full_transaction: false,
