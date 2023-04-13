@@ -761,7 +761,12 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
 
 fn main() {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let proto_path = manifest_path.parent().unwrap().parent().unwrap().join("protobuf");
+    let proto_path = manifest_path
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("protobuf");
     let src_path = manifest_path.join("src");
     let gen_path = src_path.join("gen");
 

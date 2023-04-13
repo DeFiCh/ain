@@ -6,10 +6,9 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 fn main() {
-
     let pkg_name = env::var("CARGO_PKG_NAME").unwrap();
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    
+
     // TODO: Use root path to force re-run during development
     if std::path::Path::new(".git/HEAD").exists() {
         println!("cargo:rerun-if-changed=.git/HEAD");
@@ -25,9 +24,7 @@ fn main() {
 
     let parent = manifest_path.clone();
 
-    let lib_path = &parent
-        .join("src")
-        .join("lib.rs");
+    let lib_path = &parent.join("src").join("lib.rs");
 
     let mut content = String::new();
     File::open(lib_path)
