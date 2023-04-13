@@ -25,7 +25,9 @@ impl Handlers {
         &self,
         context: u64,
         update_state: bool,
+        miner_address: [u8; 20],
     ) -> Result<(Block<TransactionV2>, Vec<TransactionV2>), Box<dyn Error>> {
+        let eth_address = H160::from(miner_address);
         let mut tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
         let vicinity = get_vicinity(None, None);
