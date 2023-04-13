@@ -82,6 +82,7 @@ dependencies = [
  "ain-grpc",
  "cxx",
  "cxx-gen",
+ "primitive-types",
  "proc-macro2",
  "rlp",
 ]
