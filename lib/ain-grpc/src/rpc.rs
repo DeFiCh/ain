@@ -243,14 +243,14 @@ impl EthServiceApi for EthService {
         handler: Arc<Handlers>,
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error> {
-        let EthGetBlockTransactionCountByNumberInput { block_number, .. } = input;
+        let EthGetBlockTransactionCountByNumberInput { block_number } = input;
 
         let number: usize = block_number.parse().ok().unwrap();
         let block = handler.block.get_block_by_number(number).unwrap();
         let count = block.transactions.len();
 
         Ok(EthGetBlockTransactionCountByNumberResult {
-            number_transaction: format!("0x{:x}", count),
+            number_transaction: format!("{:#x}", count),
         })
     }
 }
