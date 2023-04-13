@@ -22,12 +22,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRBIP32Sequence.h"
-#include "bitcoin/BRChainParams.h"
-#include "BRCrypto.h"
-#include "BRBase58.h"
+
 #include <string.h>
 #include <assert.h>
+
+#include <spv/support/BRBIP32Sequence.h>
+#include <spv/bitcoin/BRChainParams.h>
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRBase58.h>
+
 
 #define BIP32_SEED_KEY "Bitcoin seed"
 

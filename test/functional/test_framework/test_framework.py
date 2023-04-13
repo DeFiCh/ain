@@ -77,6 +77,22 @@ class DefiTestMetaClass(type):
         return super().__new__(cls, clsname, bases, dct)
 
 
+def get_default_config_path():
+    current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+    default_config_paths = [
+        current_file_path + "/../../../build/test/config.ini",
+        current_file_path + "/../../config.ini",
+        current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
+        current_file_path + "/../../../build/x86_64-w64-mingw32/test/config.ini",
+        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
+    ]
+    for p in default_config_paths:
+        if os.path.exists(p):
+            return os.path.abspath(p)
+    return None
+
 class DefiTestFramework(metaclass=DefiTestMetaClass):
     """Base class for a defi test script.
 
@@ -106,26 +122,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
-    # Captures the chain data, does a rollback and checks data has been restored
-    def _check_rollback(self, func, *args, **kwargs):
-        init_height = self.nodes[0].getblockcount()
-        init_data = self._get_chain_data()
-        result = func(self, *args, **kwargs)
-        self.rollback_to(init_height)
-        final_data = self._get_chain_data()
-        final_height = self.nodes[0].getblockcount()
-        assert (init_data == final_data)
-        assert (init_height == final_height)
-        return result
-
-    # WARNING: This decorator uses _get_chain_data() internally which can be an expensive call if used in large test scenarios.
-    @classmethod
-    def capture_rollback_verify(cls, func):
-        def wrapper(self, *args, **kwargs):
-            return self._check_rollback(func, *args, **kwargs)
-
-        return wrapper
-
     def main(self):
         """Main function. This should not be overridden by the subclass test scripts."""
 
@@ -146,9 +142,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="The seed to use for assigning port numbers (default: current process id)")
         parser.add_argument("--coveragedir", dest="coveragedir",
                             help="Write tested RPC commands into this directory")
-        parser.add_argument("--configfile", dest="configfile",
-                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../config.ini"),
-                            help="Location of the test framework config file (default: %(default)s)")
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
@@ -159,6 +152,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="run nodes under the valgrind memory error detector: expect at least a ~10x slowdown, valgrind 3.14 or later required")
         parser.add_argument("--randomseed", type=int,
                             help="set a random seed for deterministically reproducing a previous test run")
+        parser.add_argument("--configfile", dest="configfile",
+                            default=get_default_config_path(),
+                            help="Location of the test framework config file (default: %(default)s)")
         self.add_options(parser)
         self.options = parser.parse_args()
 
@@ -172,14 +168,14 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config.read_file(open(self.options.configfile))
         self.config = config
         self.options.defid = os.getenv("DEFID",
-                                       default=config["environment"]["BUILDDIR"] + '/src/defid' + config["environment"][
-                                           "EXEEXT"])
+                                       default=config["environment"]["BUILDDIR"] +
+                                       '/src/defid' +
+                                       config["environment"]["EXEEXT"])
         self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' +
                                                             config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
-            os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
             os.environ['PATH']
         ])
 
@@ -280,6 +276,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"),
                 self.options.tmpdir))
             exit_code = TEST_EXIT_FAILED
+
         logging.shutdown()
         if cleanup_tree_on_exit:
             shutil.rmtree(self.options.tmpdir)
@@ -346,12 +343,20 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
 
+    # TODO: Does NOT belong in the framework. Refactor out as helpers
+    # It should be explicit on which node we're taking this from, as if the
+    # test is specifically to check an unsynced pool or such, this results in
+    # bad assumptions and flaky test results
     def get_id_token(self, symbol):
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
             if (token["symbol"] == symbol):
                 return str(idx)
 
+    # TODO: Does NOT belong in the framework. Refactor out as helpers
+    # Create a separate FixtureHelpers class that can contain all the
+    # common fixtures. This is really good example of what shouldn't be a part
+    # of framework and how it trickles down to flaky tests downstream
     def setup_tokens(self, my_tokens=None):
         assert (self.setup_clean_chain == True)
         assert ('-txnotokens=0' in self.extra_args[0])
@@ -466,24 +471,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         for node in nodes:
             for x in connections[node]:
                 connect_nodes(node, x)
-
-    # build the data obj to be checked pre and post rollback
-    def _get_chain_data(self):
-        return [
-            self.nodes[0].logaccountbalances(),
-            self.nodes[0].logstoredinterests(),
-            self.nodes[0].listvaults(),
-            self.nodes[0].listtokens(),
-            self.nodes[0].listgovs(),
-            self.nodes[0].listmasternodes(),
-            self.nodes[0].listaccounthistory(),
-            self.nodes[0].getburninfo(),
-            self.nodes[0].getloaninfo(),
-            self.nodes[0].listanchors(),
-            self.nodes[0].listgovproposals(),
-            self.nodes[0].listburnhistory(),
-            self.nodes[0].listcommunitybalances()
-        ]
 
     def run_test(self):
         """Tests must override this method to define test logic"""

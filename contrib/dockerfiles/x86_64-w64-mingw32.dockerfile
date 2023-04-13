@@ -1,93 +1,27 @@
 ARG TARGET=x86_64-w64-mingw32
 
 # -----------
-FROM ubuntu:20.04 as builder-base
-ARG TARGET
-LABEL org.defichain.name="defichain-builder-base"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-COPY ./make.sh .
-
-RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
-
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_base
-
-# Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
-# from the source root for info on the builder setup
-
-RUN export DEBIAN_FRONTEND=noninteractive && apt install -y software-properties-common build-essential git libtool autotools-dev automake \
-pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-libminiupnpc-dev libzmq3-dev libqrencode-dev \
-curl cmake unzip \
-g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
-
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
-
-# install protobuf
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
-RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
-RUN chmod 755 -R ./proto/bin
-RUN cp ./proto/bin/protoc /usr/local/bin/
-RUN cp -R ./proto/include/* /usr/local/include/
-
-# install rustlang
-RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain stable -y
-ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup target add x86_64-pc-windows-gnu
-RUN printf '\n\
-    [target.x86_64-pc-windows-gnu]\n\
-    linker = "x86_64-w64-mingw32-gcc"\n\
-    ar = "x86_64-w64-mingw32-ar"\n' > /root/.cargo/config
-
-# Set the default mingw32 g++ compiler option to posix.
-RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
-
-# For Berkeley DB - but we don't need as we do a depends build.
-# RUN apt install -y libdb-dev
-
-# -----------
-FROM builder-base as depends-builder
-ARG TARGET
-LABEL org.defichain.name="defichain-depends-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work/depends
-COPY ./depends .
-# XREF: #make-deps
-RUN make HOST=${TARGET} -j $(nproc)
-
-# -----------
-FROM builder-base as builder
+FROM ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
+COPY ./make.sh .
 
-COPY --from=depends-builder /work/depends ./depends
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
+
+RUN update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
 COPY . .
+RUN ./make.sh clean-depends && ./make.sh build-deps
+RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-make
 
-RUN ./autogen.sh
+RUN mkdir /app && cd build/${TARGET} && \
+    make -s prefix=/ DESTDIR=/app install
 
-# XREF: #make-configure
-RUN CONFIG_SITE=`pwd`/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/ ${MAKE_CONF_ARGS}
-
-ARG BUILD_VERSION=
-
-RUN make -j $(nproc)
-RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
-
-# -----------
-### Actual image that contains defi binaries
-FROM ubuntu:20.04
-ARG TARGET
-LABEL org.defichain.name="defichain"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /app
-
-COPY --from=builder /app/. ./
+# NOTE: These are not runnable images. So we do not add into a scratch base image.

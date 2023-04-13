@@ -48,7 +48,6 @@ static CBlock BuildBlockTestCase() {
 
     minterKey = pos->second.operatorKey;
     CBlockIndex *tip;
-    std::optional<int64_t> stakerBlockTime;
     {
         LOCK(cs_main);
         tip = ::ChainActive().Tip();

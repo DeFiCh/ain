@@ -25,14 +25,14 @@
 #ifndef BRPeer_h
 #define BRPeer_h
 
-#include "BRTransaction.h"
-#include "BRMerkleBlock.h"
-#include "BRAddress.h"
-#include "BRInt.h"
-
 #include <stddef.h>
 #include <inttypes.h>
 #include <mutex>
+
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRInt.h>
+#include <spv/bitcoin/BRTransaction.h>
+#include <spv/bitcoin/BRMerkleBlock.h>
 
 /// define logs
 #define console_peer_log(peer, ...) { \

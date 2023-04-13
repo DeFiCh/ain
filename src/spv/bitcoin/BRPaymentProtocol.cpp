@@ -22,12 +22,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRPaymentProtocol.h"
-#include "BRCrypto.h"
-#include "BRArray.h"
 #include <string.h>
 #include <inttypes.h>
 #include <stdio.h>
+
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRArray.h>
+#include <spv/bitcoin/BRPaymentProtocol.h>
 
 // BIP70 payment protocol: https://github.com/bitcoin/bips/blob/master/bip-0070.mediawiki
 // BIP75 payment protocol encryption: https://github.com/bitcoin/bips/blob/master/bip-0075.mediawiki

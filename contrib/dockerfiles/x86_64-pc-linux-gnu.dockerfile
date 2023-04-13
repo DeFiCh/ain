@@ -1,67 +1,44 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:20.04 as builder-base
+FROM ubuntu:latest as builder
 ARG TARGET
-LABEL org.defichain.name="defichain-builder-base"
+LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-RUN apt update && apt install -y apt-transport-https
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-
-# install protobuf
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
-RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
-RUN chmod 755 -R ./proto/bin
-RUN cp ./proto/bin/protoc /usr/local/bin/
-RUN cp -R ./proto/include/* /usr/local/include/
-
-# install rustlang
-RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain stable -y
-ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup target add x86_64-unknown-linux-gnu
-
-# -----------
-FROM builder-base as depends-builder
-ARG TARGET
-LABEL org.defichain.name="defichain-depends-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-COPY ./depends ./depends
-
-RUN ./make.sh clean-depends && ./make.sh build-deps
-
-# -----------
-FROM builder-base as builder
-ARG TARGET
-ARG BUILD_VERSION=
-
-LABEL org.defichain.name="defichain-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 
 COPY . .
-RUN ./make.sh purge && rm -rf ./depends
-COPY --from=depends-builder /work/depends ./depends
+RUN ./make.sh clean-depends && ./make.sh build-deps
+RUN export MAKE_CONF_ARGS="CC=gcc CXX=g++" && \
+    ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-make
 
-RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
-    ./make.sh build-conf && ./make.sh build-make
-
-RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
+RUN mkdir /app && cd build/${TARGET} && \
+    make -s prefix=/ DESTDIR=/app install
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:20.04
+FROM ubuntu:latest
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-
 COPY --from=builder /app/. ./
+
+RUN useradd --create-home defi && \
+    mkdir -p /data && \
+    chown defi:defi /data && \
+    ln -s /data /home/defi/.defi
+
+VOLUME ["/data"]
+
+USER defi:defi
+CMD [ "/app/bin/defid" ]
+
+EXPOSE 8555 8554 18555 18554 19555 19554 20555 20554
