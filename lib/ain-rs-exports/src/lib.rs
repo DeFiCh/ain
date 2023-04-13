@@ -4,6 +4,8 @@ use ain_grpc::*;
 use ain_evm::runtime::RUNTIME;
 use std::error::Error;
 
+use primitive_types::H160;
+
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
@@ -95,9 +97,10 @@ fn evm_finalise(
     update_state: bool,
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
+    let eth_address = H160::from(miner_address);
     let (block, _failed_tx) =
         RUNTIME
             .handlers
-            .finalize_block(context, update_state, miner_address)?;
+            .finalize_block(context, update_state, Some(eth_address))?;
     Ok(block.header.rlp_bytes().into())
 }
