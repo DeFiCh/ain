@@ -53,5 +53,6 @@ impl Runtime {
             .evm
             .flush()
             .expect("Could not flush evm state");
+        self.handlers.block.flush().expect("Could not flush blocks");
     }
 }
