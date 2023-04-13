@@ -1,4 +1,4 @@
-use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
+use heck::{ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -761,10 +761,7 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
 
 fn main() {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let proto_path = manifest_path
-        .parent()
-        .unwrap()
-        .join("proto");
+    let proto_path = manifest_path.parent().unwrap().join("proto");
     let src_path = manifest_path.join("src");
     let gen_path = src_path.join("gen");
     std::fs::create_dir_all(&gen_path).unwrap();

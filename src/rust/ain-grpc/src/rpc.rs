@@ -11,6 +11,7 @@ use primitive_types::{H256, U256};
 use std::mem::size_of_val;
 use std::sync::Arc;
 
+#[allow(non_snake_case)]
 pub trait EthServiceApi {
     // Read only call
     fn Eth_Call(
@@ -205,7 +206,7 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
+    fn Eth_Mining(_handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
         let mining = ain_cpp_exports::is_mining().unwrap();
 
         Ok(EthMiningResult { is_mining: mining })
