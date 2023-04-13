@@ -33,5 +33,4 @@ service eth {
   rpc Eth_GetBlockTransactionCountByHash(types.EthGetBlockTransactionCountByHashInput) returns (types.EthGetBlockTransactionCountByHashResult);
 
   rpc Eth_GetBlockTransactionCountByNumber(types.EthGetBlockTransactionCountByNumberInput) returns (types.EthGetBlockTransactionCountByNumberResult);
-
 }

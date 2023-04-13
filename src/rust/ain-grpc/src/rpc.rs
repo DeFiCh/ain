@@ -57,7 +57,6 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error>;
-
 }
 
 impl EthServiceApi for EthService {
