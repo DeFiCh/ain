@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 pub mod types {
-    tonic::include_proto!("types");
+    include!("gen/types.rs");
 }
 
 #[allow(clippy::useless_conversion)]
 pub mod rpc {
-    tonic::include_proto!("rpc");
+    include!("gen/rpc.rs");
 }
 
 impl Serialize for types::BlockResult {

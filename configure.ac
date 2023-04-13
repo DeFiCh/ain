@@ -1399,7 +1399,29 @@ AC_SUBST(HAVE_O_CLOEXEC)
 AC_SUBST(HAVE_BUILTIN_PREFETCH)
 AC_SUBST(HAVE_MM_PREFETCH)
 AC_SUBST(HAVE_STRONG_GETAUXVAL)
-AC_CONFIG_FILES([Makefile src/Makefile test/config.ini])
+
+case $host in
+  x86_64-pc-linux-gnu)
+    AC_SUBST(RUST_TARGET,x86_64-unknown-linux-gnu)
+  ;;
+  aarch64-linux-gnu)
+    AC_SUBST(RUST_TARGET,aarch64-unknown-linux-gnu)
+  ;;
+  arm-linux-gnueabihf)
+    AC_SUBST(RUST_TARGET,armv7-unknown-linux-gnueabihf)
+  ;;
+  x86_64-apple-darwin)
+    AC_SUBST(RUST_TARGET,x86_64-apple-darwin)
+  ;;
+  aarch64-apple-darwin)
+    AC_SUBST(RUST_TARGET,aarch64-apple-darwin)
+  ;;
+  x86_64-w64-mingw32)
+    AC_SUBST(RUST_TARGET,x86_64-pc-windows-gnu)
+  ;;
+esac
+
+AC_CONFIG_FILES([Makefile src/Makefile src/rust/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
 AC_CONFIG_LINKS([contrib/filter-lcov.py:contrib/filter-lcov.py])

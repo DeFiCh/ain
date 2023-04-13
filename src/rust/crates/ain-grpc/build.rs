@@ -760,20 +760,20 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
 }
 
 fn main() {
-    let mut root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let parent = root.clone();
-    root.pop();
-    root.pop();
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let methods = generate_from_protobuf(&root.join("protobuf"), Path::new(&out_dir));
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let proto_path = manifest_path.parent().unwrap().parent().unwrap().join("protobuf");
+    let src_path = manifest_path.join("src");
+    let gen_path = src_path.join("gen");
+
+    let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
     let _tt = modify_codegen(
         methods,
-        &Path::new(&out_dir).join("types.rs"),
-        &Path::new(&out_dir).join("rpc.rs"),
-        &parent.join("src").join("lib.rs"),
+        &Path::new(&gen_path).join("types.rs"),
+        &Path::new(&gen_path).join("rpc.rs"),
+        &src_path.join("lib.rs"),
     );
     println!(
         "cargo:rerun-if-changed={}",
-        parent.join("src").join("rpc.rs").to_string_lossy()
+        src_path.join("rpc.rs").to_string_lossy()
     );
 }

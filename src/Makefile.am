@@ -2,7 +2,8 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-DIST_SUBDIRS = secp256k1 univalue rust
+SUBDIRS = rust
+DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
@@ -25,11 +26,21 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bitcoin \
 	-I$(srcdir)/spv/bcash
 
-DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
+LIBAIN_RS_INCLUDES = -I$(builddir)/rust/include
+LIBAIN_RS_LIB = -L$(builddir)/rust/lib -lain_evm_ffi
+LIBAIN_RS_SRC = $(builddir)/rust/src/libain_evm.cpp
+LIBAIN_RS_H = libain_evm.h
 
+$(LIBAIN_RS_SRC):
+$(LIBAIN_RS_H):
+$(LIBAIN_RS_LIB): FORCE
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C rust
+
+DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
 DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES)
+DEFI_INCLUDES += $(LIBAIN_RS_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -38,7 +49,6 @@ LIBDEFI_CLI=libdefi_cli.a
 LIBDEFI_UTIL=libdefi_util.a
 LIBDEFI_CRYPTO_BASE=crypto/libdefi_crypto_base.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
-LIBAIN_EVM=rust/libain_evm_ffi.a
 
 if ENABLE_ZMQ
 LIBDEFI_ZMQ=libdefi_zmq.a
@@ -63,9 +73,6 @@ endif
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
-
-$(LIBAIN_EVM): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C rust
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -145,7 +152,6 @@ DEFI_CORE_H = \
   key.h \
   key_io.h \
   dbwrapper.h \
-  libain_evm.h \
   limitedmap.h \
   logging.h \
   masternodes/accounts.h \
@@ -287,7 +293,8 @@ DEFI_CORE_H = \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h \
-  zmq/zmqrpc.h
+  zmq/zmqrpc.h \
+  $(LIBAIN_RS_H)
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -375,7 +382,6 @@ libdefi_server_a_SOURCES = \
   blockfilter.cpp \
   chain.cpp \
   consensus/tx_verify.cpp \
-  rust/libain_evm.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -462,9 +468,8 @@ libdefi_server_a_SOURCES = \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \
+  $(LIBAIN_RS_SRC) \
   $(DEFI_CORE_H)
-
-$(libdefi_server_a_SOURCES): $(LIBAIN_EVM)
 
 if ENABLE_WALLET
 libdefi_server_a_SOURCES += wallet/init.cpp
@@ -705,6 +710,7 @@ defid_LDADD = \
   $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
+  $(LIBAIN_RS_LIB) \
   $(LIBMEMENV) \
   $(LIBUNIVALUE) \
   $(LIBSECP256K1)
@@ -723,8 +729,6 @@ endif
 if TARGET_WINDOWS
 defid_LDADD += -luserenv -lbcrypt
 endif
-
-$(defid_SOURCES): $(LIBAIN_EVM)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
