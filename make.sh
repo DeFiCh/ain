@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-export LC_ALL=C.UTF-8
+export LC_ALL=C
 set -Eeuo pipefail
 
 setup_vars() {
@@ -11,7 +11,7 @@ setup_vars() {
     GIT_VERSION=${GIT_VERSION:-0}
     if [[ "$GIT_VERSION" == 1 ]]; then
         IMAGE_VERSION=${IMAGE_VERSION:-"$(git_version 0)"}
-    else 
+    else
         IMAGE_VERSION=${IMAGE_VERSION:-"latest"}
     fi
 
@@ -99,7 +99,7 @@ help() {
     printf "\n\`%s build\` or \`%s docker-build\` are your friends :) \n" "$0" "$0"
     printf "\nCommands:\n"
     printf "\t%s\n" "${COMMANDS[@]//_/-}"
-    printf "\nNote: All commands without docker-* prefix assume that it's run in\n" 
+    printf "\nNote: All commands without docker-* prefix assume that it's run in\n"
     printf "an environment with correct arch and pre-requisites configured. \n"
     printf "(most pre-requisites can be installed with pkg-* commands). \n"
 }
@@ -114,12 +114,12 @@ build_deps() {
     local release_depends_dir=${DEPENDS_DIR}
 
     echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
-    
+
     _ensure_enter_dir "$release_depends_dir"
     if [[ "$target" =~ .*darwin.* ]]; then
         pkg_local_ensure_osx_sysroot
     fi
-    
+
     _fold_start "build-deps"
 
     # shellcheck disable=SC2086
@@ -193,7 +193,7 @@ deploy() {
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     _safe_rm_rf "${versioned_release_path}" && mkdir -p "${versioned_release_path}"
-    
+
     make -C "${release_target_dir}" prefix=/ DESTDIR="${versioned_release_path}" \
         install && cp README.md "${versioned_release_path}/"
 
@@ -376,7 +376,7 @@ git_version() {
         fi
     fi
 
-    if [[ "$verbose" == "1" ]]; then 
+    if [[ "$verbose" == "1" ]]; then
         echo "> git branch: ${current_branch}"
         echo "> version: ${ver}"
     else
@@ -390,7 +390,7 @@ pkg_update_base() {
     apt update
     apt install -y apt-transport-https
     apt dist-upgrade -y
-    
+
     _fold_end
 }
 
@@ -410,7 +410,7 @@ pkg_install_deps() {
 
 pkg_install_deps_mingw_x86_64() {
     _fold_start "pkg-install-deps-mingw-x86_64"
-    
+
     apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
 
@@ -454,7 +454,7 @@ pkg_local_ensure_osx_sysroot() {
 
     _fold_start "pkg-local-mac-sdk"
 
-    if [[ ! -f "${pkg}" ]]; then 
+    if [[ ! -f "${pkg}" ]]; then
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
     tar -zxf "${pkg}"
@@ -494,11 +494,11 @@ purge() {
 
 clean_artifacts() {
     # If build is done out of tree, this is not needed at all. But when done
-    # in-tree, or helper tools that end up running configure in-tree, this is 
-    # a helpful method to clean up left overs. 
+    # in-tree, or helper tools that end up running configure in-tree, this is
+    # a helpful method to clean up left overs.
     local items=(\
         .libs .deps obj "*.dirstamp" "*.a" "*.o" "*.Po" "*.lo")
-    
+
     local x
     for x in "${items[@]}"; do
         _safe_rm_rf "$(find src -iname "$x" -print0 | xargs -0)"
@@ -588,12 +588,12 @@ _get_default_target() {
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
     else
-        # Note: make.sh only formally supports auto selection for 
+        # Note: make.sh only formally supports auto selection for
         # windows under msys, mac os and debian derivatives to build on.
         # Also note: Support for auto selection on make.sh does not imply
-        # support for the architecture. 
+        # support for the architecture.
         # Only supported architectures are the ones with release builds
-        # enabled on the CI. 
+        # enabled on the CI.
         local dpkg_arch=""
         dpkg_arch=$(dpkg --print-architecture || true)
         if [[ "$dpkg_arch" == "armhf" ]]; then
@@ -601,7 +601,7 @@ _get_default_target() {
         elif [[ "$dpkg_arch" == "aarch64" ]]; then
             default_target="aarch64-linux-gnu"
         else
-            # Global default if we can't determine it from the 
+            # Global default if we can't determine it from the
             # above, which are our only supported list for auto select
             default_target="x86_64-pc-linux-gnu"
         fi
@@ -629,7 +629,7 @@ _get_default_conf_args() {
 _platform_init() {
     # Lazy init functions
     if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
-        if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then 
+        if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
             echo "error: readlink or greadlink with \`-m\` support is required"
             echo "tip: debian/ubuntu: apt install coreutils"
             echo "tip: osx: brew install coreutils"
@@ -672,7 +672,7 @@ _sign() {
 _safe_rm_rf() {
     local x
     for x in "$@"; do
-        if [[ "$x" =~ ^[[:space:]]*$ || "$x" =~ ^/*$ ]]; then 
+        if [[ "$x" =~ ^[[:space:]]*$ || "$x" =~ ^/*$ ]]; then
             # Safe guard against accidental rm -rfs
             echo "error: unsafe delete attempted"
             exit 1
