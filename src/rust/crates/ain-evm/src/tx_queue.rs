@@ -139,7 +139,7 @@ impl TransactionQueue {
     pub fn sub_balance(&self, address: H160, value: U256) -> Result<(), QueueError> {
         let mut state = self.state.write().unwrap();
         let account = state.get_mut(&address).unwrap();
-        if account.balance > value {
+        if account.balance >= value {
             account.balance -= value;
             Ok(())
         } else {
