@@ -1,4 +1,4 @@
-use heck::{ToPascalCase, ToSnekCase};
+use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -14,6 +14,13 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
+
+fn to_eth_case(str: &str) -> String {
+    match str.split("_").collect::<Vec<_>>()[..] {
+        [_, method_name] => format!("eth_{}", method_name.to_lower_camel_case()),
+        _ => String::default(),
+    }
+}
 
 fn visit_files(dir: &Path, f: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     if dir.is_dir() {
@@ -642,7 +649,7 @@ fn apply_substitutions(
                 .url
                 .as_ref()
                 .map(String::from)
-                .unwrap_or_else(|| method.name.to_lowercase());
+                .unwrap_or_else(|| to_eth_case(&method.name));
             if method.client {
                 funcs.extend(quote! {
                     #[allow(non_snake_case)]
