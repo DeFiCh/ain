@@ -502,7 +502,7 @@ clean_artifacts() {
     
     local x
     for x in "${items[@]}"; do
-        _safe_rm_rf "$(find src -iname "$x" -print0 | xargs -0)"
+        find src -iname "$x" -exec rm -rf \;
     done
 }
 
@@ -630,13 +630,13 @@ _get_default_conf_args() {
 
 # shellcheck disable=SC2120
 git_precommit_hook() {
-    local force_update=${1:-1}
-    local file=".git/hooks/pre-commit"
+    local force_update=${1:-0}
+    local file=".git1/hooks/pre-commit"
     if [[ -f "$file" && $force_update == "0" ]]; then 
         return;
     fi
-    echo "> adding pre-commit-hook"
-    mkdir -p "$(dirname $file)"
+    echo "> add pre-commit-hook"
+    mkdir -p "$(dirname $file)" 2>/dev/null || { true && return; }
     cat <<END > "$file"
 #!/bin/bash
 set -Eeuo pipefail
