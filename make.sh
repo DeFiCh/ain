@@ -61,6 +61,7 @@ main() {
     cd "$_SCRIPT_DIR"
     _platform_init
     setup_vars
+    git_precommit_hook
 
     # Get all functions declared in this file except ones starting with
     # '_' or the ones in the list
@@ -622,6 +623,46 @@ _get_default_conf_args() {
     # Other potential options: -static-libgcc on gcc, -static on clang
     echo "$conf_args"
 }
+
+
+# Dev tools
+# ---
+
+# shellcheck disable=SC2120
+git_precommit_hook() {
+    local force_update=${1:-1}
+    local file=".git/hooks/pre-commit"
+    if [[ -f "$file" && $force_update == "0" ]]; then 
+        return;
+    fi
+    echo "> adding pre-commit-hook"
+    mkdir -p "$(dirname $file)"
+    cat <<END > "$file"
+#!/bin/bash
+set -Eeuo pipefail
+dir="\$(dirname "\${BASH_SOURCE[0]}")"
+_SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
+cd \$_SCRIPT_DIR/../../
+./make.sh check
+END
+    chmod +x "$file"
+}
+
+check() {
+    check_rs
+}
+
+check_rs() {
+    _ensure_enter_dir ./lib
+    cargo build && cargo test && cargo clippy  || { 
+        echo "Error: Please resolve compiler checks before commit"; 
+        exit 1; }
+    cargo fmt --all --check  || {
+        echo "Error: Please format code before commit"; 
+        exit 1; }
+    _exit_dir
+}
+
 
 # Platform specifics
 # ---

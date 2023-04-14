@@ -25,7 +25,7 @@ if test x@host_os@ = xdarwin; then
   PORT=no
 fi
 
-PATH=$depends_prefix/native/bin:$PATH
+PATH=$depends_prefix/native/bin:$depends_prefix:/bin:$PATH
 PKG_CONFIG="`which pkg-config` --static"
 
 # These two need to remain exported because pkg-config does not see them

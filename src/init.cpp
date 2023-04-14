@@ -131,6 +131,33 @@ NODISCARD static bool CreatePidFile()
     }
 }
 
+bool GenerateEthMinerAddress(CWallet &wallet, const CTxDestination &dest) {
+    CScript script = GetScriptForDestination(dest);
+    std::vector<std::vector<uint8_t>> solutions;
+    const auto type = Solver(script, solutions);
+
+    if (type != TX_WITNESS_V0_KEYHASH && type != TX_PUBKEYHASH) {
+        return false;
+    }
+
+    const auto keyID = CKeyID(uint160(solutions[0]));
+    CPubKey pubKey;
+    if (!wallet.GetPubKey(keyID, pubKey)) {
+        return false;
+    }
+
+    if (!wallet.HaveKey(pubKey.GetEthID())) {
+        CKey key;
+        if (!wallet.GetKey(keyID, key)) {
+            return false;
+        }
+
+        return wallet.AddKeyPubKey(key, pubKey, true);
+    }
+
+    return true;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // Shutdown
@@ -2280,8 +2307,10 @@ bool AppInitMain(InitInterfaces& interfaces)
 
             bool found = false;
             for (auto wallet : wallets) {
-                if (::IsMine(*wallet, destination)) {
-                    found = true;
+                if (::IsMine(*wallet, destination) & ISMINE_SPENDABLE) {
+                    if (GenerateEthMinerAddress(*wallet, destination)) {
+                        found = true;
+                    }
                     break;
                 }
             }
