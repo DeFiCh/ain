@@ -1,7 +1,0 @@
-[workspace]
-members = [
-    "crates/ain-evm",
-    "crates/ain-evm-ffi",
-    "crates/ain-grpc",
-]
-

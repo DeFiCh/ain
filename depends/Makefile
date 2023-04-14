@@ -1,9 +1,11 @@
 .NOTPARALLEL :
 
-SOURCES_PATH ?= $(BASEDIR)/sources
-WORK_PATH = $(BASEDIR)/work
-BASE_CACHE ?= $(BASEDIR)/built
-SDK_PATH ?= $(BASEDIR)/SDKs
+# DESTDIR defaults to the dir where it's called from
+DESTDIR ?= $(CURDIR)
+SOURCES_PATH ?= $(DESTDIR)/sources
+WORK_PATH = $(DESTDIR)/work
+BASE_CACHE ?= $(DESTDIR)/built
+SDK_PATH ?= $(DESTDIR)/SDKs
 RAPIDCHECK ?=
 NO_WALLET ?=
 NO_ZMQ ?=
@@ -58,7 +60,7 @@ ifeq ($(host_os),)
 host_os=$(full_host_os)
 endif
 
-$(host_arch)_$(host_os)_prefix=$(BASEDIR)/$(host)
+$(host_arch)_$(host_os)_prefix=$(DESTDIR)/$(host)
 $(host_arch)_$(host_os)_host=$(host)
 host_prefix=$($(host_arch)_$(host_os)_prefix)
 build_prefix=$(host_prefix)/native

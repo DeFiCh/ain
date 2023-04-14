@@ -1,0 +1,360 @@
+syntax = "proto3";
+package types;
+
+message EthAccountsResult {
+    repeated string accounts = 1; // Accounts
+}
+
+message EthTransactionInfo {
+    optional string from = 1; // The address from which the transaction is sent
+    optional string to = 2; // The address to which the transaction is addressed
+    optional uint64 gas = 3; // The integer of gas provided for the transaction execution
+    optional string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
+    optional string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
+    optional string data = 6; // The hash of the method signature and encoded parameters.
+    optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
+}
+
+message EthChainIdResult {
+    string id = 1;
+}
+
+message EthBlockInfo {
+    string blockNumber = 1; // The block number. null when its pending block.
+    string hash = 2; // Hash of the block. null when its pending block.
+    string parentHash = 3; // Hash of the parent block.
+    string nonce = 4; // Hash of the generated proof-of-work. null when its pending block.
+    string sha3Uncles = 5; // SHA3 of the uncles data in the block.
+    string logsBloom = 6; // The bloom filter for the logs of the block. null when its pending block.
+    string transactionsRoot = 7; // The root of the transaction trie of the block.
+    string stateRoot = 8; // The root of the final state trie of the block.
+    string receiptRoot = 9; // The root of the receipts trie of the block.
+    string miner = 10; // The address of the beneficiary to whom the mining rewards were given.
+    string difficulty = 11; // Integer of the difficulty for this block.
+    string totalDifficulty = 12; // Integer of the total difficulty of the chain until this block.
+    string extraData = 13; // The "extra data" field of this block.
+    string size = 14; // Integer the size of this block in bytes.
+    string gasLimit = 15; // The maximum gas allowed in this block.
+    string gasUsed = 16; // The total used gas by all transactions in this block.
+    string timestamps = 17; // The unix timestamp for when the block was collated.
+    repeated string transactions = 18; // Array of transaction objects, or 32 Bytes transaction hashes depending on the last given parameter.
+    repeated string uncles = 19; // Array of uncle hashes.
+}
+
+message EthTransactionReceipt {
+    string transactionHash = 1; // Hash of the transaction.
+    string transactionIndex = 2; // Integer of the transactions index position in the block.
+    string blockHash = 3; // Hash of the block where this transaction was in.
+    string blockNumber = 4; // Block number where this transaction was in.
+    string from = 5; // Address of the sender.
+    string to = 6; // Address of the receiver. null when its a contract creation transaction.
+    string cumulativeGasUsed = 7; // The total amount of gas used when this transaction was executed in the block.
+    string effectiveGasPrice = 8; // The sum of the base fee and tip paid per unit of gas.
+    string gasUsed = 9; // The amount of gas used by this specific transaction alone.
+    string contractAddress = 10; // The contract address created, if the transaction was a contract creation, otherwise null.
+    repeated string logs = 11; // Array of log objects, which this transaction generated.
+    string logsBloom = 12; // Bloom filter for light clients to quickly retrieve related logs.
+    string type = 13; // Integer of the transaction type, 0x00 for legacy transactions, 0x01 for access list types, 0x02 for dynamic fees. It also returns either :
+    optional string root = 14; // 32 bytes of post-transaction stateroot (pre Byzantium)
+    optional string status = 15; // Either 1 (success) or 0 (failure)
+}
+
+message EthCallInput {
+    EthTransactionInfo transactionInfo = 1; // Transaction info
+    string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+}
+
+message EthCallResult {
+    string data = 1; // The return value of the executed contract method
+}
+
+message EthSignInput {
+    string address = 1;
+    string message = 2;
+}
+
+message EthSignResult {
+    string signature = 1;
+}
+
+message EthGetBalanceInput {
+    string address = 1;
+    string blockNumber = 2;
+}
+
+message EthGetBalanceResult {
+    string balance = 1;
+}
+
+message EthSendTransactionInput {
+    EthTransactionInfo transactionInfo = 1;
+}
+
+message EthSendTransactionResult {
+    string hash = 1;
+}
+
+message EthCoinBaseResult {
+    string address = 1;
+}
+
+message EthMiningResult  {
+    bool isMining = 1;
+}
+
+message EthHashRateResult {
+    string hashRate = 1;
+}
+
+message EthGasPriceResult {
+    string gasPrice = 1;
+}
+
+message EthBlockNumberResult {
+    string blockNumber = 1;
+}
+
+message EthGetTransactionCountInput {
+    string address = 1;
+    string blockNumber = 2;
+}
+
+message EthGetTransactionCountResult {
+    string numberTransaction = 1;
+}
+
+message EthGetBlockTransactionCountByHashInput {
+    string blockHash = 1;
+}
+
+message EthGetBlockTransactionCountByHashResult {
+    string numberTransaction = 1;
+}
+
+message EthGetBlockTransactionCountByNumberInput {
+    string blockNumber = 1;
+}
+
+message EthGetBlockTransactionCountByNumberResult {
+    string numberTransaction = 1;
+}
+
+message EthGetUncleCountByBlockHashInput {
+    string blockHash = 1;
+}
+
+message EthGetUncleCountByBlockHashResult {
+    string numberUncles = 1;
+}
+
+message EthGetUncleCountByBlockNumberInput {
+    string blockNumber = 1;
+}
+
+message EthGetUncleCountByBlockNumberResult {
+    string numberUncles = 1;
+}
+
+message EthGetCodeInput {
+    string address = 1;
+    string blockNumber = 2;
+}
+
+message EthGetCodeResult {
+    string code = 1; // The code from the given address.
+}
+
+message EthSignTransactionInput {
+    EthTransactionInfo transactionInfo = 1;
+}
+
+message EthSignTransactionResult {
+    string transaction = 1; // The signed transaction object.
+}
+
+message EthSendRawTransactionInput {
+    string transaction = 1;
+}
+
+message EthSendRawTransactionResult {
+    string hash = 1; // The transaction hash, or the zero hash if the transaction is not yet available.
+}
+
+message EthEstimateGasInput {
+    optional EthTransactionInfo transactionInfo = 1; // Transaction info
+    optional string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+}
+
+message EthEstimateGasResult {
+    string gasUsed = 1;
+}
+
+message EthGetBlockByHashInput {
+    string hash = 1;
+    bool fullTransaction = 2;
+}
+
+message EthGetBlockByHashResult {
+    optional EthBlockInfo blockInfo = 1;
+    optional string blockInfoString = 2;
+}
+
+message EthGetBlockByNumberInput {
+    string number = 1;
+    bool fullTransaction = 2;
+}
+
+message EthGetBlockByNumberResult {
+    EthBlockInfo blockInfo = 1;
+}
+
+message EthGetTransactionByHashInput {
+    string hash = 1;
+}
+
+message EthGetTransactionByHashResult {
+    EthTransactionInfo transaction = 1;
+}
+
+message EthGetTransactionByBlockHashAndIndexInput {
+    string blockHash = 1;
+    string index = 2;
+}
+
+message EthGetTransactionByBlockHashAndIndexResult {
+    EthTransactionInfo transaction = 1;
+}
+
+message EthGetTransactionByBlockNumberAndIndexInput {
+    string blockNumber = 1;
+    string index = 2;
+}
+
+message EthGetTransactionByBlockNumberAndIndexResult {
+    EthTransactionInfo transaction = 1;
+}
+
+message EthGetUncleByBlockHashAndIndexInput {
+    string blockHash = 1;
+    string index = 2;
+}
+
+message EthGetUncleByBlockHashAndIndexResult {
+    EthBlockInfo blockInfo = 1;
+}
+
+message EthGetUncleByBlockNumberAndIndexInput {
+    string blockNumber = 1;
+    string index = 2;
+}
+
+message EthGetUncleByBlockNumberAndIndexResult {
+    EthBlockInfo blockInfo = 1;
+}
+
+message EthGetCompilersResult {
+    repeated string compilers = 1;
+}
+
+message EthCompileSolidityInput {
+    string code = 1;
+}
+
+message EthCompileSolidityResult {
+    string compiledCode = 1;
+}
+
+message EthCompileLLLInput {
+    string code = 1;
+}
+
+message EthCompileLLLResult {
+    string compiledCode = 1;
+}
+
+message EthCompileSerpentInput {
+    string code = 1;
+}
+
+message EthCompileSerpentResult {
+    string compiledCode = 1;
+}
+
+message EthProtocolVersionResult {
+    string protocolVersion = 1;
+}
+
+message Web3Sha3Input {
+    string data = 1; // The data to convert into a SHA3 hash
+}
+
+message Web3Sha3Result {
+    string data = 1; // The SHA3 result of the given string.
+}
+
+message NetPeerCountResult {
+    string numberPeer = 1;
+}
+
+message NetVersionResult {
+    string networkVersion = 1;
+}
+
+message Web3ClientVersionResult {
+    string clientVersion = 1;
+}
+
+message EthGetWorkResult {
+    string currentblock = 1; // Current block header pow-hash
+    string seedHash = 2; // The seed hash used for the DAG.
+    string target = 3; // The boundary condition ("target"), 2^256 / difficulty.
+}
+
+message EthSubmitWorkInput {
+    string nounce = 1;
+    string powHash = 2;
+    string mixDigest = 3;
+}
+
+message EthSubmitWorkResult {
+    bool isValid = 1;
+}
+
+message EthSubmitHashrateInput {
+    string hashRate = 1;
+    string id = 2;
+}
+
+message EthSubmitHashrateResult {
+    bool isValid = 1;
+}
+
+message EthGetStorageAtInput {
+    string address = 1;
+    string position = 2;
+    string blockNumber = 3;
+}
+
+message EthGetStorageAtResult {
+    string value = 1; // The value at this storage position.
+}
+
+message EthGetTransactionReceiptInput {
+    string transactionHash = 1;
+}
+
+message EthGetTransactionReceiptResult {
+    EthTransactionReceipt transactionReceipt = 1;
+}
+
+message EthSyncingInfo {
+    string startingBlock = 1; // The block at which the import started (will only be reset, after the sync reached his head)
+    string currentBlock = 2; // The current block, same as eth_blockNumber
+    string highestBlock = 3; // The estimated highest block
+}
+
+// TODO make it oneof
+message EthSyncingResult {
+    optional bool status = 1;
+    optional EthSyncingInfo syncInfo = 2;
+}

@@ -22,11 +22,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRKeyECIES.h"
-#include "BRCrypto.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+#include <spv/support/BRKeyECIES.h>
+#include <spv/support/BRCrypto.h>
 
 // ecies-aes128-sha256 as specified in SEC 1, 5.1: http://www.secg.org/SEC1-Ver-1.0.pdf
 // NOTE: these are not implemented using constant time algorithms

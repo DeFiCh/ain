@@ -9,7 +9,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>
@@ -3871,7 +3871,7 @@ public:
             }
         } else if (obj.type == CTransferBalanceType::EvmOut) {
 
-            for (const auto& [addr, _] : obj.from) {
+            for (const auto& [addr, balances] : obj.from) {
                 CTxDestination dest;
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {

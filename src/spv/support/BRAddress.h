@@ -25,11 +25,12 @@
 #ifndef BRAddress_h
 #define BRAddress_h
 
-#include "BRCrypto.h"
-#include "BRInt.h"
 #include <string.h>
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRInt.h>
 
 enum HTLCScriptType {
     ScriptTypeNone,

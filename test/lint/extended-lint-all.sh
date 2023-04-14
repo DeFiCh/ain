@@ -18,9 +18,11 @@ LINTALL=$(basename "${BASH_SOURCE[0]}")
 
 for f in "${SCRIPTDIR}"/extended-lint-*.sh; do
   if [ "$(basename "$f")" != "$LINTALL" ]; then
+    echo "::group::$f"
     if ! "$f"; then
       echo "^---- failure generated from $f"
       exit 1
     fi
+    echo "::endgroup::"
   fi
 done

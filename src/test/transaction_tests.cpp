@@ -12,7 +12,7 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/settings.h>

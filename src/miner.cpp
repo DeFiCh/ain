@@ -14,7 +14,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -244,7 +244,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     // TODO Get failed TXs and try to restore to mempool
-    const auto rustHeader = evm_finalise(evmContext, false);
+    std::array<uint8_t, 20> dummyAddress{};
+    const auto rustHeader = evm_finalise(evmContext, false, dummyAddress);
 
     std::vector<uint8_t> evmHeader{};
     evmHeader.resize(rustHeader.size());

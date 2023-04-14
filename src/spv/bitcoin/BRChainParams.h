@@ -25,10 +25,11 @@
 #ifndef BRChainParams_h
 #define BRChainParams_h
 
-#include "BRMerkleBlock.h"
-#include "BRSet.h"
-#include "BRPeer.h"
 #include <assert.h>
+
+#include <spv/bitcoin/BRMerkleBlock.h>
+#include <spv/bitcoin/BRPeer.h>
+#include <spv/support/BRSet.h>
 
 typedef struct {
     uint32_t height;

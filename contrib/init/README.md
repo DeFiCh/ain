@@ -1,7 +1,6 @@
 Sample configuration files for:
 ```
 SystemD: defid.service
-Upstart: defid.conf
 OpenRC:  defid.openrc
          defid.openrcconf
 CentOS:  defid.init

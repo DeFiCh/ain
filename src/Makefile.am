@@ -2,7 +2,8 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-DIST_SUBDIRS = secp256k1 univalue rust
+SUBDIRS = ../lib
+DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
@@ -12,7 +13,6 @@ EXTRA_LIBRARIES =
 
 if EMBEDDED_UNIVALUE
 LIBUNIVALUE = univalue/libunivalue.la
-
 $(LIBUNIVALUE): $(wildcard univalue/lib/*) $(wildcard univalue/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 else
@@ -20,15 +20,28 @@ LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
 LIBDEFI_SPV=libdefi_spv.a
-SPV_INCLUDES=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
-RUST_INCLUDES=-I$(srcdir)/rust/include
+LIBDEFI_SPV_INCLUDES = \
+  -I$(srcdir)/spv \
+	-I$(srcdir)/spv/support \
+	-I$(srcdir)/spv/bitcoin \
+	-I$(srcdir)/spv/bcash
 
-DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
+LIBAIN_DIR = $(abs_top_builddir)/lib/gen
+LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
+LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
+LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
+LIBAIN_RS_H = ain_rs_exports.h
 
+$(LIBAIN_RS_SRC):
+$(LIBAIN_RS_H):
+$(LIBAIN_RS_LIB): FORCE
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_srcdir)/lib
+
+DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
-DEFI_INCLUDES += $(SPV_INCLUDES)
-DEFI_INCLUDES += $(RUST_INCLUDES)
+DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES)
+DEFI_INCLUDES += $(LIBAIN_RS_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -36,19 +49,13 @@ LIBDEFI_CONSENSUS=libdefi_consensus.a
 LIBDEFI_CLI=libdefi_cli.a
 LIBDEFI_UTIL=libdefi_util.a
 LIBDEFI_CRYPTO_BASE=crypto/libdefi_crypto_base.a
-LIBDEFIQT=qt/libdefiqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
-LIBAIN_EVM=rust/libain_evm_ffi.a
 
 if ENABLE_ZMQ
 LIBDEFI_ZMQ=libdefi_zmq.a
 endif
-if BUILD_DEFI_LIBS
-LIBDEFICONSENSUS=libdeficonsensus.la
-endif
 if ENABLE_WALLET
 LIBDEFI_WALLET=libdefi_wallet.a
-LIBDEFI_WALLET_TOOL=libdefi_wallet_tool.a
 endif
 
 LIBDEFI_CRYPTO= $(LIBDEFI_CRYPTO_BASE)
@@ -68,24 +75,21 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-$(LIBAIN_EVM): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C rust
-
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_SPV) \
-  $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_CLI) \
+  $(LIBDEFI_UTIL) \
+  $(LIBDEFI_COMMON) \
+  $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_SPV) \
+  $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_WALLET_TOOL) \
   $(LIBDEFI_ZMQ)
 
-lib_LTLIBRARIES = $(LIBDEFICONSENSUS)
+lib_LIBRARIES = 
+lib_LTLIBRARIES = 
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -101,11 +105,6 @@ if BUILD_DEFI_CLI
 endif
 if BUILD_DEFI_TX
   bin_PROGRAMS += defi-tx
-endif
-if ENABLE_WALLET
-if BUILD_DEFI_WALLET
-  bin_PROGRAMS += defi-wallet
-endif
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -154,7 +153,6 @@ DEFI_CORE_H = \
   key.h \
   key_io.h \
   dbwrapper.h \
-  libain_evm.h \
   limitedmap.h \
   logging.h \
   masternodes/accounts.h \
@@ -166,6 +164,7 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/errors.h \
   masternodes/evm.h \
+  masternodes/evm_ffi.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -295,39 +294,24 @@ DEFI_CORE_H = \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h \
-  zmq/zmqrpc.h
+  zmq/zmqrpc.h \
+  $(LIBAIN_RS_H)
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
-	@$(top_srcdir)/share/genbuild.sh "$(abs_top_builddir)/src/obj/build.h" \
+	@$(top_srcdir)/contrib/genbuild.sh "$(abs_top_builddir)/src/obj/build.h" \
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
 
-libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive \
+  -I$(srcdir)/spv \
+  -I$(srcdir)/spv/support \
+  -I$(srcdir)/secp256k1 \
+  -I$(srcdir)/secp256k1/src \
+  -Wno-format-extra-args
+  
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
-  spv/bcash/BRBCashAddr.cpp \
-  spv/bcash/BRBCashAddr.h \
-  spv/bcash/BRBCashParams.cpp \
-  spv/bcash/BRBCashParams.h \
-  spv/bitcoin/BRBIP38Key.cpp \
-  spv/bitcoin/BRBIP38Key.h \
-  spv/bitcoin/BRBloomFilter.cpp \
-  spv/bitcoin/BRBloomFilter.h \
-  spv/bitcoin/BRChainParams.cpp \
-  spv/bitcoin/BRChainParams.h \
-  spv/bitcoin/BRMerkleBlock.cpp \
-  spv/bitcoin/BRMerkleBlock.h \
-  spv/bitcoin/BRPaymentProtocol.cpp \
-  spv/bitcoin/BRPaymentProtocol.h \
-  spv/bitcoin/BRPeer.cpp \
-  spv/bitcoin/BRPeer.h \
-  spv/bitcoin/BRPeerManager.cpp \
-  spv/bitcoin/BRPeerManager.h \
-  spv/bitcoin/BRTransaction.cpp \
-  spv/bitcoin/BRTransaction.h \
-  spv/bitcoin/BRWallet.cpp \
-  spv/bitcoin/BRWallet.h \
   spv/support/BRAddress.cpp \
   spv/support/BRAddress.h \
   spv/support/BRArray.h \
@@ -349,7 +333,29 @@ libdefi_spv_a_SOURCES = \
   spv/support/BRKey.h \
   spv/support/BRLargeInt.h \
   spv/support/BRSet.cpp \
-  spv/support/BRSet.h
+  spv/support/BRSet.h \
+  spv/bcash/BRBCashAddr.cpp \
+  spv/bcash/BRBCashAddr.h \
+  spv/bcash/BRBCashParams.cpp \
+  spv/bcash/BRBCashParams.h \
+  spv/bitcoin/BRBIP38Key.cpp \
+  spv/bitcoin/BRBIP38Key.h \
+  spv/bitcoin/BRBloomFilter.cpp \
+  spv/bitcoin/BRBloomFilter.h \
+  spv/bitcoin/BRChainParams.cpp \
+  spv/bitcoin/BRChainParams.h \
+  spv/bitcoin/BRMerkleBlock.cpp \
+  spv/bitcoin/BRMerkleBlock.h \
+  spv/bitcoin/BRPaymentProtocol.cpp \
+  spv/bitcoin/BRPaymentProtocol.h \
+  spv/bitcoin/BRPeer.cpp \
+  spv/bitcoin/BRPeer.h \
+  spv/bitcoin/BRPeerManager.cpp \
+  spv/bitcoin/BRPeerManager.h \
+  spv/bitcoin/BRTransaction.cpp \
+  spv/bitcoin/BRTransaction.h \
+  spv/bitcoin/BRWallet.cpp \
+  spv/bitcoin/BRWallet.h
 #  spv/support/BRAssert.cpp
 #  spv/support/BRAssert.h
 #  spv/support/BRFileService.cpp
@@ -377,7 +383,6 @@ libdefi_server_a_SOURCES = \
   blockfilter.cpp \
   chain.cpp \
   consensus/tx_verify.cpp \
-  rust/libain_evm.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -391,6 +396,7 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
+  masternodes/evm_ffi.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -463,9 +469,8 @@ libdefi_server_a_SOURCES = \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \
+  $(LIBAIN_RS_SRC) \
   $(DEFI_CORE_H)
-
-$(libdefi_server_a_SOURCES): $(LIBAIN_EVM)
 
 if ENABLE_WALLET
 libdefi_server_a_SOURCES += wallet/init.cpp
@@ -504,12 +509,6 @@ libdefi_wallet_a_SOURCES = \
   wallet/walletdb.cpp \
   wallet/walletutil.cpp \
   wallet/coinselection.cpp \
-  $(DEFI_CORE_H)
-
-libdefi_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
-libdefi_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libdefi_wallet_tool_a_SOURCES = \
-  wallet/wallettool.cpp \
   $(DEFI_CORE_H)
 
 # crypto primitives library
@@ -588,6 +587,7 @@ libdefi_consensus_a_SOURCES = \
   pubkey.cpp \
   pubkey.h \
   script/deficonsensus.cpp \
+  script/deficonsensus.h \
   script/interpreter.cpp \
   script/interpreter.h \
   script/script.cpp \
@@ -603,6 +603,10 @@ libdefi_consensus_a_SOURCES = \
   util/strencodings.cpp \
   util/strencodings.h \
   version.h
+
+if GLIBC_BACK_COMPAT
+  libdefi_consensus_a_SOURCES += compat/glibc_compat.cpp
+endif
 
 # common: shared between defid, and defi-qt and non-server tools
 libdefi_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
@@ -700,18 +704,17 @@ defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
-  $(LIBUNIVALUE) \
-  $(LIBDEFI_SPV) \
   $(LIBDEFI_UTIL) \
-  $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_SPV) \
+  $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
+  $(LIBAIN_RS_LIB) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBAIN_EVM)
+  $(LIBUNIVALUE) \
+  $(LIBSECP256K1)
 
 defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
@@ -727,8 +730,6 @@ endif
 if TARGET_WINDOWS
 defid_LDADD += -luserenv -lbcrypt
 endif
-
-$(defid_SOURCES): $(LIBAIN_EVM)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
@@ -769,50 +770,6 @@ defi_tx_LDADD = \
   $(LIBSECP256K1)
 
 defi_tx_LDADD += $(BOOST_LIBS)
-#
-
-# defi-wallet binary #
-defi_wallet_SOURCES = defi-wallet.cpp
-defi_wallet_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
-defi_wallet_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-defi_wallet_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
-
-if TARGET_WINDOWS
-defi_wallet_SOURCES += defi-wallet-res.rc
-endif
-
-defi_wallet_LDADD = \
-  $(LIBDEFI_WALLET_TOOL) \
-  $(LIBDEFI_WALLET) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_CONSENSUS) \
-  $(LIBDEFI_SPV) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_ZMQ) \
-  $(LIBLEVELDB) \
-  $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBUNIVALUE)
-
-defi_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
-#
-
-# deficonsensus library #
-if BUILD_DEFI_LIBS
-include_HEADERS = script/deficonsensus.h
-libdeficonsensus_la_SOURCES = support/cleanse.cpp $(crypto_libdefi_crypto_base_a_SOURCES) $(libdefi_consensus_a_SOURCES)
-
-if GLIBC_BACK_COMPAT
-  libdeficonsensus_la_SOURCES += compat/glibc_compat.cpp
-endif
-
-libdeficonsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libdeficonsensus_la_LIBADD = $(LIBSECP256K1)
-libdeficonsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_DEFI_INTERNAL
-libdeficonsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-
-endif
 #
 
 CTAES_DIST =  crypto/ctaes/bench.c
@@ -859,7 +816,7 @@ clean-local:
 .rc.o:
 	@test -f $(WINDRES)
 	## FIXME: How to get the appropriate modulename_CPPFLAGS in here?
-	$(AM_V_GEN) $(WINDRES) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) -DWINDRES_PREPROC -i $< -o $@
+	$(AM_V_GEN) $(WINDRES) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(subst -isystem ,-I,$(CPPFLAGS)) -DWINDRES_PREPROC -i $< -o $@
 
 check-symbols: $(bin_PROGRAMS)
 if GLIBC_BACK_COMPAT

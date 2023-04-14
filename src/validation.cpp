@@ -19,7 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
-#include <libain_evm.h>
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
@@ -2834,7 +2834,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
-    evm_finalise(evmContext, true);
+    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+        CPubKey pubKey;
+        assert(pubKey.RecoverCompact(block.GetHashToSign(), block.sig));
+        const auto sourceAddress{pubKey.GetEthID()};
+        std::array<uint8_t, 20> minerAddress{};
+        std::copy(sourceAddress.begin(), sourceAddress.end(), minerAddress.begin());
+        evm_finalise(evmContext, true, minerAddress);
+    }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
