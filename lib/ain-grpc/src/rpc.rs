@@ -4,7 +4,8 @@ use crate::codegen::rpc::{
         EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
         EthGetBlockByNumberInput, EthGetBlockTransactionCountByHashInput,
         EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
-        EthGetBlockTransactionCountByNumberResult, EthGetTransactionByBlockHashAndIndexInput,
+        EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
+        EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
         EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
         EthTransactionInfo,
     },
@@ -74,6 +75,16 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetCode(
+        handler: Arc<Handlers>,
+        input: EthGetCodeInput,
+    ) -> Result<EthGetCodeResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetStorageAt(
+        handler: Arc<Handlers>,
+        input: EthGetStorageAtInput,
+    ) -> Result<EthGetStorageAtResult, jsonrpsee_core::Error>;
 }
 
 #[allow(non_snake_case)]
@@ -261,6 +272,39 @@ impl EthServiceApi for EthService {
 
         Ok(EthGetBlockTransactionCountByNumberResult {
             number_transaction: format!("{:#x}", count),
+        })
+    }
+
+    fn Eth_GetCode(
+        handler: Arc<Handlers>,
+        input: EthGetCodeInput,
+    ) -> Result<EthGetCodeResult, jsonrpsee_core::Error> {
+        let EthGetCodeInput { address, .. } = input;
+
+        let address = address.parse().expect("Invalid address");
+        let code = handler.evm.get_code(address);
+
+        Ok(EthGetCodeResult {
+            code: format!("{:#x?}", code),
+        })
+    }
+
+    fn Eth_GetStorageAt(
+        handler: Arc<Handlers>,
+        input: EthGetStorageAtInput,
+    ) -> Result<EthGetStorageAtResult, jsonrpsee_core::Error> {
+        let EthGetStorageAtInput {
+            address, position, ..
+        } = input;
+
+        let address = address.parse().expect("Invalid address");
+        let position = position.parse().expect("Invalid postition");
+
+        let storage = handler.evm.get_storage(address);
+        let &value = storage.get(&position).unwrap_or(&H256::zero());
+
+        Ok(EthGetStorageAtResult {
+            value: format!("{:#x}", value),
         })
     }
 }
