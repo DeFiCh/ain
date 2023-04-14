@@ -61,7 +61,7 @@ main() {
     cd "$_SCRIPT_DIR"
     _platform_init
     setup_vars
-    git_precommit_hook
+    git_add_hooks
 
     # Get all functions declared in this file except ones starting with
     # '_' or the ones in the list
@@ -629,13 +629,13 @@ _get_default_conf_args() {
 # ---
 
 # shellcheck disable=SC2120
-git_precommit_hook() {
+git_add_hooks() {
     local force_update=${1:-0}
-    local file=".git/hooks/pre-commit"
+    local file=".git/hooks/pre-push"
     if [[ -f "$file" && $force_update == "0" ]]; then 
         return;
     fi
-    echo "> add pre-commit-hook"
+    echo "> add pre-push-hook"
     mkdir -p "$(dirname $file)" 2>/dev/null || { true && return; }
     cat <<END > "$file"
 #!/bin/bash
