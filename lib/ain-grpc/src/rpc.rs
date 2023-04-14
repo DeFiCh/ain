@@ -7,10 +7,11 @@ use crate::codegen::rpc::{
         EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
         EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
         EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
-        EthTransactionInfo,
+        EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo,
     },
     EthService,
 };
+use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::handler::Handlers;
 use primitive_types::{H256, U256};
 use std::convert::Into;
@@ -85,6 +86,11 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthGetStorageAtInput,
     ) -> Result<EthGetStorageAtResult, jsonrpsee_core::Error>;
+
+    fn Eth_SendRawTransaction(
+        handler: Arc<Handlers>,
+        input: EthSendRawTransactionInput,
+    ) -> Result<EthSendRawTransactionResult, jsonrpsee_core::Error>;
 }
 
 #[allow(non_snake_case)]
@@ -305,6 +311,22 @@ impl EthServiceApi for EthService {
 
         Ok(EthGetStorageAtResult {
             value: format!("{:#x}", value),
+        })
+    }
+
+    fn Eth_SendRawTransaction(
+        _handler: Arc<Handlers>,
+        input: EthSendRawTransactionInput,
+    ) -> Result<EthSendRawTransactionResult, jsonrpsee_core::Error> {
+        let EthSendRawTransactionInput { transaction } = input;
+
+        let hex = hex::decode(transaction).expect("Invalid transaction");
+        let stat = publish_eth_transaction(hex).unwrap();
+
+        println!("{stat}");
+
+        Ok(EthSendRawTransactionResult {
+            hash: format!("{stat}"),
         })
     }
 }

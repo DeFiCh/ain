@@ -46,4 +46,6 @@ service eth {
   rpc Eth_GetCode(types.EthGetCodeInput) returns (types.EthGetCodeResult);
 
   rpc Eth_GetStorageAt(types.EthGetStorageAtInput) returns (types.EthGetStorageAtResult);
+
+  rpc Eth_SendRawTransaction(types.EthSendRawTransactionInput) returns (types.EthSendRawTransactionResult);
 }
