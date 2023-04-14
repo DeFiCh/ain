@@ -155,6 +155,7 @@ DEFI_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  ffi/ffiexports.h \
   masternodes/accounts.h \
   masternodes/accountshistory.h \
   masternodes/anchors.h \
@@ -164,7 +165,6 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/errors.h \
   masternodes/evm.h \
-  masternodes/ffi_exports.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -392,11 +392,11 @@ libdefi_server_a_SOURCES = \
   interfaces/chain.cpp \
   init.cpp \
   dbwrapper.cpp \
+  ffi/ffiexports.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/ffi_exports.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \

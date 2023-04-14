@@ -21,7 +21,7 @@ fn main() {
         lib_path.to_str().unwrap()
     );
     println!(
-        "cargo:rerun-if-changed={}/masternodes/ffi_exports.h",
+        "cargo:rerun-if-changed={}/ffi/ffiexports.h",
         lib_path.to_str().unwrap()
     );
 }
