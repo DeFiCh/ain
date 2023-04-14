@@ -631,7 +631,7 @@ _get_default_conf_args() {
 # shellcheck disable=SC2120
 git_precommit_hook() {
     local force_update=${1:-0}
-    local file=".git1/hooks/pre-commit"
+    local file=".git/hooks/pre-commit"
     if [[ -f "$file" && $force_update == "0" ]]; then 
         return;
     fi
