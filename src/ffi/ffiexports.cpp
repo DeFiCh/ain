@@ -41,11 +41,10 @@ bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     // TODO Replace execTestTx with non-throwing function
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+        send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
     } catch (...) {
         return false;
     }
-
-    send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 
     return true;
 }
