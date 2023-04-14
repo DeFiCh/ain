@@ -16,7 +16,7 @@ out/
 *.exe
 *.pdb
 
-# Univalue 
+# Univalue
 
 src/defi
 src/defid
@@ -148,3 +148,5 @@ contrib/devtools/split-debug.sh
 /src/rust/x86_64*
 /src/rust/.rustc_info.json
 /lib/target
+
+*.bin
