@@ -91,6 +91,25 @@ impl<'de> Deserialize<'de> for types::Transaction {
     }
 }
 
+impl Serialize for types::EthChainIdResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        return serializer.serialize_str(&self.id);
+    }
+}
+
+impl<'de> Deserialize<'de> for types::EthChainIdResult {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id = String::deserialize(deserializer)?;
+        Ok(Self { id })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::{BlockResult, Transaction};

@@ -1,16 +1,17 @@
 use crate::codegen::rpc::{
     ffi::{
         EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
-        EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
-        EthGetBlockByNumberInput, EthGetBlockTransactionCountByHashInput,
-        EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
-        EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
-        EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
-        EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
-        EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo,
+        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByNumberInput,
+        EthGetBlockTransactionCountByHashInput, EthGetBlockTransactionCountByHashResult,
+        EthGetBlockTransactionCountByNumberInput, EthGetBlockTransactionCountByNumberResult,
+        EthGetCodeInput, EthGetCodeResult, EthGetStorageAtInput, EthGetStorageAtResult,
+        EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
+        EthGetTransactionByHashInput, EthMiningResult, EthSendRawTransactionInput,
+        EthSendRawTransactionResult, EthTransactionInfo,
     },
     EthService,
 };
+use crate::codegen::types::EthChainIdResult;
 use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::handler::Handlers;
 use primitive_types::{H256, U256};

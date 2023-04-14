@@ -18,7 +18,7 @@ use std::{env, fs, io};
 fn to_eth_case(str: &str) -> String {
     match str.split("_").collect::<Vec<_>>()[..] {
         [_, method_name] => format!("eth_{}", method_name.to_lower_camel_case()),
-        _ => str.to_lowercase(),
+        _ => str.to_lowercase(), // Falls back to default casing
     }
 }
 
@@ -78,7 +78,12 @@ const TYPE_ATTRS: &[Attr] = &[
         matcher: ".*",
         attr: Some("#[derive(Serialize, Deserialize)] #[serde(rename_all=\"camelCase\")]"),
         rename: None,
-        skip: &["^BlockResult", "NonUtxo", "^Transaction"],
+        skip: &[
+            "^BlockResult",
+            "NonUtxo",
+            "^Transaction",
+            "^EthChainIdResult",
+        ],
     },
     Attr {
         matcher: ".*",
@@ -99,7 +104,12 @@ const FIELD_ATTRS: &[Attr] = &[
         matcher: ":::prost::alloc::string::String",
         attr: Some("#[serde(skip_serializing_if = \"String::is_empty\")]"),
         rename: None,
-        skip: &["^BlockResult", "NonUtxo", "^Transaction"],
+        skip: &[
+            "^BlockResult",
+            "NonUtxo",
+            "^Transaction",
+            "^EthChainIdResult",
+        ],
     },
     Attr {
         matcher: ":::prost::alloc::vec::Vec",
