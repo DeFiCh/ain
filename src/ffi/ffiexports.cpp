@@ -1,4 +1,4 @@
-#include <masternodes/ffi_exports.h>
+#include <ffi/ffiexports.h>
 #include <util/system.h>
 
 uint64_t getChainId() {
