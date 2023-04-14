@@ -18,7 +18,7 @@ use std::{env, fs, io};
 fn to_eth_case(str: &str) -> String {
     match str.split("_").collect::<Vec<_>>()[..] {
         [_, method_name] => format!("eth_{}", method_name.to_lower_camel_case()),
-        _ => panic!("Method name should be in the eth_<MethodName> format"),
+        _ => str.to_lowercase(),
     }
 }
 
