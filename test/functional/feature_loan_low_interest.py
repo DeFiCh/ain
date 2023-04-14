@@ -6,7 +6,6 @@
 """Test Loan - interest test."""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.fixture_util import Fixture
 from test_framework.util import assert_equal
 
 import calendar
@@ -46,6 +45,46 @@ class LowInterestTest(DefiTestFramework):
         self.nodes[0].generate(1)
         account0_balance = self.nodes[0].getaccount(self.account0)
         assert_equal(account0_balance, ['199999900.00000000@DFI'])
+
+    def setup_loan_low_interest_tokens(test : DefiTestFramework):
+        print('setting up loan and collateral tokens...')
+        test.nodes[0].setloantoken({
+            'symbol': test.symboldUSD,
+            'name': "DUSD stable token",
+            'fixedIntervalPriceId': "DUSD/USD",
+            'mintable': True,
+            'interest': 0})
+
+        test.tokenInterest = Decimal(1)
+        test.nodes[0].setloantoken({
+            'symbol': test.symbolDOGE,
+            'name': "DOGE token",
+            'fixedIntervalPriceId': "DOGE/USD",
+            'mintable': True,
+            'interest': Decimal(test.tokenInterest * 100)})
+        test.nodes[0].generate(1)
+
+        # Set token ids
+        test.iddUSD = list(test.nodes[0].gettoken(test.symboldUSD).keys())[0]
+        test.idDFI = list(test.nodes[0].gettoken(test.symbolDFI).keys())[0]
+        test.idDOGE = list(test.nodes[0].gettoken(test.symbolDOGE).keys())[0]
+
+        # Mint tokens
+        test.nodes[0].minttokens("1000000@DOGE")
+        test.nodes[0].generate(1)
+        test.nodes[0].minttokens("2000000@" + test.symboldUSD)  # necessary for pools
+        test.nodes[0].generate(1)
+
+        # Setup collateral tokens
+        test.nodes[0].setcollateraltoken({
+            'token': test.idDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
+        test.nodes[0].generate(300)
+
+        assert_equal(len(test.nodes[0].listtokens()), 3)
+        assert_equal(len(test.nodes[0].listloantokens()), 2)
+        assert_equal(len(test.nodes[0].listcollateraltokens()), 1)
 
     def test_setup_oracles(self):
         print('setting up oracles...')
@@ -108,7 +147,7 @@ class LowInterestTest(DefiTestFramework):
         print('Generating initial chain...')
         self.test_load_account0_with_DFI()
         self.test_setup_oracles()
-        Fixture.setup_loan_low_interest_tokens(self)
+        self.setup_loan_low_interest_tokens()
         self.test_setup_poolpairs()
         self.test_setup_loan_scheme()
 
