@@ -1,10 +1,10 @@
 use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use crate::evm::{get_vicinity, EVMHandler};
 use crate::executor::AinExecutor;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
-use evm::backend::{MemoryBackend, MemoryVicinity};
+use evm::backend::MemoryBackend;
 use primitive_types::{H160, H256, U256};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,10 +28,10 @@ impl Handlers {
         &self,
         context: u64,
         update_state: bool,
-        miner_address: Option<H160>,
+        _miner_address: Option<H160>,
     ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
-        let mut tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
-        let mut failed_tx_hashes = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut successful_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let vicinity = get_vicinity(None, None);
         let state = self.evm.tx_queues.state(context).expect("Wrong context");
         let backend = MemoryBackend::new(&vicinity, state);
@@ -40,11 +40,14 @@ impl Handlers {
         for signed_tx in self.evm.tx_queues.drain_all(context) {
             let tx_response = executor.exec(&signed_tx);
             if tx_response.exit_reason.is_succeed() {
-                tx_hashes.push(signed_tx.transaction);
+                successful_transactions.push(signed_tx.transaction);
             } else {
-                failed_tx_hashes.push(signed_tx.transaction)
+                failed_transactions.push(signed_tx.transaction)
             }
         }
+
+        let mut all_transactions = successful_transactions.clone();
+        all_transactions.extend(failed_transactions.clone());
 
         self.evm.tx_queues.remove(context);
 
@@ -76,7 +79,7 @@ impl Handlers {
                 mix_hash: Default::default(),
                 nonce: Default::default(),
             },
-            tx_hashes,
+            all_transactions,
             Vec::new(),
         );
 
@@ -90,21 +93,6 @@ impl Handlers {
             self.storage.put_block(block.clone());
         }
 
-        Ok((block, failed_tx_hashes))
-    }
-}
-
-fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
-    MemoryVicinity {
-        gas_price: gas_price.unwrap_or(U256::MAX),
-        origin: origin.unwrap_or_default(),
-        block_hashes: Vec::new(),
-        block_number: Default::default(),
-        block_coinbase: Default::default(),
-        block_timestamp: Default::default(),
-        block_difficulty: Default::default(),
-        block_gas_limit: U256::MAX,
-        chain_id: U256::one(),
-        block_base_fee_per_gas: U256::MAX,
+        Ok((block, failed_transactions))
     }
 }

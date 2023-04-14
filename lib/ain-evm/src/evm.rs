@@ -169,7 +169,7 @@ impl EVMHandler {
 }
 
 // TBD refine what vicinity we need. gas_price and origin only ?
-fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
+pub fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
     MemoryVicinity {
         gas_price: gas_price.unwrap_or(U256::MAX),
         origin: origin.unwrap_or_default(),

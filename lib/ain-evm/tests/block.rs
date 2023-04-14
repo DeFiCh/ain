@@ -61,7 +61,7 @@ fn test_finalize_block_and_update_state() {
     let (block, failed_txs) = handler.finalize_block(context, true, None).unwrap();
     assert_eq!(
         block.transactions,
-        vec![tx1, tx2]
+        vec![tx1, tx2, tx3.clone()]
             .into_iter()
             .map(|t| t.transaction)
             .collect::<Vec<_>>()
