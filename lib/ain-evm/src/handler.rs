@@ -4,7 +4,7 @@ use crate::executor::AinExecutor;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
-use evm::backend::{MemoryBackend, MemoryVicinity};
+use evm::backend::MemoryBackend;
 use primitive_types::{H160, H256, U256};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};

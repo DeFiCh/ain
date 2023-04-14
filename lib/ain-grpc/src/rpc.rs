@@ -76,6 +76,7 @@ pub trait EthServiceApi {
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error>;
 }
 
+#[allow(non_snake_case)]
 impl EthServiceApi for EthService {
     fn Eth_Call(
         handler: Arc<Handlers>,
@@ -233,21 +234,6 @@ impl EthServiceApi for EthService {
             )))
     }
 
-    fn Eth_GetBlockTransactionCountByNumber(
-        handler: Arc<Handlers>,
-        input: EthGetBlockTransactionCountByNumberInput,
-    ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error> {
-        let EthGetBlockTransactionCountByNumberInput { block_number } = input;
-
-        let number: usize = block_number.parse().ok().unwrap();
-        let block = handler.block.get_block_by_number(number).unwrap();
-        let count = block.transactions.len();
-
-        Ok(EthGetBlockTransactionCountByNumberResult {
-            number_transaction: format!("{:#x}", count),
-        })
-    }
-
     fn Eth_GetBlockTransactionCountByHash(
         handler: Arc<Handlers>,
         input: EthGetBlockTransactionCountByHashInput,
@@ -259,6 +245,21 @@ impl EthServiceApi for EthService {
         let count = block.transactions.len();
 
         Ok(EthGetBlockTransactionCountByHashResult {
+            number_transaction: format!("{:#x}", count),
+        })
+    }
+
+    fn Eth_GetBlockTransactionCountByNumber(
+        handler: Arc<Handlers>,
+        input: EthGetBlockTransactionCountByNumberInput,
+    ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee_core::Error> {
+        let EthGetBlockTransactionCountByNumberInput { block_number } = input;
+
+        let number: usize = block_number.parse().ok().unwrap();
+        let block = handler.block.get_block_by_number(number).unwrap();
+        let count = block.transactions.len();
+
+        Ok(EthGetBlockTransactionCountByNumberResult {
             number_transaction: format!("{:#x}", count),
         })
     }
