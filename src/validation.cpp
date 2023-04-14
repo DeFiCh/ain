@@ -2841,12 +2841,21 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         assert(id);
         const auto node = mnview.GetMasternode(*id);
         assert(node);
+
+        auto height = node->creationHeight;
+        uint256 mnID = *id;
+        if (!node->collateralTx.IsNull()) {
+            const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
+            assert(idHeight);
+            height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+            mnID = node->collateralTx;
+        }
         
-        const auto blockindex = ::ChainActive()[node->creationHeight];
+        const auto blockindex = ::ChainActive()[height];
         assert(blockindex);
         CTransactionRef tx;
         uint256 hash_block;
-        assert(GetTransaction(*id, tx, Params().GetConsensus(), hash_block, blockindex));
+        assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
         assert(tx->vout.size() >= 2);
 
         CTxDestination dest;
