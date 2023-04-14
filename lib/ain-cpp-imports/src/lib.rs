@@ -3,7 +3,7 @@ use std::error::Error;
 #[cxx::bridge]
 mod ffi {
     unsafe extern "C++" {
-        include!("masternodes/evm_ffi.h");
+        include!("masternodes/ffi_exports.h");
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
