@@ -17,8 +17,12 @@ use std::{env, fs, io};
 
 fn to_eth_case(str: &str) -> String {
     match str.split("_").collect::<Vec<_>>()[..] {
-        [_, method_name] => format!("eth_{}", method_name.to_lower_camel_case()),
-        _ => str.to_lowercase(),
+        [typ, method_name] => format!(
+            "{}_{}",
+            typ.to_lowercase(),
+            method_name.to_lower_camel_case()
+        ),
+        _ => str.to_lowercase(), // Falls back to default casing
     }
 }
 
