@@ -10,7 +10,11 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    get_id_token,
+)
+
 from decimal import Decimal
 
 
@@ -50,9 +54,9 @@ class PoolPairTest(DefiTestFramework):
             "collateralAddress": self.account0
         })
         self.nodes[0].generate(1)
-        self.symbol_key_GOLD = "GOLD#" + str(self.get_id_token(self.symbolGOLD))
-        self.symbol_key_SILVER = "SILVER#" + str(self.get_id_token(self.symbolSILVER))
-        self.symbol_key_DOGE = "DOGE#" + str(self.get_id_token(self.symbolDOGE))
+        self.symbol_key_GOLD = "GOLD#" + str(get_id_token(self.symbolGOLD))
+        self.symbol_key_SILVER = "SILVER#" + str(get_id_token(self.symbolSILVER))
+        self.symbol_key_DOGE = "DOGE#" + str(get_id_token(self.symbolDOGE))
 
     def mint_tokens(self, amount=1000):
 

@@ -9,10 +9,16 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import \
-    connect_nodes, disconnect_nodes, assert_equal, assert_raises_rpc_error
+from test_framework.fixture_util import CommonFixture
+from test_framework.util import (
+    connect_nodes,
+    disconnect_nodes,
+    assert_equal,
+    assert_raises_rpc_error,
+    get_id_token,
+)
+
 from decimal import Decimal
 import time
 
@@ -30,7 +36,7 @@ class GovsetTest(DefiTestFramework):
              '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
     def run_test(self):
-        self.setup_tokens()
+        CommonFixture.setup_default_tokens(self)
 
         # Stop node #1 for future revert
         self.stop_node(1)
@@ -50,8 +56,8 @@ class GovsetTest(DefiTestFramework):
         #
         # prepare the pools for LP_SPLITS
         #
-        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+        symbolGOLD = "GOLD#" + get_id_token("GOLD")
+        symbolSILVER = "SILVER#" + get_id_token("SILVER")
 
         owner = self.nodes[0].getnewaddress("", "legacy")
 

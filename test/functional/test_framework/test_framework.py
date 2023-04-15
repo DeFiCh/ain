@@ -83,10 +83,11 @@ def get_default_config_path():
         current_file_path + "/../../../build/test/config.ini",
         current_file_path + "/../../config.ini",
         current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
-        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
-        current_file_path + "/../../../build/x86_64-w64-mingw32/test/config.ini",
-        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
         current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
+        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/x86_64-w64-mingw32/test/config.ini",
+        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
+        current_file_path + "/../../../build/aarch64-apple-darwin/test/config.ini",
     ]
     for p in default_config_paths:
         if os.path.exists(p):
@@ -342,91 +343,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 chain_info = n.getblockchaininfo()
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
-
-    # TODO: Does NOT belong in the framework. Refactor out as helpers
-    # It should be explicit on which node we're taking this from, as if the
-    # test is specifically to check an unsynced pool or such, this results in
-    # bad assumptions and flaky test results
-    def get_id_token(self, symbol):
-        list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
-            if (token["symbol"] == symbol):
-                return str(idx)
-
-    # TODO: Does NOT belong in the framework. Refactor out as helpers
-    # Create a separate FixtureHelpers class that can contain all the
-    # common fixtures. This is really good example of what shouldn't be a part
-    # of framework and how it trickles down to flaky tests downstream
-    def setup_tokens(self, my_tokens=None):
-        assert (self.setup_clean_chain == True)
-        assert ('-txnotokens=0' in self.extra_args[0])
-        assert ('-txnotokens=0' in self.extra_args[1])
-        self.nodes[0].generate(25)
-        self.nodes[1].generate(25)
-        self.sync_blocks()
-        self.nodes[0].generate(98)
-        self.sync_blocks()
-
-        if my_tokens is not None:
-            '''
-                my_tokens list should contain objects with following structure:
-                {
-                    "wallet": node_obj,             # The test node obj with "collateralAddress" secret key in wallet
-                    "symbol": "SYMBOL",             # The token symbol
-                    "name": "token name",           # The token name
-                    "collateralAddress": "address", # The token collateral address
-                    "amount": amount,               # The token amount for minting
-                }
-            '''
-            # create tokens
-            for token in my_tokens:
-                token["wallet"].createtoken({
-                    "symbol": token["symbol"],
-                    "name": token["name"],
-                    "collateralAddress": token["collateralAddress"]
-                })
-            self.sync_mempools()
-            self.nodes[0].generate(1)
-            tokens = self.nodes[1].listtokens()
-            assert_equal(len(tokens), len(my_tokens) + 1)
-
-            # mint tokens
-            for token in my_tokens:
-                token["tokenId"] = self.get_id_token(token["symbol"])
-                token["symbolId"] = token["symbol"] + "#" + token["tokenId"]
-                token["wallet"].minttokens(str(token["amount"]) + "@" + token["symbolId"])
-
-            self.sync_mempools()
-            self.nodes[0].generate(1)
-        else:
-            # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
-            self.nodes[0].createtoken({
-                "symbol": "GOLD",
-                "name": "shiny gold",
-                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress  # collateralGold
-            })
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            self.nodes[1].createtoken({
-                "symbol": "SILVER",
-                "name": "just silver",
-                "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress  # collateralSilver
-            })
-            self.nodes[1].generate(1)
-            self.sync_blocks()
-            # At this point, tokens was created
-            tokens = self.nodes[0].listtokens()
-            assert_equal(len(tokens), 3)
-
-            symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-            symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
-
-            self.nodes[0].minttokens("1000@" + symbolGOLD)
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            self.nodes[1].minttokens("2000@" + symbolSILVER)
-            self.nodes[1].generate(1)
-            self.sync_blocks()
 
     def import_deterministic_coinbase_privkeys(self):
         for n in self.nodes:

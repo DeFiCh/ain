@@ -9,10 +9,14 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_raises_rpc_error, \
-    connect_nodes_bi
+from test_framework.fixture_util import CommonFixture
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    connect_nodes_bi,
+    get_id_token,
+)
 
 
 class AccountsAndUTXOsTest(DefiTestFramework):
@@ -29,13 +33,13 @@ class AccountsAndUTXOsTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         print("Generating initial chain...")
-        self.setup_tokens()
+        CommonFixture.setup_default_tokens(self)
 
         # Stop node #2 for future revert
         self.stop_node(2)
 
-        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+        symbolGOLD = "GOLD#" + get_id_token("GOLD")
+        symbolSILVER = "SILVER#" + get_id_token("SILVER")
 
         idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
         idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]
