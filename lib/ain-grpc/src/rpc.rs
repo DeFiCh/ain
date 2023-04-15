@@ -1,20 +1,18 @@
-use crate::codegen::rpc::{
-    ffi::{
-        EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
-        EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput, EthGetBlockByNumberInput,
-        EthGetBlockTransactionCountByHashInput, EthGetBlockTransactionCountByHashResult,
-        EthGetBlockTransactionCountByNumberInput, EthGetBlockTransactionCountByNumberResult,
-        EthGetCodeInput, EthGetCodeResult, EthGetStorageAtInput, EthGetStorageAtResult,
-        EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
-        EthGetTransactionByHashInput, EthMiningResult, EthSendRawTransactionInput,
-        EthSendRawTransactionResult, EthTransactionInfo,
-    },
-    EthService,
+use crate::codegen::rpc::EthService;
+use crate::codegen::types::{
+    EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
+    EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
+    EthGetBlockByNumberInput, EthGetBlockTransactionCountByHashInput,
+    EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
+    EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
+    EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
+    EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
+    EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo, NetVersionResult,
 };
-use crate::codegen::types::EthChainIdResult;
 use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::handler::Handlers;
-use primitive_types::{H256, U256};
+use ethereum::BlockAny;
+use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
 
@@ -40,7 +38,7 @@ pub trait EthServiceApi {
 
     fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
-    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<NetVersionResult, jsonrpsee_core::Error>;
 
     fn Eth_BlockNumber(
         handler: Arc<Handlers>,
@@ -110,10 +108,10 @@ impl EthServiceApi for EthService {
             value,
             data,
             ..
-        } = transaction_info;
+        } = transaction_info.expect("Transaction info should be set");
 
         let from = from.parse().ok();
-        let to = to.parse().ok();
+        let to = to.map(|addr| addr.parse::<H160>().expect("Wrong `to` address format"));
         let value: U256 = value.parse().expect("Wrong value format");
 
         let (_, data) = handler
@@ -166,11 +164,11 @@ impl EthServiceApi for EthService {
         })
     }
 
-    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+    fn Net_Version(_handler: Arc<Handlers>) -> Result<NetVersionResult, jsonrpsee_core::Error> {
         let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
-        Ok(EthChainIdResult {
-            id: format!("{}", chain_id),
+        Ok(NetVersionResult {
+            network_version: format!("{}", "Metachain"),
         })
     }
 
@@ -192,9 +190,9 @@ impl EthServiceApi for EthService {
         handler: Arc<Handlers>,
         input: EthGetBlockByNumberInput,
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error> {
-        let EthGetBlockByNumberInput { number, .. } = input;
+        let EthGetBlockByNumberInput { block_number, .. } = input;
 
-        let number: U256 = number.parse().ok().unwrap();
+        let number: U256 = block_number.parse().ok().unwrap();
         handler
             .storage
             .get_block_by_number(&number)

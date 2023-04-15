@@ -9,6 +9,8 @@ pub mod rpc {
     include!("gen/rpc.rs");
 }
 
+include!("gen/impls.rs");
+
 impl Serialize for types::BlockResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -91,24 +93,24 @@ impl<'de> Deserialize<'de> for types::Transaction {
     }
 }
 
-impl Serialize for types::EthChainIdResult {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        return serializer.serialize_str(&self.id);
-    }
-}
-
-impl<'de> Deserialize<'de> for types::EthChainIdResult {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let id = String::deserialize(deserializer)?;
-        Ok(Self { id })
-    }
-}
+// impl serde::Serialize for crate::codegen::types::EthChainIdResult {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         return serializer.serialize_str(&self.id.to_string());
+//     }
+// }
+// impl<'de> serde::Deserialize<'de> for crate::codegen::types::EthChainIdResult {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         let value =
+//             <::prost::alloc::string::String as serde::Deserialize>::deserialize(deserializer)?;
+//         Ok(Self { id: value })
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

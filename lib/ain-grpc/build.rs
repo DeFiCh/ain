@@ -17,8 +17,58 @@ use std::{env, fs, io};
 
 fn to_eth_case(str: &str) -> String {
     match str.split("_").collect::<Vec<_>>()[..] {
-        [_, method_name] => format!("eth_{}", method_name.to_lower_camel_case()),
+        [typ, method_name] => format!(
+            "{}_{}",
+            typ.to_lowercase(),
+            method_name.to_lower_camel_case()
+        ),
         _ => str.to_lowercase(), // Falls back to default casing
+    }
+}
+
+fn type_implements_display(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                let ident_str = segment.ident.to_string();
+                matches!(
+                    ident_str.as_str(),
+                    "i8" | "i16"
+                        | "i32"
+                        | "i64"
+                        | "i128"
+                        | "isize"
+                        | "u8"
+                        | "u16"
+                        | "u32"
+                        | "u64"
+                        | "u128"
+                        | "usize"
+                        | "f32"
+                        | "f64"
+                        | "bool"
+                        | "String"
+                        | "char"
+                )
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+fn generate_custom_serde_impl(struct_name: &Ident, field_name: &Ident) -> TokenStream {
+    quote! {
+        impl serde::Serialize for crate::codegen::types::#struct_name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                return serializer.serialize_str(&self.#field_name.to_string());
+            }
+        }
+
     }
 }
 
@@ -37,6 +87,7 @@ fn visit_files(dir: &Path, f: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     Ok(())
 }
 
+#[derive(PartialEq, Eq)]
 struct Attr {
     matcher: &'static str,         // matcher for names
     attr: Option<&'static str>,    // attribute to be added to the entity
@@ -78,12 +129,7 @@ const TYPE_ATTRS: &[Attr] = &[
         matcher: ".*",
         attr: Some("#[derive(Serialize, Deserialize)] #[serde(rename_all=\"camelCase\")]"),
         rename: None,
-        skip: &[
-            "^BlockResult",
-            "NonUtxo",
-            "^Transaction",
-            "^EthChainIdResult",
-        ],
+        skip: &["^BlockResult", "NonUtxo", "^Transaction"],
     },
     Attr {
         matcher: ".*",
@@ -104,12 +150,7 @@ const FIELD_ATTRS: &[Attr] = &[
         matcher: ":::prost::alloc::string::String",
         attr: Some("#[serde(skip_serializing_if = \"String::is_empty\")]"),
         rename: None,
-        skip: &[
-            "^BlockResult",
-            "NonUtxo",
-            "^Transaction",
-            "^EthChainIdResult",
-        ],
+        skip: &["^BlockResult", "NonUtxo", "^Transaction"],
     },
     Attr {
         matcher: ":::prost::alloc::vec::Vec",
@@ -262,6 +303,7 @@ fn modify_codegen(
     types_path: &Path,
     rpc_path: &Path,
     lib_path: &Path,
+    impls_path: &Path,
 ) -> TokenStream {
     let mut contents = String::new();
     File::open(types_path)
@@ -271,7 +313,14 @@ fn modify_codegen(
     let parsed_file = syn::parse_file(&contents).unwrap();
 
     // Modify structs if needed
-    let (struct_map, structs, ffi_structs) = change_types(parsed_file);
+    let (struct_map, structs, ffi_structs, serde_impls) = change_types(parsed_file);
+    contents.clear();
+    contents.push_str(&serde_impls.to_string());
+    File::create(impls_path)
+        .unwrap()
+        .write_all(contents.as_bytes())
+        .unwrap();
+
     contents.clear();
     contents.push_str(&structs.to_string());
     File::create(types_path)
@@ -364,7 +413,14 @@ fn modify_codegen(
     codegen.parse().unwrap() // given to cxx codegen
 }
 
-fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, TokenStream) {
+fn change_types(
+    file: syn::File,
+) -> (
+    HashMap<String, ItemStruct>,
+    TokenStream,
+    TokenStream,
+    TokenStream,
+) {
     let mut map = HashMap::new();
     let mut modified = quote! {
         fn ignore_integer<T: num_traits::PrimInt + num_traits::Signed + num_traits::NumCast>(i: &T) -> bool {
@@ -376,6 +432,8 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
     };
 
     let mut copied = quote!();
+    let mut serde_impls = quote!();
+
     // Replace prost-specific fields with defaults
     for item in file.items {
         let mut s = match item {
@@ -383,8 +441,28 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
             _ => continue,
         };
 
+        let fields = match &mut s.fields {
+            Fields::Named(ref mut f) => f,
+            _ => panic!("unsupported struct"),
+        };
         let name = s.ident.to_string();
+        let is_custom_serde_impl = fields.named.len() == 1
+            && s.ident.to_string().contains("Result")
+            && type_implements_display(&fields.named[0].ty);
+        // Special case where Result struct has a single field
+        if is_custom_serde_impl {
+            let custom_impl =
+                generate_custom_serde_impl(&s.ident, fields.named[0].ident.as_ref().unwrap());
+            serde_impls.extend(quote!(#custom_impl));
+        }
+
         for rule in TYPE_ATTRS {
+            if is_custom_serde_impl && rule == &TYPE_ATTRS[0] {
+                s.attrs.extend(Attr::parse(
+                    "#[derive(Deserialize)] #[serde(rename_all=\"camelCase\")]",
+                ));
+                continue;
+            }
             if !rule.matches(&name, None, None) {
                 continue;
             }
@@ -398,14 +476,13 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
             }
         }
 
-        let fields = match &mut s.fields {
-            Fields::Named(ref mut f) => f,
-            _ => panic!("unsupported struct"),
-        };
         for field in &mut fields.named {
             let f_name = field.ident.as_ref().unwrap().to_string();
             let t_name = field.ty.to_token_stream().to_string();
             for rule in FIELD_ATTRS {
+                if is_custom_serde_impl && rule == &FIELD_ATTRS[0] {
+                    continue;
+                }
                 if !rule.matches(&f_name, Some(&name), Some(&t_name)) {
                     continue;
                 }
@@ -419,11 +496,11 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
                 }
             }
         }
-
         modified.extend(quote!(#s));
         map.insert(s.ident.to_string(), s.clone());
 
         s.attrs = Attr::parse("#[derive(Debug, Default, Serialize , Deserialize, PartialEq)]");
+
         let fields = match &mut s.fields {
             Fields::Named(ref mut f) => f,
             _ => unreachable!(),
@@ -439,7 +516,7 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
         });
     }
 
-    (map, modified, copied)
+    (map, modified, copied, serde_impls)
 }
 
 fn apply_substitutions(
@@ -789,10 +866,12 @@ fn main() {
         &Path::new(&gen_path).join("types.rs"),
         &Path::new(&gen_path).join("rpc.rs"),
         &src_path.join("lib.rs"),
+        &Path::new(&gen_path).join("impls.rs"),
     );
 
     println!(
         "cargo:rerun-if-changed={}",
         src_path.join("rpc.rs").to_string_lossy()
     );
+    println!("cargo:rerun-if-changed={}", "build.rs");
 }
