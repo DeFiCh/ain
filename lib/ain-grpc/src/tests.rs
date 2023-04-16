@@ -6,16 +6,13 @@ use std::sync::Arc;
 
 use primitive_types::{H160, U256};
 
-use crate::{
-    codegen::{
-        rpc::EthService,
-        types::{
-            EthCallInput, EthGetBalanceInput, EthGetBlockByHashInput,
-            EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
-            EthGetTransactionByHashInput, EthTransactionInfo,
-        },
+use crate::codegen::{
+    rpc::EthService,
+    types::{
+        EthCallInput, EthGetBalanceInput, EthGetBlockByHashInput,
+        EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
+        EthGetTransactionByHashInput, EthTransactionInfo,
     },
-    rpc::EthServiceApi,
 };
 use ain_evm::handler::Handlers;
 use ain_evm::transaction::SignedTx;

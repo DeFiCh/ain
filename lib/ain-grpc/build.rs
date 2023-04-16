@@ -327,8 +327,8 @@ fn modify_codegen(
                     }
                     #[inline]
                     #[allow(unused_mut, dead_code)]
-                    pub fn module(&self) -> Result<jsonrpsee_http_server::RpcModule<()>, jsonrpsee_core::Error> {
-                        let mut module = jsonrpsee_http_server::RpcModule::new(());
+                    pub fn module(&self) -> Result<jsonrpsee::http_server::RpcModule<()>, jsonrpsee::core::Error> {
+                        let mut module = jsonrpsee::http_server::RpcModule::new(());
                         #jrpc_tt
                         Ok(module)
                     }
@@ -448,8 +448,8 @@ fn apply_substitutions(
     // FIXME: We don't have to regenerate if the struct only has scalar types
     // (in which case it'll have the same schema in both FFI and protobuf)
     let mut impls = quote! {
-        use jsonrpsee_core::client::ClientT;
-        use jsonrpsee_http_client::{HttpClient, HttpClientBuilder};
+        use jsonrpsee::core::client::ClientT;
+        use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
         use std::sync::Arc;
         use crate::{CLIENTS};
         use ain_evm::runtime::RUNTIME;
@@ -476,9 +476,9 @@ fn apply_substitutions(
             Ok(Box::new(CLIENTS.read().unwrap().get(addr).unwrap().clone()))
         }
         #[allow(dead_code)]
-        fn missing_param(field: &str) -> jsonrpsee_core::Error {
-            jsonrpsee_core::Error::Call(jsonrpsee_types::error::CallError::Custom(
-                jsonrpsee_types::ErrorObject::borrowed(-1, &format!("Missing required parameter '{field}'"), None).into_owned()
+        fn missing_param(field: &str) -> jsonrpsee::core::Error {
+            jsonrpsee::core::Error::Call(jsonrpsee::types::error::CallError::Custom(
+                jsonrpsee::types::ErrorObject::borrowed(-1, &format!("Missing required parameter '{field}'"), None).into_owned()
             ))
         }
     };
@@ -567,7 +567,7 @@ fn apply_substitutions(
                         quote!(result: &mut #oty),
                         quote!(client: &Box<Client>),
                         quote! {
-                            let params = jsonrpsee_core::rpc_params![];
+                            let params = jsonrpsee::core::rpc_params![];
                         },
                         quote!(),
                         quote!(),
@@ -620,7 +620,7 @@ fn apply_substitutions(
                         quote!(client: &Box<Client>, #ivar: #ity),
                         quote! {
                             let #ivar = super::types::#ity::from(#ivar);
-                            let params = jsonrpsee_core::rpc_params![#values];
+                            let params = jsonrpsee::core::rpc_params![#values];
                         },
                         quote! { let input = request.into_inner().into(); },
                         quote!(input),
