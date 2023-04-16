@@ -20,16 +20,11 @@ fn test_finalize_block_and_do_not_update_state() {
     let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
     handler.evm.tx_queues.add_signed_tx(context, tx1);
 
-    // let old_state = handler.evm.state.read().unwrap();
-    let _ = handler.finalize_block(context, true, None).unwrap();
+    let old_state = handler.evm.state.read().unwrap();
+    let _ = handler.finalize_block(context, false, None).unwrap();
 
-    println!(
-        "handler.state.getBlockByNumber(0) : {:#?}",
-        handler.storage.get_block_by_number(&U256::zero())
-    );
-
-    let _new_state = handler.evm.state.read().unwrap();
-    // assert_eq!(*new_state, *old_state);
+    let new_state = handler.evm.state.read().unwrap();
+    assert_eq!(*new_state, *old_state);
 }
 
 #[test]
