@@ -6,13 +6,10 @@ use std::sync::Arc;
 
 use primitive_types::{H160, U256};
 
-use crate::codegen::{
-    rpc::EthService,
-    types::{
-        EthCallInput, EthGetBalanceInput, EthGetBlockByHashInput,
-        EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
-        EthGetTransactionByHashInput, EthTransactionInfo,
-    },
+use crate::codegen::types::{
+    EthCallInput, EthGetBalanceInput, EthGetBlockByHashInput,
+    EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
+    EthGetTransactionByHashInput, EthTransactionInfo,
 };
 use ain_evm::handler::Handlers;
 use ain_evm::transaction::SignedTx;
@@ -26,11 +23,11 @@ fn should_call() {
     let tx_info = EthTransactionInfo {
         from: Some(ALICE.to_string()),
         to: Some(BOB.to_string()),
-        gas: None,
-        price: None,
-        value: None,
+        gas: Default::default(),
+        price: Default::default(),
+        value: Default::default(),
         data: Some("0x2394872".to_string()),
-        nonce: None,
+        nonce: Default::default(),
     };
     let input = EthCallInput {
         transaction_info: Some(tx_info),

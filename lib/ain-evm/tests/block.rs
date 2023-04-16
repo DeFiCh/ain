@@ -28,7 +28,7 @@ fn test_finalize_block_and_do_not_update_state() {
         handler.storage.get_block_by_number(&U256::zero())
     );
 
-    let new_state = handler.evm.state.read().unwrap();
+    let _new_state = handler.evm.state.read().unwrap();
     // assert_eq!(*new_state, *old_state);
 }
 

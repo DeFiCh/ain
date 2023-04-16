@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::{env, fs, io};
 
 fn to_eth_case(str: &str) -> String {
-    match str.split("_").collect::<Vec<_>>()[..] {
+    match str.split('_').collect::<Vec<_>>()[..] {
         [typ, method_name] => format!(
             "{}_{}",
             typ.to_lowercase(),
@@ -484,7 +484,7 @@ fn apply_substitutions(
     };
     let (mut funcs, mut sigs) = (quote!(), quote!());
     let mut calls = HashMap::new();
-    for (_name, s) in &map {
+    for s in map.values() {
         let mut copy_block_rs = quote!();
         let mut copy_block_ffi = quote!();
         let fields = match &s.fields {

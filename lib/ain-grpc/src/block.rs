@@ -1,4 +1,4 @@
-use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
+use ethereum::{BlockAny};
 use primitive_types::{H160, H256, U256};
 use serde::{
     de::{Error, MapAccess, Visitor},

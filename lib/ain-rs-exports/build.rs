@@ -31,9 +31,9 @@ fn main() {
         .read_to_string(&mut content)
         .unwrap();
 
-    let pkg_name_underscored = pkg_name.replace("-", "_");
-    let header_file_path = String::from(pkg_name_underscored.clone() + ".h");
-    let source_file_path = String::from(pkg_name_underscored.clone() + ".cpp");
+    let pkg_name_underscored = pkg_name.replace('-', "_");
+    let header_file_path = pkg_name_underscored.clone() + ".h";
+    let source_file_path = pkg_name_underscored + ".cpp";
 
     let tt: TokenStream = content.parse().unwrap();
     let mut opt = cxx_gen::Opt::default();

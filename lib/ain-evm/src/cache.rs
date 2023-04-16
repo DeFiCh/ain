@@ -60,7 +60,7 @@ impl Cache {
             .unwrap()
             .get(block_hash)
             .and_then(|block_number| {
-                self.get_transaction_by_block_number_and_index(&block_number, index)
+                self.get_transaction_by_block_number_and_index(block_number, index)
             })
     }
 
@@ -94,7 +94,7 @@ impl Cache {
             .write()
             .unwrap()
             .get(block_hash)
-            .and_then(|block_number| self.get_block_by_number(&block_number))
+            .and_then(|block_number| self.get_block_by_number(block_number))
     }
 
     pub fn put_block(&self, block: BlockAny) {

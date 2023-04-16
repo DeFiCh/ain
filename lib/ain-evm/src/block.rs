@@ -62,6 +62,12 @@ impl PersistentState for Blocks {
     }
 }
 
+impl Default for BlockHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlockHandler {
     pub fn new() -> Self {
         Self {

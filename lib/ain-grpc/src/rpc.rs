@@ -1,18 +1,15 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::codegen::types::{
-    EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
-    EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
-    EthGetBlockByNumberInput, EthGetBlockTransactionCountByHashInput,
+    EthCallInput, EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
     EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
     EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
-    EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
-    EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
-    EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo,
+    EthGetStorageAtInput, EthGetStorageAtResult, EthSendRawTransactionInput,
+    EthSendRawTransactionResult, EthTransactionInfo,
 };
 
 use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::handler::Handlers;
-use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
+use ethereum::{Block, BlockAny, PartialHeader};
 use jsonrpsee::proc_macros::rpc;
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
@@ -21,38 +18,38 @@ use std::sync::Arc;
 #[rpc(server)]
 pub trait MetachainRPC {
     #[method(name = "eth_call")]
-    fn eth_call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error>;
+    fn call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error>;
 
     #[method(name = "eth_accounts")]
-    fn eth_accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error>;
+    fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getBalance")]
-    fn eth_getBalance(&self, address: H160) -> Result<U256, jsonrpsee::core::Error>;
+    fn get_balance(&self, address: H160) -> Result<U256, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getBlockByHash")]
-    fn eth_getBlockByHash(
+    fn get_block_by_hash(
         &self,
         input: EthGetBlockByHashInput,
     ) -> Result<BlockAny, jsonrpsee::core::Error>;
 
     #[method(name = "eth_chainId")]
-    fn eth_chainId(&self) -> Result<String, jsonrpsee::core::Error>;
+    fn chain_id(&self) -> Result<String, jsonrpsee::core::Error>;
 
     #[method(name = "net_version")]
     fn net_version(&self) -> Result<String, jsonrpsee::core::Error>;
 
     #[method(name = "eth_blockNumber")]
-    fn eth_blockNumber(&self) -> Result<U256, jsonrpsee::core::Error>;
+    fn block_number(&self) -> Result<U256, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getBlockByNumber")]
-    fn eth_getBlockByNumber(
+    fn get_block_by_number(
         &self,
         block_number: BlockNumber,
         full_transaction: bool,
     ) -> Result<Option<RpcBlock>, jsonrpsee::core::Error>;
 
     #[method(name = "eth_mining")]
-    fn eth_mining(&self) -> Result<bool, jsonrpsee::core::Error>;
+    fn mining(&self) -> Result<bool, jsonrpsee::core::Error>;
 
     // #[method(name = "eth_getTransactionByHash")]
     // fn eth_GetTransactionByHash(
@@ -73,31 +70,28 @@ pub trait MetachainRPC {
     // ) -> Result<EthTransactionInfo, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getBlockTransactionCountByHash")]
-    fn eth_getBlockTransactionCountByHash(
+    fn get_block_transaction_count_by_hash(
         &self,
         input: EthGetBlockTransactionCountByHashInput,
     ) -> Result<EthGetBlockTransactionCountByHashResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getBlockTransactionCountByNumber")]
-    fn eth_getBlockTransactionCountByNumber(
+    fn get_block_transaction_count_by_number(
         &self,
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getCode")]
-    fn eth_getCode(
-        &self,
-        input: EthGetCodeInput,
-    ) -> Result<EthGetCodeResult, jsonrpsee::core::Error>;
+    fn get_code(&self, input: EthGetCodeInput) -> Result<EthGetCodeResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getStorageAt")]
-    fn eth_getStorageAt(
+    fn get_storage_at(
         &self,
         input: EthGetStorageAtInput,
     ) -> Result<EthGetStorageAtResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_sendRawTransaction")]
-    fn eth_sendRawTransaction(
+    fn send_raw_transaction(
         &self,
         input: EthSendRawTransactionInput,
     ) -> Result<EthSendRawTransactionResult, jsonrpsee::core::Error>;
@@ -114,7 +108,7 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn eth_call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error> {
+    fn call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error> {
         let EthCallInput {
             transaction_info, ..
         } = input;
@@ -139,16 +133,16 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(data)
     }
 
-    fn eth_accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error> {
+    fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error> {
         // Get from wallet
         Ok(vec![])
     }
 
-    fn eth_getBalance(&self, address: H160) -> Result<U256, jsonrpsee::core::Error> {
+    fn get_balance(&self, address: H160) -> Result<U256, jsonrpsee::core::Error> {
         Ok(self.handler.evm.get_balance(address))
     }
 
-    fn eth_getBlockByHash(
+    fn get_block_by_hash(
         &self,
         input: EthGetBlockByHashInput,
     ) -> Result<BlockAny, jsonrpsee::core::Error> {
@@ -165,7 +159,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             )))
     }
 
-    fn eth_chainId(&self) -> Result<String, jsonrpsee::core::Error> {
+    fn chain_id(&self) -> Result<String, jsonrpsee::core::Error> {
         let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(format!("{:#x}", chain_id))
@@ -177,8 +171,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(format!("{}", chain_id))
     }
 
-    fn eth_blockNumber(&self) -> Result<U256, jsonrpsee::core::Error> {
-        let count = self
+    fn block_number(&self) -> Result<U256, jsonrpsee::core::Error> {
+        let _count = self
             .handler
             .storage
             .get_latest_block()
@@ -189,10 +183,10 @@ impl MetachainRPCServer for MetachainRPCModule {
         // Ok(count)
     }
 
-    fn eth_getBlockByNumber(
+    fn get_block_by_number(
         &self,
         block_number: BlockNumber,
-        full_transaction: bool,
+        _full_transaction: bool,
     ) -> Result<Option<RpcBlock>, jsonrpsee::core::Error> {
         match block_number {
             BlockNumber::Num(number) => {
@@ -230,7 +224,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         }
     }
 
-    fn eth_mining(&self) -> Result<bool, jsonrpsee::core::Error> {
+    fn mining(&self) -> Result<bool, jsonrpsee::core::Error> {
         ain_cpp_imports::is_mining()
             .map_err(|e| jsonrpsee::core::Error::Custom(String::from(e.to_string())))
     }
@@ -279,7 +273,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     //         )))
     // }
 
-    fn eth_getBlockTransactionCountByHash(
+    fn get_block_transaction_count_by_hash(
         &self,
         input: EthGetBlockTransactionCountByHashInput,
     ) -> Result<EthGetBlockTransactionCountByHashResult, jsonrpsee::core::Error> {
@@ -294,7 +288,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn eth_getBlockTransactionCountByNumber(
+    fn get_block_transaction_count_by_number(
         &self,
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee::core::Error> {
@@ -309,10 +303,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn eth_getCode(
-        &self,
-        input: EthGetCodeInput,
-    ) -> Result<EthGetCodeResult, jsonrpsee::core::Error> {
+    fn get_code(&self, input: EthGetCodeInput) -> Result<EthGetCodeResult, jsonrpsee::core::Error> {
         let EthGetCodeInput { address, .. } = input;
 
         let address = address.parse().expect("Invalid address");
@@ -323,7 +314,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn eth_getStorageAt(
+    fn get_storage_at(
         &self,
         input: EthGetStorageAtInput,
     ) -> Result<EthGetStorageAtResult, jsonrpsee::core::Error> {
@@ -342,7 +333,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn eth_sendRawTransaction(
+    fn send_raw_transaction(
         &self,
         input: EthSendRawTransactionInput,
     ) -> Result<EthSendRawTransactionResult, jsonrpsee::core::Error> {

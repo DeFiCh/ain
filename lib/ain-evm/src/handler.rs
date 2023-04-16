@@ -15,6 +15,12 @@ pub struct Handlers {
     pub storage: Storage,
 }
 
+impl Default for Handlers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Handlers {
     pub fn new() -> Self {
         Self {
@@ -53,10 +59,7 @@ impl Handlers {
 
         let (parent_hash, number) = {
             self.storage
-                .get_latest_block()
-                .and_then(|first_block| {
-                    Some((first_block.header.hash(), first_block.header.number + 1))
-                })
+                .get_latest_block().map(|first_block| (first_block.header.hash(), first_block.header.number + 1))
                 .unwrap_or((H256::default(), U256::zero()))
         };
 
@@ -68,7 +71,7 @@ impl Handlers {
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
                 difficulty: Default::default(),
-                number: U256::from(number),
+                number,
                 gas_limit: Default::default(),
                 gas_used: Default::default(),
                 timestamp: SystemTime::now()
