@@ -6,8 +6,9 @@ use crate::codegen::rpc::{
         EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
         EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
         EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
-        EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
-        EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo,
+        EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput,
+        EthHashRateResult, EthMiningResult, EthSendRawTransactionInput,
+        EthSendRawTransactionResult, EthTransactionInfo,
     },
     EthService,
 };
@@ -38,6 +39,8 @@ pub trait EthServiceApi {
     ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
 
     fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+
+    fn Eth_Hashrate(_handler: Arc<Handlers>) -> Result<EthHashRateResult, jsonrpsee_core::Error>;
 
     fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
 
@@ -162,6 +165,12 @@ impl EthServiceApi for EthService {
 
         Ok(EthChainIdResult {
             id: format!("{:#x}", chain_id),
+        })
+    }
+
+    fn Eth_Hashrate(_handler: Arc<Handlers>) -> Result<EthHashRateResult, jsonrpsee_core::Error> {
+        Ok(EthHashRateResult {
+            hash_rate: "0".parse().unwrap(),
         })
     }
 
