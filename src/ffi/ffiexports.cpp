@@ -56,7 +56,9 @@ rust::vec<rust::string> getAccounts() {
     std::vector<std::shared_ptr<CWallet>> const wallets = GetWallets();
     for (const std::shared_ptr<CWallet>& wallet : wallets) {
         for (auto & it : wallet->mapAddressBook)
-            addresses.push_back(EncodeDestination(it.first));
+            if (std::holds_alternative<WitnessV16EthHash>(it.first)) {
+                addresses.push_back(EncodeDestination(it.first));
+            }
     }
     return addresses;
 }
