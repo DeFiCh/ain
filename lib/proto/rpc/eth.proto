@@ -48,4 +48,6 @@ service eth {
   rpc Eth_GetStorageAt(types.EthGetStorageAtInput) returns (types.EthGetStorageAtResult);
 
   rpc Eth_SendRawTransaction(types.EthSendRawTransactionInput) returns (types.EthSendRawTransactionResult);
+
+  rpc Eth_GetTransactionCount(types.EthGetTransactionCountInput) returns (types.EthGetTransactionCountResult);
 }

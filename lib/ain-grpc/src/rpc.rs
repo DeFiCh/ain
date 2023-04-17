@@ -6,7 +6,8 @@ use crate::codegen::rpc::{
         EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
         EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
         EthGetStorageAtInput, EthGetStorageAtResult, EthGetTransactionByBlockHashAndIndexInput,
-        EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput, EthMiningResult,
+        EthGetTransactionByBlockNumberAndIndexInput, EthGetTransactionByHashInput,
+        EthGetTransactionCountInput, EthGetTransactionCountResult, EthMiningResult,
         EthSendRawTransactionInput, EthSendRawTransactionResult, EthTransactionInfo,
     },
     EthService,
@@ -91,6 +92,11 @@ pub trait EthServiceApi {
         handler: Arc<Handlers>,
         input: EthSendRawTransactionInput,
     ) -> Result<EthSendRawTransactionResult, jsonrpsee_core::Error>;
+
+    fn Eth_GetTransactionCount(
+        handler: Arc<Handlers>,
+        input: EthGetTransactionCountInput,
+    ) -> Result<EthGetTransactionCountResult, jsonrpsee_core::Error>;
 }
 
 #[allow(non_snake_case)]
@@ -290,8 +296,14 @@ impl EthServiceApi for EthService {
         let address = address.parse().expect("Invalid address");
         let code = handler.evm.get_code(address);
 
+        if code.len() == 0 {
+            return Ok(EthGetCodeResult {
+                code: String::from("0x"),
+            });
+        }
+
         Ok(EthGetCodeResult {
-            code: format!("{:#x?}", code),
+            code: hex::encode(code),
         })
     }
 
@@ -327,6 +339,20 @@ impl EthServiceApi for EthService {
 
         Ok(EthSendRawTransactionResult {
             hash: format!("{stat}"),
+        })
+    }
+
+    fn Eth_GetTransactionCount(
+        handler: Arc<Handlers>,
+        input: EthGetTransactionCountInput,
+    ) -> Result<EthGetTransactionCountResult, jsonrpsee_core::Error> {
+        let EthGetTransactionCountInput { address, .. } = input;
+
+        let address = address.parse().expect("Invalid address");
+        let nonce = handler.evm.get_nonce(address);
+
+        Ok(EthGetTransactionCountResult {
+            number_transaction: format!("{:#x}", nonce),
         })
     }
 }
