@@ -673,8 +673,6 @@ def fund_tx(node, address, amount):
     return missing_auth_tx, missing_input_vout
 
 
-# Create a spend of each passed-in utxo, splicing in "txouts" to each raw
-# transaction to make it large.  See gen_return_txouts() above.
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     """
     Create a spend of each passed-in utxo, splicing in "txouts" to each raw transaction to make
