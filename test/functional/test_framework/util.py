@@ -217,6 +217,11 @@ def satoshi_round(amount):
     return Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
 
 
+def get_decimal_amount(amount):
+    account_tmp = amount.split('@')[0]
+    return Decimal(account_tmp)
+
+
 def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
     if attempts == float('inf') and timeout == float('inf'):
         timeout = 60
@@ -710,8 +715,3 @@ def token_index_in_account(account, symbol):
         if symbol in account[id]:
             return id
     return -1
-
-
-def get_decimal_amount(amount):
-    account_tmp = amount.split('@')[0]
-    return Decimal(account_tmp)
