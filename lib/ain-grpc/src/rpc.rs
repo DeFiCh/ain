@@ -125,8 +125,8 @@ impl EthServiceApi for EthService {
     }
 
     fn Eth_Accounts(_handler: Arc<Handlers>) -> Result<EthAccountsResult, jsonrpsee_core::Error> {
-        // Get from wallet
-        Ok(EthAccountsResult { accounts: vec![] })
+        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        Ok(EthAccountsResult { accounts })
     }
 
     fn Eth_GetBalance(
