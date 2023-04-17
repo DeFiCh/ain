@@ -18,7 +18,7 @@ use std::sync::Arc;
 #[rpc(server)]
 pub trait MetachainRPC {
     #[method(name = "eth_call")]
-    fn call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error>;
+    fn call(&self, input: EthTransactionInfo) -> Result<Vec<u8>, jsonrpsee::core::Error>;
 
     #[method(name = "eth_accounts")]
     fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error>;
@@ -82,7 +82,7 @@ pub trait MetachainRPC {
     ) -> Result<EthGetBlockTransactionCountByNumberResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getCode")]
-    fn get_code(&self, input: EthGetCodeInput) -> Result<EthGetCodeResult, jsonrpsee::core::Error>;
+    fn get_code(&self, address: String) -> Result<String, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getStorageAt")]
     fn get_storage_at(
@@ -93,8 +93,19 @@ pub trait MetachainRPC {
     #[method(name = "eth_sendRawTransaction")]
     fn send_raw_transaction(
         &self,
-        input: EthSendRawTransactionInput,
+        input: String,
     ) -> Result<EthSendRawTransactionResult, jsonrpsee::core::Error>;
+
+    #[method(name = "eth_getTransactionCount")]
+    fn get_transaction_count(
+        &self,
+        input: String
+    ) -> Result<String, jsonrpsee::core::Error>;
+
+    #[method(name = "eth_estimateGas")]
+    fn estimate_gas(
+        &self
+    ) -> Result<String, jsonrpsee::core::Error>;
 }
 
 pub struct MetachainRPCModule {
@@ -108,10 +119,7 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, input: EthCallInput) -> Result<Vec<u8>, jsonrpsee::core::Error> {
-        let EthCallInput {
-            transaction_info, ..
-        } = input;
+    fn call(&self, input: EthTransactionInfo) -> Result<Vec<u8>, jsonrpsee::core::Error> {
         let EthTransactionInfo {
             from,
             to,
@@ -119,11 +127,12 @@ impl MetachainRPCServer for MetachainRPCModule {
             value,
             data,
             ..
-        } = transaction_info.expect("TransactionInfo is required");
+        } = input;
 
-        let from = from.parse().ok();
+        let from = from.map(|addr| addr.parse::<H160>().expect("Wrong `from` address format"));
         let to = to.map(|addr| addr.parse::<H160>().expect("Wrong `to` address format"));
-        let value: U256 = value.parse().expect("Wrong value format");
+        let value: U256 = value.map(|addr| addr.parse::<U256>().expect("Wrong `value` address format")).unwrap_or_default();
+        let gas: u64 = gas.unwrap_or_default();
 
         let (_, data) = self
             .handler
@@ -172,15 +181,14 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn block_number(&self) -> Result<U256, jsonrpsee::core::Error> {
-        let _count = self
+        let count = self
             .handler
             .storage
             .get_latest_block()
             .map(|block| block.header.number)
             .unwrap_or_default();
 
-        Ok(U256::from(1))
-        // Ok(count)
+        Ok(count)
     }
 
     fn get_block_by_number(
@@ -303,15 +311,15 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn get_code(&self, input: EthGetCodeInput) -> Result<EthGetCodeResult, jsonrpsee::core::Error> {
-        let EthGetCodeInput { address, .. } = input;
-
+    fn get_code(&self, address: String) -> Result<String, jsonrpsee::core::Error> {
         let address = address.parse().expect("Invalid address");
         let code = self.handler.evm.get_code(address);
 
-        Ok(EthGetCodeResult {
-            code: format!("{:#x?}", code),
-        })
+        if code.len() == 0 {
+            return Ok(format!("0x"));
+        }
+
+        Ok(format!("{:#x?}", code))
     }
 
     fn get_storage_at(
@@ -335,11 +343,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn send_raw_transaction(
         &self,
-        input: EthSendRawTransactionInput,
+        input: String,
     ) -> Result<EthSendRawTransactionResult, jsonrpsee::core::Error> {
-        let EthSendRawTransactionInput { transaction } = input;
-
-        let hex = hex::decode(transaction).expect("Invalid transaction");
+        let hex = hex::decode(input).expect("Invalid transaction");
         let stat = publish_eth_transaction(hex).unwrap();
 
         println!("{stat}");
@@ -347,5 +353,21 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(EthSendRawTransactionResult {
             hash: format!("{stat}"),
         })
+    }
+
+    fn get_transaction_count(
+        &self,
+        input: String
+    ) -> Result<String, jsonrpsee::core::Error> {
+        let input = input.parse().expect("Invalid address");
+        let nonce = self.handler.evm.get_nonce(input);
+
+        Ok(format!("{:#x}", nonce))
+    }
+
+    fn estimate_gas(
+        &self
+    ) -> Result<String, jsonrpsee::core::Error> {
+        Ok(format!("{:#x}", 21000))
     }
 }
