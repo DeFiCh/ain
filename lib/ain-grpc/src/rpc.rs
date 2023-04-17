@@ -170,7 +170,7 @@ impl EthServiceApi for EthService {
 
     fn Eth_Hashrate(_handler: Arc<Handlers>) -> Result<EthHashRateResult, jsonrpsee_core::Error> {
         Ok(EthHashRateResult {
-            hash_rate: "0".parse().unwrap(),
+            hash_rate: "0x0".parse().unwrap(),
         })
     }
 
