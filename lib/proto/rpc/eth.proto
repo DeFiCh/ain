@@ -5,47 +5,5 @@ import "google/protobuf/empty.proto";
 import "types/eth.proto";
 
 service eth {
-  /// Returns eth_accounts list.
-  rpc Eth_Accounts(google.protobuf.Empty) returns (types.EthAccountsResult);
 
-  /// Call contract, returning the output data. Does not create a transaction.
-  rpc Eth_Call(types.EthCallInput) returns (types.EthCallResult);
-
-  /// Returns the balance for the given address.
-  rpc Eth_GetBalance(types.EthGetBalanceInput) returns (types.EthGetBalanceResult);
-
-  rpc Eth_GetBlockByHash(types.EthGetBlockByHashInput) returns (types.EthBlockInfo);
-
-  /// [ignore]
-  /// Returns the balance for the given address.
-  rpc Eth_SendTransaction(types.EthSendTransactionInput) returns (types.EthSendTransactionResult);
-
-  rpc Eth_ChainId(google.protobuf.Empty) returns (types.EthChainIdResult);
-
-  rpc Net_Version(google.protobuf.Empty) returns (types.EthChainIdResult);
-
-  rpc Eth_BlockNumber(google.protobuf.Empty) returns (types.EthBlockNumberResult);
-
-  rpc Eth_GetBlockByNumber(types.EthGetBlockByNumberInput) returns (types.EthBlockInfo);
-
-  /// Returns the information about a transaction from a transaction hash.
-  rpc Eth_GetTransactionByHash(types.EthGetTransactionByHashInput) returns (types.EthTransactionInfo);
-
-  /// Returns information about a transaction given a blockhash and transaction index position.
-  rpc Eth_GetTransactionByBlockHashAndIndex(types.EthGetTransactionByBlockHashAndIndexInput) returns (types.EthTransactionInfo);
-
-  /// Returns information about a transaction given a block number and transaction index position.
-  rpc Eth_GetTransactionByBlockNumberAndIndex(types.EthGetTransactionByBlockNumberAndIndexInput) returns (types.EthTransactionInfo);
-
-  rpc Eth_Mining(google.protobuf.Empty) returns (types.EthMiningResult);
-
-  rpc Eth_GetBlockTransactionCountByHash(types.EthGetBlockTransactionCountByHashInput) returns (types.EthGetBlockTransactionCountByHashResult);
-
-  rpc Eth_GetBlockTransactionCountByNumber(types.EthGetBlockTransactionCountByNumberInput) returns (types.EthGetBlockTransactionCountByNumberResult);
-
-  rpc Eth_GetCode(types.EthGetCodeInput) returns (types.EthGetCodeResult);
-
-  rpc Eth_GetStorageAt(types.EthGetStorageAtInput) returns (types.EthGetStorageAtResult);
-
-  rpc Eth_SendRawTransaction(types.EthSendRawTransactionInput) returns (types.EthSendRawTransactionResult);
 }

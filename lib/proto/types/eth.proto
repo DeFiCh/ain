@@ -11,7 +11,7 @@ message EthTransactionInfo {
     optional uint64 gas = 3; // The integer of gas provided for the transaction execution
     optional string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
     optional string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
-    optional string data = 6; // The hash of the method signature and encoded parameters.
+    string data = 6; // The hash of the method signature and encoded parameters.
     optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
 }
 
@@ -61,7 +61,7 @@ message EthTransactionReceipt {
 
 message EthCallInput {
     EthTransactionInfo transactionInfo = 1; // Transaction info
-    string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+    optional string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
 message EthCallResult {
@@ -198,8 +198,12 @@ message EthGetBlockByHashResult {
     EthBlockInfo blockInfo = 1;
 }
 
+message BlockNumber {
+    string blockNumber = 1;
+}
+
 message EthGetBlockByNumberInput {
-    string number = 1;
+    BlockNumber blockNumber = 1;
     bool fullTransaction = 2;
 }
 

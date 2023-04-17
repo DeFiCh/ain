@@ -2835,37 +2835,38 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     mnview.SetLastHeight(pindex->nHeight);
 
     if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
-        CKeyID minter;
-        block.ExtractMinterKey(minter);
-        const auto id = mnview.GetMasternodeIdByOperator(minter);
-        assert(id);
-        const auto node = mnview.GetMasternode(*id);
-        assert(node);
-
-        auto height = node->creationHeight;
-        uint256 mnID = *id;
-        if (!node->collateralTx.IsNull()) {
-            const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
-            assert(idHeight);
-            height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
-            mnID = node->collateralTx;
-        }
+//        CKeyID minter;
+//        block.ExtractMinterKey(minter);
+//        const auto id = mnview.GetMasternodeIdByOperator(minter);
+//        assert(id);
+//        const auto node = mnview.GetMasternode(*id);
+//        assert(node);
+//
+//        auto height = node->creationHeight;
+//        uint256 mnID = *id;
+//        if (!node->collateralTx.IsNull()) {
+//            const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
+//            assert(idHeight);
+//            height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+//            mnID = node->collateralTx;
+//        }
         
-        const auto blockindex = ::ChainActive()[height];
-        assert(blockindex);
-        CTransactionRef tx;
-        uint256 hash_block;
-        assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
-        assert(tx->vout.size() >= 2);
+//        const auto blockindex = ::ChainActive()[height];
+//        assert(blockindex);
+//        CTransactionRef tx;
+//        uint256 hash_block;
+//        assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+//        assert(tx->vout.size() >= 2);
 
-        CTxDestination dest;
-        assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
-        assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
+//        CTxDestination dest;
+//        assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+//        assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
-        const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-        std::array<uint8_t, 20> minerAddress{};
-        std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
-        evm_finalise(evmContext, true, minerAddress);
+//        const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+//        std::array<uint8_t, 20> minerAddress{};
+//        std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
+        std::array<uint8_t, 20> x {};
+        evm_finalise(evmContext, true, x);
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;

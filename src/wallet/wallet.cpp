@@ -289,7 +289,7 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal, const bool et
 
     // Create new metadata
     int64_t nCreationTime = GetTime();
-    CKeyMetadata metadata(nCreationTime);
+    CKeyMetadata metadata(nCreationTime, ethAddress);
 
     // use HD key derivation if HD was enabled during wallet creation and a seed is present
     if (IsHDEnabled()) {
@@ -306,7 +306,8 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal, const bool et
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    mapKeyMetadata[pubkey.GetID()] = metadata;
+    const auto keyID = ethAddress ? pubkey.GetEthID() : pubkey.GetID();
+    mapKeyMetadata[keyID] = metadata;
     UpdateTimeFirstKey(nCreationTime);
 
     if (!AddKeyPubKeyWithDB(batch, secret, pubkey, ethAddress)) {
@@ -408,9 +409,11 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     }
 
     if (!IsCrypted()) {
+        const auto keyID = ethAddress ? pubkey.GetEthID() : pubkey.GetID();
         return batch.WriteKey(pubkey,
                               secret.GetPrivKey(),
-                              mapKeyMetadata[pubkey.GetID()]);
+                              mapKeyMetadata[keyID],
+                              ethAddress);
     }
     UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
@@ -423,20 +426,22 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey, const bool
 }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
-                            const std::vector<unsigned char> &vchCryptedSecret)
+                            const std::vector<unsigned char> &vchCryptedSecret,
+                            const bool ethAddress)
 {
-    if (!AddCryptedKeyInner(vchPubKey, vchCryptedSecret))
+    if (!AddCryptedKeyInner(vchPubKey, vchCryptedSecret, ethAddress))
         return false;
     {
         LOCK(cs_wallet);
+        const auto keyID = ethAddress ? vchPubKey.GetEthID() : vchPubKey.GetID();
         if (encrypted_batch)
             return encrypted_batch->WriteCryptedKey(vchPubKey,
                                                         vchCryptedSecret,
-                                                        mapKeyMetadata[vchPubKey.GetID()]);
+                                                        mapKeyMetadata[keyID]);
         else
             return WalletBatch(*database).WriteCryptedKey(vchPubKey,
                                                             vchCryptedSecret,
-                                                            mapKeyMetadata[vchPubKey.GetID()]);
+                                                            mapKeyMetadata[keyID]);
     }
 }
 
@@ -5024,21 +5029,22 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const bo
         return false;
     }
 
-    if (!AddCryptedKey(pubkey, vchCryptedSecret)) {
+    if (!AddCryptedKey(pubkey, vchCryptedSecret, ethAddress)) {
         return false;
     }
     return true;
 }
 
 
-bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret)
+bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret, const bool ethAddress)
 {
     LOCK(cs_KeyStore);
     if (!SetCrypted()) {
         return false;
     }
 
-    mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+    const auto keyID = ethAddress ? vchPubKey.GetEthID() : vchPubKey.GetID();
+    mapCryptedKeys[keyID] = make_pair(vchPubKey, vchCryptedSecret);
     ImplicitlyLearnRelatedKeyScripts(vchPubKey);
     return true;
 }

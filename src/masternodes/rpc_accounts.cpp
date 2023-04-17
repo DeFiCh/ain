@@ -254,11 +254,16 @@ static BalanceKey decodeBalanceKey(const std::string &str) {
     return {hexToScript(pair.first), tokenID};
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+static UniValue DecodeRecipientsGetRecipients(const UniValue &values) {
     UniValue recipients(UniValue::VOBJ);
     for (const auto& key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
     }
+    return recipients;
+}
+
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+    const auto recipients = DecodeRecipientsGetRecipients(values);
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
     for (const auto& account : accounts) {
         if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
@@ -1992,10 +1997,13 @@ UniValue transferbalance(const JSONRPCRequest& request) {
         else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
 
-        if (!request.params[2].isNull())
-            msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[2].get_obj());
-        else
+        if (!request.params[2].isNull()){
+            const auto recipients = DecodeRecipientsGetRecipients(request.params[2].get_obj());
+            const auto accounts = DecodeRecipients(pwallet->chain(), recipients);
+            msg.to = accounts;
+        } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"to\" must not be null");
+        }
     } catch(std::runtime_error& e) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
     }
@@ -2014,17 +2022,17 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    if (msg.type != CTransferBalanceType::EvmOut)
-        for(auto& address : msg.from)
+    if (msg.type != CTransferBalanceType::EvmOut) {
+        for(auto& address : msg.from){
             auths.insert(address.first);
-    else
-        for(auto& address : msg.from)
-            if (IsMine(*pwallet, address.first))
-            {
-                const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
-                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
-                auths.insert(auth);
-            }
+        }
+    } else {
+        for(auto& address : msg.from) {
+            const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+            const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+            auths.insert(auth);
+        }
+    }
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);

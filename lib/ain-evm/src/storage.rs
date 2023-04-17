@@ -8,6 +8,12 @@ pub struct Storage {
 }
 
 // TODO : Add DB and pull from DB when cache miss
+impl Default for Storage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Storage {
     pub fn new() -> Self {
         Self {
