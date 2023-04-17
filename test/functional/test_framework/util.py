@@ -689,6 +689,9 @@ def find_vout_for_address(node, txid, addr):
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
 
 
+# Token functions
+#############################
+
 def get_id_token(node, symbol):
     """
     Get the token ID
