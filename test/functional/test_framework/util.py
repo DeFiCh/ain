@@ -622,3 +622,18 @@ def get_id_token(node, symbol):
     for idx, token in list_tokens.items():
         if (token["symbol"] == symbol):
             return str(idx)
+
+
+def token_index_in_account(account, symbol):
+    """
+    Get token id in a given account
+    """
+    for id in range(len(account)):
+        if symbol in account[id]:
+            return id
+    return -1
+
+
+def get_decimal_amount(amount):
+    account_tmp = amount.split('@')[0]
+    return Decimal(account_tmp)
