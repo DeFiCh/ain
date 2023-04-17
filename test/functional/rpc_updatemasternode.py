@@ -7,6 +7,9 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    list_unspent_tx,
+    unspent_amount,
+    fund_tx,
 )
 from decimal import Decimal
 
@@ -24,35 +27,6 @@ class TestForcedRewardAddress(DefiTestFramework):
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
-
-    @staticmethod
-    def list_unspent_tx(node, address):
-        result = []
-        vals = node.listunspent()
-        for i in range(0, len(vals)):
-            if vals[i]['address'] == address:
-                result.append(vals[i])
-        return result
-
-    @staticmethod
-    def unspent_amount(node, address):
-        result = 0
-        vals = node.listunspent()
-        for i in range(0, len(vals)):
-            if vals[i]['address'] == address:
-                result += vals[i]['amount']
-        return result
-
-    def fund_tx(self, address, amount):
-        missing_auth_tx = self.nodes[0].sendtoaddress(address, amount)
-        count, missing_input_vout = 0, 0
-        for vout in self.nodes[0].getrawtransaction(missing_auth_tx, 1)['vout']:
-            if vout['scriptPubKey']['addresses'][0] == address:
-                missing_input_vout = count
-                break
-            count += 1
-        self.nodes[0].generate(1)
-        return missing_auth_tx, missing_input_vout
 
     def transfer_owner(self, mn_id):
         # Get current collateral
@@ -245,8 +219,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress': forced_reward_address})
         self.nodes[0].generate(11)
 
-        fra_amount = self.unspent_amount(self.nodes[0], forced_reward_address)
-        fra_unspent = self.list_unspent_tx(self.nodes[0], forced_reward_address)
+        fra_amount = unspent_amount(self.nodes[0], forced_reward_address)
+        fra_unspent = list_unspent_tx(self.nodes[0], forced_reward_address)
         assert_equal(len(fra_unspent), 0)
         assert_equal(fra_amount, 0)
 
@@ -260,8 +234,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress': ''})
         self.nodes[0].generate(1)
 
-        assert (len(self.list_unspent_tx(self.nodes[0], forced_reward_address)) > len(fra_unspent))
-        assert (self.unspent_amount(self.nodes[0], forced_reward_address) > fra_amount)
+        assert (len(list_unspent_tx(self.nodes[0], forced_reward_address)) > len(fra_unspent))
+        assert (unspent_amount(self.nodes[0], forced_reward_address) > fra_amount)
 
         # CLI Reward address for test -rewardaddress
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
@@ -271,16 +245,16 @@ class TestForcedRewardAddress(DefiTestFramework):
                            '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50',
                            '-grandcentralheight=1'])
 
-        cra_unspent = self.list_unspent_tx(self.nodes[0], cli_reward_address)
-        cra_amount = self.unspent_amount(self.nodes[0], cli_reward_address)
+        cra_unspent = list_unspent_tx(self.nodes[0], cli_reward_address)
+        cra_amount = unspent_amount(self.nodes[0], cli_reward_address)
         assert_equal(len(cra_unspent), 0)
         assert_equal(cra_amount, 0)
 
         # Mine blocks
         self.nodes[0].generate(400)
 
-        assert (len(self.list_unspent_tx(self.nodes[0], cli_reward_address)) > len(fra_unspent))
-        assert (self.unspent_amount(self.nodes[0], cli_reward_address) > fra_amount)
+        assert (len(list_unspent_tx(self.nodes[0], cli_reward_address)) > len(fra_unspent))
+        assert (unspent_amount(self.nodes[0], cli_reward_address) > fra_amount)
 
         # Test updating operator and reward address simultaniously
         new_operator_address = self.nodes[0].getnewaddress("", "legacy")
@@ -326,9 +300,9 @@ class TestForcedRewardAddress(DefiTestFramework):
         # Set up input / output tests
         not_collateral = self.nodes[0].getnewaddress("", "legacy")
         owner_address = self.nodes[0].getnewaddress("", "legacy")
-        [not_collateral_tx, not_collateral_vout] = self.fund_tx(not_collateral, 10)
-        [missing_auth_tx, missing_input_vout] = self.fund_tx(mn_owner, 0.1)
-        [owner_auth_tx, owner_auth_vout] = self.fund_tx(owner_address, 0.1)
+        [not_collateral_tx, not_collateral_vout] = fund_tx(self.nodes[0], not_collateral, 10)
+        [missing_auth_tx, missing_input_vout] = fund_tx(self.nodes[0], mn_owner, 0.1)
+        [owner_auth_tx, owner_auth_vout] = fund_tx(self.nodes[0], owner_address, 0.1)
 
         # Get TX to use OP_RETURN output
         missing_tx = self.nodes[0].updatemasternode(mn_id, {'ownerAddress': owner_address})

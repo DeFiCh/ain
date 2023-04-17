@@ -634,6 +634,45 @@ def find_spendable_utxo(node, min_value):
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
 
 
+def list_unspent_tx(node, address):
+    """
+    Return list of spendable utxos in an address.
+    """
+    result = []
+    vals = node.listunspent()
+    for i in range(0, len(vals)):
+        if vals[i]['address'] == address:
+            result.append(vals[i])
+    return result
+
+
+def unspent_amount(node, address):
+    """
+    Get the total spendable amount in an address.
+    """
+    result = 0
+    vals = node.listunspent()
+    for i in range(0, len(vals)):
+        if vals[i]['address'] == address:
+            result += vals[i]['amount']
+    return result
+
+
+def fund_tx(node, address, amount):
+    """
+    Create and send new utxo of the specified amount to address.
+    """
+    missing_auth_tx = node.sendtoaddress(address, amount)
+    count, missing_input_vout = 0, 0
+    for vout in node.getrawtransaction(missing_auth_tx, 1)['vout']:
+        if vout['scriptPubKey']['addresses'][0] == address:
+            missing_input_vout = count
+            break
+        count += 1
+    node.generate(1)
+    return missing_auth_tx, missing_input_vout
+
+
 # Create a spend of each passed-in utxo, splicing in "txouts" to each raw
 # transaction to make it large.  See gen_return_txouts() above.
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
