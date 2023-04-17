@@ -1,6 +1,8 @@
 #include <ffi/ffiexports.h>
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
+#include <key_io.h>
+
 
 uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
@@ -47,4 +49,16 @@ bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     }
 
     return true;
+}
+
+rust::vec<rust::string> getAccounts() {
+    rust::vec<rust::string> addresses;
+    std::vector<std::shared_ptr<CWallet>> const wallets = GetWallets();
+    for (const std::shared_ptr<CWallet>& wallet : wallets) {
+        for (auto & it : wallet->mapAddressBook)
+            if (std::holds_alternative<WitnessV16EthHash>(it.first)) {
+                addresses.push_back(EncodeDestination(it.first));
+            }
+    }
+    return addresses;
 }

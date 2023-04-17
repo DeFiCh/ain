@@ -8,6 +8,7 @@ mod ffi {
         fn getChainId() -> u64;
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> bool;
+        fn getAccounts() -> Vec<String>;
     }
 }
 
@@ -24,4 +25,9 @@ pub fn is_mining() -> Result<bool, Box<dyn Error>> {
 pub fn publish_eth_transaction(data: Vec<u8>) -> Result<bool, Box<dyn Error>> {
     let publish = ffi::publishEthTransaction(data);
     Ok(publish)
+}
+
+pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
+    let accounts = ffi::getAccounts();
+    Ok(accounts)
 }
