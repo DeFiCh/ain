@@ -260,11 +260,11 @@ static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const U
         recipients.pushKV(key, values[key]);
     }
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
-    for (const auto& account : accounts) {
-        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
-        }
-    }
+//    for (const auto& account : accounts) {
+//        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
+//            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
+//        }
+//    }
     return accounts;
 }
 
@@ -2018,13 +2018,14 @@ UniValue transferbalance(const JSONRPCRequest& request) {
         for(auto& address : msg.from)
             auths.insert(address.first);
     else
-        for(auto& address : msg.from)
-            if (IsMine(*pwallet, address.first))
-            {
-                const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
-                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
-                auths.insert(auth);
-            }
+        for(auto& address : msg.from) {
+//            if (IsMine(*pwallet, address.first))
+//            {
+            const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+            const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+            auths.insert(auth);
+//            }
+        }
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);

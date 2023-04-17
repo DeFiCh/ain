@@ -633,7 +633,7 @@ public:
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
+        consensus.NextNetworkUpgradeHeight = 1457350;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
