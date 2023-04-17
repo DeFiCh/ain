@@ -72,11 +72,11 @@ class PoolPairCompositeTest(DefiTestFramework):
         CommonFixture.setup_default_tokens(self, tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDOGE = "DOGE#" + get_id_token("DOGE")
-        symbolTSLA = "TSLA#" + get_id_token("TSLA")
-        symbolDUSD = "DUSD#" + get_id_token("DUSD")
-        symbolLTC = "LTC#" + get_id_token("LTC")
-        symbolUSDC = "USDC#" + get_id_token("USDC")
+        symbolDOGE = "DOGE#" + get_id_token(self.nodes[0], "DOGE")
+        symbolTSLA = "TSLA#" + get_id_token(self.nodes[0], "TSLA")
+        symbolDUSD = "DUSD#" + get_id_token(self.nodes[0], "DUSD")
+        symbolLTC = "LTC#" + get_id_token(self.nodes[0], "LTC")
+        symbolUSDC = "USDC#" + get_id_token(self.nodes[0], "USDC")
 
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]

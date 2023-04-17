@@ -49,8 +49,8 @@ class PoolLiquidityTest(DefiTestFramework):
         self.stop_node(2)
         connect_nodes_bi(self.nodes, 0, 3)
 
-        symbolGOLD = "GOLD#" + get_id_token("GOLD")
-        symbolSILVER = "SILVER#" + get_id_token("SILVER")
+        symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
 
         idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
         idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]

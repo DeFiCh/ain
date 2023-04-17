@@ -41,8 +41,8 @@ class PoolPairTest(DefiTestFramework):
     def setup(self):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
         CommonFixture.setup_default_tokens(self)
-        self.symbolGOLD = "GOLD#" + get_id_token("GOLD")
-        self.symbolSILVER = "SILVER#" + get_id_token("SILVER")
+        self.symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        self.symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
         self.idGold = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
         self.idSilver = list(self.nodes[0].gettoken(self.symbolSILVER).keys())[0]
 
