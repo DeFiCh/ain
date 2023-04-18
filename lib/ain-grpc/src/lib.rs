@@ -3,6 +3,7 @@ extern crate serde;
 extern crate serde_json;
 
 mod block;
+mod call_request;
 mod codegen;
 mod impls;
 pub mod rpc;

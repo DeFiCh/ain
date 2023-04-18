@@ -251,7 +251,7 @@ fn modify_codegen(_methods: HashMap<String, Vec<Rpc>>, types_path: &Path) {
 
     let syntax_tree: syn::File = syn::parse2(structs).unwrap();
     let pretty = prettyplease::unparse(&syntax_tree);
-    contents.push_str(&pretty.to_string());
+    contents.push_str(&pretty);
     File::create(types_path)
         .unwrap()
         .write_all(contents.as_bytes())

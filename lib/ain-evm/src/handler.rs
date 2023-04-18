@@ -60,7 +60,7 @@ impl Handlers {
         let (parent_hash, number) = {
             self.storage
                 .get_latest_block()
-                .map(|first_block| (first_block.header.hash(), first_block.header.number + 1))
+                .map(|latest_block| (latest_block.header.hash(), latest_block.header.number + 1))
                 .unwrap_or((H256::default(), U256::zero()))
         };
 
