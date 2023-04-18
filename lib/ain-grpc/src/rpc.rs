@@ -37,7 +37,7 @@ pub trait MetachainRPC {
     fn chain_id(&self) -> Result<String>;
 
     #[method(name = "eth_hashrate")]
-    fn hash_rate(&self) -> Result<String, jsonrpsee::core::Error>;
+    fn hash_rate(&self) -> Result<String>;
 
     #[method(name = "net_version")]
     fn net_version(&self) -> Result<String>;
