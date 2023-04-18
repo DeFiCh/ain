@@ -1,9 +1,8 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::codegen::types::{
-    EthCallInput, EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
+    EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
     EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
-    EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
-    EthGetStorageAtInput, EthGetStorageAtResult, EthSendRawTransactionInput,
+    EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
     EthSendRawTransactionResult, EthTransactionInfo,
 };
 
@@ -124,17 +123,14 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
-        let from = from.map(|addr| addr.parse::<H160>().expect("Wrong `from` address format"));
+        let from = from.parse::<H160>().expect("Wrong `from` address format");
         let to = to.map(|addr| addr.parse::<H160>().expect("Wrong `to` address format"));
-        let value: U256 = value
-            .map(|addr| addr.parse::<U256>().expect("Wrong `value` address format"))
-            .unwrap_or_default();
-        let gas: u64 = gas.unwrap_or_default();
+        let value: U256 = value.parse::<U256>().expect("Wrong `value` address format");
 
         let (_, data) = self
             .handler
             .evm
-            .call(from, to, value, data.as_bytes(), gas, vec![]);
+            .call(Some(from), to, value, data.as_bytes(), gas, vec![]);
 
         Ok(hex::encode(data))
     }
@@ -210,7 +206,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                                     receipts_root: Default::default(),
                                     logs_bloom: Default::default(),
                                     difficulty: Default::default(),
-                                    number: U256::from(number),
+                                    number,
                                     gas_limit: Default::default(),
                                     gas_used: Default::default(),
                                     timestamp: Default::default(),
@@ -230,8 +226,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn mining(&self) -> Result<bool, jsonrpsee::core::Error> {
-        ain_cpp_imports::is_mining()
-            .map_err(|e| jsonrpsee::core::Error::Custom(String::from(e.to_string())))
+        ain_cpp_imports::is_mining().map_err(|e| jsonrpsee::core::Error::Custom(e.to_string()))
     }
 
     // fn eth_GetTransactionByHash(
@@ -312,8 +307,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         let address = address.parse().expect("Invalid address");
         let code = self.handler.evm.get_code(address);
 
-        if code.len() == 0 {
-            return Ok(format!("0x"));
+        if code.is_empty() {
+            return Ok(String::from("0x"));
         }
 
         Ok(format!("{:#x?}", code))

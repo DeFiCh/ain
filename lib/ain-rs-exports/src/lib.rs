@@ -95,7 +95,7 @@ use rlp::Encodable;
 fn evm_finalise(
     context: u64,
     update_state: bool,
-    miner_address: [u8; 20],
+    _miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
     let eth_address = H160::zero();
     let (block, _failed_tx) =

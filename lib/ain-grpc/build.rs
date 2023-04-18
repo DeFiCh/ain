@@ -1,11 +1,8 @@
-use heck::{ToLowerCamelCase, ToPascalCase, ToSnekCase};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
 use regex::Regex;
-use syn::{
-    Attribute, Field, Fields, GenericArgument, Ident, Item, ItemStruct, PathArguments, Type,
-};
+use syn::{Attribute, Fields, GenericArgument, Ident, Item, ItemStruct, PathArguments, Type};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,17 +11,6 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
-
-fn to_eth_case(str: &str) -> String {
-    match str.split('_').collect::<Vec<_>>()[..] {
-        [typ, method_name] => format!(
-            "{}_{}",
-            typ.to_lowercase(),
-            method_name.to_lower_camel_case()
-        ),
-        _ => str.to_lowercase(), // Falls back to default casing
-    }
-}
 
 fn visit_files(dir: &Path, f: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     if dir.is_dir() {
@@ -163,12 +149,12 @@ struct WrappedGenerator {
 
 #[derive(Debug)]
 struct Rpc {
-    name: String,
+    _name: String,
     url: Option<String>,
     client: bool,
     server: bool,
-    input_ty: String,
-    output_ty: String,
+    _input_ty: String,
+    _output_ty: String,
 }
 
 impl ServiceGenerator for WrappedGenerator {
@@ -178,12 +164,12 @@ impl ServiceGenerator for WrappedGenerator {
             let mut ref_map = self.methods.borrow_mut();
             let vec = ref_map.entry(service.name.clone()).or_default();
             let mut rpc = Rpc {
-                name: method.proto_name.clone(),
-                input_ty: method.input_proto_type.clone(),
+                _name: method.proto_name.clone(),
+                _input_ty: method.input_proto_type.clone(),
                 url: None,
                 client: true,
                 server: true,
-                output_ty: method.output_proto_type.clone(),
+                _output_ty: method.output_proto_type.clone(),
             };
             for line in method
                 .comments
@@ -251,12 +237,7 @@ fn generate_from_protobuf(dir: &Path, out_dir: &Path) -> HashMap<String, Vec<Rpc
     Rc::try_unwrap(methods).unwrap().into_inner()
 }
 
-fn modify_codegen(
-    methods: HashMap<String, Vec<Rpc>>,
-    types_path: &Path,
-    rpc_path: &Path,
-    lib_path: &Path,
-) -> TokenStream {
+fn modify_codegen(_methods: HashMap<String, Vec<Rpc>>, types_path: &Path) {
     let mut contents = String::new();
     File::open(types_path)
         .unwrap()
@@ -265,100 +246,19 @@ fn modify_codegen(
     let parsed_file = syn::parse_file(&contents).unwrap();
 
     // Modify structs if needed
-    let (struct_map, structs, ffi_structs) = change_types(parsed_file);
+    let structs = change_types(parsed_file);
     contents.clear();
-    contents.push_str(&structs.to_string());
+
+    let syntax_tree: syn::File = syn::parse2(structs).unwrap();
+    let pretty = prettyplease::unparse(&syntax_tree);
+    contents.push_str(&pretty.to_string());
     File::create(types_path)
         .unwrap()
         .write_all(contents.as_bytes())
         .unwrap();
-
-    let (ffi_tt, impl_tt, rpc_tt) = apply_substitutions(ffi_structs, struct_map, methods);
-
-    // Append additional RPC impls next to proto-generated RPC impls
-    contents.clear();
-    File::open(rpc_path)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-
-    let mut codegen = String::new();
-    codegen.push_str("\n#[cxx::bridge]\npub mod ffi {\n");
-    codegen.push_str(&ffi_tt.to_string());
-    codegen.push_str("\n}\n");
-
-    codegen.push_str(&impl_tt.to_string());
-
-    for (server_mod, (jrpc_tt, grpc_tt)) in rpc_tt {
-        let (server, service, svc_mod, svc_trait) = (
-            Ident::new(
-                &format!("{}Server", server_mod.to_pascal_case()),
-                Span::call_site(),
-            ),
-            Ident::new(
-                &format!("{}Service", server_mod.to_pascal_case()),
-                Span::call_site(),
-            ),
-            Ident::new(
-                &format!("{server_mod}Server").to_snek_case(),
-                Span::call_site(),
-            ),
-            Ident::new(&server_mod.to_pascal_case(), Span::call_site()),
-        );
-        codegen.push_str(
-            &quote!(
-                #[derive(Clone)]
-                pub struct #service {
-                    #[allow(dead_code)] adapter: Arc<Handlers>
-                }
-
-                impl #service {
-                    #[inline]
-                    #[allow(dead_code)]
-                    pub fn new(adapter: Arc<Handlers>) -> #service {
-                        #service {
-                            adapter
-                        }
-                    }
-                    #[inline]
-                    #[allow(dead_code)]
-                    pub fn service(&self) -> #svc_mod::#server<#service> {
-                        #svc_mod::#server::new(self.clone())
-                    }
-                    #[inline]
-                    #[allow(unused_mut, dead_code)]
-                    pub fn module(&self) -> Result<jsonrpsee::http_server::RpcModule<()>, jsonrpsee::core::Error> {
-                        let mut module = jsonrpsee::http_server::RpcModule::new(());
-                        #jrpc_tt
-                        Ok(module)
-                    }
-                }
-
-                #[tonic::async_trait]
-                impl #svc_mod::#svc_trait for #service {
-                    #grpc_tt
-                }
-            )
-            .to_string(),
-        );
-    }
-    contents.push_str(&codegen);
-    File::create(rpc_path)
-        .unwrap()
-        .write_all(contents.as_bytes())
-        .unwrap();
-
-    contents.clear();
-    File::open(lib_path)
-        .unwrap()
-        .read_to_string(&mut contents)
-        .unwrap();
-    codegen.push_str(&contents);
-
-    codegen.parse().unwrap() // given to cxx codegen
 }
 
-fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, TokenStream) {
+fn change_types(file: syn::File) -> TokenStream {
     let mut map = HashMap::new();
     let mut modified = quote! {
         fn ignore_integer<T: num_traits::PrimInt + num_traits::Signed + num_traits::NumCast>(i: &T) -> bool {
@@ -433,308 +333,7 @@ fn change_types(file: syn::File) -> (HashMap<String, ItemStruct>, TokenStream, T
         });
     }
 
-    (map, modified, copied)
-}
-
-fn apply_substitutions(
-    mut gen: TokenStream,
-    map: HashMap<String, ItemStruct>,
-    methods: HashMap<String, Vec<Rpc>>,
-) -> (
-    TokenStream,
-    TokenStream,
-    HashMap<String, (TokenStream, TokenStream)>,
-) {
-    // FIXME: We don't have to regenerate if the struct only has scalar types
-    // (in which case it'll have the same schema in both FFI and protobuf)
-    let mut impls = quote! {
-        use jsonrpsee::core::client::ClientT;
-        use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
-        use std::sync::Arc;
-        use crate::{CLIENTS};
-        use ain_evm::runtime::RUNTIME;
-        use crate::rpc::*;
-        #[allow(unused_imports)]
-        use self::ffi::*;
-        use ain_evm::handler::Handlers;
-        #[derive(Clone)]
-        pub struct Client {
-            inner: Arc<HttpClient>,
-            handle: tokio::runtime::Handle,
-        }
-        #[allow(non_snake_case)]
-        fn NewClient(addr: &str) -> Result<Box<Client>, Box<dyn std::error::Error>> {
-            if CLIENTS.read().unwrap().get(addr).is_none() {
-                log::info!("Initializing RPC client for {}", addr);
-                let c = Client {
-                    inner: Arc::new(HttpClientBuilder::default().build(addr)?),
-                    handle: RUNTIME.rt_handle.clone(),
-                };
-                CLIENTS.write().unwrap().insert(addr.into(), c);
-            }
-
-            Ok(Box::new(CLIENTS.read().unwrap().get(addr).unwrap().clone()))
-        }
-        #[allow(dead_code)]
-        fn missing_param(field: &str) -> jsonrpsee::core::Error {
-            jsonrpsee::core::Error::Call(jsonrpsee::types::error::CallError::Custom(
-                jsonrpsee::types::ErrorObject::borrowed(-1, &format!("Missing required parameter '{field}'"), None).into_owned()
-            ))
-        }
-    };
-    let (mut funcs, mut sigs) = (quote!(), quote!());
-    let mut calls = HashMap::new();
-    for s in map.values() {
-        let mut copy_block_rs = quote!();
-        let mut copy_block_ffi = quote!();
-        let fields = match &s.fields {
-            Fields::Named(ref f) => f,
-            _ => unreachable!(),
-        };
-
-        for field in &fields.named {
-            let name = &field.ident;
-            let ty = &field.ty;
-            let t = quote!(#ty).to_string().replace(' ', "");
-            let (into_rs, into_ffi) = if t.contains("::core::option::") {
-                (
-                    quote!(Some(other.#name.into())),
-                    quote!(other.#name.map(Into::into).unwrap_or_default()),
-                )
-            } else if t.contains("::alloc::vec::") {
-                (
-                    quote!(other.#name.into_iter().map(Into::into).collect()),
-                    quote!(other.#name.into_iter().map(Into::into).collect()),
-                )
-            } else {
-                (quote!(other.#name.into()), quote!(other.#name.into()))
-            };
-
-            copy_block_rs.extend(quote!(
-                #name: #into_rs,
-            ));
-            copy_block_ffi.extend(quote!(
-                #name: #into_ffi,
-            ));
-        }
-
-        let name = &s.ident;
-        impls.extend(quote!(
-            impl From<ffi::#name> for super::types::#name {
-                fn from(other: ffi::#name) -> Self {
-                    super::types::#name {
-                        #copy_block_rs
-                    }
-                }
-            }
-
-            impl From<super::types::#name> for ffi::#name {
-                fn from(other: super::types::#name) -> Self {
-                    ffi::#name {
-                        #copy_block_ffi
-                    }
-                }
-            }
-        ));
-    }
-
-    let mut rpc = quote!();
-    for (mod_name, mod_methods) in methods {
-        let server_mod = calls.entry(mod_name).or_insert((quote!(), quote!()));
-        for method in mod_methods {
-            let (name, client_name, name_rs, ivar, ity, oty) = (
-                Ident::new(&method.name, Span::call_site()),
-                Ident::new(&format!("Call{}", &method.name), Span::call_site()),
-                Ident::new(&method.name.to_snek_case(), Span::call_site()),
-                Ident::new(
-                    &method.input_ty.split('.').last().unwrap().to_snek_case(),
-                    Span::call_site(),
-                ),
-                Ident::new(
-                    method.input_ty.split('.').last().unwrap(),
-                    Span::call_site(),
-                ),
-                Ident::new(
-                    method.output_ty.split('.').last().unwrap(),
-                    Span::call_site(),
-                ),
-            );
-            let mut param_ffi = quote!();
-            let (input_rs, input_ffi, client_ffi, client_params, into_ffi, call_ffi) =
-                if method.input_ty == ".google.protobuf.Empty" {
-                    (
-                        quote!(&self, _request: tonic::Request<()>),
-                        quote!(result: &mut #oty),
-                        quote!(client: &Box<Client>),
-                        quote! {
-                            let params = jsonrpsee::core::rpc_params![];
-                        },
-                        quote!(),
-                        quote!(),
-                        // quote!(&mut out),
-                    )
-                } else {
-                    let mut values = quote!();
-                    param_ffi = quote! {
-                        let mut #ivar = super::types::#ity::default();
-                    };
-                    let struct_name = ity.to_string();
-                    let type_struct = map.get(&struct_name).unwrap();
-                    match &type_struct.fields {
-                        Fields::Named(ref f) => {
-                            let mut extract_fields = quote!();
-                            for (i, field) in f.named.iter().enumerate() {
-                                let name = &field.ident;
-                                let name_str = name.as_ref().unwrap().to_string();
-                                let seq_extract = if let Some(value) = extract_default(field) {
-                                    quote!(seq.next().unwrap_or(#value))
-                                } else {
-                                    quote!(seq.next().map_err(|_| missing_param(#name_str))?)
-                                };
-                                values.extend(quote!(
-                                    &#ivar.#name
-                                ));
-                                if i < f.named.len() - 1 {
-                                    values.extend(quote!(,));
-                                }
-                                extract_fields.extend(quote!(
-                                    #ivar.#name = #seq_extract;
-                                ));
-                            }
-                            param_ffi.extend(quote!(
-                                if _params.is_object() {
-                                    #ivar = _params.parse()?;
-                                } else {
-                                    let mut seq = _params.sequence();
-                                    #extract_fields
-                                }
-                                let mut input = #ivar.into();
-                            ));
-                        }
-                        _ => unreachable!(),
-                    }
-
-                    (
-                        quote!(&self, request: tonic::Request<super::types::#ity>),
-                        quote!(#ivar: &mut #ity, result: &mut #oty),
-                        quote!(client: &Box<Client>, #ivar: #ity),
-                        quote! {
-                            let #ivar = super::types::#ity::from(#ivar);
-                            let params = jsonrpsee::core::rpc_params![#values];
-                        },
-                        quote! { let input = request.into_inner().into(); },
-                        quote!(input),
-                        // quote!(input, &mut out),
-                    )
-                };
-
-            if !method.server {
-                server_mod.1.extend(quote!(
-                    #[allow(unused_variables)]
-                    async fn #name_rs(#input_rs) -> Result<tonic::Response<super::types::#oty>, tonic::Status> {
-                        unimplemented!();
-                    }
-                ));
-            }
-
-            if method.server {
-                rpc.extend(quote!(
-                    fn #name(#input_ffi) -> Result<()>;
-                ));
-            }
-            if method.client {
-                sigs.extend(quote!(
-                    #[allow(clippy::borrowed_box)]
-                    fn #client_name(#client_ffi) -> Result<#oty>;
-                ));
-            }
-
-            let rpc_name = method
-                .url
-                .as_ref()
-                .map(String::from)
-                .unwrap_or_else(|| to_eth_case(&method.name));
-            if method.client {
-                funcs.extend(quote! {
-                    #[allow(non_snake_case)]
-                    #[allow(clippy::borrowed_box)]
-                    fn #client_name(#client_ffi) -> Result<ffi::#oty, Box<dyn std::error::Error>> {
-                        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-                        let c = client.inner.clone();
-                        client.handle.spawn(async move {
-                            #client_params
-                            let resp: Result<super::types::#oty, _> = c.request(#rpc_name, params).await;
-                            let _ = tx.send(resp).await;
-                        });
-                        Ok(rx.blocking_recv().unwrap().map(Into::into)?)
-                    }
-                });
-            }
-            if method.server {
-                server_mod.0.extend(quote!(
-                    let adapter = self.adapter.clone();
-                    module.register_method(#rpc_name, move |_params, _| {
-                        #param_ffi
-                        // let mut out = ffi::#oty::default();
-                        Self::#name(adapter.clone(), #call_ffi)
-                        // #name(adapter.clone(), #call_ffi)
-                            // .map(|_| out)
-                    })?;
-                ));
-            }
-            if method.server {
-                server_mod.1.extend(quote!(
-                        async fn #name_rs(#input_rs) -> Result<tonic::Response<super::types::#oty>, tonic::Status> {
-                            let adapter = self.adapter.clone();
-                            let result = tokio::task::spawn_blocking(move || {
-                                // let out = ffi::#oty::default();
-                                #into_ffi
-                                Self::#name(adapter.clone(), #call_ffi).map_err(|e| tonic::Status::unknown(e.to_string()))
-                                // #name(adapter.clone(), #call_ffi)
-                                // .map(|_| out)
-                                // .map_err(|e| tonic::Status::unknown(e.to_string()))
-                            }).await
-                            .map_err(|e| {
-                                tonic::Status::unknown(format!("failed to invoke RPC call: {}", e))
-                            })??;
-                            Ok(tonic::Response::new(result.into()))
-                        }
-                    ));
-            }
-        }
-    }
-
-    impls.extend(quote!(
-        #funcs
-    ));
-
-    gen.extend(quote!(
-        extern "Rust" {
-            type Client;
-            fn NewClient(addr: &str) -> Result<Box<Client>>;
-            #sigs
-            // #rpc
-        }
-    ));
-
-    (gen, impls, calls)
-}
-
-fn extract_default(field: &Field) -> Option<TokenStream> {
-    let re = Regex::new("\\[default: (.*?)\\]").unwrap();
-    for attr in &field.attrs {
-        match attr.path.get_ident() {
-            Some(ident) if ident == "doc" => {
-                let comment = attr.tokens.to_string();
-                if let Some(captures) = re.captures(&comment) {
-                    return captures.get(1).unwrap().as_str().parse().ok();
-                }
-            }
-            _ => (),
-        }
-    }
-
-    None
+    modified
 }
 
 fn fix_type(ty: &mut Type) {
@@ -778,12 +377,7 @@ fn main() {
     std::fs::create_dir_all(&gen_path).unwrap();
 
     let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
-    let _tt = modify_codegen(
-        methods,
-        &Path::new(&gen_path).join("types.rs"),
-        &Path::new(&gen_path).join("rpc.rs"),
-        &src_path.join("lib.rs"),
-    );
+    modify_codegen(methods, &Path::new(&gen_path).join("types.rs"));
 
     println!(
         "cargo:rerun-if-changed={}",

@@ -1,9 +1,0 @@
-syntax = "proto3";
-package rpc;
-
-import "google/protobuf/empty.proto";
-import "types/eth.proto";
-
-service eth {
-
-}

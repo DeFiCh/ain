@@ -11,25 +11,17 @@ use env_logger::{Builder as LogBuilder, Env};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
 use log::Level;
-use tonic::transport::Server;
 
-use crate::codegen::rpc::{BlockchainService, Client};
 use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 
-use std::collections::HashMap;
 use std::error::Error;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use ain_evm::runtime::{Runtime, RUNTIME};
 
 #[cfg(test)]
 mod tests;
-
-lazy_static::lazy_static! {
-    // RPC clients cached globally based on address so that clients can be instantiated at will
-    static ref CLIENTS: RwLock<HashMap<String, Client>> = RwLock::new(HashMap::new());
-}
 
 pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Error>> {
     log::info!("Starting JSON RPC server at {}", addr);
@@ -41,21 +33,19 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();
-    methods.merge(BlockchainService::new(Arc::clone(&runtime.handlers)).module()?)?;
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
     Ok(())
 }
 
-pub fn add_grpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Error>> {
-    log::info!("Starting gRPC server at {}", addr);
-    runtime.rt_handle.spawn(
-        Server::builder()
-            .add_service(BlockchainService::new(Arc::clone(&runtime.handlers)).service())
-            // .add_service(EthService::new(Arc::clone(&runtime.handlers)).service())
-            .serve(addr.parse()?),
-    );
+pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Error>> {
+    // log::info!("Starting gRPC server at {}", addr);
+    // Commented out for now as nothing to serve
+    // runtime
+    //     .rt_handle
+    // .spawn(Server::builder().serve(addr.parse()?));
+
     Ok(())
 }
 
