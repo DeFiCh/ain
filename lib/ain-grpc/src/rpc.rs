@@ -18,7 +18,7 @@ use std::sync::Arc;
 #[rpc(server)]
 pub trait MetachainRPC {
     #[method(name = "eth_call")]
-    fn call(&self, input: EthTransactionInfo) -> Result<Vec<u8>, jsonrpsee::core::Error>;
+    fn call(&self, input: EthTransactionInfo) -> Result<String, jsonrpsee::core::Error>;
 
     #[method(name = "eth_accounts")]
     fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error>;
@@ -114,7 +114,7 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, input: EthTransactionInfo) -> Result<Vec<u8>, jsonrpsee::core::Error> {
+    fn call(&self, input: EthTransactionInfo) -> Result<String, jsonrpsee::core::Error> {
         let EthTransactionInfo {
             from,
             to,
@@ -136,7 +136,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .evm
             .call(from, to, value, data.as_bytes(), gas, vec![]);
 
-        Ok(Hex::encode(data))
+        Ok(hex::encode(data))
     }
 
     fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error> {
