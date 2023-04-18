@@ -14,7 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_armhf
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add arm-unknown-linux-gnueabihf
+RUN rustup target add armv7-unknown-linux-gnueabihf
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps
