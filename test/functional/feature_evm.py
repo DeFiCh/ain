@@ -64,8 +64,12 @@ class EVMTest(DefiTestFramework):
         assert_equal(newDFIbalance, DFIbalance)
         # assert_equal(newETHbalance, ETHbalance)
 
+        # Fund Eth address
+        self.nodes[0].transferbalance("evmin",{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
+        self.nodes[0].generate(1)
+
         # Test EVM Tx
-        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 0.1)
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
         assert_equal(self.nodes[0].getrawmempool(), [tx])
         self.nodes[0].generate(1)
 

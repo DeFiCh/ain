@@ -336,6 +336,24 @@ test() {
     _exit_dir
 }
 
+test_py() {
+    local release_target_dir=${RELEASE_TARGET_DIR}
+    local first_arg="${1:-}"
+
+    if [[ -f "${first_arg}" ]]; then
+      shift
+      "${first_arg}" --configfile "${release_target_dir}/test/config.ini" --tmpdirprefix "./test_runner/" --ansi "$@"
+      return
+    fi
+
+    _ensure_enter_dir "${release_target_dir}"
+
+    # shellcheck disable=SC2086
+    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000 "$@"
+
+    _exit_dir
+}
+
 exec() {
     local make_jobs=${MAKE_JOBS}
     local make_args=${MAKE_ARGS:-}
