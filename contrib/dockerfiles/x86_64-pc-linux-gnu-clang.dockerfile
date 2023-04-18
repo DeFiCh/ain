@@ -14,6 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 COPY . .
 RUN ./make.sh clean-depends && \

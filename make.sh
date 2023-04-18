@@ -472,7 +472,7 @@ pkg_install_llvm() {
 }
 
 pkg_install_rust() {
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 }
 
 clean_pkg_local_osx_sysroot() {
