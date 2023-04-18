@@ -35,6 +35,9 @@ pub trait MetachainRPC {
     #[method(name = "eth_chainId")]
     fn chain_id(&self) -> Result<String, jsonrpsee::core::Error>;
 
+    #[method(name = "eth_hashrate")]
+    fn hash_rate(&self) -> Result<String, jsonrpsee::core::Error>;
+
     #[method(name = "net_version")]
     fn net_version(&self) -> Result<String, jsonrpsee::core::Error>;
 
@@ -172,6 +175,10 @@ impl MetachainRPCServer for MetachainRPCModule {
         let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
         Ok(format!("{:#x}", chain_id))
+    }
+
+    fn hash_rate(&self) -> Result<String, jsonrpsee::core::Error> {
+        Ok("0x0".parse().unwrap())
     }
 
     fn net_version(&self) -> Result<String, jsonrpsee::core::Error> {
