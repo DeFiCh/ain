@@ -2209,9 +2209,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Import privkey
         const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
-        const auto pubkey = key.GetPubKey();
-        const auto dest = WitnessV0KeyHash(PKHash{pubkey});
-        const auto keyID = pubkey.GetID();
+        const auto keyID = key.GetPubKey().GetID();
+        const auto dest = WitnessV0KeyHash(PKHash{keyID});
         const auto time{std::time(nullptr)};
 
         auto pwallet = GetWallets()[0];
