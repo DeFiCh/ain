@@ -529,7 +529,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=None):
 
     if not scriptPubKey:
         scriptPubKey = CScript([1])
-    
+
     fee = 1 * COIN
     while node.getbalance() < satoshi_round((amount + fee) / COIN):
         node.generate(100)

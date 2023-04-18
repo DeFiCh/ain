@@ -15,7 +15,7 @@ from .util import (
 
 class CommonFixture:
     """Class for common utility fixture setup functions for function testing."""
-    
+
     def setup_default_tokens(test : DefiTestFramework, my_tokens=None):
         assert (test.setup_clean_chain == True)
         assert ('-txnotokens=0' in test.extra_args[0])
