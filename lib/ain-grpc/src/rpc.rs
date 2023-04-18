@@ -97,15 +97,10 @@ pub trait MetachainRPC {
     ) -> Result<EthSendRawTransactionResult, jsonrpsee::core::Error>;
 
     #[method(name = "eth_getTransactionCount")]
-    fn get_transaction_count(
-        &self,
-        input: String
-    ) -> Result<String, jsonrpsee::core::Error>;
+    fn get_transaction_count(&self, input: String) -> Result<String, jsonrpsee::core::Error>;
 
     #[method(name = "eth_estimateGas")]
-    fn estimate_gas(
-        &self
-    ) -> Result<String, jsonrpsee::core::Error>;
+    fn estimate_gas(&self) -> Result<String, jsonrpsee::core::Error>;
 }
 
 pub struct MetachainRPCModule {
@@ -131,7 +126,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let from = from.map(|addr| addr.parse::<H160>().expect("Wrong `from` address format"));
         let to = to.map(|addr| addr.parse::<H160>().expect("Wrong `to` address format"));
-        let value: U256 = value.map(|addr| addr.parse::<U256>().expect("Wrong `value` address format")).unwrap_or_default();
+        let value: U256 = value
+            .map(|addr| addr.parse::<U256>().expect("Wrong `value` address format"))
+            .unwrap_or_default();
         let gas: u64 = gas.unwrap_or_default();
 
         let (_, data) = self
@@ -139,7 +136,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .evm
             .call(from, to, value, data.as_bytes(), gas, vec![]);
 
-        Ok(data)
+        Ok(Hex::encode(data))
     }
 
     fn accounts(&self) -> Result<Vec<H160>, jsonrpsee::core::Error> {
@@ -355,19 +352,14 @@ impl MetachainRPCServer for MetachainRPCModule {
         })
     }
 
-    fn get_transaction_count(
-        &self,
-        input: String
-    ) -> Result<String, jsonrpsee::core::Error> {
+    fn get_transaction_count(&self, input: String) -> Result<String, jsonrpsee::core::Error> {
         let input = input.parse().expect("Invalid address");
         let nonce = self.handler.evm.get_nonce(input);
 
         Ok(format!("{:#x}", nonce))
     }
 
-    fn estimate_gas(
-        &self
-    ) -> Result<String, jsonrpsee::core::Error> {
+    fn estimate_gas(&self) -> Result<String, jsonrpsee::core::Error> {
         Ok(format!("{:#x}", 21000))
     }
 }
