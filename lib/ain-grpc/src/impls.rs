@@ -8,15 +8,15 @@ use primitive_types::{H160, H256, U256};
 use crate::codegen::types::{EthBlockInfo, EthTransactionInfo};
 
 fn format_hash(hash: H256) -> String {
-    return format!("{:#x}", hash);
+    format!("{:#x}", hash)
 }
 
 fn format_address(hash: H160) -> String {
-    return format!("{:#x}", hash);
+    format!("{:#x}", hash)
 }
 
 fn format_number(number: U256) -> String {
-    return format!("{:#x}", number);
+    format!("{:#x}", number)
 }
 
 impl From<BlockAny> for EthBlockInfo {

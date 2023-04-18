@@ -37,7 +37,7 @@ impl From<BlockAny> for RpcBlock {
         RpcBlock {
             hash: b.header.hash(),
             mix_hash: b.header.hash(),
-            number: b.header.number.into(),
+            number: b.header.number,
             parent_hash: b.header.parent_hash,
             transactions_root: b.header.transactions_root,
             state_root: b.header.state_root,
@@ -61,7 +61,7 @@ impl From<BlockAny> for RpcBlock {
 }
 
 /// Represents rpc api block number param.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
 pub enum BlockNumber {
     /// Hash
     Hash {
@@ -73,6 +73,7 @@ pub enum BlockNumber {
     /// Number
     Num(u64),
     /// Latest block
+    #[default]
     Latest,
     /// Earliest block (genesis)
     Earliest,
@@ -84,12 +85,6 @@ pub enum BlockNumber {
     Safe,
     /// The most recent crypto-economically secure block.
     Finalized,
-}
-
-impl Default for BlockNumber {
-    fn default() -> Self {
-        BlockNumber::Latest
-    }
 }
 
 impl<'a> Deserialize<'a> for BlockNumber {

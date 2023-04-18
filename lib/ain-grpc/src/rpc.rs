@@ -206,7 +206,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                                     receipts_root: Default::default(),
                                     logs_bloom: Default::default(),
                                     difficulty: Default::default(),
-                                    number: U256::from(number),
+                                    number,
                                     gas_limit: Default::default(),
                                     gas_used: Default::default(),
                                     timestamp: Default::default(),
@@ -226,8 +226,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn mining(&self) -> Result<bool, jsonrpsee::core::Error> {
-        ain_cpp_imports::is_mining()
-            .map_err(|e| jsonrpsee::core::Error::Custom(String::from(e.to_string())))
+        ain_cpp_imports::is_mining().map_err(|e| jsonrpsee::core::Error::Custom(e.to_string()))
     }
 
     // fn eth_GetTransactionByHash(
@@ -308,8 +307,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         let address = address.parse().expect("Invalid address");
         let code = self.handler.evm.get_code(address);
 
-        if code.len() == 0 {
-            return Ok(format!("0x"));
+        if code.is_empty() {
+            return Ok(String::from("0x"));
         }
 
         Ok(format!("{:#x?}", code))
