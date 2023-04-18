@@ -15,6 +15,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-unknown-linux-gnu
 
 COPY . .
 RUN ./make.sh clean-depends && \

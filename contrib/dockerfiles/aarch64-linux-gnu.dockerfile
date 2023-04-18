@@ -14,6 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_arm64
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add aarch64-unknown-linux-gnu
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps

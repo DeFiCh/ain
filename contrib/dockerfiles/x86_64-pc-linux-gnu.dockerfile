@@ -13,6 +13,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-unknown-linux-gnu
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps
