@@ -237,12 +237,7 @@ fn generate_from_protobuf(dir: &Path, out_dir: &Path) -> HashMap<String, Vec<Rpc
     Rc::try_unwrap(methods).unwrap().into_inner()
 }
 
-fn modify_codegen(
-    _methods: HashMap<String, Vec<Rpc>>,
-    types_path: &Path,
-    // rpc_path: &Path,
-    _lib_path: &Path,
-) {
+fn modify_codegen(_methods: HashMap<String, Vec<Rpc>>, types_path: &Path) {
     let mut contents = String::new();
     File::open(types_path)
         .unwrap()
@@ -253,7 +248,10 @@ fn modify_codegen(
     // Modify structs if needed
     let structs = change_types(parsed_file);
     contents.clear();
-    contents.push_str(&structs.to_string());
+
+    let syntax_tree: syn::File = syn::parse2(structs).unwrap();
+    let pretty = prettyplease::unparse(&syntax_tree);
+    contents.push_str(&pretty.to_string());
     File::create(types_path)
         .unwrap()
         .write_all(contents.as_bytes())
@@ -379,12 +377,7 @@ fn main() {
     std::fs::create_dir_all(&gen_path).unwrap();
 
     let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
-    modify_codegen(
-        methods,
-        &Path::new(&gen_path).join("types.rs"),
-        // &Path::new(&gen_path).join("rpc.rs"),
-        &src_path.join("lib.rs"),
-    );
+    modify_codegen(methods, &Path::new(&gen_path).join("types.rs"));
 
     println!(
         "cargo:rerun-if-changed={}",

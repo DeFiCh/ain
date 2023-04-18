@@ -4,11 +4,6 @@ pub mod types {
     include!("gen/types.rs");
 }
 
-#[allow(clippy::useless_conversion)]
-pub mod rpc {
-    include!("gen/rpc.rs");
-}
-
 impl Serialize for types::BlockResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
