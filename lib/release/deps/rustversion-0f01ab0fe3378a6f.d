@@ -1,0 +1,20 @@
+/home/drping/dev/Cake/ain/lib/release/deps/librustversion-0f01ab0fe3378a6f.so: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/attr.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/bound.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/constfn.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/date.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/error.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expand.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expr.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/iter.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/release.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/time.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/token.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/version.rs /home/drping/dev/Cake/ain/lib/release/build/rustversion-18ce5bdc3c87e8e1/out/version.expr
+
+/home/drping/dev/Cake/ain/lib/release/deps/rustversion-0f01ab0fe3378a6f.d: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/attr.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/bound.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/constfn.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/date.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/error.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expand.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expr.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/iter.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/release.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/time.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/token.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/version.rs /home/drping/dev/Cake/ain/lib/release/build/rustversion-18ce5bdc3c87e8e1/out/version.expr
+
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/lib.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/attr.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/bound.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/constfn.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/date.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/error.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expand.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/expr.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/iter.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/release.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/time.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/token.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/rustversion-1.0.11/src/version.rs:
+/home/drping/dev/Cake/ain/lib/release/build/rustversion-18ce5bdc3c87e8e1/out/version.expr:
+
+# env-dep:OUT_DIR=/home/drping/dev/Cake/ain/lib/release/build/rustversion-18ce5bdc3c87e8e1/out

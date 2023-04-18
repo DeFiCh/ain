@@ -97,7 +97,7 @@ fn evm_finalise(
     update_state: bool,
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    let eth_address = H160::from(miner_address);
+    let eth_address = H160::zero();
     let (block, _failed_tx) =
         RUNTIME
             .handlers

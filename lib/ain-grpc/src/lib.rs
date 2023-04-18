@@ -2,17 +2,19 @@
 extern crate serde;
 extern crate serde_json;
 
+mod block;
 mod codegen;
 mod impls;
 pub mod rpc;
 
 use env_logger::{Builder as LogBuilder, Env};
-use jsonrpsee_core::server::rpc_module::Methods;
-use jsonrpsee_http_server::HttpServerBuilder;
+use jsonrpsee::core::server::rpc_module::Methods;
+use jsonrpsee::http_server::HttpServerBuilder;
 use log::Level;
 use tonic::transport::Server;
 
-use crate::codegen::rpc::{BlockchainService, Client, EthService};
+use crate::codegen::rpc::{BlockchainService, Client};
+use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -40,7 +42,7 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
     )?;
     let mut methods: Methods = Methods::new();
     methods.merge(BlockchainService::new(Arc::clone(&runtime.handlers)).module()?)?;
-    methods.merge(EthService::new(Arc::clone(&runtime.handlers)).module()?)?;
+    methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
     Ok(())
@@ -51,7 +53,7 @@ pub fn add_grpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Erro
     runtime.rt_handle.spawn(
         Server::builder()
             .add_service(BlockchainService::new(Arc::clone(&runtime.handlers)).service())
-            .add_service(EthService::new(Arc::clone(&runtime.handlers)).service())
+            // .add_service(EthService::new(Arc::clone(&runtime.handlers)).service())
             .serve(addr.parse()?),
     );
     Ok(())

@@ -9,10 +9,7 @@ ain-evm = { path = "../ain-evm" }
 ain-cpp-imports = { path = "../ain-cpp-imports" }
 cxx = "1.0"
 env_logger = "0.9"
-jsonrpsee-core = "0.15"
-jsonrpsee-http-client = { version = "0.15", default-features = false }
-jsonrpsee-http-server = "0.15"
-jsonrpsee-types = "0.15"
+jsonrpsee = { version = "0.15", features = ["http-server", "macros", "http-client"] }
 lazy_static = "1.4"
 log = "0.4"
 num-traits = "0.2"
@@ -24,6 +21,8 @@ tonic = "0.8"
 primitive-types = "0.12.1"
 ethereum = "0.14.0"
 hex = "0.4.3"
+async-trait = "0.1.68"
+
 
 [build-dependencies]
 cxx-gen = "0.7"

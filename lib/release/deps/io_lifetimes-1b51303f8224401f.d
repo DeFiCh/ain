@@ -1,0 +1,12 @@
+/home/drping/dev/Cake/ain/lib/release/deps/io_lifetimes-1b51303f8224401f.rmeta: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/portability.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/traits.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/example_ffi.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/raw.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/views.rs
+
+/home/drping/dev/Cake/ain/lib/release/deps/libio_lifetimes-1b51303f8224401f.rlib: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/portability.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/traits.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/example_ffi.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/raw.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/views.rs
+
+/home/drping/dev/Cake/ain/lib/release/deps/io_lifetimes-1b51303f8224401f.d: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/portability.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/traits.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/example_ffi.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/raw.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/views.rs
+
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/lib.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/portability.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/traits.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/example_ffi.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/raw.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.5/src/views.rs:

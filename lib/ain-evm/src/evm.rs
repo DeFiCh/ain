@@ -48,6 +48,12 @@ impl PersistentState for EVMState {
     }
 }
 
+impl Default for EVMHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EVMHandler {
     pub fn new() -> Self {
         Self {

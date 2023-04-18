@@ -1,0 +1,11 @@
+/home/drping/dev/Cake/ain/lib/x86_64-unknown-linux-gnu/release/deps/jsonrpsee_types-f3f772b45ccb4325.rmeta: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/params.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/request.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/response.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/error.rs
+
+/home/drping/dev/Cake/ain/lib/x86_64-unknown-linux-gnu/release/deps/libjsonrpsee_types-f3f772b45ccb4325.rlib: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/params.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/request.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/response.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/error.rs
+
+/home/drping/dev/Cake/ain/lib/x86_64-unknown-linux-gnu/release/deps/jsonrpsee_types-f3f772b45ccb4325.d: /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/lib.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/params.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/request.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/response.rs /home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/error.rs
+
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/lib.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/params.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/request.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/response.rs:
+/home/drping/.cargo/registry/src/github.com-1ecc6299db9ec823/jsonrpsee-types-0.15.1/src/error.rs:
