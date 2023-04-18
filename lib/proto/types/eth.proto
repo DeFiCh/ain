@@ -6,13 +6,13 @@ message EthAccountsResult {
 }
 
 message EthTransactionInfo {
-    optional string from = 1; // The address from which the transaction is sent
+    string from = 1; // The address from which the transaction is sent
     optional string to = 2; // The address to which the transaction is addressed
-    optional uint64 gas = 3; // The integer of gas provided for the transaction execution
-    optional string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
-    optional string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
+    uint64 gas = 3; // The integer of gas provided for the transaction execution
+    string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
+    string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
     string data = 6; // The hash of the method signature and encoded parameters.
-    optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
+    string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
 }
 
 message EthChainIdResult {

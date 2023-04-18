@@ -1,9 +1,8 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::codegen::types::{
-    EthCallInput, EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
+    EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
     EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
-    EthGetBlockTransactionCountByNumberResult, EthGetCodeInput, EthGetCodeResult,
-    EthGetStorageAtInput, EthGetStorageAtResult, EthSendRawTransactionInput,
+    EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
     EthSendRawTransactionResult, EthTransactionInfo,
 };
 
@@ -124,17 +123,14 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
-        let from = from.map(|addr| addr.parse::<H160>().expect("Wrong `from` address format"));
+        let from = from.parse::<H160>().expect("Wrong `from` address format");
         let to = to.map(|addr| addr.parse::<H160>().expect("Wrong `to` address format"));
-        let value: U256 = value
-            .map(|addr| addr.parse::<U256>().expect("Wrong `value` address format"))
-            .unwrap_or_default();
-        let gas: u64 = gas.unwrap_or_default();
+        let value: U256 = value.parse::<U256>().expect("Wrong `value` address format");
 
         let (_, data) = self
             .handler
             .evm
-            .call(from, to, value, data.as_bytes(), gas, vec![]);
+            .call(Some(from), to, value, data.as_bytes(), gas, vec![]);
 
         Ok(hex::encode(data))
     }
