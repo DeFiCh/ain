@@ -28,7 +28,13 @@ pub trait PersistentState {
     {
         // Automatically resolves from datadir for now
         let path = match ain_cpp_imports::get_datadir() {
-            Ok(path) => PathBuf::from(path).join("evm").join(file_path),
+            Ok(path) => {
+                let path = PathBuf::from(path).join("evm");
+                if !path.exists() {
+                    std::fs::create_dir(&path).expect("Error creating `evm` dir")
+                }
+                path.join(file_path)
+            }
             _ => PathBuf::from(file_path),
         };
 
