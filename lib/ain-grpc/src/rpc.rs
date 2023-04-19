@@ -13,6 +13,7 @@ use ain_evm::handler::Handlers;
 use ain_evm::transaction::SignedTx;
 use ethereum::{Block, PartialHeader};
 use jsonrpsee::proc_macros::rpc;
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
@@ -144,6 +145,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_balance(&self, address: H160) -> Result<U256> {
+        debug!("Getting balance for address: {:?}", address);
         Ok(self.handler.evm.get_balance(address))
     }
 
@@ -183,6 +185,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map(|block| block.header.number)
             .unwrap_or_default();
 
+        debug!("Current block number: {:?}", count);
         Ok(count)
     }
 
@@ -300,6 +303,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_code(&self, address: H160) -> Result<String> {
+        debug!("Getting code for address: {:?}", address);
         let code = self.handler.evm.get_code(address);
 
         if code.is_empty() {
@@ -326,21 +330,28 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, input: &str) -> Result<String> {
-        println!("input : {:#?}", input);
+        debug!("Sending raw transaction: {:?}", input);
         let raw_tx = input.strip_prefix("0x").unwrap_or(input);
         let hex = hex::decode(raw_tx).expect("Invalid transaction");
         let stat = publish_eth_transaction(hex).unwrap();
 
         let signed_tx = SignedTx::try_from(raw_tx).expect("Invalid hex");
-        println!("{stat}");
 
+        debug!(
+            "Transaction status: {:?}, hash: {}",
+            stat,
+            signed_tx.transaction.hash()
+        );
         Ok(format!("{:#x}", signed_tx.transaction.hash()))
     }
 
     fn get_transaction_count(&self, input: String) -> Result<String> {
-        let input = input.parse().expect("Invalid address");
-        let nonce = self.handler.evm.get_nonce(input);
+        let address = input.parse().expect("Invalid address");
+        debug!("Getting transaction count for address: {:?}", address);
 
+        let nonce = self.handler.evm.get_nonce(address);
+
+        debug!("Count: {:#?}", nonce,);
         Ok(format!("{:#x}", nonce))
     }
 
