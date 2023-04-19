@@ -1,16 +1,16 @@
 use crate::traits::{PersistentState, PersistentStateError};
 use crate::transaction::SignedTx;
 use ethereum::{
-    BlockV2, EIP658ReceiptData, EnvelopedEncodable, ReceiptV3, TransactionAction, TransactionV2,
+    EIP658ReceiptData, EnvelopedEncodable, ReceiptV3, TransactionAction, TransactionV2,
 };
-use primitive_types::{H128, H160, H256, U256};
-use std::any::Any;
+use primitive_types::{H160, H256, U256};
+
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use serde::{Serialize, Deserialize};
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 
@@ -128,7 +128,7 @@ impl ReceiptHandler {
                 from: transaction.sender,
                 to: extr(action(tv2.clone())),
                 tx_index: index,
-                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap()
+                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
 
             map.insert(tv2.hash(), receipt);
