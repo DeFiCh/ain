@@ -57,7 +57,9 @@ impl Default for EVMHandler {
 impl EVMHandler {
     pub fn new() -> Self {
         Self {
-            state: Arc::new(RwLock::new(EVMState::new())),
+            state: Arc::new(RwLock::new(
+                EVMState::load_from_disk(EVM_STATE_PATH).expect("Error loading state"),
+            )),
             tx_queues: Arc::new(TransactionQueueMap::new()),
         }
     }

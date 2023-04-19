@@ -5,18 +5,18 @@ use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 
-use crate::codegen::rpc::ffi::{EthBlockInfo, EthTransactionInfo};
+use crate::codegen::types::{EthBlockInfo, EthTransactionInfo};
 
 fn format_hash(hash: H256) -> String {
-    return format!("{:#x}", hash);
+    format!("{:#x}", hash)
 }
 
 fn format_address(hash: H160) -> String {
-    return format!("{:#x}", hash);
+    format!("{:#x}", hash)
 }
 
 fn format_number(number: U256) -> String {
-    return format!("{:#x}", number);
+    format!("{:#x}", number)
 }
 
 impl From<BlockAny> for EthBlockInfo {
@@ -59,10 +59,9 @@ impl TryFrom<TransactionV2> for EthTransactionInfo {
     fn try_from(tx: TransactionV2) -> Result<Self, Self::Error> {
         let signed_tx: SignedTx = tx.try_into()?;
 
-        println!("signed_tx : {:#?}", signed_tx);
         Ok(EthTransactionInfo {
             from: format_address(signed_tx.sender),
-            to: format_address(signed_tx.to().unwrap_or_default()),
+            to: signed_tx.to().map(format_address),
             gas: signed_tx.gas_limit().as_u64(),
             price: signed_tx.gas_price().to_string(),
             value: signed_tx.value().to_string(),

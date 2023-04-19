@@ -1,7 +1,7 @@
 mod block;
 mod cache;
 mod ecrecover;
-mod evm;
+pub mod evm;
 pub mod executor;
 pub mod handler;
 pub mod runtime;
