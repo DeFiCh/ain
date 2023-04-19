@@ -25,7 +25,7 @@ pub trait MetachainRPC {
     fn call(&self, input: CallRequest) -> Result<String>;
 
     #[method(name = "eth_accounts")]
-    fn accounts(&self) -> Result<Vec<H160>>;
+    fn accounts(&self) -> Result<Vec<String>>;
 
     #[method(name = "eth_getBalance")]
     fn get_balance(&self, address: H160) -> Result<U256>;
@@ -138,9 +138,9 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(hex::encode(data))
     }
 
-    fn accounts(&self) -> Result<Vec<H160>> {
-        // Get from wallet
-        Ok(vec![])
+    fn accounts(&self) -> Result<Vec<String>> {
+        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        Ok(accounts)
     }
 
     fn get_balance(&self, address: H160) -> Result<U256> {
