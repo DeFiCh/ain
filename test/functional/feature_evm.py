@@ -80,5 +80,8 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
 
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
+        assert_equal(self.nodes[0].getblockcount(), 100)
+
 if __name__ == '__main__':
     EVMTest().main()

@@ -1809,7 +1809,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         TBytes dummy;
-        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
+        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy) && !IsEVMTx(tx)) { // not coinbases or EVM TX
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("%s: transaction and undo data inconsistent", __func__);
