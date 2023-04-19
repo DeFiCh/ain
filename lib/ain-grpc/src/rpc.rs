@@ -101,6 +101,9 @@ pub trait MetachainRPC {
 
     #[method(name = "mc_getState")]
     fn get_state(&self) -> Result<EVMState>;
+
+    #[method(name = "eth_gasPrice")]
+    fn gas_price(&self) -> Result<String>;
 }
 
 pub struct MetachainRPCModule {
@@ -347,5 +350,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_state(&self) -> Result<EVMState> {
         Ok(self.handler.evm.state.read().unwrap().clone())
+    }
+
+    fn gas_price(&self) -> Result<String> {
+        Ok(format!("{:#x}", 0))
     }
 }
