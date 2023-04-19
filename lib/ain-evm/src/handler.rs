@@ -56,14 +56,16 @@ impl Handlers {
         }
 
         let mut all_transactions = successful_transactions
-            .iter()
+            .clone()
+            .into_iter()
             .map(|tx| tx.transaction)
-            .collect();
+            .collect::<Vec<TransactionV2>>();
         all_transactions.extend(
             failed_transactions
-                .iter()
+                .clone()
+                .into_iter()
                 .map(|tx| tx.transaction)
-                .collect(),
+                .collect::<Vec<TransactionV2>>(),
         );
 
         self.evm.tx_queues.remove(context);
@@ -100,7 +102,7 @@ impl Handlers {
 
         self.receipt.generate_receipts(
             successful_transactions,
-            failed_transactions,
+            failed_transactions.clone(),
             block.header.hash(),
             block.header.number,
         );
@@ -117,7 +119,7 @@ impl Handlers {
         Ok((
             block,
             failed_transactions
-                .iter()
+                .into_iter()
                 .map(|tx| tx.transaction)
                 .collect(),
         ))

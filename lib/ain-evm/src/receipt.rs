@@ -10,10 +10,12 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+use serde::{Serialize, Deserialize};
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 
-struct Receipt {
+#[derive(Serialize, Deserialize)]
+pub struct Receipt {
     receipt: ReceiptV3,
     block_hash: H256,
     block_number: U256,
@@ -75,7 +77,7 @@ impl ReceiptHandler {
     pub fn new() -> Self {
         Self {
             transaction_map: Arc::new(RwLock::new(
-                BlockHashtoBlock::load_from_disk(RECEIPT_MAP_PATH).unwrap(),
+                TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH).unwrap(),
             )),
         }
     }
@@ -103,9 +105,9 @@ impl ReceiptHandler {
                 block_hash,
                 block_number,
                 from: transaction.sender,
-                to: extr(action(tv2)),
+                to: extr(action(tv2.clone())),
                 tx_index: index,
-                tx_type: transaction.transaction.type_id().unwrap(),
+                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
 
             map.insert(tv2.hash(), receipt);
@@ -124,9 +126,9 @@ impl ReceiptHandler {
                 block_hash,
                 block_number,
                 from: transaction.sender,
-                to: extr(action(tv2)),
+                to: extr(action(tv2.clone())),
                 tx_index: index,
-                tx_type: transaction.transaction.type_id().unwrap(),
+                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap()
             };
 
             map.insert(tv2.hash(), receipt);

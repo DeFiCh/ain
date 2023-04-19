@@ -50,6 +50,7 @@ dependencies = [
  "primitive-types",
  "rand",
  "rlp",
+ "serde",
  "sha3",
  "tokio",
 ]
