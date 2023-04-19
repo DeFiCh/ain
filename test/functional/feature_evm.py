@@ -49,6 +49,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].transferbalance("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
 
+        # Check that EVM balance shows in gettokenabalances
+        assert_equal(self.nodes[0].gettokenbalances({}, False, False, True), ['101.00000000@0'])
+
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
 

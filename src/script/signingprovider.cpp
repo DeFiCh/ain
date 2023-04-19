@@ -112,6 +112,7 @@ bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubke
     mapKeys[pubkey.GetID()] = key;
     if (ethAddress) {
         mapKeys[pubkey.GetEthID()] = key;
+        mapEthKeys[pubkey.GetEthID()] = key;
     }
     ImplicitlyLearnRelatedKeyScripts(pubkey, ethAddress);
     return true;
@@ -128,6 +129,16 @@ std::set<CKeyID> FillableSigningProvider::GetKeys() const
     LOCK(cs_KeyStore);
     std::set<CKeyID> set_address;
     for (const auto& mi : mapKeys) {
+        set_address.insert(mi.first);
+    }
+    return set_address;
+}
+
+std::set<CKeyID> FillableSigningProvider::GetEthKeys() const
+{
+    LOCK(cs_KeyStore);
+    std::set<CKeyID> set_address;
+    for (const auto& mi : mapEthKeys) {
         set_address.insert(mi.first);
     }
     return set_address;
