@@ -12,12 +12,9 @@ use hex::FromHex;
 use primitive_types::{H160, H256, U256};
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-pub static EVM_STATE_PATH: &str = "evm_state.bin";
+pub static EVM_STATE_FILE: &str = "evm_state.bin";
 
 pub type EVMState = BTreeMap<H160, MemoryAccount>;
 
@@ -27,26 +24,7 @@ pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
 }
 
-impl PersistentState for EVMState {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
-        let serialized_state = bincode::serialize(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_state)?;
-        Ok(())
-    }
-
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
-        if Path::new(path).exists() {
-            let mut file = File::open(path)?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)?;
-            let new_state: BTreeMap<H160, MemoryAccount> = bincode::deserialize(&data)?;
-            Ok(new_state)
-        } else {
-            Ok(Self::new())
-        }
-    }
-}
+impl PersistentState for EVMState {}
 
 impl Default for EVMHandler {
     fn default() -> Self {
@@ -58,14 +36,14 @@ impl EVMHandler {
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(
-                EVMState::load_from_disk(EVM_STATE_PATH).expect("Error loading state"),
+                EVMState::load_from_disk(EVM_STATE_FILE).expect("Error loading state"),
             )),
             tx_queues: Arc::new(TransactionQueueMap::new()),
         }
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
-        self.state.write().unwrap().save_to_disk(EVM_STATE_PATH)
+        self.state.write().unwrap().save_to_disk(EVM_STATE_FILE)
     }
 
     pub fn call(
