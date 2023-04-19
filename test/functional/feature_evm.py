@@ -36,18 +36,21 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(4)
 
         self.nodes[0].getbalance()
-        self.nodes[0].utxostoaccount({address: "101@DFI"})
+        self.nodes[0].utxostoaccount({address: "100@DFI"})
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
         DFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         ETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
 
-        assert_equal(DFIbalance, Decimal('101'))
+        assert_equal(DFIbalance, Decimal('100'))
         assert_equal(len(ETHbalance), 0)
 
         self.nodes[0].transferbalance("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
+
+        # Check that EVM balance shows in gettokenabalances
+        assert_equal(self.nodes[0].gettokenbalances(), ['100.00000000@0'])
 
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)

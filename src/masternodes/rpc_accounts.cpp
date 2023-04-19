@@ -1,3 +1,4 @@
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
@@ -576,6 +577,12 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         }
         return true;
     });
+
+    for (const auto keyID : pwallet->GetEthKeys()) {
+        const CAmount evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()));
+        totalBalances.Add({{}, evmAmount});
+    }
+
     auto it = totalBalances.balances.lower_bound(start);
     for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         auto bal = CTokenAmount{(*it).first, (*it).second};
