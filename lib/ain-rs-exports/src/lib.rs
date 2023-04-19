@@ -6,8 +6,8 @@ use std::error::Error;
 
 use primitive_types::H160;
 
-pub const WEI_TO_GWEI : u64 = 1000000000;
-pub const GWEI_TO_SATS : u64 = 10;
+pub const WEI_TO_GWEI: u64 = 1000000000;
+pub const GWEI_TO_SATS: u64 = 10;
 
 #[cxx::bridge]
 mod ffi {
@@ -43,14 +43,9 @@ mod ffi {
     }
 }
 
-pub fn evm_get_balance(
-    address: &str,
-) -> Result<u64, Box<dyn Error>> {
+pub fn evm_get_balance(address: &str) -> Result<u64, Box<dyn Error>> {
     let account = address.parse()?;
-    let mut balance = RUNTIME
-        .handlers
-        .evm
-        .get_balance(account);
+    let mut balance = RUNTIME.handlers.evm.get_balance(account);
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     Ok(balance.as_u64())

@@ -8,5 +8,6 @@ uint64_t getChainId();
 bool isMining();
 bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
+rust::string getDatadir();
 
 #endif // DEFI_EVM_FFI_H
