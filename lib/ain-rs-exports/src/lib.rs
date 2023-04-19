@@ -6,6 +6,9 @@ use std::error::Error;
 
 use primitive_types::H160;
 
+pub const WEI_TO_GWEI : u64 = 1000000000;
+pub const GWEI_TO_SATS : u64 = 10;
+
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
@@ -44,11 +47,13 @@ pub fn evm_get_balance(
     address: &str,
 ) -> Result<u64, Box<dyn Error>> {
     let account = address.parse()?;
-    Ok(RUNTIME
+    let mut balance = RUNTIME
         .handlers
         .evm
-        .get_balance(account)
-        .as_u64())
+        .get_balance(account);
+    balance /= WEI_TO_GWEI;
+    balance /= GWEI_TO_SATS;
+    Ok(balance.as_u64())
 }
 
 pub fn evm_add_balance(
