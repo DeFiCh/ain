@@ -33,7 +33,7 @@ class HelpRpcTest(DefiTestFramework):
         # command titles
         titles = [line[3:-3] for line in node.help().splitlines() if line.startswith('==')]
 
-        components = ['Accounts', 'Blockchain', 'Control', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes',
+        components = ['Accounts', 'Blockchain', 'Control', 'Evm', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes',
                       'Mining', 'Network', 'Oracles', 'Poolpair', 'Proposals', 'Rawtransactions', 'Spv', 'Stats',
                       'Tokens', 'Util', 'Vault']
 
