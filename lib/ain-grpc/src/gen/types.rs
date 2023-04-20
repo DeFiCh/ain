@@ -1260,3 +1260,4 @@ pub struct EthSyncingResult {
     #[prost(message, optional, tag = "2")]
     pub sync_info: ::core::option::Option<EthSyncingInfo>,
 }
+
