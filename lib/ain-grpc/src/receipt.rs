@@ -19,7 +19,7 @@ pub struct ReceiptResult {
     pub to: H160,
     pub transaction_hash: H256,
     pub transaction_index: usize,
-    pub typ: u8,
+    pub r#type: u8,
 }
 
 impl From<Receipt> for ReceiptResult {
@@ -39,7 +39,7 @@ impl From<Receipt> for ReceiptResult {
             to: b.to,
             transaction_hash: b.tx_hash,
             transaction_index: b.tx_index,
-            typ: b.tx_type,
+            r#type: b.tx_type,
         }
     }
 }

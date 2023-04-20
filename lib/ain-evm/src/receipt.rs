@@ -88,8 +88,7 @@ impl ReceiptHandler {
         self.transaction_map
             .write()
             .unwrap()
-            .save_to_disk(RECEIPT_MAP_PATH)?;
-        self.blocks.write().unwrap().save_to_disk(RECEIPT_MAP_PATH)
+            .save_to_disk(RECEIPT_MAP_PATH)
     }
 
     pub fn get_receipt(&self, tx: H256) -> Result<Receipt, ReceiptHandlerError> {
