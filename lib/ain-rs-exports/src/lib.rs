@@ -113,6 +113,6 @@ fn evm_finalise(
     let (block, _failed_tx) =
         RUNTIME
             .handlers
-            .finalize_block(context, update_state, Some(eth_address))?;
+            .finalise_block(context, update_state, Some(eth_address))?;
     Ok(block.header.rlp_bytes().into())
 }

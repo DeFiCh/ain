@@ -30,7 +30,7 @@ impl Handlers {
         }
     }
 
-    pub fn finalize_block(
+    pub fn finalise_block(
         &self,
         context: u64,
         update_state: bool,
