@@ -662,22 +662,24 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, CCustomCSView *mnview, co
         innerUsage += memusage::DynamicUsage(links.parents) + memusage::DynamicUsage(links.children);
         bool fDependsWait = false;
         setEntries setParentCheck;
-        for (const CTxIn &txin : tx.vin) {
-            // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
-            if (it2 != mapTx.end()) {
-                const CTransaction& tx2 = it2->GetTx();
-                assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
-                fDependsWait = true;
-                setParentCheck.insert(it2);
-            } else {
-                assert(pcoins->HaveCoin(txin.prevout));
+        if (!IsEVMTx(tx)) {
+            for (const CTxIn &txin : tx.vin) {
+                // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
+                indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+                if (it2 != mapTx.end()) {
+                    const CTransaction& tx2 = it2->GetTx();
+                    assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
+                    fDependsWait = true;
+                    setParentCheck.insert(it2);
+                } else {
+                    assert(pcoins->HaveCoin(txin.prevout));
+                }
+                // Check whether its inputs are marked in mapNextTx.
+                auto it3 = mapNextTx.find(txin.prevout);
+                assert(it3 != mapNextTx.end());
+                assert(it3->first == &txin.prevout);
+                assert(it3->second == &tx);
             }
-            // Check whether its inputs are marked in mapNextTx.
-            auto it3 = mapNextTx.find(txin.prevout);
-            assert(it3 != mapNextTx.end());
-            assert(it3->first == &txin.prevout);
-            assert(it3->second == &tx);
         }
         assert(setParentCheck == GetMemPoolParents(it));
         // Verify ancestor state is correct.
