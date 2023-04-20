@@ -20,7 +20,7 @@ mod ffi {
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
         fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool>;
-        fn evm_finalise(
+        fn evm_finalize(
             context: u64,
             update_state: bool,
             miner_address: [u8; 20],
@@ -104,7 +104,7 @@ fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {
 }
 
 use rlp::Encodable;
-fn evm_finalise(
+fn evm_finalize(
     context: u64,
     update_state: bool,
     miner_address: [u8; 20],
