@@ -27,7 +27,7 @@ from .util import (
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
-    grpc_url,
+    eth_rpc_url,
     wait_until,
     p2p_port,
 )
@@ -325,7 +325,7 @@ class TestNode():
                 # If the call to getblockcount() succeeds then the RPC connection is up
                 self.log.debug("RPC successfully started")
 
-                evm_rpc = get_rpc_proxy(grpc_url(self.datadir, self.index, self.chain, self.evm_rpchost), self.index,
+                evm_rpc = get_rpc_proxy(eth_rpc_url(self.datadir, self.index, self.chain, self.evm_rpchost), self.index,
                                      timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
                 evm_rpc.eth_blockNumber()
                 # If the call to eth_blockNumber() succeeds then the evm-RPC connection is up
