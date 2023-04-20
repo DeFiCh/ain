@@ -37,17 +37,17 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN) {
-        return std::make_unique<CBaseChainParams>("", 8554, 8559);
+        return std::make_unique<CBaseChainParams>("", 8554, 8559, put-number);
     } else if (chain == CBaseChainParams::TESTNET) {
-        return std::make_unique<CBaseChainParams>("testnet3", 18554, 9558);
+        return std::make_unique<CBaseChainParams>("testnet3", 18554, 9558, put-number);
     } else if (chain == CBaseChainParams::DEVNET) {
         if (gArgs.IsArgSet("-devnet-bootstrap")) {
-            return std::make_unique<CBaseChainParams>("devnet", 18554, 9558);
+            return std::make_unique<CBaseChainParams>("devnet", 18554, 9558, put-number);
         } else {
-            return std::make_unique<CBaseChainParams>("devnet", 20554, 10558);
+            return std::make_unique<CBaseChainParams>("devnet", 20554, 10558, put-number);
         }
     } else if (chain == CBaseChainParams::REGTEST) {
-        return std::make_unique<CBaseChainParams>("regtest", 19554, 11558);
+        return std::make_unique<CBaseChainParams>("regtest", 19554, 11558, put-number);
     } else {
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
     }
