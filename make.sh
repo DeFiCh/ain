@@ -349,7 +349,7 @@ test_py() {
     _ensure_enter_dir "${release_target_dir}"
 
     # shellcheck disable=SC2086
-    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000 "$@"
+    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
 
     _exit_dir
 }

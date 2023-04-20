@@ -66,7 +66,6 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
-    init_runtime();
 
     //
     // Parameters
@@ -112,6 +111,7 @@ static bool AppInit(int argc, char* argv[])
         }
 
         // Start GRPC after BaseParams() has been initialised
+        init_runtime();
         int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
         start_servers("127.0.0.1:" + std::to_string(grpc_port), "127.0.0.1:" +  std::to_string(grpc_port + 1));
 

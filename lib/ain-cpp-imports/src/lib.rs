@@ -9,6 +9,7 @@ mod ffi {
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> bool;
         fn getAccounts() -> Vec<String>;
+        fn getDatadir() -> String;
     }
 }
 
@@ -30,4 +31,9 @@ pub fn publish_eth_transaction(data: Vec<u8>) -> Result<bool, Box<dyn Error>> {
 pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
     let accounts = ffi::getAccounts();
     Ok(accounts)
+}
+
+pub fn get_datadir() -> Result<String, Box<dyn Error>> {
+    let datadir = ffi::getDatadir();
+    Ok(datadir)
 }

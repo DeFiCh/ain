@@ -1,8 +1,8 @@
+use crate::{executor::TxResponse, transaction::SignedTx};
 use ethereum::AccessList;
 use evm::Config;
 use primitive_types::{H160, U256};
-
-use crate::{executor::TxResponse, transaction::SignedTx};
+use std::fs::File;
 
 pub trait Executor {
     const CONFIG: Config = Config::london();
@@ -22,14 +22,53 @@ pub trait Executor {
 }
 
 pub trait PersistentState {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError>;
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError>
+    fn save_to_disk(&self, file_path: &str) -> Result<(), PersistentStateError>
     where
-        Self: Sized;
+        Self: serde::ser::Serialize,
+    {
+        // Automatically resolves from datadir for now
+        let path = match ain_cpp_imports::get_datadir() {
+            Ok(path) => {
+                let path = PathBuf::from(path).join("evm");
+                if !path.exists() {
+                    std::fs::create_dir(&path).expect("Error creating `evm` dir")
+                }
+                path.join(file_path)
+            }
+            _ => PathBuf::from(file_path),
+        };
+
+        let serialized_state = bincode::serialize(self)?;
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_state)?;
+        Ok(())
+    }
+
+    fn load_from_disk(file_path: &str) -> Result<Self, PersistentStateError>
+    where
+        Self: Sized + serde::de::DeserializeOwned + Default,
+    {
+        // Automatically resolves from datadir for now
+        let path = match ain_cpp_imports::get_datadir() {
+            Ok(path) => PathBuf::from(path).join("evm").join(file_path),
+            _ => PathBuf::from(file_path),
+        };
+
+        if Path::new(&path).exists() {
+            let file = File::open(path)?;
+            let new_state: Self = bincode::deserialize_from(file)?;
+            Ok(new_state)
+        } else {
+            Ok(Self::default())
+        }
+    }
 }
 
 use std::fmt;
 use std::io;
+use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum PersistentStateError {

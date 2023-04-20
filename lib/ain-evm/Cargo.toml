@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ain-cpp-imports = { path = "../ain-cpp-imports" }
+
 evm = { version = "0.37", default-features = false, features = ["with-serde"] }
 primitive-types = { version = "0.12", default-features = false, features = ["serde"] }
 log = "0.4"

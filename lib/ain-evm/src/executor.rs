@@ -71,6 +71,7 @@ where
             ),
         };
 
+        let used_gas = executor.used_gas();
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
         if apply && exit_reason.is_succeed() {
@@ -81,6 +82,7 @@ where
             exit_reason,
             data,
             logs,
+            used_gas,
         }
     }
 
@@ -103,4 +105,5 @@ pub struct TxResponse {
     pub exit_reason: ExitReason,
     pub data: Vec<u8>,
     pub logs: Vec<Log>,
+    pub used_gas: u64,
 }
