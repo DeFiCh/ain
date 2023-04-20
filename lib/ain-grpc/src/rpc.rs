@@ -18,6 +18,7 @@ use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
 use ain_evm::receipt::Receipt;
+use crate::receipt::ReceiptResult;
 
 type Result<T> = std::result::Result<T, jsonrpsee::core::Error>;
 
@@ -33,7 +34,7 @@ pub trait MetachainRPC {
     fn get_balance(&self, address: H160) -> Result<U256>;
 
     #[method(name = "eth_getBlockByHash")]
-    fn get_block_by_hash(&self, input: EthGetBlockByHashInput) -> Result<Option<RpcBlock>>;
+    fn get_block_by_hash(&self, hash: String) -> Result<Option<RpcBlock>>;
 
     #[method(name = "eth_chainId")]
     fn chain_id(&self) -> Result<String>;
@@ -108,7 +109,7 @@ pub trait MetachainRPC {
     fn gas_price(&self) -> Result<String>;
 
     #[method(name = "eth_getTransactionReceipt")]
-    fn get_receipt(&self, hash: H256) -> Result<Receipt>;
+    fn get_receipt(&self, hash: H256) -> Result<ReceiptResult>;
 }
 
 pub struct MetachainRPCModule {
@@ -153,9 +154,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(self.handler.evm.get_balance(address))
     }
 
-    fn get_block_by_hash(&self, input: EthGetBlockByHashInput) -> Result<Option<RpcBlock>> {
-        let EthGetBlockByHashInput { hash, .. } = input;
-
+    fn get_block_by_hash(&self, hash: String) -> Result<Option<RpcBlock>> {
         let hash: H256 = hash.parse().expect("Invalid hash");
 
         Ok(self
@@ -371,7 +370,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(format!("{:#x}", 0))
     }
 
-    fn get_receipt(&self, hash: H256) -> Result<Receipt> {
-        Ok(self.handler.receipt.get_receipt(hash).unwrap())
+    fn get_receipt(&self, hash: H256) -> Result<ReceiptResult> {
+        let receipt = self.handler.receipt.get_receipt(hash).unwrap();
+        Ok(ReceiptResult::from(receipt))
     }
 }

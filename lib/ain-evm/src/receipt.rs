@@ -117,7 +117,7 @@ impl ReceiptHandler {
                 from: transaction.sender,
                 to: extr(action(tv2.clone())),
                 tx_index: index,
-                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
+                tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
             };
 
             map.insert(tv2.hash(), receipt);
