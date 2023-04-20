@@ -62,3 +62,7 @@ rust::vec<rust::string> getAccounts() {
     }
     return addresses;
 }
+
+rust::string getDatadir() {
+    return GetDataDir().c_str();
+}
