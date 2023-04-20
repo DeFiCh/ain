@@ -7,6 +7,7 @@ use primitive_types::{H160, H256, U256};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -14,15 +15,16 @@ use std::sync::{Arc, RwLock};
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Receipt {
-    receipt: ReceiptV3,
-    block_hash: H256,
-    block_number: U256,
-    from: H160,
-    to: H160,
-    tx_index: usize,
-    tx_type: u8,
+    pub tx_hash: H256,
+    pub receipt: ReceiptV3,
+    pub block_hash: H256,
+    pub block_number: U256,
+    pub from: H160,
+    pub to: H160,
+    pub tx_index: usize,
+    pub tx_type: u8,
 }
 
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
@@ -82,6 +84,13 @@ impl ReceiptHandler {
         }
     }
 
+    pub fn get_receipt(&self, tx: H256) -> Result<Receipt, ReceiptHandlerError> {
+        let map = self.transaction_map.read().unwrap();
+
+        let receipt = map.get(&tx).ok_or(ReceiptHandlerError::ReceiptNotFound)?.clone();
+        Ok(receipt)
+    }
+
     pub fn generate_receipts(
         &self,
         successful: Vec<SignedTx>,
@@ -104,6 +113,7 @@ impl ReceiptHandler {
                 }),
                 block_hash,
                 block_number,
+                tx_hash: tv2.hash(),
                 from: transaction.sender,
                 to: extr(action(tv2.clone())),
                 tx_index: index,
@@ -125,6 +135,7 @@ impl ReceiptHandler {
                 }),
                 block_hash,
                 block_number,
+                tx_hash: tv2.hash(),
                 from: transaction.sender,
                 to: extr(action(tv2.clone())),
                 tx_index: index,
@@ -136,3 +147,22 @@ impl ReceiptHandler {
         }
     }
 }
+
+use std::fmt;
+use std::ops::Deref;
+
+
+#[derive(Debug)]
+pub enum ReceiptHandlerError {
+    ReceiptNotFound,
+}
+
+impl fmt::Display for ReceiptHandlerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ReceiptHandlerError::ReceiptNotFound => write!(f, "Receipt not found"),
+        }
+    }
+}
+
+impl Error for ReceiptHandlerError {}

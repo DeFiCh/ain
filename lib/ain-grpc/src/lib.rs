@@ -5,6 +5,7 @@ extern crate serde_json;
 mod block;
 mod call_request;
 mod codegen;
+mod receipt;
 mod impls;
 pub mod rpc;
 

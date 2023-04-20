@@ -16,6 +16,7 @@ use jsonrpsee::proc_macros::rpc;
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
+use ain_evm::receipt::Receipt;
 
 type Result<T> = std::result::Result<T, jsonrpsee::core::Error>;
 
@@ -104,6 +105,9 @@ pub trait MetachainRPC {
 
     #[method(name = "eth_gasPrice")]
     fn gas_price(&self) -> Result<String>;
+
+    #[method(name = "eth_getTransactionReceipt")]
+    fn get_receipt(&self, hash: H256) -> Result<Receipt>;
 }
 
 pub struct MetachainRPCModule {
@@ -354,5 +358,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn gas_price(&self) -> Result<String> {
         Ok(format!("{:#x}", 0))
+    }
+
+    fn get_receipt(&self, hash: H256) -> Result<Receipt> {
+        Ok(self.handler.receipt.get_receipt(hash).unwrap())
     }
 }
