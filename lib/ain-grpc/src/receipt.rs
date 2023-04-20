@@ -1,6 +1,6 @@
+use ain_evm::receipt::Receipt;
 use ethereum::{EIP658ReceiptData, Log};
 use primitive_types::{H160, H256, U256};
-use ain_evm::receipt::Receipt;
 use std::error::Error;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -19,7 +19,7 @@ pub struct ReceiptResult {
     pub to: H160,
     pub transaction_hash: H256,
     pub transaction_index: usize,
-    pub typ: u8
+    pub typ: u8,
 }
 
 impl From<Receipt> for ReceiptResult {
@@ -43,4 +43,3 @@ impl From<Receipt> for ReceiptResult {
         }
     }
 }
-

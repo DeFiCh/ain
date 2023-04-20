@@ -87,7 +87,10 @@ impl ReceiptHandler {
     pub fn get_receipt(&self, tx: H256) -> Result<Receipt, ReceiptHandlerError> {
         let map = self.transaction_map.read().unwrap();
 
-        let receipt = map.get(&tx).ok_or(ReceiptHandlerError::ReceiptNotFound)?.clone();
+        let receipt = map
+            .get(&tx)
+            .ok_or(ReceiptHandlerError::ReceiptNotFound)?
+            .clone();
         Ok(receipt)
     }
 
@@ -150,7 +153,6 @@ impl ReceiptHandler {
 
 use std::fmt;
 use std::ops::Deref;
-
 
 #[derive(Debug)]
 pub enum ReceiptHandlerError {

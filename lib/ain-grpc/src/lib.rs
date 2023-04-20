@@ -5,8 +5,8 @@ extern crate serde_json;
 mod block;
 mod call_request;
 mod codegen;
-mod receipt;
 mod impls;
+mod receipt;
 pub mod rpc;
 
 use env_logger::{Builder as LogBuilder, Env};

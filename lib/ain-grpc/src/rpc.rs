@@ -7,9 +7,11 @@ use crate::codegen::types::{
     EthTransactionInfo,
 };
 
+use crate::receipt::ReceiptResult;
 use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
+use ain_evm::receipt::Receipt;
 use ain_evm::transaction::SignedTx;
 use ethereum::{Block, PartialHeader};
 use jsonrpsee::proc_macros::rpc;
@@ -17,8 +19,6 @@ use log::debug;
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
-use ain_evm::receipt::Receipt;
-use crate::receipt::ReceiptResult;
 
 type Result<T> = std::result::Result<T, jsonrpsee::core::Error>;
 

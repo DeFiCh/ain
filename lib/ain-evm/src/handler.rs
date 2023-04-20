@@ -96,7 +96,7 @@ impl Handlers {
                 mix_hash: Default::default(),
                 nonce: Default::default(),
             },
-            all_transactions.clone(),
+            all_transactions,
             Vec::new(),
         );
 
@@ -114,12 +114,6 @@ impl Handlers {
 
             self.storage.put_latest_block(block.clone());
             self.storage.put_block(block.clone());
-        }
-
-        println!("BLOCK TRANSACTIONS");
-        println!("{}", block.header.hash());
-        for tx in all_transactions {
-            println!("{}", tx.hash())
         }
 
         Ok((
