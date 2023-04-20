@@ -348,7 +348,6 @@ test_py() {
 
     _ensure_enter_dir "${release_target_dir}"
 
-    _fold_start "functional-tests"
     # shellcheck disable=SC2086
     ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
     _fold_end
