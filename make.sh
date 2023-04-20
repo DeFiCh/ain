@@ -61,6 +61,7 @@ main() {
     cd "$_SCRIPT_DIR"
     _platform_init
     setup_vars
+    git_add_hooks
 
     # Get all functions declared in this file except ones starting with
     # '_' or the ones in the list
@@ -335,6 +336,24 @@ test() {
     _exit_dir
 }
 
+test_py() {
+    local release_target_dir=${RELEASE_TARGET_DIR}
+    local first_arg="${1:-}"
+
+    if [[ -f "${first_arg}" ]]; then
+      shift
+      "${first_arg}" --configfile "${release_target_dir}/test/config.ini" --tmpdirprefix "./test_runner/" --ansi "$@"
+      return
+    fi
+
+    _ensure_enter_dir "${release_target_dir}"
+
+    # shellcheck disable=SC2086
+    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+
+    _exit_dir
+}
+
 exec() {
     local make_jobs=${MAKE_JOBS}
     local make_args=${MAKE_ARGS:-}
@@ -504,7 +523,7 @@ clean_artifacts() {
     
     local x
     for x in "${items[@]}"; do
-        _safe_rm_rf "$(find src -iname "$x" -print0 | xargs -0)"
+        find src -iname "$x" -exec rm -rf \;
     done
 }
 
@@ -631,6 +650,46 @@ _get_default_conf_args() {
     # Other potential options: -static-libgcc on gcc, -static on clang
     echo "$conf_args"
 }
+
+
+# Dev tools
+# ---
+
+# shellcheck disable=SC2120
+git_add_hooks() {
+    local force_update=${1:-0}
+    local file=".git/hooks/pre-push"
+    if [[ -f "$file" && $force_update == "0" ]]; then 
+        return;
+    fi
+    echo "> add pre-push-hook"
+    mkdir -p "$(dirname $file)" 2>/dev/null || { true && return; }
+    cat <<END > "$file"
+#!/bin/bash
+set -Eeuo pipefail
+dir="\$(dirname "\${BASH_SOURCE[0]}")"
+_SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
+cd \$_SCRIPT_DIR/../../
+./make.sh check
+END
+    chmod +x "$file"
+}
+
+check() {
+    check_rs
+}
+
+check_rs() {
+    _ensure_enter_dir ./lib
+    cargo build && cargo test && cargo clippy  || { 
+        echo "Error: Please resolve compiler checks before commit"; 
+        exit 1; }
+    cargo fmt --all --check  || {
+        echo "Error: Please format code before commit"; 
+        exit 1; }
+    _exit_dir
+}
+
 
 # Platform specifics
 # ---

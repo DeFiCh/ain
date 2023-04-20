@@ -1809,7 +1809,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         TBytes dummy;
-        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
+        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy) && !IsEVMTx(tx)) { // not coinbases or EVM TX
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("%s: transaction and undo data inconsistent", __func__);
@@ -2835,11 +2835,44 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     mnview.SetLastHeight(pindex->nHeight);
 
     if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
-        CPubKey pubKey;
-        assert(pubKey.RecoverCompact(block.GetHashToSign(), block.sig));
-        const auto sourceAddress{pubKey.GetEthID()};
+        CKeyID minter;
+        assert(block.ExtractMinterKey(minter));
         std::array<uint8_t, 20> minerAddress{};
-        std::copy(sourceAddress.begin(), sourceAddress.end(), minerAddress.begin());
+
+        if (!fMockNetwork) {
+            const auto id = mnview.GetMasternodeIdByOperator(minter);
+            assert(id);
+            const auto node = mnview.GetMasternode(*id);
+            assert(node);
+
+            auto height = node->creationHeight;
+            auto mnID = *id;
+            if (!node->collateralTx.IsNull()) {
+                const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
+                assert(idHeight);
+                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+                mnID = node->collateralTx;
+            }
+    
+            const auto blockindex = ::ChainActive()[height];
+            assert(blockindex);
+
+            
+            CTransactionRef tx;
+            uint256 hash_block;
+            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+            assert(tx->vout.size() >= 2);
+
+            CTxDestination dest;
+            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
+
+            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
+        } else {
+            std::copy(minter.begin(), minter.end(), minerAddress.begin());
+        }
+
         evm_finalise(evmContext, true, minerAddress);
     }
 

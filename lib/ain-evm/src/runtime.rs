@@ -19,10 +19,17 @@ pub struct Runtime {
     pub handlers: Arc<Handlers>,
 }
 
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Runtime {
     pub fn new() -> Self {
         let r = Builder::new_multi_thread().enable_all().build().unwrap();
         let (tx, mut rx) = mpsc::channel(1);
+
         Runtime {
             tx,
             rt_handle: r.handle().clone(),

@@ -49,6 +49,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].transferbalance("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
 
+        # Check that EVM balance shows in gettokenabalances
+        assert_equal(self.nodes[0].gettokenbalances({}, False, False, True), ['101.00000000@0'])
+
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
         newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
 
@@ -64,14 +67,21 @@ class EVMTest(DefiTestFramework):
         assert_equal(newDFIbalance, DFIbalance)
         # assert_equal(newETHbalance, ETHbalance)
 
+        # Fund Eth address
+        self.nodes[0].transferbalance("evmin",{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
+        self.nodes[0].generate(1)
+
         # Test EVM Tx
-        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 0.1)
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
         assert_equal(self.nodes[0].getrawmempool(), [tx])
         self.nodes[0].generate(1)
 
         # Check EVM Tx is in block
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
+
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
+        assert_equal(self.nodes[0].getblockcount(), 100)
 
 if __name__ == '__main__':
     EVMTest().main()

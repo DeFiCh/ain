@@ -1,3 +1,4 @@
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
@@ -254,11 +255,16 @@ static BalanceKey decodeBalanceKey(const std::string &str) {
     return {hexToScript(pair.first), tokenID};
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+static UniValue DecodeRecipientsGetRecipients(const UniValue &values) {
     UniValue recipients(UniValue::VOBJ);
     for (const auto& key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
     }
+    return recipients;
+}
+
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+    const auto recipients = DecodeRecipientsGetRecipients(values);
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
     for (const auto& account : accounts) {
         if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
@@ -505,6 +511,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                         "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
                     {"symbol_lookup", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Use token symbols in output (default = false)"},
+                    {"include_eth", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Whether to include Eth balances in output (default = false)"},
                 },
                 RPCResult{
                        "{...}     (array) Json object with balances information\n"
@@ -549,6 +557,10 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     if (request.params.size() > 2) {
         symbol_lookup = request.params[2].getBool();
     }
+    auto eth_lookup = false;
+    if (request.params.size() > 3) {
+        eth_lookup = request.params[3].getBool();
+    }
 
     UniValue ret(UniValue::VARR);
     if (indexed_amounts) {
@@ -571,6 +583,14 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         }
         return true;
     });
+
+    if (eth_lookup) {
+        for (const auto keyID : pwallet->GetEthKeys()) {
+            const auto evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()));
+            totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+        }
+    }
+
     auto it = totalBalances.balances.lower_bound(start);
     for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         auto bal = CTokenAmount{(*it).first, (*it).second};
@@ -1992,10 +2012,13 @@ UniValue transferbalance(const JSONRPCRequest& request) {
         else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
 
-        if (!request.params[2].isNull())
-            msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[2].get_obj());
-        else
+        if (!request.params[2].isNull()){
+            const auto recipients = DecodeRecipientsGetRecipients(request.params[2].get_obj());
+            const auto accounts = DecodeRecipients(pwallet->chain(), recipients);
+            msg.to = accounts;
+        } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"to\" must not be null");
+        }
     } catch(std::runtime_error& e) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
     }
@@ -2014,17 +2037,17 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    if (msg.type != CTransferBalanceType::EvmOut)
-        for(auto& address : msg.from)
+    if (msg.type != CTransferBalanceType::EvmOut) {
+        for(auto& address : msg.from){
             auths.insert(address.first);
-    else
-        for(auto& address : msg.from)
-            if (IsMine(*pwallet, address.first))
-            {
-                const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
-                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
-                auths.insert(auth);
-            }
+        }
+    } else {
+        for(auto& address : msg.from) {
+            const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+            const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+            auths.insert(auth);
+        }
+    }
 
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);

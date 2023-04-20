@@ -1,222 +1,369 @@
-use crate::codegen::rpc::{
-    ffi::{
-        EthAccountsResult, EthBlockInfo, EthBlockNumberResult, EthCallInput, EthCallResult,
-        EthChainIdResult, EthGetBalanceInput, EthGetBalanceResult, EthGetBlockByHashInput,
-        EthGetBlockByNumberInput, EthMiningResult, EthTransactionInfo,
-    },
-    EthService,
+use crate::block::{BlockNumber, RpcBlock};
+use crate::call_request::CallRequest;
+use crate::codegen::types::{
+    EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
+    EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
+    EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
+    EthTransactionInfo,
 };
+
+use ain_cpp_imports::publish_eth_transaction;
+use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
-use primitive_types::{H256, U256};
-use std::mem::size_of_val;
+use ain_evm::transaction::SignedTx;
+use ethereum::{Block, PartialHeader};
+use jsonrpsee::proc_macros::rpc;
+use log::debug;
+use primitive_types::{H160, H256, U256};
+use std::convert::Into;
 use std::sync::Arc;
 
-#[allow(non_snake_case)]
-pub trait EthServiceApi {
-    // Read only call
-    fn Eth_Call(
-        handler: Arc<Handlers>,
-        input: EthCallInput,
-    ) -> Result<EthCallResult, jsonrpsee_core::Error>;
+type Result<T> = std::result::Result<T, jsonrpsee::core::Error>;
 
-    fn Eth_Accounts(handler: Arc<Handlers>) -> Result<EthAccountsResult, jsonrpsee_core::Error>;
+#[rpc(server, client)]
+pub trait MetachainRPC {
+    #[method(name = "eth_call")]
+    fn call(&self, input: CallRequest) -> Result<String>;
 
-    fn Eth_GetBalance(
-        handler: Arc<Handlers>,
-        input: EthGetBalanceInput,
-    ) -> Result<EthGetBalanceResult, jsonrpsee_core::Error>;
+    #[method(name = "eth_accounts")]
+    fn accounts(&self) -> Result<Vec<String>>;
 
-    fn Eth_GetBlockByHash(
-        handler: Arc<Handlers>,
-        input: EthGetBlockByHashInput,
-    ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
+    #[method(name = "eth_getBalance")]
+    fn get_balance(&self, address: H160) -> Result<U256>;
 
-    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+    #[method(name = "eth_getBlockByHash")]
+    fn get_block_by_hash(&self, input: EthGetBlockByHashInput) -> Result<Option<RpcBlock>>;
 
-    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error>;
+    #[method(name = "eth_chainId")]
+    fn chain_id(&self) -> Result<String>;
 
-    fn Eth_BlockNumber(
-        handler: Arc<Handlers>,
-    ) -> Result<EthBlockNumberResult, jsonrpsee_core::Error>;
+    #[method(name = "eth_hashrate")]
+    fn hash_rate(&self) -> Result<String>;
 
-    fn Eth_GetBlockByNumber(
-        handler: Arc<Handlers>,
-        input: EthGetBlockByNumberInput,
-    ) -> Result<EthBlockInfo, jsonrpsee_core::Error>;
+    #[method(name = "net_version")]
+    fn net_version(&self) -> Result<String>;
 
-    fn Eth_Mining(handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error>;
+    #[method(name = "eth_blockNumber")]
+    fn block_number(&self) -> Result<U256>;
+
+    #[method(name = "eth_getBlockByNumber")]
+    fn get_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        full_transaction: bool,
+    ) -> Result<Option<RpcBlock>>;
+
+    #[method(name = "eth_mining")]
+    fn mining(&self) -> Result<bool>;
+
+    #[method(name = "eth_getTransactionByHash")]
+    fn get_transaction_by_hash(&self, hash: H256) -> Result<EthTransactionInfo>;
+
+    #[method(name = "eth_getTransactionByBlockHashAndIndex")]
+    fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: H256,
+        index: usize,
+    ) -> Result<EthTransactionInfo>;
+
+    #[method(name = "eth_getTransactionByBlockNumberAndIndex")]
+    fn get_transaction_by_block_number_and_index(
+        &self,
+        block_number: U256,
+        index: usize,
+    ) -> Result<EthTransactionInfo>;
+
+    #[method(name = "eth_getBlockTransactionCountByHash")]
+    fn get_block_transaction_count_by_hash(
+        &self,
+        input: EthGetBlockTransactionCountByHashInput,
+    ) -> Result<EthGetBlockTransactionCountByHashResult>;
+
+    #[method(name = "eth_getBlockTransactionCountByNumber")]
+    fn get_block_transaction_count_by_number(
+        &self,
+        input: EthGetBlockTransactionCountByNumberInput,
+    ) -> Result<EthGetBlockTransactionCountByNumberResult>;
+
+    #[method(name = "eth_getCode")]
+    fn get_code(&self, address: H160) -> Result<String>;
+
+    #[method(name = "eth_getStorageAt")]
+    fn get_storage_at(&self, input: EthGetStorageAtInput) -> Result<EthGetStorageAtResult>;
+
+    #[method(name = "eth_sendRawTransaction")]
+    fn send_raw_transaction(&self, input: &str) -> Result<String>;
+
+    #[method(name = "eth_getTransactionCount")]
+    fn get_transaction_count(&self, input: String) -> Result<String>;
+
+    #[method(name = "eth_estimateGas")]
+    fn estimate_gas(&self) -> Result<String>;
+
+    #[method(name = "mc_getState")]
+    fn get_state(&self) -> Result<EVMState>;
+
+    #[method(name = "eth_gasPrice")]
+    fn gas_price(&self) -> Result<String>;
 }
 
-impl EthServiceApi for EthService {
-    fn Eth_Call(
-        handler: Arc<Handlers>,
-        input: EthCallInput,
-    ) -> Result<EthCallResult, jsonrpsee_core::Error> {
-        let EthCallInput {
-            transaction_info, ..
-        } = input;
-        let EthTransactionInfo {
+pub struct MetachainRPCModule {
+    handler: Arc<Handlers>,
+}
+
+impl MetachainRPCModule {
+    pub fn new(handler: Arc<Handlers>) -> Self {
+        Self { handler }
+    }
+}
+
+impl MetachainRPCServer for MetachainRPCModule {
+    fn call(&self, input: CallRequest) -> Result<String> {
+        let CallRequest {
             from,
             to,
             gas,
             value,
             data,
             ..
-        } = transaction_info;
+        } = input;
+        let (_, data) = self.handler.evm.call(
+            from,
+            to,
+            value.unwrap_or_default(),
+            &data.unwrap_or_default(),
+            gas.unwrap_or_default().as_u64(),
+            vec![],
+        );
 
-        let from = from.parse().ok();
-        let to = to.parse().ok();
-        let (_, data) = handler
-            .evm
-            .call(from, to, value.into(), data.as_bytes(), gas, vec![]);
-
-        Ok(EthCallResult {
-            data: String::from_utf8_lossy(&*data).to_string(),
-        })
+        Ok(hex::encode(data))
     }
 
-    fn Eth_Accounts(_handler: Arc<Handlers>) -> Result<EthAccountsResult, jsonrpsee_core::Error> {
-        // Get from wallet
-        Ok(EthAccountsResult { accounts: vec![] })
+    fn accounts(&self) -> Result<Vec<String>> {
+        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        Ok(accounts)
     }
 
-    fn Eth_GetBalance(
-        handler: Arc<Handlers>,
-        input: EthGetBalanceInput,
-    ) -> Result<EthGetBalanceResult, jsonrpsee_core::Error> {
-        let EthGetBalanceInput { address, .. } = input;
-        let address = address.parse().expect("Wrong address");
-        let balance = handler
-            .evm
-            .state
-            .read()
-            .unwrap()
-            .get(&address)
-            .map(|addr| addr.balance)
-            .unwrap_or_default();
-
-        Ok(EthGetBalanceResult {
-            balance: balance.to_string(),
-        })
+    fn get_balance(&self, address: H160) -> Result<U256> {
+        debug!("Getting balance for address: {:?}", address);
+        Ok(self.handler.evm.get_balance(address))
     }
 
-    fn Eth_GetBlockByHash(
-        handler: Arc<Handlers>,
-        input: EthGetBlockByHashInput,
-    ) -> Result<EthBlockInfo, jsonrpsee_core::Error> {
+    fn get_block_by_hash(&self, input: EthGetBlockByHashInput) -> Result<Option<RpcBlock>> {
         let EthGetBlockByHashInput { hash, .. } = input;
 
-        let hash = hash.parse().expect("Invalid hash");
-        let block = handler.block.get_block_by_hash(hash).unwrap();
+        let hash: H256 = hash.parse().expect("Invalid hash");
 
-        Ok(EthBlockInfo {
-            block_number: format!("{:#x}", block.header.number),
-            hash: format_hash(block.header.hash()),
-            parent_hash: format_hash(block.header.parent_hash),
-            nonce: format!("{:#x}", block.header.nonce),
-            sha3_uncles: format_hash(block.header.ommers_hash),
-            logs_bloom: format!("{:#x}", block.header.logs_bloom),
-            transactions_root: format_hash(block.header.transactions_root),
-            state_root: format_hash(block.header.state_root),
-            receipt_root: format_hash(block.header.receipts_root),
-            miner: format!("{:#x}", block.header.beneficiary),
-            difficulty: format!("{:#x}", block.header.difficulty),
-            total_difficulty: format_number(block.header.difficulty),
-            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
-            size: format!("{:#x}", size_of_val(&block)),
-            gas_limit: format_number(block.header.gas_limit),
-            gas_used: format_number(block.header.gas_used),
-            timestamps: format!("0x{:x}", block.header.timestamp),
-            transactions: block
-                .transactions
-                .iter()
-                .map(|x| x.hash().to_string())
-                .collect::<Vec<String>>(),
-            uncles: block
-                .ommers
-                .iter()
-                .map(|x| x.hash().to_string())
-                .collect::<Vec<String>>(),
-        })
+        Ok(self
+            .handler
+            .storage
+            .get_block_by_hash(&hash)
+            .map(Into::into))
     }
 
-    fn Eth_ChainId(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+    fn chain_id(&self) -> Result<String> {
         let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
-        Ok(EthChainIdResult {
-            id: format!("{:#x}", chain_id),
-        })
+        Ok(format!("{:#x}", chain_id))
     }
 
-    fn Net_Version(_handler: Arc<Handlers>) -> Result<EthChainIdResult, jsonrpsee_core::Error> {
+    fn hash_rate(&self) -> Result<String> {
+        Ok("0x0".parse().unwrap())
+    }
+
+    fn net_version(&self) -> Result<String> {
         let chain_id = ain_cpp_imports::get_chain_id().unwrap();
 
-        Ok(EthChainIdResult {
-            id: format!("{}", chain_id),
+        Ok(format!("{}", chain_id))
+    }
+
+    fn block_number(&self) -> Result<U256> {
+        let count = self
+            .handler
+            .storage
+            .get_latest_block()
+            .map(|block| block.header.number)
+            .unwrap_or_default();
+
+        debug!("Current block number: {:?}", count);
+        Ok(count)
+    }
+
+    fn get_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        _full_transaction: bool,
+    ) -> Result<Option<RpcBlock>> {
+        match block_number {
+            BlockNumber::Num(number) => {
+                println!("Getting bblock by number : {}", number);
+                let number = U256::from(number);
+                Ok(Some(
+                    self.handler
+                        .storage
+                        .get_block_by_number(&number)
+                        .unwrap_or_else(|| {
+                            Block::new(
+                                PartialHeader {
+                                    parent_hash: Default::default(),
+                                    beneficiary: Default::default(),
+                                    state_root: Default::default(),
+                                    receipts_root: Default::default(),
+                                    logs_bloom: Default::default(),
+                                    difficulty: Default::default(),
+                                    number,
+                                    gas_limit: Default::default(),
+                                    gas_used: Default::default(),
+                                    timestamp: Default::default(),
+                                    extra_data: Default::default(),
+                                    mix_hash: Default::default(),
+                                    nonce: Default::default(),
+                                },
+                                Vec::new(),
+                                Vec::new(),
+                            )
+                        })
+                        .into(),
+                ))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn mining(&self) -> Result<bool> {
+        ain_cpp_imports::is_mining().map_err(|e| jsonrpsee::core::Error::Custom(e.to_string()))
+    }
+
+    fn get_transaction_by_hash(&self, hash: H256) -> Result<EthTransactionInfo> {
+        self.handler
+            .storage
+            .get_transaction_by_hash(hash)
+            .and_then(|tx| tx.try_into().ok())
+            .ok_or(jsonrpsee::core::Error::Custom(String::from(
+                "Missing transaction",
+            )))
+    }
+
+    fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: H256,
+        index: usize,
+    ) -> Result<EthTransactionInfo> {
+        self.handler
+            .storage
+            .get_transaction_by_block_hash_and_index(hash, index)
+            .and_then(|tx| tx.try_into().ok())
+            .ok_or(jsonrpsee::core::Error::Custom(String::from(
+                "Missing transaction",
+            )))
+    }
+
+    fn get_transaction_by_block_number_and_index(
+        &self,
+        number: U256,
+        index: usize,
+    ) -> Result<EthTransactionInfo> {
+        self.handler
+            .storage
+            .get_transaction_by_block_number_and_index(number, index)
+            .and_then(|tx| tx.try_into().ok())
+            .ok_or(jsonrpsee::core::Error::Custom(String::from(
+                "Missing transaction",
+            )))
+    }
+
+    fn get_block_transaction_count_by_hash(
+        &self,
+        input: EthGetBlockTransactionCountByHashInput,
+    ) -> Result<EthGetBlockTransactionCountByHashResult> {
+        let EthGetBlockTransactionCountByHashInput { block_hash } = input;
+
+        let block_hash = block_hash.parse().expect("Invalid hash");
+        let block = self.handler.block.get_block_by_hash(block_hash).unwrap();
+        let count = block.transactions.len();
+
+        Ok(EthGetBlockTransactionCountByHashResult {
+            number_transaction: format!("{:#x}", count),
         })
     }
 
-    fn Eth_BlockNumber(
-        handler: Arc<Handlers>,
-    ) -> Result<EthBlockNumberResult, jsonrpsee_core::Error> {
-        let count = handler.block.blocks.read().unwrap().len();
+    fn get_block_transaction_count_by_number(
+        &self,
+        input: EthGetBlockTransactionCountByNumberInput,
+    ) -> Result<EthGetBlockTransactionCountByNumberResult> {
+        let EthGetBlockTransactionCountByNumberInput { block_number } = input;
 
-        Ok(EthBlockNumberResult {
-            block_number: format!("0x{:x}", count),
+        let number: usize = block_number.parse().ok().unwrap();
+        let block = self.handler.block.get_block_by_number(number).unwrap();
+        let count = block.transactions.len();
+
+        Ok(EthGetBlockTransactionCountByNumberResult {
+            number_transaction: format!("{:#x}", count),
         })
     }
 
-    fn Eth_GetBlockByNumber(
-        handler: Arc<Handlers>,
-        input: EthGetBlockByNumberInput,
-    ) -> Result<EthBlockInfo, jsonrpsee_core::Error> {
-        let EthGetBlockByNumberInput { number, .. } = input;
+    fn get_code(&self, address: H160) -> Result<String> {
+        debug!("Getting code for address: {:?}", address);
+        let code = self.handler.evm.get_code(address);
 
-        let number: usize = number.parse().ok().unwrap();
-        let block = handler.block.get_block_by_number(number).unwrap();
+        if code.is_empty() {
+            return Ok(String::from("0x"));
+        }
 
-        Ok(EthBlockInfo {
-            block_number: format!("{:#x}", block.header.number),
-            hash: format_hash(block.header.hash()),
-            parent_hash: format_hash(block.header.parent_hash),
-            nonce: format!("{:#x}", block.header.nonce),
-            sha3_uncles: format_hash(block.header.ommers_hash),
-            logs_bloom: format!("{:#x}", block.header.logs_bloom),
-            transactions_root: format_hash(block.header.transactions_root),
-            state_root: format_hash(block.header.state_root),
-            receipt_root: format_hash(block.header.receipts_root),
-            miner: format!("{:#x}", block.header.beneficiary),
-            difficulty: format!("{:#x}", block.header.difficulty),
-            total_difficulty: format_number(block.header.difficulty),
-            extra_data: format!("{:#x?}", block.header.extra_data.to_ascii_lowercase()),
-            size: format!("{:#x}", size_of_val(&block)),
-            gas_limit: format_number(block.header.gas_limit),
-            gas_used: format_number(block.header.gas_used),
-            timestamps: format!("{:#x}", block.header.timestamp),
-            transactions: block
-                .transactions
-                .iter()
-                .map(|x| x.hash().to_string())
-                .collect::<Vec<String>>(),
-            uncles: block
-                .ommers
-                .iter()
-                .map(|x| x.hash().to_string())
-                .collect::<Vec<String>>(),
+        Ok(format!("{:#x?}", code))
+    }
+
+    fn get_storage_at(&self, input: EthGetStorageAtInput) -> Result<EthGetStorageAtResult> {
+        let EthGetStorageAtInput {
+            address, position, ..
+        } = input;
+
+        let address = address.parse().expect("Invalid address");
+        let position = position.parse().expect("Invalid postition");
+
+        let storage = self.handler.evm.get_storage(address);
+        let &value = storage.get(&position).unwrap_or(&H256::zero());
+
+        Ok(EthGetStorageAtResult {
+            value: format!("{:#x}", value),
         })
     }
 
-    fn Eth_Mining(_handler: Arc<Handlers>) -> Result<EthMiningResult, jsonrpsee_core::Error> {
-        let mining = ain_cpp_imports::is_mining().unwrap();
+    fn send_raw_transaction(&self, input: &str) -> Result<String> {
+        debug!("Sending raw transaction: {:?}", input);
+        let raw_tx = input.strip_prefix("0x").unwrap_or(input);
+        let hex = hex::decode(raw_tx).expect("Invalid transaction");
+        let stat = publish_eth_transaction(hex).unwrap();
 
-        Ok(EthMiningResult { is_mining: mining })
+        let signed_tx = SignedTx::try_from(raw_tx).expect("Invalid hex");
+
+        debug!(
+            "Transaction status: {:?}, hash: {}",
+            stat,
+            signed_tx.transaction.hash()
+        );
+        Ok(format!("{:#x}", signed_tx.transaction.hash()))
     }
-}
 
-fn format_hash(hash: H256) -> String {
-    return format!("{:#x}", hash);
-}
+    fn get_transaction_count(&self, input: String) -> Result<String> {
+        let address = input.parse().expect("Invalid address");
+        debug!("Getting transaction count for address: {:?}", address);
 
-fn format_number(number: U256) -> String {
-    return format!("{:#x}", number);
+        let nonce = self.handler.evm.get_nonce(address);
+
+        debug!("Count: {:#?}", nonce,);
+        Ok(format!("{:#x}", nonce))
+    }
+
+    fn estimate_gas(&self) -> Result<String> {
+        Ok(format!("{:#x}", 21000))
+    }
+
+    fn get_state(&self) -> Result<EVMState> {
+        Ok(self.handler.evm.state.read().unwrap().clone())
+    }
+
+    fn gas_price(&self) -> Result<String> {
+        Ok(format!("{:#x}", 0))
+    }
 }

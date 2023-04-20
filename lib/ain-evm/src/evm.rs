@@ -12,12 +12,9 @@ use hex::FromHex;
 use primitive_types::{H160, H256, U256};
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-pub static EVM_STATE_PATH: &str = "evm_state.bin";
+pub static EVM_STATE_FILE: &str = "evm_state.bin";
 
 pub type EVMState = BTreeMap<H160, MemoryAccount>;
 
@@ -27,37 +24,26 @@ pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
 }
 
-impl PersistentState for EVMState {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
-        let serialized_state = bincode::serialize(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_state)?;
-        Ok(())
-    }
+impl PersistentState for EVMState {}
 
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
-        if Path::new(path).exists() {
-            let mut file = File::open(path)?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)?;
-            let new_state: BTreeMap<H160, MemoryAccount> = bincode::deserialize(&data)?;
-            Ok(new_state)
-        } else {
-            Ok(Self::new())
-        }
+impl Default for EVMHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl EVMHandler {
     pub fn new() -> Self {
         Self {
-            state: Arc::new(RwLock::new(EVMState::new())),
+            state: Arc::new(RwLock::new(
+                EVMState::load_from_disk(EVM_STATE_FILE).expect("Error loading state"),
+            )),
             tx_queues: Arc::new(TransactionQueueMap::new()),
         }
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
-        self.state.write().unwrap().save_to_disk(EVM_STATE_PATH)
+        self.state.write().unwrap().save_to_disk(EVM_STATE_FILE)
     }
 
     pub fn call(
@@ -169,7 +155,7 @@ impl EVMHandler {
 }
 
 // TBD refine what vicinity we need. gas_price and origin only ?
-fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
+pub fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
     MemoryVicinity {
         gas_price: gas_price.unwrap_or(U256::MAX),
         origin: origin.unwrap_or_default(),

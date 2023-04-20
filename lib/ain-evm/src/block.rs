@@ -3,10 +3,6 @@ use ethereum::BlockAny;
 use primitive_types::H256;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::{Read, Write};
-
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
@@ -20,45 +16,13 @@ pub struct BlockHandler {
     pub blocks: Arc<RwLock<Blocks>>,
 }
 
-impl PersistentState for BlockHashtoBlock {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
-        let serialized_state = bincode::serialize(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_state)?;
-        Ok(())
-    }
+impl PersistentState for BlockHashtoBlock {}
 
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
-        if Path::new(path).exists() {
-            let mut file = File::open(path)?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)?;
-            let new_state: HashMap<H256, usize> = bincode::deserialize(&data)?;
-            Ok(new_state)
-        } else {
-            Ok(Self::new())
-        }
-    }
-}
+impl PersistentState for Blocks {}
 
-impl PersistentState for Blocks {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
-        let serialized_state = bincode::serialize(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_state)?;
-        Ok(())
-    }
-
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
-        if Path::new(path).exists() {
-            let mut file = File::open(path)?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)?;
-            let new_state: Vec<BlockAny> = bincode::deserialize(&data)?;
-            Ok(new_state)
-        } else {
-            Ok(Self::new())
-        }
+impl Default for BlockHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

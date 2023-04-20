@@ -4,9 +4,15 @@ use ain_grpc::*;
 use ain_evm::runtime::RUNTIME;
 use std::error::Error;
 
+use primitive_types::H160;
+
+pub const WEI_TO_GWEI: u64 = 1000000000;
+pub const GWEI_TO_SATS: u64 = 10;
+
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
+        fn evm_get_balance(address: &str) -> Result<u64>;
         fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
         fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
@@ -35,6 +41,14 @@ mod ffi {
             priv_key: [u8; 32],
         ) -> Result<Vec<u8>>;
     }
+}
+
+pub fn evm_get_balance(address: &str) -> Result<u64, Box<dyn Error>> {
+    let account = address.parse()?;
+    let mut balance = RUNTIME.handlers.evm.get_balance(account);
+    balance /= WEI_TO_GWEI;
+    balance /= GWEI_TO_SATS;
+    Ok(balance.as_u64())
 }
 
 pub fn evm_add_balance(
@@ -95,9 +109,10 @@ fn evm_finalise(
     update_state: bool,
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
+    let eth_address = H160::from(miner_address);
     let (block, _failed_tx) =
         RUNTIME
             .handlers
-            .finalize_block(context, update_state, miner_address)?;
+            .finalize_block(context, update_state, Some(eth_address))?;
     Ok(block.header.rlp_bytes().into())
 }

@@ -88,8 +88,8 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
 
-lib_LIBRARIES = 
-lib_LTLIBRARIES = 
+lib_LIBRARIES =
+lib_LTLIBRARIES =
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -155,6 +155,7 @@ DEFI_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  ffi/ffiexports.h \
   masternodes/accounts.h \
   masternodes/accountshistory.h \
   masternodes/anchors.h \
@@ -164,7 +165,6 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/errors.h \
   masternodes/evm.h \
-  masternodes/evm_ffi.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -309,7 +309,7 @@ libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive \
   -I$(srcdir)/secp256k1 \
   -I$(srcdir)/secp256k1/src \
   -Wno-format-extra-args
-  
+
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
   spv/support/BRAddress.cpp \
@@ -392,11 +392,11 @@ libdefi_server_a_SOURCES = \
   interfaces/chain.cpp \
   init.cpp \
   dbwrapper.cpp \
+  ffi/ffiexports.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/evm_ffi.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -704,6 +704,8 @@ defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
+  $(LIBAIN_RS_LIB) \
+  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CONSENSUS) \
@@ -711,7 +713,6 @@ defid_LDADD = \
   $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
-  $(LIBAIN_RS_LIB) \
   $(LIBMEMENV) \
   $(LIBUNIVALUE) \
   $(LIBSECP256K1)

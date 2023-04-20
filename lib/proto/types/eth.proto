@@ -61,7 +61,7 @@ message EthTransactionReceipt {
 
 message EthCallInput {
     EthTransactionInfo transactionInfo = 1; // Transaction info
-    string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+    optional string blockNumber = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
 message EthCallResult {
@@ -198,8 +198,12 @@ message EthGetBlockByHashResult {
     EthBlockInfo blockInfo = 1;
 }
 
+message BlockNumber {
+    string blockNumber = 1;
+}
+
 message EthGetBlockByNumberInput {
-    string number = 1;
+    BlockNumber blockNumber = 1;
     bool fullTransaction = 2;
 }
 

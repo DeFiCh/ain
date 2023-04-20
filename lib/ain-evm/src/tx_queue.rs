@@ -14,6 +14,12 @@ pub struct TransactionQueueMap {
     queues: RwLock<HashMap<u64, TransactionQueue>>,
 }
 
+impl Default for TransactionQueueMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TransactionQueueMap {
     pub fn new() -> Self {
         TransactionQueueMap {
