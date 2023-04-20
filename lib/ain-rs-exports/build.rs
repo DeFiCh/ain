@@ -14,8 +14,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
     }
 
-    // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR. 
-    // Otherwise, use the path for OUT_DIR that cargo sets, as usual. 
+    // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR.
+    // Otherwise, use the path for OUT_DIR that cargo sets, as usual.
     // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
     // out of cargo reliably for pointing the C++ link targets to this determinisitcally.
     let target_dir: PathBuf = PathBuf::from(env::var("TARGET_DIR").or(env::var("OUT_DIR"))?);
