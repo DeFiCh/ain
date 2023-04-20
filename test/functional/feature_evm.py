@@ -75,6 +75,7 @@ class EVMTest(DefiTestFramework):
 
         # Test EVM Tx
         tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
+        raw_tx = self.nodes[0].getrawtransaction(tx)
         self.sync_mempools()
 
         # Check mempools for TX
@@ -86,6 +87,10 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
 
+        # Try and send EVM TX a second time
+        assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
+
+        # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
         assert_equal(self.nodes[0].getblockcount(), 100)
 
