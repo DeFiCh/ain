@@ -6,7 +6,7 @@ use primitive_types::{H160, H256, U256};
 use ain_evm::handler::Handlers;
 
 #[test]
-fn test_finalise_block_and_do_not_update_state() {
+fn test_finalize_block_and_do_not_update_state() {
     let handler = Handlers::new();
     let context = handler.evm.get_context();
     handler.evm.add_balance(
@@ -21,14 +21,14 @@ fn test_finalise_block_and_do_not_update_state() {
     handler.evm.tx_queues.add_signed_tx(context, tx1);
 
     let old_state = handler.evm.state.read().unwrap();
-    let _ = handler.finalise_block(context, false, None).unwrap();
+    let _ = handler.finalize_block(context, false, None).unwrap();
 
     let new_state = handler.evm.state.read().unwrap();
     assert_eq!(*new_state, *old_state);
 }
 
 #[test]
-fn test_finalise_block_and_update_state() {
+fn test_finalize_block_and_update_state() {
     let handler = Handlers::new();
     let context = handler.evm.get_context();
     handler.evm.add_balance(
@@ -58,7 +58,7 @@ fn test_finalise_block_and_update_state() {
     assert_eq!(handler.evm.tx_queues.len(context), 3);
     assert_eq!(handler.evm.tx_queues.len(handler.evm.get_context()), 0);
 
-    let (block, failed_txs) = handler.finalise_block(context, true, None).unwrap();
+    let (block, failed_txs) = handler.finalize_block(context, true, None).unwrap();
     assert_eq!(
         block.transactions,
         vec![tx1, tx2, tx3.clone()]
@@ -131,7 +131,7 @@ fn test_deploy_and_call_smart_contract() {
         .tx_queues
         .add_signed_tx(context, create_smart_contract_tx);
 
-    handler.finalise_block(context, true, None).unwrap();
+    handler.finalize_block(context, true, None).unwrap();
 
     // Fund caller address
     handler.evm.add_balance(
@@ -150,7 +150,7 @@ fn test_deploy_and_call_smart_contract() {
         .tx_queues
         .add_signed_tx(context, call_smart_contract_tx);
 
-    handler.finalise_block(context, true, None).unwrap();
+    handler.finalize_block(context, true, None).unwrap();
 
     let smart_contract_storage = handler.evm.get_storage(smart_contract_address);
     assert_eq!(
