@@ -27,6 +27,7 @@ from .util import (
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
+    grpc_url,
     wait_until,
     p2p_port,
 )
@@ -58,7 +59,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, *, chain, rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None,
+    def __init__(self, i, datadir, *, chain, rpchost, evm_rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None,
                  extra_args=None, use_cli=False, start_perf=False, use_valgrind=False):
         """
         Kwargs:
@@ -73,6 +74,7 @@ class TestNode():
         self.stderr_dir = os.path.join(self.datadir, "stderr")
         self.chain = chain
         self.rpchost = rpchost
+        self.evm_rpchost = evm_rpchost
         self.rpc_timeout = timewait
         self.binary = defid
         self.coverage_dir = coverage_dir
@@ -118,7 +120,9 @@ class TestNode():
         self.process = None
         self.rpc_connected = False
         self.rpc = None
+        self.evm_rpc = None
         self.url = None
+        self.evm_url = None
         self.log = logging.getLogger('TestFramework.node%d' % i)
         self.cleanup_on_exit = True  # Whether to kill the node when this object goes away
         # Cache perf subprocesses here by their data output filename.
@@ -150,6 +154,61 @@ class TestNode():
                "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
     ]
     Mocktime = None
+
+    EVM_CALLS = {
+        # block
+        "eth_getBlockByHash",
+        "eth_getBlockByNumber",
+        "eth_getBlockTransactionCountByHash",
+        "eth_getBlockTransactionCountByNumber",
+        " eth_getUncleCountByBlockHash",
+        "eth_getUncleCountByBlockNumber",
+        # client
+        "eth_chainId",
+        "eth_syncing",
+        "eth_coinbase",
+        "eth_accounts",
+        "eth_blockNumber",
+        # execute
+        "eth_call",
+        "eth_estimateGas",
+        "eth_createAccessList",
+        # free market
+        "eth_gasPrice",
+        "eth_maxPriorityFeePerGas",
+        "eth_feeHistory",
+        # filter
+        "eth_newFilter",
+        "eth_newBlockFilter",
+        "eth_newPendingTransactionFilter",
+        "eth_uninstallFilter",
+        "eth_getFilterChanges",
+        "eth_getFilterLogs",
+        "eth_getLogs",
+        # mining
+        "eth_mining",
+        "eth_hashrate",
+        "eth_getWork",
+        "eth_submitWork",
+        "eth_submitHashrate",
+        # sign
+        "eth_sign",
+        "eth_signTransaction",
+        # state
+        "eth_getBalance",
+        "eth_getStorageAt",
+        "eth_getTransactionCount",
+        "eth_getCode",
+        "eth_getProof",
+        # submit
+        "eth_sendTransaction",
+        "eth_sendRawTransaction",
+        # transaction
+        "eth_getTransactionByHash",
+        "eth_getTransactionByBlockHashAndIndex",
+        "eth_getTransactionByBlockNumberAndIndex",
+        "eth_getTransactionReceipt",
+    }
 
     def get_genesis_keys(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
@@ -209,8 +268,14 @@ class TestNode():
         if self.use_cli:
             return getattr(self.cli, name)
         else:
-            assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
-            return getattr(self.rpc, name)
+            assert self.rpc_connected, self._node_msg("Error: no RPC connection")
+            
+            if name in self.EVM_CALLS:
+                assert self.evm_rpc is not None, self._node_msg("Error: no EVM-RPC connection")
+                return getattr(self.evm_rpc, name)
+            else:
+                assert self.rpc is not None, self._node_msg("Error: no RPC connection")
+                return getattr(self.rpc, name)
 
     def start(self, extra_args=None, *, cwd=None, stdout=None, stderr=None, **kwargs):
         """Start the node."""
@@ -259,11 +324,20 @@ class TestNode():
                 rpc.getblockcount()
                 # If the call to getblockcount() succeeds then the RPC connection is up
                 self.log.debug("RPC successfully started")
+
+                evm_rpc = get_rpc_proxy(grpc_url(self.datadir, self.index, self.chain, self.evm_rpchost), self.index,
+                                     timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
+                evm_rpc.eth_blockNumber()
+                # If the call to eth_blockNumber() succeeds then the evm-RPC connection is up
+                self.log.debug("EVM-RPC successfully started")
+
                 if self.use_cli:
                     return
                 self.rpc = rpc
+                self.evm_rpc = evm_rpc
                 self.rpc_connected = True
                 self.url = self.rpc.url
+                self.evm_url = self.evm_rpc.url
                 return
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
@@ -331,6 +405,7 @@ class TestNode():
         self.process = None
         self.rpc_connected = False
         self.rpc = None
+        self.evm_rpc = None
         self.log.debug("Node stopped")
         return True
 
