@@ -350,7 +350,6 @@ test_py() {
 
     # shellcheck disable=SC2086
     ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
-    _fold_end
 
     _exit_dir
 }
