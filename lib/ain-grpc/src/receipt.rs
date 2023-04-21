@@ -27,7 +27,7 @@ impl From<Receipt> for ReceiptResult {
         ReceiptResult {
             block_hash: b.block_hash,
             block_number: b.block_number,
-            contract_address: Default::default(),
+            contract_address: b.contract_address,
             cumulative_gas_used: Default::default(),
             effective_gas_price: Default::default(),
             from: b.from,

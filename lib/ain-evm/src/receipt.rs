@@ -6,6 +6,8 @@ use ethereum::{
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;
+use keccak_hash::keccak;
+use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
@@ -26,6 +28,7 @@ pub struct Receipt {
     pub to: H160,
     pub tx_index: usize,
     pub tx_type: u8,
+    pub contract_address: H160,
 }
 
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
@@ -34,26 +37,7 @@ pub struct ReceiptHandler {
     pub transaction_map: Arc<RwLock<TransactionHashToReceipt>>,
 }
 
-impl PersistentState for TransactionHashToReceipt {
-    fn save_to_disk(&self, path: &str) -> Result<(), PersistentStateError> {
-        let serialized_state = bincode::serialize(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_state)?;
-        Ok(())
-    }
-
-    fn load_from_disk(path: &str) -> Result<Self, PersistentStateError> {
-        if Path::new(path).exists() {
-            let mut file = File::open(path)?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)?;
-            let new_state: HashMap<H256, Receipt> = bincode::deserialize(&data)?;
-            Ok(new_state)
-        } else {
-            Ok(Self::new())
-        }
-    }
-}
+impl PersistentState for TransactionHashToReceipt {}
 
 impl Default for ReceiptHandler {
     fn default() -> Self {
@@ -76,6 +60,21 @@ fn extr(ac: TransactionAction) -> H160 {
     }
 }
 
+fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
+    let mut stream = RlpStream::new_list(2);
+    stream.append(sender);
+    stream.append(nonce);
+
+    return H160::from(keccak(stream.as_raw()));
+}
+
+fn get_nonce(tx: TransactionV2) -> U256 {
+    match tx {
+        TransactionV2::Legacy(t) => t.nonce,
+        TransactionV2::EIP2930(t) => t.nonce,
+        TransactionV2::EIP1559(t) => t.nonce,
+    }
+}
 impl ReceiptHandler {
     pub fn new() -> Self {
         Self {
@@ -130,6 +129,10 @@ impl ReceiptHandler {
                 to: extr(action(tv2.clone())),
                 tx_index: index,
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
+                contract_address: get_contract_address(
+                    &transaction.sender,
+                    &get_nonce(tv2.clone()),
+                ),
             };
 
             map.insert(tv2.hash(), receipt.clone());
@@ -152,6 +155,10 @@ impl ReceiptHandler {
                 from: transaction.sender,
                 to: extr(action(tv2.clone())),
                 tx_index: index,
+                contract_address: get_contract_address(
+                    &transaction.sender,
+                    &get_nonce(tv2.clone()),
+                ),
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
 
@@ -186,3 +193,21 @@ impl fmt::Display for ReceiptHandlerError {
 }
 
 impl Error for ReceiptHandlerError {}
+
+#[cfg(test)]
+mod test {
+    use keccak_hash::keccak;
+    use primitive_types::{H160, U256};
+    use rlp::RlpStream;
+    use std::str::FromStr;
+
+    #[test]
+    pub fn test_contract_address() {
+        let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
+        let expected = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
+
+        let actual = from_sender_and_nonce(&sender, &U256::from(88));
+
+        assert_eq!(actual, expected);
+    }
+}
