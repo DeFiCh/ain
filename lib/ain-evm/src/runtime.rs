@@ -60,6 +60,9 @@ impl Runtime {
             .flush()
             .expect("Could not flush evm state");
         self.handlers.block.flush().expect("Could not flush blocks");
-        self.handlers.receipt.flush().expect("Could not flush TX receipts");
+        self.handlers
+            .receipt
+            .flush()
+            .expect("Could not flush TX receipts");
     }
 }

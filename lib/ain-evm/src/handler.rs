@@ -4,12 +4,12 @@ use crate::executor::AinExecutor;
 use crate::receipt::ReceiptHandler;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use ethereum::{Block, BlockAny, EnvelopedEncodable, PartialHeader, TransactionV2};
+
+use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
 use evm::backend::MemoryBackend;
 use primitive_types::{H160, H256, U256};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
-use ethereum::util::ordered_trie_root;
 
 pub struct Handlers {
     pub evm: EVMHandler,

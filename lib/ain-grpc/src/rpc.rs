@@ -1,7 +1,7 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
 use crate::codegen::types::{
-    EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
+    EthGetBlockTransactionCountByHashInput,
     EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
     EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
     EthTransactionInfo,
@@ -11,7 +11,7 @@ use crate::receipt::ReceiptResult;
 use ain_cpp_imports::publish_eth_transaction;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
-use ain_evm::receipt::Receipt;
+
 use ain_evm::transaction::SignedTx;
 use ethereum::{Block, PartialHeader};
 use jsonrpsee::proc_macros::rpc;

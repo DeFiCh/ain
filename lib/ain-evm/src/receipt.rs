@@ -5,6 +5,7 @@ use ethereum::{
 };
 use primitive_types::{H160, H256, U256};
 
+use ethereum::util::ordered_trie_root;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
@@ -12,7 +13,6 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use ethereum::util::ordered_trie_root;
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 
