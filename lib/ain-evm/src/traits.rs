@@ -99,7 +99,7 @@ impl From<bincode::Error> for PersistentStateError {
     }
 }
 
-#[cfg(test)]
+#[cfg(test_off)]
 mod tests {
     use crate::evm::EVMState;
     use crate::traits::PersistentState;

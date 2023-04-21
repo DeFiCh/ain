@@ -1,15 +1,29 @@
 use std::error::Error;
 
-#[cxx::bridge]
-mod ffi {
-    unsafe extern "C++" {
-        include!("ffi/ffiexports.h");
+#[cfg(not(any(test, bench, example, doc)))]
+mod bridge;
 
-        fn getChainId() -> u64;
-        fn isMining() -> bool;
-        fn publishEthTransaction(data: Vec<u8>) -> bool;
-        fn getAccounts() -> Vec<String>;
-        fn getDatadir() -> String;
+#[cfg(not(any(test, bench, example, doc)))]
+use bridge::ffi;
+
+#[cfg(any(test, bench, example, doc))]
+#[allow(non_snake_case)]
+mod ffi {
+    const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
+    pub fn getChainId() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn isMining() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn publishEthTransaction(_data: Vec<u8>) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getAccounts() -> Vec<String> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getDatadir() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
     }
 }
 
@@ -37,3 +51,6 @@ pub fn get_datadir() -> Result<String, Box<dyn Error>> {
     let datadir = ffi::getDatadir();
     Ok(datadir)
 }
+
+#[cfg(test)]
+mod tests {}

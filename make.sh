@@ -225,7 +225,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     _ensure_enter_dir "${versioned_release_dir}"
-    tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    _tar --transform "s,^./,${versioned_name}/," -czf ${pkg_path} ./*
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -422,7 +422,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip
+        curl cmake unzip protobuf-compiler
 
     _fold_end
 }
@@ -469,14 +469,17 @@ pkg_local_ensure_osx_sysroot() {
     local release_depends_dir=${DEPENDS_DIR}
 
     _ensure_enter_dir "$release_depends_dir/SDKs"
-    if [[ -d "${sdk_name}" ]]; then return; fi
+    if [[ -d "${sdk_name}" ]]; then 
+        _exit_dir
+        return
+    fi
 
     _fold_start "pkg-local-mac-sdk"
 
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
-    tar -zxf "${pkg}"
+    _tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     _exit_dir
 
@@ -491,7 +494,7 @@ pkg_install_llvm() {
 }
 
 pkg_install_rust() {
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 }
 
 clean_pkg_local_osx_sysroot() {
@@ -603,7 +606,13 @@ clean() {
 _get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
-        default_target="x86_64-apple-darwin"
+        local macos_arch=""
+        macos_arch=$(uname -m || true)
+        if [[ "$macos_arch" == "x86_64" ]]; then
+            default_target="x86_64-apple-darwin"
+        else
+            default_target="aarch64-apple-darwin"
+        fi
     elif [[ "${OSTYPE}" == "msys" ]]; then
         default_target="x86_64-w64-mingw32"
     else
@@ -702,6 +711,23 @@ _platform_init() {
         _canonicalize() {
             readlink -m "$@"
         }
+    fi
+
+    if [[ $(command -v gtar) ]]; then
+        _tar() {
+            gtar "$@"
+        }
+    else
+        if [[ $(command -v tar ) ]]; then
+            _tar() {
+                tar "$@"
+            }
+        else
+            echo "error: GNU version of tar is required for \`--transform\` support"
+            echo "tip: debian/ubunti: apt install tar"
+            echo "tip: osx: brew install gnu-tar"
+            exit 1
+        fi
     fi
 }
 

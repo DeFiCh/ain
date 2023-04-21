@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-w64-mingw32
 
 # -----------
-FROM ubuntu:latest as builder
+FROM --platform=linux/amd64 ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
@@ -11,7 +11,10 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-pc-windows-gnu
 
 RUN update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix

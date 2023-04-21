@@ -1,7 +1,7 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM debian:10 as builder
+FROM --platform=linux/amd64 debian:10 as builder
 ARG TARGET
 ARG CLANG_VERSION=15
 LABEL org.defichain.name="defichain-builder"
@@ -12,7 +12,10 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-unknown-linux-gnu
 
 COPY . .
 RUN ./make.sh clean-depends && \
@@ -31,7 +34,7 @@ RUN mkdir /app && cd build/${TARGET} && \
 
 # -----------
 ### Actual image that contains defi binaries
-FROM debian:10
+FROM --platform=linux/amd64 debian:10
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}

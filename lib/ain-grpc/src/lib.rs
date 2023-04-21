@@ -9,7 +9,7 @@ mod impls;
 mod receipt;
 pub mod rpc;
 
-use env_logger::{Builder as LogBuilder, Env};
+use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
 use log::Level;
@@ -53,7 +53,9 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
 
 pub fn init_runtime() {
     log::info!("Starting gRPC and JSON RPC servers");
-    LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str())).init();
+    LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
+        .target(Target::Stdout)
+        .init();
     let _ = &*RUNTIME;
 }
 

@@ -2873,7 +2873,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::copy(minter.begin(), minter.end(), minerAddress.begin());
         }
 
-        evm_finalise(evmContext, true, minerAddress);
+        evm_finalize(evmContext, true, minerAddress);
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;

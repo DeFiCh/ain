@@ -1,7 +1,7 @@
 ARG TARGET=arm-linux-gnueabihf
 
 # -----------
-FROM ubuntu:latest as builder
+FROM --platform=linux/amd64 ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
@@ -11,7 +11,10 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_armhf
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add armv7-unknown-linux-gnueabihf
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps

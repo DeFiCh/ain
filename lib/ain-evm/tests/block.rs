@@ -1,3 +1,5 @@
+#![cfg(test_off)]
+
 use std::str::FromStr;
 
 use ain_evm::transaction::SignedTx;

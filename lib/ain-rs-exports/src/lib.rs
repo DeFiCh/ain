@@ -2,6 +2,7 @@ use ain_evm::*;
 use ain_grpc::*;
 
 use ain_evm::runtime::RUNTIME;
+use log::debug;
 use std::error::Error;
 
 use primitive_types::H160;
@@ -20,7 +21,7 @@ mod ffi {
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
         fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool>;
-        fn evm_finalise(
+        fn evm_finalize(
             context: u64,
             update_state: bool,
             miner_address: [u8; 20],
@@ -83,7 +84,10 @@ pub fn evm_sub_balance(
 pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
         Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+        Err(e) => {
+            debug!("{:?}", e);
+            Ok(false)
+        }
     }
 }
 
@@ -104,7 +108,7 @@ fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {
 }
 
 use rlp::Encodable;
-fn evm_finalise(
+fn evm_finalize(
     context: u64,
     update_state: bool,
     miner_address: [u8; 20],
