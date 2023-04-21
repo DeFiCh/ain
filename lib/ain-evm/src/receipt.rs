@@ -200,13 +200,14 @@ mod test {
     use primitive_types::{H160, U256};
     use rlp::RlpStream;
     use std::str::FromStr;
+    use crate::receipt::get_contract_address;
 
     #[test]
     pub fn test_contract_address() {
         let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
         let expected = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
 
-        let actual = from_sender_and_nonce(&sender, &U256::from(88));
+        let actual = get_contract_address(&sender, &U256::from(88));
 
         assert_eq!(actual, expected);
     }
