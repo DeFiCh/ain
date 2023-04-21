@@ -156,150 +156,6 @@ pub struct PubKey {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
-pub struct Block {
-    /// Block hash (same as input, if any)
-    #[prost(string, tag = "1")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub hash: ::prost::alloc::string::String,
-    /// The number of confirmations, or -1 if the block is not on the main chain
-    #[prost(int64, tag = "2")]
-    pub confirmations: i64,
-    /// Block size
-    #[prost(uint64, tag = "3")]
-    pub size: u64,
-    /// Block size without witness data
-    #[prost(uint64, tag = "4")]
-    pub strippedsize: u64,
-    /// The block weight as defined in BIP 141
-    #[prost(uint64, tag = "5")]
-    pub weight: u64,
-    /// The block height or index
-    #[prost(uint64, tag = "6")]
-    pub height: u64,
-    /// The block version
-    #[prost(uint64, tag = "7")]
-    pub version: u64,
-    /// The block version in hex
-    #[prost(string, tag = "8")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub version_hex: ::prost::alloc::string::String,
-    /// The merkle root
-    #[prost(string, tag = "9")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub merkleroot: ::prost::alloc::string::String,
-    /// List of transaction IDs
-    #[prost(message, repeated, tag = "10")]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub tx: ::prost::alloc::vec::Vec<Transaction>,
-    /// The block time in seconds since UNIX epoch
-    #[prost(uint64, tag = "11")]
-    pub time: u64,
-    /// The median block time in seconds since UNIX epoch
-    #[prost(uint64, tag = "12")]
-    pub mediantime: u64,
-    /// The nonce used to generate the block (property exists only when PoW is used)
-    #[prost(uint64, tag = "13")]
-    pub nonce: u64,
-    /// The bits which represent the target difficulty
-    #[prost(string, tag = "14")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub bits: ::prost::alloc::string::String,
-    /// The difficulty of the block
-    #[prost(double, tag = "15")]
-    pub difficulty: f64,
-    /// Expected number of hashes required to produce the chain up to this block (in hex)
-    #[prost(string, tag = "16")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub chainwork: ::prost::alloc::string::String,
-    /// Number of transactions in the block
-    #[prost(uint32, tag = "17")]
-    pub n_tx: u32,
-    /// The hash of the previous block
-    #[prost(string, tag = "18")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    #[serde(rename = "previousblockhash")]
-    pub previous_block_hash: ::prost::alloc::string::String,
-    /// The hash of the next block
-    #[prost(string, tag = "19")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    #[serde(rename = "nextblockhash")]
-    pub next_block_hash: ::prost::alloc::string::String,
-    /// DeFiChain fields
-    #[prost(string, tag = "101")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub masternode: ::prost::alloc::string::String,
-    #[prost(string, tag = "102")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub minter: ::prost::alloc::string::String,
-    #[prost(uint64, tag = "103")]
-    pub minted_blocks: u64,
-    #[prost(string, tag = "104")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub stake_modifier: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "105")]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub nonutxo: ::prost::alloc::vec::Vec<NonUtxo>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct NonUtxo {
-    #[prost(double, tag = "1")]
-    pub anchor_reward: f64,
-    #[prost(double, tag = "2")]
-    pub burnt: f64,
-    #[prost(double, tag = "3")]
-    pub incentive_funding: f64,
-    #[prost(double, tag = "4")]
-    pub loan: f64,
-    #[prost(double, tag = "5")]
-    pub options: f64,
-    #[prost(double, tag = "6")]
-    pub unknown: f64,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::derive_partial_eq_without_eq)]
-pub struct BlockInput {
-    /// Block hash
-    #[prost(string, tag = "1")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub blockhash: ::prost::alloc::string::String,
-    /// 0 for hex-encoded data, 1 for a json object, and 2 for json object with transaction data [default: 1]
-    #[prost(uint32, tag = "2")]
-    pub verbosity: u32,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-pub struct BlockResult {
-    /// Hex-encoded data for block hash (for verbosity 0)
-    #[prost(string, tag = "1")]
-    pub hash: ::prost::alloc::string::String,
-    /// Block data (for verbosity 1 and 2)
-    #[prost(message, optional, tag = "2")]
-    pub block: ::core::option::Option<Block>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::derive_partial_eq_without_eq)]
-pub struct BlockHashResult {
-    /// Hex-encoded data for block hash
-    #[prost(string, tag = "1")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub hash: ::prost::alloc::string::String,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::derive_partial_eq_without_eq)]
 pub struct EthAccountsResult {
     /// Accounts
     #[prost(string, repeated, tag = "1")]
@@ -317,27 +173,25 @@ pub struct EthTransactionInfo {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub from: ::prost::alloc::string::String,
     /// The address to which the transaction is addressed
-    #[prost(string, optional, tag = "2")]
-    pub to: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag = "2")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub to: ::prost::alloc::string::String,
     /// The integer of gas provided for the transaction execution
     #[prost(uint64, tag = "3")]
     pub gas: u64,
     /// The integer of gas price used for each paid gas encoded as hexadecimal
-    #[prost(string, tag = "4")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub price: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub price: u64,
     /// The integer of value sent with this transaction encoded as hexadecimal
-    #[prost(string, tag = "5")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub value: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "5")]
+    pub value: u64,
     /// The hash of the method signature and encoded parameters.
     #[prost(string, tag = "6")]
     #[serde(skip_serializing_if = "String::is_empty")]
     pub data: ::prost::alloc::string::String,
     /// The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-    #[prost(string, tag = "7")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub nonce: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "7")]
+    pub nonce: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -492,11 +346,13 @@ pub struct EthTransactionReceipt {
     #[serde(rename = "type")]
     pub field_type: ::prost::alloc::string::String,
     /// 32 bytes of post-transaction stateroot (pre Byzantium)
-    #[prost(string, optional, tag = "14")]
-    pub root: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag = "14")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub root: ::prost::alloc::string::String,
     /// Either 1 (success) or 0 (failure)
-    #[prost(string, optional, tag = "15")]
-    pub status: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag = "15")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub status: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -814,8 +670,9 @@ pub struct EthEstimateGasInput {
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
     /// Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
-    #[prost(string, optional, tag = "2")]
-    pub block_number: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag = "2")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub block_number: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1255,8 +1112,152 @@ pub struct EthSyncingInfo {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct EthSyncingResult {
-    #[prost(bool, optional, tag = "1")]
-    pub status: ::core::option::Option<bool>,
+    #[prost(bool, tag = "1")]
+    pub status: bool,
     #[prost(message, optional, tag = "2")]
     pub sync_info: ::core::option::Option<EthSyncingInfo>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::derive_partial_eq_without_eq)]
+pub struct Block {
+    /// Block hash (same as input, if any)
+    #[prost(string, tag = "1")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub hash: ::prost::alloc::string::String,
+    /// The number of confirmations, or -1 if the block is not on the main chain
+    #[prost(int64, tag = "2")]
+    pub confirmations: i64,
+    /// Block size
+    #[prost(uint64, tag = "3")]
+    pub size: u64,
+    /// Block size without witness data
+    #[prost(uint64, tag = "4")]
+    pub strippedsize: u64,
+    /// The block weight as defined in BIP 141
+    #[prost(uint64, tag = "5")]
+    pub weight: u64,
+    /// The block height or index
+    #[prost(uint64, tag = "6")]
+    pub height: u64,
+    /// The block version
+    #[prost(uint64, tag = "7")]
+    pub version: u64,
+    /// The block version in hex
+    #[prost(string, tag = "8")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub version_hex: ::prost::alloc::string::String,
+    /// The merkle root
+    #[prost(string, tag = "9")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub merkleroot: ::prost::alloc::string::String,
+    /// List of transaction IDs
+    #[prost(message, repeated, tag = "10")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tx: ::prost::alloc::vec::Vec<Transaction>,
+    /// The block time in seconds since UNIX epoch
+    #[prost(uint64, tag = "11")]
+    pub time: u64,
+    /// The median block time in seconds since UNIX epoch
+    #[prost(uint64, tag = "12")]
+    pub mediantime: u64,
+    /// The nonce used to generate the block (property exists only when PoW is used)
+    #[prost(uint64, tag = "13")]
+    pub nonce: u64,
+    /// The bits which represent the target difficulty
+    #[prost(string, tag = "14")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub bits: ::prost::alloc::string::String,
+    /// The difficulty of the block
+    #[prost(double, tag = "15")]
+    pub difficulty: f64,
+    /// Expected number of hashes required to produce the chain up to this block (in hex)
+    #[prost(string, tag = "16")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub chainwork: ::prost::alloc::string::String,
+    /// Number of transactions in the block
+    #[prost(uint32, tag = "17")]
+    pub n_tx: u32,
+    /// The hash of the previous block
+    #[prost(string, tag = "18")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(rename = "previousblockhash")]
+    pub previous_block_hash: ::prost::alloc::string::String,
+    /// The hash of the next block
+    #[prost(string, tag = "19")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(rename = "nextblockhash")]
+    pub next_block_hash: ::prost::alloc::string::String,
+    /// DeFiChain fields
+    #[prost(string, tag = "101")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub masternode: ::prost::alloc::string::String,
+    #[prost(string, tag = "102")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub minter: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "103")]
+    pub minted_blocks: u64,
+    #[prost(string, tag = "104")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub stake_modifier: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "105")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub nonutxo: ::prost::alloc::vec::Vec<NonUtxo>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct NonUtxo {
+    #[prost(double, tag = "1")]
+    pub anchor_reward: f64,
+    #[prost(double, tag = "2")]
+    pub burnt: f64,
+    #[prost(double, tag = "3")]
+    pub incentive_funding: f64,
+    #[prost(double, tag = "4")]
+    pub loan: f64,
+    #[prost(double, tag = "5")]
+    pub options: f64,
+    #[prost(double, tag = "6")]
+    pub unknown: f64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::derive_partial_eq_without_eq)]
+pub struct BlockInput {
+    /// Block hash
+    #[prost(string, tag = "1")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub blockhash: ::prost::alloc::string::String,
+    /// 0 for hex-encoded data, 1 for a json object, and 2 for json object with transaction data [default: 1]
+    #[prost(uint32, tag = "2")]
+    pub verbosity: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+pub struct BlockResult {
+    /// Hex-encoded data for block hash (for verbosity 0)
+    #[prost(string, tag = "1")]
+    pub hash: ::prost::alloc::string::String,
+    /// Block data (for verbosity 1 and 2)
+    #[prost(message, optional, tag = "2")]
+    pub block: ::core::option::Option<Block>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::derive_partial_eq_without_eq)]
+pub struct BlockHashResult {
+    /// Hex-encoded data for block hash
+    #[prost(string, tag = "1")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub hash: ::prost::alloc::string::String,
 }
