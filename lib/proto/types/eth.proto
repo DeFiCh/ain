@@ -7,7 +7,7 @@ message EthAccountsResult {
 
 message EthTransactionInfo {
     string from = 1; // The address from which the transaction is sent
-    string to = 2; // The address to which the transaction is addressed
+    optional string to = 2; // The address to which the transaction is addressed
     uint64 gas = 3; // The integer of gas provided for the transaction execution
     string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
     string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
