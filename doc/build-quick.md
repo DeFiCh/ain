@@ -61,7 +61,7 @@ an environment with correct arch and pre-requisites configured.
 
 - aarch64-linux-gnu
 - arm-linux-gnueabihf
-- arm-apple-darwin
+- aarch64-apple-darwin
 
 ## Defined `env` variables
 
