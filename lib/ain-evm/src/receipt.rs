@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+use ethereum::util::ordered_trie_root;
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 
@@ -107,8 +108,9 @@ impl ReceiptHandler {
         failed: Vec<SignedTx>,
         block_hash: H256,
         block_number: U256,
-    ) {
+    ) -> H256 {
         let mut map = self.transaction_map.write().unwrap();
+        let mut receipts = Vec::new();
 
         let mut index = 0;
 
@@ -130,7 +132,8 @@ impl ReceiptHandler {
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
             };
 
-            map.insert(tv2.hash(), receipt);
+            map.insert(tv2.hash(), receipt.clone());
+            receipts.push(receipt);
             index += 1;
         }
 
@@ -152,14 +155,22 @@ impl ReceiptHandler {
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
 
-            map.insert(tv2.hash(), receipt);
+            map.insert(tv2.hash(), receipt.clone());
+            receipts.push(receipt);
             index += 1;
         }
+
+        let root = ordered_trie_root(
+            receipts
+                .iter()
+                .map(|r| EnvelopedEncodable::encode(&r.receipt).freeze()),
+        );
+
+        return root;
     }
 }
 
 use std::fmt;
-use std::ops::Deref;
 
 #[derive(Debug)]
 pub enum ReceiptHandlerError {
