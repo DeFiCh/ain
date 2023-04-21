@@ -2,7 +2,6 @@ use ain_evm::receipt::Receipt;
 use ethereum::{EIP658ReceiptData, Log};
 use primitive_types::{H160, H256, U256};
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiptResult {

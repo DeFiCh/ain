@@ -1,10 +1,9 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
 use crate::codegen::types::{
-    EthGetBlockTransactionCountByHashInput,
-    EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
-    EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
-    EthTransactionInfo,
+    EthGetBlockTransactionCountByHashInput, EthGetBlockTransactionCountByHashResult,
+    EthGetBlockTransactionCountByNumberInput, EthGetBlockTransactionCountByNumberResult,
+    EthGetStorageAtInput, EthGetStorageAtResult, EthTransactionInfo,
 };
 
 use crate::receipt::ReceiptResult;
