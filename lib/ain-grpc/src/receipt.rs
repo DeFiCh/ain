@@ -15,11 +15,11 @@ pub struct ReceiptResult {
     pub gas_used: U256,
     pub logs: Vec<Log>,
     pub logs_bloom: String,
-    pub status: u8,
+    pub status: String,
     pub to: H160,
     pub transaction_hash: H256,
-    pub transaction_index: usize,
-    pub r#type: u8,
+    pub transaction_index: String,
+    pub r#type: String,
 }
 
 impl From<Receipt> for ReceiptResult {
@@ -35,11 +35,11 @@ impl From<Receipt> for ReceiptResult {
             gas_used: data.used_gas,
             logs: data.logs,
             logs_bloom: format!("{:#x}", data.logs_bloom),
-            status: data.status_code,
+            status: format!("{:#x}", data.status_code),
             to: b.to,
             transaction_hash: b.tx_hash,
-            transaction_index: b.tx_index,
-            r#type: b.tx_type,
+            transaction_index: format!("{:#x}", b.tx_index),
+            r#type: format!("{:#x}", b.tx_type),
         }
     }
 }
