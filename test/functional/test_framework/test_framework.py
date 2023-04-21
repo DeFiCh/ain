@@ -479,7 +479,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
     # Public helper methods. These can be accessed by the subclass test scripts.
 
-    def add_nodes(self, num_nodes, extra_args=None, *, rpchost=None, binary=None):
+    def add_nodes(self, num_nodes, extra_args=None, *, rpchost=None, evm_rpchost=None, binary=None):
         """Instantiate TestNode objects.
 
         Should only be called once after the nodes have been specified in
@@ -501,6 +501,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 get_datadir_path(self.options.tmpdir, i),
                 chain=self.chain,
                 rpchost=rpchost,
+                evm_rpchost=evm_rpchost,
                 timewait=self.rpc_timeout,
                 defid=binary[i],
                 defi_cli=self.options.deficli,
@@ -650,6 +651,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                     extra_conf=["bind=127.0.0.1"],
                     extra_args=[],
                     rpchost=None,
+                    evm_rpchost=None,
                     timewait=self.rpc_timeout,
                     defid=self.options.defid,
                     defi_cli=self.options.deficli,
@@ -696,7 +698,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
             for entry in os.listdir(cache_path()):
                 if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors',
-                                 'history']:  # Only keep chainstate and blocks folder
+                                 'history', 'evm']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):

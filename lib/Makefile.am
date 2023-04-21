@@ -1,30 +1,27 @@
 CARGO ?= cargo
 
-RUST_TARGET ?= x86_64-unknown-linux-gnu
+TARGET ?= $(RUST_TARGET)
+TARGET ?= x86_64-unknown-linux-gnu
+
+RUST_DEBUG ?= 
+DEBUG ?= $(RUST_DEBUG) 
+
+TARGET_DIR ?= $(abs_builddir)/target
+SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
+CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 
 .PHONY:
-all: build-ain-rs-exports build-ain-grpc
-
-
-# TODO: assumes release builds atm
-.PHONY:
-build-ain-rs-exports: build-ain-grpc
-	@cd $(abs_srcdir) && \
-	CRATE_CC_NO_DEFAULTS=1 BUILD_DIR="$(abs_builddir)" $(CARGO) build --package ain-rs-exports \
-		--release $(if $(RUST_TARGET),--target $(RUST_TARGET),) --target-dir $(abs_builddir)/target && \
-	mkdir -p $(abs_builddir)/gen/{include,lib,src} && \
-	cp $(abs_builddir)/target/$(RUST_TARGET)/release/libain_rs_exports.a $(abs_builddir)/gen/lib/ && \
-	cp $(abs_builddir)/ain_rs_exports.h $(abs_builddir)/gen/include/ && \
-	cp $(abs_builddir)/ain_rs_exports.cpp $(abs_builddir)/gen/src/
-
-.PHONY:
-build-ain-grpc:
-	@cd $(abs_srcdir) && \
-	CRATE_CC_NO_DEFAULTS=1 BUILD_DIR="$(abs_builddir)" $(CARGO) build --package ain-grpc \
-		--release $(if $(RUST_TARGET),--target $(RUST_TARGET),) --target-dir $(abs_builddir)
+all: 
+	TARGET_DIR=$(TARGET_DIR) $(CARGO) build \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" \
+		$(if $(DEBUG),,--release) \
+		$(if $(TARGET),--target $(TARGET),) && \
+	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(TARGET_DIR)/lib/
 
 .PHONY:
 clean-local:
-	@cd $(abs_srcdir) && \
-	$(CARGO) clean --target-dir $(abs_builddir) && \
-	rm -rf $(abs_builddir)/gen
+	$(CARGO) clean \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" && \
+	rm -rf $(TARGET_DIR)/{include,lib,src}

@@ -89,12 +89,11 @@ impl EVMHandler {
         // TODO Validate gas limit and chain_id
 
         let signed_tx: SignedTx = tx.try_into()?;
-
-        // TODO validate account nonce and balance to pay gas
-        // let account = self.get_account(&signed_tx.sender);
-        // if account.nonce >= signed_tx.nonce() {
-        //     return Err(anyhow!("Invalid nonce").into());
-        // }
+        let account = self.get_account(signed_tx.sender);
+        if account.nonce > signed_tx.nonce() {
+            return Err(anyhow!("Invalid nonce").into());
+        }
+        // TODO validate balance to pay gas
         // if account.balance < MIN_GAS {
         //     return Err(anyhow!("Insufficiant balance to pay fees").into());
         // }

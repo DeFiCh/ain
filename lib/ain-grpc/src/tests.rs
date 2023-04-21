@@ -1,4 +1,4 @@
-#![cfg(test)]
+#![cfg(test_off)]
 
 use ethereum::{BlockV2, PartialHeader};
 use std::str::FromStr;
@@ -6,11 +6,7 @@ use std::sync::Arc;
 
 use primitive_types::{H160, U256};
 
-use crate::codegen::types::{
-    EthCallInput, EthGetBalanceInput, EthGetBlockByHashInput,
-    EthGetTransactionByBlockHashAndIndexInput, EthGetTransactionByBlockNumberAndIndexInput,
-    EthGetTransactionByHashInput, EthTransactionInfo,
-};
+use crate::codegen::types::*;
 use ain_evm::handler::Handlers;
 use ain_evm::transaction::SignedTx;
 

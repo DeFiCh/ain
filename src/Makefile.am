@@ -26,7 +26,7 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bitcoin \
 	-I$(srcdir)/spv/bcash
 
-LIBAIN_DIR = $(abs_top_builddir)/lib/gen
+LIBAIN_DIR = $(abs_top_builddir)/lib/target
 LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
 LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
 LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
