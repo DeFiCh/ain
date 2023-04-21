@@ -1,4 +1,3 @@
-
 use std::error::Error;
 
 #[cfg(not(any(test, bench, example, doc)))]
@@ -11,11 +10,21 @@ use bridge::ffi;
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
-    pub fn getChainId() -> u64 { unimplemented!("{}", UNIMPL_MSG) }
-    pub fn isMining() -> bool { unimplemented!("{}", UNIMPL_MSG) }
-    pub fn publishEthTransaction(_data: Vec<u8>) -> bool { unimplemented!("{}", UNIMPL_MSG) }
-    pub fn getAccounts() -> Vec<String> { unimplemented!("{}", UNIMPL_MSG) }
-    pub fn getDatadir() -> String { unimplemented!("{}", UNIMPL_MSG) }
+    pub fn getChainId() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn isMining() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn publishEthTransaction(_data: Vec<u8>) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getAccounts() -> Vec<String> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getDatadir() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -44,6 +53,4 @@ pub fn get_datadir() -> Result<String, Box<dyn Error>> {
 }
 
 #[cfg(test)]
-mod tests {
-    
-}
+mod tests {}
