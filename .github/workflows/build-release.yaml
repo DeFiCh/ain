@@ -42,7 +42,7 @@ jobs:
           docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${tag}
         done
         docker push defi/defichain:${ver}
-    
+
   linux-armhf:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
