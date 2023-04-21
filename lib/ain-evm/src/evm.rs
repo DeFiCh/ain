@@ -107,7 +107,7 @@ impl EVMHandler {
             signed_tx.access_list(),
         ) {
             (exit_reason, _) if exit_reason.is_succeed() => Ok(signed_tx),
-            _ => Err(anyhow!("Error calling EVM").into()),
+            (exit_reason, _) => Err(anyhow!("Error calling EVM {:?}", exit_reason).into()),
         }
     }
 
