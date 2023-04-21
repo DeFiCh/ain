@@ -15,6 +15,7 @@ ain-grpc = { path = "../ain-grpc" }
 
 rlp = "0.5.2"
 primitive-types = "0.12.1"
+log = "0.4"
 
 # Build
 cxx = "1.0"

@@ -2,6 +2,7 @@ use ain_evm::*;
 use ain_grpc::*;
 
 use ain_evm::runtime::RUNTIME;
+use log::debug;
 use std::error::Error;
 
 use primitive_types::H160;
@@ -83,7 +84,10 @@ pub fn evm_sub_balance(
 pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
         Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+        Err(e) => {
+            debug!("{:?}", e);
+            Ok(false)
+        }
     }
 }
 

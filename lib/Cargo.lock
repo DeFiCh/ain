@@ -96,6 +96,7 @@ dependencies = [
  "ain-grpc",
  "cxx",
  "cxx-gen",
+ "log",
  "primitive-types",
  "proc-macro2",
  "rlp",
