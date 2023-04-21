@@ -42,7 +42,7 @@ jobs:
           docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${tag}
         done
         docker push defi/defichain:${ver}
-    
+
   linux-armhf:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
@@ -61,20 +61,6 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
         path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ env.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-    - name: Push to Docker Hub
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        for tag in $(echo $ver latest); do 
-          docker tag defichain-arm-linux-gnueabihf:${ver} defi/defichain:${tag}
-        done
-        docker push defi/defichain:${ver}
 
   linux-aarch64:
     runs-on: ubuntu-latest

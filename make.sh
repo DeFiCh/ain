@@ -224,7 +224,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     _ensure_enter_dir "${versioned_release_dir}"
-    _tar ${versioned_name} ${pkg_path}
+    _tar --transform "s,^./,${versioned_name}/," -czf ${pkg_path} ./*
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -460,7 +460,7 @@ pkg_local_ensure_osx_sysroot() {
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
-    tar -zxf "${pkg}"
+    _tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     _exit_dir
 
@@ -656,12 +656,12 @@ _platform_init() {
 
     if [[ $(command -v gtar) ]]; then
         _tar() {
-            gtar --transform "s,^./,${1}/," -czf "${2}" ./*
+            gtar "$@"
         }
     else
         if [[ $(command -v tar ) ]]; then
             _tar() {
-                tar --transform "s,^./,${1}/," -czf "${2}" ./*
+                tar "$@"
             }
         else
             echo "error: GNU version of tar is required for \`--transform\` support"
