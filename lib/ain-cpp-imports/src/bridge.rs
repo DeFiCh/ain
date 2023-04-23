@@ -10,5 +10,7 @@ pub mod ffi {
         fn getDatadir() -> String;
         fn getDifficulty(_block_hash: [u8; 32]) -> u32;
         fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32];
+        fn getNativeTxSize(data: Vec<u8>) -> u64;
+        fn getMinRelayTxFee() -> u64;
     }
 }

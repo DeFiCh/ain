@@ -31,6 +31,12 @@ mod ffi {
     pub fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getNativeTxSize(_data: Vec<u8>) -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getMinRelayTxFee() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -66,6 +72,16 @@ pub fn get_difficulty(block_hash: [u8; 32]) -> Result<u32, Box<dyn Error>> {
 pub fn get_chainwork(block_hash: [u8; 32]) -> Result<[u8; 32], Box<dyn Error>> {
     let chainwork = ffi::getChainWork(block_hash);
     Ok(chainwork)
+}
+
+pub fn get_native_tx_size(data: Vec<u8>) -> Result<u64, Box<dyn Error>> {
+    let tx_size = ffi::getNativeTxSize(data);
+    Ok(tx_size)
+}
+
+pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
+    let tx_fee = ffi::getMinRelayTxFee();
+    Ok(tx_fee)
 }
 
 #[cfg(test)]
