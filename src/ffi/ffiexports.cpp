@@ -66,3 +66,44 @@ rust::vec<rust::string> getAccounts() {
 rust::string getDatadir() {
     return GetDataDir().c_str();
 }
+
+uint32_t getDifficulty(std::array<uint8_t, 32> blockHash) {
+    uint256 hash{};
+    std::copy(blockHash.begin(), blockHash.end(), hash.begin());
+
+    const CBlockIndex* pblockindex;
+    uint32_t difficulty{};
+    {
+        LOCK(cs_main);
+        pblockindex = LookupBlockIndex(hash);
+
+        if (!pblockindex) {
+            return difficulty;
+        }
+
+        difficulty = pblockindex->nBits;
+    }
+
+    return difficulty;
+}
+
+std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
+    uint256 hash{};
+    std::copy(blockHash.begin(), blockHash.end(), hash.begin());
+
+    const CBlockIndex* pblockindex;
+    std::array<uint8_t, 32> chainWork{};
+    {
+        LOCK(cs_main);
+        pblockindex = LookupBlockIndex(hash);
+
+        if (!pblockindex) {
+            return chainWork;
+        }
+
+        const auto sourceWork = ArithToUint256(pblockindex->nChainWork);
+        std::copy(sourceWork.begin(), sourceWork.end(), chainWork.begin());
+    }
+
+    return chainWork;
+}

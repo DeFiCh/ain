@@ -25,6 +25,12 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getDifficulty(_block_hash: [u8; 32]) -> u32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32] {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -50,6 +56,16 @@ pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
 pub fn get_datadir() -> Result<String, Box<dyn Error>> {
     let datadir = ffi::getDatadir();
     Ok(datadir)
+}
+
+pub fn get_difficulty(block_hash: [u8; 32]) -> Result<u32, Box<dyn Error>> {
+    let bits = ffi::getDifficulty(block_hash);
+    Ok(bits)
+}
+
+pub fn get_chainwork(block_hash: [u8; 32]) -> Result<[u8; 32], Box<dyn Error>> {
+    let chainwork = ffi::getChainWork(block_hash);
+    Ok(chainwork)
 }
 
 #[cfg(test)]

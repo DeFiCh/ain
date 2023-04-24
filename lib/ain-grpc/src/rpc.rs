@@ -154,11 +154,30 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let hash: H256 = hash.parse().expect("Invalid hash");
 
-        Ok(self
+        let block: Option<RpcBlock> = self
             .handler
             .storage
             .get_block_by_hash(&hash)
-            .map(Into::into))
+            .map(Into::into);
+
+        match block {
+            None => Ok(None),
+            Some(mut block) => {
+                let hash_array = hash.to_fixed_bytes();
+                let difficulty = ain_cpp_imports::get_difficulty(hash_array);
+                let chainwork = ain_cpp_imports::get_chainwork(hash_array);
+
+                if let Ok(difficulty) = difficulty {
+                    block.difficulty = U256::from(difficulty);
+                }
+
+                if let Ok(chainwork) = chainwork {
+                    block.total_difficulty = Some(U256::from(chainwork));
+                }
+
+                Ok(Some(block))
+            }
+        }
     }
 
     fn chain_id(&self) -> Result<String> {
