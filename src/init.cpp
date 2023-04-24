@@ -1551,6 +1551,14 @@ bool AppInitMain(InitInterfaces& interfaces)
             return InitError(_("Unable to start HTTP server. See debug log for details.").translated);
     }
 
+    // ********************************************************* Step 4b: application initialization
+
+    init_runtime();
+    int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+    int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
+    start_servers("127.0.0.1:" + std::to_string(eth_rpc_port), "127.0.0.1:" +  std::to_string(grpc_port));
+
+
     // ********************************************************* Step 5: verify wallet database integrity
     for (const auto& client : interfaces.chain_clients) {
         if (!client->verify()) {

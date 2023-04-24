@@ -136,11 +136,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_block_by_hash(&self, hash: H256) -> RpcResult<Option<RpcBlock>> {
-        Ok(self
-            .handler
+        self.handler
             .storage
             .get_block_by_hash(&hash)
-            .map(Into::into))
+            .map_or(Ok(None), |block| Ok(Some(block.into())))
     }
 
     fn chain_id(&self) -> RpcResult<String> {
@@ -304,8 +303,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
-        debug!("Sending raw transaction: {:?}", input);
-        let raw_tx = input.strip_prefix("0x").unwrap_or(input);
+        debug!("Sending raw transaction: {:?}", tx);
+        let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {:?}", e)))?;
         let stat = ain_cpp_imports::publish_eth_transaction(hex)
