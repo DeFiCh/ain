@@ -24,6 +24,7 @@ mod ffi {
         fn evm_finalize(
             context: u64,
             update_state: bool,
+            difficulty: u32,
             miner_address: [u8; 20],
         ) -> Result<Vec<u8>>;
 
@@ -111,12 +112,13 @@ use rlp::Encodable;
 fn evm_finalize(
     context: u64,
     update_state: bool,
+    difficulty: u32,
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
     let (block, _failed_tx) =
         RUNTIME
             .handlers
-            .finalize_block(context, update_state, Some(eth_address))?;
+            .finalize_block(context, update_state, difficulty, Some(eth_address))?;
     Ok(block.header.rlp_bytes().into())
 }

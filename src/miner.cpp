@@ -245,7 +245,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // TODO Get failed TXs and try to restore to mempool
     std::array<uint8_t, 20> dummyAddress{};
-    const auto rustHeader = evm_finalize(evmContext, false, dummyAddress);
+    const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
 
     std::vector<uint8_t> evmHeader{};
     evmHeader.resize(rustHeader.size());
