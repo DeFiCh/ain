@@ -10,5 +10,6 @@ pub mod ffi {
         fn getDatadir() -> String;
         fn getDifficulty(_block_hash: [u8; 32]) -> u32;
         fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32];
+        fn getPoolTransactions() -> Vec<Vec<u8>>; // TODO implement Vec<Vec<u8>> as return type in FFI
     }
 }

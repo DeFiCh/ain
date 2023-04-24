@@ -4,17 +4,18 @@ use crate::codegen::types::{
     EthGetBlockByHashInput, EthGetBlockTransactionCountByHashInput,
     EthGetBlockTransactionCountByHashResult, EthGetBlockTransactionCountByNumberInput,
     EthGetBlockTransactionCountByNumberResult, EthGetStorageAtInput, EthGetStorageAtResult,
-    EthTransactionInfo,
+    EthTransactionInfo, EthPendingTransactionInfo
 };
 
-use ain_cpp_imports::publish_eth_transaction;
+use ain_cpp_imports::{publish_eth_transaction, get_pool_transactions};
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
 use ain_evm::transaction::SignedTx;
-use ethereum::{Block, PartialHeader};
+use ethereum::{Block, PartialHeader, TransactionV2};
 use jsonrpsee::proc_macros::rpc;
 use log::debug;
 use primitive_types::{H160, H256, U256};
+use core::num::flt2dec::decode;
 use std::convert::Into;
 use std::sync::Arc;
 
@@ -85,6 +86,9 @@ pub trait MetachainRPC {
         input: EthGetBlockTransactionCountByNumberInput,
     ) -> Result<EthGetBlockTransactionCountByNumberResult>;
 
+    #[method(name = "eth_pendingTransactions")]
+    fn get_pending_transaction(&self) -> Result<Vec<EthPendingTransactionInfo>>;
+
     #[method(name = "eth_getCode")]
     fn get_code(&self, address: H160) -> Result<String>;
 
@@ -154,13 +158,11 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let hash: H256 = hash.parse().expect("Invalid hash");
 
-        let block: Option<RpcBlock> = self
+        Ok(self
             .handler
             .storage
             .get_block_by_hash(&hash)
-            .map(Into::into);
-
-        Ok(block)
+            .map(Into::into))
     }
 
     fn chain_id(&self) -> Result<String> {
@@ -244,6 +246,53 @@ impl MetachainRPCServer for MetachainRPCModule {
             .ok_or(jsonrpsee::core::Error::Custom(String::from(
                 "Missing transaction",
             )))
+    }
+
+    fn get_pending_transaction(&self) -> Result<Vec<EthPendingTransactionInfo>> {
+        let mut transactions = Vec::new();
+
+        let pool_transactions = get_pool_transactions();
+
+        if let Ok(pool_transactions) = pool_transactions {
+            for raw_transaction in pool_transaction.iter() {
+                let decode_result = ethereum::EnvelopedDecodable::decode(&raw_transaction);
+
+                let tx: TransactionV2 = decode_result.unwrap_or(
+                    continue
+                );
+
+                let signed_tx: SignedTx = tx.try_into().unwrap_or(
+                    continue
+                );
+
+                let mut pending_transaction: EthPendingTransactionInfo = {};
+                pending_transaction.hash = signed_tx.transaction.hash().to_string();
+                pending_transaction.nonce = signed_tx.nonce().to_string();
+                pending_transaction.block_hash = String::from("0000000000000000000000000000000000000000000000000000000000000000");
+                pending_transaction.block_number = String::from("null");
+                pending_transaction.transaction_index = String::from("0x0");
+                pending_transaction.from = String::from("0x").push_str(&hex::encode(signed_tx.sender.as_fixed_bytes()));
+                let to = signed_tx.to();
+                if let Some(to) = to {
+                    pending_transaction.to = String::from("0x").push_str(&hex::encode(to.as_fixed_bytes()));
+                } else {
+                    pending_transaction.to = String::from("0x0");
+                }
+                pending_transaction.value = signed_tx.value().to_string();
+                pending_transaction.gas = signed_tx.gas_limit().to_string();
+                pending_transaction.gas_price = signed_tx.gas_price().to_string();
+                pending_transaction.input = hex::encode(signed_tx.data());
+                /* TODO Add calls to get v, r and s for different TX types
+                pending_transaction.v = ;
+                pending_transaction.r = ;
+                pending_transaction.s = ;
+                 */
+
+                transactions.push(pending_transaction);
+            }
+        }
+
+        Ok(transactions)
     }
 
     fn get_transaction_by_block_hash_and_index(

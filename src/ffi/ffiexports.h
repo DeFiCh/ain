@@ -11,5 +11,6 @@ rust::vec<rust::string> getAccounts();
 rust::string getDatadir();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
+rust::vec<rust::vec<uint8_t>> getPoolTransactions();
 
 #endif // DEFI_EVM_FFI_H

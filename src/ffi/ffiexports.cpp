@@ -107,3 +107,36 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
 
     return chainWork;
 }
+
+rust::vec<rust::vec<uint8_t>> getPoolTransactions() {
+    rust::vec<rust::vec<uint8_t>> poolTransactions;
+
+    for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
+        const auto &tx = mi->GetTx();
+        if (!IsEVMTx(tx)) {
+            continue;
+        }
+
+        std::vector<unsigned char> metadata;
+        const auto txType = GuessCustomTxType(tx, metadata, true);
+        if (txType != CustomTxType::EvmTx) {
+            continue;
+        }
+
+        CCustomTxMessage txMessage{CEvmTxMessage{}};
+        const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
+        if (!res) {
+            continue;
+        }
+
+        const auto obj = std::get<CEvmTxMessage>(txMessage);
+
+        rust::vec<uint8_t> transaction;
+        transaction.reserve(obj.evmTx.size());
+        std::copy(obj.evmTx.begin(), obj.evmTx.end(), transaction.begin());
+
+        poolTransactions.push_back(transaction);
+    }
+
+    return poolTransactions;
+}
