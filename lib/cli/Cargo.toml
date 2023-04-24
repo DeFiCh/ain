@@ -1,0 +1,16 @@
+[package]
+name = "metachain-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ain-grpc = { path = "../ain-grpc" }
+
+jsonrpsee = { version = "0.15", features = ["http-client"] }
+structopt = "0.3.26"
+primitive-types = "0.12.1"
+serde = "1.0.160"
+serde_json = "1.0.96"
+hex = "0.4.3"
+ethereum = "0.14.0"
+tokio = "1.27.0"

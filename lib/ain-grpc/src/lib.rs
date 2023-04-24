@@ -4,10 +4,11 @@ extern crate serde_json;
 
 pub mod block;
 pub mod call_request;
-mod codegen;
-mod impls;
+pub mod codegen;
 pub mod rpc;
+pub use ain_evm::evm::EVMState;
 
+mod impls;
 use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;

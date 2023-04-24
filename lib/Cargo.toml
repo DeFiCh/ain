@@ -1,5 +1,9 @@
 [workspace]
 members = [
     "ain-*",
+    "cli"
+]
+default-members = [
+    "ain-*",
 ]
 

@@ -325,7 +325,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         debug!("Getting transaction count for address: {:?}", address);
         let nonce = self.handler.evm.get_nonce(address);
 
-        debug!("Count: {:#?}", nonce,);
+        debug!("Count: {:#?}", nonce);
         Ok(format!("{:#x}", nonce))
     }
 
