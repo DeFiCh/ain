@@ -164,12 +164,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             None => Ok(None),
             Some(mut block) => {
                 let hash_array = hash.to_fixed_bytes();
-                let difficulty = ain_cpp_imports::get_difficulty(hash_array);
                 let chainwork = ain_cpp_imports::get_chainwork(hash_array);
-
-                if let Ok(difficulty) = difficulty {
-                    block.difficulty = U256::from(difficulty);
-                }
 
                 if let Ok(chainwork) = chainwork {
                     block.total_difficulty = Some(U256::from(chainwork));

@@ -2853,11 +2853,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
                 mnID = node->collateralTx;
             }
-    
+
             const auto blockindex = ::ChainActive()[height];
             assert(blockindex);
 
-            
+
             CTransactionRef tx;
             uint256 hash_block;
             assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
@@ -2873,7 +2873,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::copy(minter.begin(), minter.end(), minerAddress.begin());
         }
 
-        evm_finalize(evmContext, true, minerAddress);
+        evm_finalize(evmContext, true, block.nBits, minerAddress);
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
