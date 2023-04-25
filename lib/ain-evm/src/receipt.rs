@@ -1,8 +1,6 @@
 use crate::traits::{PersistentState, PersistentStateError};
 use crate::transaction::SignedTx;
-use ethereum::{
-    EIP658ReceiptData, EnvelopedEncodable, ReceiptV3, TransactionAction, TransactionV2,
-};
+use ethereum::{EIP658ReceiptData, EnvelopedEncodable, ReceiptV3};
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;
@@ -43,7 +41,7 @@ impl Default for ReceiptHandler {
 }
 
 fn get_contract_address(to: &Option<H160>, sender: &H160, nonce: &U256) -> Option<H160> {
-    if to.is_none() {
+    if to.is_some() {
         return None;
     }
 
