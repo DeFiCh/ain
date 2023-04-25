@@ -292,6 +292,7 @@ BASE_SCRIPTS = [
     'feature_loan_vaultstate.py',
     'feature_loan.py',
     'feature_evm.py',
+    'feature_evm_rpc.py',
     'feature_loan_low_interest.py',
     'feature_loan_estimatecollateral.py',
     'feature_vault_pct_check_factor.py',
