@@ -50,7 +50,7 @@ fn should_get_balance() {
         .evm
         .add_balance(ctx, H160::from_str(ALICE).unwrap(), U256::from(1337));
 
-    let _ = handler.finalize_block(ctx, true, None);
+    let _ = handler.finalize_block(ctx, true, 0, None);
 
     let res2 = EthService::Eth_GetBalance(handler, input.into());
     assert_eq!(res2.unwrap().balance, "1337");

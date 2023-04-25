@@ -156,11 +156,13 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_block_by_hash(&self, hash: String) -> Result<Option<RpcBlock>> {
         let hash: H256 = hash.parse().expect("Invalid hash");
 
-        Ok(self
+        let block: Option<RpcBlock> = self
             .handler
             .storage
             .get_block_by_hash(&hash)
-            .map(Into::into))
+            .map(Into::into);
+
+        Ok(block)
     }
 
     fn chain_id(&self) -> Result<String> {

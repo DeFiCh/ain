@@ -38,6 +38,7 @@ impl Handlers {
         &self,
         context: u64,
         update_state: bool,
+        difficulty: u32,
         _miner_address: Option<H160>,
     ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
         let mut successful_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -85,7 +86,7 @@ impl Handlers {
                 state_root: Default::default(),
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
-                difficulty: Default::default(),
+                difficulty: U256::from(difficulty),
                 number,
                 gas_limit: Default::default(),
                 gas_used: Default::default(),

@@ -8,5 +8,7 @@ pub mod ffi {
         fn publishEthTransaction(data: Vec<u8>) -> bool;
         fn getAccounts() -> Vec<String>;
         fn getDatadir() -> String;
+        fn getDifficulty(_block_hash: [u8; 32]) -> u32;
+        fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32];
     }
 }
