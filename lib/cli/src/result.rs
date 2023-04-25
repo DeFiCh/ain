@@ -1,8 +1,10 @@
 use ain_grpc::codegen::types::EthTransactionInfo;
 use ain_grpc::{block::RpcBlock, EVMState};
 use primitive_types::U256;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum RpcResult {
     String(String),
     VecString(Vec<String>),

@@ -1,4 +1,5 @@
 mod command;
+mod format;
 mod params;
 mod result;
 mod structs;
@@ -6,6 +7,7 @@ mod structs;
 use crate::structs::CallRequest;
 use ain_grpc::block::BlockNumber;
 use command::execute_cli_command;
+use format::Format;
 use jsonrpsee::http_client::HttpClientBuilder;
 use params::{BaseChainParams, Chain};
 use primitive_types::{H160, H256, U256};
@@ -15,8 +17,12 @@ use structopt::StructOpt;
 #[structopt(name = "metachain-cli", about = "Metachain JSON-RPC CLI")]
 struct Opt {
     /// The chain to be used. Defaults to mainnet
-    #[structopt(short, long)]
-    chain: Option<Chain>,
+    #[structopt(short, long, default_value = "main")]
+    chain: Chain,
+
+    /// The chain to be used. Defaults to mainnet
+    #[structopt(long, default_value = "json")]
+    format: Format,
 
     #[structopt(subcommand)]
     cmd: MetachainCLI,
@@ -117,13 +123,17 @@ async fn main() -> Result<(), jsonrpsee::core::Error> {
     let opt = Opt::from_args();
 
     let client = {
-        let chain = opt.chain.unwrap_or_default();
+        let chain = opt.chain;
         let base_chain_params = BaseChainParams::create(&chain);
         let json_addr = format!("http://127.0.0.1:{}", base_chain_params.eth_rpc_port);
         HttpClientBuilder::default().build(json_addr)
     }?;
 
     let result = execute_cli_command(opt.cmd, &client).await?;
-    println!("{}", result);
+    match opt.format {
+        Format::Rust => println!("{}", result),
+        Format::Json => println!("{}", serde_json::to_string(&result)?),
+        Format::PrettyJson => println!("{}", serde_json::to_string_pretty(&result)?),
+    };
     Ok(())
 }
