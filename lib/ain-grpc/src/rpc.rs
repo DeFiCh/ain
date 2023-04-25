@@ -245,7 +245,10 @@ impl MetachainRPCServer for MetachainRPCModule {
                 }
 
                 let pending_transaction = EthPendingTransactionInfo {
-                    hash: format!("0x{}", hex::encode(signed_tx.transaction.hash().as_fixed_bytes())),
+                    hash: format!(
+                        "0x{}",
+                        hex::encode(signed_tx.transaction.hash().as_fixed_bytes())
+                    ),
                     nonce: format!("0x{}", signed_tx.nonce().to_string()),
                     block_hash: String::from(
                         "0000000000000000000000000000000000000000000000000000000000000000",
