@@ -1,4 +1,6 @@
 [build]
+
+target-dir = "../build/artifacts"
 rustflags = [
   "-C", "link-arg=-z",
   "-C", "link-arg=undefs",
