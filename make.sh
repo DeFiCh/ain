@@ -316,6 +316,15 @@ _docker_clean() {
 
 # -------------- Misc -----------------
 
+debug_env() {
+    (set -o posix ; set)
+    (set -x +e
+    uname -a
+    gcc -v
+    "clang-${CLANG_DEFAULT_VERSION}" -v
+    rustup show)
+}
+
 test() {
     local make_jobs=${MAKE_JOBS}
     local make_args=${MAKE_ARGS:-}
