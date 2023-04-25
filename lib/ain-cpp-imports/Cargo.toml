@@ -9,4 +9,5 @@ edition = "2021"
 cxx = "1.0"
 
 [build-dependencies]
+anyhow = "1.0.70"
 cxx-build = "1.0"
