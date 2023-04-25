@@ -1,8 +1,10 @@
 use crate::block::BlockHandler;
 use crate::evm::{get_vicinity, EVMHandler};
 use crate::executor::AinExecutor;
+use crate::receipt::ReceiptHandler;
 use crate::storage::Storage;
 use crate::traits::Executor;
+
 use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
 use evm::backend::MemoryBackend;
 use primitive_types::{H160, H256, U256};
@@ -13,6 +15,7 @@ pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
     pub storage: Storage,
+    pub receipt: ReceiptHandler,
 }
 
 impl Default for Handlers {
@@ -27,6 +30,7 @@ impl Handlers {
             evm: EVMHandler::new(),
             block: BlockHandler::new(),
             storage: Storage::new(),
+            receipt: ReceiptHandler::new(),
         }
     }
 
@@ -47,14 +51,24 @@ impl Handlers {
         for signed_tx in self.evm.tx_queues.drain_all(context) {
             let tx_response = executor.exec(&signed_tx);
             if tx_response.exit_reason.is_succeed() {
-                successful_transactions.push(signed_tx.transaction);
+                successful_transactions.push(signed_tx);
             } else {
-                failed_transactions.push(signed_tx.transaction)
+                failed_transactions.push(signed_tx)
             }
         }
 
-        let mut all_transactions = successful_transactions.clone();
-        all_transactions.extend(failed_transactions.clone());
+        let mut all_transactions = successful_transactions
+            .clone()
+            .into_iter()
+            .map(|tx| tx.transaction)
+            .collect::<Vec<TransactionV2>>();
+        all_transactions.extend(
+            failed_transactions
+                .clone()
+                .into_iter()
+                .map(|tx| tx.transaction)
+                .collect::<Vec<TransactionV2>>(),
+        );
 
         self.evm.tx_queues.remove(context);
 
@@ -65,7 +79,7 @@ impl Handlers {
                 .unwrap_or((H256::default(), U256::zero()))
         };
 
-        let block = Block::new(
+        let mut block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary: Default::default(),
@@ -88,6 +102,14 @@ impl Handlers {
             Vec::new(),
         );
 
+        let receipts_root = self.receipt.generate_receipts(
+            successful_transactions,
+            failed_transactions.clone(),
+            block.header.hash(),
+            block.header.number,
+        );
+        block.header.receipts_root = receipts_root;
+
         self.block.connect_block(block.clone());
 
         if update_state {
@@ -98,6 +120,12 @@ impl Handlers {
             self.storage.put_block(block.clone());
         }
 
-        Ok((block, failed_transactions))
+        Ok((
+            block,
+            failed_transactions
+                .into_iter()
+                .map(|tx| tx.transaction)
+                .collect(),
+        ))
     }
 }
