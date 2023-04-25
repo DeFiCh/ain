@@ -26,6 +26,7 @@ dependencies = [
 name = "ain-cpp-imports"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cxx",
  "cxx-build",
 ]
@@ -62,6 +63,7 @@ version = "0.1.0"
 dependencies = [
  "ain-cpp-imports",
  "ain-evm",
+ "anyhow",
  "async-trait",
  "cxx",
  "cxx-gen",

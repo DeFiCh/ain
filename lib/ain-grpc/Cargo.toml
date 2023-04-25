@@ -34,3 +34,4 @@ syn = { version = "2.0", default-features = false, features = ["parsing", "print
 prost-build = "0.11"
 tonic-build = "0.8"
 prettyplease = "0.2.4"
+anyhow = "1.0.70"
