@@ -1,17 +1,17 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
-use crate::codegen::types::{EthTransactionInfo, EthPendingTransactionInfo};
+use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
 
 use ain_cpp_imports::get_pool_transactions;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
 use ain_evm::transaction::{SignedTx, TransactionError};
-use jsonrpsee::core::{Error, RpcResult};
+use core::num::flt2dec::decode;
 use ethereum::{Block, PartialHeader, TransactionV2};
+use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use log::debug;
 use primitive_types::{H160, H256, U256};
-use core::num::flt2dec::decode;
 use std::convert::Into;
 use std::sync::Arc;
 
@@ -75,7 +75,7 @@ pub trait MetachainRPC {
     fn get_block_transaction_count_by_number(&self, number: BlockNumber) -> RpcResult<usize>;
 
     #[method(name = "eth_pendingTransactions")]
-    fn get_pending_transaction(&self) -> Result<Vec<EthPendingTransactionInfo>>;
+    fn get_pending_transaction(&self) -> RpcResult<Vec<EthPendingTransactionInfo>>;
 
     #[method(name = "eth_getCode")]
     fn get_code(&self, address: H160) -> RpcResult<String>;
@@ -222,7 +222,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             })
     }
 
-    fn get_pending_transaction(&self) -> Result<Vec<EthPendingTransactionInfo>> {
+    fn get_pending_transaction(&self) -> RpcResult<Vec<EthPendingTransactionInfo>> {
         let mut transactions = Vec::new();
 
         let pool_transactions = get_pool_transactions();
@@ -231,24 +231,24 @@ impl MetachainRPCServer for MetachainRPCModule {
             for raw_transaction in pool_transaction.iter() {
                 let decode_result = ethereum::EnvelopedDecodable::decode(&raw_transaction);
 
-                let tx: TransactionV2 = decode_result.unwrap_or(
-                    continue
-                );
+                let tx: TransactionV2 = decode_result.unwrap_or(continue);
 
-                let signed_tx: SignedTx = tx.try_into().unwrap_or(
-                    continue
-                );
+                let signed_tx: SignedTx = tx.try_into().unwrap_or(continue);
 
                 let mut pending_transaction: EthPendingTransactionInfo = {};
                 pending_transaction.hash = signed_tx.transaction.hash().to_string();
                 pending_transaction.nonce = signed_tx.nonce().to_string();
-                pending_transaction.block_hash = String::from("0000000000000000000000000000000000000000000000000000000000000000");
+                pending_transaction.block_hash = String::from(
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                );
                 pending_transaction.block_number = String::from("null");
                 pending_transaction.transaction_index = String::from("0x0");
-                pending_transaction.from = String::from("0x").push_str(&hex::encode(signed_tx.sender.as_fixed_bytes()));
+                pending_transaction.from =
+                    String::from("0x").push_str(&hex::encode(signed_tx.sender.as_fixed_bytes()));
                 let to = signed_tx.to();
                 if let Some(to) = to {
-                    pending_transaction.to = String::from("0x").push_str(&hex::encode(to.as_fixed_bytes()));
+                    pending_transaction.to =
+                        String::from("0x").push_str(&hex::encode(to.as_fixed_bytes()));
                 } else {
                     pending_transaction.to = String::from("0x0");
                 }
