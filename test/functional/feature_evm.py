@@ -25,8 +25,10 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
 
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        ethAddress = self.nodes[0].getnewaddress("","eth")
-        to_address = self.nodes[0].getnewaddress("","eth")
+        ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
+        to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
+        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23') # ethAddress
+        self.nodes[0].importprivkey('17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35') # to_address
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -78,6 +80,23 @@ class EVMTest(DefiTestFramework):
         raw_tx = self.nodes[0].getrawtransaction(tx)
         self.sync_mempools()
 
+        # Check the pending TXs
+        result = self.nodes[0].eth_pendingTransactions()
+        assert_equal(result[0]['blockHash'], '0000000000000000000000000000000000000000000000000000000000000000')
+        assert_equal(result[0]['blockNumber'], 'null')
+        assert_equal(result[0]['from'], ethAddress)
+        assert_equal(result[0]['gas'], '0x21000')
+        assert_equal(result[0]['gasPrice'], '0x21000000000')
+        assert_equal(result[0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
+        assert_equal(result[0]['input'], '0x0')
+        assert_equal(result[0]['nonce'], '0x0')
+        assert_equal(result[0]['to'], to_address)
+        assert_equal(result[0]['transactionIndex'], '0x0')
+        assert_equal(result[0]['value'], '0x1000000000000000000')
+        assert_equal(result[0]['v'], '0x25')
+        assert_equal(result[0]['r'], '0x37f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376')
+        assert_equal(result[0]['s'], '0x5eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e')
+
         # Check mempools for TX
         assert_equal(self.nodes[0].getrawmempool(), [tx])
         assert_equal(self.nodes[1].getrawmempool(), [tx])
@@ -86,6 +105,9 @@ class EVMTest(DefiTestFramework):
         # Check EVM Tx is in block
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
+
+        # Check pending TXs now empty
+        assert_equal(self.nodes[0].eth_pendingTransactions(), [])
 
         # Try and send EVM TX a second time
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)

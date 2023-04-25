@@ -31,7 +31,7 @@ mod ffi {
     pub fn getChainWork(_block_hash: [u8; 32]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getPoolTransactions() -> Vec<Vec<u8>> {
+    pub fn getPoolTransactions() -> Vec<String> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -71,7 +71,7 @@ pub fn get_chainwork(block_hash: [u8; 32]) -> Result<[u8; 32], Box<dyn Error>> {
     Ok(chainwork)
 }
 
-pub fn get_pool_transactions() -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+pub fn get_pool_transactions() -> Result<Vec<String>, Box<dyn Error>> {
     let transactions = ffi::getPoolTransactions();
     Ok(transactions)
 }

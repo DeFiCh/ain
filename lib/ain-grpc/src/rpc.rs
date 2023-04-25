@@ -5,9 +5,7 @@ use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
 use ain_cpp_imports::get_pool_transactions;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
-use ain_evm::transaction::{SignedTx, TransactionError};
-use core::num::flt2dec::decode;
-use ethereum::{Block, PartialHeader, TransactionV2};
+use ain_evm::transaction::{convert_str_to_signedtx, SignedTx, TransactionError};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use log::debug;
@@ -228,39 +226,42 @@ impl MetachainRPCServer for MetachainRPCModule {
         let pool_transactions = get_pool_transactions();
 
         if let Ok(pool_transactions) = pool_transactions {
-            for raw_transaction in pool_transaction.iter() {
-                let decode_result = ethereum::EnvelopedDecodable::decode(&raw_transaction);
+            for raw_transaction_str in pool_transactions.iter() {
+                let tx = convert_str_to_signedtx(raw_transaction_str);
+                let signed_tx: SignedTx = tx.unwrap();
 
-                let tx: TransactionV2 = decode_result.unwrap_or(continue);
-
-                let signed_tx: SignedTx = tx.try_into().unwrap_or(continue);
-
-                let mut pending_transaction: EthPendingTransactionInfo = {};
-                pending_transaction.hash = signed_tx.transaction.hash().to_string();
-                pending_transaction.nonce = signed_tx.nonce().to_string();
-                pending_transaction.block_hash = String::from(
-                    "0000000000000000000000000000000000000000000000000000000000000000",
-                );
-                pending_transaction.block_number = String::from("null");
-                pending_transaction.transaction_index = String::from("0x0");
-                pending_transaction.from =
-                    String::from("0x").push_str(&hex::encode(signed_tx.sender.as_fixed_bytes()));
-                let to = signed_tx.to();
-                if let Some(to) = to {
-                    pending_transaction.to =
-                        String::from("0x").push_str(&hex::encode(to.as_fixed_bytes()));
+                let to;
+                if let Some(signed_to) = signed_tx.to() {
+                    to = String::from("0x") + &hex::encode(signed_to.as_fixed_bytes());
                 } else {
-                    pending_transaction.to = String::from("0x0");
+                    to = String::from("null");
                 }
-                pending_transaction.value = signed_tx.value().to_string();
-                pending_transaction.gas = signed_tx.gas_limit().to_string();
-                pending_transaction.gas_price = signed_tx.gas_price().to_string();
-                pending_transaction.input = hex::encode(signed_tx.data());
-                /* TODO Add calls to get v, r and s for different TX types
-                pending_transaction.v = ;
-                pending_transaction.r = ;
-                pending_transaction.s = ;
-                 */
+
+                let input;
+                if signed_tx.data().len() > 0 {
+                    input = format!("0x{}", hex::encode(signed_tx.data()));
+                } else {
+                    input = String::from("0x0");
+                }
+
+                let pending_transaction = EthPendingTransactionInfo {
+                    hash: format!("0x{}", hex::encode(signed_tx.transaction.hash().as_fixed_bytes())),
+                    nonce: format!("0x{}", signed_tx.nonce().to_string()),
+                    block_hash: String::from(
+                        "0000000000000000000000000000000000000000000000000000000000000000",
+                    ),
+                    block_number: String::from("null"),
+                    transaction_index: String::from("0x0"),
+                    from: format!("0x{}", hex::encode(signed_tx.sender.as_fixed_bytes())),
+                    to,
+                    value: format!("0x{}", signed_tx.value().to_string()),
+                    gas: format!("0x{}", signed_tx.gas_limit().to_string()),
+                    gas_price: format!("0x{}", signed_tx.gas_price().to_string()),
+                    input,
+                    v: format!("0x{:x}", signed_tx.v()),
+                    r: format!("0x{}", hex::encode(signed_tx.r().as_fixed_bytes())),
+                    s: format!("0x{}", hex::encode(signed_tx.s().as_fixed_bytes())),
+                };
 
                 transactions.push(pending_transaction);
             }

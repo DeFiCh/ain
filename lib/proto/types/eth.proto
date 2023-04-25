@@ -16,17 +16,17 @@ message EthTransactionInfo {
 }
 
 message EthPendingTransactionInfo {
-    string hash = 1; // Hash of the transaction.
-    string nonce = 2; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-    string blockHash = 3; // Hash of the block. null when its pending block.
-    string blockNumber = 4; // The block number. null when its pending block.
-    string transactionIndex = 5; // Integer of the transactions index position in the block.
-    string from = 6; // The address from which the transaction is sent
-    string to = 7; // Address of the receiver. null when its a contract creation transaction.
-    string value = 8; // The integer of value sent with this transaction encoded as hexadecimal.
-    string gas = 9; // The integer of gas provided for the transaction execution.
-    string gasPrice = 10; // The integer of gas price used for each paid gas encoded as hexadecimal
-    string input = 11; // The data sent along with the transaction.
+    string blockHash = 1; // Hash of the block. null when its pending block.
+    string blockNumber = 2; // The block number. null when its pending block.
+    string from = 3; // The address from which the transaction is sent
+    string gas = 4; // The integer of gas provided for the transaction execution.
+    string gasPrice = 5; // The integer of gas price used for each paid gas encoded as hexadecimal
+    string hash = 6; // Hash of the transaction.
+    string input = 7; // The data sent along with the transaction.
+    string nonce = 8; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
+    string to = 9; // Address of the receiver. null when its a contract creation transaction.
+    string transactionIndex = 10; // Integer of the transactions index position in the block.
+    string value = 11; // The integer of value sent with this transaction encoded as hexadecimal.
     string v = 12; // Signature v value
     string r = 13; // Signature r value
     string s = 14; // Signature s value

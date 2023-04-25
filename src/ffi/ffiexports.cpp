@@ -108,8 +108,8 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
     return chainWork;
 }
 
-rust::vec<rust::vec<uint8_t>> getPoolTransactions() {
-    rust::vec<rust::vec<uint8_t>> poolTransactions;
+rust::vec<rust::string> getPoolTransactions() {
+    rust::vec<rust::string> poolTransactions;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
@@ -130,12 +130,7 @@ rust::vec<rust::vec<uint8_t>> getPoolTransactions() {
         }
 
         const auto obj = std::get<CEvmTxMessage>(txMessage);
-
-        rust::vec<uint8_t> transaction;
-        transaction.reserve(obj.evmTx.size());
-        std::copy(obj.evmTx.begin(), obj.evmTx.end(), transaction.begin());
-
-        poolTransactions.push_back(transaction);
+        poolTransactions.push_back(HexStr(obj.evmTx.begin(), obj.evmTx.end()));
     }
 
     return poolTransactions;
