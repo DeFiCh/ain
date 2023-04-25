@@ -16,11 +16,11 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "metachain-cli", about = "Metachain JSON-RPC CLI")]
 struct Opt {
-    /// The chain to be used. Defaults to mainnet
+    /// The chain to be used.
     #[structopt(short, long, default_value = "main")]
     chain: Chain,
 
-    /// The chain to be used. Defaults to mainnet
+    /// Format output.
     #[structopt(long, default_value = "json")]
     format: Format,
 
