@@ -22,6 +22,7 @@ primitive-types = "0.12.1"
 ethereum = "0.14.0"
 hex = "0.4.3"
 async-trait = "0.1.68"
+rlp = "0.5.2"
 
 [build-dependencies]
 cxx-gen = "0.7"

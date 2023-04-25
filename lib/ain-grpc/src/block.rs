@@ -1,5 +1,6 @@
 use ethereum::BlockAny;
 use primitive_types::{H160, H256, U256};
+use rlp::Encodable;
 use serde::{
     de::{Error, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -34,6 +35,7 @@ pub struct RpcBlock {
 
 impl From<BlockAny> for RpcBlock {
     fn from(b: BlockAny) -> Self {
+        let header_size = b.header.rlp_bytes().len();
         RpcBlock {
             hash: b.header.hash(),
             mix_hash: b.header.hash(),
@@ -55,7 +57,7 @@ impl From<BlockAny> for RpcBlock {
             extra_data: b.header.extra_data,
             sha3_uncles: Default::default(),
             logs_bloom: Default::default(),
-            size: Default::default(),
+            size: format!("{:x}", header_size),
         }
     }
 }

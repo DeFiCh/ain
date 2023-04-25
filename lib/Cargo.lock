@@ -80,6 +80,7 @@ dependencies = [
  "prost-build",
  "quote",
  "regex",
+ "rlp",
  "serde",
  "serde_json",
  "syn 2.0.14",
