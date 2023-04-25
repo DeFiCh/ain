@@ -110,12 +110,6 @@ static bool AppInit(int argc, char* argv[])
             return InitError(strprintf("%s\n", e.what()));
         }
 
-        // Start GRPC after BaseParams() has been initialised
-        init_runtime();
-        int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
-        int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
-        start_servers("127.0.0.1:" + std::to_string(eth_rpc_port), "127.0.0.1:" +  std::to_string(grpc_port));
-
         // Error out when loose non-argument tokens are encountered on command line
         for (int i = 1; i < argc; i++) {
             if (!IsSwitchChar(argv[i][0])) {
