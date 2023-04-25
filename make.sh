@@ -225,7 +225,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     _ensure_enter_dir "${versioned_release_dir}"
-    _tar "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -315,6 +315,15 @@ _docker_clean() {
 }
 
 # -------------- Misc -----------------
+
+debug_env() {
+    (set -o posix ; set)
+    (set -x +e
+    uname -a
+    gcc -v
+    "clang-${CLANG_DEFAULT_VERSION}" -v
+    rustup show)
+}
 
 test() {
     local make_jobs=${MAKE_JOBS}
@@ -466,7 +475,7 @@ pkg_install_deps_osx_tools() {
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
 
     _ensure_enter_dir "$release_depends_dir/SDKs"
     if [[ -d "${sdk_name}" ]]; then 
@@ -494,17 +503,18 @@ pkg_install_llvm() {
 }
 
 pkg_install_rust() {
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+    # This is for local convenience only. Not used for automation
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
 clean_pkg_local_osx_sysroot() {
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
     _safe_rm_rf "$release_depends_dir/SDKs"
 }
 
 purge() {
     local release_dir="${RELEASE_DIR}"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
 
     clean_depends
     _safe_rm_rf "$release_depends_dir"
@@ -570,7 +580,7 @@ clean_conf() {
 clean_depends() {
     local root_dir="$ROOT_DIR"
     local release_dir="${RELEASE_DIR}"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
 
     make -C "$root_dir/depends" DESTDIR="${release_depends_dir}" clean-all || true
     _ensure_enter_dir "$release_depends_dir"
@@ -681,6 +691,7 @@ check() {
 
 check_rs() {
     _ensure_enter_dir ./lib
+    # shellcheck disable=SC2015 # Intended
     cargo build && cargo test && cargo clippy  || { 
         echo "Error: Please resolve compiler checks before commit"; 
         exit 1; }
@@ -713,20 +724,19 @@ _platform_init() {
         }
     fi
 
-    if [[ $(tar --help | grep -cwF "transform")  -gt 0 ]]; then
+    if tar --version 2> /dev/null | grep -q 'GNU tar'; then
         _tar() {
-            tar --transform "$@"
+            tar "$@"
         }
     else
-        if [[ $(gtar --help | grep -cwF "transform") -gt 0 ]]; then
+        if gtar --version 2> /dev/null | grep -q 'GNU tar'; then
             _tar() {
-                gtar --transform "$@"
+                gtar "$@"
             }
         else
-            echo "error: GNU version of tar is required for \`--transform\` support"
-            echo "tip: debian/ubunti: apt install tar"
+            echo "error: GNU version of tar is required"
+            echo "tip: debian/ubuntu: apt install tar"
             echo "tip: osx: brew install gnu-tar"
-            exit 1
         fi
     fi
 }

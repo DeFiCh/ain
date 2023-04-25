@@ -8,11 +8,6 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pkg_name = env::var("CARGO_PKG_NAME")?;
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    // Using a direct path for now
-    let git_head_path = manifest_path.join("../../.git/HEAD");
-    if git_head_path.exists() {
-        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
-    }
 
     // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR.
     // Otherwise, use the path for OUT_DIR that cargo sets, as usual.
@@ -26,7 +21,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let [out_src_dir, out_include_dir, _out_lib_dir] = res;
 
     let lib_path = &manifest_path.join("src").join("lib.rs");
-    println!("cargo:rerun-if-changed={}", lib_path.as_path().display());
 
     let mut content = String::new();
     File::open(lib_path)?.read_to_string(&mut content)?;
@@ -47,6 +41,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     File::create(out_include_dir.join(header_file_path))?.write_all(&codegen.header)?;
     File::create(out_src_dir.join(source_file_path))?.write_all(cpp_stuff.as_bytes())?;
+
+    println!("cargo:rerun-if-changed={}", lib_path.as_path().display());
+    // Using a direct path for now
+    let git_head_path = manifest_path.join("../../.git/HEAD");
+    if git_head_path.exists() {
+        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
+    }
 
     Ok(())
 }
