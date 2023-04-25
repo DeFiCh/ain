@@ -108,7 +108,7 @@ pub trait MetachainRPC {
     fn gas_price(&self) -> Result<String>;
 
     #[method(name = "eth_getTransactionReceipt")]
-    fn get_receipt(&self, hash: H256) -> Result<ReceiptResult>;
+    fn get_receipt(&self, hash: H256) -> Result<Option<ReceiptResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -371,8 +371,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(format!("{:#x}", 0))
     }
 
-    fn get_receipt(&self, hash: H256) -> Result<ReceiptResult> {
-        let receipt = self.handler.receipt.get_receipt(hash).unwrap();
-        Ok(ReceiptResult::from(receipt))
+    fn get_receipt(&self, hash: H256) -> Result<Option<ReceiptResult>> {
+        self.handler.receipt.get_receipt(hash).map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 }

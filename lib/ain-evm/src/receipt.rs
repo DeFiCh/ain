@@ -11,9 +11,6 @@ use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
@@ -25,10 +22,10 @@ pub struct Receipt {
     pub block_hash: H256,
     pub block_number: U256,
     pub from: H160,
-    pub to: H160,
+    pub to: Option<H160>,
     pub tx_index: usize,
     pub tx_type: u8,
-    pub contract_address: H160,
+    pub contract_address: Option<H160>,
 }
 
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
@@ -45,36 +42,18 @@ impl Default for ReceiptHandler {
     }
 }
 
-fn get_transaction_action(tx: TransactionV2) -> TransactionAction {
-    match tx {
-        TransactionV2::Legacy(t) => t.action,
-        TransactionV2::EIP2930(t) => t.action,
-        TransactionV2::EIP1559(t) => t.action,
+fn get_contract_address(to: &Option<H160>, sender: &H160, nonce: &U256) -> Option<H160> {
+    if to.is_none() {
+        return None
     }
-}
 
-fn get_recipient(action: TransactionAction) -> H160 {
-    match action {
-        TransactionAction::Create => H160::zero(),
-        TransactionAction::Call(t) => t,
-    }
-}
-
-fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
     let mut stream = RlpStream::new_list(2);
     stream.append(sender);
     stream.append(nonce);
 
-    return H160::from(keccak(stream.as_raw()));
+    return Some(H160::from(keccak(stream.as_raw())));
 }
 
-fn get_nonce(tx: TransactionV2) -> U256 {
-    match tx {
-        TransactionV2::Legacy(t) => t.nonce,
-        TransactionV2::EIP2930(t) => t.nonce,
-        TransactionV2::EIP1559(t) => t.nonce,
-    }
-}
 impl ReceiptHandler {
     pub fn new() -> Self {
         Self {
@@ -114,7 +93,7 @@ impl ReceiptHandler {
         let mut index = 0;
 
         for transaction in successful {
-            let tv2 = transaction.transaction;
+            let tv2 = transaction.clone().transaction;
             let receipt = Receipt {
                 receipt: ReceiptV3::EIP1559(EIP658ReceiptData {
                     status_code: 1,
@@ -126,12 +105,13 @@ impl ReceiptHandler {
                 block_number,
                 tx_hash: tv2.hash(),
                 from: transaction.sender,
-                to: get_recipient(get_transaction_action(tv2.clone())),
+                to: transaction.to(),
                 tx_index: index,
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
                 contract_address: get_contract_address(
+                    &transaction.to(),
                     &transaction.sender,
-                    &get_nonce(tv2.clone()),
+                    &transaction.nonce(),
                 ),
             };
 
@@ -141,7 +121,7 @@ impl ReceiptHandler {
         }
 
         for transaction in failed {
-            let tv2 = transaction.transaction;
+            let tv2 = transaction.clone().transaction;
             let receipt = Receipt {
                 receipt: ReceiptV3::EIP1559(EIP658ReceiptData {
                     status_code: 0,
@@ -153,11 +133,12 @@ impl ReceiptHandler {
                 block_number,
                 tx_hash: tv2.hash(),
                 from: transaction.sender,
-                to: get_recipient(get_transaction_action(tv2.clone())),
+                to: transaction.to(),
                 tx_index: index,
                 contract_address: get_contract_address(
+                    &transaction.to(),
                     &transaction.sender,
-                    &get_nonce(tv2.clone()),
+                    &transaction.nonce(),
                 ),
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
@@ -205,10 +186,12 @@ mod test {
     #[test]
     pub fn test_contract_address() {
         let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
+
         let expected = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
+        let to = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
 
-        let actual = get_contract_address(&sender, &U256::from(88));
+        let actual = get_contract_address(&Some(to), &sender, &U256::from(88));
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual.unwrap(), expected);
     }
 }
