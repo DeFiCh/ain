@@ -372,6 +372,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_receipt(&self, hash: H256) -> Result<Option<ReceiptResult>> {
-        self.handler.receipt.get_receipt(hash).map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
+        self.handler
+            .receipt
+            .get_receipt(hash)
+            .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 }

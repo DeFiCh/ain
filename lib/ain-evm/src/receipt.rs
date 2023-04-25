@@ -44,7 +44,7 @@ impl Default for ReceiptHandler {
 
 fn get_contract_address(to: &Option<H160>, sender: &H160, nonce: &U256) -> Option<H160> {
     if to.is_none() {
-        return None
+        return None;
     }
 
     let mut stream = RlpStream::new_list(2);
