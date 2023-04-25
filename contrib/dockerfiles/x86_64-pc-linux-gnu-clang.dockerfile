@@ -19,9 +19,6 @@ RUN rustup target add x86_64-unknown-linux-gnu
 
 COPY . .
 RUN ./make.sh clean-depends && \
-    export MAKE_DEPS_ARGS="\
-        x86_64_linux_CC=clang-${CLANG_VERSION} \
-        x86_64_linux_CXX=clang++-${CLANG_VERSION}" && \
     ./make.sh build-deps
 RUN export MAKE_CONF_ARGS="\
     CC=clang-${CLANG_VERSION} \
