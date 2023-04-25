@@ -229,6 +229,20 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
     }
 }
 
+use std::str::FromStr;
+
+impl FromStr for BlockNumber {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let visitor = BlockNumberVisitor;
+        let result = visitor.visit_str(s).map_err(|e: serde::de::value::Error| {
+            serde_json::Error::custom(format!("Error while parsing BlockNumber: {}", e))
+        });
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

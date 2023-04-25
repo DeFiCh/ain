@@ -208,6 +208,8 @@ class TestNode():
         "eth_getTransactionByBlockHashAndIndex",
         "eth_getTransactionByBlockNumberAndIndex",
         "eth_getTransactionReceipt",
+        # net
+        "net_version"
     }
 
     def get_genesis_keys(self):
@@ -269,7 +271,6 @@ class TestNode():
             return getattr(self.cli, name)
         else:
             assert self.rpc_connected, self._node_msg("Error: no RPC connection")
-            
             if name in self.EVM_CALLS:
                 assert self.evm_rpc is not None, self._node_msg("Error: no EVM-RPC connection")
                 return getattr(self.evm_rpc, name)

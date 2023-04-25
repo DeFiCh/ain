@@ -173,25 +173,27 @@ pub struct EthTransactionInfo {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub from: ::prost::alloc::string::String,
     /// The address to which the transaction is addressed
-    #[prost(string, tag = "2")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub to: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub to: ::core::option::Option<::prost::alloc::string::String>,
     /// The integer of gas provided for the transaction execution
     #[prost(uint64, tag = "3")]
     pub gas: u64,
     /// The integer of gas price used for each paid gas encoded as hexadecimal
-    #[prost(uint64, tag = "4")]
-    pub price: u64,
+    #[prost(string, tag = "4")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub price: ::prost::alloc::string::String,
     /// The integer of value sent with this transaction encoded as hexadecimal
-    #[prost(uint64, tag = "5")]
-    pub value: u64,
+    #[prost(string, tag = "5")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub value: ::prost::alloc::string::String,
     /// The hash of the method signature and encoded parameters.
     #[prost(string, tag = "6")]
     #[serde(skip_serializing_if = "String::is_empty")]
     pub data: ::prost::alloc::string::String,
     /// The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-    #[prost(uint64, tag = "7")]
-    pub nonce: u64,
+    #[prost(string, tag = "7")]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub nonce: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -346,13 +348,11 @@ pub struct EthTransactionReceipt {
     #[serde(rename = "type")]
     pub field_type: ::prost::alloc::string::String,
     /// 32 bytes of post-transaction stateroot (pre Byzantium)
-    #[prost(string, tag = "14")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub root: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "14")]
+    pub root: ::core::option::Option<::prost::alloc::string::String>,
     /// Either 1 (success) or 0 (failure)
-    #[prost(string, tag = "15")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub status: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "15")]
+    pub status: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -670,9 +670,8 @@ pub struct EthEstimateGasInput {
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
     /// Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
-    #[prost(string, tag = "2")]
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub block_number: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub block_number: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1112,8 +1111,8 @@ pub struct EthSyncingInfo {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct EthSyncingResult {
-    #[prost(bool, tag = "1")]
-    pub status: bool,
+    #[prost(bool, optional, tag = "1")]
+    pub status: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "2")]
     pub sync_info: ::core::option::Option<EthSyncingInfo>,
 }
