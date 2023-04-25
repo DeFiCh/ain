@@ -45,7 +45,7 @@ impl Default for ReceiptHandler {
     }
 }
 
-fn action(tx: TransactionV2) -> TransactionAction {
+fn get_transaction_action(tx: TransactionV2) -> TransactionAction {
     match tx {
         TransactionV2::Legacy(t) => t.action,
         TransactionV2::EIP2930(t) => t.action,
@@ -53,8 +53,8 @@ fn action(tx: TransactionV2) -> TransactionAction {
     }
 }
 
-fn extr(ac: TransactionAction) -> H160 {
-    match ac {
+fn get_recipient(action: TransactionAction) -> H160 {
+    match action {
         TransactionAction::Create => H160::zero(),
         TransactionAction::Call(t) => t,
     }
@@ -126,7 +126,7 @@ impl ReceiptHandler {
                 block_number,
                 tx_hash: tv2.hash(),
                 from: transaction.sender,
-                to: extr(action(tv2.clone())),
+                to: get_recipient(get_transaction_action(tv2.clone())),
                 tx_index: index,
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
                 contract_address: get_contract_address(
@@ -153,7 +153,7 @@ impl ReceiptHandler {
                 block_number,
                 tx_hash: tv2.hash(),
                 from: transaction.sender,
-                to: extr(action(tv2.clone())),
+                to: get_recipient(get_transaction_action(tv2.clone())),
                 tx_index: index,
                 contract_address: get_contract_address(
                     &transaction.sender,
@@ -196,11 +196,11 @@ impl Error for ReceiptHandlerError {}
 
 #[cfg(test)]
 mod test {
+    use crate::receipt::get_contract_address;
     use keccak_hash::keccak;
     use primitive_types::{H160, U256};
     use rlp::RlpStream;
     use std::str::FromStr;
-    use crate::receipt::get_contract_address;
 
     #[test]
     pub fn test_contract_address() {
