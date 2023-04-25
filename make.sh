@@ -488,7 +488,7 @@ pkg_local_ensure_osx_sysroot() {
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
-    tar -zxf "${pkg}"
+    _tar -zxf "${pkg}"
     rm "${pkg}" 2>/dev/null || true
     _exit_dir
 
