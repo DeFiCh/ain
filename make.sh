@@ -224,7 +224,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     _ensure_enter_dir "${versioned_release_dir}"
-    _tar "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -450,10 +450,7 @@ pkg_local_ensure_osx_sysroot() {
     local release_depends_dir=${DEPENDS_DIR}
 
     _ensure_enter_dir "$release_depends_dir/SDKs"
-    if [[ -d "${sdk_name}" ]]; then 
-        _exit_dir
-        return
-    fi
+    if [[ -d "${sdk_name}" ]]; then return; fi
 
     _fold_start "pkg-local-mac-sdk"
 
@@ -652,23 +649,6 @@ _platform_init() {
         _canonicalize() {
             readlink -m "$@"
         }
-    fi
-
-    if [[ $(tar --help | grep -cwF "transform")  -gt 0 ]]; then
-        _tar() {
-            tar --transform "$@"
-        }
-    else
-        if [[ $(gtar --help | grep -cwF "transform") -gt 0 ]]; then
-            _tar() {
-                gtar --transform "$@"
-            }
-        else
-            echo "error: GNU version of tar is required for \`--transform\` support"
-            echo "tip: debian/ubunti: apt install tar"
-            echo "tip: osx: brew install gnu-tar"
-            exit 1
-        fi
     fi
 }
 
