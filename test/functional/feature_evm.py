@@ -106,6 +106,10 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
 
+        # Check EVM Tx shows in block on EVM side
+        block = self.nodes[0].eth_getBlockByNumber("latest", False)
+        assert_equal(block['transactions'], ['0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497'])
+
         # Check pending TXs now empty
         assert_equal(self.nodes[0].eth_pendingTransactions(), [])
 
