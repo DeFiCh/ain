@@ -5,7 +5,7 @@ use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 
-use crate::codegen::types::{EthBlockInfo, EthTransactionInfo};
+use crate::codegen::types::{EthBlockInfo, EthPendingTransactionInfo, EthTransactionInfo};
 
 fn format_hash(hash: H256) -> String {
     format!("{:#x}", hash)
@@ -68,5 +68,49 @@ impl TryFrom<TransactionV2> for EthTransactionInfo {
             data: hex::encode(signed_tx.data()),
             nonce: signed_tx.nonce().to_string(),
         })
+    }
+}
+
+impl TryFrom<&str> for EthPendingTransactionInfo {
+    type Error = TransactionError;
+
+    fn try_from(raw_tx: &str) -> Result<Self, Self::Error> {
+        let signed_tx: SignedTx = raw_tx.try_into()?;
+
+        let to = if let Some(signed_to) = signed_tx.to() {
+            String::from("0x") + &hex::encode(signed_to.as_fixed_bytes())
+        } else {
+            String::from("null")
+        };
+
+        let input = if signed_tx.data().len() > 0 {
+            format!("0x{}", hex::encode(signed_tx.data()))
+        } else {
+            String::from("0x0")
+        };
+
+        let pending_transaction = EthPendingTransactionInfo {
+            hash: format!(
+                "0x{}",
+                hex::encode(signed_tx.transaction.hash().as_fixed_bytes())
+            ),
+            nonce: format!("0x{}", signed_tx.nonce().to_string()),
+            block_hash: String::from(
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ),
+            block_number: String::from("null"),
+            transaction_index: String::from("0x0"),
+            from: format!("0x{}", hex::encode(signed_tx.sender.as_fixed_bytes())),
+            to,
+            value: format!("0x{}", signed_tx.value().to_string()),
+            gas: format!("0x{}", signed_tx.gas_limit().to_string()),
+            gas_price: format!("0x{}", signed_tx.gas_price().to_string()),
+            input,
+            v: format!("0x{:x}", signed_tx.v()),
+            r: format!("0x{}", hex::encode(signed_tx.r().as_fixed_bytes())),
+            s: format!("0x{}", hex::encode(signed_tx.s().as_fixed_bytes())),
+        };
+
+        Ok(pending_transaction)
     }
 }

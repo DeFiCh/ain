@@ -5,7 +5,6 @@ use ethereum::{
 };
 use libsecp256k1::PublicKey;
 use primitive_types::{H160, H256, U256};
-use std::error::Error;
 
 use rlp::RlpStream;
 use sha3::Digest;
@@ -176,11 +175,6 @@ impl TryFrom<&str> for SignedTx {
 
         tx.try_into()
     }
-}
-
-pub fn convert_str_to_signedtx(src: &str) -> Result<SignedTx, Box<dyn Error>> {
-    let tx: SignedTx = src.try_into()?;
-    Ok(tx)
 }
 
 impl SignedTx {
