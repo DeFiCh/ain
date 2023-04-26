@@ -182,8 +182,8 @@ mod test {
     use std::str::FromStr;
 
     // TODO: This needs fixing. `get_contract_address` impl appears to add sender to the
-    // stream that appears incorrect. Leaving it to @shoham to recitfy and clear up 
-    // side effects, but this blocks everyone from being able to add to the branch, 
+    // stream that appears incorrect. Leaving it to @shoham to recitfy and clear up
+    // side effects, but this blocks everyone from being able to add to the branch,
     // so ignore this for the moment
     #[ignore]
     #[test]

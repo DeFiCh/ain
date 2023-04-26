@@ -483,7 +483,7 @@ pkg_local_ensure_osx_sysroot() {
     fi
 
     _fold_start "pkg-local-mac-sdk"
-    
+
     _ensure_enter_dir "${sdk_base_dir}"
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
@@ -680,6 +680,10 @@ set -Eeuo pipefail
 dir="\$(dirname "\${BASH_SOURCE[0]}")"
 _SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
 cd \$_SCRIPT_DIR/../../
+if [[ \$(git status -s) ]]; then
+    echo "error: Git tree dirty. Please commit or stash first"
+    exit 1
+fi
 ./make.sh check
 END
     chmod +x "$file"
