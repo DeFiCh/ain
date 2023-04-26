@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "ain-*",
-    "cli"
+    "cli",
+    "exp-ain-grpc2",
 ]
 default-members = [
     "ain-*",
