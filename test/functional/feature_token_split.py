@@ -6,15 +6,15 @@
 """Test token split"""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    truncate,
+)
 
-from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 import random
-
-
-def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
 
 
 class TokenSplitTest(DefiTestFramework):

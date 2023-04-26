@@ -3,23 +3,18 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-
 """Test token split"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_greater_than_or_equal
+from test_framework.util import (
+    assert_equal,
+    assert_greater_than_or_equal,
+    almost_equal,
+)
 
 from decimal import Decimal
 import time
 import random
-
-
-def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
-
-
-def almost_equal(x, y, threshold=0.0001):
-    return abs(x - y) < threshold
 
 
 class TokenSplitUSDValueTest(DefiTestFramework):

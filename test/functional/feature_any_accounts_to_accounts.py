@@ -9,10 +9,12 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
-    connect_nodes_bi
+from test_framework.fixture_util import CommonFixture
+from test_framework.util import (
+    assert_equal,
+    connect_nodes_bi,
+)
 
 from decimal import Decimal
 
@@ -67,7 +69,7 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
             }
         ]
         # inside this function "tokenId" and "symbolId" will be assigned for each token obj
-        self.setup_tokens(tokens)
+        CommonFixture.setup_default_tokens(self, tokens)
 
         # list_tokens = self.nodes[0].listtokens()
         # pprint(list_tokens)

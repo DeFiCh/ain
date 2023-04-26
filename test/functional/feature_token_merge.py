@@ -12,10 +12,6 @@ import time
 from test_framework.test_framework import DefiTestFramework
 
 
-def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
-
-
 class TokenMergeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
