@@ -83,7 +83,7 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
             String::from("null")
         };
 
-        let input = if signed_tx.data().len() > 0 {
+        let input = if !signed_tx.data().is_empty() {
             format!("0x{}", hex::encode(signed_tx.data()))
         } else {
             String::from("0x0")
@@ -94,7 +94,7 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
                 "0x{}",
                 hex::encode(signed_tx.transaction.hash().as_fixed_bytes())
             ),
-            nonce: format!("0x{}", signed_tx.nonce().to_string()),
+            nonce: format!("0x{}", signed_tx.nonce()),
             block_hash: String::from(
                 "0000000000000000000000000000000000000000000000000000000000000000",
             ),
@@ -102,9 +102,9 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
             transaction_index: String::from("0x0"),
             from: format!("0x{}", hex::encode(signed_tx.sender.as_fixed_bytes())),
             to,
-            value: format!("0x{}", signed_tx.value().to_string()),
-            gas: format!("0x{}", signed_tx.gas_limit().to_string()),
-            gas_price: format!("0x{}", signed_tx.gas_price().to_string()),
+            value: format!("0x{}", signed_tx.value()),
+            gas: format!("0x{}", signed_tx.gas_limit()),
+            gas_price: format!("0x{}", signed_tx.gas_price()),
             input,
             v: format!("0x{:x}", signed_tx.v()),
             r: format!("0x{}", hex::encode(signed_tx.r().as_fixed_bytes())),
