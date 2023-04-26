@@ -445,7 +445,7 @@ pkg_install_deps() {
         pkg_install_deps_armhf
     elif [[ "$TARGET" == "x86_64-w64-mingw32" ]]; then
         pkg_install_deps_mingw_x86_64
-    elif [[ "$target" =~ .*darwin.* ]]; then
+    elif [[ "$TARGET" =~ .*darwin.* ]]; then
         pkg_install_deps_osx_tools
     fi
     _fold_end
