@@ -100,7 +100,7 @@ impl<'a> Deserialize<'a> for BlockNumber {
 
 impl BlockNumber {
     /// Convert block number to min block target.
-    pub fn to_min_block_num(&self) -> Option<u64> {
+    pub fn convert_to_min_block_num(&self) -> Option<u64> {
         match *self {
             BlockNumber::Num(ref x) => Some(*x),
             BlockNumber::Earliest => Some(0),

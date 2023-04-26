@@ -93,7 +93,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::array<uint8_t, 32> privKey{};
     std::copy(key.begin(), key.end(), privKey.begin());
 
-    const auto signedTx = create_and_sign_tx(chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey);
+    const auto signedTx = create_and_sign_tx(CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
     std::vector<uint8_t> evmTx(signedTx.size());
     std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
 
