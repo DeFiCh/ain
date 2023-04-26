@@ -11,10 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_osx_tools
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add aarch64-apple-darwin
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps

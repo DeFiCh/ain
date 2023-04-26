@@ -1,10 +1,18 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
-use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
+use crate::codegen::types::{
+    EthGetBlockTransactionCountByHashInput, EthGetBlockTransactionCountByHashResult,
+    EthGetBlockTransactionCountByNumberInput, EthGetBlockTransactionCountByNumberResult,
+    EthGetStorageAtInput, EthGetStorageAtResult, EthTransactionInfo,
+};
 
-use ain_cpp_imports::get_pool_transactions;
+use crate::receipt::ReceiptResult;
+use ain_cpp_imports::{publish_eth_transaction, get_pool_transactions};
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
+
+use ethereum::{Block, PartialHeader};
+
 use ain_evm::transaction::{SignedTx, TransactionError};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
@@ -95,6 +103,9 @@ pub trait MetachainRPC {
 
     #[method(name = "eth_gasPrice")]
     fn gas_price(&self) -> RpcResult<String>;
+
+    #[method(name = "eth_getTransactionReceipt")]
+    fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -339,7 +350,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         debug!("Getting transaction count for address: {:?}", address);
         let nonce = self.handler.evm.get_nonce(address);
 
-        debug!("Count: {:#?}", nonce,);
+        debug!("Count: {:#?}", nonce);
         Ok(format!("{:#x}", nonce))
     }
 
@@ -353,5 +364,12 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn gas_price(&self) -> RpcResult<String> {
         Ok(format!("{:#x}", 0))
+    }
+
+    fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
+        self.handler
+            .receipt
+            .get_receipt(hash)
+            .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 }

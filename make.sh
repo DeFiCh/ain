@@ -225,7 +225,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     _ensure_enter_dir "${versioned_release_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf ${pkg_path} ./*
+    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -315,6 +315,15 @@ _docker_clean() {
 }
 
 # -------------- Misc -----------------
+
+debug_env() {
+    (set -o posix ; set)
+    (set -x +e
+    uname -a
+    gcc -v
+    "clang-${CLANG_DEFAULT_VERSION}" -v
+    rustup show)
+}
 
 test() {
     local make_jobs=${MAKE_JOBS}
@@ -422,7 +431,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip protobuf-compiler
+        curl cmake unzip
 
     _fold_end
 }
@@ -466,16 +475,16 @@ pkg_install_deps_osx_tools() {
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
+    local sdk_base_dir="$release_depends_dir/SDKs"
 
-    _ensure_enter_dir "$release_depends_dir/SDKs"
-    if [[ -d "${sdk_name}" ]]; then 
-        _exit_dir
+    if [[ -d "${sdk_base_dir}/${sdk_name}" ]]; then 
         return
     fi
 
     _fold_start "pkg-local-mac-sdk"
 
+    _ensure_enter_dir "${sdk_base_dir}"
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
@@ -494,17 +503,18 @@ pkg_install_llvm() {
 }
 
 pkg_install_rust() {
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+    # This is for local convenience only. Not used for automation
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 }
 
 clean_pkg_local_osx_sysroot() {
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
     _safe_rm_rf "$release_depends_dir/SDKs"
 }
 
 purge() {
     local release_dir="${RELEASE_DIR}"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
 
     clean_depends
     _safe_rm_rf "$release_depends_dir"
@@ -570,7 +580,7 @@ clean_conf() {
 clean_depends() {
     local root_dir="$ROOT_DIR"
     local release_dir="${RELEASE_DIR}"
-    local release_depends_dir=${DEPENDS_DIR}
+    local release_depends_dir="${DEPENDS_DIR}"
 
     make -C "$root_dir/depends" DESTDIR="${release_depends_dir}" clean-all || true
     _ensure_enter_dir "$release_depends_dir"
@@ -670,6 +680,10 @@ set -Eeuo pipefail
 dir="\$(dirname "\${BASH_SOURCE[0]}")"
 _SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
 cd \$_SCRIPT_DIR/../../
+if [[ \$(git status -s) ]]; then
+    echo "error: Git tree dirty. Please commit or stash first"
+    exit 1
+fi
 ./make.sh check
 END
     chmod +x "$file"
@@ -681,6 +695,7 @@ check() {
 
 check_rs() {
     _ensure_enter_dir ./lib
+    # shellcheck disable=SC2015 # Intended
     cargo build && cargo test && cargo clippy  || { 
         echo "Error: Please resolve compiler checks before commit"; 
         exit 1; }
@@ -699,8 +714,7 @@ _platform_init() {
     if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
         if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then 
             echo "error: readlink or greadlink with \`-m\` support is required"
-            echo "tip: debian/ubuntu: apt install coreutils"
-            echo "tip: osx: brew install coreutils"
+            _platform_pkg_tip coreutils
             exit 1
         else
         _canonicalize() {
@@ -713,22 +727,29 @@ _platform_init() {
         }
     fi
 
-    if [[ $(command -v gtar) ]]; then
+    if tar --version 2> /dev/null | grep -q 'GNU tar'; then
         _tar() {
-            gtar "$@"
+            tar "$@"
         }
     else
-        if [[ $(command -v tar ) ]]; then
+        if gtar --version 2> /dev/null | grep -q 'GNU tar'; then
             _tar() {
-                tar "$@"
+                gtar "$@"
             }
         else
-            echo "error: GNU version of tar is required for \`--transform\` support"
-            echo "tip: debian/ubunti: apt install tar"
-            echo "tip: osx: brew install gnu-tar"
+            echo "error: GNU version of tar is required"
+            _platform_pkg_tip tar gnu-tar
             exit 1
         fi
     fi
+}
+
+_platform_pkg_tip() {
+    local apt_pkg=${1:?pkg required}
+    local brew_pkg=${2:-${apt_pkg}}
+
+    echo "tip: debian/ubuntu: apt install ${apt_pkg}"
+    echo "tip: osx: brew install ${brew_pkg}"
 }
 
 _nproc() {

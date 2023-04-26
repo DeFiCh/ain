@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod types {
-    include!("gen/types.rs");
+    include!(concat!(env!("OUT_DIR"), "/proto/types.rs"));
 }
 
 impl Serialize for types::BlockResult {

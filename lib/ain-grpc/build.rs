@@ -1,3 +1,4 @@
+use anyhow::{format_err, Result};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
 use quote::{quote, ToTokens};
@@ -369,18 +370,30 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
     }
 }
 
-fn main() {
-    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let proto_path = manifest_path.parent().unwrap().join("proto");
-    let src_path = manifest_path.join("src");
-    let gen_path = src_path.join("gen");
-    std::fs::create_dir_all(&gen_path).unwrap();
+fn main() -> Result<()> {
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let proto_path = manifest_path
+        .parent()
+        .ok_or(format_err!("path err: no parent"))?
+        .join("proto");
 
-    let methods = generate_from_protobuf(&proto_path, Path::new(&gen_path));
-    modify_codegen(methods, &Path::new(&gen_path).join("types.rs"));
+    let src_path = manifest_path.join("src");
+    let out_dir: PathBuf = PathBuf::from(env::var("OUT_DIR")?);
+    let proto_rs_target_path = out_dir.join("proto");
+    std::fs::create_dir_all(&proto_rs_target_path)?;
+
+    let methods = generate_from_protobuf(&proto_path, Path::new(&proto_rs_target_path));
+    modify_codegen(methods, &Path::new(&proto_rs_target_path).join("types.rs"));
 
     println!(
         "cargo:rerun-if-changed={}",
         src_path.join("rpc.rs").to_string_lossy()
     );
+    // Using a direct path for now
+    let git_head_path = manifest_path.join("../../.git/HEAD");
+    if git_head_path.exists() {
+        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
+    }
+
+    Ok(())
 }

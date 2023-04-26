@@ -1,10 +1,14 @@
 CARGO ?= cargo
 
+# RUST_TARGET is set from configure
 TARGET ?= $(RUST_TARGET)
 TARGET ?= x86_64-unknown-linux-gnu
 
+# This is set from configure
 RUST_DEBUG ?= 
-DEBUG ?= $(RUST_DEBUG) 
+# We use DEBUG as well, since that's the more conventional
+# setup. Either of them set will result in debug builds
+DEBUG ?= $(RUST_DEBUG)
 
 TARGET_DIR ?= $(abs_builddir)/target
 SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
