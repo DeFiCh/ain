@@ -16,7 +16,8 @@ setup_vars() {
     fi
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
-    DOCKERFILE=${DOCKERFILE:-""}
+    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"defi.dockerfile"}
+    BUILD_DOCKERFILE=${BUILD_DOCKERFILE:-"build.dockerfile"}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
@@ -246,14 +247,14 @@ docker_build() {
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_file="${DOCKERFILES_DIR}/${DOCKERFILE:-"${target}"}.dockerfile"
+    local docker_file="${DOCKERFILES_DIR}/${BUILD_DOCKERFILE}"
 
     echo "> docker-build";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" -t "${img}" "${docker_context}"
+    docker build -f "${docker_file}" -t "${img}" --build-arg TARGET="${target}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -267,7 +268,6 @@ docker_deploy() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
 
-    local pkg_name="${img_prefix}-${img_version}-${target}"
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
 
@@ -294,6 +294,37 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
+}
+
+docker_buildx() {
+    local target=${1:-${TARGET}}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_file="${DOCKERFILES_DIR}/${DEFI_DOCKERFILE}"
+
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+
+    local pkg_path
+    pkg_path="$(_canonicalize "${release_dir}/${pkg_tar_file_name}")"
+
+    local platform_type
+    if [[ "$target" == "x86_64-pc-linux-gnu" ]]; then
+        platform_type="linux/amd64"
+    elif [[ "$target" == "aarch64-linux-gnu" ]]; then
+        platform_type="linux/arm64"
+    elif [[ "$target" == "arm-linux-gnueabihf" ]]; then
+        platform_type="linux/arm/v7"
+    fi
+
+    echo "> docker-defi-build";
+
+    local img="${img_prefix}-defi-${target}:${img_version}"
+    echo "> building: ${img}"
+    echo "> docker build defi: ${img}"
+    docker buildx build --platform "${platform_type}" -f "${docker_file}" -t "${img}" --build-arg PACKAGE="${pkg_path}" "${docker_context}"
 }
 
 docker_clean_builds() {
@@ -405,6 +436,18 @@ pkg_install_deps() {
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake unzip
 
+    if [[ "$TARGET" == "x86_64-pc-linux-gnu" ]]; then
+        # Default to use clang/llvm
+        pkg_install_llvm
+    elif [[ "$TARGET" == "aarch64-linux-gnu" ]]; then
+        pkg_install_deps_arm64
+    elif [[ "$TARGET" == "arm-linux-gnueabihf" ]]; then
+        pkg_install_deps_armhf
+    elif [[ "$TARGET" == "x86_64-w64-mingw32" ]]; then
+        pkg_install_deps_mingw_x86_64
+    elif [[ "$target" =~ .*darwin.* ]]; then
+        pkg_install_deps_osx_tools
+    fi
     _fold_end
 }
 
@@ -413,6 +456,9 @@ pkg_install_deps_mingw_x86_64() {
     
     apt install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+
+    update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+    update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
     _fold_end
 }

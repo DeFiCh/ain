@@ -16,7 +16,7 @@ env:
   DOCKER_HUB_USER: defi
 
 jobs:
-  linux-x64:
+  linux:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -24,26 +24,68 @@ jobs:
     - name: Populate environment
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
-    - name: Build and package
-      run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+    # build image and package binaries
+    - name: Build and package (linux-x64)
+      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
-    - name: Publish artifact - x86_64-pc-linux-gnu
+    - name: Build and package (linux-armhf)
+      run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-release
+
+    - name: Build and package (linux-aarch64)
+      run: GIT_VERSION=1 TARGET="aarch64-linux-gnu" ./make.sh docker-release
+
+    # publish artifacts
+    - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        path: ./build/*.tar.gz
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
+    - name: Publish artifact (linux-armhf)
+      uses: actions/upload-artifact@v3
       with:
-        username: ${{ env.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
 
-    - name: Push to Docker Hub
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
-        docker push defi/defichain:${ver}
+    - name: Publish artifact (linux-aarch64)
+      uses: actions/upload-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz
+
+    # # build multi-arch images
+    # - name: Setup QEMU
+    #   uses: docker/setup-qemu-action@v2
+    #   # Add support for more platforms with QEMU (optional)
+    #   # https://github.com/docker/setup-qemu-action
+        
+    # - name: Setup Docker Buildx
+    #   uses: docker/setup-buildx-action@v2
+    
+    # - name: Build defi image (linux-x64)
+    #   run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-buildx
+
+    # - name: Build defi image (linux-armhf)
+    #   run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-buildx
+
+    # - name: Build defi image (linux-aarxh64)
+    #   run: GIT_VERSION=1 TARGET="aarch64-linux-gnu" ./make.sh docker-buildx
+
+    # # create manifest list and publish multi-arch images
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v2
+    #   with:
+    #     username: ${{ env.DOCKER_HUB_USER }}
+    #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    # - name: Push to Docker Hub
+    #   run: |
+    #     set -e; ver=${{ env.BUILD_VERSION }}
+    #     docker manifest create defi/defichain:${ver} defichain-defi-x86_64-pc-linux-gnu:${ver} defichain-defi-arm-linux-gnueabihf:${ver} defichain-defi-aarch64-linux-gnu:${ver}
+    #     docker manifest annotate --arch amd64 defi/defichain:${ver} defichain-defi-x86_64-pc-linux-gnu:${ver}
+    #     docker manifest annotate --arch arm/v7 defi/defichain:${ver} defichain-defi-arm-linux-gnueabihf:${ver}
+    #     docker manifest annotate --arch arm64 defi/defichain:${ver} defichain-defi-aarch64-linux-gnu:${ver}
+    #     docker manifest inspect defi/defichain:${ver}
+    #     docker manifest push defi/defichain:${ver}
 
   win-x64:
     runs-on: ubuntu-latest
@@ -59,8 +101,7 @@ jobs:
     - name: Publish artifact - x86_64-w64-mingw32
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
+        path: ./build/*.tar.gz
 
   osx-x64:
     runs-on: ubuntu-latest
@@ -76,5 +117,22 @@ jobs:
     - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
+        path: ./build/*.tar.gz
+
+  osx-aarch64:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
+
+    - name: Build and package
+      run: GIT_VERSION=1 TARGET="aarch64-apple-darwin" ./make.sh docker-release
+
+    - name: Publish artifact - aarch64-apple-darwin
+      uses: actions/upload-artifact@v3
+      with:
+        path: ./build/*.tar.gz
