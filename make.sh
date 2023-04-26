@@ -476,15 +476,15 @@ pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
     local release_depends_dir="${DEPENDS_DIR}"
+    local sdk_base_dir="$release_depends_dir/SDKs"
 
-    _ensure_enter_dir "$release_depends_dir/SDKs"
-    if [[ -d "${sdk_name}" ]]; then 
-        _exit_dir
+    if [[ -d "${sdk_base_dir}/${sdk_name}" ]]; then 
         return
     fi
 
     _fold_start "pkg-local-mac-sdk"
-
+    
+    _ensure_enter_dir "${sdk_base_dir}"
     if [[ ! -f "${pkg}" ]]; then 
         wget https://bitcoincore.org/depends-sources/sdks/${pkg}
     fi
@@ -710,8 +710,7 @@ _platform_init() {
     if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
         if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then 
             echo "error: readlink or greadlink with \`-m\` support is required"
-            echo "tip: debian/ubuntu: apt install coreutils"
-            echo "tip: osx: brew install coreutils"
+            _platform_pkg_tip coreutils
             exit 1
         else
         _canonicalize() {
@@ -735,10 +734,18 @@ _platform_init() {
             }
         else
             echo "error: GNU version of tar is required"
-            echo "tip: debian/ubuntu: apt install tar"
-            echo "tip: osx: brew install gnu-tar"
+            _platform_pkg_tip tar gnu-tar
+            exit 1
         fi
     fi
+}
+
+_platform_pkg_tip() {
+    local apt_pkg=${1:?pkg required}
+    local brew_pkg=${2:-${apt_pkg}}
+
+    echo "tip: debian/ubuntu: apt install ${apt_pkg}"
+    echo "tip: osx: brew install ${brew_pkg}"
 }
 
 _nproc() {

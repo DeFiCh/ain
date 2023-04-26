@@ -15,8 +15,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
 COPY . .
-RUN ./make.sh clean-depends && \
-    ./make.sh build-deps
+RUN ./make.sh clean-depends && ./make.sh build-deps
 RUN export MAKE_CONF_ARGS="\
     CC=clang-${CLANG_VERSION} \
     CXX=clang++-${CLANG_VERSION}" && \
