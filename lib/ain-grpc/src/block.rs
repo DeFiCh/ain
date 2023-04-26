@@ -57,7 +57,7 @@ impl From<BlockAny> for RpcBlock {
             extra_data: b.header.extra_data,
             sha3_uncles: Default::default(),
             logs_bloom: Default::default(),
-            size: format!("{:x}", header_size),
+            size: format!("{:#x}", header_size),
         }
     }
 }
