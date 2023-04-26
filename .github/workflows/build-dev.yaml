@@ -121,8 +121,6 @@ jobs:
 
   osx-aarch64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
     steps:
     - uses: actions/checkout@v3
 
