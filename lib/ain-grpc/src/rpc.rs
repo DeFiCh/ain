@@ -3,7 +3,6 @@ use crate::call_request::CallRequest;
 use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
 
 use crate::receipt::ReceiptResult;
-use ain_cpp_imports::get_pool_transactions;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
 
@@ -226,7 +225,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_pending_transaction(&self) -> RpcResult<Vec<EthPendingTransactionInfo>> {
-        get_pool_transactions()
+        ain_cpp_imports::get_pool_transactions()
             .map(|txs| {
                 txs.into_iter()
                     .flat_map(|tx| EthPendingTransactionInfo::try_from(tx.as_str()))
