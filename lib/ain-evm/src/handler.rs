@@ -1,11 +1,12 @@
 use crate::block::BlockHandler;
 use crate::evm::{get_vicinity, EVMHandler};
-use crate::executor::AinExecutor;
+use crate::executor::{AinExecutor, TxResponse};
 use crate::receipt::ReceiptHandler;
 use crate::storage::Storage;
 use crate::traits::Executor;
 
-use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
+use ethereum::{Block, BlockAny, Log, PartialHeader, TransactionV2};
+use ethereum_types::{Bloom, BloomInput};
 use evm::backend::MemoryBackend;
 use primitive_types::{H160, H256, U256};
 use std::error::Error;
@@ -39,22 +40,32 @@ impl Handlers {
         context: u64,
         update_state: bool,
         difficulty: u32,
-        _miner_address: Option<H160>,
+        miner_address: Option<H160>,
     ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
         let mut successful_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut gas_used = 0u64;
+        let mut logs_bloom: Bloom = Default::default();
+
         let vicinity = get_vicinity(None, None);
         let state = self.evm.tx_queues.state(context).expect("Wrong context");
         let backend = MemoryBackend::new(&vicinity, state);
         let mut executor = AinExecutor::new(backend);
 
         for signed_tx in self.evm.tx_queues.drain_all(context) {
-            let tx_response = executor.exec(&signed_tx);
-            if tx_response.exit_reason.is_succeed() {
+            let TxResponse {
+                exit_reason,
+                logs,
+                used_gas,
+                ..
+            } = executor.exec(&signed_tx);
+            if exit_reason.is_succeed() {
                 successful_transactions.push(signed_tx);
             } else {
                 failed_transactions.push(signed_tx)
             }
+            gas_used += used_gas;
+            Self::logs_bloom(logs, &mut logs_bloom);
         }
 
         let mut all_transactions = successful_transactions
@@ -82,14 +93,14 @@ impl Handlers {
         let mut block = Block::new(
             PartialHeader {
                 parent_hash,
-                beneficiary: Default::default(),
+                beneficiary: miner_address.unwrap_or_default(),
                 state_root: Default::default(),
                 receipts_root: Default::default(),
-                logs_bloom: Default::default(),
+                logs_bloom,
                 difficulty: U256::from(difficulty),
                 number,
                 gas_limit: U256::from(30000000),
-                gas_used: Default::default(),
+                gas_used: U256::from(gas_used),
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
@@ -127,5 +138,14 @@ impl Handlers {
                 .map(|tx| tx.transaction)
                 .collect(),
         ))
+    }
+
+    fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
+        for log in logs {
+            bloom.accrue(BloomInput::Raw(&log.address[..]));
+            for topic in log.topics {
+                bloom.accrue(BloomInput::Raw(&topic[..]));
+            }
+        }
     }
 }
