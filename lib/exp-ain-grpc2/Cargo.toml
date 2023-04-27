@@ -17,12 +17,14 @@ tonic = "0.9"
 fake = "2.5"
 rand = "0.8"
 anyhow = "1.0.70"
+async-trait = "0.1.68"
 
 [build-dependencies]
 prost-build = "0.11"
 tonic-build = "0.9"
 anyhow = "1.0.70"
 protobuf-src = "1.1.0"
+tonic = "0.9"
 
 [dev-dependencies]
 erased-serde = "0.3.25"

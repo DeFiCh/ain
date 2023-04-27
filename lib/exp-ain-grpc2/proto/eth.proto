@@ -3,7 +3,7 @@ package eth;
 
 import "google/protobuf/empty.proto";
 
-service eth {
+service Api {
   /// Returns eth_accounts list.
   rpc EthAccounts(google.protobuf.Empty) returns (EthAccountsResponse);
 

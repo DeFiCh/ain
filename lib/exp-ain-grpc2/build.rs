@@ -6,10 +6,12 @@ fn main() -> Result<()> {
     let proto_include = protobuf_src::include();
 
     let manifest_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
-    let gen_path = manifest_path.join("gen");
+    // let gen_path = manifest_path.join("gen");
+    let gen_path = PathBuf::from(std::env::var("OUT_DIR")?);
+
     std::fs::create_dir_all(&gen_path)?;
 
-    let mut prost_build = prost_build::Config::new();
+    let prost_build = tonic_build::configure();
 
     let default_attrs = r#"
     #[derive(Eq, serde::Serialize, serde::Deserialize)]
@@ -23,7 +25,7 @@ fn main() -> Result<()> {
         .enum_attribute(".", serde_untagged_attr)
         // .field_attribute("<.>", serde_flatten_attr)
         .type_attribute(".", default_attrs)
-        .compile_protos(
+        .compile(
             &["proto/services.proto"],
             &[
                 "proto",
