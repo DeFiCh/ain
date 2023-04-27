@@ -122,9 +122,11 @@ jobs:
     needs: [linux-x64, linux-armhf, linux-aarch64]
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
-      with:
-        path: build/
+
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
 
       # Add support for more platforms with QEMU (optional)
       # https://github.com/docker/setup-qemu-action
@@ -135,7 +137,8 @@ jobs:
       uses: docker/setup-buildx-action@v2
     
     - name: Build defi image (linux-x64)
-      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-buildx
+      run: |
+        GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-buildx
 
     - name: Build defi image (linux-armhf)
       run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-buildx
@@ -143,7 +146,7 @@ jobs:
     - name: Build defi image (linux-aarxh64)
       run: GIT_VERSION=1 TARGET="aarch64-linux-gnu" ./make.sh docker-buildx
 
-    # create manifest list and publish multi-arch images
+    # Create manifest list and publish multi-arch images
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
@@ -153,9 +156,15 @@ jobs:
     - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker manifest create defi/defichain:${ver} defichain-defi-x86_64-pc-linux-gnu:${ver} defichain-defi-arm-linux-gnueabihf:${ver} defichain-defi-aarch64-linux-gnu:${ver}
-        docker manifest annotate --arch amd64 defi/defichain:${ver} defichain-defi-x86_64-pc-linux-gnu:${ver}
-        docker manifest annotate --arch arm/v7 defi/defichain:${ver} defichain-defi-arm-linux-gnueabihf:${ver}
-        docker manifest annotate --arch arm64 defi/defichain:${ver} defichain-defi-aarch64-linux-gnu:${ver}
+        docker tag defichain-defi-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}-x64
+        docker tag defichain-defi-arm-linux-gnueabihf:${ver} defi/defichain:${ver}-arm
+        docker tag defichain-defi-aarch64-linux-gnu:${ver} defi/defichain:${ver}-arm64
+        docker push defi/defichain:${ver}-x64
+        docker push defi/defichain:${ver}-arm
+        docker push defi/defichain:${ver}-arm64
+        docker manifest create defi/defichain:${ver} defi/defichain:${ver}-x64 defi/defichain:${ver}-arm defi/defichain:${ver}-arm64
+        docker manifest annotate --arch amd64 defi/defichain:${ver} defi/defichain:${ver}-x64
+        docker manifest annotate --arch arm/v7 defi/defichain:${ver} defi/defichain:${ver}-arm
+        docker manifest annotate --arch arm64 defi/defichain:${ver} defi/defichain:${ver}-arm64
         docker manifest inspect defi/defichain:${ver}
         docker manifest push defi/defichain:${ver}

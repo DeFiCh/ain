@@ -300,15 +300,11 @@ docker_buildx() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DOCKERFILES_DIR}/${DEFI_DOCKERFILE}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
-
-    local pkg_path
-    pkg_path="$(_canonicalize "${release_dir}/${pkg_tar_file_name}")"
 
     local platform_type
     if [[ "$target" == "x86_64-pc-linux-gnu" ]]; then
@@ -324,7 +320,9 @@ docker_buildx() {
     local img="${img_prefix}-defi-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build defi: ${img}"
-    docker buildx build --platform "${platform_type}" -f "${docker_file}" -t "${img}" --build-arg PACKAGE="${pkg_path}" "${docker_context}"
+    docker buildx build --platform "${platform_type}" -f "${docker_file}" -t "${img}" \
+        --build-arg PKG_DIR="${pkg_name}" \
+        --build-arg PKG_NAME="${pkg_tar_file_name}" "${docker_context}"
 }
 
 docker_clean_builds() {

@@ -1,10 +1,12 @@
 FROM debian:10
-ARG PACKAGE
+ARG PKG_DIR
+ARG PKG_NAME
 LABEL org.defichain.name="defichain"
 
 WORKDIR /app
-COPY ./${PACKAGE} ./
-RUN tar -xvzf ${PACKAGE} --strip-components 1
+COPY ./${PKG_DIR}/${PKG_NAME} ./
+RUN tar -xvzf ${PKG_NAME} --strip-components 1
+RUN ls -R
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
