@@ -78,7 +78,7 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
         let signed_tx: SignedTx = raw_tx.try_into()?;
 
         let to = if let Some(signed_to) = signed_tx.to() {
-            String::from("0x") + &hex::encode(signed_to.as_fixed_bytes())
+            format_address(signed_to)
         } else {
             String::from("null")
         };
@@ -90,22 +90,22 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
         };
 
         let pending_transaction = EthPendingTransactionInfo {
-            hash: format!("0x{}", hex::encode(signed_tx.transaction.hash())),
+            hash: format_hash(signed_tx.transaction.hash()),
             nonce: format_number(signed_tx.nonce()),
             block_hash: String::from(
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
             ),
             block_number: String::from("null"),
             transaction_index: String::from("0x0"),
-            from: format!("0x{}", hex::encode(signed_tx.sender)),
+            from: format_address(signed_tx.sender),
             to,
             value: format_number(signed_tx.value()),
             gas: format_number(signed_tx.gas_limit()),
             gas_price: format_number(signed_tx.gas_price()),
             input,
             v: format!("0x{:x}", signed_tx.v()),
-            r: format!("0x{}", hex::encode(signed_tx.r())),
-            s: format!("0x{}", hex::encode(signed_tx.s())),
+            r: format_hash(signed_tx.r()),
+            s: format_hash(signed_tx.s()),
         };
 
         Ok(pending_transaction)
