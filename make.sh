@@ -320,7 +320,8 @@ docker_buildx() {
     local img="${img_prefix}-defi-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build defi: ${img}"
-    docker buildx build --platform "${platform_type}" -f "${docker_file}" -t "${img}" \
+    docker buildx build --load --platform "${platform_type}" \
+        -f "${docker_file}" -t "${img}" \
         --build-arg PKG_DIR="${pkg_name}" \
         --build-arg PKG_NAME="${pkg_tar_file_name}" "${docker_context}"
 }

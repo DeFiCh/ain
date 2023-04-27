@@ -6,7 +6,6 @@ LABEL org.defichain.name="defichain"
 WORKDIR /app
 COPY ./${PKG_DIR}/${PKG_NAME} ./
 RUN tar -xvzf ${PKG_NAME} --strip-components 1
-RUN ls -R
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
