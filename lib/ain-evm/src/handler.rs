@@ -7,14 +7,15 @@ use crate::traits::Executor;
 
 use ethereum::{Block, BlockAny, PartialHeader, TransactionV2};
 use evm::backend::MemoryBackend;
-use primitive_types::{H160, H256, U256};
+use primitive_types::{H160, U256};
 use std::error::Error;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
-    pub storage: Storage,
+    pub storage: Arc<Storage>,
     pub receipt: ReceiptHandler,
 }
 
@@ -26,11 +27,12 @@ impl Default for Handlers {
 
 impl Handlers {
     pub fn new() -> Self {
+        let storage = Arc::new(Storage::new());
         Self {
             evm: EVMHandler::new(),
-            block: BlockHandler::new(),
-            storage: Storage::new(),
-            receipt: ReceiptHandler::new(),
+            block: BlockHandler::new(Arc::clone(&storage)),
+            receipt: ReceiptHandler::new(Arc::clone(&storage)),
+            storage,
         }
     }
 
@@ -72,12 +74,7 @@ impl Handlers {
 
         self.evm.tx_queues.remove(context);
 
-        let (parent_hash, number) = {
-            self.storage
-                .get_latest_block()
-                .map(|latest_block| (latest_block.header.hash(), latest_block.header.number + 1))
-                .unwrap_or((H256::default(), U256::zero()))
-        };
+        let (parent_hash, number) = self.block.get_latest_block_and_number();
 
         let mut block = Block::new(
             PartialHeader {
@@ -102,22 +99,20 @@ impl Handlers {
             Vec::new(),
         );
 
-        let receipts_root = self.receipt.generate_receipts(
+        let receipts = self.receipt.generate_receipts(
             successful_transactions,
             failed_transactions.clone(),
             block.header.hash(),
             block.header.number,
         );
-        block.header.receipts_root = receipts_root;
-
-        self.block.connect_block(block.clone());
+        block.header.receipts_root = self.receipt.get_receipt_root(&receipts);
 
         if update_state {
             let mut state = self.evm.state.write().unwrap();
             *state = executor.backend().state().clone();
 
-            self.storage.put_latest_block(block.clone());
-            self.storage.put_block(block.clone());
+            self.block.connect_block(block.clone());
+            self.receipt.put_receipts(receipts);
         }
 
         Ok((

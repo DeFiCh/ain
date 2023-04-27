@@ -1,5 +1,4 @@
 mod block;
-mod cache;
 mod ecrecover;
 pub mod evm;
 pub mod executor;

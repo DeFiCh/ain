@@ -1,4 +1,5 @@
 use crate::handler::Handlers;
+use crate::storage::traits::FlushableStorage;
 
 use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::{Arc, Mutex};
@@ -59,10 +60,9 @@ impl Runtime {
             .evm
             .flush()
             .expect("Could not flush evm state");
-        self.handlers.block.flush().expect("Could not flush blocks");
         self.handlers
-            .receipt
+            .storage
             .flush()
-            .expect("Could not flush TX receipts");
+            .expect("Could not flush storage");
     }
 }
