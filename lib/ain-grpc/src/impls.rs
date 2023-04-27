@@ -90,10 +90,7 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
         };
 
         let pending_transaction = EthPendingTransactionInfo {
-            hash: format!(
-                "0x{}",
-                hex::encode(signed_tx.transaction.hash())
-            ),
+            hash: format!("0x{}", hex::encode(signed_tx.transaction.hash())),
             nonce: format_number(signed_tx.nonce()),
             block_hash: String::from(
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
