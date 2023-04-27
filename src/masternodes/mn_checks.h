@@ -238,6 +238,8 @@ struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
     uint16_t timelock{0};
+    char rewardType;
+    CKeyID rewardAddress;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -249,6 +251,8 @@ struct CCreateMasterNodeMessage {
         if (!s.eof()) {
             READWRITE(timelock);
         }
+        READWRITE(rewardType);
+        READWRITE(rewardAddress);
     }
 };
 

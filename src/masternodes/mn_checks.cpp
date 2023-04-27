@@ -803,6 +803,8 @@ public:
         node.creationHeight      = height;
         node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
+        node.rewardAddressType   = obj.rewardType;
+        node.rewardAddress       = obj.rewardAddress;
 
         // Set masternode version2 after FC for new serialisation
         if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
