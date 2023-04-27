@@ -173,11 +173,6 @@ mod test {
     use primitive_types::{H160, U256};
     use std::str::FromStr;
 
-    // TODO: This needs fixing. `get_contract_address` impl appears to add sender to the
-    // stream that appears incorrect. Leaving it to @shoham to recitfy and clear up
-    // side effects, but this blocks everyone from being able to add to the branch,
-    // so ignore this for the moment
-    #[ignore]
     #[test]
     pub fn test_contract_address() {
         let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
