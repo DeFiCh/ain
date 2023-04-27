@@ -2,7 +2,7 @@
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthAccountsResult {
+pub struct EthAccountsResponse {
     /// Accounts
     #[prost(string, repeated, tag = "1")]
     pub accounts: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -34,11 +34,12 @@ pub struct EthTransactionInfo {
     #[prost(string, optional, tag = "7")]
     pub nonce: ::core::option::Option<::prost::alloc::string::String>,
 }
+#[serde(flatten)]
 #[derive(Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthChainIdResult {
+pub struct EthChainIdResponse {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
 }
@@ -160,7 +161,7 @@ pub struct EthTransactionReceipt {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCallInput {
+pub struct EthCallRequest {
     /// Transaction info
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
@@ -172,7 +173,7 @@ pub struct EthCallInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCallResult {
+pub struct EthCallResponse {
     /// The return value of the executed contract method
     #[prost(string, tag = "1")]
     pub data: ::prost::alloc::string::String,
@@ -181,7 +182,7 @@ pub struct EthCallResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSignInput {
+pub struct EthSignRequest {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -191,7 +192,7 @@ pub struct EthSignInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSignResult {
+pub struct EthSignResponse {
     #[prost(string, tag = "1")]
     pub signature: ::prost::alloc::string::String,
 }
@@ -199,7 +200,7 @@ pub struct EthSignResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBalanceInput {
+pub struct EthGetBalanceRequest {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -209,7 +210,7 @@ pub struct EthGetBalanceInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBalanceResult {
+pub struct EthGetBalanceResponse {
     #[prost(string, tag = "1")]
     pub balance: ::prost::alloc::string::String,
 }
@@ -217,7 +218,7 @@ pub struct EthGetBalanceResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSendTransactionInput {
+pub struct EthSendTransactionRequest {
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
 }
@@ -225,7 +226,7 @@ pub struct EthSendTransactionInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSendTransactionResult {
+pub struct EthSendTransactionResponse {
     #[prost(string, tag = "1")]
     pub hash: ::prost::alloc::string::String,
 }
@@ -233,7 +234,7 @@ pub struct EthSendTransactionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCoinBaseResult {
+pub struct EthCoinBaseResponse {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
 }
@@ -241,7 +242,7 @@ pub struct EthCoinBaseResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthMiningResult {
+pub struct EthMiningResponse {
     #[prost(bool, tag = "1")]
     pub is_mining: bool,
 }
@@ -249,7 +250,7 @@ pub struct EthMiningResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthHashRateResult {
+pub struct EthHashRateResponse {
     #[prost(string, tag = "1")]
     pub hash_rate: ::prost::alloc::string::String,
 }
@@ -257,7 +258,7 @@ pub struct EthHashRateResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGasPriceResult {
+pub struct EthGasPriceResponse {
     #[prost(string, tag = "1")]
     pub gas_price: ::prost::alloc::string::String,
 }
@@ -265,7 +266,7 @@ pub struct EthGasPriceResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthBlockNumberResult {
+pub struct EthBlockNumberResponse {
     #[prost(string, tag = "1")]
     pub block_number: ::prost::alloc::string::String,
 }
@@ -273,7 +274,7 @@ pub struct EthBlockNumberResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionCountInput {
+pub struct EthGetTransactionCountRequest {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -283,7 +284,7 @@ pub struct EthGetTransactionCountInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionCountResult {
+pub struct EthGetTransactionCountResponse {
     #[prost(string, tag = "1")]
     pub number_transaction: ::prost::alloc::string::String,
 }
@@ -291,7 +292,7 @@ pub struct EthGetTransactionCountResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockTransactionCountByHashInput {
+pub struct EthGetBlockTransactionCountByHashRequest {
     #[prost(string, tag = "1")]
     pub block_hash: ::prost::alloc::string::String,
 }
@@ -299,7 +300,7 @@ pub struct EthGetBlockTransactionCountByHashInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockTransactionCountByHashResult {
+pub struct EthGetBlockTransactionCountByHashResponse {
     #[prost(string, tag = "1")]
     pub number_transaction: ::prost::alloc::string::String,
 }
@@ -307,7 +308,7 @@ pub struct EthGetBlockTransactionCountByHashResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockTransactionCountByNumberInput {
+pub struct EthGetBlockTransactionCountByNumberRequest {
     #[prost(string, tag = "1")]
     pub block_number: ::prost::alloc::string::String,
 }
@@ -315,7 +316,7 @@ pub struct EthGetBlockTransactionCountByNumberInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockTransactionCountByNumberResult {
+pub struct EthGetBlockTransactionCountByNumberResponse {
     #[prost(string, tag = "1")]
     pub number_transaction: ::prost::alloc::string::String,
 }
@@ -323,7 +324,7 @@ pub struct EthGetBlockTransactionCountByNumberResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleCountByBlockHashInput {
+pub struct EthGetUncleCountByBlockHashRequest {
     #[prost(string, tag = "1")]
     pub block_hash: ::prost::alloc::string::String,
 }
@@ -331,7 +332,7 @@ pub struct EthGetUncleCountByBlockHashInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleCountByBlockHashResult {
+pub struct EthGetUncleCountByBlockHashResponse {
     #[prost(string, tag = "1")]
     pub number_uncles: ::prost::alloc::string::String,
 }
@@ -339,7 +340,7 @@ pub struct EthGetUncleCountByBlockHashResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleCountByBlockNumberInput {
+pub struct EthGetUncleCountByBlockNumberRequest {
     #[prost(string, tag = "1")]
     pub block_number: ::prost::alloc::string::String,
 }
@@ -347,7 +348,7 @@ pub struct EthGetUncleCountByBlockNumberInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleCountByBlockNumberResult {
+pub struct EthGetUncleCountByBlockNumberResponse {
     #[prost(string, tag = "1")]
     pub number_uncles: ::prost::alloc::string::String,
 }
@@ -355,7 +356,7 @@ pub struct EthGetUncleCountByBlockNumberResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetCodeInput {
+pub struct EthGetCodeRequest {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -365,7 +366,7 @@ pub struct EthGetCodeInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetCodeResult {
+pub struct EthGetCodeResponse {
     /// The code from the given address.
     #[prost(string, tag = "1")]
     pub code: ::prost::alloc::string::String,
@@ -374,7 +375,7 @@ pub struct EthGetCodeResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSignTransactionInput {
+pub struct EthSignTransactionRequest {
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
 }
@@ -382,7 +383,7 @@ pub struct EthSignTransactionInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSignTransactionResult {
+pub struct EthSignTransactionResponse {
     /// The signed transaction object.
     #[prost(string, tag = "1")]
     pub transaction: ::prost::alloc::string::String,
@@ -391,7 +392,7 @@ pub struct EthSignTransactionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSendRawTransactionInput {
+pub struct EthSendRawTransactionRequest {
     #[prost(string, tag = "1")]
     pub transaction: ::prost::alloc::string::String,
 }
@@ -399,7 +400,7 @@ pub struct EthSendRawTransactionInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSendRawTransactionResult {
+pub struct EthSendRawTransactionResponse {
     /// The transaction hash, or the zero hash if the transaction is not yet available.
     #[prost(string, tag = "1")]
     pub hash: ::prost::alloc::string::String,
@@ -408,7 +409,7 @@ pub struct EthSendRawTransactionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthEstimateGasInput {
+pub struct EthEstimateGasRequest {
     /// Transaction info
     #[prost(message, optional, tag = "1")]
     pub transaction_info: ::core::option::Option<EthTransactionInfo>,
@@ -420,7 +421,7 @@ pub struct EthEstimateGasInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthEstimateGasResult {
+pub struct EthEstimateGasResponse {
     #[prost(string, tag = "1")]
     pub gas_used: ::prost::alloc::string::String,
 }
@@ -428,7 +429,7 @@ pub struct EthEstimateGasResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockByHashInput {
+pub struct EthGetBlockByHashRequest {
     #[prost(string, tag = "1")]
     pub hash: ::prost::alloc::string::String,
     #[prost(bool, tag = "2")]
@@ -438,7 +439,7 @@ pub struct EthGetBlockByHashInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockByHashResult {
+pub struct EthGetBlockByHashResponse {
     #[prost(message, optional, tag = "1")]
     pub block_info: ::core::option::Option<EthBlockInfo>,
 }
@@ -446,7 +447,7 @@ pub struct EthGetBlockByHashResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockByNumberInput {
+pub struct EthGetBlockByNumberRequest {
     #[prost(string, tag = "1")]
     pub number: ::prost::alloc::string::String,
     #[prost(bool, tag = "2")]
@@ -456,7 +457,7 @@ pub struct EthGetBlockByNumberInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetBlockByNumberResult {
+pub struct EthGetBlockByNumberResponse {
     #[prost(message, optional, tag = "1")]
     pub block_info: ::core::option::Option<EthBlockInfo>,
 }
@@ -464,7 +465,7 @@ pub struct EthGetBlockByNumberResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByHashInput {
+pub struct EthGetTransactionByHashRequest {
     #[prost(string, tag = "1")]
     pub hash: ::prost::alloc::string::String,
 }
@@ -472,7 +473,7 @@ pub struct EthGetTransactionByHashInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByHashResult {
+pub struct EthGetTransactionByHashResponse {
     #[prost(message, optional, tag = "1")]
     pub transaction: ::core::option::Option<EthTransactionInfo>,
 }
@@ -480,7 +481,7 @@ pub struct EthGetTransactionByHashResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByBlockHashAndIndexInput {
+pub struct EthGetTransactionByBlockHashAndIndexRequest {
     #[prost(string, tag = "1")]
     pub block_hash: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -490,7 +491,7 @@ pub struct EthGetTransactionByBlockHashAndIndexInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByBlockHashAndIndexResult {
+pub struct EthGetTransactionByBlockHashAndIndexResponse {
     #[prost(message, optional, tag = "1")]
     pub transaction: ::core::option::Option<EthTransactionInfo>,
 }
@@ -498,7 +499,7 @@ pub struct EthGetTransactionByBlockHashAndIndexResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByBlockNumberAndIndexInput {
+pub struct EthGetTransactionByBlockNumberAndIndexRequest {
     #[prost(string, tag = "1")]
     pub block_number: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -508,7 +509,7 @@ pub struct EthGetTransactionByBlockNumberAndIndexInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionByBlockNumberAndIndexResult {
+pub struct EthGetTransactionByBlockNumberAndIndexResponse {
     #[prost(message, optional, tag = "1")]
     pub transaction: ::core::option::Option<EthTransactionInfo>,
 }
@@ -516,7 +517,7 @@ pub struct EthGetTransactionByBlockNumberAndIndexResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleByBlockHashAndIndexInput {
+pub struct EthGetUncleByBlockHashAndIndexRequest {
     #[prost(string, tag = "1")]
     pub block_hash: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -526,7 +527,7 @@ pub struct EthGetUncleByBlockHashAndIndexInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleByBlockHashAndIndexResult {
+pub struct EthGetUncleByBlockHashAndIndexResponse {
     #[prost(message, optional, tag = "1")]
     pub block_info: ::core::option::Option<EthBlockInfo>,
 }
@@ -534,7 +535,7 @@ pub struct EthGetUncleByBlockHashAndIndexResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleByBlockNumberAndIndexInput {
+pub struct EthGetUncleByBlockNumberAndIndexRequest {
     #[prost(string, tag = "1")]
     pub block_number: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -544,7 +545,7 @@ pub struct EthGetUncleByBlockNumberAndIndexInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetUncleByBlockNumberAndIndexResult {
+pub struct EthGetUncleByBlockNumberAndIndexResponse {
     #[prost(message, optional, tag = "1")]
     pub block_info: ::core::option::Option<EthBlockInfo>,
 }
@@ -552,7 +553,7 @@ pub struct EthGetUncleByBlockNumberAndIndexResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetCompilersResult {
+pub struct EthGetCompilersResponse {
     #[prost(string, repeated, tag = "1")]
     pub compilers: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
@@ -560,7 +561,7 @@ pub struct EthGetCompilersResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileSolidityInput {
+pub struct EthCompileSolidityRequest {
     #[prost(string, tag = "1")]
     pub code: ::prost::alloc::string::String,
 }
@@ -568,7 +569,7 @@ pub struct EthCompileSolidityInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileSolidityResult {
+pub struct EthCompileSolidityResponse {
     #[prost(string, tag = "1")]
     pub compiled_code: ::prost::alloc::string::String,
 }
@@ -576,7 +577,7 @@ pub struct EthCompileSolidityResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileLllInput {
+pub struct EthCompileLllRequest {
     #[prost(string, tag = "1")]
     pub code: ::prost::alloc::string::String,
 }
@@ -584,7 +585,7 @@ pub struct EthCompileLllInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileLllResult {
+pub struct EthCompileLllResponse {
     #[prost(string, tag = "1")]
     pub compiled_code: ::prost::alloc::string::String,
 }
@@ -592,7 +593,7 @@ pub struct EthCompileLllResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileSerpentInput {
+pub struct EthCompileSerpentRequest {
     #[prost(string, tag = "1")]
     pub code: ::prost::alloc::string::String,
 }
@@ -600,7 +601,7 @@ pub struct EthCompileSerpentInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthCompileSerpentResult {
+pub struct EthCompileSerpentResponse {
     #[prost(string, tag = "1")]
     pub compiled_code: ::prost::alloc::string::String,
 }
@@ -608,7 +609,7 @@ pub struct EthCompileSerpentResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthProtocolVersionResult {
+pub struct EthProtocolVersionResponse {
     #[prost(string, tag = "1")]
     pub protocol_version: ::prost::alloc::string::String,
 }
@@ -616,7 +617,7 @@ pub struct EthProtocolVersionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Web3Sha3Input {
+pub struct Web3Sha3Request {
     /// The data to convert into a SHA3 hash
     #[prost(string, tag = "1")]
     pub data: ::prost::alloc::string::String,
@@ -625,7 +626,7 @@ pub struct Web3Sha3Input {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Web3Sha3Result {
+pub struct Web3Sha3Response {
     /// The SHA3 result of the given string.
     #[prost(string, tag = "1")]
     pub data: ::prost::alloc::string::String,
@@ -634,7 +635,7 @@ pub struct Web3Sha3Result {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NetPeerCountResult {
+pub struct NetPeerCountResponse {
     #[prost(string, tag = "1")]
     pub number_peer: ::prost::alloc::string::String,
 }
@@ -642,7 +643,7 @@ pub struct NetPeerCountResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NetVersionResult {
+pub struct NetVersionResponse {
     #[prost(string, tag = "1")]
     pub network_version: ::prost::alloc::string::String,
 }
@@ -650,7 +651,7 @@ pub struct NetVersionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Web3ClientVersionResult {
+pub struct Web3ClientVersionResponse {
     #[prost(string, tag = "1")]
     pub client_version: ::prost::alloc::string::String,
 }
@@ -658,7 +659,7 @@ pub struct Web3ClientVersionResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetWorkResult {
+pub struct EthGetWorkResponse {
     /// Current block header pow-hash
     #[prost(string, tag = "1")]
     pub currentblock: ::prost::alloc::string::String,
@@ -673,7 +674,7 @@ pub struct EthGetWorkResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSubmitWorkInput {
+pub struct EthSubmitWorkRequest {
     #[prost(string, tag = "1")]
     pub nounce: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -685,7 +686,7 @@ pub struct EthSubmitWorkInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSubmitWorkResult {
+pub struct EthSubmitWorkResponse {
     #[prost(bool, tag = "1")]
     pub is_valid: bool,
 }
@@ -693,7 +694,7 @@ pub struct EthSubmitWorkResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSubmitHashrateInput {
+pub struct EthSubmitHashrateRequest {
     #[prost(string, tag = "1")]
     pub hash_rate: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -703,7 +704,7 @@ pub struct EthSubmitHashrateInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSubmitHashrateResult {
+pub struct EthSubmitHashrateResponse {
     #[prost(bool, tag = "1")]
     pub is_valid: bool,
 }
@@ -711,7 +712,7 @@ pub struct EthSubmitHashrateResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetStorageAtInput {
+pub struct EthGetStorageAtRequest {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -723,7 +724,7 @@ pub struct EthGetStorageAtInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetStorageAtResult {
+pub struct EthGetStorageAtResponse {
     /// The value at this storage position.
     #[prost(string, tag = "1")]
     pub value: ::prost::alloc::string::String,
@@ -732,7 +733,7 @@ pub struct EthGetStorageAtResult {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionReceiptInput {
+pub struct EthGetTransactionReceiptRequest {
     #[prost(string, tag = "1")]
     pub transaction_hash: ::prost::alloc::string::String,
 }
@@ -740,7 +741,7 @@ pub struct EthGetTransactionReceiptInput {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthGetTransactionReceiptResult {
+pub struct EthGetTransactionReceiptResponse {
     #[prost(message, optional, tag = "1")]
     pub transaction_receipt: ::core::option::Option<EthTransactionReceipt>,
 }
@@ -763,13 +764,13 @@ pub struct EthSyncingInfo {
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EthSyncingResult {
-    #[prost(oneof = "eth_syncing_result::StatusOrInfo", tags = "1, 2")]
+pub struct EthSyncingResponse {
+    #[prost(oneof = "eth_syncing_response::StatusOrInfo", tags = "1, 2")]
     #[serde(flatten)]
-    pub status_or_info: ::core::option::Option<eth_syncing_result::StatusOrInfo>,
+    pub status_or_info: ::core::option::Option<eth_syncing_response::StatusOrInfo>,
 }
-/// Nested message and enum types in `EthSyncingResult`.
-pub mod eth_syncing_result {
+/// Nested message and enum types in `EthSyncingResponse`.
+pub mod eth_syncing_response {
     #[derive(Eq, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     #[allow(clippy::derive_partial_eq_without_eq)]

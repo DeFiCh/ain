@@ -31,16 +31,16 @@ mod tests {
             println!("{:?}\n{}", val, serde_json::to_string_pretty(&val).unwrap());
         }
 
-        let mut x = proto::EthCallResult::default();
+        let mut x = proto::EthCallResponse::default();
         x.data = "hello".to_string();
         print_debug(x);
 
-        let mut x = proto::EthSyncingResult::default();
-        x.status_or_info = Some(eth_syncing_result::StatusOrInfo::Status(true));
+        let mut x: EthSyncingResponse = proto::EthSyncingResponse::default();
+        x.status_or_info = Some(eth_syncing_response::StatusOrInfo::Status(true));
         print_debug(x);
 
-        let mut x = proto::EthSyncingResult::default();
-        x.status_or_info = Some(eth_syncing_result::StatusOrInfo::SyncInfo(
+        let mut x = proto::EthSyncingResponse::default();
+        x.status_or_info = Some(eth_syncing_response::StatusOrInfo::SyncInfo(
             EthSyncingInfo::default(),
         ));
         print_debug(x);

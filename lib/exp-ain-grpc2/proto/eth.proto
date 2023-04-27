@@ -5,50 +5,50 @@ import "google/protobuf/empty.proto";
 
 service eth {
   /// Returns eth_accounts list.
-  rpc EthAccounts(google.protobuf.Empty) returns (EthAccountsResult);
+  rpc EthAccounts(google.protobuf.Empty) returns (EthAccountsResponse);
 
   /// Call contract, returning the output data. Does not create a transaction.
-  rpc EthCall(EthCallInput) returns (EthCallResult);
+  rpc EthCall(EthCallRequest) returns (EthCallResponse);
 
   /// Returns the balance for the given address.
-  rpc EthGetBalance(EthGetBalanceInput) returns (EthGetBalanceResult);
+  rpc EthGetBalance(EthGetBalanceRequest) returns (EthGetBalanceResponse);
 
-  rpc EthGetBlockByHash(EthGetBlockByHashInput) returns (EthBlockInfo);
+  rpc EthGetBlockByHash(EthGetBlockByHashRequest) returns (EthBlockInfo);
 
   /// Returns the balance for the given address.
-  rpc EthSendTransaction(EthSendTransactionInput) returns (EthSendTransactionResult);
+  rpc EthSendTransaction(EthSendTransactionRequest) returns (EthSendTransactionResponse);
 
-  rpc EthChainId(google.protobuf.Empty) returns (EthChainIdResult);
+  rpc EthChainId(google.protobuf.Empty) returns (EthChainIdResponse);
 
-  rpc NetVersion(google.protobuf.Empty) returns (EthChainIdResult);
+  rpc NetVersion(google.protobuf.Empty) returns (EthChainIdResponse);
 
-  rpc EthBlockNumber(google.protobuf.Empty) returns (EthBlockNumberResult);
+  rpc EthBlockNumber(google.protobuf.Empty) returns (EthBlockNumberResponse);
 
-  rpc EthGetBlockByNumber(EthGetBlockByNumberInput) returns (EthBlockInfo);
+  rpc EthGetBlockByNumber(EthGetBlockByNumberRequest) returns (EthBlockInfo);
 
   /// Returns the information about a transaction from a transaction hash.
-  rpc EthGetTransactionByHash(EthGetTransactionByHashInput) returns (EthTransactionInfo);
+  rpc EthGetTransactionByHash(EthGetTransactionByHashRequest) returns (EthTransactionInfo);
 
   /// Returns information about a transaction given a blockhash and transaction index position.
-  rpc EthGetTransactionByBlockHashAndIndex(EthGetTransactionByBlockHashAndIndexInput) returns (EthTransactionInfo);
+  rpc EthGetTransactionByBlockHashAndIndex(EthGetTransactionByBlockHashAndIndexRequest) returns (EthTransactionInfo);
 
   /// Returns information about a transaction given a block number and transaction index position.
-  rpc EthGetTransactionByBlockNumberAndIndex(EthGetTransactionByBlockNumberAndIndexInput) returns (EthTransactionInfo);
+  rpc EthGetTransactionByBlockNumberAndIndex(EthGetTransactionByBlockNumberAndIndexRequest) returns (EthTransactionInfo);
 
-  rpc EthMining(google.protobuf.Empty) returns (EthMiningResult);
+  rpc EthMining(google.protobuf.Empty) returns (EthMiningResponse);
 
-  rpc EthGetBlockTransactionCountByHash(EthGetBlockTransactionCountByHashInput) returns (EthGetBlockTransactionCountByHashResult);
+  rpc EthGetBlockTransactionCountByHash(EthGetBlockTransactionCountByHashRequest) returns (EthGetBlockTransactionCountByHashResponse);
 
-  rpc EthGetBlockTransactionCountByNumber(EthGetBlockTransactionCountByNumberInput) returns (EthGetBlockTransactionCountByNumberResult);
+  rpc EthGetBlockTransactionCountByNumber(EthGetBlockTransactionCountByNumberRequest) returns (EthGetBlockTransactionCountByNumberResponse);
 
-  rpc EthGetCode(EthGetCodeInput) returns (EthGetCodeResult);
+  rpc EthGetCode(EthGetCodeRequest) returns (EthGetCodeResponse);
 
-  rpc EthGetStorageAt(EthGetStorageAtInput) returns (EthGetStorageAtResult);
+  rpc EthGetStorageAt(EthGetStorageAtRequest) returns (EthGetStorageAtResponse);
 
-  rpc EthSendRawTransaction(EthSendRawTransactionInput) returns (EthSendRawTransactionResult);
+  rpc EthSendRawTransaction(EthSendRawTransactionRequest) returns (EthSendRawTransactionResponse);
 }
 
-message EthAccountsResult {
+message EthAccountsResponse {
     repeated string accounts = 1; // Accounts
 }
 
@@ -62,7 +62,7 @@ message EthTransactionInfo {
     optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
 }
 
-message EthChainIdResult {
+message EthChainIdResponse {
     string id = 1;
 }
 
@@ -106,290 +106,290 @@ message EthTransactionReceipt {
     optional string status = 15; // Either 1 (success) or 0 (failure)
 }
 
-message EthCallInput {
+message EthCallRequest {
     EthTransactionInfo transaction_info = 1; // Transaction info
     string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
-message EthCallResult {
+message EthCallResponse {
     string data = 1; // The return value of the executed contract method
 }
 
-message EthSignInput {
+message EthSignRequest {
     string address = 1;
     string message = 2;
 }
 
-message EthSignResult {
+message EthSignResponse {
     string signature = 1;
 }
 
-message EthGetBalanceInput {
+message EthGetBalanceRequest {
     string address = 1;
     string block_number = 2;
 }
 
-message EthGetBalanceResult {
+message EthGetBalanceResponse {
     string balance = 1;
 }
 
-message EthSendTransactionInput {
+message EthSendTransactionRequest {
     EthTransactionInfo transaction_info = 1;
 }
 
-message EthSendTransactionResult {
+message EthSendTransactionResponse {
     string hash = 1;
 }
 
-message EthCoinBaseResult {
+message EthCoinBaseResponse {
     string address = 1;
 }
 
-message EthMiningResult  {
+message EthMiningResponse  {
     bool isMining = 1;
 }
 
-message EthHashRateResult {
+message EthHashRateResponse {
     string hash_rate = 1;
 }
 
-message EthGasPriceResult {
+message EthGasPriceResponse {
     string gas_price = 1;
 }
 
-message EthBlockNumberResult {
+message EthBlockNumberResponse {
     string block_number = 1;
 }
 
-message EthGetTransactionCountInput {
+message EthGetTransactionCountRequest {
     string address = 1;
     string block_number = 2;
 }
 
-message EthGetTransactionCountResult {
+message EthGetTransactionCountResponse {
     string number_transaction = 1;
 }
 
-message EthGetBlockTransactionCountByHashInput {
+message EthGetBlockTransactionCountByHashRequest {
     string block_hash = 1;
 }
 
-message EthGetBlockTransactionCountByHashResult {
+message EthGetBlockTransactionCountByHashResponse {
     string number_transaction = 1;
 }
 
-message EthGetBlockTransactionCountByNumberInput {
+message EthGetBlockTransactionCountByNumberRequest {
     string block_number = 1;
 }
 
-message EthGetBlockTransactionCountByNumberResult {
+message EthGetBlockTransactionCountByNumberResponse {
     string number_transaction = 1;
 }
 
-message EthGetUncleCountByBlockHashInput {
+message EthGetUncleCountByBlockHashRequest {
     string block_hash = 1;
 }
 
-message EthGetUncleCountByBlockHashResult {
+message EthGetUncleCountByBlockHashResponse {
     string number_uncles = 1;
 }
 
-message EthGetUncleCountByBlockNumberInput {
+message EthGetUncleCountByBlockNumberRequest {
     string block_number = 1;
 }
 
-message EthGetUncleCountByBlockNumberResult {
+message EthGetUncleCountByBlockNumberResponse {
     string number_uncles = 1;
 }
 
-message EthGetCodeInput {
+message EthGetCodeRequest {
     string address = 1;
     string block_number = 2;
 }
 
-message EthGetCodeResult {
+message EthGetCodeResponse {
     string code = 1; // The code from the given address.
 }
 
-message EthSignTransactionInput {
+message EthSignTransactionRequest {
     EthTransactionInfo transaction_info = 1;
 }
 
-message EthSignTransactionResult {
+message EthSignTransactionResponse {
     string transaction = 1; // The signed transaction object.
 }
 
-message EthSendRawTransactionInput {
+message EthSendRawTransactionRequest {
     string transaction = 1;
 }
 
-message EthSendRawTransactionResult {
+message EthSendRawTransactionResponse {
     string hash = 1; // The transaction hash, or the zero hash if the transaction is not yet available.
 }
 
-message EthEstimateGasInput {
+message EthEstimateGasRequest {
     optional EthTransactionInfo transaction_info = 1; // Transaction info
     optional string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
-message EthEstimateGasResult {
+message EthEstimateGasResponse {
     string gas_used = 1;
 }
 
-message EthGetBlockByHashInput {
+message EthGetBlockByHashRequest {
     string hash = 1;
     bool full_transaction = 2;
 }
 
-message EthGetBlockByHashResult {
+message EthGetBlockByHashResponse {
     EthBlockInfo block_info = 1;
 }
 
-message EthGetBlockByNumberInput {
+message EthGetBlockByNumberRequest {
     string number = 1;
     bool full_transaction = 2;
 }
 
-message EthGetBlockByNumberResult {
+message EthGetBlockByNumberResponse {
     EthBlockInfo block_info = 1;
 }
 
-message EthGetTransactionByHashInput {
+message EthGetTransactionByHashRequest {
     string hash = 1;
 }
 
-message EthGetTransactionByHashResult {
+message EthGetTransactionByHashResponse {
     EthTransactionInfo transaction = 1;
 }
 
-message EthGetTransactionByBlockHashAndIndexInput {
+message EthGetTransactionByBlockHashAndIndexRequest {
     string block_hash = 1;
     string index = 2;
 }
 
-message EthGetTransactionByBlockHashAndIndexResult {
+message EthGetTransactionByBlockHashAndIndexResponse {
     EthTransactionInfo transaction = 1;
 }
 
-message EthGetTransactionByBlockNumberAndIndexInput {
+message EthGetTransactionByBlockNumberAndIndexRequest {
     string block_number = 1;
     string index = 2;
 }
 
-message EthGetTransactionByBlockNumberAndIndexResult {
+message EthGetTransactionByBlockNumberAndIndexResponse {
     EthTransactionInfo transaction = 1;
 }
 
-message EthGetUncleByBlockHashAndIndexInput {
+message EthGetUncleByBlockHashAndIndexRequest {
     string block_hash = 1;
     string index = 2;
 }
 
-message EthGetUncleByBlockHashAndIndexResult {
+message EthGetUncleByBlockHashAndIndexResponse {
     EthBlockInfo block_info = 1;
 }
 
-message EthGetUncleByBlockNumberAndIndexInput {
+message EthGetUncleByBlockNumberAndIndexRequest {
     string block_number = 1;
     string index = 2;
 }
 
-message EthGetUncleByBlockNumberAndIndexResult {
+message EthGetUncleByBlockNumberAndIndexResponse {
     EthBlockInfo block_info = 1;
 }
 
-message EthGetCompilersResult {
+message EthGetCompilersResponse {
     repeated string compilers = 1;
 }
 
-message EthCompileSolidityInput {
+message EthCompileSolidityRequest {
     string code = 1;
 }
 
-message EthCompileSolidityResult {
+message EthCompileSolidityResponse {
     string compiled_code = 1;
 }
 
-message EthCompileLLLInput {
+message EthCompileLLLRequest {
     string code = 1;
 }
 
-message EthCompileLLLResult {
+message EthCompileLLLResponse {
     string compiled_code = 1;
 }
 
-message EthCompileSerpentInput {
+message EthCompileSerpentRequest {
     string code = 1;
 }
 
-message EthCompileSerpentResult {
+message EthCompileSerpentResponse {
     string compiled_code = 1;
 }
 
-message EthProtocolVersionResult {
+message EthProtocolVersionResponse {
     string protocol_version = 1;
 }
 
-message Web3Sha3Input {
+message Web3Sha3Request {
     string data = 1; // The data to convert into a SHA3 hash
 }
 
-message Web3Sha3Result {
+message Web3Sha3Response {
     string data = 1; // The SHA3 result of the given string.
 }
 
-message NetPeerCountResult {
+message NetPeerCountResponse {
     string number_peer = 1;
 }
 
-message NetVersionResult {
+message NetVersionResponse {
     string network_version = 1;
 }
 
-message Web3ClientVersionResult {
+message Web3ClientVersionResponse {
     string client_version = 1;
 }
 
-message EthGetWorkResult {
+message EthGetWorkResponse {
     string currentblock = 1; // Current block header pow-hash
     string seed_hash = 2; // The seed hash used for the DAG.
     string target = 3; // The boundary condition ("target"), 2^256 / difficulty.
 }
 
-message EthSubmitWorkInput {
+message EthSubmitWorkRequest {
     string nounce = 1;
     string pow_hash = 2;
     string mix_digest = 3;
 }
 
-message EthSubmitWorkResult {
+message EthSubmitWorkResponse {
     bool is_valid = 1;
 }
 
-message EthSubmitHashrateInput {
+message EthSubmitHashrateRequest {
     string hash_rate = 1;
     string id = 2;
 }
 
-message EthSubmitHashrateResult {
+message EthSubmitHashrateResponse {
     bool is_valid = 1;
 }
 
-message EthGetStorageAtInput {
+message EthGetStorageAtRequest {
     string address = 1;
     string position = 2;
     string block_number = 3;
 }
 
-message EthGetStorageAtResult {
+message EthGetStorageAtResponse {
     string value = 1; // The value at this storage position.
 }
 
-message EthGetTransactionReceiptInput {
+message EthGetTransactionReceiptRequest {
     string transaction_hash = 1;
 }
 
-message EthGetTransactionReceiptResult {
+message EthGetTransactionReceiptResponse {
     EthTransactionReceipt transaction_receipt = 1;
 }
 
@@ -399,7 +399,7 @@ message EthSyncingInfo {
     string highest_block = 3; // The estimated highest block
 }
 
-message EthSyncingResult {
+message EthSyncingResponse {
     oneof status_or_info { 
         bool status = 1;
         EthSyncingInfo sync_info = 2;
