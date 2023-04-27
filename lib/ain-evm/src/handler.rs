@@ -74,7 +74,7 @@ impl Handlers {
 
         self.evm.tx_queues.remove(context);
 
-        let (parent_hash, number) = self.block.get_latest_block_and_number();
+        let (parent_hash, number) = self.block.get_latest_block_hash_and_number();
 
         let mut block = Block::new(
             PartialHeader {
