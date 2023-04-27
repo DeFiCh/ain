@@ -146,13 +146,11 @@ impl ReceiptHandler {
             index += 1;
         }
 
-        let root = ordered_trie_root(
+        ordered_trie_root(
             receipts
                 .iter()
                 .map(|r| EnvelopedEncodable::encode(&r.receipt).freeze()),
-        );
-
-        return root;
+        )
     }
 }
 
@@ -176,9 +174,7 @@ impl Error for ReceiptHandlerError {}
 #[cfg(test)]
 mod test {
     use crate::receipt::get_contract_address;
-    use keccak_hash::keccak;
     use primitive_types::{H160, U256};
-    use rlp::RlpStream;
     use std::str::FromStr;
 
     // TODO: This needs fixing. `get_contract_address` impl appears to add sender to the
