@@ -100,6 +100,7 @@ dependencies = [
  "ain-grpc",
  "cxx",
  "cxx-gen",
+ "ethereum",
  "log",
  "primitive-types",
  "proc-macro2",

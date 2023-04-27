@@ -13,6 +13,7 @@ crate-type = ["staticlib"]
 ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
 
+ethereum = "0.14.0"
 rlp = "0.5.2"
 primitive-types = "0.12.1"
 log = "0.4"
