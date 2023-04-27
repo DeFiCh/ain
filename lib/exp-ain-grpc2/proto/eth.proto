@@ -13,17 +13,22 @@ service eth {
   /// Returns the balance for the given address.
   rpc EthGetBalance(EthGetBalanceRequest) returns (EthGetBalanceResponse);
 
+  /// Returns information about a block by hash.
   rpc EthGetBlockByHash(EthGetBlockByHashRequest) returns (EthBlockInfo);
 
   /// Returns the balance for the given address.
   rpc EthSendTransaction(EthSendTransactionRequest) returns (EthSendTransactionResponse);
 
+  /// Returns the chain ID used for signing replay-protected transactions.
   rpc EthChainId(google.protobuf.Empty) returns (EthChainIdResponse);
 
+  /// Returns the current network id.
   rpc NetVersion(google.protobuf.Empty) returns (EthChainIdResponse);
 
+  /// Returns the number of most recent block.
   rpc EthBlockNumber(google.protobuf.Empty) returns (EthBlockNumberResponse);
 
+  /// Returns information about a block by block number.
   rpc EthGetBlockByNumber(EthGetBlockByNumberRequest) returns (EthBlockInfo);
 
   /// Returns the information about a transaction from a transaction hash.
@@ -35,16 +40,22 @@ service eth {
   /// Returns information about a transaction given a block number and transaction index position.
   rpc EthGetTransactionByBlockNumberAndIndex(EthGetTransactionByBlockNumberAndIndexRequest) returns (EthTransactionInfo);
 
+  /// Returns true if client is actively mining new blocks.
   rpc EthMining(google.protobuf.Empty) returns (EthMiningResponse);
 
+  /// Returns the number of transactions in a block from a block matching the given block hash.
   rpc EthGetBlockTransactionCountByHash(EthGetBlockTransactionCountByHashRequest) returns (EthGetBlockTransactionCountByHashResponse);
 
+  /// Returns the number of transactions in a block matching the given block number.
   rpc EthGetBlockTransactionCountByNumber(EthGetBlockTransactionCountByNumberRequest) returns (EthGetBlockTransactionCountByNumberResponse);
 
+  /// Returns code at a given address.
   rpc EthGetCode(EthGetCodeRequest) returns (EthGetCodeResponse);
 
+  /// Returns the value from a storage position at a given address.
   rpc EthGetStorageAt(EthGetStorageAtRequest) returns (EthGetStorageAtResponse);
 
+  /// Creates new message call transaction or a contract creation for signed transactions.
   rpc EthSendRawTransaction(EthSendRawTransactionRequest) returns (EthSendRawTransactionResponse);
 }
 
