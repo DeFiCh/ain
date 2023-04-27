@@ -22,27 +22,54 @@ mod tests {
     use super::*;
     use crate::proto::*;
 
+    fn print_debug<T: Debug + Serialize>(val: T) {
+        println!("{:?}\n{}", val, serde_json::to_string_pretty(&val).unwrap());
+    }
+
     #[test]
-    fn it_works() {
+    fn json_outputs_basic() {
         let result = add(2, 2);
         assert_eq!(result, 4);
-
-        fn print_debug<T: Debug + Serialize>(val: T) {
-            println!("{:?}\n{}", val, serde_json::to_string_pretty(&val).unwrap());
-        }
 
         let mut x = proto::EthCallResponse::default();
         x.data = "hello".to_string();
         print_debug(x);
+    }
 
+    #[test]
+    fn json_outputs_flattened_enums() {
         let mut x: EthSyncingResponse = proto::EthSyncingResponse::default();
-        x.status_or_info = Some(eth_syncing_response::StatusOrInfo::Status(true));
+        x.value = Some(eth_syncing_response::Value::Status(true));
         print_debug(x);
 
         let mut x = proto::EthSyncingResponse::default();
-        x.status_or_info = Some(eth_syncing_response::StatusOrInfo::SyncInfo(
+        x.value = Some(eth_syncing_response::Value::SyncInfo(
             EthSyncingInfo::default(),
         ));
+        print_debug(x);
+    }
+
+    #[test]
+    fn json_outputs_transaction_receipts() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+
+        let mut x = proto::EthGetTransactionReceiptResponse::default();
+        x.transaction_receipt = None;
+        print_debug(x);
+
+        let mut x = proto::EthGetTransactionReceiptResponse::default();
+        x.transaction_receipt = Some(EthTransactionReceipt::default());
+        print_debug(x);
+    }
+
+    #[test]
+    fn json_outputs_chain_id() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+
+        let mut x = proto::EthChainIdResponse::default();
+        x.id = 100.to_string();
         print_debug(x);
     }
 }

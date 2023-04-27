@@ -34,7 +34,6 @@ pub struct EthTransactionInfo {
     #[prost(string, optional, tag = "7")]
     pub nonce: ::core::option::Option<::prost::alloc::string::String>,
 }
-#[serde(flatten)]
 #[derive(Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -765,17 +764,17 @@ pub struct EthSyncingInfo {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EthSyncingResponse {
-    #[prost(oneof = "eth_syncing_response::StatusOrInfo", tags = "1, 2")]
-    #[serde(flatten)]
-    pub status_or_info: ::core::option::Option<eth_syncing_response::StatusOrInfo>,
+    #[prost(oneof = "eth_syncing_response::Value", tags = "1, 2")]
+    pub value: ::core::option::Option<eth_syncing_response::Value>,
 }
 /// Nested message and enum types in `EthSyncingResponse`.
 pub mod eth_syncing_response {
     #[derive(Eq, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
+    #[serde(untagged)]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum StatusOrInfo {
+    pub enum Value {
         #[prost(bool, tag = "1")]
         Status(bool),
         #[prost(message, tag = "2")]

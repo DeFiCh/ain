@@ -15,13 +15,14 @@ fn main() -> Result<()> {
     #[derive(Eq, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all="camelCase")]
     "#;
-    let serde_flatten_attr = "#[serde(flatten)]";
+    let _serde_flatten_attr = "#[serde(flatten)]";
+    let serde_untagged_attr = "#[serde(untagged)]";
 
     prost_build
         .out_dir(gen_path)
-        .enum_attribute(".", default_attrs)
-        .field_attribute("status_or_info", serde_flatten_attr)
-        .message_attribute(".", default_attrs)
+        .enum_attribute(".", serde_untagged_attr)
+        // .field_attribute("<.>", serde_flatten_attr)
+        .type_attribute(".", default_attrs)
         .compile_protos(
             &["proto/services.proto"],
             &[

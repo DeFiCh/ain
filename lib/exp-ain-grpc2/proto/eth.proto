@@ -239,7 +239,7 @@ message EthSendRawTransactionResponse {
 }
 
 message EthEstimateGasRequest {
-    optional EthTransactionInfo transaction_info = 1; // Transaction info
+    EthTransactionInfo transaction_info = 1; // Transaction info
     optional string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
@@ -411,7 +411,7 @@ message EthSyncingInfo {
 }
 
 message EthSyncingResponse {
-    oneof status_or_info { 
+    oneof value { 
         bool status = 1;
         EthSyncingInfo sync_info = 2;
     }
