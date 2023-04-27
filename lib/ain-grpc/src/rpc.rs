@@ -1,6 +1,6 @@
 use crate::block::{BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
-use crate::codegen::types::EthTransactionInfo;
+use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
 
 use crate::receipt::ReceiptResult;
 use ain_evm::evm::EVMState;
@@ -72,6 +72,9 @@ pub trait MetachainRPC {
 
     #[method(name = "eth_getBlockTransactionCountByNumber")]
     fn get_block_transaction_count_by_number(&self, number: BlockNumber) -> RpcResult<usize>;
+
+    #[method(name = "eth_pendingTransactions")]
+    fn get_pending_transaction(&self) -> RpcResult<Vec<EthPendingTransactionInfo>>;
 
     #[method(name = "eth_getCode")]
     fn get_code(&self, address: H160) -> RpcResult<String>;
@@ -219,6 +222,16 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
                 Ok(Some(transaction_info))
             })
+    }
+
+    fn get_pending_transaction(&self) -> RpcResult<Vec<EthPendingTransactionInfo>> {
+        ain_cpp_imports::get_pool_transactions()
+            .map(|txs| {
+                txs.into_iter()
+                    .flat_map(|tx| EthPendingTransactionInfo::try_from(tx.as_str()))
+                    .collect()
+            })
+            .map_err(|e| Error::Custom(e.to_string()))
     }
 
     fn get_transaction_by_block_hash_and_index(

@@ -208,6 +208,7 @@ class TestNode():
         "eth_getTransactionByBlockHashAndIndex",
         "eth_getTransactionByBlockNumberAndIndex",
         "eth_getTransactionReceipt",
+        "eth_pendingTransactions",
         # net
         "net_version"
     }
