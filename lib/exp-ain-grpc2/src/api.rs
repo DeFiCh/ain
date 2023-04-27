@@ -2,17 +2,7 @@ use crate::proto;
 use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 
-use proto::eth::{
-    EthAccountsResponse, EthBlockInfo, EthBlockNumberResponse, EthCallRequest, EthCallResponse,
-    EthChainIdResponse, EthGetBalanceRequest, EthGetBalanceResponse, EthGetBlockByHashRequest,
-    EthGetBlockByNumberRequest, EthGetBlockTransactionCountByHashRequest,
-    EthGetBlockTransactionCountByHashResponse, EthGetBlockTransactionCountByNumberRequest,
-    EthGetBlockTransactionCountByNumberResponse, EthGetCodeRequest, EthGetCodeResponse,
-    EthGetStorageAtRequest, EthGetStorageAtResponse, EthGetTransactionByBlockHashAndIndexRequest,
-    EthGetTransactionByBlockNumberAndIndexRequest, EthGetTransactionByHashRequest,
-    EthMiningResponse, EthSendRawTransactionRequest, EthSendRawTransactionResponse,
-    EthSendTransactionRequest, EthSendTransactionResponse, EthTransactionInfo,
-};
+use proto::eth::*;
 
 struct ApiImpl {}
 
