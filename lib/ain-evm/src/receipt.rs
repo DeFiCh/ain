@@ -40,16 +40,12 @@ impl Default for ReceiptHandler {
     }
 }
 
-fn get_contract_address(to: &Option<H160>, sender: &H160, nonce: &U256) -> Option<H160> {
-    if to.is_some() {
-        return None;
-    }
-
+fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
     let mut stream = RlpStream::new_list(2);
     stream.append(sender);
     stream.append(nonce);
 
-    return Some(H160::from(keccak(stream.as_raw())));
+    return H160::from(keccak(stream.as_raw()));
 }
 
 impl ReceiptHandler {
@@ -106,11 +102,10 @@ impl ReceiptHandler {
                 to: transaction.to(),
                 tx_index: index,
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap_or_default(),
-                contract_address: get_contract_address(
-                    &transaction.to(),
-                    &transaction.sender,
-                    &transaction.nonce(),
-                ),
+                contract_address: transaction
+                    .to()
+                    .is_none()
+                    .then(|| get_contract_address(&transaction.sender, &transaction.nonce())),
             };
 
             map.insert(tv2.hash(), receipt.clone());
@@ -133,11 +128,10 @@ impl ReceiptHandler {
                 from: transaction.sender,
                 to: transaction.to(),
                 tx_index: index,
-                contract_address: get_contract_address(
-                    &transaction.to(),
-                    &transaction.sender,
-                    &transaction.nonce(),
-                ),
+                contract_address: transaction
+                    .to()
+                    .is_none()
+                    .then(|| get_contract_address(&transaction.sender, &transaction.nonce())),
                 tx_type: EnvelopedEncodable::type_id(&tv2).unwrap(),
             };
 
@@ -176,9 +170,7 @@ impl Error for ReceiptHandlerError {}
 #[cfg(test)]
 mod test {
     use crate::receipt::get_contract_address;
-    use keccak_hash::keccak;
     use primitive_types::{H160, U256};
-    use rlp::RlpStream;
     use std::str::FromStr;
 
     // TODO: This needs fixing. `get_contract_address` impl appears to add sender to the
@@ -191,10 +183,10 @@ mod test {
         let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
 
         let expected = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
-        let to = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
+        let _to = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
 
-        let actual = get_contract_address(&Some(to), &sender, &U256::from(88));
+        let actual = get_contract_address(&sender, &U256::from(88));
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
     }
 }
