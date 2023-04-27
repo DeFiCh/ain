@@ -1,6 +1,10 @@
 use crate::storage::traits::{PersistentState, PersistentStateError};
 use crate::tx_queue::TransactionQueueMap;
-use crate::{executor::AinExecutor, traits::Executor, transaction::SignedTx};
+use crate::{
+    executor::AinExecutor,
+    traits::{Executor, ExecutorContext},
+    transaction::SignedTx,
+};
 use anyhow::anyhow;
 use ethereum::{AccessList, TransactionV2};
 use evm::backend::MemoryAccount;
@@ -60,8 +64,17 @@ impl EVMHandler {
 
         let state = self.state.read().unwrap().clone();
         let backend = MemoryBackend::new(&vicinity, state);
-        let tx_response =
-            AinExecutor::new(backend).call(caller, to, value, data, gas_limit, access_list, false);
+        let tx_response = AinExecutor::new(backend).call(
+            ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list,
+            },
+            false,
+        );
         (tx_response.exit_reason, tx_response.data)
     }
 

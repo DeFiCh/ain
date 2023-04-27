@@ -241,6 +241,30 @@ impl SignedTx {
             TransactionV2::EIP1559(tx) => tx.input.as_ref(),
         }
     }
+
+    pub fn v(&self) -> u64 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.signature.v(),
+            TransactionV2::EIP2930(tx) => tx.chain_id,
+            TransactionV2::EIP1559(tx) => tx.chain_id,
+        }
+    }
+
+    pub fn r(&self) -> H256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => *tx.signature.r(),
+            TransactionV2::EIP2930(tx) => tx.r,
+            TransactionV2::EIP1559(tx) => tx.r,
+        }
+    }
+
+    pub fn s(&self) -> H256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => *tx.signature.s(),
+            TransactionV2::EIP2930(tx) => tx.s,
+            TransactionV2::EIP1559(tx) => tx.s,
+        }
+    }
 }
 
 use std::convert::{TryFrom, TryInto};

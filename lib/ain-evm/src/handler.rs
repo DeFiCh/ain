@@ -85,7 +85,7 @@ impl Handlers {
                 logs_bloom: Default::default(),
                 difficulty: U256::from(difficulty),
                 number,
-                gas_limit: Default::default(),
+                gas_limit: U256::from(30000000),
                 gas_used: Default::default(),
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)

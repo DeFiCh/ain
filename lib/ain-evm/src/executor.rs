@@ -1,15 +1,16 @@
 use std::collections::BTreeMap;
 
-use crate::{traits::Executor, transaction::SignedTx};
+use crate::{
+    traits::{Executor, ExecutorContext},
+    transaction::SignedTx,
+};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
 
-use ethereum::{AccessList, Log};
-
-use primitive_types::{H160, U256};
+use ethereum::Log;
 
 #[derive(Debug)]
 pub struct AinExecutor<B: Backend> {
@@ -35,38 +36,30 @@ where
 {
     const CONFIG: Config = Config::london();
 
-    fn call(
-        &mut self,
-        caller: Option<H160>,
-        to: Option<H160>,
-        value: U256,
-        data: &[u8],
-        gas_limit: u64,
-        access_list: AccessList,
-        apply: bool,
-    ) -> TxResponse {
-        let metadata = StackSubstateMetadata::new(gas_limit, &Self::CONFIG);
+    fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse {
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, &self.backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-        let access_list = access_list
+        let access_list = ctx
+            .access_list
             .into_iter()
             .map(|x| (x.address, x.storage_keys))
             .collect::<Vec<_>>();
-        let (exit_reason, data) = match to {
+        let (exit_reason, data) = match ctx.to {
             Some(address) => executor.transact_call(
-                caller.unwrap_or_default(),
+                ctx.caller.unwrap_or_default(),
                 address,
-                value,
-                data.to_vec(),
-                gas_limit,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
                 access_list,
             ),
             None => executor.transact_create(
-                caller.unwrap_or_default(),
-                value,
-                data.to_vec(),
-                gas_limit,
+                ctx.caller.unwrap_or_default(),
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
                 access_list,
             ),
         };
@@ -89,12 +82,14 @@ where
     fn exec(&mut self, signed_tx: &SignedTx) -> TxResponse {
         let apply = true;
         self.call(
-            Some(signed_tx.sender),
-            signed_tx.to(),
-            signed_tx.value(),
-            signed_tx.data(),
-            signed_tx.gas_limit().as_u64(),
-            signed_tx.access_list(),
+            ExecutorContext {
+                caller: Some(signed_tx.sender),
+                to: signed_tx.to(),
+                value: signed_tx.value(),
+                data: signed_tx.data(),
+                gas_limit: signed_tx.gas_limit().as_u64(),
+                access_list: signed_tx.access_list(),
+            },
             apply,
         )
     }

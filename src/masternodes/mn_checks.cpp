@@ -333,7 +333,7 @@ class CCustomMetadataParseVisitor {
     const Consensus::Params &consensus;
     const std::vector<unsigned char> &metadata;
 
-    Res IsHardforkEnabled(int startHeight) const {
+    Res IsHardforkEnabled(const uint32_t startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
                 { consensus.AMKHeight,                    "called before AMK height" },
                 { consensus.BayfrontHeight,               "called before Bayfront height" },
@@ -347,7 +347,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
                 { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
-        if (startHeight && int(height) < startHeight) {
+        if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
             assert(it != hardforks.end());
             return Res::Err(it->second);
