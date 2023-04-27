@@ -21,8 +21,8 @@ impl BlockHandler {
             .unwrap_or((H256::default(), U256::zero()))
     }
 
-    pub fn connect_block(&self, block: BlockAny) {
-        self.storage.put_latest_block(block.clone());
+    pub fn connect_block(&self, block: &BlockAny) {
+        self.storage.put_latest_block(block);
         self.storage.put_block(block)
     }
 }

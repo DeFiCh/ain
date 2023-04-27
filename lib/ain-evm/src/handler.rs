@@ -111,7 +111,7 @@ impl Handlers {
             let mut state = self.evm.state.write().unwrap();
             *state = executor.backend().state().clone();
 
-            self.block.connect_block(block.clone());
+            self.block.connect_block(&block);
             self.receipt.put_receipts(receipts);
         }
 

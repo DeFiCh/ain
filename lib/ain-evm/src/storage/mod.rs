@@ -38,30 +38,42 @@ impl Storage {
 
 impl BlockStorage for Storage {
     fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.cache
-            .get_block_by_number(number)
-            .or_else(|| self.blockchain_data_handler.get_block_by_number(number))
+        self.cache.get_block_by_number(number).or_else(|| {
+            let block = self.blockchain_data_handler.get_block_by_number(number);
+            if let Some(ref block) = block {
+                self.cache.put_block(block)
+            }
+            block
+        })
     }
 
     fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
-        self.cache
-            .get_block_by_hash(block_hash)
-            .or_else(|| self.blockchain_data_handler.get_block_by_hash(block_hash))
+        self.cache.get_block_by_hash(block_hash).or_else(|| {
+            let block = self.blockchain_data_handler.get_block_by_hash(block_hash);
+            if let Some(ref block) = block {
+                self.cache.put_block(block)
+            }
+            block
+        })
     }
 
-    fn put_block(&self, block: BlockAny) {
-        self.cache.put_block(block.clone());
+    fn put_block(&self, block: &BlockAny) {
+        self.cache.put_block(block);
         self.blockchain_data_handler.put_block(block)
     }
 
     fn get_latest_block(&self) -> Option<BlockAny> {
-        self.cache
-            .get_latest_block()
-            .or_else(|| self.blockchain_data_handler.get_latest_block())
+        self.cache.get_latest_block().or_else(|| {
+            let latest_block = self.blockchain_data_handler.get_latest_block();
+            if let Some(ref block) = latest_block {
+                self.cache.put_latest_block(block)
+            }
+            latest_block
+        })
     }
 
-    fn put_latest_block(&self, block: BlockAny) {
-        self.cache.put_latest_block(block.clone());
+    fn put_latest_block(&self, block: &BlockAny) {
+        self.cache.put_latest_block(block);
         self.blockchain_data_handler.put_latest_block(block)
     }
 }
@@ -76,9 +88,13 @@ impl TransactionStorage for Storage {
     }
 
     fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
-        self.cache
-            .get_transaction_by_hash(hash)
-            .or_else(|| self.blockchain_data_handler.get_transaction_by_hash(hash))
+        self.cache.get_transaction_by_hash(hash).or_else(|| {
+            let transaction = self.blockchain_data_handler.get_transaction_by_hash(hash);
+            if let Some(ref transaction) = transaction {
+                self.cache.put_transaction(transaction)
+            }
+            transaction
+        })
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -89,8 +105,13 @@ impl TransactionStorage for Storage {
         self.cache
             .get_transaction_by_block_hash_and_index(hash, index)
             .or_else(|| {
-                self.blockchain_data_handler
-                    .get_transaction_by_block_hash_and_index(hash, index)
+                let transaction = self
+                    .blockchain_data_handler
+                    .get_transaction_by_block_hash_and_index(hash, index);
+                if let Some(ref transaction) = transaction {
+                    self.cache.put_transaction(transaction)
+                }
+                transaction
             })
     }
 
@@ -102,9 +123,19 @@ impl TransactionStorage for Storage {
         self.cache
             .get_transaction_by_block_number_and_index(number, index)
             .or_else(|| {
-                self.blockchain_data_handler
-                    .get_transaction_by_block_number_and_index(number, index)
+                let transaction = self
+                    .blockchain_data_handler
+                    .get_transaction_by_block_number_and_index(number, index);
+                if let Some(ref transaction) = transaction {
+                    self.cache.put_transaction(transaction)
+                }
+                transaction
             })
+    }
+
+    fn put_transaction(&self, transaction: &TransactionV2) {
+        self.cache.put_transaction(transaction);
+        self.blockchain_data_handler.put_transaction(transaction);
     }
 }
 

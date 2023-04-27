@@ -14,9 +14,9 @@ use std::path::PathBuf;
 pub trait BlockStorage {
     fn get_block_by_number(&self, number: &U256) -> Option<BlockAny>;
     fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny>;
-    fn put_block(&self, block: BlockAny);
+    fn put_block(&self, block: &BlockAny);
     fn get_latest_block(&self) -> Option<BlockAny>;
-    fn put_latest_block(&self, block: BlockAny);
+    fn put_latest_block(&self, block: &BlockAny);
 }
 
 pub trait TransactionStorage {
@@ -32,6 +32,7 @@ pub trait TransactionStorage {
         number: &U256,
         index: usize,
     ) -> Option<TransactionV2>;
+    fn put_transaction(&self, transaction: &TransactionV2);
 }
 
 pub trait ReceiptStorage {

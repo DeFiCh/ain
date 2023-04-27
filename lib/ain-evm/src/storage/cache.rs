@@ -51,12 +51,15 @@ impl BlockStorage for Cache {
             .and_then(|block_number| self.get_block_by_number(block_number))
     }
 
-    fn put_block(&self, block: BlockAny) {
-        self.extend_transactions_from_block(&block);
+    fn put_block(&self, block: &BlockAny) {
+        self.extend_transactions_from_block(block);
 
         let block_number = block.header.number;
         let hash = block.header.hash();
-        self.blocks.write().unwrap().put(block_number, block);
+        self.blocks
+            .write()
+            .unwrap()
+            .put(block_number, block.clone());
         self.block_hashes.write().unwrap().put(hash, block_number);
     }
 
@@ -68,9 +71,9 @@ impl BlockStorage for Cache {
             .map(ToOwned::to_owned)
     }
 
-    fn put_latest_block(&self, block: BlockAny) {
+    fn put_latest_block(&self, block: &BlockAny) {
         let mut cache = self.latest_block.write().unwrap();
-        *cache = Some(block);
+        *cache = Some(block.clone());
     }
 }
 
@@ -118,5 +121,12 @@ impl TransactionStorage for Cache {
             .transactions
             .get(index)
             .map(ToOwned::to_owned)
+    }
+
+    fn put_transaction(&self, transaction: &TransactionV2) {
+        self.transactions
+            .write()
+            .unwrap()
+            .put(transaction.hash(), transaction.clone());
     }
 }

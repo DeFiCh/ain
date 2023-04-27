@@ -104,6 +104,13 @@ impl TransactionStorage for BlockchainDataHandler {
             .get(index)
             .map(ToOwned::to_owned)
     }
+
+    fn put_transaction(&self, transaction: &TransactionV2) {
+        self.transactions
+            .write()
+            .unwrap()
+            .insert(transaction.hash(), transaction.clone());
+    }
 }
 
 impl BlockStorage for BlockchainDataHandler {
@@ -123,12 +130,15 @@ impl BlockStorage for BlockchainDataHandler {
             .and_then(|block_number| self.get_block_by_number(block_number))
     }
 
-    fn put_block(&self, block: BlockAny) {
-        self.extend_transactions_from_block(&block);
+    fn put_block(&self, block: &BlockAny) {
+        self.extend_transactions_from_block(block);
 
         let block_number = block.header.number;
         let hash = block.header.hash();
-        self.blocks.write().unwrap().insert(block_number, block);
+        self.blocks
+            .write()
+            .unwrap()
+            .insert(block_number, block.clone());
         self.block_map.write().unwrap().insert(hash, block_number);
     }
 
@@ -140,7 +150,7 @@ impl BlockStorage for BlockchainDataHandler {
             .and_then(|number| self.get_block_by_number(number))
     }
 
-    fn put_latest_block(&self, block: BlockAny) {
+    fn put_latest_block(&self, block: &BlockAny) {
         let mut latest_block_number = self.latest_block_number.write().unwrap();
         *latest_block_number = Some(block.header.number);
     }
