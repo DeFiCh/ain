@@ -244,101 +244,101 @@ message EthEstimateGasRequest {
 }
 
 message EthEstimateGasResponse {
-    string gas_used = 1;
+    string gas_used = 1; // The amount of gas used (Hex)
 }
 
 message EthGetBlockByHashRequest {
-    string hash = 1;
-    bool full_transaction = 2;
+    string hash = 1; // Hash of a block (Hex)
+    bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
 }
 
 message EthGetBlockByHashResponse {
-    EthBlockInfo block_info = 1;
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
 message EthGetBlockByNumberRequest {
-    string number = 1;
-    bool full_transaction = 2;
+    string number = 1; // Block number (Hex)
+    bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
 }
 
 message EthGetBlockByNumberResponse {
-    EthBlockInfo block_info = 1;
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
 message EthGetTransactionByHashRequest {
-    string hash = 1;
+    string hash = 1; // Hash of the transaction
 }
 
 message EthGetTransactionByHashResponse {
-    EthTransactionInfo transaction = 1;
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
 message EthGetTransactionByBlockHashAndIndexRequest {
-    string block_hash = 1;
-    string index = 2;
+    string block_hash = 1; // Hash of a block
+    string index = 2; // Integer of the transaction index position (Hex)
 }
 
 message EthGetTransactionByBlockHashAndIndexResponse {
-    EthTransactionInfo transaction = 1;
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
 message EthGetTransactionByBlockNumberAndIndexRequest {
     string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
-    string index = 2;
+    string index = 2; // Integer of the transaction index position (Hex)
 }
 
 message EthGetTransactionByBlockNumberAndIndexResponse {
-    EthTransactionInfo transaction = 1;
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
 message EthGetUncleByBlockHashAndIndexRequest {
-    string block_hash = 1;
-    string index = 2;
+    string block_hash = 1; // Hash of a block
+    string index = 2; // Integer of the transaction index position (Hex)
 }
 
 message EthGetUncleByBlockHashAndIndexResponse {
-    EthBlockInfo block_info = 1;
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
 message EthGetUncleByBlockNumberAndIndexRequest {
     string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
-    string index = 2;
+    string index = 2; // Integer of the transaction index position (Hex)
 }
 
 message EthGetUncleByBlockNumberAndIndexResponse {
-    EthBlockInfo block_info = 1;
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
 message EthGetCompilersResponse {
-    repeated string compilers = 1;
+    repeated string compilers = 1; // Array of available compilers
 }
 
 message EthCompileSolidityRequest {
-    string code = 1;
+    string code = 1; // The source code
 }
 
 message EthCompileSolidityResponse {
-    string compiled_code = 1;
+    string compiled_code = 1; // The compiled source code
 }
 
 message EthCompileLLLRequest {
-    string code = 1;
+    string code = 1; // The source code
 }
 
 message EthCompileLLLResponse {
-    string compiled_code = 1;
+    string compiled_code = 1; // The compiled source code
 }
 
 message EthCompileSerpentRequest {
-    string code = 1;
+    string code = 1; // The source code
 }
 
 message EthCompileSerpentResponse {
-    string compiled_code = 1;
+    string compiled_code = 1; // The compiled source code
 }
 
 message EthProtocolVersionResponse {
-    string protocol_version = 1;
+    string protocol_version = 1; // The current DMC protocol version
 }
 
 message Web3Sha3Request {
@@ -350,15 +350,15 @@ message Web3Sha3Response {
 }
 
 message NetPeerCountResponse {
-    string number_peer = 1;
+    string number_peer = 1; // Integer of the number of connected peers (Hex)
 }
 
 message NetVersionResponse {
-    string network_version = 1;
+    string network_version = 1; // The current network id
 }
 
 message Web3ClientVersionResponse {
-    string client_version = 1;
+    string client_version = 1; // The current client version
 }
 
 message EthGetWorkResponse {
@@ -368,27 +368,27 @@ message EthGetWorkResponse {
 }
 
 message EthSubmitWorkRequest {
-    string nounce = 1;
-    string pow_hash = 2;
-    string mix_digest = 3;
+    string nounce = 1; // The nonce found (64 bits)
+    string pow_hash = 2; // The header's pow-hash (256 bits)
+    string mix_digest = 3; // The mix digest (256 bits)
 }
 
 message EthSubmitWorkResponse {
-    bool is_valid = 1;
+    bool is_valid = 1; // Returns true if the provided solution is valid, otherwise false
 }
 
 message EthSubmitHashrateRequest {
-    string hash_rate = 1;
-    string id = 2;
+    string hash_rate = 1; // Hexadecimal string representation (32 bytes) of the hashrate
+    string id = 2; // A random hexadecimal(32 bytes) ID identifying the client
 }
 
 message EthSubmitHashrateResponse {
-    bool is_valid = 1;
+    bool is_valid = 1; // Returns true if submitting went through successfully and false otherwise
 }
 
 message EthGetStorageAtRequest {
-    string address = 1;
-    string position = 2;
+    string address = 1; // Address of the storage
+    string position = 2; // integer of the position in the storage (Hex)
     string block_number = 3; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
@@ -397,11 +397,11 @@ message EthGetStorageAtResponse {
 }
 
 message EthGetTransactionReceiptRequest {
-    string transaction_hash = 1;
+    string transaction_hash = 1; // Hash of a transaction
 }
 
 message EthGetTransactionReceiptResponse {
-    EthTransactionReceipt transaction_receipt = 1;
+    EthTransactionReceipt transaction_receipt = 1; // A transaction receipt object, or null when no receipt was found
 }
 
 message EthSyncingInfo {
@@ -412,7 +412,7 @@ message EthSyncingInfo {
 
 message EthSyncingResponse {
     oneof value { 
-        bool status = 1;
-        EthSyncingInfo sync_info = 2;
+        bool status = 1; // Return False when not syncing
+        EthSyncingInfo sync_info = 2; // An object with sync status data
     }
 }
