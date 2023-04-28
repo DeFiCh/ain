@@ -26,16 +26,12 @@ pub struct ReceiptHandler {
     storage: Arc<Storage>,
 }
 
-fn get_contract_address(to: &Option<H160>, sender: &H160, nonce: &U256) -> Option<H160> {
-    if to.is_some() {
-        return None;
-    }
-
+fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
     let mut stream = RlpStream::new_list(2);
     stream.append(sender);
     stream.append(nonce);
 
-    return Some(H160::from(keccak(stream.as_raw())));
+    return H160::from(keccak(stream.as_raw()));
 }
 
 impl ReceiptHandler {
@@ -77,11 +73,10 @@ impl ReceiptHandler {
                 to: signed_tx.to(),
                 tx_index: index,
                 tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap_or_default(),
-                contract_address: get_contract_address(
-                    &signed_tx.to(),
-                    &signed_tx.sender,
-                    &signed_tx.nonce(),
-                ),
+                contract_address: signed_tx
+                    .to()
+                    .is_none()
+                    .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
             };
             receipts.push(receipt);
             index += 1;
@@ -101,11 +96,10 @@ impl ReceiptHandler {
                 from: signed_tx.sender,
                 to: signed_tx.to(),
                 tx_index: index,
-                contract_address: get_contract_address(
-                    &signed_tx.to(),
-                    &signed_tx.sender,
-                    &signed_tx.nonce(),
-                ),
+                contract_address: signed_tx
+                    .to()
+                    .is_none()
+                    .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
                 tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap(),
             };
 
@@ -126,20 +120,13 @@ mod test {
     use primitive_types::{H160, U256};
     use std::str::FromStr;
 
-    // TODO: This needs fixing. `get_contract_address` impl appears to add sender to the
-    // stream that appears incorrect. Leaving it to @shoham to recitfy and clear up
-    // side effects, but this blocks everyone from being able to add to the branch,
-    // so ignore this for the moment
-    #[ignore]
     #[test]
     pub fn test_contract_address() {
         let sender = H160::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
-
         let expected = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
-        let to = H160::from_str("3f09c73a5ed19289fb9bdc72f1742566df146f56").unwrap();
 
-        let actual = get_contract_address(&Some(to), &sender, &U256::from(88));
+        let actual = get_contract_address(&sender, &U256::from(88));
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
     }
 }
