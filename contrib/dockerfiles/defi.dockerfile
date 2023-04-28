@@ -1,11 +1,30 @@
-FROM debian:10
-ARG PKG_DIR
-ARG PKG_NAME
+FROM ubuntu:latest as builder
+ARG TARGET
+ARG PLATFORM
+LABEL org.defichain.name="defichain-builder"
+LABEL org.defichain.arch=${TARGET}
+
+WORKDIR /work
+COPY ./make.sh .
+
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_cross_compile_deps
+
+COPY . .
+RUN ./make.sh clean-depends && ./make.sh build-deps
+RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-make
+
+RUN mkdir /app && cd build/${TARGET} && \
+    make -s prefix=/ DESTDIR=/app install
+
+FROM --platform=${PLATFORM} debian:10
 LABEL org.defichain.name="defichain"
+LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-COPY ./${PKG_DIR}/${PKG_NAME} ./
-RUN tar -xvzf ${PKG_NAME} --strip-components 1
+COPY --from=builder /app./. ./
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \

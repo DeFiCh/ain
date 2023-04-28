@@ -16,8 +16,7 @@ setup_vars() {
     fi
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
-    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"defi.dockerfile"}
-    BUILD_DOCKERFILE=${BUILD_DOCKERFILE:-"build.dockerfile"}
+    DOCKERFILE=${DOCKERFILE:-"defi.dockerfile"}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
@@ -247,14 +246,27 @@ docker_build() {
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_file="${DOCKERFILES_DIR}/${BUILD_DOCKERFILE}"
+    local docker_file="${DOCKERFILES_DIR}/${DOCKERFILE}"
+
+    local platform_type
+    if [[ "$target" == "x86_64-pc-linux-gnu" ]]; then
+        platform_type="linux/amd64"
+    elif [[ "$target" == "aarch64-linux-gnu" ]]; then
+        platform_type="linux/arm64"
+    elif [[ "$target" == "arm-linux-gnueabihf" ]]; then
+        platform_type="linux/arm/v7"
+    fi
+    platform_type=${platform_type:-"linux/amd64"}
 
     echo "> docker-build";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" -t "${img}" --build-arg TARGET="${target}" "${docker_context}"
+    docker build -f "${docker_file}" -t "${img}" \
+        --build-arg TARGET="${target}" \
+        --buiild-arg PLATFORM="${platform_type}" \
+        "${docker_context}"
 }
 
 docker_deploy() {
@@ -294,36 +306,6 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
-}
-
-docker_buildx() {
-    local target=${1:-${TARGET}}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_file="${DOCKERFILES_DIR}/${DEFI_DOCKERFILE}"
-
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-
-    local platform_type
-    if [[ "$target" == "x86_64-pc-linux-gnu" ]]; then
-        platform_type="linux/amd64"
-    elif [[ "$target" == "aarch64-linux-gnu" ]]; then
-        platform_type="linux/arm64"
-    elif [[ "$target" == "arm-linux-gnueabihf" ]]; then
-        platform_type="linux/arm/v7"
-    fi
-
-    echo "> docker-defi-build";
-
-    local img="${img_prefix}-defi-${target}:${img_version}"
-    echo "> building: ${img}"
-    echo "> docker build defi: ${img}"
-    docker buildx build --load --platform "${platform_type}" \
-        -f "${docker_file}" -t "${img}" \
-        --build-arg PKG_DIR="${pkg_name}" \
-        --build-arg PKG_NAME="${pkg_tar_file_name}" "${docker_context}"
 }
 
 docker_clean_builds() {
