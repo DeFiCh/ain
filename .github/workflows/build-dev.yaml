@@ -47,40 +47,6 @@ jobs:
         done
         docker push defi/defichain:${ver}
 
-  linux-aarch64:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-    
-    - name: Build and package
-      run: GIT_VERSION=1 TARGET="aarch64-linux-gnu" ./make.sh docker-release
-
-    - name: Publish artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz
-
-  linux-armhf:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-    
-    - name: Build and package
-      run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-release
-
-    - name: Publish artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
-
   win-x64:
     runs-on: ubuntu-latest
     steps:
@@ -114,20 +80,3 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
-
-  osx-aarch64:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: GIT_VERSION=1 TARGET="aarch64-apple-darwin" ./make.sh docker-release
-
-    - name: Publish artifact - aarch64-apple-darwin
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin.tar.gz
