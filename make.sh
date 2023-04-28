@@ -435,6 +435,12 @@ pkg_install_deps() {
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake unzip
 
+    _fold_end
+}
+
+pkg_install_cross_compile_deps() {
+    _fold_start "pkg-install-cross-compile-deps"
+
     if [[ "$TARGET" == "x86_64-pc-linux-gnu" ]]; then
         # Default to use clang/llvm
         pkg_install_llvm
@@ -447,6 +453,7 @@ pkg_install_deps() {
     elif [[ "$TARGET" =~ .*darwin.* ]]; then
         pkg_install_deps_osx_tools
     fi
+
     _fold_end
 }
 
