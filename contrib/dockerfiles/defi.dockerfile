@@ -1,4 +1,3 @@
-ARG PLATFORM[=linux/amd64]
 FROM ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
@@ -18,7 +17,7 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/${TARGET} && \
     make -s prefix=/ DESTDIR=/app install
 
-FROM --platform=${PLATFORM} debian:10
+FROM debian:10
 LABEL org.defichain.name="defichain"
 
 WORKDIR /app

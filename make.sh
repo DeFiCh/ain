@@ -248,25 +248,12 @@ docker_build() {
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DOCKERFILES_DIR}/${DOCKERFILE}"
 
-    local platform_type
-    if [[ "$target" == "x86_64-pc-linux-gnu" ]]; then
-        platform_type="linux/amd64"
-    elif [[ "$target" == "aarch64-linux-gnu" ]]; then
-        platform_type="linux/arm64"
-    elif [[ "$target" == "arm-linux-gnueabihf" ]]; then
-        platform_type="linux/arm/v7"
-    fi
-    platform_type=${platform_type:-"linux/amd64"}
-
     echo "> docker-build";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" -t "${img}" \
-        --build-arg TARGET="${target}" \
-        --build-arg PLATFORM="${platform_type}" \
-        "${docker_context}"
+    docker build -f "${docker_file}" -t "${img}" --build-arg TARGET="${target}" "${docker_context}"
 }
 
 docker_deploy() {
