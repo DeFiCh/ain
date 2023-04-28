@@ -25,9 +25,10 @@ namespace {
  */
 enum class IsMineSigVersion
 {
-    TOP = 0,        //!< scriptPubKey execution
-    P2SH = 1,       //!< P2SH redeemScript
-    WITNESS_V0 = 2, //!< P2WSH witness script execution
+    TOP = 0,         //!< scriptPubKey execution
+    P2SH = 1,        //!< P2SH redeemScript
+    WITNESS_V0 = 2,  //!< P2WSH witness script execution
+    WITNESS_V16 = 3, //!< Eth witness script execution
 };
 
 /**
@@ -135,6 +136,23 @@ IsMineResult IsMineInner(const CWallet& keystore, const CScript& scriptPubKey, I
         CScript subscript;
         if (keystore.GetCScript(scriptID, subscript)) {
             ret = std::max(ret, IsMineInner(keystore, subscript, IsMineSigVersion::WITNESS_V0));
+        }
+        break;
+    }
+    case TX_WITNESS_V16_ETHHASH:
+    {
+        if (sigversion != IsMineSigVersion::TOP) {
+            // EthHash inside P2WSH or P2SH is invalid.
+            return IsMineResult::INVALID;
+        }
+        if (!keystore.HaveCScript(CScriptID(CScript() << OP_16 << vSolutions[0]))) {
+            break;
+        }
+
+        keyID = CKeyID(uint160(vSolutions[0]));
+
+        if (keystore.HaveKey(keyID)) {
+            ret = std::max(ret, IsMineResult::SPENDABLE);
         }
         break;
     }

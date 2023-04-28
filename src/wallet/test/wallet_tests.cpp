@@ -30,7 +30,7 @@ BOOST_FIXTURE_TEST_SUITE(wallet_tests, WalletTestingSetup)
 static void AddKey(CWallet& wallet, const CKey& key)
 {
     LOCK(wallet.cs_wallet);
-    wallet.AddKeyPubKey(key, key.GetPubKey());
+    wallet.AddKeyPubKey(key, key.GetPubKey(), false);
 }
 
 static CMutableTransaction TestSimpleSpend(const CTransaction& from, uint32_t index, const CKey& key, const CScript& pubkey)
@@ -219,7 +219,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
         std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>(chain.get(), WalletLocation(), WalletDatabase::CreateDummy());
         LOCK(wallet->cs_wallet);
         wallet->mapKeyMetadata[coinbaseKey.GetPubKey().GetID()].nCreateTime = KEY_TIME;
-        wallet->AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
+        wallet->AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey(), false);
 
         JSONRPCRequest request;
         request.params.setArray();
@@ -283,7 +283,7 @@ BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
     // Invalidate the cached value, add the key, and make sure a new immature
     // credit amount is calculated.
     wtx.MarkDirty();
-    wallet.AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
+    wallet.AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey(), false);
     BOOST_CHECK_EQUAL(wtx.GetImmatureCredit(*locked_chain), 50*COIN);
     wallet.NotifyUnload();
 }
@@ -519,7 +519,7 @@ static size_t CalculateNestedKeyhashInputSize(bool use_max_sig)
     // Add inner-script to key store and key to watchonly
     FillableSigningProvider keystore;
     keystore.AddCScript(inner_script);
-    keystore.AddKeyPubKey(key, pubkey);
+    keystore.AddKeyPubKey(key, pubkey, false);
 
     // Fill in dummy signatures for fee calculation.
     SignatureData sig_data;
