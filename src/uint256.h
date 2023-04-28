@@ -6,6 +6,7 @@
 #ifndef DEFI_UINT256_H
 #define DEFI_UINT256_H
 
+#include <array>
 #include <assert.h>
 #include <cstring>
 #include <stdexcept>
@@ -51,6 +52,20 @@ public:
     void SetHex(const char* psz);
     void SetHex(const std::string& str);
     std::string ToString() const;
+
+    [[nodiscard]] std::array<uint8_t, WIDTH> ToArray() const
+    {
+        std::array<uint8_t, WIDTH> reversedArray;
+        std::copy(data, data + sizeof(data), reversedArray.begin());
+        return reversedArray;
+    }
+
+    [[nodiscard]] std::array<uint8_t, WIDTH> ToArrayReversed() const
+    {
+        std::array<uint8_t, WIDTH> reversedArray;
+        std::copy(std::reverse_iterator<const uint8_t*>(data + sizeof(data)), std::reverse_iterator<const uint8_t*>(data), reversedArray.begin());
+        return reversedArray;
+    }
 
     unsigned char* begin()
     {
