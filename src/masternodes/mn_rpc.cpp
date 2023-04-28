@@ -146,7 +146,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     return mtx;
 }
 
-static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
 
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
@@ -186,7 +186,7 @@ static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CT
     return MakeTransactionRef(std::move(mtx));
 }
 
-static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
 
     if (optAuthTx) {
         send(optAuthTx, {});
@@ -499,6 +499,18 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
     CDataStructureV0 startKey{AttributeTypes::Param, typeId, DFIPKeys::StartBlock};
 
     return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
+}
+
+std::string CTransferBalanceTypeToString(const CTransferBalanceType type) {
+    switch (type) {
+        case CTransferBalanceType::AccountToAccount:
+            return "AccountToAccount";
+        case CTransferBalanceType::EvmIn:
+            return "EvmIn";
+        case CTransferBalanceType::EvmOut:
+            return "EvmOut";
+    }
+    return "Unknown";
 }
 
 UniValue setgov(const JSONRPCRequest& request) {

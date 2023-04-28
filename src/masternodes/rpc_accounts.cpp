@@ -1936,6 +1936,126 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue transferbalance(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"transferbalance",
+               "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"type", RPCArg::Type::STR, RPCArg::Optional::NO, "Type of transfer: evmin/evmout."},
+                       {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The source defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                        },
+                       },
+                       {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("transferbalance", R"(acctoacc '{\"<fromAddress>\":\"1.0@DFI\"}' '{\"<toAddress>\":\"1.0@DFI\"}')")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot transferbalance while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VOBJ}, false);
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CTransferBalanceMessage msg;
+
+    try {
+        if (!request.params[0].isNull()){
+            auto type = request.params[0].getValStr();
+            msg.type = CTransferBalanceType::AccountToAccount;
+
+            if (type == "evmin")
+                msg.type = CTransferBalanceType::EvmIn;
+            else if (type == "evmout")
+                msg.type = CTransferBalanceType::EvmOut;
+        } else
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must not be null");
+
+        if (!request.params[1].isNull())
+            msg.from = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
+        else
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+
+        if (!request.params[2].isNull()){
+            const auto recipients = DecodeRecipientsGetRecipients(request.params[2].get_obj());
+            const auto accounts = DecodeRecipients(pwallet->chain(), recipients);
+            msg.to = accounts;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"to\" must not be null");
+        }
+    } catch(std::runtime_error& e) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+
+    metadata << static_cast<unsigned char>(CustomTxType::TransferBalance)
+             << msg;
+
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    if (msg.type != CTransferBalanceType::EvmOut) {
+        for(auto& address : msg.from){
+            auths.insert(address.first);
+        }
+    } else {
+        for(auto& address : msg.from) {
+            const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
+            const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+            auths.insert(auth);
+        }
+    }
+
+    UniValue txInputs(UniValue::VARR);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    auto txRef = sign(rawTx, pwallet, optAuthTx);
+    // check execution
+    execTestTx(*txRef, targetHeight, optAuthTx);
+
+    return send(txRef, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue getburninfo(const JSONRPCRequest& request) {
     RPCHelpMan{"getburninfo",
                "\nReturns burn address and burnt coin and token information.\n"
