@@ -21,7 +21,7 @@ FROM debian:10
 LABEL org.defichain.name="defichain"
 
 WORKDIR /app
-COPY --from=builder /app./. ./
+COPY --from=builder /app/. ./
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
