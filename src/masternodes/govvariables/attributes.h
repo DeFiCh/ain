@@ -86,6 +86,7 @@ enum DFIPKeys : uint8_t {
     CFPPayout            = 'r',
     EmissionUnusedFund   = 's',
     MintTokens           = 't',
+    EVMEnabled           = 'u',
 };
 
 enum GovernanceKeys : uint8_t {
