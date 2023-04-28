@@ -99,6 +99,15 @@ pub trait MetachainRPC {
 
     #[method(name = "eth_getTransactionReceipt")]
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>>;
+
+    #[method(name = "eth_getWork")]
+    fn get_getwork(&self) -> RpcResult<Vec<String>>;
+
+    #[method(name = "eth_submitWork")]
+    fn eth_submitwork(&self, nonce: String, hash: String, digest: String) -> RpcResult<bool>;
+
+    #[method(name = "eth_submitHashrate")]
+    fn eth_submithashrate(&self, hashrate: String, id: String) -> RpcResult<bool>;
 }
 
 pub struct MetachainRPCModule {
@@ -364,5 +373,21 @@ impl MetachainRPCServer for MetachainRPCModule {
             .receipt
             .get_receipt(hash)
             .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
+    }
+
+    fn get_getwork(&self) -> RpcResult<Vec<String>> {
+        Ok(vec![
+            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+        ])
+    }
+
+    fn eth_submitwork(&self, _nonce: String, _hash: String, _digest: String) -> RpcResult<bool> {
+        Ok(false)
+    }
+
+    fn eth_submithashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
+        Ok(false)
     }
 }
