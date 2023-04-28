@@ -1,6 +1,6 @@
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
-use ethereum::{EIP658ReceiptData, EnvelopedEncodable, ReceiptV3};
+use ethereum::{EnvelopedEncodable, ReceiptV3};
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;
@@ -39,33 +39,27 @@ impl ReceiptHandler {
         Self { storage }
     }
 
-    pub fn get_receipt_root(&self, receipts: &[Receipt]) -> H256 {
+    pub fn get_receipts_root(receipts: &[ReceiptV3]) -> H256 {
         ordered_trie_root(
             receipts
                 .iter()
-                .map(|r| EnvelopedEncodable::encode(&r.receipt).freeze()),
+                .map(|r| EnvelopedEncodable::encode(r).freeze()),
         )
     }
 
     pub fn generate_receipts(
         &self,
-        successful: Vec<SignedTx>,
-        failed: Vec<SignedTx>,
+        transactions: &[SignedTx],
+        receipts: Vec<ReceiptV3>,
         block_hash: H256,
         block_number: U256,
     ) -> Vec<Receipt> {
-        let mut receipts = Vec::new();
-
-        let mut index = 0;
-
-        for signed_tx in successful {
-            let receipt = Receipt {
-                receipt: ReceiptV3::EIP1559(EIP658ReceiptData {
-                    status_code: 1,
-                    used_gas: Default::default(),
-                    logs_bloom: Default::default(),
-                    logs: vec![],
-                }),
+        transactions
+            .iter()
+            .enumerate()
+            .zip(receipts.into_iter())
+            .map(|((index, signed_tx), receipt)| Receipt {
+                receipt,
                 block_hash,
                 block_number,
                 tx_hash: signed_tx.transaction.hash(),
@@ -77,36 +71,8 @@ impl ReceiptHandler {
                     .to()
                     .is_none()
                     .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
-            };
-            receipts.push(receipt);
-            index += 1;
-        }
-
-        for signed_tx in failed {
-            let receipt = Receipt {
-                receipt: ReceiptV3::EIP1559(EIP658ReceiptData {
-                    status_code: 0,
-                    used_gas: Default::default(),
-                    logs_bloom: Default::default(),
-                    logs: vec![],
-                }),
-                block_hash,
-                block_number,
-                tx_hash: signed_tx.transaction.hash(),
-                from: signed_tx.sender,
-                to: signed_tx.to(),
-                tx_index: index,
-                contract_address: signed_tx
-                    .to()
-                    .is_none()
-                    .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
-                tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap(),
-            };
-
-            receipts.push(receipt);
-            index += 1;
-        }
-        receipts
+            })
+            .collect()
     }
 
     pub fn put_receipts(&self, receipts: Vec<Receipt>) {

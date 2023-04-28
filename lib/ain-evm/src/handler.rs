@@ -5,10 +5,9 @@ use crate::receipt::ReceiptHandler;
 use crate::storage::Storage;
 use crate::traits::Executor;
 
-use ethereum::{Block, BlockAny, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput};
+use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum_types::{Bloom, H160, U256};
 use evm::backend::MemoryBackend;
-use primitive_types::{H160, U256};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -44,8 +43,9 @@ impl Handlers {
         difficulty: u32,
         miner_address: Option<H160>,
     ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
-        let mut successful_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Default::default();
 
@@ -59,40 +59,31 @@ impl Handlers {
                 exit_reason,
                 logs,
                 used_gas,
+                receipt,
                 ..
             } = executor.exec(&signed_tx);
             if exit_reason.is_succeed() {
-                successful_transactions.push(signed_tx);
+                all_transactions.push(signed_tx);
             } else {
-                failed_transactions.push(signed_tx)
+                failed_transactions.push(signed_tx.transaction.clone());
+                all_transactions.push(signed_tx);
             }
-            gas_used += used_gas;
-            Self::logs_bloom(logs, &mut logs_bloom);
-        }
 
-        let mut all_transactions = successful_transactions
-            .clone()
-            .into_iter()
-            .map(|tx| tx.transaction)
-            .collect::<Vec<TransactionV2>>();
-        all_transactions.extend(
-            failed_transactions
-                .clone()
-                .into_iter()
-                .map(|tx| tx.transaction)
-                .collect::<Vec<TransactionV2>>(),
-        );
+            gas_used += used_gas;
+            EVMHandler::logs_bloom(logs, &mut logs_bloom);
+            receipts_v3.push(receipt);
+        }
 
         self.evm.tx_queues.remove(context);
 
         let (parent_hash, number) = self.block.get_latest_block_hash_and_number();
 
-        let mut block = Block::new(
+        let block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary: miner_address.unwrap_or_default(),
                 state_root: Default::default(),
-                receipts_root: Default::default(),
+                receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number,
@@ -106,41 +97,28 @@ impl Handlers {
                 mix_hash: Default::default(),
                 nonce: Default::default(),
             },
-            all_transactions,
+            all_transactions
+                .iter()
+                .map(|signed_tx| signed_tx.transaction.clone())
+                .collect(),
             Vec::new(),
         );
 
         let receipts = self.receipt.generate_receipts(
-            successful_transactions,
-            failed_transactions.clone(),
+            &all_transactions,
+            receipts_v3,
             block.header.hash(),
             block.header.number,
         );
-        block.header.receipts_root = self.receipt.get_receipt_root(&receipts);
 
         if update_state {
             let mut state = self.evm.state.write().unwrap();
             *state = executor.backend().state().clone();
 
-            self.block.connect_block(&block);
+            self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((
-            block,
-            failed_transactions
-                .into_iter()
-                .map(|tx| tx.transaction)
-                .collect(),
-        ))
-    }
-
-    fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
-        for log in logs {
-            bloom.accrue(BloomInput::Raw(&log.address[..]));
-            for topic in log.topics {
-                bloom.accrue(BloomInput::Raw(&topic[..]));
-            }
-        }
+        Ok((block, failed_transactions))
     }
 }

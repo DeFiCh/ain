@@ -6,7 +6,8 @@ use crate::{
     transaction::SignedTx,
 };
 use anyhow::anyhow;
-use ethereum::{AccessList, TransactionV2};
+use ethereum::{AccessList, Log, TransactionV2};
+use ethereum_types::{Bloom, BloomInput};
 use evm::backend::MemoryAccount;
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},
@@ -137,6 +138,15 @@ impl EVMHandler {
         let signed_tx = self.validate_raw_tx(raw_tx)?;
         self.tx_queues.add_signed_tx(context, signed_tx);
         Ok(())
+    }
+
+    pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
+        for log in logs {
+            bloom.accrue(BloomInput::Raw(&log.address[..]));
+            for topic in log.topics {
+                bloom.accrue(BloomInput::Raw(&topic[..]));
+            }
+        }
     }
 }
 
