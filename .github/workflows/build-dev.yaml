@@ -163,7 +163,8 @@ jobs:
         docker push defi/defichain:${ver}-arm
 
     - name: Create and push manifest list to Docker Hub
-      run:
+      run: |
+        set -e; ver=${{ env.BUILD_VERSION }}
         docker manifest create defi/defichain:${ver} defi/defichain:${ver}-x64 defi/defichain:${ver}-arm64 defi/defichain:${ver}-arm
         docker manifest annotate --arch amd64 defi/defichain:${ver} defi/defichain:${ver}-x64
         docker manifest annotate --arch arm64 defi/defichain:${ver} defi/defichain:${ver}-arm64
