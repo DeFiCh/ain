@@ -60,7 +60,7 @@ service Api {
 }
 
 message EthAccountsResponse {
-    repeated string accounts = 1; // Accounts
+    repeated string accounts = 1; // The list of accounts (Hex)
 }
 
 message EthTransactionInfo {
@@ -74,7 +74,7 @@ message EthTransactionInfo {
 }
 
 message EthChainIdResponse {
-    string id = 1;
+    string id = 1; // Hexadecimal value as a string representing the integer of the current chain id.
 }
 
 message EthBlockInfo {
@@ -118,7 +118,7 @@ message EthTransactionReceipt {
 }
 
 message EthCallRequest {
-    EthTransactionInfo transaction_info = 1; // Transaction info
+    EthTransactionInfo transaction_info = 1; // The transaction call object
     string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
@@ -127,111 +127,111 @@ message EthCallResponse {
 }
 
 message EthSignRequest {
-    string address = 1;
-    string message = 2;
+    string address = 1; // Address you want to use to sign the message
+    string message = 2; // Hexadecimal value of the message that you want to sign
 }
 
 message EthSignResponse {
-    string signature = 1;
+    string signature = 1; // Hexadecimal value of the signed message
 }
 
 message EthGetBalanceRequest {
-    string address = 1;
-    string block_number = 2;
+    string address = 1; // Address you want to check the balance
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetBalanceResponse {
-    string balance = 1;
+    string balance = 1; // Integer of the current balance in wei (Hex)
 }
 
 message EthSendTransactionRequest {
-    EthTransactionInfo transaction_info = 1;
+    EthTransactionInfo transaction_info = 1; // The transaction object
 }
 
 message EthSendTransactionResponse {
-    string hash = 1;
+    string hash = 1; // The transaction hash, or the zero hash if the transaction is not yet available
 }
 
 message EthCoinBaseResponse {
-    string address = 1;
+    string address = 1; // The current coinbase address
 }
 
 message EthMiningResponse  {
-    bool isMining = 1;
+    bool isMining = 1; // True if the client is mining, otherwise False
 }
 
 message EthHashRateResponse {
-    string hash_rate = 1;
+    string hash_rate = 1; // Number of hashes per second (Hex)
 }
 
 message EthGasPriceResponse {
-    string gas_price = 1;
+    string gas_price = 1; // Integer of the current gas price in wei (Hex)
 }
 
 message EthBlockNumberResponse {
-    string block_number = 1;
+    string block_number = 1; // Integer of the current block number the client is on (Hex)
 }
 
 message EthGetTransactionCountRequest {
     string address = 1;
-    string block_number = 2;
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetTransactionCountResponse {
-    string number_transaction = 1;
+    string number_transaction = 1; // Integer of the number of transactions send from this address (Hex)
 }
 
 message EthGetBlockTransactionCountByHashRequest {
-    string block_hash = 1;
+    string block_hash = 1; // Hash of a block (Hex)
 }
 
 message EthGetBlockTransactionCountByHashResponse {
-    string number_transaction = 1;
+    string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
 }
 
 message EthGetBlockTransactionCountByNumberRequest {
-    string block_number = 1;
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetBlockTransactionCountByNumberResponse {
-    string number_transaction = 1;
+    string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
 }
 
 message EthGetUncleCountByBlockHashRequest {
-    string block_hash = 1;
+    string block_hash = 1; // Hash of a block (Hex)
 }
 
 message EthGetUncleCountByBlockHashResponse {
-    string number_uncles = 1;
+    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
 }
 
 message EthGetUncleCountByBlockNumberRequest {
-    string block_number = 1;
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetUncleCountByBlockNumberResponse {
-    string number_uncles = 1;
+    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
 }
 
 message EthGetCodeRequest {
-    string address = 1;
-    string block_number = 2;
+    string address = 1; // Address you wan to get the code from
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetCodeResponse {
-    string code = 1; // The code from the given address.
+    string code = 1; // The code from the given address
 }
 
 message EthSignTransactionRequest {
-    EthTransactionInfo transaction_info = 1;
+    EthTransactionInfo transaction_info = 1; // The transaction object to be signed
 }
 
 message EthSignTransactionResponse {
-    string transaction = 1; // The signed transaction object.
+    string transaction = 1; // The signed transaction object
 }
 
 message EthSendRawTransactionRequest {
-    string transaction = 1;
+    string transaction = 1; // Hexadecimal encoded signed transaction
 }
 
 message EthSendRawTransactionResponse {
@@ -283,7 +283,7 @@ message EthGetTransactionByBlockHashAndIndexResponse {
 }
 
 message EthGetTransactionByBlockNumberAndIndexRequest {
-    string block_number = 1;
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
     string index = 2;
 }
 
@@ -301,7 +301,7 @@ message EthGetUncleByBlockHashAndIndexResponse {
 }
 
 message EthGetUncleByBlockNumberAndIndexRequest {
-    string block_number = 1;
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
     string index = 2;
 }
 
@@ -389,7 +389,7 @@ message EthSubmitHashrateResponse {
 message EthGetStorageAtRequest {
     string address = 1;
     string position = 2;
-    string block_number = 3;
+    string block_number = 3; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
 }
 
 message EthGetStorageAtResponse {
