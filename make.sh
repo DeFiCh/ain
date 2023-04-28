@@ -265,7 +265,7 @@ docker_build() {
     echo "> docker build: ${img}"
     docker build -f "${docker_file}" -t "${img}" \
         --build-arg TARGET="${target}" \
-        --buiild-arg PLATFORM="${platform_type}" \
+        --build-arg PLATFORM="${platform_type}" \
         "${docker_context}"
 }
 
