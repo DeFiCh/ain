@@ -1,6 +1,9 @@
 #ifndef DEFI_MASTERNODES_FFI_TEMP_STUB_H
 #define DEFI_MASTERNODES_FFI_TEMP_STUB_H
 
+#include <array>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace rust {
@@ -37,6 +40,10 @@ inline ::rust::Vec<::std::uint8_t> evm_finalize(::std::uint64_t context, bool up
 
 inline void evm_discard_context(::std::uint64_t context) {}
 
+inline uint64_t evm_get_balance(::rust::Str address) {
+    return {};
+}
+
 inline void evm_add_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount) {}
 
 inline bool evm_sub_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount) {
@@ -50,5 +57,9 @@ inline bool evm_validate_raw_tx(::rust::Str tx) {
 inline bool evm_queue_tx(::std::uint64_t context, ::rust::Str raw_tx) {
     return {};
 }
+
+inline void init_runtime() {}
+inline void start_servers(::rust::Str json_addr, ::rust::Str grpc_addr) {}
+inline void stop_runtime() {}
 
 #endif  // DEFI_MASTERNODES_FFI_TEMP_STUB_H
