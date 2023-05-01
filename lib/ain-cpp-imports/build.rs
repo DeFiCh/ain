@@ -14,7 +14,7 @@ fn main() -> Result<()> {
 
     let ffi_rs_src_path = &manifest_path.join("src/bridge.rs");
     let ffi_exports_h_path = &cpp_src_path.join("ffi/ffiexports.h");
-    
+
     let mut stdlib = "stdc++";
     if env::consts::OS.to_lowercase() == "macos" {
         stdlib = "c++"
