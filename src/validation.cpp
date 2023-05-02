@@ -2828,7 +2828,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
-    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+
+    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight && attributes->GetValue(enabledKey, false)) {
         CKeyID minter;
         assert(block.ExtractMinterKey(minter));
         std::array<uint8_t, 20> minerAddress{};
