@@ -55,9 +55,9 @@ public:
 
     [[nodiscard]] std::array<uint8_t, WIDTH> ToArray() const
     {
-        std::array<uint8_t, WIDTH> reversedArray;
-        std::copy(data, data + sizeof(data), reversedArray.begin());
-        return reversedArray;
+        std::array<uint8_t, WIDTH> array;
+        std::copy(data, data + sizeof(data), array.begin());
+        return array;
     }
 
     [[nodiscard]] std::array<uint8_t, WIDTH> ToArrayReversed() const
