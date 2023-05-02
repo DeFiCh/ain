@@ -4,8 +4,8 @@ use std::path::PathBuf;
 fn main() -> Result<()> {
     std::env::set_var("PROTOC", protobuf_src::protoc());
     let proto_include = protobuf_src::include();
-
-    let manifest_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+    
+    // let manifest_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     // let gen_path = manifest_path.join("gen");
     let gen_path = PathBuf::from(std::env::var("OUT_DIR")?);
 
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
             &["proto/services.proto"],
             &[
                 "proto",
-                proto_include.to_str().ok_or(format_err!("path err"))?,
+                proto_include.to_str().ok_or(format_err!("proto include path err"))?,
             ],
         )?;
     Ok(())

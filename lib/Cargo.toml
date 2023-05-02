@@ -2,9 +2,10 @@
 members = [
     "ain-*",
     "cli",
-    "exp-ain-grpc2",
+    "labs-grpc2",
+    "labs-dfeye",
 ]
+
 default-members = [
     "ain-*",
 ]
-
