@@ -1,4 +1,6 @@
 CARGO ?= cargo
+CARGO_HOME ?= $(CARGO_HOME)
+RUSTUP_HOME ?= $(RUSTUP_HOME)
 
 # RUST_TARGET is set from configure
 TARGET ?= $(RUST_TARGET)
@@ -14,9 +16,12 @@ TARGET_DIR ?= $(abs_builddir)/target
 SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 
+# We're resetting DESTDIR so that nested autotools based builds
+# don't end up in unexpected places (Currently protobuf-src is affected)
+
 .PHONY:
 all: 
-	TARGET_DIR=$(TARGET_DIR) $(CARGO) build \
+	DESTDIR= TARGET_DIR=$(TARGET_DIR) $(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(DEBUG),,--release) \
