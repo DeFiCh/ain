@@ -55,6 +55,6 @@ endef
 define $(package)_postprocess_cmds
   mkdir -p $($(package)_ROOT)/share/cargo && \
   mv $($(package)_ROOT)/env $($(package)_ROOT)/share/cargo/env && \
-  sed -i'' 's#$($(package)_staging_dir)/##' $($(package)_ROOT)/share/cargo/env
+  perl -pi -e 's#$($(package)_staging_dir)/##' $($(package)_ROOT)/share/cargo/env
 endef
 

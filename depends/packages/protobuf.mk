@@ -2,12 +2,12 @@ package=protobuf
 $(package)_version=22.2
 $(package)_download_path=https://github.com/protocolbuffers/protobuf/releases/download/v22.2/
 
-# Note we only support limited platforms due to protobuf binary constraint
-# If we enable source build for this later, this can unblock most other platform
-# builds. For now, it's aarch64 for arm and x86_64 for win and linux
-
 # NOTE: protoc gets invoked on the BUILD OS during compile. So, we don't
 # care about HOST OS, unlike all other dependencies
+
+# NOTE: We likley don't need this at all. But just keeping this until it's
+# merged into master so we can use it if we ever need it later. 
+# Meanwhile, protobuf is compiled as a part of rust dep.
 
 # TODO: Fill up hashes later
 ifeq ($(build_os)-$(build_arch),linux-x86_64)
@@ -22,7 +22,7 @@ ifeq ($(build_os)-$(build_arch),darwin-x86_64)
   $(package)_file_name=protoc-$($(package)_version)-osx-x86_64.zip
   $(package)_sha256_hash=
 endif
-ifeq ($(build_os)-$(build_arch),darwin-arm)
+ifeq ($(build_os)-$(build_arch),darwin-aarch64)
   $(package)_file_name=protoc-$($(package)_version)-osx-aarch_64.zip
   $(package)_sha256_hash=
 endif
