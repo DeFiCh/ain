@@ -5,6 +5,8 @@ use lru::LruCache;
 use primitive_types::{H256, U256};
 use std::borrow::ToOwned;
 
+use super::traits::{BlockStorage, TransactionStorage};
+
 #[derive(Debug)]
 pub struct Cache {
     transactions: RwLock<LruCache<H256, TransactionV2>>,
@@ -32,8 +34,51 @@ impl Cache {
     }
 }
 
-impl Cache {
-    pub fn extend_transactions_from_block(&self, block: &BlockAny) {
+impl BlockStorage for Cache {
+    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
+        self.blocks
+            .write()
+            .unwrap()
+            .get(number)
+            .map(ToOwned::to_owned)
+    }
+
+    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
+        self.block_hashes
+            .write()
+            .unwrap()
+            .get(block_hash)
+            .and_then(|block_number| self.get_block_by_number(block_number))
+    }
+
+    fn put_block(&self, block: &BlockAny) {
+        self.extend_transactions_from_block(block);
+
+        let block_number = block.header.number;
+        let hash = block.header.hash();
+        self.blocks
+            .write()
+            .unwrap()
+            .put(block_number, block.clone());
+        self.block_hashes.write().unwrap().put(hash, block_number);
+    }
+
+    fn get_latest_block(&self) -> Option<BlockAny> {
+        self.latest_block
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(ToOwned::to_owned)
+    }
+
+    fn put_latest_block(&self, block: &BlockAny) {
+        let mut cache = self.latest_block.write().unwrap();
+        *cache = Some(block.clone());
+    }
+}
+
+impl TransactionStorage for Cache {
+    fn extend_transactions_from_block(&self, block: &BlockAny) {
         let mut cache = self.transactions.write().unwrap();
 
         for transaction in &block.transactions {
@@ -42,7 +87,7 @@ impl Cache {
         }
     }
 
-    pub fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
+    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
         self.transactions
             .write()
             .unwrap()
@@ -50,7 +95,7 @@ impl Cache {
             .map(ToOwned::to_owned)
     }
 
-    pub fn get_transaction_by_block_hash_and_index(
+    fn get_transaction_by_block_hash_and_index(
         &self,
         block_hash: &H256,
         index: usize,
@@ -64,7 +109,7 @@ impl Cache {
             })
     }
 
-    pub fn get_transaction_by_block_number_and_index(
+    fn get_transaction_by_block_number_and_index(
         &self,
         block_number: &U256,
         index: usize,
@@ -77,48 +122,11 @@ impl Cache {
             .get(index)
             .map(ToOwned::to_owned)
     }
-}
 
-// Block impl
-impl Cache {
-    pub fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.blocks
+    fn put_transaction(&self, transaction: &TransactionV2) {
+        self.transactions
             .write()
             .unwrap()
-            .get(number)
-            .map(ToOwned::to_owned)
-    }
-
-    pub fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
-        self.block_hashes
-            .write()
-            .unwrap()
-            .get(block_hash)
-            .and_then(|block_number| self.get_block_by_number(block_number))
-    }
-
-    pub fn put_block(&self, block: BlockAny) {
-        self.extend_transactions_from_block(&block);
-
-        let block_number = block.header.number;
-        let hash = block.header.hash();
-        self.blocks.write().unwrap().put(block_number, block);
-        self.block_hashes.write().unwrap().put(hash, block_number);
-    }
-}
-
-// Latest block impl
-impl Cache {
-    pub fn get_latest_block(&self) -> Option<BlockAny> {
-        self.latest_block
-            .read()
-            .unwrap()
-            .as_ref()
-            .map(ToOwned::to_owned)
-    }
-
-    pub fn put_latest_block(&self, block: BlockAny) {
-        let mut cache = self.latest_block.write().unwrap();
-        *cache = Some(block);
+            .put(transaction.hash(), transaction.clone());
     }
 }

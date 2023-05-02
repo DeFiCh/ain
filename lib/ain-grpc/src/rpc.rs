@@ -6,6 +6,7 @@ use crate::receipt::ReceiptResult;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
 
+use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
@@ -224,7 +225,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_transaction_by_hash(&self, hash: H256) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_hash(hash)
+            .get_transaction_by_hash(&hash)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -250,7 +251,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_hash_and_index(hash, index)
+            .get_transaction_by_block_hash_and_index(&hash, index)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -266,7 +267,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_number_and_index(number, index)
+            .get_transaction_by_block_number_and_index(&number, index)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -277,8 +278,8 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_block_transaction_count_by_hash(&self, hash: H256) -> RpcResult<usize> {
         self.handler
-            .block
-            .get_block_by_hash(hash)
+            .storage
+            .get_block_by_hash(&hash)
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
@@ -287,8 +288,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             BlockNumber::Pending => Ok(0), // TODO get from mempool ?
             BlockNumber::Num(number) if number > 0 => self
                 .handler
-                .block
-                .get_block_by_number(number as usize)
+                .storage
+                .get_block_by_number(&U256::from(number))
                 .map_or(Ok(0), |b| Ok(b.transactions.len())),
             BlockNumber::Num(_) => Err(Error::Custom(String::from("Block number should be >= 0."))),
             BlockNumber::Latest => self
@@ -370,8 +371,8 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
         self.handler
-            .receipt
-            .get_receipt(hash)
+            .storage
+            .get_receipt(&hash)
             .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 
