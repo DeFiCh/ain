@@ -78,3 +78,11 @@ fi
 if test -n "@LDFLAGS@"; then
   LDFLAGS="@LDFLAGS@ $LDFLAGS"
 fi
+
+# TODO: Should we pick these up from configure as the source
+# and use that during depends? 
+# Is it overridable with local defaults?
+
+CARGO=$depends_prefix/bin/cargo
+CARGO_HOME=$depends_prefix/
+RUSTUP_HOME=$depends_prefix/.rustup
