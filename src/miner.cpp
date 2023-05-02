@@ -243,13 +243,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
     }
 
-    // TODO Get failed TXs and try to restore to mempool
-    std::array<uint8_t, 20> dummyAddress{};
-    const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
 
+    // TODO Get failed TXs and try to restore to mempool
     std::vector<uint8_t> evmHeader{};
-    evmHeader.resize(rustHeader.size());
-    std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+    if (nHeight >= consensus.NextNetworkUpgradeHeight && attributes->GetValue(enabledKey, false)) {
+        std::array<uint8_t, 20> dummyAddress{};
+        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+        evmHeader.resize(rustHeader.size());
+        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+    }
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
