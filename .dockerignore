@@ -1,4 +1,5 @@
 .code
+.cache
 .idea
 
 # Editors.
@@ -141,7 +142,6 @@ contrib/devtools/split-debug.sh
 # CI scratch area used for tests
 /ci/scratch/
 
-# Potential rust paths to keep things clean
-# as we switch between branches
-/src/rust/target
+# Rust local artifacts
 /lib/target
+*.bin
