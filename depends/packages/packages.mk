@@ -1,4 +1,4 @@
-packages := boost libevent
+packages := boost libevent rust
 
 # TODO: We start with these disabled for now until we connect
 # the toolchain into autotools to use these
