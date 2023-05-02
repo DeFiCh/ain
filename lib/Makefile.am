@@ -1,8 +1,8 @@
-# TODO: Refine these vars with graceful swichover to local and
-# ensure it works without them set as well as with them set
-CARGO_HOME ?= 
-RUSTUP_HOME ?= 
-CARGO ?= cargo
+if ENABLE_LOCAL_RUST
+    _CARGO = cargo
+else
+    _CARGO = RUSTUP_HOME=$(RUSTUP_HOME) CARGO_HOME=$(CARGO_HOME) $(CARGO)
+endif
 
 # RUST_TARGET is set from configure
 TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),x86_64-unknown-linux-gnu)
@@ -23,9 +23,7 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 .PHONY:
 all: 
 	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
-	RUSTUP_HOME=$(RUSTUP_HOME) \
-	CARGO_HOME=$(CARGO_HOME) \
-	$(CARGO) build \
+	$(_CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(DEBUG),,--release) \
@@ -34,9 +32,7 @@ all:
 
 .PHONY:
 clean-local:
-	RUSTUP_HOME=$(RUSTUP_HOME) \
-	CARGO_HOME=$(CARGO_HOME) \
-	$(CARGO) clean \
+	$(_CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" && \
 	rm -rf $(TARGET_DIR)/{include,lib,src}
