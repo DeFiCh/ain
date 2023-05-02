@@ -80,6 +80,8 @@ class DefiTestMetaClass(type):
 def get_default_config_path():
     current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     default_config_paths = [
+        current_file_path + "/../../../build/test/config.ini",
+        current_file_path + "/../../config.ini",
         # priority build selections for standard dev envs
         current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
         current_file_path + "/../../../build/aarch64-apple-darwin/test/config.ini",
@@ -88,9 +90,6 @@ def get_default_config_path():
         # aarch64 / arm builds
         current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
         current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
-        # relative paths
-        current_file_path + "/../../../build/test/config.ini",
-        current_file_path + "/../../config.ini",
     ]
     for p in default_config_paths:
         if os.path.exists(p):
