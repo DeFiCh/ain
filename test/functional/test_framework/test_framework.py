@@ -82,6 +82,7 @@ def get_default_config_path():
     default_config_paths = [
         # default priority to be for build dir specific build
         current_file_path + "/../../../build/test/config.ini",
+        # tree-path specific for build explicitly built in tree
         current_file_path + "/../../config.ini",
         # priority host specific build selection for standard dev envs
         current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
