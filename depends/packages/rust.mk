@@ -23,7 +23,7 @@ define $(package)_set_vars
   ifeq ($(host_os)-$(host_arch),darwin-x86_64)
     $(package)_target=x86_64-apple-darwin
   endif
-  ifeq ($(host_os)-$(host_arch),darwin-arm)
+  ifeq ($(host_os)-$(host_arch),darwin-aarch64)
     $(package)_target=aarch64-apple-darwin
   endif
   ifeq ($(host_os)-$(host_arch),mingw32-x86_64)

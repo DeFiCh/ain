@@ -15,15 +15,13 @@ fn main() -> Result<()> {
     let ffi_rs_src_path = &manifest_path.join("src/bridge.rs");
     let ffi_exports_h_path = &cpp_src_path.join("ffi/ffiexports.h");
 
-    #[cfg(not(target_os = "macos"))]
-    let stdlib = "stdc++";
-
-    #[cfg(target_os = "macos")]
-    let stdlib = "c++";
-
     cxx_build::bridge(ffi_rs_src_path)
         .include(cpp_src_path)
-        .cpp_link_stdlib(stdlib)
+        .cpp_link_stdlib(if cfg!(target_os = "macos") {
+            "c++"
+        } else {
+            "stdc++"
+        })
         .flag("-std=c++17")
         .flag("-Wno-unused-parameter")
         .static_flag(true)

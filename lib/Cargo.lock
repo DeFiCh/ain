@@ -118,6 +118,7 @@ dependencies = [
  "proc-macro2",
  "prost",
  "prost-build",
+ "protobuf-src",
  "quote",
  "regex",
  "rlp",
