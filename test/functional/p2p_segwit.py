@@ -50,7 +50,7 @@ from test_framework.script import (
     MAX_SCRIPT_ELEMENT_SIZE,
     OP_0,
     OP_1,
-    OP_16,
+    OP_15,
     OP_2DROP,
     OP_CHECKMULTISIG,
     OP_CHECKSIG,
@@ -1352,7 +1352,7 @@ class SegWitTest(DefiTestFramework):
         Sending to future segwit versions is always allowed.
         Can run this before and after segwit activation."""
 
-        NUM_SEGWIT_VERSIONS = 17  # will test OP_0, OP1, ..., OP_16
+        NUM_SEGWIT_VERSIONS = 16  # will test OP_0, OP1, ..., OP_15
         if len(self.utxo) < NUM_SEGWIT_VERSIONS:
             tx = CTransaction()
             tx.vin.append(CTxIn(COutPoint(self.utxo[0].sha256, self.utxo[0].n), b""))
@@ -1373,7 +1373,7 @@ class SegWitTest(DefiTestFramework):
         witness_program = CScript([OP_TRUE])
         witness_hash = sha256(witness_program)
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
-        for version in list(range(OP_1, OP_16 + 1)) + [OP_0]:
+        for version in list(range(OP_1, OP_15 + 1)) + [OP_0]:
             # First try to spend to a future version segwit script_pubkey.
             script_pubkey = CScript([CScriptOp(version), witness_hash])
             tx.vin = [CTxIn(COutPoint(self.utxo[0].sha256, self.utxo[0].n), b"")]

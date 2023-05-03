@@ -19,6 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
@@ -2283,7 +2284,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmContext)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2627,7 +2628,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2826,6 +2827,48 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
+
+    if (IsEVMEnabled(pindex->nHeight, mnview)) {
+        CKeyID minter;
+        assert(block.ExtractMinterKey(minter));
+        std::array<uint8_t, 20> minerAddress{};
+
+        if (!fMockNetwork) {
+            const auto id = mnview.GetMasternodeIdByOperator(minter);
+            assert(id);
+            const auto node = mnview.GetMasternode(*id);
+            assert(node);
+
+            auto height = node->creationHeight;
+            auto mnID = *id;
+            if (!node->collateralTx.IsNull()) {
+                const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
+                assert(idHeight);
+                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+                mnID = node->collateralTx;
+            }
+
+            const auto blockindex = ::ChainActive()[height];
+            assert(blockindex);
+
+
+            CTransactionRef tx;
+            uint256 hash_block;
+            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+            assert(tx->vout.size() >= 2);
+
+            CTxDestination dest;
+            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
+
+            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
+        } else {
+            std::copy(minter.begin(), minter.end(), minerAddress.begin());
+        }
+
+        evm_finalize(evmContext, true, block.nBits, minerAddress);
+    }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3269,9 +3312,11 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
+        const auto evmContext = evm_get_context();
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
+            evm_discard_context(evmContext);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }

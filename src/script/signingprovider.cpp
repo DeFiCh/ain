@@ -69,7 +69,7 @@ FlatSigningProvider Merge(const FlatSigningProvider& a, const FlatSigningProvide
     return ret;
 }
 
-void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
+void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const bool ethAddress)
 {
     AssertLockHeld(cs_KeyStore);
     CKeyID key_id = pubkey.GetID();
@@ -89,6 +89,10 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
         mapScripts[id] = std::move(script);
+    } else if (ethAddress) {
+        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+        CScriptID id(script);
+        mapScripts[id] = std::move(script);
     }
 }
 
@@ -102,11 +106,14 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     return true;
 }
 
-bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
+bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress)
 {
     LOCK(cs_KeyStore);
     mapKeys[pubkey.GetID()] = key;
-    ImplicitlyLearnRelatedKeyScripts(pubkey);
+    if (ethAddress) {
+        mapKeys[pubkey.GetEthID()] = key;
+    }
+    ImplicitlyLearnRelatedKeyScripts(pubkey, ethAddress);
     return true;
 }
 
@@ -121,6 +128,16 @@ std::set<CKeyID> FillableSigningProvider::GetKeys() const
     LOCK(cs_KeyStore);
     std::set<CKeyID> set_address;
     for (const auto& mi : mapKeys) {
+        set_address.insert(mi.first);
+    }
+    return set_address;
+}
+
+std::set<CKeyID> FillableSigningProvider::GetEthKeys() const
+{
+    LOCK(cs_KeyStore);
+    std::set<CKeyID> set_address;
+    for (const auto& mi : mapEthKeys) {
         set_address.insert(mi.first);
     }
     return set_address;
@@ -183,6 +200,9 @@ CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& 
         return CKeyID(*id);
     }
     if (auto witness_id = std::get_if<WitnessV0KeyHash>(&dest)) {
+        return CKeyID(*witness_id);
+    }
+    if (auto witness_id = std::get_if<WitnessV16EthHash>(&dest)) {
         return CKeyID(*witness_id);
     }
     if (auto script_hash = std::get_if<ScriptHash>(&dest)) {

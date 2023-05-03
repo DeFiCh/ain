@@ -424,7 +424,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
     CKey key;
     key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
     FillableSigningProvider keystore;
-    BOOST_CHECK(keystore.AddKeyPubKey(key, key.GetPubKey()));
+    BOOST_CHECK(keystore.AddKeyPubKey(key, key.GetPubKey(), false));
     CKeyID hash = key.GetPubKey().GetID();
     CScript scriptPubKey = CScript() << OP_0 << std::vector<unsigned char>(hash.begin(), hash.end());
 
@@ -517,10 +517,10 @@ BOOST_AUTO_TEST_CASE(test_witness)
     pubkey3 = key3.GetPubKey();
     pubkey1L = key1L.GetPubKey();
     pubkey2L = key2L.GetPubKey();
-    BOOST_CHECK(keystore.AddKeyPubKey(key1, pubkey1));
-    BOOST_CHECK(keystore.AddKeyPubKey(key2, pubkey2));
-    BOOST_CHECK(keystore.AddKeyPubKey(key1L, pubkey1L));
-    BOOST_CHECK(keystore.AddKeyPubKey(key2L, pubkey2L));
+    BOOST_CHECK(keystore.AddKeyPubKey(key1, pubkey1, false));
+    BOOST_CHECK(keystore.AddKeyPubKey(key2, pubkey2, false));
+    BOOST_CHECK(keystore.AddKeyPubKey(key1L, pubkey1L, false));
+    BOOST_CHECK(keystore.AddKeyPubKey(key2L, pubkey2L, false));
     CScript scriptPubkey1, scriptPubkey2, scriptPubkey1L, scriptPubkey2L, scriptMulti;
     scriptPubkey1 << ToByteVector(pubkey1) << OP_CHECKSIG;
     scriptPubkey2 << ToByteVector(pubkey2) << OP_CHECKSIG;
@@ -542,7 +542,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     BOOST_CHECK(keystore.AddCScript(GetScriptForWitness(scriptMulti)));
     BOOST_CHECK(keystore2.AddCScript(scriptMulti));
     BOOST_CHECK(keystore2.AddCScript(GetScriptForWitness(scriptMulti)));
-    BOOST_CHECK(keystore2.AddKeyPubKey(key3, pubkey3));
+    BOOST_CHECK(keystore2.AddKeyPubKey(key3, pubkey3, false));
 
     CTransactionRef output1, output2;
     CMutableTransaction input1, input2;
