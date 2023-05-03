@@ -59,7 +59,6 @@ protected:
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const;
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
-    Res IsEVMEnabled() const;
 };
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
@@ -510,6 +509,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
+bool IsEVMEnabled(const int height, const CCustomCSView &view);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
@@ -608,6 +608,7 @@ inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     }
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
+
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;
