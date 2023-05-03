@@ -1,8 +1,4 @@
-packages := boost libevent
-
-# TODO: We start with these disabled for now until we connect
-# the toolchain into autotools to use these
-# packages += rust protobuf
+packages := boost libevent rust
 
 rapidcheck_packages = rapidcheck
 wallet_packages = bdb

@@ -13,6 +13,41 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
 
+fn main() -> Result<()> {
+    std::env::set_var("PROTOC", protobuf_src::protoc());
+    let proto_include = protobuf_src::include();
+
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let proto_path = manifest_path
+        .parent()
+        .ok_or(format_err!("path err: no parent"))?
+        .join("proto");
+
+    let src_path = manifest_path.join("src");
+    let out_dir: PathBuf = PathBuf::from(env::var("OUT_DIR")?);
+    let proto_rs_target_path = out_dir.join("proto");
+    std::fs::create_dir_all(&proto_rs_target_path)?;
+
+    let methods = compile_proto_and_generate_services(
+        &proto_path,
+        Path::new(&proto_rs_target_path),
+        &proto_include,
+    );
+    modify_generate_code(methods, &Path::new(&proto_rs_target_path).join("types.rs"));
+
+    println!(
+        "cargo:rerun-if-changed={}",
+        src_path.join("rpc.rs").to_string_lossy()
+    );
+    // Using a direct path for now
+    let git_head_path = manifest_path.join("../../.git/HEAD");
+    if git_head_path.exists() {
+        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
+    }
+
+    Ok(())
+}
+
 fn visit_files(dir: &Path, f: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {
@@ -204,7 +239,11 @@ impl ServiceGenerator for WrappedGenerator {
     }
 }
 
-fn generate_from_protobuf(dir: &Path, out_dir: &Path) -> HashMap<String, Vec<Rpc>> {
+fn compile_proto_and_generate_services(
+    dir: &Path,
+    out_dir: &Path,
+    protoc_include: &Path,
+) -> HashMap<String, Vec<Rpc>> {
     let methods = Rc::new(RefCell::new(HashMap::new()));
     let gen = WrappedGenerator {
         methods: methods.clone(),
@@ -231,14 +270,14 @@ fn generate_from_protobuf(dir: &Path, out_dir: &Path) -> HashMap<String, Vec<Rpc
         config.out_dir(out_dir);
         config.service_generator(Box::new(gen));
         config
-            .compile_protos(&protos, &[dir])
+            .compile_protos(&protos, &[dir, protoc_include])
             .expect("compiling protobuf");
     } // drop it so we release rc count
 
     Rc::try_unwrap(methods).unwrap().into_inner()
 }
 
-fn modify_codegen(_methods: HashMap<String, Vec<Rpc>>, types_path: &Path) {
+fn modify_generate_code(_methods: HashMap<String, Vec<Rpc>>, types_path: &Path) {
     let mut contents = String::new();
     File::open(types_path)
         .unwrap()
@@ -368,32 +407,4 @@ fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
         }
         _ => panic!("unsupported type {}", quote!(#ty)),
     }
-}
-
-fn main() -> Result<()> {
-    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let proto_path = manifest_path
-        .parent()
-        .ok_or(format_err!("path err: no parent"))?
-        .join("proto");
-
-    let src_path = manifest_path.join("src");
-    let out_dir: PathBuf = PathBuf::from(env::var("OUT_DIR")?);
-    let proto_rs_target_path = out_dir.join("proto");
-    std::fs::create_dir_all(&proto_rs_target_path)?;
-
-    let methods = generate_from_protobuf(&proto_path, Path::new(&proto_rs_target_path));
-    modify_codegen(methods, &Path::new(&proto_rs_target_path).join("types.rs"));
-
-    println!(
-        "cargo:rerun-if-changed={}",
-        src_path.join("rpc.rs").to_string_lossy()
-    );
-    // Using a direct path for now
-    let git_head_path = manifest_path.join("../../.git/HEAD");
-    if git_head_path.exists() {
-        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
-    }
-
-    Ok(())
 }

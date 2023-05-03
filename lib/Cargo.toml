@@ -1,9 +1,11 @@
 [workspace]
 members = [
     "ain-*",
-    "cli"
+    "cli",
+    "labs-grpc2",
+    "labs-dfeye",
 ]
+
 default-members = [
     "ain-*",
 ]
-

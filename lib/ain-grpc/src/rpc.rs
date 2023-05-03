@@ -6,6 +6,7 @@ use crate::receipt::ReceiptResult;
 use ain_evm::evm::EVMState;
 use ain_evm::handler::Handlers;
 
+use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
@@ -89,7 +90,7 @@ pub trait MetachainRPC {
     fn get_transaction_count(&self, address: H160) -> RpcResult<String>;
 
     #[method(name = "eth_estimateGas")]
-    fn estimate_gas(&self) -> RpcResult<String>;
+    fn estimate_gas(&self, input: CallRequest) -> RpcResult<String>;
 
     #[method(name = "mc_getState")]
     fn get_state(&self) -> RpcResult<EVMState>;
@@ -130,7 +131,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             data,
             ..
         } = input;
-        let (_, data) = self.handler.evm.call(
+        let (_, data, ..) = self.handler.evm.call(
             from,
             to,
             value.unwrap_or_default(),
@@ -224,7 +225,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_transaction_by_hash(&self, hash: H256) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_hash(hash)
+            .get_transaction_by_hash(&hash)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -250,7 +251,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_hash_and_index(hash, index)
+            .get_transaction_by_block_hash_and_index(&hash, index)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -266,7 +267,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_number_and_index(number, index)
+            .get_transaction_by_block_number_and_index(&number, index)
             .map_or(Ok(None), |tx| {
                 let transaction_info = tx
                     .try_into()
@@ -277,8 +278,8 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_block_transaction_count_by_hash(&self, hash: H256) -> RpcResult<usize> {
         self.handler
-            .block
-            .get_block_by_hash(hash)
+            .storage
+            .get_block_by_hash(&hash)
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
@@ -287,8 +288,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             BlockNumber::Pending => Ok(0), // TODO get from mempool ?
             BlockNumber::Num(number) if number > 0 => self
                 .handler
-                .block
-                .get_block_by_number(number as usize)
+                .storage
+                .get_block_by_number(&U256::from(number))
                 .map_or(Ok(0), |b| Ok(b.transactions.len())),
             BlockNumber::Num(_) => Err(Error::Custom(String::from("Block number should be >= 0."))),
             BlockNumber::Latest => self
@@ -356,8 +357,30 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(format!("{:#x}", nonce))
     }
 
-    fn estimate_gas(&self) -> RpcResult<String> {
-        Ok(format!("{:#x}", 21000))
+    fn estimate_gas(&self, input: CallRequest) -> RpcResult<String> {
+        let CallRequest {
+            from,
+            to,
+            gas,
+            value,
+            data,
+            ..
+        } = input;
+
+        let (_, data, used_gas) = self.handler.evm.call(
+            from,
+            to,
+            value.unwrap_or_default(),
+            &data.unwrap_or_default(),
+            gas.unwrap_or_default().as_u64(),
+            vec![],
+        );
+        let native_size = ain_cpp_imports::get_native_tx_size(data).unwrap_or(0);
+        debug!("estimateGas: {:#?} + {:#?}", native_size, used_gas);
+        Ok(format!(
+            "{:#x}",
+            native_size + std::cmp::max(21000, used_gas)
+        ))
     }
 
     fn get_state(&self) -> RpcResult<EVMState> {
@@ -365,13 +388,15 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<String> {
-        Ok(format!("{:#x}", 0))
+        let gas_price = ain_cpp_imports::get_min_relay_tx_fee().unwrap_or(10);
+        debug!("gasPrice: {:#?}", gas_price);
+        Ok(format!("{:#x}", gas_price))
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
         self.handler
-            .receipt
-            .get_receipt(hash)
+            .storage
+            .get_receipt(&hash)
             .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 

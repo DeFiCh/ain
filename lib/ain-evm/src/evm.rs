@@ -1,4 +1,4 @@
-use crate::traits::{PersistentState, PersistentStateError};
+use crate::storage::traits::{PersistentState, PersistentStateError};
 use crate::tx_queue::TransactionQueueMap;
 use crate::{
     executor::AinExecutor,
@@ -6,7 +6,8 @@ use crate::{
     transaction::SignedTx,
 };
 use anyhow::anyhow;
-use ethereum::{AccessList, TransactionV2};
+use ethereum::{AccessList, Log, TransactionV2};
+use ethereum_types::{Bloom, BloomInput};
 use evm::backend::MemoryAccount;
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},
@@ -58,7 +59,7 @@ impl EVMHandler {
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
-    ) -> (ExitReason, Vec<u8>) {
+    ) -> (ExitReason, Vec<u8>, u64) {
         // TODO Add actual gas, chain_id, block_number from header
         let vicinity = get_vicinity(caller, None);
 
@@ -75,7 +76,11 @@ impl EVMHandler {
             },
             false,
         );
-        (tx_response.exit_reason, tx_response.data)
+        (
+            tx_response.exit_reason,
+            tx_response.data,
+            tx_response.used_gas,
+        )
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
@@ -119,8 +124,8 @@ impl EVMHandler {
             signed_tx.gas_limit().as_u64(),
             signed_tx.access_list(),
         ) {
-            (exit_reason, _) if exit_reason.is_succeed() => Ok(signed_tx),
-            (exit_reason, _) => Err(anyhow!("Error calling EVM {:?}", exit_reason).into()),
+            (exit_reason, _, _) if exit_reason.is_succeed() => Ok(signed_tx),
+            (exit_reason, _, _) => Err(anyhow!("Error calling EVM {:?}", exit_reason).into()),
         }
     }
 
@@ -137,6 +142,15 @@ impl EVMHandler {
         let signed_tx = self.validate_raw_tx(raw_tx)?;
         self.tx_queues.add_signed_tx(context, signed_tx);
         Ok(())
+    }
+
+    pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
+        for log in logs {
+            bloom.accrue(BloomInput::Raw(&log.address[..]));
+            for topic in log.topics {
+                bloom.accrue(BloomInput::Raw(&topic[..]));
+            }
+        }
     }
 }
 

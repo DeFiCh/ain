@@ -17,24 +17,33 @@ fn main() -> Result<()> {
 
     cxx_build::bridge(ffi_rs_src_path)
         .include(cpp_src_path)
-        .cpp_link_stdlib("stdc++")
+        .cpp_link_stdlib(if cfg!(target_os = "macos") {
+            "c++"
+        } else {
+            "stdc++"
+        })
         .flag("-std=c++17")
         .flag("-Wno-unused-parameter")
         .static_flag(true)
         .compile(pkg_name.as_str());
 
+    let path_utf8_err = || format_err!("path utf8 err");
+
     println!(
         "cargo:rerun-if-changed={}",
-        ffi_rs_src_path.to_string_lossy()
+        ffi_rs_src_path.to_str().ok_or_else(path_utf8_err)?
     );
     println!(
         "cargo:rerun-if-changed={}",
-        &ffi_exports_h_path.to_string_lossy()
+        &ffi_exports_h_path.to_str().ok_or_else(path_utf8_err)?
     );
     // Using a direct path for now
     let git_head_path = manifest_path.join("../../.git/HEAD");
     if git_head_path.exists() {
-        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
+        println!(
+            "cargo:rerun-if-changed={}",
+            git_head_path.to_str().ok_or_else(path_utf8_err)?
+        );
     }
 
     Ok(())

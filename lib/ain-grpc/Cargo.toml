@@ -8,7 +8,7 @@ build = "build.rs"
 ain-evm = { path = "../ain-evm" }
 ain-cpp-imports = { path = "../ain-cpp-imports" }
 cxx = "1.0"
-env_logger = "0.9"
+env_logger = "0.10"
 jsonrpsee = { version = "0.15", features = ["http-server", "macros", "http-client"] }
 lazy_static = "1.4"
 log = "0.4"
@@ -17,12 +17,13 @@ prost = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.1", features = ["rt-multi-thread"] }
-tonic = "0.8"
+tonic = "0.9"
 primitive-types = "0.12.1"
 ethereum = "0.14.0"
 hex = "0.4.3"
 async-trait = "0.1.68"
 rlp = "0.5.2"
+protobuf-src = "1.1.0"
 
 [build-dependencies]
 cxx-gen = "0.7"
@@ -32,6 +33,7 @@ quote = "1.0"
 regex = "1.5"
 syn = { version = "2.0", default-features = false, features = ["parsing", "printing"] }
 prost-build = "0.11"
-tonic-build = "0.8"
+tonic-build = "0.9"
 prettyplease = "0.2.4"
 anyhow = "1.0.70"
+protobuf-src = "1.1.0"

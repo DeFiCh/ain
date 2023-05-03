@@ -1,16 +1,17 @@
 use std::collections::BTreeMap;
 
 use crate::{
+    evm::EVMHandler,
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
+use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
+use ethereum_types::{Bloom, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
-
-use ethereum::Log;
 
 #[derive(Debug)]
 pub struct AinExecutor<B: Backend> {
@@ -71,11 +72,23 @@ where
             self.backend.apply(values, logs.clone(), true);
         }
 
+        let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
+            logs_bloom: {
+                let mut bloom: Bloom = Bloom::default();
+                EVMHandler::logs_bloom(logs.clone(), &mut bloom);
+                bloom
+            },
+            status_code: exit_reason.is_succeed() as u8,
+            logs: logs.clone(),
+            used_gas: U256::from(used_gas),
+        });
+
         TxResponse {
             exit_reason,
             data,
             logs,
             used_gas,
+            receipt,
         }
     }
 
@@ -101,4 +114,5 @@ pub struct TxResponse {
     pub data: Vec<u8>,
     pub logs: Vec<Log>,
     pub used_gas: u64,
+    pub receipt: ReceiptV3,
 }

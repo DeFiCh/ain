@@ -1,8 +1,11 @@
+# TODO: Refine these vars with graceful swichover to local and
+# ensure it works without them set as well as with them set
+CARGO_HOME ?= 
+RUSTUP_HOME ?= 
 CARGO ?= cargo
 
 # RUST_TARGET is set from configure
-TARGET ?= $(RUST_TARGET)
-TARGET ?= x86_64-unknown-linux-gnu
+TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),x86_64-unknown-linux-gnu)
 
 # This is set from configure
 RUST_DEBUG ?= 
@@ -14,9 +17,15 @@ TARGET_DIR ?= $(abs_builddir)/target
 SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 
+# We're resetting DESTDIR so that nested autotools based builds
+# don't end up in unexpected places (Currently protobuf-src is affected)
+
 .PHONY:
 all: 
-	TARGET_DIR=$(TARGET_DIR) $(CARGO) build \
+	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
+	RUSTUP_HOME=$(RUSTUP_HOME) \
+	CARGO_HOME=$(CARGO_HOME) \
+	$(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(DEBUG),,--release) \
@@ -25,6 +34,8 @@ all:
 
 .PHONY:
 clean-local:
+	RUSTUP_HOME=$(RUSTUP_HOME) \
+	CARGO_HOME=$(CARGO_HOME) \
 	$(CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" && \

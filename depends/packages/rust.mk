@@ -23,7 +23,7 @@ define $(package)_set_vars
   ifeq ($(host_os)-$(host_arch),darwin-x86_64)
     $(package)_target=x86_64-apple-darwin
   endif
-  ifeq ($(host_os)-$(host_arch),darwin-arm)
+  ifeq ($(host_os)-$(host_arch),darwin-aarch64)
     $(package)_target=aarch64-apple-darwin
   endif
   ifeq ($(host_os)-$(host_arch),mingw32-x86_64)
@@ -55,6 +55,6 @@ endef
 define $(package)_postprocess_cmds
   mkdir -p $($(package)_ROOT)/share/cargo && \
   mv $($(package)_ROOT)/env $($(package)_ROOT)/share/cargo/env && \
-  sed -i'' 's#$($(package)_staging_dir)/##' $($(package)_ROOT)/share/cargo/env
+  perl -pi -e 's#$($(package)_staging_dir)/##' $($(package)_ROOT)/share/cargo/env
 endef
 
