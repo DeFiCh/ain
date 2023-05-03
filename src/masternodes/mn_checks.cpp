@@ -753,17 +753,6 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::IsEVMEnabled() const {
-    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
-
-    auto attributes = mnview.GetAttributes();
-    Require(attributes, "Attributes unavailable");
-
-    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
-
-    return Res::Ok();
-}
-
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
