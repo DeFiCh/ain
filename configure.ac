@@ -1316,14 +1316,6 @@ if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_bench$u
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --enable-bench or --enable-tests])
 fi
 
-AC_CHECK_PROG([local_rust_toolchain],cargo,yes)
-AC_MSG_CHECKING([whether to use local rust toolchain])
-if test x$local_rust_toolchain = xyes; then
-  AC_MSG_RESULT([yes])
-else
-  AC_MSG_RESULT([no])
-fi
-
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([TARGET_NOT_DARWIN], [test x$TARGET_OS != xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
