@@ -766,17 +766,6 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::IsEVMEnabled() const {
-    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
-
-    auto attributes = mnview.GetAttributes();
-    Require(attributes, "Attributes unavailable");
-
-    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
-
-    return Res::Ok();
-}
-
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
@@ -3817,12 +3806,12 @@ public:
     }
 
     Res operator()(const CTransferBalanceMessage &obj) const {
-        auto res = IsEVMEnabled();
-        if (!res) {
-            return res;
+        if (!IsEVMEnabled(height, mnview)) {
+            return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
         // owner auth
+        auto res = Res::Ok();
         if (obj.type != CTransferBalanceType::EvmOut)
             for (const auto &kv : obj.from) {
                 res = HasAuth(kv.first);
@@ -3918,9 +3907,8 @@ public:
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
-        auto res = IsEVMEnabled();
-        if (!res) {
-            return res;
+        if (!IsEVMEnabled(height, mnview)) {
+            return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
@@ -4930,4 +4918,15 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 
 bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+}
+
+bool IsEVMEnabled(const int height, const CCustomCSView &view) {
+    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
 }
