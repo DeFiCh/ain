@@ -499,6 +499,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
+bool IsEVMEnabled(const CCustomCSView &view);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
@@ -598,12 +599,6 @@ inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
 
-inline bool IsEVMEnabled(const CCustomCSView &view) {
-    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
-    auto attributes = view.GetAttributes();
-    assert(attributes);
-    return attributes->GetValue(enabledKey, false);
-}
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;
