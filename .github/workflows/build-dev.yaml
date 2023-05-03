@@ -27,7 +27,7 @@ jobs:
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
-    - name: Publish artifacts - x86_64-pc-linux-gnu
+    - name: Publish artifact - x86_64-pc-linux-gnu
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
