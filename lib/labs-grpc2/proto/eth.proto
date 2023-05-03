@@ -3,6 +3,10 @@ package eth;
 
 import "google/protobuf/empty.proto";
 
+/*
+    This package is made for implementing the EVM RPCs here is the reference that we used to build them:
+    https://ethereum.github.io/execution-apis/api-documentation/
+*/
 service Api {
   /// Returns eth_accounts list.
   rpc EthAccounts(google.protobuf.Empty) returns (EthAccountsResponse);
@@ -59,24 +63,36 @@ service Api {
   rpc EthSendRawTransaction(EthSendRawTransactionRequest) returns (EthSendRawTransactionResponse);
 }
 
-//"result": ["0x407d73d8a49eeb85d32cf465507dd71d507100c1",]
+/*
+  This is the return of the RPC call: EthAccounts.
+  In case that there is no ethereum addresses, it will return an empty array.
+  Here is an example of the return of this proto message:
+  result: ["0x407d73d8a49eeb85d32cf465507dd71d507100c1",]
+  result: []
+*/
 message EthAccountsResponse {
-    repeated string accounts = 1; // The list of accounts (Hex)
+    repeated string accounts = 1; // [Hex string] The list of accounts
 }
 
 message EthTransactionInfo {
-    optional string from = 1; // The address from which the transaction is sent
-    optional string to = 2; // The address to which the transaction is addressed
+    optional string from = 1; // [Hex string] The address from which the transaction is sent
+    optional string to = 2; // [Hex string] The address to which the transaction is addressed
     optional uint64 gas = 3; // The integer of gas provided for the transaction execution
-    optional string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
-    optional string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
-    optional string data = 6; // The hash of the method signature and encoded parameters.
-    optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
+    optional string price = 4; // [Hex string] The integer of gas price used for each paid gas
+    optional string value = 5; // [Hex string] The integer of value sent with this transaction
+    optional string data = 6; // [Hex string] The hash of the method signature and encoded parameters.
+    optional string nonce = 7; // [Hex string] The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
 }
 
-// "result": "0x1"
+/*
+    This is the return of the RPC call: EthChainId
+    This RPC cannot return null or empty string
+    Here is an example of the return of this proto message:
+    result: "0x1"
+    result: "0x2"
+*/
 message EthChainIdResponse {
-    string id = 1; // Hexadecimal value as a string representing the integer of the current chain id.
+    string id = 1; // [Hex string] Integer of the current chain id.
 }
 
 message EthBlockInfo {
@@ -124,7 +140,11 @@ message EthCallRequest {
     string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
 }
 
-// "result": "0x"
+/*
+    This is the return of the RPC call: EthCall.
+    Here is an example of the return of this proto message:
+    "result": "0x"
+*/
 message EthCallResponse {
     string data = 1; // The return value of the executed contract method
 }
