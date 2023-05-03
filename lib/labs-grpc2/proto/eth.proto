@@ -151,16 +151,17 @@ message EthGetBalanceResponse {
     string balance = 1; // Integer of the current balance in wei (Hex)
 }
 
-// params: [
-//  {
-//    from: "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
-//    to: "0xd46e8dd67c5d32be8058bb8eb970870f07244567",
-//    gas: "0x76c0", // 30400
-//    gasPrice: "0x9184e72a000", // 10000000000000
-//    value: "0x9184e72a", // 2441406250
-//    data: "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
-//  },
-// ]
+/* params: [
+  {
+    from: "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
+    to: "0xd46e8dd67c5d32be8058bb8eb970870f07244567",
+    gas: "0x76c0", // 30400
+    gasPrice: "0x9184e72a000", // 10000000000000
+    value: "0x9184e72a", // 2441406250
+    data: "0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
+  },
+ ]
+*/
 message EthSendTransactionRequest {
     EthTransactionInfo transaction_info = 1; // The transaction object
 }
@@ -195,10 +196,11 @@ message EthBlockNumberResponse {
     string block_number = 1; // Integer of the current block number the client is on (Hex)
 }
 
-// params: [
-//   "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-//   "latest", // state at the latest block
-// ]
+/* params: [
+   "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+   "latest", // state at the latest block
+ ]
+*/
 message EthGetTransactionCountRequest {
     string address = 1;
     string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
@@ -249,10 +251,11 @@ message EthGetUncleCountByBlockNumberResponse {
     string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
 }
 
-// params: [
-//   "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-//   "0x2", // 2
-// ]
+/* params: [
+   "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+   "0x2", // 2
+ ]
+*/
 message EthGetCodeRequest {
     string address = 1; // Address you wan to get the code from
     string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
@@ -263,16 +266,17 @@ message EthGetCodeResponse {
     string code = 1; // The code from the given address
 }
 
-// "params": [
-//  {
-//    "data":"0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
-//    "from": "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
-//    "gas": "0x76c0",
-//    "gasPrice": "0x9184e72a000",
-//    "to": "0xd46e8dd67c5d32be8058bb8eb970870f07244567",
-//    "value": "0x9184e72a"
-//  }
-// ]
+/* "params": [
+  {
+    "data":"0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675",
+    "from": "0xb60e8dd61c5d32be8058bb8eb970870f07233155",
+    "gas": "0x76c0",
+    "gasPrice": "0x9184e72a000",
+    "to": "0xd46e8dd67c5d32be8058bb8eb970870f07244567",
+    "value": "0x9184e72a"
+  }
+ ]
+*/
 message EthSignTransactionRequest {
     EthTransactionInfo transaction_info = 1; // The transaction object to be signed
 }
@@ -302,76 +306,80 @@ message EthEstimateGasResponse {
     string gas_used = 1; // The amount of gas used (Hex)
 }
 
-// params: [
-//  "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-//  false,
-// ]
+/* params: [
+  "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+  false,
+ ]
+*/
 message EthGetBlockByHashRequest {
     string hash = 1; // Hash of a block (Hex)
     bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
 }
 
-// "result": {
-//    "difficulty": "0x4ea3f27bc",
-//    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-//    "gasLimit": "0x1388",
-//    "gasUsed": "0x0",
-//    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-//    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-//    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-//    "nonce": "0x689056015818adbe",
-//    "number": "0x1b4",
-//    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-//    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-//    "size": "0x220",
-//    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-//    "timestamp": "0x55ba467c",
-//    "totalDifficulty": "0x78ed983323d",
-//    "transactions": [
-//    ],
-//    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "uncles": [
-//    ]
-// }
+/* "result": {
+    "difficulty": "0x4ea3f27bc",
+    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+    "gasLimit": "0x1388",
+    "gasUsed": "0x0",
+    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+    "nonce": "0x689056015818adbe",
+    "number": "0x1b4",
+    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "size": "0x220",
+    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+    "timestamp": "0x55ba467c",
+    "totalDifficulty": "0x78ed983323d",
+    "transactions": [
+    ],
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "uncles": [
+    ]
+ }
+*/
 message EthGetBlockByHashResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
-// params: [
-//  "0x1b4", // 436
-//  true,
-// ]
+/* params: [
+  "0x1b4", // 436
+  true,
+ ]
+*/
 message EthGetBlockByNumberRequest {
     string number = 1; // Block number (Hex)
     bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
 }
 
-// "result": {
-//    "difficulty": "0x4ea3f27bc",
-//    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-//    "gasLimit": "0x1388",
-//    "gasUsed": "0x0",
-//    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-//    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-//    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-//    "nonce": "0x689056015818adbe",
-//    "number": "0x1b4",
-//    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-//    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-//    "size": "0x220",
-//    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-//    "timestamp": "0x55ba467c",
-//    "totalDifficulty": "0x78ed983323d",
-//    "transactions": [
-//    ],
-//    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "uncles": [
-//    ]
-// }
+/* "result": {
+    "difficulty": "0x4ea3f27bc",
+    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+    "gasLimit": "0x1388",
+    "gasUsed": "0x0",
+    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+    "nonce": "0x689056015818adbe",
+    "number": "0x1b4",
+    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "size": "0x220",
+    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+    "timestamp": "0x55ba467c",
+    "totalDifficulty": "0x78ed983323d",
+    "transactions": [
+    ],
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "uncles": [
+    ]
+ }
+*/
 message EthGetBlockByNumberResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
@@ -381,154 +389,163 @@ message EthGetTransactionByHashRequest {
     string hash = 1; // Hash of the transaction
 }
 
-// "result":{
-//    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
-//    "blockNumber":"0x5daf3b", // 6139707
-//    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
-//    "gas":"0xc350", // 50000
-//    "gasPrice":"0x4a817c800", // 20000000000
-//    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
-//    "input":"0x68656c6c6f21",
-//    "nonce":"0x15", // 21
-//    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
-//    "transactionIndex":"0x41", // 65
-//    "value":"0xf3dbb76162000", // 4290000000000000
-//    "v":"0x25", // 37
-//    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
-//    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
-// }
+/* "result":{
+    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
+    "blockNumber":"0x5daf3b", // 6139707
+    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
+    "gas":"0xc350", // 50000
+    "gasPrice":"0x4a817c800", // 20000000000
+    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
+    "input":"0x68656c6c6f21",
+    "nonce":"0x15", // 21
+    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
+    "transactionIndex":"0x41", // 65
+    "value":"0xf3dbb76162000", // 4290000000000000
+    "v":"0x25", // 37
+    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
+    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
+ }
+*/
 message EthGetTransactionByHashResponse {
     EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
-// params: [
-//  "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-//  "0x0", // 0
-// ]
+/* params: [
+  "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
+  "0x0", // 0
+ ]
+*/
 message EthGetTransactionByBlockHashAndIndexRequest {
     string block_hash = 1; // Hash of a block
     string index = 2; // Integer of the transaction index position (Hex)
 }
 
-// "result":{
-//    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
-//    "blockNumber":"0x5daf3b", // 6139707
-//    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
-//    "gas":"0xc350", // 50000
-//    "gasPrice":"0x4a817c800", // 20000000000
-//    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
-//    "input":"0x68656c6c6f21",
-//    "nonce":"0x15", // 21
-//    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
-//    "transactionIndex":"0x41", // 65
-//    "value":"0xf3dbb76162000", // 4290000000000000
-//    "v":"0x25", // 37
-//    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
-//    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
-// }
+/* "result":{
+    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
+    "blockNumber":"0x5daf3b", // 6139707
+    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
+    "gas":"0xc350", // 50000
+    "gasPrice":"0x4a817c800", // 20000000000
+    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
+    "input":"0x68656c6c6f21",
+    "nonce":"0x15", // 21
+    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
+    "transactionIndex":"0x41", // 65
+    "value":"0xf3dbb76162000", // 4290000000000000
+    "v":"0x25", // 37
+    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
+    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
+ }
+*/
 message EthGetTransactionByBlockHashAndIndexResponse {
     EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
-// params: [
-//  "0x29c", // 668
-//  "0x0", // 0
-// ]
+/* params: [
+  "0x29c", // 668
+  "0x0", // 0
+ ]
+*/
 message EthGetTransactionByBlockNumberAndIndexRequest {
     string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
     string index = 2; // Integer of the transaction index position (Hex)
 }
 
-// "result":{
-//    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
-//    "blockNumber":"0x5daf3b", // 6139707
-//    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
-//    "gas":"0xc350", // 50000
-//    "gasPrice":"0x4a817c800", // 20000000000
-//    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
-//    "input":"0x68656c6c6f21",
-//    "nonce":"0x15", // 21
-//    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
-//    "transactionIndex":"0x41", // 65
-//    "value":"0xf3dbb76162000", // 4290000000000000
-//    "v":"0x25", // 37
-//    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
-//    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
-// }
+/* "result":{
+    "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
+    "blockNumber":"0x5daf3b", // 6139707
+    "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
+    "gas":"0xc350", // 50000
+    "gasPrice":"0x4a817c800", // 20000000000
+    "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
+    "input":"0x68656c6c6f21",
+    "nonce":"0x15", // 21
+    "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
+    "transactionIndex":"0x41", // 65
+    "value":"0xf3dbb76162000", // 4290000000000000
+    "v":"0x25", // 37
+    "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
+    "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
+ }
+*/
 message EthGetTransactionByBlockNumberAndIndexResponse {
     EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
-// params: [
-//  "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
-//  "0x0", // 0
-// ]
+/* params: [
+  "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+  "0x0", // 0
+ ]
+*/
 message EthGetUncleByBlockHashAndIndexRequest {
     string block_hash = 1; // Hash of a block
     string index = 2; // Integer of the transaction index position (Hex)
 }
 
-// "result": {
-//    "difficulty": "0x4ea3f27bc",
-//    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-//    "gasLimit": "0x1388",
-//    "gasUsed": "0x0",
-//    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-//    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-//    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-//    "nonce": "0x689056015818adbe",
-//    "number": "0x1b4",
-//    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-//    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-//    "size": "0x220",
-//    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-//    "timestamp": "0x55ba467c",
-//    "totalDifficulty": "0x78ed983323d",
-//    "transactions": [
-//    ],
-//    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "uncles": [
-//    ]
-// }
+/* "result": {
+    "difficulty": "0x4ea3f27bc",
+    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+    "gasLimit": "0x1388",
+    "gasUsed": "0x0",
+    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+    "nonce": "0x689056015818adbe",
+    "number": "0x1b4",
+    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "size": "0x220",
+    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+    "timestamp": "0x55ba467c",
+    "totalDifficulty": "0x78ed983323d",
+    "transactions": [
+    ],
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "uncles": [
+    ]
+ }
+*/
 message EthGetUncleByBlockHashAndIndexResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
-// params: [
-//  "0x29c", // 668
-//  "0x0", // 0
-// ]
+/* params: [
+  "0x29c", // 668
+  "0x0", // 0
+ ]
+*/
 message EthGetUncleByBlockNumberAndIndexRequest {
     string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
     string index = 2; // Integer of the transaction index position (Hex)
 }
 
-// "result": {
-//    "difficulty": "0x4ea3f27bc",
-//    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-//    "gasLimit": "0x1388",
-//    "gasUsed": "0x0",
-//    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-//    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-//    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-//    "nonce": "0x689056015818adbe",
-//    "number": "0x1b4",
-//    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-//    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-//    "size": "0x220",
-//    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-//    "timestamp": "0x55ba467c",
-//    "totalDifficulty": "0x78ed983323d",
-//    "transactions": [
-//    ],
-//    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-//    "uncles": [
-//    ]
-// }
+/* "result": {
+    "difficulty": "0x4ea3f27bc",
+    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+    "gasLimit": "0x1388",
+    "gasUsed": "0x0",
+    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+    "nonce": "0x689056015818adbe",
+    "number": "0x1b4",
+    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "size": "0x220",
+    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+    "timestamp": "0x55ba467c",
+    "totalDifficulty": "0x78ed983323d",
+    "transactions": [
+    ],
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "uncles": [
+    ]
+ }
+*/
 message EthGetUncleByBlockNumberAndIndexResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
@@ -638,26 +655,27 @@ message EthGetTransactionReceiptRequest {
     string transaction_hash = 1; // Hash of a transaction
 }
 
-// "result": {
-//    "blockHash":
-//      "0xa957d47df264a31badc3ae823e10ac1d444b098d9b73d204c40426e57f47e8c3",
-//    "blockNumber": "0xeff35f",
-//    "contractAddress": null, // string of the address if it was created
-//    "cumulativeGasUsed": "0xa12515",
-//    "effectiveGasPrice": "0x5a9c688d4",
-//    "from": "0x6221a9c005f6e47eb398fd867784cacfdcfff4e7",
-//    "gasUsed": "0xb4c8",
-//    "logs": [{
-//      // logs as returned by getFilterLogs, etc.
-//    }],
-//    "logsBloom": "0x00...0", // 256 byte bloom filter
-//    "status": "0x1",
-//    "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-//    "transactionHash":
-//      "0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5",
-//    "transactionIndex": "0x66",
-//    "type": "0x2"
-//  }
+/* "result": {
+    "blockHash":
+      "0xa957d47df264a31badc3ae823e10ac1d444b098d9b73d204c40426e57f47e8c3",
+    "blockNumber": "0xeff35f",
+    "contractAddress": null, // string of the address if it was created
+    "cumulativeGasUsed": "0xa12515",
+    "effectiveGasPrice": "0x5a9c688d4",
+    "from": "0x6221a9c005f6e47eb398fd867784cacfdcfff4e7",
+    "gasUsed": "0xb4c8",
+    "logs": [{
+      // logs as returned by getFilterLogs, etc.
+    }],
+    "logsBloom": "0x00...0", // 256 byte bloom filter
+    "status": "0x1",
+    "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "transactionHash":
+      "0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5",
+    "transactionIndex": "0x66",
+    "type": "0x2"
+  }
+*/
 message EthGetTransactionReceiptResponse {
     EthTransactionReceipt transaction_receipt = 1; // A transaction receipt object, or null when no receipt was found
 }
@@ -668,13 +686,14 @@ message EthSyncingInfo {
     string highest_block = 3; // The estimated highest block
 }
 
-// "result": {
-//    startingBlock: '0x384',
-//    currentBlock: '0x386',
-//    highestBlock: '0x454'
-//  }
-//  OR
-// "result": false
+/* "result": {
+    startingBlock: '0x384',
+    currentBlock: '0x386',
+    highestBlock: '0x454'
+  }
+  OR
+ "result": false
+*/
 message EthSyncingResponse {
     oneof value { 
         bool status = 1; // Return False when not syncing
