@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
@@ -757,6 +758,7 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
+    uint64_t evmContext;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -765,11 +767,13 @@ public:
                           CCustomCSView &mnview,
                           const Consensus::Params &consensus,
                           uint64_t time,
-                          uint32_t txn)
+                          uint32_t txn,
+                          const uint64_t evmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
-          txn(txn) {}
+          txn(txn),
+          evmContext(evmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3866,12 +3870,15 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
+    auto context = evmContext;
+    if (context == 0) context = evm_get_context();
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3956,7 +3963,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint32_t height,
                   uint64_t time,
                   uint256 *canSpend,
-                  uint32_t txn) {
+                  uint32_t txn,
+                  const uint64_t evmContext) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -3980,7 +3988,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
