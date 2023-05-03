@@ -4778,3 +4778,10 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
+
+bool IsEVMEnabled(const CCustomCSView &view) {
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
