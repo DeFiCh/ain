@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
@@ -748,17 +749,6 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
     Require(attributes, "Attributes unavailable");
 
     Require(attributes->GetValue(enabledKey, false), "Cannot create tx, on-chain governance is not enabled");
-
-    return Res::Ok();
-}
-
-Res CCustomTxVisitor::IsEVMEnabled() const {
-    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
-
-    auto attributes = mnview.GetAttributes();
-    Require(attributes, "Attributes unavailable");
-
-    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, EVM is not enabled");
 
     return Res::Ok();
 }
@@ -4795,4 +4785,15 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 
 bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+}
+
+bool IsEVMEnabled(const int height, const CCustomCSView &view) {
+    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
 }
