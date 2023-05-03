@@ -58,7 +58,6 @@ protected:
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const;
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
-    Res IsEVMEnabled() const;
 };
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
@@ -599,6 +598,13 @@ inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
         mintingOutputsStart = accountToUtxos->mintingOutputsStart;
     }
     return tx.GetValueOut(mintingOutputsStart, tokenID);
+}
+
+inline bool IsEVMEnabled(const CCustomCSView &view) {
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
 }
 
 class CPoolSwap {

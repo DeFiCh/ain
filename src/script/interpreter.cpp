@@ -224,7 +224,7 @@ bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, co
     }
     // Only uncompressed keys are accepted in Eth addresses
     if ((flags & SCRIPT_VERIFY_WITNESS_PUBKEYTYPE) != 0 && sigversion == SigVersion::WITNESS_V16 && IsCompressedPubKey(vchPubKey)) {
-        return set_error(serror, SCRIPT_ERR_WITNESS_PUBKEYTYPE);
+        return set_error(serror, SCRIPT_ERR_WITNESS_ETHKEYTYPE);
     }
     return true;
 }

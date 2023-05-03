@@ -25,7 +25,7 @@ bool MutableTransactionSignatureCreator::CreateSig(const SigningProvider& provid
     // Signing with uncompressed keys is disabled in witness scripts
     if (sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
         return false;
-    // Signing with uncompressed keys is disabled in eth scripts
+    // Signing with compressed keys is disabled in eth scripts
     if (sigversion == SigVersion::WITNESS_V16 && key.IsCompressed())
         return false;
     uint256 hash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion);
