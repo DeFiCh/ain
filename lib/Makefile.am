@@ -1,8 +1,6 @@
-if LOCAL_RUST_TOOLCHAIN
-_CARGO = cargo
-else
-_CARGO = RUSTUP_HOME=$(RUSTUP_HOME) CARGO_HOME=$(CARGO_HOME) $(CARGO)
-endif
+CARGO_HOME ?= 
+RUSTUP_HOME ?= 
+CARGO := $(if $(CARGO),$(CARGO),cargo)
 
 # RUST_TARGET is set from configure
 TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),x86_64-unknown-linux-gnu)
@@ -23,7 +21,9 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 .PHONY:
 all: 
 	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
-	$(_CARGO) build \
+	RUSTUP_HOME=$(RUSTUP_HOME) \
+    CARGO_HOME=$(CARGO_HOME) \
+    $(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(DEBUG),,--release) \
@@ -32,7 +32,9 @@ all:
 
 .PHONY:
 clean-local:
-	$(_CARGO) clean \
+	RUSTUP_HOME=$(RUSTUP_HOME) \
+    CARGO_HOME=$(CARGO_HOME) \
+    $(CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" && \
 	rm -rf $(TARGET_DIR)/{include,lib,src}
