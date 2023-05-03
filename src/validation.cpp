@@ -2828,6 +2828,48 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
+    if (IsEVMEnabled(pindex->nHeight, mnview)) {
+        CKeyID minter;
+        assert(block.ExtractMinterKey(minter));
+        std::array<uint8_t, 20> minerAddress{};
+
+        if (!fMockNetwork) {
+            const auto id = mnview.GetMasternodeIdByOperator(minter);
+            assert(id);
+            const auto node = mnview.GetMasternode(*id);
+            assert(node);
+
+            auto height = node->creationHeight;
+            auto mnID = *id;
+            if (!node->collateralTx.IsNull()) {
+                const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
+                assert(idHeight);
+                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+                mnID = node->collateralTx;
+            }
+
+            const auto blockindex = ::ChainActive()[height];
+            assert(blockindex);
+
+
+            CTransactionRef tx;
+            uint256 hash_block;
+            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+            assert(tx->vout.size() >= 2);
+
+            CTxDestination dest;
+            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
+
+            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
+        } else {
+            std::copy(minter.begin(), minter.end(), minerAddress.begin());
+        }
+
+        evm_finalize(evmContext, true, block.nBits, minerAddress);
+    }
+
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
     if (it != checkpoints.begin()) {
