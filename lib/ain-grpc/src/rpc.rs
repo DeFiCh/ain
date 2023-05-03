@@ -90,7 +90,7 @@ pub trait MetachainRPC {
     fn get_transaction_count(&self, address: H160) -> RpcResult<String>;
 
     #[method(name = "eth_estimateGas")]
-    fn estimate_gas(&self) -> RpcResult<String>;
+    fn estimate_gas(&self, input: CallRequest) -> RpcResult<String>;
 
     #[method(name = "mc_getState")]
     fn get_state(&self) -> RpcResult<EVMState>;
@@ -131,7 +131,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             data,
             ..
         } = input;
-        let (_, data) = self.handler.evm.call(
+        let (_, data, ..) = self.handler.evm.call(
             from,
             to,
             value.unwrap_or_default(),
@@ -357,8 +357,30 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(format!("{:#x}", nonce))
     }
 
-    fn estimate_gas(&self) -> RpcResult<String> {
-        Ok(format!("{:#x}", 21000))
+    fn estimate_gas(&self, input: CallRequest) -> RpcResult<String> {
+        let CallRequest {
+            from,
+            to,
+            gas,
+            value,
+            data,
+            ..
+        } = input;
+
+        let (_, data, used_gas) = self.handler.evm.call(
+            from,
+            to,
+            value.unwrap_or_default(),
+            &data.unwrap_or_default(),
+            gas.unwrap_or_default().as_u64(),
+            vec![],
+        );
+        let native_size = ain_cpp_imports::get_native_tx_size(data).unwrap_or(0);
+        debug!("estimateGas: {:#?} + {:#?}", native_size, used_gas);
+        Ok(format!(
+            "{:#x}",
+            native_size + std::cmp::max(21000, used_gas)
+        ))
     }
 
     fn get_state(&self) -> RpcResult<EVMState> {
@@ -366,7 +388,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<String> {
-        Ok(format!("{:#x}", 0))
+        let gas_price = ain_cpp_imports::get_min_relay_tx_fee().unwrap_or(10);
+        debug!("gasPrice: {:#?}", gas_price);
+        Ok(format!("{:#x}", gas_price))
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {

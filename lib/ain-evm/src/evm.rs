@@ -59,7 +59,7 @@ impl EVMHandler {
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
-    ) -> (ExitReason, Vec<u8>) {
+    ) -> (ExitReason, Vec<u8>, u64) {
         // TODO Add actual gas, chain_id, block_number from header
         let vicinity = get_vicinity(caller, None);
 
@@ -76,7 +76,11 @@ impl EVMHandler {
             },
             false,
         );
-        (tx_response.exit_reason, tx_response.data)
+        (
+            tx_response.exit_reason,
+            tx_response.data,
+            tx_response.used_gas,
+        )
     }
 
     // TODO wrap in EVM transaction and dryrun with evm_call
@@ -120,8 +124,8 @@ impl EVMHandler {
             signed_tx.gas_limit().as_u64(),
             signed_tx.access_list(),
         ) {
-            (exit_reason, _) if exit_reason.is_succeed() => Ok(signed_tx),
-            (exit_reason, _) => Err(anyhow!("Error calling EVM {:?}", exit_reason).into()),
+            (exit_reason, _, _) if exit_reason.is_succeed() => Ok(signed_tx),
+            (exit_reason, _, _) => Err(anyhow!("Error calling EVM {:?}", exit_reason).into()),
         }
     }
 
