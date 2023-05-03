@@ -22,8 +22,8 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 all: 
 	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
 	RUSTUP_HOME=$(RUSTUP_HOME) \
-    CARGO_HOME=$(CARGO_HOME) \
-    $(CARGO) build \
+	CARGO_HOME=$(CARGO_HOME) \
+	$(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(DEBUG),,--release) \
@@ -33,8 +33,8 @@ all:
 .PHONY:
 clean-local:
 	RUSTUP_HOME=$(RUSTUP_HOME) \
-    CARGO_HOME=$(CARGO_HOME) \
-    $(CARGO) clean \
+	CARGO_HOME=$(CARGO_HOME) \
+	$(CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" && \
 	rm -rf $(TARGET_DIR)/{include,lib,src}
