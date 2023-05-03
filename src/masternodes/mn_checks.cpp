@@ -3807,12 +3807,12 @@ public:
     }
 
     Res operator()(const CTransferBalanceMessage &obj) const {
-        auto res = IsEVMEnabled();
-        if (!res) {
-            return res;
+        if (!IsEVMEnabled(height, mnview)) {
+            return Res::Err("Cannot create tx, EVM is not enabled");
         }
-
+        
         // owner auth
+        auto res = Res::Ok();
         if (obj.type != CTransferBalanceType::EvmOut)
             for (const auto &kv : obj.from) {
                 res = HasAuth(kv.first);
@@ -3908,9 +3908,8 @@ public:
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
-        auto res = IsEVMEnabled();
-        if (!res) {
-            return res;
+        if (!IsEVMEnabled(height, mnview)) {
+            return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
