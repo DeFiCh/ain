@@ -4787,7 +4787,11 @@ bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
-bool IsEVMEnabled(const CCustomCSView &view) {
+bool IsEVMEnabled(const int height, const CCustomCSView &view) {
+    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+        return false;
+    }
+
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
     auto attributes = view.GetAttributes();
     assert(attributes);
