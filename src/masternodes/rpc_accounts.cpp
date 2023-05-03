@@ -1951,10 +1951,10 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue transferbalance(const JSONRPCRequest& request) {
+UniValue transferdomain(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"transferbalance",
+    RPCHelpMan{"transferdomain",
                 "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -1976,12 +1976,12 @@ UniValue transferbalance(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferbalance", R"(acctoacc '{\"<fromAddress>\":\"1.0@DFI\"}' '{\"<toAddress>\":\"1.0@DFI\"}')")
+                        HelpExampleCli("transferdomain", R"(acctoacc '{\"<fromAddress>\":\"1.0@DFI\"}' '{\"<toAddress>\":\"1.0@DFI\"}')")
                         },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot transferbalance while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot transferdomain while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -1993,17 +1993,18 @@ UniValue transferbalance(const JSONRPCRequest& request) {
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    CTransferBalanceMessage msg;
+    CTransferDomainMessage msg;
 
     try {
         if (!request.params[0].isNull()){
             auto type = request.params[0].getValStr();
-            msg.type = CTransferBalanceType::AccountToAccount;
 
             if (type == "evmin")
-                msg.type = CTransferBalanceType::EvmIn;
+                msg.type = CTransferDomainType::EvmIn;
             else if (type == "evmout")
-                msg.type = CTransferBalanceType::EvmOut;
+                msg.type = CTransferDomainType::EvmOut;
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must be either \"evmin\" or \"evmout\"");
         } else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must not be null");
 
@@ -2025,7 +2026,7 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
-    metadata << static_cast<unsigned char>(CustomTxType::TransferBalance)
+    metadata << static_cast<unsigned char>(CustomTxType::TransferDomain)
                 << msg;
 
 
@@ -2037,11 +2038,11 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    if (msg.type != CTransferBalanceType::EvmOut) {
+    if (msg.type == CTransferDomainType::EvmIn) {
         for(auto& address : msg.from){
             auths.insert(address.first);
         }
-    } else {
+    } else if (msg.type == CTransferDomainType::EvmOut) {
         for(auto& address : msg.from) {
             const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
             const auto auth = GetScriptForDestination(PKHash(key.GetID()));
@@ -2909,7 +2910,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
     {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
     {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
-    {"accounts",   "transferbalance",          &transferbalance,           {"type", "from", "to"}},
+    {"accounts",   "transferdomain",          &transferdomain,           {"type", "from", "to"}},
     {"accounts",   "getburninfo",              &getburninfo,               {}},
     {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
     {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},

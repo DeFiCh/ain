@@ -501,13 +501,11 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
     return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
-std::string CTransferBalanceTypeToString(const CTransferBalanceType type) {
+std::string CTransferDomainTypeToString(const CTransferDomainType type) {
     switch (type) {
-        case CTransferBalanceType::AccountToAccount:
-            return "AccountToAccount";
-        case CTransferBalanceType::EvmIn:
+        case CTransferDomainType::EvmIn:
             return "EvmIn";
-        case CTransferBalanceType::EvmOut:
+        case CTransferDomainType::EvmOut:
             return "EvmOut";
     }
     return "Unknown";

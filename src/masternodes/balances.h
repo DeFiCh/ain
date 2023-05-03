@@ -208,13 +208,12 @@ struct CUtxosToAccountMessage {
     }
 };
 
-enum CTransferBalanceType : uint8_t {
-    AccountToAccount = 0x00,
+enum CTransferDomainType : uint8_t {
     EvmIn            = 0x01,
     EvmOut           = 0x02,
 };
 
-struct CTransferBalanceMessage {
+struct CTransferDomainMessage {
     uint8_t type;
     CAccounts from;  // from -> balances
     CAccounts to;    // to -> balances
