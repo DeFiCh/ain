@@ -3810,7 +3810,7 @@ public:
         if (!IsEVMEnabled(height, mnview)) {
             return Res::Err("Cannot create tx, EVM is not enabled");
         }
-        
+
         // owner auth
         auto res = Res::Ok();
         if (obj.type != CTransferBalanceType::EvmOut)
