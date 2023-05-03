@@ -264,74 +264,124 @@ message EthBlockNumberResponse {
     string block_number = 1; // [Hex string] Integer of the current block number the client is on
 }
 
-/* params: [
-   "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-   "latest", // state at the latest block
- ]
+/*
+    This is the request of the RPC call: EthGetTransactionCount.
+    Here is an example of the parameters of this proto message:
+    params: ["0x407d73d8a49eeb85d32cf465507dd71d507100c1", "latest", // state at the latest block]
+    params: ["0x407d73d8a49eeb85d32cf465507dd71d507100c1", "0x20"]
 */
 message EthGetTransactionCountRequest {
     string address = 1;
-    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string block_number = 2; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
 }
 
-// "result": "0x1" // 1
+/*
+    This is the return of the RPC call: EthGetTransactionCount.
+    Here is an example of the return of this proto message:
+    "result": "0x1" // 1
+*/
 message EthGetTransactionCountResponse {
-    string number_transaction = 1; // Integer of the number of transactions send from this address (Hex)
+    string number_transaction = 1; // [Hex string] Integer of the number of transactions send from this address
 }
 
-// params: ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"]
+/*
+    This is the request of the RPC call: EthGetBlockTransactionCountByHash.
+    Here is an example of the parameters of this proto message:
+    params: ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"]
+*/
 message EthGetBlockTransactionCountByHashRequest {
-    string block_hash = 1; // Hash of a block (Hex)
+    string block_hash = 1; // [Hex string] Hash of a block
 }
 
-// "result": "0xb" // 11
+/*
+    This is the return of the RPC call: EthGetBlockTransactionCountByHash.
+    Here is an example of the return of this proto message:
+    "result": "0xb" // 11
+*/
 message EthGetBlockTransactionCountByHashResponse {
     string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
 }
 
-// "params":["0xe8"]
+/*
+    This is the request of the RPC call: EthGetBlockTransactionCountByNumber.
+    Here is an example of the parameters of this proto message:
+    "params":["0xe8"]
+    "params":["earliest"]
+*/
 message EthGetBlockTransactionCountByNumberRequest {
-    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
 }
 
-// "result": "0xb" // 11
+/*
+    This is the return of the RPC call: EthGetBlockTransactionCountByNumber.
+    Here is an example of the return of this proto message:
+    "result": "0xb" // 11
+*/
 message EthGetBlockTransactionCountByNumberResponse {
-    string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
+    string number_transaction = 1; // [Hex string] Integer of the number of transactions in this block
 }
 
-// params: ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"]
+/*
+    This is the request of the RPC call: EthGetUncleCountByBlockHash.
+    Here is an example of the parameters of this proto message:
+    params: ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"]
+*/
 message EthGetUncleCountByBlockHashRequest {
-    string block_hash = 1; // Hash of a block (Hex)
+    string block_hash = 1; // [Hex string] Hash of a block
 }
 
-// "result": "0x1" // 1
+/*
+    This is the return of the RPC call: EthGetUncleCountByBlockHash.
+    Here is an example of the return of this proto message:
+    "result": "0x1" // 1
+*/
 message EthGetUncleCountByBlockHashResponse {
-    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
+    string number_uncles = 1; // [Hex string] Integer of the number of uncles in this block
 }
 
-// "params":["0xe8"]
+/*
+    This is the request of the RPC call: EthGetUncleCountByBlockNumber.
+    Here is an example of the parameters of this proto message:
+    "params":["0xe8"]
+*/
 message EthGetUncleCountByBlockNumberRequest {
-    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
 }
 
-// "result": "0x1" // 1
+/*
+    This is the return of the RPC call: EthGetUncleCountByBlockNumber.
+    Here is an example of the return of this proto message:
+    "result": "0x1" // 1
+*/
 message EthGetUncleCountByBlockNumberResponse {
-    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
+    string number_uncles = 1; // [Hex string] Integer of the number of uncles in this block
 }
 
-/* params: [
-   "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-   "0x2", // 2
- ]
+
+/*
+    This is the request of the RPC call: EthGetCode.
+    Here is an example of the parameters of this proto message:
+    params: [
+      "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+      "0x2", // 2
+    ]
+    params: [
+      "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+      "pending",
+    ]
 */
 message EthGetCodeRequest {
-    string address = 1; // Address you wan to get the code from
-    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string address = 1; // [Hex string] Address you wan to get the code from
+    string block_number = 2; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
 }
 
-// "result": "0x600160008035811a818181146012578301005b601b6001356025565b8060005260206000f25b600060078202905091905056"
+/*
+    This is the return of the RPC call: EthGetCode.
+    Here is an example of the return of this proto message:
+    "result": "0x600160008035811a818181146012578301005b601b6001356025565b8060005260206000f25b600060078202905091905056"
+*/
 message EthGetCodeResponse {
-    string code = 1; // The code from the given address
+    string code = 1; // [Hex string] The code from the given address
 }
 
 /* "params": [
