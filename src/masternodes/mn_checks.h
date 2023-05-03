@@ -501,7 +501,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
-bool IsEVMEnabled(const CCustomCSView &view);
+bool IsEVMEnabled(const int height, const CCustomCSView &view);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
