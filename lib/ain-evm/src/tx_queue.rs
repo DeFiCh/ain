@@ -144,7 +144,10 @@ impl TransactionQueue {
 
     pub fn sub_balance(&self, address: H160, value: U256) -> Result<(), QueueError> {
         let mut state = self.state.write().unwrap();
-        let account = state.get_mut(&address).unwrap();
+        let account = state
+            .get_mut(&address)
+            .ok_or(QueueError::NoSuchAccount(address))?;
+
         if account.balance >= value {
             account.balance -= value;
             Ok(())
@@ -158,6 +161,7 @@ impl TransactionQueue {
 pub enum QueueError {
     NoSuchContext,
     InsufficientBalance,
+    NoSuchAccount(H160),
 }
 
 impl std::fmt::Display for QueueError {
@@ -165,6 +169,7 @@ impl std::fmt::Display for QueueError {
         match self {
             QueueError::NoSuchContext => write!(f, "No transaction queue for this context"),
             QueueError::InsufficientBalance => write!(f, "Insufficient balance"),
+            QueueError::NoSuchAccount(address) => write!(f, "No such account {}", address),
         }
     }
 }
