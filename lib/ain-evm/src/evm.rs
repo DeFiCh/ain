@@ -1,4 +1,6 @@
 use crate::storage::traits::{PersistentState, PersistentStateError};
+use crate::storage::Storage;
+use crate::trie::{StateTrie, TrieBackend, TrieRoot};
 use crate::tx_queue::TransactionQueueMap;
 use crate::{
     executor::AinExecutor,
@@ -8,47 +10,64 @@ use crate::{
 use anyhow::anyhow;
 use ethereum::{AccessList, Log, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
-use evm::backend::MemoryAccount;
+use evm::backend::{ApplyBackend, MemoryAccount};
 use evm::{
     backend::{MemoryBackend, MemoryVicinity},
     ExitReason,
 };
 use hex::FromHex;
 use primitive_types::{H160, H256, U256};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
+use vsdb_trie_db::MptStore;
 
 pub static EVM_STATE_FILE: &str = "evm_state.bin";
+pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 
 pub type EVMState = BTreeMap<H160, MemoryAccount>;
 
-#[derive(Clone, Debug)]
 pub struct EVMHandler {
     pub state: Arc<RwLock<EVMState>>,
     pub tx_queues: Arc<TransactionQueueMap>,
+    trie_db: Arc<RwLock<TrieDBStore>>,
+    storage: Arc<Storage>,
 }
 
-impl PersistentState for EVMState {}
+#[derive(Serialize, Deserialize)]
+struct TrieDBStore {
+    trie_db: MptStore,
+}
 
-impl Default for EVMHandler {
+impl Default for TrieDBStore {
     fn default() -> Self {
-        Self::new()
+        Self {
+            trie_db: MptStore::new(),
+        }
     }
 }
 
+impl PersistentState for EVMState {}
+impl PersistentState for TrieDBStore {}
+
 impl EVMHandler {
-    pub fn new() -> Self {
+    pub fn new(storage: Arc<Storage>) -> Self {
         Self {
             state: Arc::new(RwLock::new(
                 EVMState::load_from_disk(EVM_STATE_FILE).expect("Error loading state"),
             )),
             tx_queues: Arc::new(TransactionQueueMap::new()),
+            trie_db: Arc::new(RwLock::new(
+                TrieDBStore::load_from_disk(TRIE_DB_STORE).expect("Error loading trie db store"),
+            )),
+            storage,
         }
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
-        self.state.write().unwrap().save_to_disk(EVM_STATE_FILE)
+        self.state.write().unwrap().save_to_disk(EVM_STATE_FILE)?;
+        self.trie_db.write().unwrap().save_to_disk(TRIE_DB_STORE)
     }
 
     pub fn call(
@@ -177,21 +196,5 @@ impl EVMHandler {
     }
     pub fn get_nonce(&self, account: H160) -> U256 {
         self.get_account(account).nonce
-    }
-}
-
-// TBD refine what vicinity we need. gas_price and origin only ?
-pub fn get_vicinity(origin: Option<H160>, gas_price: Option<U256>) -> MemoryVicinity {
-    MemoryVicinity {
-        gas_price: gas_price.unwrap_or(U256::MAX),
-        origin: origin.unwrap_or_default(),
-        block_hashes: Vec::new(),
-        block_number: Default::default(),
-        block_coinbase: Default::default(),
-        block_timestamp: Default::default(),
-        block_difficulty: Default::default(),
-        block_gas_limit: U256::MAX,
-        chain_id: U256::one(),
-        block_base_fee_per_gas: U256::MAX,
     }
 }

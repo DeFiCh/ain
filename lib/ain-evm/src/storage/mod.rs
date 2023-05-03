@@ -154,3 +154,13 @@ impl FlushableStorage for Storage {
         self.blockchain_data_handler.flush()
     }
 }
+
+impl Storage {
+    pub fn get_code_by_hash(&self, hash: H256) -> Option<Vec<u8>> {
+        self.blockchain_data_handler.get_code_by_hash(&hash)
+    }
+
+    pub fn put_code(&self, hash: H256, code: Vec<u8>) -> Option<Vec<u8>> {
+        self.blockchain_data_handler.put_code(&hash, &code)
+    }
+}

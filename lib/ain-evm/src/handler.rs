@@ -29,7 +29,7 @@ impl Handlers {
     pub fn new() -> Self {
         let storage = Arc::new(Storage::new());
         Self {
-            evm: EVMHandler::new(),
+            evm: EVMHandler::new(Arc::clone(&storage)),
             block: BlockHandler::new(Arc::clone(&storage)),
             receipt: ReceiptHandler::new(Arc::clone(&storage)),
             storage,

@@ -15,6 +15,7 @@ pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
 pub static LATEST_BLOCK_DATA_PATH: &str = "latest_block_data.bin";
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
+pub static CODE_MAP_PATH: &str = "code_map.bin";
 // pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
@@ -22,11 +23,13 @@ type Blocks = HashMap<U256, BlockAny>;
 type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
+type CodeHashToCode = HashMap<H256, Vec<u8>>;
 
 impl PersistentState for BlockHashtoBlock {}
 impl PersistentState for Blocks {}
 impl PersistentState for LatestBlockNumber {}
 impl PersistentState for TransactionHashToReceipt {}
+impl PersistentState for CodeHashToCode {}
 
 #[derive(Debug)]
 pub struct BlockchainDataHandler {
@@ -38,6 +41,8 @@ pub struct BlockchainDataHandler {
     block_map: RwLock<BlockHashtoBlock>,
     blocks: RwLock<Blocks>,
     latest_block_number: RwLock<Option<LatestBlockNumber>>,
+
+    code_map: RwLock<CodeHashToCode>,
 }
 
 impl BlockchainDataHandler {
@@ -56,6 +61,9 @@ impl BlockchainDataHandler {
             receipts: RwLock::new(
                 TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH)
                     .expect("Error loading receipts data"),
+            ),
+            code_map: RwLock::new(
+                CodeHashToCode::load_from_disk(CODE_MAP_PATH).expect("Error loading code data"),
             ),
         }
     }
@@ -184,6 +192,24 @@ impl FlushableStorage for BlockchainDataHandler {
         self.receipts
             .write()
             .unwrap()
-            .save_to_disk(RECEIPT_MAP_PATH)
+            .save_to_disk(RECEIPT_MAP_PATH)?;
+        self.code_map.write().unwrap().save_to_disk(CODE_MAP_PATH)
+    }
+}
+
+impl BlockchainDataHandler {
+    pub fn get_code_by_hash(&self, hash: &H256) -> Option<Vec<u8>> {
+        self.code_map
+            .read()
+            .unwrap()
+            .get(hash)
+            .map(ToOwned::to_owned)
+    }
+
+    pub fn put_code(&self, hash: &H256, code: &Vec<u8>) -> Option<Vec<u8>> {
+        self.code_map
+            .write()
+            .unwrap()
+            .insert(hash.clone(), code.clone())
     }
 }
