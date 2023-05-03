@@ -74,7 +74,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     uint160 hash;
     if (str.size() == ETH_ADDR_LENGTH_INC_PREFIX && str.substr(0, 2) == ETH_ADDR_PREFIX) {
         const auto hex = str.substr(2);
-        if (!IsHex(str.substr(2))) {
+        if (!IsHex(hex)) {
             return CNoDestination();
         }
         data = ParseHex(hex);
