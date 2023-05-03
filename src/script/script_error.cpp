@@ -89,6 +89,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Witness provided for non-witness script";
         case SCRIPT_ERR_WITNESS_PUBKEYTYPE:
             return "Using non-compressed keys in segwit";
+        case SCRIPT_ERR_WITNESS_ETHKEYTYPE:
+            return "Using compressed keys in Eth";
         case SCRIPT_ERR_OP_CODESEPARATOR:
             return "Using OP_CODESEPARATOR in non-witness script";
         case SCRIPT_ERR_SIG_FINDANDDELETE:
