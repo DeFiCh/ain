@@ -1,0 +1,20 @@
+name: Tests - EVM
+on:
+  workflow_dispatch:
+env:
+  NODE_URL: "http://35.187.53.161:20551/"
+  AUTH_ID: ${{ secrets.INFURA_GOERLI_PROJECT_ID }}
+  AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
+jobs:
+  node-rpc-tests:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '^1.17.0'
+      - uses: actions/checkout@v3
+        with:
+          repository: 'DeFiCh/go-ethlibs'
+      - name: Run e2e tests
+        run: go test -v ./node/rpc_test.go
