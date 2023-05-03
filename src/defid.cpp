@@ -21,6 +21,8 @@
 #include <util/threadnames.h>
 #include <util/translation.h>
 
+#include <masternodes/ffi_temp_stub.h>
+
 #include <functional>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -176,6 +178,8 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
+
+    stop_runtime();
 
     return fRet;
 }

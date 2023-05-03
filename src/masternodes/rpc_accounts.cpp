@@ -1,3 +1,4 @@
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
@@ -510,6 +511,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                         "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
                     {"symbol_lookup", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Use token symbols in output (default = false)"},
+                    {"include_eth", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Whether to include Eth balances in output (default = false)"},
                 },
                 RPCResult{
                        "{...}     (array) Json object with balances information\n"
@@ -554,6 +557,10 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     if (request.params.size() > 2) {
         symbol_lookup = request.params[2].getBool();
     }
+    auto eth_lookup = false;
+    if (request.params.size() > 3) {
+        eth_lookup = request.params[3].getBool();
+    }
 
     UniValue ret(UniValue::VARR);
     if (indexed_amounts) {
@@ -576,6 +583,14 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         }
         return true;
     });
+
+    if (eth_lookup) {
+        for (const auto keyID : pwallet->GetEthKeys()) {
+            const auto evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()));
+            totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+        }
+    }
+
     auto it = totalBalances.balances.lower_bound(start);
     for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         auto bal = CTokenAmount{(*it).first, (*it).second};
@@ -2883,7 +2898,7 @@ static const CRPCCommand commands[] =
 //  -------------  ------------------------ ----------------------  ----------
     {"accounts",   "listaccounts",             &listaccounts,              {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts",   "getaccount",               &getaccount,                {"owner", "pagination", "indexed_amounts"}},
-    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup"}},
+    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup", "include_eth"}},
     {"accounts",   "utxostoaccount",           &utxostoaccount,            {"amounts", "inputs"}},
     {"accounts",   "sendutxosfrom",            &sendutxosfrom,             {"from", "to", "amount", "change"}},
     {"accounts",   "accounttoaccount",         &accounttoaccount,          {"from", "to", "inputs"}},

@@ -133,6 +133,16 @@ std::set<CKeyID> FillableSigningProvider::GetKeys() const
     return set_address;
 }
 
+std::set<CKeyID> FillableSigningProvider::GetEthKeys() const
+{
+    LOCK(cs_KeyStore);
+    std::set<CKeyID> set_address;
+    for (const auto& mi : mapEthKeys) {
+        set_address.insert(mi.first);
+    }
+    return set_address;
+}
+
 bool FillableSigningProvider::GetKey(const CKeyID &address, CKey &keyOut) const
 {
     LOCK(cs_KeyStore);
