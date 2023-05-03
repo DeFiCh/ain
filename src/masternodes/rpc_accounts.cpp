@@ -254,11 +254,16 @@ static BalanceKey decodeBalanceKey(const std::string &str) {
     return {hexToScript(pair.first), tokenID};
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+static UniValue DecodeRecipientsGetRecipients(const UniValue &values) {
     UniValue recipients(UniValue::VOBJ);
     for (const auto& key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
     }
+    return recipients;
+}
+
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+    const auto recipients = DecodeRecipientsGetRecipients(values);
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
     for (const auto& account : accounts) {
         if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
