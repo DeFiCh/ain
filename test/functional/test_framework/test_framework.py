@@ -80,12 +80,16 @@ class DefiTestMetaClass(type):
 def get_default_config_path():
     current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     default_config_paths = [
-        # priority build selections for standard dev envs
+        # default priority to be for build dir specific build
+        current_file_path + "/../../../build/test/config.ini",
+        # tree-path specific for build explicitly built in tree
+        current_file_path + "/../../config.ini",
+        # priority host specific build selection for standard dev envs
         current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
         current_file_path + "/../../../build/aarch64-apple-darwin/test/config.ini",
         current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
         current_file_path + "/../../../build/x86_64-w64-migw32/test/config.ini",
-        # aarch64 / arm builds
+        # aarch64 / arm builds are by default lower priority when selecting host specific build
         current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
         current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
     ]
