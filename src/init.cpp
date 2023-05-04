@@ -1556,7 +1556,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     init_runtime();
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
-    start_servers("127.0.0.1:" + std::to_string(eth_rpc_port), "127.0.0.1:" +  std::to_string(grpc_port));
+    start_servers("0.0.0.0:" + std::to_string(eth_rpc_port), "0.0.0.0:" +  std::to_string(grpc_port));
 
 
     // ********************************************************* Step 5: verify wallet database integrity
