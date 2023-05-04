@@ -108,7 +108,7 @@ impl EVMHandler {
 
         let signed_tx: SignedTx = tx.try_into()?;
         let account = self.get_account(signed_tx.sender);
-        if account.nonce > signed_tx.nonce() {
+        if account.nonce != signed_tx.nonce() {
             return Err(anyhow!("Invalid nonce").into());
         }
         // TODO validate balance to pay gas

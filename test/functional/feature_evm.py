@@ -24,6 +24,7 @@ class EVMTest(DefiTestFramework):
 
     def run_test(self):
 
+        miner_eth = '0xb36814fd26190b321aa985809293a41273cfe15e' # node0 miner reward will go to this address on EVM side
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
@@ -74,6 +75,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].transferbalance("evmin",{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # Try and send a TX with a high nonce
+        assert_raises_rpc_error(-32600, "evm tx failed to validate", self.nodes[0].evmtx, ethAddress, 1, 21, 21000, to_address, 1)
 
         # Test EVM Tx
         tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)

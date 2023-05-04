@@ -5,7 +5,7 @@ use crate::receipt::ReceiptHandler;
 use crate::storage::Storage;
 use crate::traits::Executor;
 
-use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, U256};
 use evm::backend::MemoryBackend;
 use std::error::Error;
@@ -42,7 +42,7 @@ impl Handlers {
         update_state: bool,
         difficulty: u32,
         miner_address: Option<H160>,
-    ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
+    ) -> Result<(BlockAny, Vec<String>), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -65,7 +65,9 @@ impl Handlers {
             if exit_reason.is_succeed() {
                 all_transactions.push(signed_tx);
             } else {
-                failed_transactions.push(signed_tx.transaction.clone());
+                let bytes = ethereum::EnvelopedEncodable::encode(&signed_tx.transaction);
+                let byte_string = hex::encode(bytes);
+                failed_transactions.push(byte_string);
                 all_transactions.push(signed_tx);
             }
 

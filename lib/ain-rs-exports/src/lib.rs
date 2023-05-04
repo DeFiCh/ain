@@ -25,6 +25,11 @@ pub mod ffi {
         priv_key: [u8; 32],
     }
 
+    pub struct FinalizeBlockResult {
+        block_header: Vec<u8>,
+        failed_transactions: Vec<String>,
+    }
+
     extern "Rust" {
         fn evm_get_balance(address: &str) -> Result<u64>;
         fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
@@ -39,7 +44,7 @@ pub mod ffi {
             update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],
-        ) -> Result<Vec<u8>>;
+        ) -> Result<FinalizeBlockResult>;
 
         fn init_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
@@ -149,11 +154,14 @@ fn evm_finalize(
     update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
-) -> Result<Vec<u8>, Box<dyn Error>> {
+) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, _failed_tx) =
+    let (block, failed_txs) =
         RUNTIME
             .handlers
             .finalize_block(context, update_state, difficulty, Some(eth_address))?;
-    Ok(block.header.rlp_bytes().into())
+    Ok(ffi::FinalizeBlockResult {
+        block_header: block.header.rlp_bytes().into(),
+        failed_transactions: failed_txs,
+    })
 }

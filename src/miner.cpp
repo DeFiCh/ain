@@ -21,6 +21,7 @@
 #include <masternodes/mn_checks.h>
 #include <memory.h>
 #include <net.h>
+#include <node/transaction.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <pos.h>
@@ -93,6 +94,25 @@ void BlockAssembler::resetBlock()
     // These counters do not include coinbase tx
     nBlockTx = 0;
     nFees = 0;
+}
+
+static void ResendTransaction(const std::string &txString, const int targetHeight) {
+            const auto evmTx = ParseHex(txString);
+
+            CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+            metadata << static_cast<unsigned char>(CustomTxType::EvmTx) << CEvmTxMessage{evmTx};
+
+            CScript scriptMeta;
+            scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+            CMutableTransaction rawTx(GetTransactionVersion(targetHeight));
+            rawTx.vin.resize(2);
+            rawTx.vin[0].scriptSig = CScript() << OP_0;
+            rawTx.vin[1].scriptSig = CScript() << OP_0;
+            rawTx.vout.emplace_back(0, scriptMeta);
+
+            std::string error;
+            std::ignore = BroadcastTransaction(MakeTransactionRef(std::move(rawTx)), error, {COIN / 10}, true, false);
 }
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
@@ -243,13 +263,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
     }
 
-    // TODO Get failed TXs and try to restore to mempool
     std::vector<uint8_t> evmHeader{};
     if (IsEVMEnabled(nHeight, mnview)) {
         std::array<uint8_t, 20> dummyAddress{};
-        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
-        evmHeader.resize(rustHeader.size());
-        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+        evmHeader.resize(blockResult.block_header.size());
+        std::copy(blockResult.block_header.begin(), blockResult.block_header.end(), evmHeader.begin());
+
+        for (auto &rustString : blockResult.failed_transactions) {
+            ResendTransaction(rustString.c_str(), nHeight + 1);
+        }
     }
 
     // TXs for the creationTx field in new tokens created via token split
