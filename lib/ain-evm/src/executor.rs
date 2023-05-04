@@ -14,15 +14,15 @@ use evm::{
 };
 
 #[derive(Debug)]
-pub struct AinExecutor<B: Backend> {
-    backend: B,
+pub struct AinExecutor<'backend, B: Backend> {
+    backend: &'backend mut B,
 }
 
-impl<B> AinExecutor<B>
+impl<'backend, B> AinExecutor<'backend, B>
 where
     B: Backend + ApplyBackend,
 {
-    pub fn new(backend: B) -> Self {
+    pub fn new(backend: &'backend mut B) -> Self {
         Self { backend }
     }
 
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<B> Executor for AinExecutor<B>
+impl<'backend, B> Executor for AinExecutor<'backend, B>
 where
     B: Backend + ApplyBackend,
 {
@@ -39,7 +39,7 @@ where
 
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let state = MemoryStackState::new(metadata, &self.backend);
+        let state = MemoryStackState::new(metadata, self.backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx

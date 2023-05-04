@@ -1,13 +1,15 @@
+use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::{get_vicinity, EVMHandler};
+use crate::evm::EVMHandler;
 use crate::executor::{AinExecutor, TxResponse};
 use crate::receipt::ReceiptHandler;
+use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 
+use anyhow::anyhow;
 use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, U256};
-use evm::backend::MemoryBackend;
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -15,8 +17,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
-    pub storage: Arc<Storage>,
     pub receipt: ReceiptHandler,
+    pub storage: Arc<Storage>,
 }
 
 impl Default for Handlers {
@@ -49,10 +51,22 @@ impl Handlers {
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Default::default();
 
-        let vicinity = get_vicinity(None, None);
-        let state = self.evm.tx_queues.state(context).expect("Wrong context");
-        let backend = MemoryBackend::new(&vicinity, state);
-        let mut executor = AinExecutor::new(backend);
+        let state_root = self
+            .storage
+            .get_latest_block()
+            .map(|block| block.header.state_root)
+            .unwrap_or_default();
+        let vicinity = Vicinity {
+            gas_price: U256::from(0),
+            origin: H160::default(),
+            logs: Vec::new(),
+        };
+        let trie_db = &self.evm.trie_db.read().unwrap().trie_db;
+        let mut backend =
+            EVMBackend::from_root(state_root, &trie_db, Arc::clone(&self.storage), vicinity)
+                .map_err(|e| anyhow!(" ??? Could not restore backend : {}", e))?;
+
+        let mut executor = AinExecutor::new(&mut backend);
 
         for signed_tx in self.evm.tx_queues.drain_all(context) {
             let TxResponse {
@@ -76,9 +90,9 @@ impl Handlers {
 
         self.evm.tx_queues.remove(context);
 
-        let (parent_hash, number) = self.block.get_latest_block_hash_and_number();
+        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
 
-        let block = Block::new(
+        let mut block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary: miner_address.unwrap_or_default(),
@@ -86,7 +100,7 @@ impl Handlers {
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
-                number,
+                number: parent_number + 1,
                 gas_limit: U256::from(30000000),
                 gas_used: U256::from(gas_used),
                 timestamp: SystemTime::now()
@@ -112,8 +126,9 @@ impl Handlers {
         );
 
         if update_state {
-            let mut state = self.evm.state.write().unwrap();
-            *state = executor.backend().state().clone();
+            // let mut state = self.evm.state.write().unwrap();
+            // *state = executor.backend().state().clone();
+            block.header.state_root = backend.commit();
 
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);

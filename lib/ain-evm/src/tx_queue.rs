@@ -7,8 +7,6 @@ use std::{
 
 use crate::transaction::SignedTx;
 
-use crate::evm::EVMState;
-
 #[derive(Debug)]
 pub struct TransactionQueueMap {
     queues: RwLock<HashMap<u64, TransactionQueue>>,
@@ -27,14 +25,13 @@ impl TransactionQueueMap {
         }
     }
 
-    pub fn get_context(&self, state: EVMState) -> u64 {
+    pub fn get_context(&self) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let context = rng.gen();
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {
-                e.insert(TransactionQueue::new(state));
                 return context;
             }
         }
@@ -88,27 +85,17 @@ impl TransactionQueueMap {
             Err(QueueError::NoSuchContext)
         }
     }
-
-    pub fn state(&self, context_id: u64) -> Option<EVMState> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&context_id)
-            .map(|queue| queue.state())
-    }
 }
 
 #[derive(Debug)]
 pub struct TransactionQueue {
     transactions: Mutex<Vec<SignedTx>>,
-    state: RwLock<EVMState>,
 }
 
 impl TransactionQueue {
-    pub fn new(state: EVMState) -> Self {
+    pub fn new() -> Self {
         Self {
             transactions: Mutex::new(Vec::new()),
-            state: RwLock::new(state),
         }
     }
 
@@ -132,25 +119,21 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().len()
     }
 
-    pub fn state(&self) -> EVMState {
-        self.state.read().unwrap().clone()
-    }
-
     pub fn add_balance(&self, address: H160, value: U256) {
-        let mut state = self.state.write().unwrap();
-        let account = state.entry(address).or_default();
-        account.balance += value;
+        // let mut state = self.state.write().unwrap();
+        // let account = state.entry(address).or_default();
+        // account.balance += value;
     }
 
     pub fn sub_balance(&self, address: H160, value: U256) -> Result<(), QueueError> {
-        let mut state = self.state.write().unwrap();
-        let account = state.get_mut(&address).unwrap();
-        if account.balance >= value {
-            account.balance -= value;
-            Ok(())
-        } else {
-            Err(QueueError::InsufficientBalance)
-        }
+        // let mut state = self.state.write().unwrap();
+        // let account = state.get_mut(&address).unwrap();
+        // if account.balance >= value {
+        //     account.balance -= value;
+        Ok(())
+        // } else {
+        //     Err(QueueError::InsufficientBalance)
+        // }
     }
 }
 

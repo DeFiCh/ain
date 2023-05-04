@@ -2,6 +2,7 @@ use crate::receipt::Receipt;
 use ethereum::BlockAny;
 use ethereum::TransactionV2;
 use keccak_hash::H256;
+use log::debug;
 use primitive_types::U256;
 use std::fs::File;
 
@@ -71,6 +72,8 @@ pub trait PersistentState {
     where
         Self: Sized + serde::de::DeserializeOwned + Default,
     {
+        debug!("Restoring {} from disk", file_path);
+
         // Automatically resolves from datadir for now
         let path = match ain_cpp_imports::get_datadir() {
             Ok(path) => PathBuf::from(path).join("evm").join(file_path),

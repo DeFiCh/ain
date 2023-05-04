@@ -17,15 +17,15 @@ fn is_empty_account(account: &Account) -> bool {
 }
 
 pub struct Vicinity {
-    gas_price: U256,
-    origin: H160,
-    logs: Vec<Log>,
+    pub gas_price: U256,
+    pub origin: H160,
+    pub logs: Vec<Log>,
 }
 
 pub struct EVMBackend<'a> {
     state: MptOnce,
     trie_db: &'a MptStore,
-    storage: &'a Storage,
+    storage: Arc<Storage>,
     vicinity: Vicinity,
 }
 
@@ -34,13 +34,13 @@ type Result<T> = std::result::Result<T, EVMBackendError>;
 impl<'a> EVMBackend<'a> {
     pub fn new(
         trie_db: &'a MptStore,
-        storage: &'a Storage,
+        storage: Arc<Storage>,
         vicinity: Vicinity,
         cache_size: Option<usize>,
     ) -> Result<Self> {
         let state = trie_db
             .trie_create(&[0], cache_size, false)
-            .map_err(|_| EVMBackendError::TrieCreationFailed)?;
+            .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?;
 
         Ok(EVMBackend {
             state,
@@ -53,12 +53,12 @@ impl<'a> EVMBackend<'a> {
     pub fn from_root(
         state_root: MerkleRoot,
         trie_db: &'a MptStore,
-        storage: &'a Storage,
+        storage: Arc<Storage>,
         vicinity: Vicinity,
     ) -> Result<Self> {
         let state = trie_db
             .trie_restore(&[0], None, state_root.into())
-            .map_err(|_| EVMBackendError::TrieCreationFailed)?;
+            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(EVMBackend {
             state,
@@ -86,11 +86,11 @@ impl<'a> EVMBackend<'a> {
         let mut storage_trie = if reset_storage || is_empty_account(&account) {
             self.trie_db
                 .trie_create(address.as_bytes(), None, true)
-                .map_err(|_| EVMBackendError::TrieCreationFailed)?
+                .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?
         } else {
             self.trie_db
                 .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                .map_err(|_| EVMBackendError::TrieRestoreFailed)?
+                .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?
         };
 
         storage.into_iter().for_each(|(k, v)| {
@@ -252,20 +252,20 @@ impl<'a> ApplyBackend for EVMBackend<'a> {
     }
 }
 
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]
 pub enum EVMBackendError {
-    TrieCreationFailed,
-    TrieRestoreFailed,
+    TrieCreationFailed(String),
+    TrieRestoreFailed(String),
     TrieError(String),
 }
 
 impl fmt::Display for EVMBackendError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EVMBackendError::TrieCreationFailed => write!(f, "Failed to create trie"),
-            EVMBackendError::TrieRestoreFailed => write!(f, "Failed to restore trie"),
+            EVMBackendError::TrieCreationFailed(e) => write!(f, "Failed to create trie {}", e),
+            EVMBackendError::TrieRestoreFailed(e) => write!(f, "Failed to restore trie {}", e),
             EVMBackendError::TrieError(e) => write!(f, "Trie error {}", e),
         }
     }

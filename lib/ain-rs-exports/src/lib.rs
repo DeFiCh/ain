@@ -26,7 +26,7 @@ pub mod ffi {
     }
 
     extern "Rust" {
-        fn evm_get_balance(address: &str) -> Result<u64>;
+        fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
         fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
         fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
@@ -80,9 +80,13 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
     Ok(signed.encode().into())
 }
 
-pub fn evm_get_balance(address: &str) -> Result<u64, Box<dyn Error>> {
+pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
     let account = address.parse()?;
-    let mut balance = RUNTIME.handlers.evm.get_balance(account);
+    let mut balance = RUNTIME
+        .handlers
+        .evm
+        .get_balance(account, U256::from(block_number))
+        .unwrap(); // convert to try_evm_get_balance
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     Ok(balance.as_u64())
@@ -151,9 +155,12 @@ fn evm_finalize(
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, _failed_tx) =
-        RUNTIME
-            .handlers
-            .finalize_block(context, update_state, difficulty, Some(eth_address))?;
+    let (block, _failed_tx) = RUNTIME
+        .handlers
+        .finalize_block(context, update_state, difficulty, Some(eth_address))
+        .map_err(|e| {
+            println!("Wtf is going on : {}", e);
+            e
+        })?;
     Ok(block.header.rlp_bytes().into())
 }
