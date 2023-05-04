@@ -10,7 +10,6 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
-#include <masternodes/ffi_temp_stub.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <txmempool.h>
