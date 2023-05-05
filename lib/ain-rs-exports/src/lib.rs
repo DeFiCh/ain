@@ -4,8 +4,6 @@ use ain_grpc::*;
 use ain_evm::runtime::RUNTIME;
 use log::debug;
 use std::error::Error;
-use std::os::raw::c_char;
-use std::ffi::CStr;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
