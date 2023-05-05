@@ -3,6 +3,21 @@
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
 
+std::array<uint8_t, 32> getPrivKey(rust::string fromAddress) {
+    const auto fromDest = DecodeDestination(fromAddress.c_str());
+    if (fromDest.index() != WitV16KeyEthHashType) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "from address not an Ethereum address");
+    }
+    const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
+    const CKeyID keyId{fromEth};
+    CKey key;
+    if (!pwallet->GetKey(keyId, key)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+    }
+    std::array<uint8_t, 32> privKey{};
+    std::copy(key.begin(), key.end(), privKey.begin());
+    return privKey;
+}
 
 uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
