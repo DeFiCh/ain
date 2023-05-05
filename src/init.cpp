@@ -1567,7 +1567,6 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // Determine which addresses to bind to ETH RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-        eth_endpoints.push_back(std::make_pair("::1", eth_rpc_port));
         eth_endpoints.push_back(std::make_pair("127.0.0.1", eth_rpc_port));
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
@@ -1586,7 +1585,6 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // Determine which addresses to bind to gRPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
-        g_endpoints.push_back(std::make_pair("::1", grpc_port));
         g_endpoints.push_back(std::make_pair("127.0.0.1", grpc_port));
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
