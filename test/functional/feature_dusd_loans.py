@@ -32,7 +32,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanninggreatworldheight = 3000
         self.fortcanningepilogueheight = 4000
         self.nextnetworkupgradeheight = 5000
-        
+
         self.extra_args = [
             ['-txnotokens=0',
              '-amkheight=1',
@@ -46,7 +46,7 @@ class DUSDLoanTests(DefiTestFramework):
              f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
              f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
              f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
-             
+
              '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
@@ -524,7 +524,7 @@ class DUSDLoanTests(DefiTestFramework):
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
-        
+
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'true'}})
         self.nodes[0].generate(1)
 
@@ -551,7 +551,7 @@ class DUSDLoanTests(DefiTestFramework):
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'withdraw')
-                                
+
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
 
@@ -572,7 +572,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.post_FCE_DFI_minimum_check_takeloan()
 
         self.check_looped_dusd()
-        
+
         # self.post_FCE_DFI_minimum_check_withdraw()
 
         # TODO
