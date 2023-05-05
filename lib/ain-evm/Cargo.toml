@@ -31,7 +31,8 @@ sp-trie = "21.0.0"
 sp-core = "20.0.0"
 kvdb-rocksdb = "0.18.0"
 kvdb = "0.13.0"
-vsdb_trie_db = "0.7.0"
+# vsdb_trie_db = "0.7.0"
+vsdb_trie_db = { version = "0.7.0", path = "/Users/jouzo/RUST/vsdb/utils/trie_db" }
 
 # Runtime dependencies
 lazy_static = "1.4"

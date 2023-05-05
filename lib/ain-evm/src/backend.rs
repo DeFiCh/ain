@@ -1,13 +1,14 @@
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
-use vsdb_trie_db::{MptOnce, MptStore};
+use vsdb_trie_db::MptOnce;
 
-use crate::storage::Storage;
+use crate::{evm::TrieDBStore, storage::Storage, traits::BridgeBackend};
 
 type MerkleRoot = H256;
 type Hasher = Blake2Hasher;
@@ -18,33 +19,35 @@ fn is_empty_account(account: &Account) -> bool {
 
 pub struct Vicinity {
     pub gas_price: U256,
+    pub block_number: U256,
     pub origin: H160,
     pub logs: Vec<Log>,
 }
 
-pub struct EVMBackend<'a> {
+pub struct EVMBackend {
     state: MptOnce,
-    trie_db: &'a MptStore,
+    trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
     vicinity: Vicinity,
 }
 
 type Result<T> = std::result::Result<T, EVMBackendError>;
 
-impl<'a> EVMBackend<'a> {
+impl EVMBackend {
     pub fn new(
-        trie_db: &'a MptStore,
+        trie_store: Arc<TrieDBStore>,
         storage: Arc<Storage>,
         vicinity: Vicinity,
         cache_size: Option<usize>,
     ) -> Result<Self> {
-        let state = trie_db
+        let state = trie_store
+            .trie_db
             .trie_create(&[0], cache_size, false)
             .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?;
 
         Ok(EVMBackend {
             state,
-            trie_db,
+            trie_store,
             storage,
             vicinity,
         })
@@ -52,17 +55,18 @@ impl<'a> EVMBackend<'a> {
 
     pub fn from_root(
         state_root: MerkleRoot,
-        trie_db: &'a MptStore,
+        trie_store: Arc<TrieDBStore>,
         storage: Arc<Storage>,
         vicinity: Vicinity,
     ) -> Result<Self> {
-        let state = trie_db
+        let state = trie_store
+            .trie_db
             .trie_restore(&[0], None, state_root.into())
             .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(EVMBackend {
             state,
-            trie_db,
+            trie_store,
             storage,
             vicinity,
         })
@@ -75,7 +79,7 @@ impl<'a> EVMBackend<'a> {
         code: Option<Vec<u8>>,
         storage: I,
         reset_storage: bool,
-    ) -> Result<bool> {
+    ) -> Result<Account> {
         let account = self.get_account(address).unwrap_or(Account {
             nonce: U256::zero(),
             balance: U256::zero(),
@@ -84,11 +88,13 @@ impl<'a> EVMBackend<'a> {
         });
 
         let mut storage_trie = if reset_storage || is_empty_account(&account) {
-            self.trie_db
+            self.trie_store
+                .trie_db
                 .trie_create(address.as_bytes(), None, true)
                 .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?
         } else {
-            self.trie_db
+            self.trie_store
+                .trie_db
                 .trie_restore(address.as_bytes(), None, account.storage_root.into())
                 .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?
         };
@@ -112,11 +118,16 @@ impl<'a> EVMBackend<'a> {
             storage_root: storage_trie.commit().into(),
         };
 
+        println!("insert address : {:#?}", address);
+        println!("new_account : {:#?}", new_account);
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
-            .map_err(|e| EVMBackendError::TrieError(format!("{}", e)))?;
+            .map_err(|e| {
+                println!("e : {:#?}", e);
+                EVMBackendError::TrieError(format!("{}", e))
+            })?;
 
-        Ok(is_empty_account(&new_account))
+        Ok(new_account)
     }
 
     pub fn commit(&mut self) -> MerkleRoot {
@@ -124,22 +135,27 @@ impl<'a> EVMBackend<'a> {
     }
 }
 
-impl EVMBackend<'_> {
+impl EVMBackend {
     pub fn get_account(&self, address: H160) -> Option<Account> {
         self.state
             .get(address.as_bytes())
-            .unwrap_or(None)
+            .unwrap_or_else(|_| {
+                println!("Not finding account for address {} ", address);
+                None
+            })
             .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
     }
 }
 
-impl<'a> Backend for EVMBackend<'a> {
+impl Backend for EVMBackend {
     fn gas_price(&self) -> U256 {
-        self.vicinity.gas_price
+        Default::default()
+        // self.vicinity.gas_price
     }
 
     fn origin(&self) -> H160 {
-        self.vicinity.origin
+        Default::default()
+        // self.vicinity.origin
     }
 
     fn block_hash(&self, number: U256) -> H256 {
@@ -147,7 +163,8 @@ impl<'a> Backend for EVMBackend<'a> {
     }
 
     fn block_number(&self) -> U256 {
-        unimplemented!("Implement block_number function")
+        Default::default()
+        // self.vicinity.block_number
     }
 
     fn block_coinbase(&self) -> H160 {
@@ -175,7 +192,7 @@ impl<'a> Backend for EVMBackend<'a> {
     }
 
     fn exists(&self, address: H160) -> bool {
-        self.state.contains(address.as_bytes()).unwrap_or_default()
+        self.state.contains(address.as_bytes()).unwrap_or(false)
     }
 
     fn basic(&self, address: H160) -> Basic {
@@ -198,7 +215,8 @@ impl<'a> Backend for EVMBackend<'a> {
     fn storage(&self, address: H160, index: H256) -> H256 {
         self.get_account(address)
             .and_then(|account| {
-                self.trie_db
+                self.trie_store
+                    .trie_db
                     .trie_restore(address.as_bytes(), None, account.storage_root.into())
                     .ok()
             })
@@ -212,7 +230,7 @@ impl<'a> Backend for EVMBackend<'a> {
     }
 }
 
-impl<'a> ApplyBackend for EVMBackend<'a> {
+impl ApplyBackend for EVMBackend {
     fn apply<A, I, L>(&mut self, values: A, logs: L, delete_empty: bool)
     where
         A: IntoIterator<Item = Apply<I>>,
@@ -228,19 +246,21 @@ impl<'a> ApplyBackend for EVMBackend<'a> {
                     storage,
                     reset_storage,
                 } => {
-                    let is_empty = self
+                    let new_account = self
                         .apply(address, basic, code, storage, reset_storage)
                         .expect("Error applying state");
 
-                    if is_empty && delete_empty {
-                        self.trie_db.trie_remove(address.as_bytes());
+                    if is_empty_account(&new_account) && delete_empty {
+                        debug!("Deleting empty address {}", address);
+                        println!("Deleting empty address {}", address);
+                        self.trie_store.trie_db.trie_remove(address.as_bytes());
                         self.state
                             .remove(address.as_bytes())
                             .expect("Error removing address in state");
                     }
                 }
                 Apply::Delete { address } => {
-                    self.trie_db.trie_remove(address.as_bytes());
+                    self.trie_store.trie_db.trie_remove(address.as_bytes());
                     self.state
                         .remove(address.as_bytes())
                         .expect("Error removing address in state");
@@ -252,21 +272,99 @@ impl<'a> ApplyBackend for EVMBackend<'a> {
     }
 }
 
+impl BridgeBackend for EVMBackend {
+    fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+        let account = self.get_account(address).unwrap_or_else(|| Account {
+            balance: U256::zero(),
+            nonce: U256::zero(),
+            storage_root: H256::zero(),
+            code_hash: H256::zero(),
+        });
+
+        let new_account = Account {
+            balance: account.balance + amount,
+            ..account
+        };
+
+        self.state
+            .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
+            .map_err(|e| {
+                println!("e : {:#?}", e);
+                EVMBackendError::TrieError(format!("{}", e))
+            })?;
+        Ok(())
+    }
+
+    fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+        let account = self
+            .get_account(address)
+            .ok_or(EVMBackendError::NoSuchAccount(address))?;
+
+        if account.balance < amount {
+            Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
+                address,
+                account_balance: account.balance,
+                amount,
+            }))
+        } else {
+            let new_account = Account {
+                balance: account.balance - amount,
+                ..account
+            };
+
+            self.state
+                .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
+                .map_err(|e| {
+                    println!("e : {:#?}", e);
+                    EVMBackendError::TrieError(format!("{}", e))
+                })?;
+            Ok(())
+        }
+    }
+}
+
 use std::{error::Error, fmt, sync::Arc};
+
+#[derive(Debug)]
+pub struct InsufficientBalance {
+    address: H160,
+    account_balance: U256,
+    amount: U256,
+}
 
 #[derive(Debug)]
 pub enum EVMBackendError {
     TrieCreationFailed(String),
     TrieRestoreFailed(String),
     TrieError(String),
+    NoSuchAccount(H160),
+    InsufficientBalance(InsufficientBalance),
 }
 
 impl fmt::Display for EVMBackendError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EVMBackendError::TrieCreationFailed(e) => write!(f, "Failed to create trie {}", e),
-            EVMBackendError::TrieRestoreFailed(e) => write!(f, "Failed to restore trie {}", e),
-            EVMBackendError::TrieError(e) => write!(f, "Trie error {}", e),
+            EVMBackendError::TrieCreationFailed(e) => {
+                write!(f, "EVMBackendError: Failed to create trie {}", e)
+            }
+            EVMBackendError::TrieRestoreFailed(e) => {
+                write!(f, "EVMBackendError: Failed to restore trie {}", e)
+            }
+            EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {}", e),
+            EVMBackendError::NoSuchAccount(address) => {
+                write!(
+                    f,
+                    "EVMBackendError: No such acccount for address {}",
+                    address
+                )
+            }
+            EVMBackendError::InsufficientBalance(InsufficientBalance {
+                address,
+                account_balance,
+                amount,
+            }) => {
+                write!(f, "EVMBackendError: Insufficient balance for address {}, trying to deduct {} but address has only {}", address, amount, account_balance)
+            }
         }
     }
 }

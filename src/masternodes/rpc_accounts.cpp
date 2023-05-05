@@ -586,7 +586,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     if (eth_lookup) {
         for (const auto keyID : pwallet->GetEthKeys()) {
-            const auto evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()));
+            const arith_uint256 height = targetHeight;
+            const auto evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()), ArithToUint256(height).ToArrayReversed());
             totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
         }
     }

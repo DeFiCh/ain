@@ -32,7 +32,7 @@ pub mod ffi {
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
-        fn evm_discard_context(context: u64);
+        fn evm_discard_context(context: u64) -> Result<()>;
         fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool>;
         fn evm_finalize(
             context: u64,
@@ -98,10 +98,11 @@ pub fn evm_add_balance(
     amount: [u8; 32],
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
+
     RUNTIME
         .handlers
         .evm
-        .add_balance(context, address, amount.into());
+        .add_balance(context, address, amount.into())?;
     Ok(())
 }
 
@@ -135,9 +136,10 @@ pub fn evm_get_context() -> u64 {
     RUNTIME.handlers.evm.get_context()
 }
 
-fn evm_discard_context(context: u64) {
+fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
     // TODO discard
-    RUNTIME.handlers.evm.discard_context(context)
+    RUNTIME.handlers.evm.discard_context(context)?;
+    Ok(())
 }
 
 fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {

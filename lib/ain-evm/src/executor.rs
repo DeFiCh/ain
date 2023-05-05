@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use crate::{
+    backend::{EVMBackend, EVMBackendError},
     evm::EVMHandler,
-    traits::{Executor, ExecutorContext},
+    traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
 };
 use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
@@ -12,15 +13,16 @@ use evm::{
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
+use primitive_types::H160;
 
 #[derive(Debug)]
 pub struct AinExecutor<'backend, B: Backend> {
-    backend: &'backend mut B,
+    pub backend: &'backend mut B,
 }
 
 impl<'backend, B> AinExecutor<'backend, B>
 where
-    B: Backend + ApplyBackend,
+    B: Backend + ApplyBackend + BridgeBackend,
 {
     pub fn new(backend: &'backend mut B) -> Self {
         Self { backend }
@@ -28,6 +30,14 @@ where
 
     pub fn backend(&self) -> &B {
         &self.backend
+    }
+
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+        self.backend.add_balance(address, amount)
+    }
+
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+        self.backend.sub_balance(address, amount)
     }
 }
 

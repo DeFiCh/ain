@@ -6272,8 +6272,6 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vsdb"
 version = "0.55.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf86b87f6ae42470bc4e096c9fecce3b85191c1e2d036fc4f39caa131cc7eaef"
 dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
@@ -6285,8 +6283,6 @@ dependencies = [
 [[package]]
 name = "vsdb_core"
 version = "0.55.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e54f154d4f6caa16a788b3037064e678ecfaa348fcde4fa289b58edf767cbd3"
 dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
@@ -6300,8 +6296,6 @@ dependencies = [
 [[package]]
 name = "vsdb_hash_db"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bec9042f9eb9b041b71d40da8b7d248e3ea493c5791ff5e59c0a177b1b48704"
 dependencies = [
  "bcs",
  "hash-db 0.16.0",
@@ -6316,8 +6310,6 @@ dependencies = [
 [[package]]
 name = "vsdb_trie_db"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fe17f191caefdd0273adc1c20ca2757d93f3c2673cf45a2466ac925bdbe0165"
 dependencies = [
  "ruc",
  "serde",

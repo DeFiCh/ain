@@ -1,4 +1,4 @@
-use crate::block::{BlockNumber, RpcBlock};
+use crate::block::{self, BlockNumber, RpcBlock};
 use crate::call_request::CallRequest;
 use crate::codegen::types::{EthPendingTransactionInfo, EthTransactionInfo};
 
@@ -192,14 +192,62 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(accounts)
     }
 
+    // State RPC
+
     fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
-        debug!("Getting balance for address: {:?}", address);
         let block_number = self.block_number_to_u256(block_number);
+        debug!(
+            "Getting balance for address: {:?} at block : {} ",
+            address, block_number
+        );
+        println!(
+            "Getting balance for address: {:?} at block : {} ",
+            address, block_number
+        );
+        // println!("store : {:#?} ", bincode::serialize(&*self.evm.trie_store));
         self.handler
             .evm
             .get_balance(address, block_number)
             .map_err(|e| Error::Custom(format!("Error getting address balance : {:?}", e)))
     }
+
+    fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
+        debug!("Getting code for address: {:?}", address);
+        let block_number = self.block_number_to_u256(block_number);
+        let code = self
+            .handler
+            .evm
+            .get_code(address, block_number)
+            .map_err(|e| Error::Custom(format!("Error getting address code : {:?}", e)))?;
+
+        if code.is_none() {
+            return Ok(String::from("0x"));
+        }
+
+        Ok(format!("{:#x?}", code))
+    }
+
+    fn get_storage_at(
+        &self,
+        address: H160,
+        position: H256,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<String> {
+        debug!(
+            "Getting storage for address: {:?}, at position {:?}",
+            address, position
+        );
+        let block_number = self.block_number_to_u256(block_number);
+        let storage = self
+            .handler
+            .evm
+            .get_storage_at(address, position, block_number)
+            .map_err(|e| Error::Custom(format!("Error getting address storage at : {:?}", e)))?
+            .unwrap_or_default();
+
+        Ok(format!("{:#x}", H256::from_slice(&storage)))
+    }
+    // ------
 
     fn get_block_by_hash(&self, hash: H256) -> RpcResult<Option<RpcBlock>> {
         self.handler
@@ -322,43 +370,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_number(&block_number)
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
-    }
-
-    fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
-        debug!("Getting code for address: {:?}", address);
-        let block_number = self.block_number_to_u256(block_number);
-        let code = self
-            .handler
-            .evm
-            .get_code(address, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address code : {:?}", e)))?;
-
-        if code.is_none() {
-            return Ok(String::from("0x"));
-        }
-
-        Ok(format!("{:#x?}", code))
-    }
-
-    fn get_storage_at(
-        &self,
-        address: H160,
-        position: H256,
-        block_number: Option<BlockNumber>,
-    ) -> RpcResult<String> {
-        debug!(
-            "Getting storage for address: {:?}, at position {:?}",
-            address, position
-        );
-        let block_number = self.block_number_to_u256(block_number);
-        let storage = self
-            .handler
-            .evm
-            .get_storage_at(address, position, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address storage at : {:?}", e)))?
-            .unwrap_or_default();
-
-        Ok(format!("{:#x}", H256::from_slice(&storage)))
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {

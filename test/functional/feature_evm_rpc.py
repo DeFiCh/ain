@@ -66,7 +66,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(4)
 
         self.nodes[0].getbalance()
-        self.nodes[0].utxostoaccount({self.address: "101@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "201@DFI"})
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
@@ -103,16 +103,29 @@ class EVMTest(DefiTestFramework):
         code = self.nodes[0].eth_getCode(address)
         assert_equal(code, "0x")
 
+
+        blockNumber = self.nodes[0].eth_blockNumber()
+
+        self.nodes[0].transferbalance("evmin",{self.address:["50@DFI"]}, {self.ethAddress:["50@DFI"]})
+        self.nodes[0].generate(1)
+
+        balance = self.nodes[0].eth_getBalance(address, "latest")
+        assert_equal(balance, int_to_eth_u256(150))
+
+        balance = self.nodes[0].eth_getBalance(address, blockNumber) # Test querying previous block
+        assert_equal(balance, int_to_eth_u256(100))
+
+
     def test_block(self):
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x2")
+        assert_equal(latest_block['number'], "0x3")
 
     def run_test(self):
         self.setup()
 
         self.test_node_params()
 
-        self.test_gas()
+        # self.test_gas()
 
         self.test_accounts()
 

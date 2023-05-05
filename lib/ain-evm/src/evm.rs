@@ -13,6 +13,7 @@ use anyhow::anyhow;
 use ethereum::{AccessList, Account, Log, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
 
+use evm::backend::Backend;
 use hex::FromHex;
 use log::debug;
 use primitive_types::{H160, H256, U256};
@@ -29,7 +30,7 @@ pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 pub struct EVMHandler {
     // pub state: Arc<RwLock<EVMState>>,
     pub tx_queues: Arc<TransactionQueueMap>,
-    pub trie_db: Arc<RwLock<TrieDBStore>>,
+    pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
 
@@ -46,12 +47,14 @@ impl Default for TrieDBStore {
 
 impl TrieDBStore {
     pub fn new() -> Self {
+        println!("New TrieDBStore");
         let trie_store = MptStore::new();
         let mut trie = trie_store
             .trie_create(&[0], None, false)
             .expect("Error creating initial backend");
         let state_root: H256 = trie.commit().into();
-        debug!("state_root : {}", state_root);
+        println!("state_root : {:#x}", state_root);
+        debug!("state_root : {:#x}", state_root);
         Self {
             trie_db: trie_store,
         }
@@ -68,16 +71,16 @@ impl EVMHandler {
             //     EVMState::load_from_disk(EVM_STATE_FILE).expect("Error loading state"),
             // )),
             tx_queues: Arc::new(TransactionQueueMap::new()),
-            trie_db: Arc::new(RwLock::new(
+            trie_store: Arc::new(
                 TrieDBStore::load_from_disk(TRIE_DB_STORE).expect("Error loading trie db store"),
-            )),
+            ),
             storage,
         }
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
         // self.state.write().unwrap().save_to_disk(EVM_STATE_FILE)?;
-        self.trie_db.write().unwrap().save_to_disk(TRIE_DB_STORE)
+        self.trie_store.save_to_disk(TRIE_DB_STORE)
     }
 
     pub fn call(
@@ -94,15 +97,24 @@ impl EVMHandler {
             .get_latest_block()
             .map(|block| block.header.state_root)
             .unwrap_or_default();
+        let block_number = self
+            .storage
+            .get_latest_block()
+            .map(|block| block.header.number)
+            .unwrap_or_default();
         let vicinity = Vicinity {
+            block_number,
             gas_price: U256::from(gas_limit),
             origin: caller.unwrap_or_default(),
             logs: Vec::new(),
         };
-        let trie_db = &self.trie_db.read().unwrap().trie_db;
-        let mut backend =
-            EVMBackend::from_root(state_root, &trie_db, Arc::clone(&self.storage), vicinity)
-                .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+        )
+        .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(
             ExecutorContext {
                 caller,
@@ -116,9 +128,14 @@ impl EVMHandler {
         ))
     }
 
-    // TODO wrap in EVM transaction and dryrun with evm_call
-    pub fn add_balance(&self, context: u64, address: H160, value: U256) {
-        self.tx_queues.add_balance(context, address, value)
+    pub fn add_balance(
+        &self,
+        context: u64,
+        address: H160,
+        value: U256,
+    ) -> Result<(), Box<dyn Error>> {
+        self.tx_queues.add_balance(context, address, value)?;
+        Ok(())
     }
 
     pub fn sub_balance(
@@ -172,13 +189,14 @@ impl EVMHandler {
         self.tx_queues.get_context()
     }
 
-    pub fn discard_context(&self, context: u64) {
-        self.tx_queues.clear(context)
+    pub fn discard_context(&self, context: u64) -> Result<(), Box<dyn Error>> {
+        self.tx_queues.clear(context)?;
+        Ok(())
     }
 
     pub fn queue_tx(&self, context: u64, raw_tx: &str) -> Result<(), Box<dyn Error>> {
         let signed_tx = self.validate_raw_tx(raw_tx)?;
-        self.tx_queues.add_signed_tx(context, signed_tx);
+        self.tx_queues.add_signed_tx(context, signed_tx)?;
         Ok(())
     }
 
@@ -197,29 +215,35 @@ impl EVMHandler {
         &self,
         address: H160,
         block_number: U256,
-    ) -> Result<Option<Account>, EVMBackendError> {
+    ) -> Result<Option<Account>, EVMError> {
         let state_root = self
             .storage
             .get_block_by_number(&block_number)
             .or_else(|| self.storage.get_latest_block())
             .map(|block| block.header.state_root)
             .unwrap_or_default();
+        // println!(
+        //     "self.storage.get_latest_block() : {:#?}",
+        //     self.storage.get_latest_block()
+        // );
+        println!("get_account state_root : {:#?}", state_root);
         let vicinity = Vicinity {
             gas_price: U256::from(0),
+            block_number: U256::from(3),
             origin: H160::default(),
             logs: Vec::new(),
         };
-        let trie_db = &self.trie_db.read().unwrap().trie_db;
-        let backend =
-            EVMBackend::from_root(state_root, &trie_db, Arc::clone(&self.storage), vicinity)?;
+
+        let backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+        )?;
         Ok(backend.get_account(address))
     }
 
-    pub fn get_code(
-        &self,
-        address: H160,
-        block_number: U256,
-    ) -> Result<Option<Vec<u8>>, EVMBackendError> {
+    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {
         self.get_account(address, block_number).map(|opt_account| {
             opt_account.map_or_else(
                 || None,
@@ -233,34 +257,60 @@ impl EVMHandler {
         address: H160,
         position: H256,
         block_number: U256,
-    ) -> Result<Option<Vec<u8>>, EVMBackendError> {
-        self.get_account(address, block_number)
-            .and_then(|opt_account| {
-                opt_account.map_or_else(
-                    || Ok(None),
-                    |account| {
-                        let storage_trie = self
-                            .trie_db
-                            .read()
-                            .unwrap()
-                            .trie_db
-                            .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                            .unwrap();
-                        storage_trie
-                            .get(position.as_bytes())
-                            .map_err(|e| EVMBackendError::TrieError(format!("{}", e)))
-                    },
-                )
-            })
+    ) -> Result<Option<Vec<u8>>, EVMError> {
+        self.get_account(address, block_number)?
+            .ok_or(EVMError::NoSuchAccount(address))
+            .map(|account| {
+                let storage_trie = self
+                    .trie_store
+                    .trie_db
+                    .trie_restore(address.as_bytes(), None, account.storage_root.into())
+                    .unwrap();
+                storage_trie
+                    .get(position.as_bytes())
+                    .map_err(|e| EVMError::TrieError(format!("{}", e)))
+            })?
     }
 
-    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMBackendError> {
-        self.get_account(address, block_number)
-            .map(|opt_account| opt_account.map_or_else(|| U256::zero(), |account| account.balance))
+    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+        self.get_account(address, block_number)?
+            .ok_or(EVMError::NoSuchAccount(address))
+            .map(|account| account.balance)
     }
 
-    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMBackendError> {
-        self.get_account(address, block_number)
-            .map(|opt_account| opt_account.map_or_else(|| U256::zero(), |account| account.nonce))
+    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+        self.get_account(address, block_number)?
+            .ok_or(EVMError::NoSuchAccount(address))
+            .map(|account| account.nonce)
     }
 }
+
+use std::fmt;
+#[derive(Debug)]
+pub enum EVMError {
+    BackendError(EVMBackendError),
+    NoSuchAccount(H160),
+    TrieError(String),
+}
+
+impl fmt::Display for EVMError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {}", e),
+            EVMError::NoSuchAccount(address) => {
+                write!(f, "EVMError: No such acccount for address {}", address)
+            }
+            EVMError::TrieError(e) => {
+                write!(f, "EVMError: Trie error {}", e)
+            }
+        }
+    }
+}
+
+impl From<EVMBackendError> for EVMError {
+    fn from(e: EVMBackendError) -> Self {
+        EVMError::BackendError(e)
+    }
+}
+
+impl std::error::Error for EVMError {}

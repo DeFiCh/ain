@@ -32,6 +32,7 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {
+                e.insert(TransactionQueue::new());
                 return context;
             }
         }
@@ -41,36 +42,54 @@ impl TransactionQueueMap {
         self.queues.write().unwrap().remove(&context_id)
     }
 
-    pub fn clear(&self, context_id: u64) {
-        if let Some(queue) = self.queues.read().unwrap().get(&context_id) {
-            queue.clear()
-        }
+    pub fn clear(&self, context_id: u64) -> Result<(), QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.clear())
     }
 
-    pub fn add_signed_tx(&self, context_id: u64, signed_tx: SignedTx) {
-        if let Some(queue) = self.queues.read().unwrap().get(&context_id) {
-            queue.add_signed_tx(signed_tx)
-        }
+    pub fn add_signed_tx(&self, context_id: u64, signed_tx: SignedTx) -> Result<(), QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.add_signed_tx(signed_tx))
     }
 
-    pub fn drain_all(&self, context_id: u64) -> Vec<SignedTx> {
-        match self.queues.read().unwrap().get(&context_id) {
-            Some(queue) => queue.drain_all(),
-            None => Vec::new(),
-        }
+    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTx> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .map(|queue| queue.drain_all())
+            .unwrap_or(Vec::new())
     }
 
     pub fn len(&self, context_id: u64) -> usize {
-        match self.queues.read().unwrap().get(&context_id) {
-            Some(queue) => queue.len(),
-            None => 0,
-        }
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .map(|queue| queue.len())
+            .unwrap_or(0)
     }
 
-    pub fn add_balance(&self, context_id: u64, address: H160, value: U256) {
-        if let Some(queue) = self.queues.read().unwrap().get(&context_id) {
-            queue.add_balance(address, value)
-        }
+    pub fn add_balance(
+        &self,
+        context_id: u64,
+        address: H160,
+        value: U256,
+    ) -> Result<(), QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.add_balance(address, value))
     }
 
     pub fn sub_balance(
@@ -79,17 +98,31 @@ impl TransactionQueueMap {
         address: H160,
         value: U256,
     ) -> Result<(), QueueError> {
-        if let Some(queue) = self.queues.read().unwrap().get(&context_id) {
-            queue.sub_balance(address, value)
-        } else {
-            Err(QueueError::NoSuchContext)
-        }
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.sub_balance(address, value))
     }
 }
 
 #[derive(Debug)]
+pub struct BalanceUpdate {
+    pub address: H160,
+    pub amount: U256,
+}
+
+#[derive(Debug)]
+pub enum QueueTx {
+    SignedTx(SignedTx),
+    AddBalance(BalanceUpdate),
+    SubBalance(BalanceUpdate),
+}
+
+#[derive(Debug)]
 pub struct TransactionQueue {
-    transactions: Mutex<Vec<SignedTx>>,
+    transactions: Mutex<Vec<QueueTx>>,
 }
 
 impl TransactionQueue {
@@ -103,51 +136,49 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().clear()
     }
 
-    pub fn drain_all(&self) -> Vec<SignedTx> {
+    pub fn drain_all(&self) -> Vec<QueueTx> {
         self.transactions
             .lock()
             .unwrap()
             .drain(..)
-            .collect::<Vec<SignedTx>>()
+            .collect::<Vec<QueueTx>>()
     }
 
     pub fn add_signed_tx(&self, signed_tx: SignedTx) {
-        self.transactions.lock().unwrap().push(signed_tx)
+        self.transactions
+            .lock()
+            .unwrap()
+            .push(QueueTx::SignedTx(signed_tx))
     }
 
     pub fn len(&self) -> usize {
         self.transactions.lock().unwrap().len()
     }
 
-    pub fn add_balance(&self, address: H160, value: U256) {
-        // let mut state = self.state.write().unwrap();
-        // let account = state.entry(address).or_default();
-        // account.balance += value;
+    pub fn add_balance(&self, address: H160, amount: U256) {
+        self.transactions
+            .lock()
+            .unwrap()
+            .push(QueueTx::AddBalance(BalanceUpdate { address, amount }))
     }
 
-    pub fn sub_balance(&self, address: H160, value: U256) -> Result<(), QueueError> {
-        // let mut state = self.state.write().unwrap();
-        // let account = state.get_mut(&address).unwrap();
-        // if account.balance >= value {
-        //     account.balance -= value;
-        Ok(())
-        // } else {
-        //     Err(QueueError::InsufficientBalance)
-        // }
+    pub fn sub_balance(&self, address: H160, amount: U256) {
+        self.transactions
+            .lock()
+            .unwrap()
+            .push(QueueTx::SubBalance(BalanceUpdate { address, amount }))
     }
 }
 
 #[derive(Debug)]
 pub enum QueueError {
     NoSuchContext,
-    InsufficientBalance,
 }
 
 impl std::fmt::Display for QueueError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             QueueError::NoSuchContext => write!(f, "No transaction queue for this context"),
-            QueueError::InsufficientBalance => write!(f, "Insufficient balance"),
         }
     }
 }
