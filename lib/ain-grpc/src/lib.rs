@@ -52,7 +52,7 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn init(argc: i32, argv: &Vec<&str>) {
+pub fn init(_argc: i32, _argv: &[&str]) {
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
         .init();

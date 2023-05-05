@@ -167,6 +167,5 @@ pub unsafe fn init(argc: i32, argv: *const *const c_char) {
     let args: Vec<&str> = (0..argc)
         .map(|i| unsafe { CStr::from_ptr(*argv.add(i as usize)).to_str().unwrap() })
         .collect();
-    
     ain_grpc::init(argc, &args);
 }
