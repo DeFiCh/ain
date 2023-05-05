@@ -20,6 +20,8 @@ use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::os::raw::c_char;
+use std::ffi::CStr;
 
 use ain_evm::runtime::{Runtime, RUNTIME};
 
@@ -52,11 +54,18 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn init_runtime() {
+pub unsafe fn init(_argc: i32, _argv: *const *const c_char) {
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
         .init();
-    log::info!("Starting gRPC and JSON RPC servers");
+    log::info!("Initializing");
+
+    let _args: Vec<&str> = (0.._argc)
+        .map(|i| unsafe { CStr::from_ptr(*_argv.add(i as usize)).to_str().unwrap() }).collect();
+}
+
+pub fn init_evm_runtime() {
+    log::info!("Initializing evm runtime");
     let _ = &*RUNTIME;
 }
 

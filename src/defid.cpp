@@ -60,6 +60,7 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
+    init(argc, argv);
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -94,6 +95,8 @@ static bool AppInit(int argc, char* argv[])
         tfm::format(std::cout, "%s", strUsage.c_str());
         return true;
     }
+
+    init_evm_runtime();
 
     try
     {
