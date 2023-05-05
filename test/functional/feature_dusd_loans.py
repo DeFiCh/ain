@@ -31,6 +31,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningroadheight = 2000
         self.fortcanninggreatworldheight = 3000
         self.fortcanningepilogueheight = 4000
+        self.grandcentralheight = 4500
         self.grandcentralepilogueheight = 5000
         self.nextnetworkupgradeheight = 6000
 
@@ -46,6 +47,7 @@ class DUSDLoanTests(DefiTestFramework):
              f'-fortcanningroadheight={self.fortcanningroadheight}',
              f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
              f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
+             f'-grandcentralheight={self.grandcentralheight}',
              f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
              f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
 
