@@ -31,7 +31,8 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningroadheight = 2000
         self.fortcanninggreatworldheight = 3000
         self.fortcanningepilogueheight = 4000
-        self.nextnetworkupgradeheight = 5000
+        self.grandcentralepilogueheight = 5000
+        self.nextnetworkupgradeheight = 6000
 
         self.extra_args = [
             ['-txnotokens=0',
@@ -45,6 +46,7 @@ class DUSDLoanTests(DefiTestFramework):
              f'-fortcanningroadheight={self.fortcanningroadheight}',
              f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
              f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
+             f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
              f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
 
              '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
@@ -114,12 +116,19 @@ class DUSDLoanTests(DefiTestFramework):
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], True)
 
+    def goto_gce_height(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.grandcentralepilogueheight > blockHeight:
+            self.nodes[0].generate((self.grandcentralepilogueheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["grandcentralepilogue"]["active"], True)
+
     def goto_next_height(self):
         blockHeight = self.nodes[0].getblockcount()
         if self.nextnetworkupgradeheight > blockHeight:
             self.nodes[0].generate((self.nextnetworkupgradeheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["nextnetworkupgradeheight"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["nextnetworkupgrade"]["active"], True)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -520,7 +529,7 @@ class DUSDLoanTests(DefiTestFramework):
 
         vault_id = self.new_vault('LOAN1', ["100.00000000@DUSD"])
 
-        self.goto_fce_height()
+        self.goto_gce_height()
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
@@ -571,6 +580,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.update_oracle_price()
         self.post_FCE_DFI_minimum_check_takeloan()
 
+        self.update_oracle_price()
         self.check_looped_dusd()
 
         # self.post_FCE_DFI_minimum_check_withdraw()
