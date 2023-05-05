@@ -78,6 +78,7 @@ impl Handlers {
             logs: Vec::new(),
         };
 
+        println!("latest_block : {:#?}", self.storage.get_latest_block());
         println!("state_root : {:#?}", state_root);
 
         let mut backend = EVMBackend::from_root(

@@ -236,6 +236,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     const auto evmContext = evm_get_context();
+    LogPrintf("INFO:: MINER: CONTEXT GET (context: %ld)\n", evmContext);
 
     if (timeOrdering) {
         addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
@@ -245,6 +246,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // TODO Get failed TXs and try to restore to mempool
     std::array<uint8_t, 20> dummyAddress{};
+    LogPrintf("INFO:: MINER: calling evm finalize (context: %ld)\n", evmContext);
     const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
 
     std::vector<uint8_t> evmHeader{};
@@ -675,6 +677,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
+                LogPrintf("INFO:: MINER: ApplyCustomTx (context: %ld)\n", evmContext);
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
 
                 // Not okay invalidate, undo and skip

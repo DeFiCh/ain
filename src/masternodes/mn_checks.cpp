@@ -4021,7 +4021,11 @@ Res CustomTxVisit(CCustomCSView &mnview,
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     auto context = evmContext;
-    if (context == 0) context = evm_get_context();
+    if (context == 0) { 
+        LogPrintf("INFO:: CustomTXVisit: CONTEXT 0 - RESET(context: %ld)\n", evmContext);
+        context = evm_get_context();
+        LogPrintf("INFO:: CustomTXVisit: CONTEXT NEW (context: %ld)\n", context);
+    }
     try {
         return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
     } catch (const std::bad_variant_access &e) {

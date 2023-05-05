@@ -2292,6 +2292,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                   CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmContext)
 {
+                LogPrintf("INFO:: ConnectBlock (context: %ld)\n", evmContext);
     AssertLockHeld(cs_main);
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
@@ -2634,6 +2635,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
+                LogPrintf("INFO:: VALIDATE: ApplyCustomTx (context: %ld)\n", evmContext);
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2873,6 +2875,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::copy(minter.begin(), minter.end(), minerAddress.begin());
         }
 
+        LogPrintf("INFO:: CONNECT: calling evm finalize (context: %ld)\n", evmContext);
         evm_finalize(evmContext, true, block.nBits, minerAddress);
     }
 
@@ -3322,6 +3325,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
+        LogPrintf("INFO:: CONNECT: discard context (context: %ld)\n", evmContext);
             evm_discard_context(evmContext);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);

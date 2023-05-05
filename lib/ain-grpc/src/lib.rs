@@ -17,7 +17,7 @@ use log::Level;
 
 use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 
-use std::error::Error;
+use std::{error::Error, fmt::Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -53,7 +53,19 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
 }
 
 pub fn init_runtime() {
-    log::info!("Starting gRPC and JSON RPC servers");
+    
+    // struct LogTarget {}
+    // impl std::io::Write for LogTarget {
+    //     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            
+    //     }
+
+    //     fn flush(&mut self) -> std::io::Result<()> {
+            
+    //     }
+    // }
+
+
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
         .init();

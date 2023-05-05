@@ -49,6 +49,17 @@ pub mod ffi {
     }
 }
 
+macro_rules! func_name {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = type_name_of(f);
+        name.strip_suffix("::f").unwrap()
+    }}
+}
+
 pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>, TransactionError> {
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
@@ -81,6 +92,8 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 }
 
 pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+
     let account = address.parse()?;
     let mut balance = RUNTIME
         .handlers
@@ -89,6 +102,8 @@ pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box
         .unwrap(); // convert to try_evm_get_balance
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
+
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
     Ok(balance.as_u64())
 }
 
@@ -97,12 +112,15 @@ pub fn evm_add_balance(
     address: &str,
     amount: [u8; 32],
 ) -> Result<(), Box<dyn Error>> {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
     let address = address.parse()?;
 
     RUNTIME
         .handlers
         .evm
         .add_balance(context, address, amount.into())?;
+
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
     Ok(())
 }
 
@@ -111,42 +129,60 @@ pub fn evm_sub_balance(
     address: &str,
     amount: [u8; 32],
 ) -> Result<bool, Box<dyn Error>> {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+
     let address = address.parse()?;
-    match RUNTIME
+    let r = match RUNTIME
         .handlers
         .evm
         .sub_balance(context, address, amount.into())
     {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
-    }
+    };
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
+    r
 }
 
 pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
-    match RUNTIME.handlers.evm.validate_raw_tx(tx) {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+
+    let r = match RUNTIME.handlers.evm.validate_raw_tx(tx) {
         Ok(_) => Ok(true),
         Err(e) => {
             debug!("{:?}", e);
             Ok(false)
         }
-    }
+    };
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
+    r
 }
 
 pub fn evm_get_context() -> u64 {
-    RUNTIME.handlers.evm.get_context()
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+
+    let r = RUNTIME.handlers.evm.get_context();
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
+    r
 }
 
 fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+    
     // TODO discard
     RUNTIME.handlers.evm.discard_context(context)?;
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
     Ok(())
 }
 
 fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {
-    match RUNTIME.handlers.evm.queue_tx(context, raw_tx) {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+    let r = match RUNTIME.handlers.evm.queue_tx(context, raw_tx) {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
-    }
+    };
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
+    r
 }
 
 use rlp::Encodable;
@@ -156,6 +192,8 @@ fn evm_finalize(
     difficulty: u32,
     miner_address: [u8; 20],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
+    println!(":: START:{}, thread: {}", func_name!(), std::thread::current().id());
+
     let eth_address = H160::from(miner_address);
     let (block, _failed_tx) = RUNTIME
         .handlers
@@ -164,5 +202,8 @@ fn evm_finalize(
             println!("Wtf is going on : {}", e);
             e
         })?;
+
+    println!(":: END:{}, thread: {}", func_name!(), std::thread::current().id());
+
     Ok(block.header.rlp_bytes().into())
 }
