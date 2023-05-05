@@ -635,79 +635,87 @@ message EthGetTransactionByBlockNumberAndIndexResponse {
     EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
-/* params: [
-  "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
-  "0x0", // 0
- ]
+/*
+    This is the request of the RPC call: EthGetUncleByBlockHashAndIndex.
+    Here is an example of the parameters of this proto message:
+    params: [
+      "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+      "0x0", // 0
+    ]
 */
 message EthGetUncleByBlockHashAndIndexRequest {
-    string block_hash = 1; // Hash of a block
-    string index = 2; // Integer of the transaction index position (Hex)
+    string block_hash = 1; // [Hex string] Hash of a block
+    string index = 2; // [Hex string] Integer of the transaction index position
 }
 
-/* "result": {
-    "difficulty": "0x4ea3f27bc",
-    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-    "gasLimit": "0x1388",
-    "gasUsed": "0x0",
-    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-    "nonce": "0x689056015818adbe",
-    "number": "0x1b4",
-    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-    "size": "0x220",
-    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-    "timestamp": "0x55ba467c",
-    "totalDifficulty": "0x78ed983323d",
-    "transactions": [
-    ],
-    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-    "uncles": [
-    ]
- }
+/*
+    This is the return of the RPC call: EthGetUncleByBlockHashAndIndex.
+    Here is an example of the return of this proto message:
+    "result": {
+      "difficulty": "0x4ea3f27bc",
+      "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+      "gasLimit": "0x1388",
+      "gasUsed": "0x0",
+      "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+      "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+      "nonce": "0x689056015818adbe",
+      "number": "0x1b4",
+      "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+      "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x220",
+      "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+      "timestamp": "0x55ba467c",
+      "totalDifficulty": "0x78ed983323d",
+      "transactions": [],
+      "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "uncles": []
+    }
 */
 message EthGetUncleByBlockHashAndIndexResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
 
-/* params: [
-  "0x29c", // 668
-  "0x0", // 0
- ]
+/*
+    This is the request of the RPC call: EthGetUncleByBlockNumberAndIndex.
+    Here is an example of the parameters of this proto message:
+    params: [
+      "0x29c", // 668
+      "0x0", // 0
+    ]
 */
 message EthGetUncleByBlockNumberAndIndexRequest {
-    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
-    string index = 2; // Integer of the transaction index position (Hex)
+    string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
+    string index = 2; // [Hex string] Integer of the transaction index position
 }
 
-/* "result": {
-    "difficulty": "0x4ea3f27bc",
-    "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
-    "gasLimit": "0x1388",
-    "gasUsed": "0x0",
-    "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
-    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
-    "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
-    "nonce": "0x689056015818adbe",
-    "number": "0x1b4",
-    "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
-    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-    "size": "0x220",
-    "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
-    "timestamp": "0x55ba467c",
-    "totalDifficulty": "0x78ed983323d",
-    "transactions": [
-    ],
-    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-    "uncles": [
-    ]
- }
+/*
+    This is the return of the RPC call: EthGetUncleByBlockNumberAndIndex.
+    Here is an example of the return of this proto message:
+    "result": {
+      "difficulty": "0x4ea3f27bc",
+      "extraData": "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32",
+      "gasLimit": "0x1388",
+      "gasUsed": "0x0",
+      "hash": "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xbb7b8287f3f0a933474a79eae42cbca977791171",
+      "mixHash": "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843",
+      "nonce": "0x689056015818adbe",
+      "number": "0x1b4",
+      "parentHash": "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54",
+      "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x220",
+      "stateRoot": "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d",
+      "timestamp": "0x55ba467c",
+      "totalDifficulty": "0x78ed983323d",
+      "transactions": [],
+      "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "uncles": []
+    }
 */
 message EthGetUncleByBlockNumberAndIndexResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
@@ -741,32 +749,56 @@ message EthCompileSerpentResponse {
     string compiled_code = 1; // The compiled source code
 }
 
-// "result": "54"
+/*
+    This is the return of the RPC call: EthProtocolVersion.
+    Here is an example of the return of this proto message:
+    "result": "54"
+*/
 message EthProtocolVersionResponse {
     string protocol_version = 1; // The current DMC protocol version
 }
 
-// params: ["0x68656c6c6f20776f726c64"]
+/*
+    This is the request of the RPC call: Web3Sha3.
+    Here is an example of the parameters of this proto message:
+    params: ["0x68656c6c6f20776f726c64"]
+*/
 message Web3Sha3Request {
-    string data = 1; // The data to convert into a SHA3 hash
+    string data = 1; // [Hex string] The data to convert into a SHA3 hash
 }
 
-// "result": "0x47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad"
+/*
+    This is the return of the RPC call: Web3Sha3.
+    Here is an example of the return of this proto message:
+    "result": "0x47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad"
+*/
 message Web3Sha3Response {
-    string data = 1; // The SHA3 result of the given string.
+    string data = 1; // [Hex string] The SHA3 result of the given string.
 }
 
-// "result": "0x2" // 2
+/*
+    This is the return of the RPC call: NetPeerCount.
+    Here is an example of the return of this proto message:
+    "result": "0x2" // 2
+*/
 message NetPeerCountResponse {
-    string number_peer = 1; // Integer of the number of connected peers (Hex)
+    string number_peer = 1; // [Hex string] Integer of the number of connected peers
 }
 
-// "result": "3"
+/*
+    This is the return of the RPC call: NetVersion.
+    Here is an example of the return of this proto message:
+    "result": "3"
+*/
 message NetVersionResponse {
     string network_version = 1; // The current network id
 }
 
-// "result": "Mist/v0.9.3/darwin/go1.4.1"
+/*
+    This is the return of the RPC call: Web3ClientVersion.
+    Here is an example of the return of this proto message:
+    "result": "Mist/v0.9.3/darwin/go1.4.1"
+*/
 message Web3ClientVersionResponse {
     string client_version = 1; // The current client version
 }
@@ -801,43 +833,57 @@ message EthSubmitHashrateResponse {
     bool is_valid = 1; // Returns true if submitting went through successfully and false otherwise
 }
 
-// "params": ["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "latest"]
+/*
+    This is the request of the RPC call: EthGetStorageAt.
+    Here is an example of the parameters of this proto message:
+    "params": ["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "latest"]
+*/
 message EthGetStorageAtRequest {
-    string address = 1; // Address of the storage
-    string position = 2; // integer of the position in the storage (Hex)
-    string block_number = 3; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string address = 1; // [Hex string] Address of the storage
+    string position = 2; // [Hex string] integer of the position in the storage
+    string block_number = 3; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
 }
 
-// "result":"0x00000000000000000000000000000000000000000000000000000000000004d2"
+/*
+    This is the return of the RPC call: EthGetStorageAt.
+    Here is an example of the return of this proto message:
+    "result":"0x00000000000000000000000000000000000000000000000000000000000004d2"
+*/
 message EthGetStorageAtResponse {
-    string value = 1; // The value at this storage position.
+    string value = 1; // [Hex string] The value at this storage position.
 }
 
-// params: ["0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5"]
+/*
+    This is the request of the RPC call: EthGetTransactionReceipt.
+    Here is an example of the parameters of this proto message:
+    params: ["0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5"]
+*/
 message EthGetTransactionReceiptRequest {
-    string transaction_hash = 1; // Hash of a transaction
+    string transaction_hash = 1; // [Hex string] Hash of a transaction
 }
 
-/* "result": {
-    "blockHash":
-      "0xa957d47df264a31badc3ae823e10ac1d444b098d9b73d204c40426e57f47e8c3",
-    "blockNumber": "0xeff35f",
-    "contractAddress": null, // string of the address if it was created
-    "cumulativeGasUsed": "0xa12515",
-    "effectiveGasPrice": "0x5a9c688d4",
-    "from": "0x6221a9c005f6e47eb398fd867784cacfdcfff4e7",
-    "gasUsed": "0xb4c8",
-    "logs": [{
-      // logs as returned by getFilterLogs, etc.
-    }],
-    "logsBloom": "0x00...0", // 256 byte bloom filter
-    "status": "0x1",
-    "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-    "transactionHash":
-      "0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5",
-    "transactionIndex": "0x66",
-    "type": "0x2"
-  }
+/*
+    This is the return of the RPC call: EthGetStorageAt.
+    Here is an example of the return of this proto message:
+    "result": {
+      "blockHash":"0xa957d47df264a31badc3ae823e10ac1d444b098d9b73d204c40426e57f47e8c3",
+      "blockNumber": "0xeff35f",
+      "contractAddress": null, // string of the address if it was created
+      "cumulativeGasUsed": "0xa12515",
+      "effectiveGasPrice": "0x5a9c688d4",
+      "from": "0x6221a9c005f6e47eb398fd867784cacfdcfff4e7",
+      "gasUsed": "0xb4c8",
+      "logs": [{
+        // logs as returned by getFilterLogs, etc.
+      }],
+      "logsBloom": "0x00...0", // 256 byte bloom filter
+      "status": "0x1",
+      "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "transactionHash":
+        "0x85d995eba9763907fdf35cd2034144dd9d53ce32cbec21349d4b12823c6860c5",
+      "transactionIndex": "0x66",
+      "type": "0x2"
+    }
 */
 message EthGetTransactionReceiptResponse {
     EthTransactionReceipt transaction_receipt = 1; // A transaction receipt object, or null when no receipt was found
