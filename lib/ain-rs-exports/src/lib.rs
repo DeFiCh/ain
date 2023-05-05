@@ -4,6 +4,8 @@ use ain_grpc::*;
 use ain_evm::runtime::RUNTIME;
 use log::debug;
 use std::error::Error;
+use std::ffi::CStr;
+use std::os::raw::c_char;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
@@ -157,4 +159,14 @@ fn evm_finalize(
             .handlers
             .finalize_block(context, update_state, difficulty, Some(eth_address))?;
     Ok(block.header.rlp_bytes().into())
+}
+
+/// # Safety
+/// Ensure that argc passed counts the exact number of argument variables that is passed into init
+pub unsafe fn init(argc: i32, argv: *const *const c_char) {
+    let args: Vec<&str> = (0..argc)
+        .map(|i| unsafe { CStr::from_ptr(*argv.add(i as usize)).to_str().unwrap() })
+        .collect();
+    
+    ain_grpc::init(argc, &args);
 }
