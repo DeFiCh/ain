@@ -863,7 +863,7 @@ message EthGetTransactionReceiptRequest {
 }
 
 /*
-    This is the return of the RPC call: EthGetStorageAt.
+    This is the return of the RPC call: EthGetTransactionReceipt.
     Here is an example of the return of this proto message:
     "result": {
       "blockHash":"0xa957d47df264a31badc3ae823e10ac1d444b098d9b73d204c40426e57f47e8c3",
