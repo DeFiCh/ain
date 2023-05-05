@@ -190,7 +190,6 @@ message EthGetBalanceResponse {
     string balance = 1; // [Hex string] Integer of the current balance in wei
 }
 
-
 /*
     This is the request of the RPC call: EthSendTransaction.
     Here is an example of the parameters of this proto message:
@@ -343,6 +342,7 @@ message EthGetUncleCountByBlockHashResponse {
     This is the request of the RPC call: EthGetUncleCountByBlockNumber.
     Here is an example of the parameters of this proto message:
     "params":["0xe8"]
+    "params":["pending"]
 */
 message EthGetUncleCountByBlockNumberRequest {
     string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
@@ -356,7 +356,6 @@ message EthGetUncleCountByBlockNumberRequest {
 message EthGetUncleCountByBlockNumberResponse {
     string number_uncles = 1; // [Hex string] Integer of the number of uncles in this block
 }
-
 
 /*
     This is the request of the RPC call: EthGetCode.
@@ -452,7 +451,6 @@ message EthGetBlockByHashRequest {
     bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
 }
 
-
 /*
     This is the return of the RPC call: EthGetBlockByHash.
     Here is an example of the return of this proto message:
@@ -482,7 +480,6 @@ message EthGetBlockByHashRequest {
 message EthGetBlockByHashResponse {
     EthBlockInfo block_info = 1; // A block object, or null when no block was found
 }
-
 
 /*
     This is the request of the RPC call: EthGetBlockByNumber.
@@ -560,7 +557,6 @@ message EthGetTransactionByHashResponse {
     EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
 }
 
-
 /*
     This is the request of the RPC call: EthGetTransactionByBlockHashAndIndex.
     Here is an example of the parameters of this proto message:
@@ -605,6 +601,7 @@ message EthGetTransactionByBlockHashAndIndexResponse {
       "0x29c", // 668
       "0x0", // 0
     ]
+    params: ["lastest", "0x0",]
 */
 message EthGetTransactionByBlockNumberAndIndexRequest {
     string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
@@ -685,6 +682,7 @@ message EthGetUncleByBlockHashAndIndexResponse {
       "0x29c", // 668
       "0x0", // 0
     ]
+    params: ["earliest", "0x0",]
 */
 message EthGetUncleByBlockNumberAndIndexRequest {
     string block_number = 1; // [Hex string] Integer block number, or the string "latest", "earliest" or "pending"
@@ -836,6 +834,7 @@ message EthSubmitHashrateResponse {
 /*
     This is the request of the RPC call: EthGetStorageAt.
     Here is an example of the parameters of this proto message:
+    "params": ["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "0xfa"]
     "params": ["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "latest"]
 */
 message EthGetStorageAtRequest {
@@ -894,7 +893,6 @@ message EthSyncingInfo {
     string current_block = 2; // The current block, same as eth_blockNumber
     string highest_block = 3; // The estimated highest block
 }
-
 
 /*
     This is the return of the RPC call: EthSyncing.
