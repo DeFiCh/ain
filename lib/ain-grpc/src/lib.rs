@@ -54,8 +54,8 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-// # Safety
-// Ensure that argc passed counts the exact number of argument variables that is passed into init
+/// # Safety
+/// Ensure that argc passed counts the exact number of argument variables that is passed into init
 pub unsafe fn init(_argc: i32, _argv: *const *const c_char) {
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
