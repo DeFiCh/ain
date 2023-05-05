@@ -96,8 +96,6 @@ static bool AppInit(int argc, char* argv[])
         return true;
     }
 
-    init_evm_runtime();
-
     try
     {
         if (!CheckDataDirOption()) {
@@ -166,6 +164,8 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
+        
+        init_evm_runtime();
         fRet = AppInitMain(interfaces);
     }
     catch (const std::exception& e) {
