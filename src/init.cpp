@@ -639,7 +639,8 @@ void SetupServerArgs()
     gArgs.AddArg("-maxaddrratepersecond=<n>", strprintf("Sets MAX_ADDR_RATE_PER_SECOND limit for ADDR messages(default: %f)", MAX_ADDR_RATE_PER_SECOND), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JASON-RPC connections on <port>> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for ETH-JSON-RPC connections. Do not expose the ETH-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. Use [host]:port notation for IPv6. This option can be specified multiple times (default: 127.0.0.1 and ::1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1553,11 +1554,36 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 4b: application initialization
 
+    /* Start the ETH RPC server. Current API only allows for one ETH RPC server 
+     * to bind to one address. By default, we will only take the first address,
+     * if multiple addresses were specified.
+    */
     init_runtime();
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
-    start_servers("0.0.0.0:" + std::to_string(eth_rpc_port), "0.0.0.0:" +  std::to_string(grpc_port));
+    std::vector<std::pair<std::string, uint16_t> > endpoints;
 
+    // Determine which addresses to bind to
+    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
+        endpoints.push_back(std::make_pair("::1", eth_rpc_port));
+        endpoints.push_back(std::make_pair("127.0.0.1", eth_rpc_port));
+        if (gArgs.IsArgSet("-rpcallowip")) {
+            LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
+        }
+        if (gArgs.IsArgSet("-ethrpcbind")) {
+            LogPrintf("WARNING: option -ethrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+        }
+    } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
+        for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
+            int port = eth_rpc_port;
+            std::string host;
+            SplitHostPort(strETHRPCBind, port, host);
+            endpoints.push_back(std::make_pair(host, port));
+        }
+    }
+
+    // Default to using the first address passed to bind
+    start_servers(endpoints[0].first + ":" + std::to_string(endpoints[0].second), "127.0.0.1:" +  std::to_string(grpc_port));
 
     // ********************************************************* Step 5: verify wallet database integrity
     for (const auto& client : interfaces.chain_clients) {
