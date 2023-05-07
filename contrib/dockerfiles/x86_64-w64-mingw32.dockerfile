@@ -9,19 +9,18 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_mingw_x86_64
-
-RUN update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
-RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+# Temporary workaround until https://github.com/DeFiCh/ain/pull/1946 lands
+# with specific ci-* methods
+ENV PATH=/root/.cargo/bin:$PATH
+RUN ./make.sh ci-setup-deps
+RUN ./make.sh ci-setup-deps-target
 
 COPY . .
 RUN ./make.sh clean-depends && ./make.sh build-deps
 RUN ./make.sh clean-conf && ./make.sh build-conf 
 RUN ./make.sh build-make
 
-RUN mkdir /app && cd build/${TARGET} && \
+RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
 # NOTE: These are not runnable images. So we do not add into a scratch base image.
