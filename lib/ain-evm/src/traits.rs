@@ -1,4 +1,4 @@
-use crate::{executor::TxResponse, transaction::SignedTx};
+use crate::{backend::EVMBackendError, executor::TxResponse, transaction::SignedTx};
 use ethereum::AccessList;
 use evm::Config;
 use primitive_types::{H160, U256};
@@ -18,4 +18,10 @@ pub trait Executor {
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse;
 
     fn exec(&mut self, tx: &SignedTx) -> TxResponse;
+}
+
+pub trait BridgeBackend {
+    fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
+
+    fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
 }

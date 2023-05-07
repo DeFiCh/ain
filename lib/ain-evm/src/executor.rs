@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use crate::{
+    backend::EVMBackendError,
     evm::EVMHandler,
-    traits::{Executor, ExecutorContext},
+    traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
 };
 use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
@@ -12,26 +13,31 @@ use evm::{
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
+use primitive_types::H160;
 
 #[derive(Debug)]
-pub struct AinExecutor<B: Backend> {
-    backend: B,
+pub struct AinExecutor<'backend, B: Backend> {
+    pub backend: &'backend mut B,
 }
 
-impl<B> AinExecutor<B>
+impl<'backend, B> AinExecutor<'backend, B>
 where
-    B: Backend + ApplyBackend,
+    B: Backend + ApplyBackend + BridgeBackend,
 {
-    pub fn new(backend: B) -> Self {
+    pub fn new(backend: &'backend mut B) -> Self {
         Self { backend }
     }
 
-    pub fn backend(&self) -> &B {
-        &self.backend
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+        self.backend.add_balance(address, amount)
+    }
+
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+        self.backend.sub_balance(address, amount)
     }
 }
 
-impl<B> Executor for AinExecutor<B>
+impl<'backend, B> Executor for AinExecutor<'backend, B>
 where
     B: Backend + ApplyBackend,
 {
@@ -39,7 +45,7 @@ where
 
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let state = MemoryStackState::new(metadata, &self.backend);
+        let state = MemoryStackState::new(metadata, self.backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
@@ -78,7 +84,7 @@ where
                 EVMHandler::logs_bloom(logs.clone(), &mut bloom);
                 bloom
             },
-            status_code: exit_reason.is_succeed() as u8,
+            status_code: u8::from(exit_reason.is_succeed()),
             logs: logs.clone(),
             used_gas: U256::from(used_gas),
         });

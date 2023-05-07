@@ -2,13 +2,13 @@
 extern crate serde;
 extern crate serde_json;
 
-mod block;
+pub mod block;
 mod call_request;
 mod codegen;
 mod impls;
 mod receipt;
 pub mod rpc;
-pub use ain_evm::evm::EVMState;
+// pub use ain_evm::evm::EVMState;
 
 use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;

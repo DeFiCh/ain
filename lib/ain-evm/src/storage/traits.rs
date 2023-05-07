@@ -2,6 +2,7 @@ use crate::receipt::Receipt;
 use ethereum::BlockAny;
 use ethereum::TransactionV2;
 use keccak_hash::H256;
+use log::debug;
 use primitive_types::U256;
 use std::fs::File;
 
@@ -54,7 +55,7 @@ pub trait PersistentState {
             Ok(path) => {
                 let path = PathBuf::from(path).join("evm");
                 if !path.exists() {
-                    std::fs::create_dir(&path).expect("Error creating `evm` dir")
+                    std::fs::create_dir(&path).expect("Error creating `evm` dir");
                 }
                 path.join(file_path)
             }
@@ -71,6 +72,8 @@ pub trait PersistentState {
     where
         Self: Sized + serde::de::DeserializeOwned + Default,
     {
+        debug!("Restoring {} from disk", file_path);
+
         // Automatically resolves from datadir for now
         let path = match ain_cpp_imports::get_datadir() {
             Ok(path) => PathBuf::from(path).join("evm").join(file_path),
@@ -96,8 +99,8 @@ pub enum PersistentStateError {
 impl fmt::Display for PersistentStateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PersistentStateError::IoError(err) => write!(f, "IO error: {}", err),
-            PersistentStateError::BincodeError(err) => write!(f, "Bincode error: {}", err),
+            PersistentStateError::IoError(err) => write!(f, "IO error: {err}"),
+            PersistentStateError::BincodeError(err) => write!(f, "Bincode error: {err}"),
         }
     }
 }

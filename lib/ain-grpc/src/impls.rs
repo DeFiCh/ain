@@ -8,15 +8,15 @@ use primitive_types::{H160, H256, U256};
 use crate::codegen::types::{EthBlockInfo, EthPendingTransactionInfo, EthTransactionInfo};
 
 fn format_hash(hash: H256) -> String {
-    format!("{:#x}", hash)
+    format!("{hash:#x}")
 }
 
 fn format_address(hash: H160) -> String {
-    format!("{:#x}", hash)
+    format!("{hash:#x}")
 }
 
 fn format_number(number: U256) -> String {
-    format!("{:#x}", number)
+    format!("{number:#x}")
 }
 
 impl From<BlockAny> for EthBlockInfo {
@@ -83,10 +83,10 @@ impl TryFrom<&str> for EthPendingTransactionInfo {
             String::from("null")
         };
 
-        let input = if !signed_tx.data().is_empty() {
-            format!("0x{}", hex::encode(signed_tx.data()))
-        } else {
+        let input = if signed_tx.data().is_empty() {
             String::from("0x0")
+        } else {
+            format!("0x{}", hex::encode(signed_tx.data()))
         };
 
         let pending_transaction = EthPendingTransactionInfo {
