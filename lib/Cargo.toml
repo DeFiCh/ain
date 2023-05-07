@@ -9,3 +9,6 @@ members = [
 default-members = [
     "ain-*",
 ]
+
+[profile.release]
+lto = true

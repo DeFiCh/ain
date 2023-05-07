@@ -1,4 +1,4 @@
-packages := boost libevent rust
+packages := boost libevent
 
 rapidcheck_packages = rapidcheck
 wallet_packages = bdb

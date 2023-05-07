@@ -11,6 +11,7 @@ COPY ./make.sh .
 
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_rust
 RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_arm64
 
 COPY . .
