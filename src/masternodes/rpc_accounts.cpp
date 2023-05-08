@@ -1958,7 +1958,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"type", RPCArg::Type::STR, RPCArg::Optional::NO, "Type of transfer: evmin/evmout."},
+                    {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of transfer: 1 - DFI Token to EVM, 2 - EVM to DFI Token."},
                     {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The source defi address is the key, the value is amount in amount@token format. "
@@ -1976,7 +1976,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferdomain", R"(acctoacc '{\"<fromAddress>\":\"1.0@DFI\"}' '{\"<toAddress>\":\"1.0@DFI\"}')")
+                        HelpExampleCli("transferdomain", R"(1 '{\"<fromDFIAddress>\":\"1.0@DFI\"}' '{\"<toETHAddress>\":\"1.0@DFI\"}')") +
+                        HelpExampleCli("transferdomain", R"(2 '{\"<fromETHAddress>\":\"1.0@DFI\"}' '{\"<toDFIAddress>\":\"1.0@DFI\"}')")
                         },
     }.Check(request);
 
@@ -1985,7 +1986,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VOBJ, UniValue::VOBJ}, false);
 
     int targetHeight;
     {
@@ -1997,14 +1998,19 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
     try {
         if (!request.params[0].isNull()){
-            auto type = request.params[0].getValStr();
+            auto type = request.params[0].get_int();
 
-            if (type == "evmin")
-                msg.type = CTransferDomainType::EvmIn;
-            else if (type == "evmout")
-                msg.type = CTransferDomainType::EvmOut;
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must be either \"evmin\" or \"evmout\"");
+            switch (type) {
+                case CTransferDomainType::DVMTokenToEVM:
+                    msg.type = CTransferDomainType::DVMTokenToEVM;
+                    break;
+                case CTransferDomainType::EVMToDVMToken:
+                    msg.type = CTransferDomainType::EVMToDVMToken;
+                    break;
+                default:
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)");
+                    break;
+            }
         } else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must not be null");
 
@@ -2029,7 +2035,6 @@ UniValue transferdomain(const JSONRPCRequest& request) {
     metadata << static_cast<unsigned char>(CustomTxType::TransferDomain)
                 << msg;
 
-
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
@@ -2038,11 +2043,11 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    if (msg.type == CTransferDomainType::EvmIn) {
+    if (msg.type == CTransferDomainType::DVMTokenToEVM) {
         for(auto& address : msg.from){
             auths.insert(address.first);
         }
-    } else if (msg.type == CTransferDomainType::EvmOut) {
+    } else if (msg.type == CTransferDomainType::EVMToDVMToken) {
         for(auto& address : msg.from) {
             const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
             const auto auth = GetScriptForDestination(PKHash(key.GetID()));

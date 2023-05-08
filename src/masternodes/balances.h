@@ -209,8 +209,8 @@ struct CUtxosToAccountMessage {
 };
 
 enum CTransferDomainType : uint8_t {
-    EvmIn            = 0x01,
-    EvmOut           = 0x02,
+    DVMTokenToEVM            = 0x01,
+    EVMToDVMToken            = 0x02,
 };
 
 struct CTransferDomainMessage {

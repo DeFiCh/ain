@@ -503,10 +503,10 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
 
 std::string CTransferDomainTypeToString(const CTransferDomainType type) {
     switch (type) {
-        case CTransferDomainType::EvmIn:
-            return "EvmIn";
-        case CTransferDomainType::EvmOut:
-            return "EvmOut";
+        case CTransferDomainType::DVMTokenToEVM:
+            return "DVMTokenToEVM";
+        case CTransferDomainType::EVMToDVMToken:
+            return "EVMToDVMToken";
     }
     return "Unknown";
 }

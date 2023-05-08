@@ -72,7 +72,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_raises_rpc_error(-32600, "amount 0.00000000 is less than 100.00000000", self.nodes[0].transferdomain, "evmin", {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "amount 0.00000000 is less than 100.00000000", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
 
         self.nodes[0].createtoken({
             "symbol": "BTC",
@@ -91,16 +91,20 @@ class EVMTest(DefiTestFramework):
         assert_equal(ETHbalance, int_to_eth_u256(0))
         assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
-        assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be either \"evmin\" or \"evmout\"", self.nodes[0].transferdomain, "blabla", {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "From address must not be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, "evmin", {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "To address must be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, "evmin", {address:["100@DFI"]}, {address:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmin", {address:["101@DFI"]}, {ethAddress:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmin", {address:["100@BTC"]}, {ethAddress:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmin", {address:["100@DFI"]}, {ethAddress:["100@BTC"]})
-        assert_raises_rpc_error(-32600, "For \"evmin\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, "evmin", {address:["100@BTC"]}, {ethAddress:["100@BTC"]})
-        assert_raises_rpc_error(-32600, "Not enough balance in " + ethAddress + " to cover \"evmout\" transfer", self.nodes[0].transferdomain, "evmout", {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-3, "xpected type number, got string", self.nodes[0].transferdomain, "blabla", {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)", self.nodes[0].transferdomain, 0, {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, 1, {"blablabla":["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {"blablabla":["100@DFI"]})
 
-        self.nodes[0].transferdomain("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "From address must not be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, 1, {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "To address must be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["101@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {ethAddress:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "For \"evmin\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "Not enough balance in " + ethAddress + " to cover \"evmout\" transfer", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
+
+        self.nodes[0].transferdomain(1,{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -114,14 +118,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(newETHbalance, int_to_eth_u256(100))
         assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
-        assert_raises_rpc_error(-32600, "From address must be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, "evmout", {address:["100@DFI"]}, {address:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "To address must not be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, "evmout", {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmout", {ethAddress:["101@DFI"]}, {address:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmout", {ethAddress:["100@BTC"]}, {address:["100@DFI"]})
-        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, "evmout", {ethAddress:["100@DFI"]}, {address:["100@BTC"]})
-        assert_raises_rpc_error(-32600, "For \"evmout\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, "evmout", {ethAddress:["100@BTC"]}, {address:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "From address must be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {address:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "To address must not be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["101@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["100@BTC"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "For \"evmout\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, 2, {ethAddress:["100@BTC"]}, {address:["100@BTC"]})
 
-        self.nodes[0].transferdomain("evmout", {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
+        self.nodes[0].transferdomain(2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -133,7 +137,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
         # Fund Eth address
-        self.nodes[0].transferdomain("evmin",{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
+        self.nodes[0].transferdomain(1,{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
 

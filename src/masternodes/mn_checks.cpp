@@ -3820,7 +3820,7 @@ public:
             return Res::Err("sum of inputs (from) != sum of outputs (to)");
 
         CTxDestination dest;
-        if (obj.type == CTransferDomainType::EvmIn) {
+        if (obj.type == CTransferDomainType::DVMTokenToEVM) {
             // owner auth
             for (const auto &[addr, amounts] : obj.from) {
                 if (ExtractDestination(addr, dest)) {
@@ -3863,7 +3863,7 @@ public:
                     evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
                 }
             }
-        } else if (obj.type == CTransferDomainType::EvmOut) {
+        } else if (obj.type == CTransferDomainType::EVMToDVMToken) {
             for (const auto& [addr, amounts] : obj.from) {
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
