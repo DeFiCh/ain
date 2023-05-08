@@ -47,6 +47,8 @@ pub enum MetachainCLI {
     GetBalance {
         #[structopt(parse(try_from_str))]
         address: H160,
+        #[structopt(parse(try_from_str))]
+        block_number: Option<BlockNumber>,
     },
     /// Returns information about a block by its hash.
     GetBlockByHash {
@@ -95,13 +97,17 @@ pub enum MetachainCLI {
     GetCode {
         #[structopt(parse(try_from_str))]
         address: H160,
+        #[structopt(parse(try_from_str))]
+        block_number: Option<BlockNumber>,
     },
     /// Returns the value from a storage position at a given address.
     GetStorageAt {
         #[structopt(parse(try_from_str))]
         address: H160,
         #[structopt(parse(try_from_str))]
-        position: H256,
+        position: U256,
+        #[structopt(parse(try_from_str))]
+        block_number: Option<BlockNumber>,
     },
     /// Sends a signed transaction and returns the transaction hash.
     SendRawTransaction { input: String },
@@ -109,11 +115,14 @@ pub enum MetachainCLI {
     GetTransactionCount {
         #[structopt(parse(try_from_str))]
         input: H160,
+        #[structopt(parse(try_from_str))]
+        block_number: Option<BlockNumber>,
     },
     /// Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.
-    EstimateGas,
-    /// Returns an object representing the current state of the Metachain network.
-    GetState,
+    EstimateGas {
+        #[structopt(flatten)]
+        input: Box<CallRequest>,
+    },
     /// Returns the current price per gas in wei.
     GasPrice,
 }
@@ -131,7 +140,7 @@ async fn main() -> Result<(), jsonrpsee::core::Error> {
 
     let result = execute_cli_command(opt.cmd, &client).await?;
     match opt.format {
-        Format::Rust => println!("{}", result),
+        Format::Rust => println!("{result}"),
         Format::Json => println!("{}", serde_json::to_string(&result)?),
         Format::PrettyJson => println!("{}", serde_json::to_string_pretty(&result)?),
     };
