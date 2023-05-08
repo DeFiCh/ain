@@ -557,14 +557,13 @@ class DUSDLoanTests(DefiTestFramework):
         self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'withdraw')
         self.nodes[0].generate(1)
 
-        
         #also fails with other crypto in
-        self.nodes[0].deposittovault(vaultId, self.account0, "100.00000000@BTC")
+        self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
         self.nodes[0].generate(1)
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
-                                
+
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "5.00000000@BTC", 'withdraw')
@@ -572,7 +571,7 @@ class DUSDLoanTests(DefiTestFramework):
         # full withdrawal (go to 100% DUSD) should work
         self.takeloan_withdraw(vault_id, "100.00000000@BTC", 'withdraw')
         self.nodes[0].generate(1)
-                                
+
 
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'false'}})
         self.nodes[0].generate(1)
