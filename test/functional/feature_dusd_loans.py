@@ -557,6 +557,8 @@ class DUSDLoanTests(DefiTestFramework):
         self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'withdraw')
         self.nodes[0].generate(1)
 
+        self.update_oracle_price()
+        self.update_oracle_price()
         #also fails with other crypto in
         self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
         self.nodes[0].generate(1)
