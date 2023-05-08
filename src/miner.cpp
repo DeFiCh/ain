@@ -244,12 +244,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     // TODO Get failed TXs and try to restore to mempool
-    std::array<uint8_t, 20> dummyAddress{};
-    const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
-
     std::vector<uint8_t> evmHeader{};
-    evmHeader.resize(rustHeader.size());
-    std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+    if (IsEVMEnabled(nHeight, mnview)) {
+        std::array<uint8_t, 20> dummyAddress{};
+        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+        evmHeader.resize(rustHeader.size());
+        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+    }
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
@@ -325,7 +326,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (nHeight >= consensus.NextNetworkUpgradeHeight && !evmHeader.empty()) {
+        if (IsEVMEnabled(nHeight, mnview) && !evmHeader.empty()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;

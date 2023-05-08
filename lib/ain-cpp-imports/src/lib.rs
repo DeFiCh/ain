@@ -9,7 +9,7 @@ use bridge::ffi;
 #[cfg(any(test, bench, example, doc))]
 #[allow(non_snake_case)]
 mod ffi {
-    const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
+    const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -32,6 +32,12 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getPoolTransactions() -> Vec<String> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getNativeTxSize(_data: Vec<u8>) -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -74,6 +80,16 @@ pub fn get_chainwork(block_hash: [u8; 32]) -> Result<[u8; 32], Box<dyn Error>> {
 pub fn get_pool_transactions() -> Result<Vec<String>, Box<dyn Error>> {
     let transactions = ffi::getPoolTransactions();
     Ok(transactions)
+}
+
+pub fn get_native_tx_size(data: Vec<u8>) -> Result<u64, Box<dyn Error>> {
+    let tx_size = ffi::getNativeTxSize(data);
+    Ok(tx_size)
+}
+
+pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
+    let tx_fee = ffi::getMinRelayTxFee();
+    Ok(tx_fee)
 }
 
 #[cfg(test)]

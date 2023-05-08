@@ -66,7 +66,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(4)
 
         self.nodes[0].getbalance()
-        self.nodes[0].utxostoaccount({self.address: "101@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "201@DFI"})
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
@@ -84,11 +84,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(chainid, "0x46d")
 
     def test_gas(self):
-        estimate_gas = self.nodes[0].eth_estimateGas()
-        assert_equal(estimate_gas, "0x5208")
+        estimate_gas = self.nodes[0].eth_estimateGas({
+            'from': self.ethAddress,
+            'to': self.to_address,
+            'gas': "0x5208", # 21_000
+            'value': "0x0",
+        })
+        assert_equal(estimate_gas, "0x5278")
 
         gas_price = self.nodes[0].eth_gasPrice()
-        assert_equal(gas_price, "0x0")
+        assert_equal(gas_price, "0x2540be400") # 10_000_000_000
 
     def test_accounts(self):
         eth_accounts = self.nodes[0].eth_accounts()
@@ -103,9 +108,21 @@ class EVMTest(DefiTestFramework):
         code = self.nodes[0].eth_getCode(address)
         assert_equal(code, "0x")
 
+        blockNumber = self.nodes[0].eth_blockNumber()
+
+        self.nodes[0].transferbalance("evmin",{self.address:["50@DFI"]}, {self.ethAddress:["50@DFI"]})
+        self.nodes[0].generate(1)
+
+        balance = self.nodes[0].eth_getBalance(address, "latest")
+        assert_equal(balance, int_to_eth_u256(150))
+
+        balance = self.nodes[0].eth_getBalance(address, blockNumber) # Test querying previous block
+        assert_equal(balance, int_to_eth_u256(100))
+
+
     def test_block(self):
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x2")
+        assert_equal(latest_block['number'], "0x3")
 
     def run_test(self):
         self.setup()
@@ -122,6 +139,7 @@ class EVMTest(DefiTestFramework):
         self.test_address_state(self.ethAddress) # TODO test smart contract
 
         self.test_block()
+
 
 if __name__ == '__main__':
     EVMTest().main()

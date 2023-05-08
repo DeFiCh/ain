@@ -29,6 +29,7 @@ RUN mkdir /app && cd build/${TARGET} && \
 ### Actual image that contains defi binaries
 FROM --platform=linux/amd64 debian:10
 ARG TARGET
+ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
@@ -45,4 +46,4 @@ VOLUME ["/data"]
 USER defi:defi
 CMD [ "/app/bin/defid" ]
 
-EXPOSE 8555 8554 18555 18554 19555 19554 20555 20554
+EXPOSE 8554 8550 8551 18554 18550 18551 19554 19550 19551 20554 20550 20551

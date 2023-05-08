@@ -2834,7 +2834,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
-    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+    if (IsEVMEnabled(pindex->nHeight, mnview)) {
         CKeyID minter;
         assert(block.ExtractMinterKey(minter));
         std::array<uint8_t, 20> minerAddress{};

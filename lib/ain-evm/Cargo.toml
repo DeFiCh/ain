@@ -23,6 +23,12 @@ serde = { version = "1.0", features = ["derive"] }
 ethbloom = "0.13.0"
 ethereum-types = "0.14.1"
 
+# Trie dependencies
+hash-db = "0.16.0"
+sp-core = "20.0.0"
+vsdb_trie_db = { version = "0.7.0", git = "https://github.com/jouzo/vsdb.git", features = ["rocks_engine"] }
+vsdb_core = { version = "0.55.0", git = "https://github.com/jouzo/vsdb.git", features = ["rocks_engine", "compress"] }
+
 # Runtime dependencies
 lazy_static = "1.4"
 jsonrpsee-core = "0.15"
@@ -32,3 +38,7 @@ tokio = { version = "1.1", features = ["rt-multi-thread"] }
 
 # Cache dependencies
 lru = "0.10.0"
+
+[dev-dependencies]
+tempdir = "0.3.7"
+once_cell = "1.17.1"

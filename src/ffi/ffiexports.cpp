@@ -135,3 +135,37 @@ rust::vec<rust::string> getPoolTransactions() {
 
     return poolTransactions;
 }
+
+uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
+    std::vector<uint8_t> evmTx(rawTransaction.size());
+    std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
+             << CEvmTxMessage{evmTx};
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vin.resize(2);
+    rawTx.vin[0].scriptSig = CScript() << OP_0;
+    rawTx.vin[1].scriptSig = CScript() << OP_0;
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransaction tx(rawTx);
+
+    return tx.GetTotalSize();
+}
+
+uint64_t getMinRelayTxFee() {
+    return ::minRelayTxFee.GetFeePerK() * 10000000;
+}
