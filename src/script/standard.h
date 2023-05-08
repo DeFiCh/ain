@@ -63,6 +63,7 @@ enum txnouttype
     TX_NULL_DATA, //!< unspendable OP_RETURN script that carries data
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
+    TX_WITNESS_V16_ETHHASH,
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
 };
 
@@ -103,6 +104,14 @@ struct WitnessV0KeyHash : public uint160
     using uint160::uint160;
 };
 
+struct WitnessV16EthHash : public uint160
+{
+    WitnessV16EthHash() : uint160() {}
+    explicit WitnessV16EthHash(const uint160& hash) : uint160(hash) {}
+    explicit WitnessV16EthHash(const CPubKey& pubkey);
+    using uint160::uint160;
+};
+
 //! CTxDestination subtype to encode any future Witness version
 struct WitnessUnknown
 {
@@ -133,9 +142,10 @@ struct WitnessUnknown
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
+ *  * WitnessV16EthHash: Eth address type. Not a valid destination, here for address support anly.
  *  A CTxDestination is the internal data type encoded in a DFI address
  */
-using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown>;
+using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, WitnessV16EthHash>;
 
 enum TxDestType {
     NoDestType,
@@ -143,7 +153,8 @@ enum TxDestType {
     ScriptHashType,
     WitV0ScriptHashType,
     WitV0KeyHashType,
-    WitUnknownType
+    WitUnknownType,
+    WitV16KeyEthHashType,
 };
 
 /** Check whether a CTxDestination is a CNoDestination. */

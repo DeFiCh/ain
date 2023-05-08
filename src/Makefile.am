@@ -149,7 +149,10 @@ DEFI_CORE_H = \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
+  masternodes/errors.h \
+  masternodes/evm.h \
   masternodes/factory.h \
+  masternodes/ffi_temp_stub.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
@@ -168,7 +171,6 @@ DEFI_CORE_H = \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
-  masternodes/errors.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
   masternodes/proposals.h \
@@ -401,6 +403,7 @@ libdefi_server_a_SOURCES = \
   masternodes/mn_rpc.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
+  masternodes/rpc_evm.cpp \
   masternodes/rpc_masternodes.cpp \
   masternodes/rpc_icxorderbook.cpp \
   masternodes/rpc_loan.cpp \
@@ -516,6 +519,8 @@ crypto_libdefi_crypto_base_a_SOURCES = \
   crypto/ripemd160.h \
   crypto/sha1.cpp \
   crypto/sha1.h \
+  crypto/sha3.cpp \
+  crypto/sha3.h \
   crypto/sha256.cpp \
   crypto/sha256.h \
   crypto/sha512.cpp \

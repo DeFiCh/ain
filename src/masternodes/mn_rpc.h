@@ -74,6 +74,8 @@ CMutableTransaction fund(CMutableTransaction &mtx,
                          CTransactionRef optAuthTx,
                          CCoinControl *coin_control = nullptr,
                          const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
+CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
@@ -93,5 +95,5 @@ CScript CreateScriptForHTLC(const JSONRPCRequest &request, uint32_t &blocks, std
 CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CScript> AmIFounder(CWallet *const pwallet);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
-
+std::string CTransferBalanceTypeToString(const CTransferBalanceType type);
 #endif  // DEFI_MASTERNODES_MN_RPC_H
