@@ -84,11 +84,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(chainid, "0x46d")
 
     def test_gas(self):
-        estimate_gas = self.nodes[0].eth_estimateGas()
-        assert_equal(estimate_gas, "0x5208")
+        estimate_gas = self.nodes[0].eth_estimateGas({
+            'from': self.ethAddress,
+            'to': self.to_address,
+            'gas': "0x5208", # 21_000
+            'value': "0x0",
+        })
+        assert_equal(estimate_gas, "0x5278")
 
         gas_price = self.nodes[0].eth_gasPrice()
-        assert_equal(gas_price, "0x0")
+        assert_equal(gas_price, "0x2540be400") # 10_000_000_000
 
     def test_accounts(self):
         eth_accounts = self.nodes[0].eth_accounts()
@@ -124,7 +129,7 @@ class EVMTest(DefiTestFramework):
 
         self.test_node_params()
 
-        # self.test_gas()
+        self.test_gas()
 
         self.test_accounts()
 
