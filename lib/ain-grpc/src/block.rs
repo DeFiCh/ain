@@ -55,9 +55,9 @@ impl From<BlockAny> for RpcBlock {
             uncles: vec![],
             nonce: U256::default(),
             extra_data: b.header.extra_data,
-            sha3_uncles: Default::default(),
-            logs_bloom: Default::default(),
-            size: format!("{:#x}", header_size),
+            sha3_uncles: String::default(),
+            logs_bloom: String::default(),
+            size: format!("{header_size:#x}"),
         }
     }
 }
@@ -100,6 +100,7 @@ impl<'a> Deserialize<'a> for BlockNumber {
 
 impl BlockNumber {
     /// Convert block number to min block target.
+    #[must_use]
     pub fn convert_to_min_block_num(&self) -> Option<u64> {
         match *self {
             BlockNumber::Num(ref x) => Some(*x),
@@ -119,10 +120,9 @@ impl Serialize for BlockNumber {
                 hash,
                 require_canonical,
             } => serializer.serialize_str(&format!(
-                "{{ 'hash': '{}', 'requireCanonical': '{}'  }}",
-                hash, require_canonical
+                "{{ 'hash': '{hash}', 'requireCanonical': '{require_canonical}'  }}"
             )),
-            BlockNumber::Num(ref x) => serializer.serialize_str(&format!("0x{:x}", x)),
+            BlockNumber::Num(ref x) => serializer.serialize_str(&format!("0x{x:x}")),
             BlockNumber::Latest => serializer.serialize_str("latest"),
             BlockNumber::Earliest => serializer.serialize_str("earliest"),
             BlockNumber::Pending => serializer.serialize_str("pending"),
@@ -159,9 +159,8 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
                     "blockNumber" => {
                         let value: String = visitor.next_value()?;
                         if let Some(stripped) = value.strip_prefix("0x") {
-                            let number = u64::from_str_radix(stripped, 16).map_err(|e| {
-                                Error::custom(format!("Invalid block number: {}", e))
-                            })?;
+                            let number = u64::from_str_radix(stripped, 16)
+                                .map_err(|e| Error::custom(format!("Invalid block number: {e}")))?;
 
                             block_number = Some(number);
                             break;
@@ -177,7 +176,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
                     "requireCanonical" => {
                         require_canonical = visitor.next_value()?;
                     }
-                    key => return Err(Error::custom(format!("Unknown key: {}", key))),
+                    key => return Err(Error::custom(format!("Unknown key: {key}"))),
                 },
                 None => break,
             };
@@ -209,7 +208,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
             "finalized" => Ok(BlockNumber::Finalized),
             _ if value.starts_with("0x") => u64::from_str_radix(&value[2..], 16)
                 .map(BlockNumber::Num)
-                .map_err(|e| Error::custom(format!("Invalid block number: {}", e))),
+                .map_err(|e| Error::custom(format!("Invalid block number: {e}"))),
             _ => value.parse::<u64>().map(BlockNumber::Num).map_err(|_| {
                 Error::custom("Invalid block number: non-decimal or missing 0x prefix".to_string())
             }),
@@ -239,7 +238,7 @@ impl FromStr for BlockNumber {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let visitor = BlockNumberVisitor;
         let result = visitor.visit_str(s).map_err(|e: serde::de::value::Error| {
-            serde_json::Error::custom(format!("Error while parsing BlockNumber: {}", e))
+            serde_json::Error::custom(format!("Error while parsing BlockNumber: {e}"))
         });
         result
     }

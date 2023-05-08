@@ -8,7 +8,7 @@ fn main() -> Result<()> {
 
     let cpp_src_path = &manifest_path
         .parent()
-        .and_then(|x| x.parent())
+        .and_then(std::path::Path::parent)
         .map(|x| x.join("src"))
         .ok_or(format_err!("path err"))?;
 

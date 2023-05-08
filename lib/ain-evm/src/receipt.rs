@@ -49,7 +49,7 @@ impl ReceiptHandler {
 
     pub fn generate_receipts(
         &self,
-        transactions: &[SignedTx],
+        transactions: &[Box<SignedTx>],
         receipts: Vec<ReceiptV3>,
         block_hash: H256,
         block_number: U256,

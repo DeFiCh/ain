@@ -12,7 +12,7 @@ use bridge::ffi;
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
-    pub fn getPrivKey(fromAddress: String) -> [u8; 32] {
+    pub fn getPrivKey(_fromAddress: String) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getChainId() -> u64 {

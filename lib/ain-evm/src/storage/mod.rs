@@ -74,7 +74,7 @@ impl BlockStorage for Storage {
 
     fn put_latest_block(&self, block: &BlockAny) {
         self.cache.put_latest_block(block);
-        self.blockchain_data_handler.put_latest_block(block)
+        self.blockchain_data_handler.put_latest_block(block);
     }
 }
 
@@ -152,5 +152,15 @@ impl ReceiptStorage for Storage {
 impl FlushableStorage for Storage {
     fn flush(&self) -> Result<(), PersistentStateError> {
         self.blockchain_data_handler.flush()
+    }
+}
+
+impl Storage {
+    pub fn get_code_by_hash(&self, hash: H256) -> Option<Vec<u8>> {
+        self.blockchain_data_handler.get_code_by_hash(&hash)
+    }
+
+    pub fn put_code(&self, hash: H256, code: Vec<u8>) -> Option<Vec<u8>> {
+        self.blockchain_data_handler.put_code(&hash, &code)
     }
 }
