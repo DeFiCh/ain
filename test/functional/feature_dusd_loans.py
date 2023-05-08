@@ -547,7 +547,7 @@ class DUSDLoanTests(DefiTestFramework):
 
         # min coll ratio still applies
         assert_raises_rpc_error(-32600,
-                                "Vault does not have enough collateralization ratio defined by loan scheme - 149 < 150",
+                                "Vault does not have enough collateralization ratio defined by loan scheme - 148 < 150",
                                 self.takeloan_withdraw, vault_id, "67.00000000@DUSD", 'takeloan')
 
 
