@@ -1,14 +1,14 @@
 # TODO: Refine these vars with graceful swichover to local and
 # ensure it works without them set as well as with them set
-CARGO_HOME ?= 
-RUSTUP_HOME ?= 
+CARGO_HOME ?=
+RUSTUP_HOME ?=
 CARGO ?= cargo
 
 # RUST_TARGET is set from configure
 TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),x86_64-unknown-linux-gnu)
 
 # This is set from configure
-RUST_DEBUG ?= 
+RUST_DEBUG ?=
 # We use DEBUG as well, since that's the more conventional
 # setup. Either of them set will result in debug builds
 DEBUG ?= $(RUST_DEBUG)
@@ -21,7 +21,7 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 # don't end up in unexpected places (Currently protobuf-src is affected)
 
 .PHONY:
-all: 
+all:
 	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
 	RUSTUP_HOME=$(RUSTUP_HOME) \
 	CARGO_HOME=$(CARGO_HOME) \

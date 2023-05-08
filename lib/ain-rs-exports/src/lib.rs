@@ -1,5 +1,5 @@
-use ain_evm::*;
-use ain_grpc::*;
+use ain_evm::transaction;
+use ain_grpc::{init_runtime, start_servers, stop_runtime};
 
 use ain_evm::runtime::RUNTIME;
 use log::debug;
@@ -9,7 +9,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-pub const WEI_TO_GWEI: u64 = 1000000000;
+pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
 
 #[cxx::bridge]
@@ -26,13 +26,13 @@ pub mod ffi {
     }
 
     extern "Rust" {
-        fn evm_get_balance(address: &str) -> Result<u64>;
+        fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
         fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
         fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
-        fn evm_discard_context(context: u64);
+        fn evm_discard_context(context: u64) -> Result<()>;
         fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool>;
         fn evm_finalize(
             context: u64,
@@ -80,9 +80,13 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
     Ok(signed.encode().into())
 }
 
-pub fn evm_get_balance(address: &str) -> Result<u64, Box<dyn Error>> {
+pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
     let account = address.parse()?;
-    let mut balance = RUNTIME.handlers.evm.get_balance(account);
+    let mut balance = RUNTIME
+        .handlers
+        .evm
+        .get_balance(account, U256::from(block_number))
+        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     Ok(balance.as_u64())
@@ -94,10 +98,11 @@ pub fn evm_add_balance(
     amount: [u8; 32],
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
+
     RUNTIME
         .handlers
         .evm
-        .add_balance(context, address, amount.into());
+        .add_balance(context, address, amount.into())?;
     Ok(())
 }
 
@@ -121,19 +126,21 @@ pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
         Ok(_) => Ok(true),
         Err(e) => {
-            debug!("{:?}", e);
+            debug!("evm_validate_raw_tx fails with error: {:?}", e);
             Ok(false)
         }
     }
 }
 
+#[must_use]
 pub fn evm_get_context() -> u64 {
     RUNTIME.handlers.evm.get_context()
 }
 
-fn evm_discard_context(context: u64) {
+fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
     // TODO discard
-    RUNTIME.handlers.evm.discard_context(context)
+    RUNTIME.handlers.evm.discard_context(context)?;
+    Ok(())
 }
 
 fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {

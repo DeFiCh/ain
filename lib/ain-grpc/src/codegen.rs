@@ -40,7 +40,7 @@ impl<'de> Deserialize<'de> for types::BlockResult {
                 block: None,
             }),
             Res::Block(b) => Ok(types::BlockResult {
-                hash: "".into(),
+                hash: String::new(),
                 block: Some(b),
             }),
         }
@@ -79,7 +79,7 @@ impl<'de> Deserialize<'de> for types::Transaction {
         match Tx::deserialize(deserializer)? {
             Tx::Hash(s) => Ok(types::Transaction { hash: s, raw: None }),
             Tx::Raw(tx) => Ok(types::Transaction {
-                hash: "".into(),
+                hash: String::new(),
                 raw: Some(tx),
             }),
         }
@@ -96,9 +96,9 @@ mod tests {
             hash: "foobar".into(),
             block: None,
         };
-        let res = serde_json::to_value(&foo).unwrap();
+        let res = serde_json::to_value(foo).unwrap();
         let foo2: BlockResult = serde_json::from_value(res).unwrap();
-        assert_eq!(serde_json::to_value(&foo2).unwrap(), "foobar");
+        assert_eq!(serde_json::to_value(foo2).unwrap(), "foobar");
     }
 
     #[test]
@@ -107,8 +107,8 @@ mod tests {
             hash: "booya".into(),
             raw: None,
         };
-        let res = serde_json::to_value(&foo).unwrap();
+        let res = serde_json::to_value(foo).unwrap();
         let foo2: Transaction = serde_json::from_value(res).unwrap();
-        assert_eq!(serde_json::to_value(&foo2).unwrap(), "booya");
+        assert_eq!(serde_json::to_value(foo2).unwrap(), "booya");
     }
 }
