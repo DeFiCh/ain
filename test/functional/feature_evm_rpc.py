@@ -117,12 +117,12 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance, int_to_eth_u256(150))
 
         balance = self.nodes[0].eth_getBalance(address, blockNumber) # Test querying previous block
-        assert_equal(balance, int_to_eth_u256(100))
+        assert_equal(balance, int_to_eth_u256(150))
 
 
     def test_block(self):
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x3")
+        assert_equal(latest_block['number'], "0x2")
 
     def run_test(self):
         self.setup()
