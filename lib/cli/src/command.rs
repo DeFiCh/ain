@@ -13,7 +13,10 @@ pub async fn execute_cli_command(
         MetachainCLI::NetVersion => client.net_version().await?.into(),
         MetachainCLI::Mining => client.mining().await?.into(),
         MetachainCLI::Call { input } => client.call((*input).into()).await?.into(),
-        MetachainCLI::GetBalance { address } => client.get_balance(address).await?.into(),
+        MetachainCLI::GetBalance {
+            address,
+            block_number,
+        } => client.get_balance(address, block_number).await?.into(),
         MetachainCLI::GetBlockByHash { hash } => client.get_block_by_hash(hash).await?.into(),
         MetachainCLI::HashRate => client.hash_rate().await?.into(),
         MetachainCLI::BlockNumber => client.block_number().await?.into(),
@@ -46,18 +49,29 @@ pub async fn execute_cli_command(
             .get_block_transaction_count_by_number(number)
             .await?
             .into(),
-        MetachainCLI::GetCode { address } => client.get_code(address).await?.into(),
-        MetachainCLI::GetStorageAt { address, position } => {
-            client.get_storage_at(address, position).await?.into()
-        }
+        MetachainCLI::GetCode {
+            address,
+            block_number,
+        } => client.get_code(address, block_number).await?.into(),
+        MetachainCLI::GetStorageAt {
+            address,
+            position,
+            block_number,
+        } => client
+            .get_storage_at(address, position, block_number)
+            .await?
+            .into(),
         MetachainCLI::SendRawTransaction { input } => {
             client.send_raw_transaction(&input).await?.into()
         }
-        MetachainCLI::GetTransactionCount { input } => {
-            client.get_transaction_count(input).await?.into()
-        }
-        MetachainCLI::EstimateGas => client.estimate_gas().await?.into(),
-        MetachainCLI::GetState => client.get_state().await?.into(),
+        MetachainCLI::GetTransactionCount {
+            input,
+            block_number,
+        } => client
+            .get_transaction_count(input, block_number)
+            .await?
+            .into(),
+        MetachainCLI::EstimateGas { input } => client.estimate_gas((*input).into()).await?.into(),
         MetachainCLI::GasPrice => client.gas_price().await?.into(),
     };
     Ok(result)
