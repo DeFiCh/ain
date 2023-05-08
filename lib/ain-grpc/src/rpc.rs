@@ -377,18 +377,25 @@ impl MetachainRPCServer for MetachainRPCModule {
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
-        let stat = ain_cpp_imports::publish_eth_transaction(hex)
-            .map_err(|e| Error::Custom(format!("Error publishing TX {e:?}")))?;
 
-        let signed_tx =
-            SignedTx::try_from(raw_tx).map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
-
-        debug!(
-            "Transaction status: {:?}, hash: {}",
-            stat,
-            signed_tx.transaction.hash()
-        );
-        Ok(format!("{:#x}", signed_tx.transaction.hash()))
+        match ain_cpp_imports::publish_eth_transaction(hex) {
+            Ok(true) => {
+                let signed_tx = SignedTx::try_from(raw_tx)
+                    .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+                debug!(
+                    "Publishing transaction with hash: {:#x}",
+                    signed_tx.transaction.hash()
+                );
+                Ok(format!("{:#x}", signed_tx.transaction.hash()))
+            }
+            Ok(false) => {
+                debug!("Could not publish raw transaction: {tx}");
+                Err(Error::Custom(format!(
+                    "Could not publish raw transaction: {tx}"
+                )))
+            }
+            Err(e) => Err(Error::Custom(format!("Error publishing TX {e:?}"))),
+        }
     }
 
     fn get_transaction_count(
