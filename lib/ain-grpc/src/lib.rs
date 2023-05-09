@@ -5,9 +5,9 @@ extern crate serde_json;
 pub mod block;
 pub mod call_request;
 pub mod codegen;
-pub mod rpc;
 mod impls;
 mod receipt;
+pub mod rpc;
 mod transaction;
 mod utils;
 
