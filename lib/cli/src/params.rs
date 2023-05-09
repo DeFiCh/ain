@@ -18,7 +18,7 @@ impl FromStr for Chain {
             "testnet" => Ok(Chain::Testnet),
             "devnet" => Ok(Chain::Devnet),
             "regtest" => Ok(Chain::Regtest),
-            _ => Err(format!("Unknown chain: {}", s)),
+            _ => Err(format!("Unknown chain: {s}")),
         }
     }
 }
@@ -35,7 +35,7 @@ impl BaseChainParams {
     pub fn create(chain: &Chain) -> Self {
         match chain {
             Chain::Main => Self {
-                data_dir: "".to_string(),
+                data_dir: String::new(),
                 rpc_port: 8554,
                 grpc_port: 8550,
                 eth_rpc_port: 8551,

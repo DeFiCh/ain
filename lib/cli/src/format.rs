@@ -15,7 +15,7 @@ impl FromStr for Format {
             "json" => Ok(Format::Json),
             "rust" => Ok(Format::Rust),
             "pp" => Ok(Format::PrettyJson),
-            _ => Err(format!("Unsupported format: {}", s)),
+            _ => Err(format!("Unsupported format: {s}")),
         }
     }
 }
