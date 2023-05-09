@@ -75,7 +75,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for queue_tx in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
@@ -85,14 +85,12 @@ impl Handlers {
                         receipt,
                         ..
                     } = executor.exec(&signed_tx);
-                    if exit_reason.is_succeed() {
-                        all_transactions.push(signed_tx);
-                    } else {
-                        let bytes = ethereum::EnvelopedEncodable::encode(&signed_tx.transaction);
-                        let byte_string = hex::encode(bytes);
-                        failed_transactions.push(byte_string);
-                        all_transactions.push(signed_tx);
+
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(hex::encode(hash));
                     }
+
+                    all_transactions.push(signed_tx);
 
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
@@ -127,7 +125,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: parent_number + 1,
-                gas_limit: U256::from(30000000),
+                gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
