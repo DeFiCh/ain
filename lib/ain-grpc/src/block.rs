@@ -7,7 +7,7 @@ use serde::{
 };
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
     pub hash: H256,
@@ -26,38 +26,61 @@ pub struct RpcBlock {
     pub total_difficulty: Option<U256>,
     pub seal_fields: Vec<Vec<u8>>,
     pub uncles: Vec<H256>,
-    pub transactions: Vec<H256>,
+    pub transactions: BlockTransactions,
     pub nonce: U256,
     pub sha3_uncles: String,
     pub logs_bloom: String,
     pub size: String,
 }
 
-impl From<BlockAny> for RpcBlock {
-    fn from(b: BlockAny) -> Self {
-        let header_size = b.header.rlp_bytes().len();
+impl RpcBlock {
+    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
+        let header_size = block.header.rlp_bytes().len();
         RpcBlock {
-            hash: b.header.hash(),
-            mix_hash: b.header.hash(),
-            number: b.header.number,
-            parent_hash: b.header.parent_hash,
-            transactions_root: b.header.transactions_root,
-            state_root: b.header.state_root,
-            receipts_root: b.header.receipts_root,
-            miner: b.header.beneficiary,
-            difficulty: b.header.difficulty,
+            hash: block.header.hash(),
+            mix_hash: block.header.hash(),
+            number: block.header.number,
+            parent_hash: block.header.parent_hash,
+            transactions_root: block.header.transactions_root,
+            state_root: block.header.state_root,
+            receipts_root: block.header.receipts_root,
+            miner: block.header.beneficiary,
+            difficulty: block.header.difficulty,
             total_difficulty: Some(U256::zero()),
             seal_fields: vec![],
-            gas_limit: b.header.gas_limit,
-            gas_used: b.header.gas_used,
-            timestamp: b.header.timestamp.into(),
-            transactions: b.transactions.into_iter().map(|t| t.hash()).collect(),
+            gas_limit: block.header.gas_limit,
+            gas_used: block.header.gas_used,
+            timestamp: block.header.timestamp.into(),
+            transactions: {
+                if full_transactions {
+                    // Discard failed to retrieved transactions with flat_map.
+                    // Should not happen as the transaction should not make it in the block in the first place.
+                    BlockTransactions::Full(
+                        block
+                            .transactions
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(index, tx)| {
+                                EthTransactionInfo::try_from_tx_block_and_index(tx, &block, index)
+                            })
+                            .collect(),
+                    )
+                } else {
+                    BlockTransactions::Hashes(
+                        block
+                            .transactions
+                            .iter()
+                            .map(|transaction| transaction.hash())
+                            .collect(),
+                    )
+                }
+            },
             uncles: vec![],
             nonce: U256::default(),
-            extra_data: b.header.extra_data,
-            sha3_uncles: Default::default(),
-            logs_bloom: Default::default(),
-            size: format!("{:#x}", header_size),
+            extra_data: block.header.extra_data,
+            sha3_uncles: String::default(),
+            logs_bloom: String::default(),
+            size: format!("{header_size:#x}"),
         }
     }
 }
@@ -100,6 +123,7 @@ impl<'a> Deserialize<'a> for BlockNumber {
 
 impl BlockNumber {
     /// Convert block number to min block target.
+    #[must_use]
     pub fn convert_to_min_block_num(&self) -> Option<u64> {
         match *self {
             BlockNumber::Num(ref x) => Some(*x),
@@ -119,10 +143,9 @@ impl Serialize for BlockNumber {
                 hash,
                 require_canonical,
             } => serializer.serialize_str(&format!(
-                "{{ 'hash': '{}', 'requireCanonical': '{}'  }}",
-                hash, require_canonical
+                "{{ 'hash': '{hash}', 'requireCanonical': '{require_canonical}'  }}"
             )),
-            BlockNumber::Num(ref x) => serializer.serialize_str(&format!("0x{:x}", x)),
+            BlockNumber::Num(ref x) => serializer.serialize_str(&format!("0x{x:x}")),
             BlockNumber::Latest => serializer.serialize_str("latest"),
             BlockNumber::Earliest => serializer.serialize_str("earliest"),
             BlockNumber::Pending => serializer.serialize_str("pending"),
@@ -159,9 +182,8 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
                     "blockNumber" => {
                         let value: String = visitor.next_value()?;
                         if let Some(stripped) = value.strip_prefix("0x") {
-                            let number = u64::from_str_radix(stripped, 16).map_err(|e| {
-                                Error::custom(format!("Invalid block number: {}", e))
-                            })?;
+                            let number = u64::from_str_radix(stripped, 16)
+                                .map_err(|e| Error::custom(format!("Invalid block number: {e}")))?;
 
                             block_number = Some(number);
                             break;
@@ -177,7 +199,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
                     "requireCanonical" => {
                         require_canonical = visitor.next_value()?;
                     }
-                    key => return Err(Error::custom(format!("Unknown key: {}", key))),
+                    key => return Err(Error::custom(format!("Unknown key: {key}"))),
                 },
                 None => break,
             };
@@ -209,7 +231,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
             "finalized" => Ok(BlockNumber::Finalized),
             _ if value.starts_with("0x") => u64::from_str_radix(&value[2..], 16)
                 .map(BlockNumber::Num)
-                .map_err(|e| Error::custom(format!("Invalid block number: {}", e))),
+                .map_err(|e| Error::custom(format!("Invalid block number: {e}"))),
             _ => value.parse::<u64>().map(BlockNumber::Num).map_err(|_| {
                 Error::custom("Invalid block number: non-decimal or missing 0x prefix".to_string())
             }),
@@ -233,13 +255,15 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
 
 use std::str::FromStr;
 
+use crate::codegen::types::EthTransactionInfo;
+
 impl FromStr for BlockNumber {
     type Err = serde_json::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let visitor = BlockNumberVisitor;
         let result = visitor.visit_str(s).map_err(|e: serde::de::value::Error| {
-            serde_json::Error::custom(format!("Error while parsing BlockNumber: {}", e))
+            serde_json::Error::custom(format!("Error while parsing BlockNumber: {e}"))
         });
         result
     }
@@ -280,5 +304,26 @@ mod tests {
         assert_eq!(match_block_number(bn_tag_safe).unwrap(), 999);
         assert_eq!(match_block_number(bn_tag_finalized).unwrap(), 999);
         assert_eq!(match_block_number(bn_tag_pending).unwrap(), 1001);
+    }
+}
+
+/// Block Transactions
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub enum BlockTransactions {
+    /// Only hashes
+    Hashes(Vec<H256>),
+    /// Full transactions
+    Full(Vec<EthTransactionInfo>),
+}
+
+impl Serialize for BlockTransactions {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
+            BlockTransactions::Full(ref ts) => ts.serialize(serializer),
+        }
     }
 }

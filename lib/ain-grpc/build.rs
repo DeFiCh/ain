@@ -391,7 +391,7 @@ fn fix_type(ty: &mut Type) {
     }
 }
 
-/// Extracts "T" from std::option::Option<T> for example
+/// Extracts "T" from `std::option::Option`<T> for example
 fn get_path_bracketed_ty_simple(ty: &Type) -> Type {
     match ty {
         Type::Path(ref p) => {

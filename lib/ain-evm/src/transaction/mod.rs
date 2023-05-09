@@ -1,3 +1,4 @@
+pub mod bridge;
 use crate::ecrecover::{public_key_to_address, recover_public_key};
 use ethereum::{
     AccessList, EnvelopedDecoderError, LegacyTransaction, TransactionAction, TransactionSignature,
@@ -137,7 +138,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                 };
                 let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
                 let hash = H256::from(signing_message.serialize());
-                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
+                recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }
             TransactionV2::EIP1559(tx) => {
                 let msg = ethereum::EIP1559TransactionMessage {
@@ -153,7 +154,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                 };
                 let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
                 let hash = H256::from(signing_message.serialize());
-                recover_public_key(&hash, &tx.r, &tx.s, tx.odd_y_parity as u8)
+                recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }
         }?;
         Ok(SignedTx {
@@ -281,7 +282,7 @@ pub enum TransactionError {
 impl fmt::Display for TransactionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            TransactionError::Secp256k1Error(ref e) => write!(f, "Secp256k1 error: {}", e),
+            TransactionError::Secp256k1Error(ref e) => write!(f, "Secp256k1 error: {e}"),
             TransactionError::DecodingError => {
                 write!(f, "Error decoding raw transaction")
             }
@@ -289,7 +290,7 @@ impl fmt::Display for TransactionError {
                 write!(f, "Error creating new signature")
             }
             TransactionError::FromHexError(ref e) => {
-                write!(f, "Error parsing hex: {}", e)
+                write!(f, "Error parsing hex: {e}")
             }
         }
     }
