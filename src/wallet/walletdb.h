@@ -110,6 +110,7 @@ public:
     static const int VERSION_BASIC           = 1;
     static const int VERSION_WITH_HDDATA     = 10;
     static const int VERSION_WITH_KEY_ORIGIN = 12;
+    static const int VERSION_ETH             = 14;
     static const int CURRENT_VERSION         = VERSION_WITH_KEY_ORIGIN;
     int nVersion;
     int64_t nCreateTime;    // 0 means unknown
@@ -120,9 +121,12 @@ public:
     bool has_key_origin = false;  //< Whether the key_origin is useful
 
     CKeyMetadata() { SetNull(); }
-    explicit CKeyMetadata(int64_t nCreateTime_) {
+    explicit CKeyMetadata(int64_t nCreateTime_, const bool ethAddress = false) {
         SetNull();
         nCreateTime = nCreateTime_;
+        if (ethAddress) {
+            nVersion    = CKeyMetadata::VERSION_ETH;
+        }
     }
 
     ADD_SERIALIZE_METHODS;
@@ -148,6 +152,22 @@ public:
         hd_seed_id.SetNull();
         key_origin.clear();
         has_key_origin = false;
+    }
+};
+
+class CKeyData {
+public:
+    CPrivKey pubKey;
+    uint256 hash;
+    bool ethAddress;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(pubKey);
+        READWRITE(hash);
+        READWRITE(ethAddress);
     }
 };
 
@@ -201,7 +221,7 @@ public:
     bool EraseTx(const uint256 &hash);
 
     bool WriteKeyMetadata(const CKeyMetadata &meta, const CPubKey &pubkey, const bool overwrite);
-    bool WriteKey(const CPubKey &vchPubKey, const CPrivKey &vchPrivKey, const CKeyMetadata &keyMeta);
+    bool WriteKey(const CPubKey &vchPubKey, const CPrivKey &vchPrivKey, const CKeyMetadata &keyMeta, const bool ethAddress);
     bool WriteCryptedKey(const CPubKey &vchPubKey,
                          const std::vector<unsigned char> &vchCryptedSecret,
                          const CKeyMetadata &keyMeta);

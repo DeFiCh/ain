@@ -77,6 +77,8 @@ struct DCT_ID {
 
 static constexpr CAmount COIN = 100000000;
 static constexpr CAmount CENT = 1000000;
+static constexpr int64_t WEI_IN_GWEI    = 1000000000;
+static constexpr int64_t CAMOUNT_TO_WEI = 10;
 
 //Converts the given value to decimal format string with COIN precision.
 inline std::string GetDecimalString(CAmount nValue)
@@ -136,7 +138,7 @@ struct CTokenAmount { // simple std::pair is less informative
         // add
         auto sumRes = SafeAdd(nValue, amount);
         if (!sumRes) {
-            return sumRes;
+            return std::move(sumRes);
         }
 
         nValue = *sumRes;

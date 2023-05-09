@@ -25,7 +25,7 @@
 #ifndef BRKeyECIES_h
 #define BRKeyECIES_h
 
-#include "BRKey.h"
+#include <spv/support/BRKey.h>
 
 #ifdef __cplusplus
 extern "C" {

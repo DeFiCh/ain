@@ -22,13 +22,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRAddress.h"
-#include "../bitcoin/BRChainParams.h"
-#include "BRBase58.h"
-#include "BRBech32.h"
-#include "BRInt.h"
 #include <inttypes.h>
 #include <assert.h>
+
+#include <spv/support/BRAddress.h>
+#include <spv/bitcoin/BRChainParams.h>
+#include <spv/support/BRBase58.h>
+#include <spv/support/BRBech32.h>
+#include <spv/support/BRInt.h>
+
 
 #define VAR_INT16_HEADER  0xfd
 #define VAR_INT32_HEADER  0xfe

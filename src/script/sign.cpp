@@ -11,7 +11,7 @@
 #include <script/signingprovider.h>
 #include <script/standard.h>
 #include <uint256.h>
-
+#include <logging.h>
 typedef std::vector<unsigned char> valtype;
 
 MutableTransactionSignatureCreator::MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn) : txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), amount(amountIn), checker(txTo, nIn, amountIn) {}
@@ -25,7 +25,9 @@ bool MutableTransactionSignatureCreator::CreateSig(const SigningProvider& provid
     // Signing with uncompressed keys is disabled in witness scripts
     if (sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
         return false;
-
+    // Signing with compressed keys is disabled in eth scripts
+    if (sigversion == SigVersion::WITNESS_V16 && key.IsCompressed())
+        return false;
     uint256 hash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion);
     if (!key.Sign(hash, vchSig))
         return false;
@@ -155,6 +157,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         return ok;
     }
     case TX_WITNESS_V0_KEYHASH:
+    case TX_WITNESS_V16_ETHHASH:
         ret.push_back(vSolutions[0]);
         return true;
 
@@ -220,6 +223,16 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
         sigdata.witness = true;
         result.clear();
     }
+    else if (solved && whichType == TX_WITNESS_V16_ETHHASH)
+    {
+        CScript witnessscript;
+        witnessscript << OP_DUP << OP_SHA3 << ToByteVector(result[0]) << OP_EQUALVERIFY << OP_CHECKSIG;
+        txnouttype subType;
+        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V16, sigdata);
+        sigdata.scriptWitness.stack = result;
+        sigdata.witness = true;
+        result.clear();
+    }
     else if (solved && whichType == TX_WITNESS_V0_SCRIPTHASH)
     {
         CScript witnessscript(result[0].begin(), result[0].end());
@@ -240,7 +253,8 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     sigdata.scriptSig = PushAll(result);
 
     // Test solution
-    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker());
+    ScriptError serror;
+    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), &serror);
     return sigdata.complete;
 }
 

@@ -22,14 +22,14 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRBloomFilter.h"
-#include "BRCrypto.h"
-#include "BRAddress.h"
-#include "BRInt.h"
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
 #include <assert.h>
+#include <spv/bitcoin/BRBloomFilter.h>
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRInt.h>
 
 #define BLOOM_MAX_HASH_FUNCS 50
 

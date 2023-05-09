@@ -25,7 +25,7 @@
 #ifndef BRBCashParams_h
 #define BRBCashParams_h
 
-#include "bitcoin/BRChainParams.h"
+#include <spv/bitcoin/BRChainParams.h>
 
 extern const BRChainParams *BRBCashParams;
 extern const BRChainParams *BRBCashTestNetParams;

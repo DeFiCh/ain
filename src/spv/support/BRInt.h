@@ -25,10 +25,10 @@
 #ifndef BRInt_h
 #define BRInt_h
 
-#include "BRLargeInt.h"
-
 #include <inttypes.h>
 #include <string>
+
+#include <spv/support/BRLargeInt.h>
 
 #ifdef __cplusplus
 extern "C" {

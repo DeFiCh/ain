@@ -69,16 +69,18 @@ protected:
     using ScriptMap = std::map<CScriptID, CScript>;
 
     KeyMap mapKeys GUARDED_BY(cs_KeyStore);
+    KeyMap mapEthKeys GUARDED_BY(cs_KeyStore);
     ScriptMap mapScripts GUARDED_BY(cs_KeyStore);
 
-    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
+    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const bool ethAddress = false) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
 
 public:
-    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
-    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey()); }
+    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress);
+    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey(), false); }
     virtual bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const override;
     virtual bool HaveKey(const CKeyID &address) const override;
     virtual std::set<CKeyID> GetKeys() const;
+    virtual std::set<CKeyID> GetEthKeys() const;
     virtual bool GetKey(const CKeyID &address, CKey &keyOut) const override;
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const override;
