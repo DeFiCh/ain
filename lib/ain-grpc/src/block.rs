@@ -23,12 +23,12 @@ pub struct RpcBlock {
     pub extra_data: Vec<u8>,
     pub timestamp: U256,
     pub difficulty: U256,
-    pub total_difficulty: Option<U256>,
+    pub total_difficulty: U256,
     pub seal_fields: Vec<Vec<u8>>,
     pub uncles: Vec<H256>,
     pub transactions: BlockTransactions,
     pub nonce: U256,
-    pub sha3_uncles: String,
+    pub sha3_uncles: H256,
     pub logs_bloom: String,
     pub size: String,
 }
@@ -46,7 +46,7 @@ impl RpcBlock {
             receipts_root: block.header.receipts_root,
             miner: block.header.beneficiary,
             difficulty: block.header.difficulty,
-            total_difficulty: Some(U256::zero()),
+            total_difficulty: U256::zero(),
             seal_fields: vec![],
             gas_limit: block.header.gas_limit,
             gas_used: block.header.gas_used,
@@ -76,10 +76,10 @@ impl RpcBlock {
                 }
             },
             uncles: vec![],
-            nonce: U256::default(),
+            nonce: U256::zero(),
             extra_data: block.header.extra_data,
-            sha3_uncles: String::default(),
-            logs_bloom: String::default(),
+            sha3_uncles: H256::default(),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
         }
     }
