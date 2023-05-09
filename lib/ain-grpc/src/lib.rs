@@ -8,6 +8,8 @@ pub mod codegen;
 mod impls;
 mod receipt;
 pub mod rpc;
+mod transaction;
+mod utils;
 
 use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;

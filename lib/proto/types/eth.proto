@@ -6,26 +6,16 @@ message EthAccountsResult {
 }
 
 message EthTransactionInfo {
-    string from = 1; // The address from which the transaction is sent
-    optional string to = 2; // The address to which the transaction is addressed
-    uint64 gas = 3; // The integer of gas provided for the transaction execution
-    string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
-    string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
-    string data = 6; // The hash of the method signature and encoded parameters.
-    string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-}
-
-message EthPendingTransactionInfo {
-    string blockHash = 1; // Hash of the block. null when its pending block.
-    string blockNumber = 2; // The block number. null when its pending block.
+    optional string blockHash = 1; // Hash of the block. null when its pending block.
+    optional string blockNumber = 2; // The block number. null when its pending block.
     string from = 3; // The address from which the transaction is sent
     string gas = 4; // The integer of gas provided for the transaction execution.
     string gasPrice = 5; // The integer of gas price used for each paid gas encoded as hexadecimal
     string hash = 6; // Hash of the transaction.
     string input = 7; // The data sent along with the transaction.
     string nonce = 8; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-    string to = 9; // Address of the receiver. null when its a contract creation transaction.
-    string transactionIndex = 10; // Integer of the transactions index position in the block.
+    optional string to = 9; // Address of the receiver. null when its a contract creation transaction.
+    optional string transactionIndex = 10; // Integer of the transactions index position in the block.
     string value = 11; // The integer of value sent with this transaction encoded as hexadecimal.
     string v = 12; // Signature v value
     string r = 13; // Signature r value
