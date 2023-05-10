@@ -142,8 +142,8 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
-        case CustomTxType::TransferBalance:
-            return "TransferBalance";
+        case CustomTxType::TransferDomain:
+            return "TransferDomain";
         case CustomTxType::EvmTx:
             return "EvmTx";
         case CustomTxType::None:
@@ -303,8 +303,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
-        case CustomTxType::TransferBalance:
-            return CTransferBalanceMessage{};
+        case CustomTxType::TransferDomain:
+            return CTransferDomainMessage{};
         case CustomTxType::EvmTx:
             return CEvmTxMessage{};
         case CustomTxType::None:
@@ -435,7 +435,7 @@ public:
                 CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
         else if constexpr (IsOneOf<T,
-                CTransferBalanceMessage,
+                CTransferDomainMessage,
                 CEvmTxMessage>())
             return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
         else if constexpr (IsOneOf<T,
@@ -3805,19 +3805,12 @@ public:
         return mnview.AddProposalVote(obj.propId, obj.masternodeId, vote);
     }
 
-    Res operator()(const CTransferBalanceMessage &obj) const {
+    Res operator()(const CTransferDomainMessage &obj) const {
         if (!IsEVMEnabled(height, mnview)) {
             return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
-        // owner auth
         auto res = Res::Ok();
-        if (obj.type != CTransferBalanceType::EvmOut)
-            for (const auto &kv : obj.from) {
-                res = HasAuth(kv.first);
-                if (!res)
-                    return res;
-            }
 
         // compare
         const auto sumFrom = SumAllTransfers(obj.from);
@@ -3826,31 +3819,43 @@ public:
         if (sumFrom != sumTo)
             return Res::Err("sum of inputs (from) != sum of outputs (to)");
 
-        if (obj.type == CTransferBalanceType::AccountToAccount) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
-        } else if (obj.type == CTransferBalanceType::EvmIn) {
+        CTxDestination dest;
+        if (obj.type == CTransferDomainType::DVMTokenToEVM) {
+            // owner auth
+            for (const auto &[addr, amounts] : obj.from) {
+                if (ExtractDestination(addr, dest)) {
+                    if (dest.index() == WitV16KeyEthHashType) {
+                        return Res::Err("From address must not be an ETH address in case of \"evmin\" transfer type");
+                    }
+                }
+
+                res = HasAuth(addr);
+                if (!res)
+                    return res;
+
+                for (const auto& [id, amount] : amounts.balances) {
+                    if (id != DCT_ID{0}) {
+                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
+                    }
+                }
+            }
+
             res = SubBalancesDelShares(obj.from);
             if (!res)
                 return res;
 
-            for (const auto& [addr, balances] : obj.to) {
-                CTxDestination dest;
+            for (const auto& [addr, amounts] : obj.to) {
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
+                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfer type");
                     }
                 }
 
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
 
-                for (const auto& [id, amount] : balances.balances) {
+                for (const auto& [id, amount] : amounts.balances) {
                     if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
+                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
                     }
 
                     arith_uint256 balanceIn = amount;
@@ -3858,13 +3863,11 @@ public:
                     evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
                 }
             }
-        } else if (obj.type == CTransferBalanceType::EvmOut) {
-
-            for (const auto& [addr, balances] : obj.from) {
-                CTxDestination dest;
+        } else if (obj.type == CTransferDomainType::EVMToDVMToken) {
+            for (const auto& [addr, amounts] : obj.from) {
                 if (ExtractDestination(addr, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfertype");
+                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfer type");
                     }
                 }
                 bool foundAuth = false;
@@ -3885,15 +3888,27 @@ public:
 
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
-                for (const auto& [id, amount] : balances.balances) {
+                for (const auto& [id, amount] : amounts.balances) {
                     if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
+                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
                     }
 
                     arith_uint256 balanceIn = amount;
                     balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
                     if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover EVM out", EncodeDestination(dest));
+                        return Res::Err("Not enough balance in %s to cover \"evmout\" transfer", EncodeDestination(dest));
+                    }
+                }
+            }
+            for (const auto& [addr, amounts] : obj.to) {
+                if (ExtractDestination(addr, dest)) {
+                    if (dest.index() == WitV16KeyEthHashType) {
+                        return Res::Err("To address must not be an ETH address in case of \"evmout\" transfer type");
+                    }
+                }
+                for (const auto& [id, amount] : amounts.balances) {
+                    if (id != DCT_ID{0}) {
+                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
                     }
                 }
             }
@@ -3901,7 +3916,8 @@ public:
             res = AddBalancesSetShares(obj.to);
             if (!res)
                 return res;
-        }
+        } else
+            return Res::Err("Invalid transfer type");
 
         return res;
     }
