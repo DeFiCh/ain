@@ -138,16 +138,37 @@ impl EVMHandler {
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
             .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
 
-        // TODO Validate gas limit and chain_id
+        let block_number = self
+            .storage
+            .get_latest_block()
+            .map(|block| block.header.number)
+            .unwrap_or_default();
+
+        debug!("[validate_raw_tx] block_number : {:#?}", block_number);
 
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
-            .get_nonce(signed_tx.sender, U256::zero())
-            .map_err(|_| anyhow!("Error getting nonce"))?;
+            .get_nonce(signed_tx.sender, block_number)
+            .map_err(|e| anyhow!("Error getting nonce {e}"))?;
 
+        debug!(
+            "[validate_raw_tx] signed_tx.sender : {:#?}",
+            signed_tx.sender
+        );
+        debug!(
+            "[validate_raw_tx] signed_tx nonce : {:#?}",
+            signed_tx.nonce()
+        );
+        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
         if nonce > signed_tx.nonce() {
-            return Err(anyhow!("Invalid nonce").into());
+            return Err(anyhow!(
+                "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                nonce,
+                signed_tx.nonce()
+            )
+            .into());
         }
+
         // TODO validate balance to pay gas
         // if account.balance < MIN_GAS {
         //     return Err(anyhow!("Insufficiant balance to pay fees").into());
@@ -233,8 +254,7 @@ impl EVMHandler {
         block_number: U256,
     ) -> Result<Option<Vec<u8>>, EVMError> {
         self.get_account(address, block_number)?
-            .ok_or(EVMError::NoSuchAccount(address))
-            .map(|account| {
+            .map_or(Ok(None), |account| {
                 let storage_trie = self
                     .trie_store
                     .trie_db
@@ -246,19 +266,25 @@ impl EVMHandler {
                 storage_trie
                     .get(tmp.as_slice())
                     .map_err(|e| EVMError::TrieError(format!("{e}")))
-            })?
+            })
     }
 
     pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
-        self.get_account(address, block_number)?
-            .ok_or(EVMError::NoSuchAccount(address))
-            .map(|account| account.balance)
+        let balance = self
+            .get_account(address, block_number)?
+            .map_or(U256::zero(), |account| account.balance);
+
+        debug!("Account {} balance {}", address, block_number);
+        Ok(balance)
     }
 
     pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
-        self.get_account(address, block_number)?
-            .ok_or(EVMError::NoSuchAccount(address))
-            .map(|account| account.nonce)
+        let nonce = self
+            .get_account(address, block_number)?
+            .map_or(U256::zero(), |account| account.nonce);
+
+        debug!("Account {} nonce {}", address, nonce);
+        Ok(nonce)
     }
 }
 
@@ -275,7 +301,7 @@ impl fmt::Display for EVMError {
         match self {
             EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {e}"),
             EVMError::NoSuchAccount(address) => {
-                write!(f, "EVMError: No such acccount for address {address}")
+                write!(f, "EVMError: No such acccount for address {address:#x}")
             }
             EVMError::TrieError(e) => {
                 write!(f, "EVMError: Trie error {e}")

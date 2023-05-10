@@ -310,7 +310,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .evm
             .get_storage_at(address, position, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address storage at : {e:?}")))?
+            .map_err(|e| Error::Custom(format!("get_storage_at error : {e:?}")))?
             .map_or(Ok(H256::default()), |storage| {
                 Ok(H256::from_slice(&storage))
             })
@@ -455,7 +455,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
-        debug!("Sending raw transaction: {:?}", tx);
+        debug!("[send_raw_transaction] Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
@@ -464,19 +464,32 @@ impl MetachainRPCServer for MetachainRPCModule {
             Ok(true) => {
                 let signed_tx = SignedTx::try_from(raw_tx)
                     .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+
                 debug!(
-                    "Publishing transaction with hash: {:#x}",
+                    "[send_raw_transaction] signed_tx sender : {:#x}",
+                    signed_tx.sender
+                );
+                debug!(
+                    "[send_raw_transaction] signed_tx nonce : {:#x}",
+                    signed_tx.nonce()
+                );
+                debug!(
+                    "[send_raw_transaction] transaction hash : {:#x}",
                     signed_tx.transaction.hash()
                 );
+
                 Ok(format!("{:#x}", signed_tx.transaction.hash()))
             }
             Ok(false) => {
-                debug!("Could not publish raw transaction: {tx}");
+                debug!("[send_raw_transaction] Could not publish raw transaction: {tx}");
                 Err(Error::Custom(format!(
                     "Could not publish raw transaction: {tx}"
                 )))
             }
-            Err(e) => Err(Error::Custom(format!("Error publishing TX {e:?}"))),
+            Err(e) => {
+                debug!("[send_raw_transaction] Error publishing TX {e:?}");
+                Err(Error::Custom(format!("Error publishing TX {e:?}")))
+            }
         }
     }
 
