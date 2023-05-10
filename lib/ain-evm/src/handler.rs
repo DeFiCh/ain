@@ -85,6 +85,13 @@ impl Handlers {
                         receipt,
                         ..
                     } = executor.exec(&signed_tx);
+
+                    debug!(
+                        "receipt : {:#?} for signed_tx : {:#x}",
+                        receipt,
+                        signed_tx.transaction.hash()
+                    );
+
                     if exit_reason.is_succeed() {
                         all_transactions.push(signed_tx);
                     } else {
