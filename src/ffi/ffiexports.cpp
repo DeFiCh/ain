@@ -11,8 +11,14 @@ std::array<uint8_t, 32> getPrivKey(rust::string fromAddress) {
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
     CKey key;
-    if (!pwallet->GetKey(keyId, key)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    for (std::shared_ptr<CWallet> wallet : wallets) {
+        if (wallet->GetKey(keyId, key)) {
+            break;
+        }
+    }
+    if (!key.IsValid()) {
+        throw std::runtime_error(strprintf("Invalid address provided: (%s)", fromAddress));
     }
     std::array<uint8_t, 32> privKey{};
     std::copy(key.begin(), key.end(), privKey.begin());
