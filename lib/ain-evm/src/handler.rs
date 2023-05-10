@@ -123,11 +123,15 @@ impl Handlers {
 
         let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
 
-        let mut block = Block::new(
+        let block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary: miner_address.unwrap_or_default(),
-                state_root: Default::default(),
+                state_root: if update_state {
+                    backend.commit()
+                } else {
+                    Default::default()
+                },
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
@@ -157,11 +161,7 @@ impl Handlers {
         );
 
         if update_state {
-            let new_state_root = backend.commit();
-
-            debug!("new_state_root : {:#x}", new_state_root);
-
-            block.header.state_root = new_state_root;
+            debug!("new_state_root : {:#x}", block.header.state_root);
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);
         }
