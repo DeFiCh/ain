@@ -5,6 +5,7 @@
 
 #include <miner.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
@@ -14,7 +15,6 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <ain_rs_exports.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -96,34 +96,15 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-static void ResendTransaction(const std::string &txString, const int targetHeight) {
-            const auto evmTx = ParseHex(txString);
-
-            CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-            metadata << static_cast<unsigned char>(CustomTxType::EvmTx) << CEvmTxMessage{evmTx};
-
-            CScript scriptMeta;
-            scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-            CMutableTransaction rawTx(GetTransactionVersion(targetHeight));
-            rawTx.vin.resize(2);
-            rawTx.vin[0].scriptSig = CScript() << OP_0;
-            rawTx.vin[1].scriptSig = CScript() << OP_0;
-            rawTx.vout.emplace_back(0, scriptMeta);
-
-            std::string error;
-            std::ignore = BroadcastTransaction(MakeTransactionRef(std::move(rawTx)), error, {COIN / 10}, true, false);
-}
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
 {
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
 
-    pblocktemplate.reset(new CBlockTemplate());
+    pblocktemplate = std::make_unique<CBlockTemplate>();
 
-    if(!pblocktemplate.get())
+    if(!pblocktemplate)
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
@@ -270,9 +251,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         evmHeader.resize(blockResult.block_header.size());
         std::copy(blockResult.block_header.begin(), blockResult.block_header.end(), evmHeader.begin());
 
-        for (auto &rustString : blockResult.failed_transactions) {
-            ResendTransaction(rustString.c_str(), nHeight + 1);
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
         }
+
+        RemoveFailedTransactions(failedTransactions, mnview);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -512,6 +496,70 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
         }
     }
     return nDescendantsUpdated;
+}
+
+void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, CCustomCSView &mnview) {
+    if (failedTransactions.empty()) {
+        return;
+    }
+
+    std::vector<uint256> txsToErase;
+    for (const auto &txStr : failedTransactions) {
+        txsToErase.push_back(uint256S(txStr));
+    }
+
+    // Get a copy of the TXs to be erased for restoring to the mempool later
+    std::vector<CTransactionRef> txsToRestore;
+    std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
+
+    for (const auto &tx : pblock->vtx) {
+        if (tx && txsToEraseSet.count(tx->GetHash())) {
+            txsToRestore.push_back(tx);
+        }
+    }
+
+    // Add descendants and in turn add their descendants. This needs to
+    // be done in the order that the TXs are in the block for txsToRestore.
+    auto size = txsToErase.size();
+    for (std::vector<uint256>::size_type i{}; i < size; ++i) {
+        for (const auto &tx : pblock->vtx) {
+            if (tx) {
+                for (const auto &vin : tx->vin) {
+                    if (vin.prevout.hash == txsToErase[i] &&
+                        std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
+                    {
+                        txsToRestore.push_back(tx);
+                        txsToErase.push_back(tx->GetHash());
+                        ++size;
+                    }
+                }
+            }
+        }
+    }
+
+    // Erase TXs from block
+    txsToEraseSet = std::set<uint256>(txsToErase.begin(), txsToErase.end());
+    pblock->vtx.erase(
+            std::remove_if(pblock->vtx.begin(), pblock->vtx.end(),
+                           [&txsToEraseSet](const auto &tx) {
+                return tx && txsToEraseSet.count(tx.get()->GetHash());
+            }),pblock->vtx.end());
+
+    for (const auto &tx : txsToRestore) {
+        // Broadcast TXs, this will restore them to the mempool without actually relaying them.
+        std::string error;
+        std::ignore = BroadcastTransaction(tx, error, {COIN / 10}, false, false);
+
+        // Remove fees.
+        CAmount fee{};
+        CValidationState state;
+        const auto result = Consensus::CheckTxInputs(*tx, state, ::ChainstateActive().CoinsTip(), mnview, nHeight, fee, chainparams);
+        if (!result) {
+            LogPrintf("XXX CheckTxInputs failed reason %s debug msg %s\n", state.GetRejectReason(), state.GetDebugMessage());
+        }
+        LogPrintf("XXX TX fee found %d\n", fee);
+        nFees -= fee;
+    }
 }
 
 // Skip entries in mapTx that are already in a block or are present

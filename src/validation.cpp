@@ -2873,7 +2873,32 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::copy(minter.begin(), minter.end(), minerAddress.begin());
         }
 
-        evm_finalize(evmContext, true, block.nBits, minerAddress);
+        const auto blockResult = evm_finalize(evmContext, true, block.nBits, minerAddress);
+
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        }
+
+        std::set<uint256> potentialTxsToUndo;
+        for (const auto &txStr : failedTransactions) {
+            potentialTxsToUndo.insert(uint256S(txStr));
+        }
+
+        std::set<uint256> txsToUndo;
+        for (const auto &tx : block.vtx) {
+            if (tx && potentialTxsToUndo.count(tx->GetHash())) {
+                std::vector<unsigned char> metadata;
+                const auto txType = GuessCustomTxType(*tx, metadata, false);
+                if (txType == CustomTxType::TransferBalance) {
+                    txsToUndo.insert(tx->GetHash());
+                }
+            }
+        }
+
+        for (const auto tx : txsToUndo) {
+            mnview.OnUndoTx(tx, pindex->nHeight);
+        }
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
