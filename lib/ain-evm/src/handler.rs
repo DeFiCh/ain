@@ -100,14 +100,24 @@ impl Handlers {
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "EvmIn for address {:x?}, amount: {}, context {}",
+                        "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
                         address, amount, context
                     );
-                    executor.add_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    if let Err(e) = executor.add_balance(address, amount) {
+                        debug!("[finalize_block] EvmIn failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
-                    debug!("EvmOut for address {}, amount: {}", address, amount);
-                    executor.sub_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    debug!(
+                        "[finalize_block] EvmOut for address {}, amount: {}",
+                        address, amount
+                    );
+
+                    if let Err(e) = executor.sub_balance(address, amount) {
+                        debug!("[finalize_block] EvmOut failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
             }
         }
