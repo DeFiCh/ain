@@ -546,8 +546,8 @@ public:
         rpcInfo.pushKV("vote", CProposalVoteToString(vote));
     }
 
-    void operator()(const CTransferBalanceMessage &obj) const {
-        rpcInfo.pushKV("type", CTransferBalanceTypeToString(static_cast<CTransferBalanceType>(obj.type)));
+    void operator()(const CTransferDomainMessage &obj) const {
+        rpcInfo.pushKV("type", CTransferDomainTypeToString(static_cast<CTransferDomainType>(obj.type)));
         rpcInfo.pushKV("from", accountsInfo(obj.from));
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
