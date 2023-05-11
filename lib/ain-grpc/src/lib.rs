@@ -54,11 +54,15 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn init_runtime() {
-    log::info!("Starting gRPC and JSON RPC servers");
+pub fn init(_argc: i32, _argv: &[&str]) {
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
         .init();
+    log::info!("Initializing");
+}
+
+pub fn init_evm_runtime() {
+    log::info!("Initializing evm runtime");
     let _ = &*RUNTIME;
 }
 
