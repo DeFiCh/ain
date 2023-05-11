@@ -223,6 +223,5 @@ class WalletHDTest(DefiTestFramework):
         result = self.nodes[1].getaddressinfo(eth_addr)
         assert_equal(result['ismine'], True)
 
-
 if __name__ == '__main__':
     WalletHDTest().main()

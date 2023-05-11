@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>

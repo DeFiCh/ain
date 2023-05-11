@@ -93,6 +93,10 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
         mapScripts[id] = std::move(script);
+    } else if (ethAddress) {
+        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+        CScriptID id(script);
+        mapScripts[id] = std::move(script);
     }
 }
 
