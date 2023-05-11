@@ -64,7 +64,14 @@ rust::vec<rust::string> getAccounts() {
 }
 
 rust::string getDatadir() {
-    return GetDataDir().c_str();
+    #ifdef WIN32
+    // https://learn.microsoft.com/en-us/cpp/cpp/char-wchar-t-char16-t-char32-t?view=msvc-170
+    // We're sidestepping this for now unsafely making an assumption. Can crash on Windows
+    // if odd paths are used. Require testing.
+    return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
+    #else
+    return rust::String(GetDataDir().c_str());
+    #endif
 }
 
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash) {

@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <limits.h>
+#include <limits>
 
 #define STR_(x) #x
 #define STR(x) STR_(x)
