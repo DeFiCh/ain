@@ -18,6 +18,7 @@ use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
 use vsdb_trie_db::MptStore;
@@ -60,12 +61,21 @@ impl TrieDBStore {
 
 impl PersistentState for TrieDBStore {}
 
+fn init_vsdb() {
+    debug!(target: "vsdb", "Initializating VSDB");
+    let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
+    let path = PathBuf::from(datadir).join("evm");
+    if !path.exists() {
+        std::fs::create_dir(&path).expect("Error creating `evm` dir");
+    }
+    let vsdb_dir_path = path.join(".vsdb");
+    vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
+    debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
+}
+
 impl EVMHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
-        let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
-        let vsdb_dir = format!("{datadir}/.vsdb");
-        vsdb_set_base_dir(&vsdb_dir).expect("Could not update vsdb base dir");
-        debug!("VSDB dir : {}", vsdb_dir);
+        init_vsdb();
 
         Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
