@@ -248,7 +248,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     std::vector<uint8_t> evmHeader{};
     if (IsEVMEnabled(nHeight, mnview)) {
         std::array<uint8_t, 20> dummyAddress{};
-        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress, blockTime);
         evmHeader.resize(blockResult.block_header.size());
         std::copy(blockResult.block_header.begin(), blockResult.block_header.end(), evmHeader.begin());
 

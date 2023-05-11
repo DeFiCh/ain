@@ -1,5 +1,5 @@
 use ain_evm::transaction::{self, SignedTx};
-use ain_grpc::{init_runtime, start_servers, stop_runtime};
+use ain_grpc::{init_evm_runtime, start_servers, stop_runtime};
 
 use ain_evm::runtime::RUNTIME;
 use log::debug;
@@ -56,6 +56,7 @@ pub mod ffi {
             update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],
+            timestamp: u64,
         ) -> Result<FinalizeBlockResult>;
 
         unsafe fn init(_argc: i32, _argv: *const *const c_char);
@@ -181,12 +182,16 @@ fn evm_finalize(
     update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
+    timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, failed_txs) =
-        RUNTIME
-            .handlers
-            .finalize_block(context, update_state, difficulty, Some(eth_address))?;
+    let (block, failed_txs) = RUNTIME.handlers.finalize_block(
+        context,
+        update_state,
+        difficulty,
+        eth_address,
+        timestamp,
+    )?;
     Ok(ffi::FinalizeBlockResult {
         block_header: block.header.rlp_bytes().into(),
         failed_transactions: failed_txs,
