@@ -192,8 +192,8 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"evm",         "evmtx",                     &evmtx,                 {"rawEvmTx", "inputs"}},
-    {"evm",         "evmrawtx",                  &evmrawtx,              {"rawEvmTx", "inputs"}},
+    {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",         "evmrawtx",                  &evmrawtx,              {"rawtx"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
