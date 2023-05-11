@@ -1,4 +1,7 @@
-ARG TARGET=aarch64-apple-darwin
+# This is required to be passed in for compilation. 
+# This is the dockerfile to use for adding support to new arch or or arch
+# without end docker images, like darwin x84_64 and darwin aarch64 platforms 
+ARG TARGET=unknown
 
 # -----------
 FROM --platform=linux/amd64 ubuntu:latest as builder
@@ -23,4 +26,5 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
-# NOTE: These are not runnable images. So we do not add into a scratch base image.
+# NOTE: These may or may not be runnable binaries on the platform. 
+# So we do not add into a scratch base image. Extract and use as needed.

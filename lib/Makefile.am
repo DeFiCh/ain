@@ -29,6 +29,7 @@ all:
 	CC="$(CC)" CXX="$(CXX)" \
 	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
 	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
 	$(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \

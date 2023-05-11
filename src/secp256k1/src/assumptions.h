@@ -7,7 +7,7 @@
 #ifndef SECP256K1_ASSUMPTIONS_H
 #define SECP256K1_ASSUMPTIONS_H
 
-#include <limits>
+#include <limits.h>
 
 #include "util.h"
 

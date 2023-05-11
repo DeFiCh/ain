@@ -16,12 +16,12 @@ setup_vars() {
     fi
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
-    DOCKERFILE=${DOCKERFILE:-""}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(_get_default_target)"}
+    DOCKERFILE=${DOCKERFILE:-"$(_get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -252,14 +252,14 @@ docker_build() {
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_file="${DOCKERFILES_DIR}/${DOCKERFILE:-"${target}"}.dockerfile"
+    local docker_file="${DOCKERFILE}"
 
     echo "> docker-build";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" -t "${img}" "${docker_context}"
+    docker build -f "${docker_file}" --build-arg TARGET="${target}" -t "${img}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -666,6 +666,27 @@ _get_default_target() {
     echo "$default_target"
 }
 
+_get_default_docker_file() {
+    local target="${TARGET}"
+    local dockerfiles_dir="${DOCKERFILES_DIR}"
+
+    local try_files=(\
+        "${dockerfiles_dir}/${target}.dockerfile" \
+        "${dockerfiles_dir}/${target}" \
+        "${dockerfiles_dir}/noarch.dockerfile" \
+        )
+
+    for file in "${try_files[@]}"; do
+        if [[ -f "$file" ]]; then 
+            echo "$file"
+            return
+        fi
+    done
+    # If none of these were found, assumes empty val
+    # Empty will fail if docker cmd requires it, or continue for 
+    # non docker cmds
+}
+
 _get_default_conf_args() {
     local conf_args=""
     if [[ "$TARGET" =~ .*linux.* ]]; then
@@ -800,28 +821,20 @@ ci_setup_deps() {
 ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
-        x86_64-pc-linux-gnu)
-        ;;
-        aarch64-linux-gnu)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64
-        ;;
-        arm-linux-gnueabihf)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf
-        ;;
-        x86_64-apple-darwin)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools
-        ;;
-        aarch64-apple-darwin)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools
-        ;;
+        # Nothing to do on host
+        x86_64-pc-linux-gnu) ;;
+        aarch64-linux-gnu) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
+        arm-linux-gnueabihf) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
+        x86_64-apple-darwin|aarch64-apple-darwin) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
         x86_64-w64-mingw32)
             DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
-            pkg_setup_mingw_x86_64
-        ;;
+            pkg_setup_mingw_x86_64;;
         *)
             echo "error: unsupported target: ${target}"
-            exit 1
-        ;;
+            exit 1;;
     esac
 }
 
@@ -829,28 +842,13 @@ get_rust_target() {
     local target=${TARGET}
     local rust_target
     case $target in
-        x86_64-pc-linux-gnu)
-            rust_target=x86_64-unknown-linux-gnu
-        ;;
-        aarch64-linux-gnu)
-            rust_target=aarch64-unknown-linux-gnu
-        ;;
-        arm-linux-gnueabihf)
-            rust_target=armv7-unknown-linux-gnueabihf
-        ;;
-        x86_64-apple-darwin)
-            rust_target=x86_64-apple-darwin
-        ;;
-        aarch64-apple-darwin)
-            rust_target=aarch64-apple-darwin
-        ;;
-        x86_64-w64-mingw32)
-            rust_target=x86_64-pc-windows-gnu
-        ;;
-        *)
-            echo "error: unsupported target: ${target}"
-            exit 1
-        ;;
+        x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
+        aarch64-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
+        arm-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
+        x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
+        aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
+        x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;
+        *) echo "error: unsupported target: ${target}"; exit 1;;
     esac
     echo "$rust_target"
 }
