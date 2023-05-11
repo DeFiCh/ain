@@ -30,12 +30,12 @@ LIBAIN_DIR = $(abs_top_builddir)/lib/target
 LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
 LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
 LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
-LIBAIN_RS_H = ain_rs_exports.h
+LIBAIN_RS_H = $(LIBAIN_DIR)/include/ain_rs_exports.h
 
 $(LIBAIN_RS_SRC):
 $(LIBAIN_RS_H):
 $(LIBAIN_RS_LIB): FORCE
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_srcdir)/lib
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_builddir)/lib
 
 DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
@@ -694,12 +694,10 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # defid binary
-defid_SOURCES = defid.cpp
+defid_SOURCES = $(LIBAIN_RS_SRC) $(LIBAIN_RS_H) defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
-
-defid: $(LIBAIN_RS_LIB)
 
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)

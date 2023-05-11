@@ -15,7 +15,8 @@ mod utils;
 use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
-use log::Level;
+#[allow(unused)]
+use log::{debug, info, Level};
 
 use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 
@@ -29,7 +30,7 @@ use ain_evm::runtime::{Runtime, RUNTIME};
 mod tests;
 
 pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Error>> {
-    log::info!("Starting JSON RPC server at {}", addr);
+    info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let handle = runtime.rt_handle.clone();
     let server = runtime.rt_handle.block_on(
@@ -54,15 +55,15 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn init(_argc: i32, _argv: &[&str]) {
+pub fn init(_args: Vec<&str>) {
     LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
         .target(Target::Stdout)
         .init();
-    log::info!("Initializing");
+    info!("init");
 }
 
 pub fn init_evm_runtime() {
-    log::info!("Initializing evm runtime");
+    info!("init evm runtime");
     let _ = &*RUNTIME;
 }
 
@@ -72,7 +73,7 @@ pub fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-pub fn stop_runtime() {
-    log::info!("Stopping gRPC and JSON RPC servers");
+pub fn stop_evm_runtime() {
+    info!("stop evm runtime");
     RUNTIME.stop();
 }

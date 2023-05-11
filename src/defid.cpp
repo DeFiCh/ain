@@ -182,7 +182,7 @@ static bool AppInit(int argc, char* argv[])
     }
     Shutdown(interfaces);
 
-    stop_runtime();
+    stop_evm_runtime();
 
     return fRet;
 }
