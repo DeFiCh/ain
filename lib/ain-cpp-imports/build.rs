@@ -18,7 +18,8 @@ fn main() -> Result<()> {
     let mut cxx = cxx_build::bridge(ffi_rs_src_path);
     cxx.include(cpp_src_path)
         .flag("-std=c++17")
-        .flag("-Wno-unused-parameter");
+        .flag("-Wno-unused-parameter")
+        .cpp_link_stdlib(if cfg!(target_os = "darwin") { "c++" } else { "stdc++" });
 
     // Note: For windows, we set the defines to the correct headers are used.
     // The cfg! targets can't be used, since the detection heuristic for cc-rs

@@ -24,7 +24,7 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 # don't end up in unexpected places (Currently protobuf-src is affected)
 
 .PHONY:
-all: 
+build: 
 	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
 	CC="$(CC)" CXX="$(CXX)" \
 	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
@@ -36,6 +36,28 @@ all:
 		$(if $(DEBUG),,--release) \
 		$(if $(TARGET),--target $(TARGET),) && \
 	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(TARGET_DIR)/lib/
+
+check:
+	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
+	CC="$(CC)" CXX="$(CXX)" \
+	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
+	$(CARGO) test \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" \
+		$(if $(TARGET),--target $(TARGET),)
+
+clippy:
+	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
+	CC="$(CC)" CXX="$(CXX)" \
+	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
+	$(CARGO) clippy \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" \
+		$(if $(TARGET),--target $(TARGET),)
 
 .PHONY:
 clean-local:

@@ -720,23 +720,30 @@ set -Eeuo pipefail
 dir="\$(dirname "\${BASH_SOURCE[0]}")"
 _SCRIPT_DIR="\$(cd "\${dir}/" && pwd)"
 cd \$_SCRIPT_DIR/../../
-if [[ \$(git status -s) ]]; then
-    echo "error: Git tree dirty. Please commit or stash first"
-    exit 1
-fi
 ./make.sh check
 END
     chmod +x "$file"
 }
 
 check() {
+    check_git_dirty
     check_rs
 }
 
+check_git_dirty() {
+    if [[ $(git status -s) ]]; then
+        echo "error: Git tree dirty. Please commit or stash first"
+        exit 1
+    fi
+}
+
 check_rs() {
-    _ensure_enter_dir ./lib
+    local build_dir="${BUILD_DIR}"
+    _ensure_enter_dir "$build_dir/lib" || { 
+        echo "Please configure first";
+    }
     # shellcheck disable=SC2015 # Intended
-    cargo build && cargo test && cargo clippy  || { 
+    make check && make clippy  || { 
         echo "Error: Please resolve compiler checks before commit"; 
         exit 1; }
     cargo fmt --all --check  || {
