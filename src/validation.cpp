@@ -2870,7 +2870,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (IsEVMEnabled(pindex->nHeight, mnview)) {
         CKeyID minter;
         assert(block.ExtractMinterKey(minter));
-        std::array<uint8_t, 20> minerAddress{};
+        std::array<uint8_t, 20> beneficiary{};
+        CScript minerAddress;
 
         if (!fMockNetwork) {
             const auto id = mnview.GetMasternodeIdByOperator(minter);
@@ -2890,7 +2891,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             const auto blockindex = ::ChainActive()[height];
             assert(blockindex);
 
-
             CTransactionRef tx;
             uint256 hash_block;
             assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
@@ -2901,12 +2901,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
             const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            std::copy(keyID.begin(), keyID.end(), minerAddress.begin());
+            std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
+            minerAddress = GetScriptForDestination(dest);
         } else {
-            std::copy(minter.begin(), minter.end(), minerAddress.begin());
+            std::copy(minter.begin(), minter.end(), beneficiary.begin());
+            const auto dest = PKHash(minter);
+            minerAddress = GetScriptForDestination(dest);
         }
 
-        const auto blockResult = evm_finalize(evmContext, true, block.nBits, minerAddress, block.GetBlockTime());
+        const auto blockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
@@ -2916,6 +2919,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
         }
+
+        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee)});
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;

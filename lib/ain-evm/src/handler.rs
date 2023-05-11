@@ -50,7 +50,7 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<(BlockAny, Vec<String>), Box<dyn Error>> {
+    ) -> Result<(BlockAny, Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -171,6 +171,6 @@ impl Handlers {
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((block, failed_transactions))
+        Ok((block, failed_transactions, gas_used))
     }
 }
