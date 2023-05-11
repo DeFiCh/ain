@@ -2008,6 +2008,39 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     return flags;
 }
 
+static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
+    if (obj.type == CTransferDomainType::DVMTokenToEVM) {
+        for (const auto& [owner, balance] : obj.from) {
+            mnview.AddBalances(owner, balance);
+        }
+    } else {
+        for (const auto& [owner, balance] : obj.to) {
+            mnview.SubBalances(owner, balance);
+        }
+    }
+}
+
+static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failedTransactions, const CBlock& block, const Consensus::Params &consensus, const int height, CCustomCSView &mnview) {
+    std::set<uint256> potentialTxsToUndo;
+    for (const auto &txStr : failedTransactions) {
+        potentialTxsToUndo.insert(uint256S(txStr));
+    }
+
+    std::set<uint256> txsToUndo;
+    for (const auto &tx : block.vtx) {
+        if (tx && potentialTxsToUndo.count(tx->GetHash())) {
+            std::vector<unsigned char> metadata;
+            const auto txType = GuessCustomTxType(*tx, metadata, false);
+            if (txType == CustomTxType::TransferDomain) {
+                auto txMessage = customTypeToMessage(txType);
+                assert(CustomMetadataParse(height, consensus, metadata, txMessage));
+                auto obj = std::get<CTransferDomainMessage>(txMessage);
+                RevertTransferDomain(obj, mnview);
+            }
+        }
+    }
+}
+
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
 {
     TAmounts const cbValues = tx.GetValuesOut();
@@ -2875,29 +2908,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         const auto blockResult = evm_finalize(evmContext, true, block.nBits, minerAddress);
 
-        std::vector<std::string> failedTransactions;
-        for (const auto& rust_string : blockResult.failed_transactions) {
-            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
-        }
-
-        std::set<uint256> potentialTxsToUndo;
-        for (const auto &txStr : failedTransactions) {
-            potentialTxsToUndo.insert(uint256S(txStr));
-        }
-
-        std::set<uint256> txsToUndo;
-        for (const auto &tx : block.vtx) {
-            if (tx && potentialTxsToUndo.count(tx->GetHash())) {
-                std::vector<unsigned char> metadata;
-                const auto txType = GuessCustomTxType(*tx, metadata, false);
-                if (txType == CustomTxType::TransferDomain) {
-                    txsToUndo.insert(tx->GetHash());
-                }
+        if (!blockResult.failed_transactions.empty()) {
+            std::vector<std::string> failedTransactions;
+            for (const auto& rust_string : blockResult.failed_transactions) {
+                failedTransactions.emplace_back(rust_string.data(), rust_string.length());
             }
-        }
 
-        for (const auto tx : txsToUndo) {
-            mnview.OnUndoTx(tx, pindex->nHeight);
+            RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
         }
     }
 
