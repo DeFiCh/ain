@@ -19,15 +19,18 @@ fn main() -> Result<()> {
     cxx.include(cpp_src_path)
         .flag("-std=c++17")
         .flag("-Wno-unused-parameter")
-        .cpp_link_stdlib(if cfg!(target_os = "darwin") { "c++" } else { "stdc++" });
+        .cpp_link_stdlib(if cfg!(target_os = "darwin") {
+            "c++"
+        } else {
+            "stdc++"
+        });
 
     // Note: For windows, we set the defines to the correct headers are used.
     // The cfg! targets can't be used, since the detection heuristic for cc-rs
     // is slightly different. But we can infer it from TARGET
     let target = env::var("TARGET")?;
     if target.contains("windows") {
-        cxx
-            .define("_MT", None)
+        cxx.define("_MT", None)
             .define("WIN32", None)
             .define("_WIN32", None)
             .define("__GLIBCXX__", None)
@@ -36,7 +39,7 @@ fn main() -> Result<()> {
             .define("_WIN32_WINNT", "0x0601")
             .static_flag(true);
     }
-    
+
     cxx.compile(pkg_name.as_str());
 
     let path_utf8_err = || format_err!("path utf8 err");
