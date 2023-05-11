@@ -1952,14 +1952,14 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue transferbalance(const JSONRPCRequest& request) {
+UniValue transferdomain(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"transferbalance",
+    RPCHelpMan{"transferdomain",
                 "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"type", RPCArg::Type::STR, RPCArg::Optional::NO, "Type of transfer: evmin/evmout."},
+                    {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of transfer: 1 - DFI Token to EVM, 2 - EVM to DFI Token."},
                     {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The source defi address is the key, the value is amount in amount@token format. "
@@ -1977,16 +1977,17 @@ UniValue transferbalance(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferbalance", R"(acctoacc '{\"<fromAddress>\":\"1.0@DFI\"}' '{\"<toAddress>\":\"1.0@DFI\"}')")
+                        HelpExampleCli("transferdomain", R"(1 '{\"<fromDFIAddress>\":\"1.0@DFI\"}' '{\"<toETHAddress>\":\"1.0@DFI\"}')") +
+                        HelpExampleCli("transferdomain", R"(2 '{\"<fromETHAddress>\":\"1.0@DFI\"}' '{\"<toDFIAddress>\":\"1.0@DFI\"}')")
                         },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot transferbalance while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot transferdomain while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VOBJ, UniValue::VOBJ}, false);
 
     int targetHeight;
     {
@@ -1994,17 +1995,23 @@ UniValue transferbalance(const JSONRPCRequest& request) {
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    CTransferBalanceMessage msg;
+    CTransferDomainMessage msg;
 
     try {
         if (!request.params[0].isNull()){
-            auto type = request.params[0].getValStr();
-            msg.type = CTransferBalanceType::AccountToAccount;
+            auto type = request.params[0].get_int();
 
-            if (type == "evmin")
-                msg.type = CTransferBalanceType::EvmIn;
-            else if (type == "evmout")
-                msg.type = CTransferBalanceType::EvmOut;
+            switch (type) {
+                case CTransferDomainType::DVMTokenToEVM:
+                    msg.type = CTransferDomainType::DVMTokenToEVM;
+                    break;
+                case CTransferDomainType::EVMToDVMToken:
+                    msg.type = CTransferDomainType::EVMToDVMToken;
+                    break;
+                default:
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)");
+                    break;
+            }
         } else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must not be null");
 
@@ -2026,9 +2033,8 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
-    metadata << static_cast<unsigned char>(CustomTxType::TransferBalance)
+    metadata << static_cast<unsigned char>(CustomTxType::TransferDomain)
                 << msg;
-
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -2038,11 +2044,11 @@ UniValue transferbalance(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    if (msg.type != CTransferBalanceType::EvmOut) {
+    if (msg.type == CTransferDomainType::DVMTokenToEVM) {
         for(auto& address : msg.from){
             auths.insert(address.first);
         }
-    } else {
+    } else if (msg.type == CTransferDomainType::EVMToDVMToken) {
         for(auto& address : msg.from) {
             const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
             const auto auth = GetScriptForDestination(PKHash(key.GetID()));
@@ -2910,7 +2916,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
     {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
     {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
-    {"accounts",   "transferbalance",          &transferbalance,           {"type", "from", "to"}},
+    {"accounts",   "transferdomain",          &transferdomain,           {"type", "from", "to"}},
     {"accounts",   "getburninfo",              &getburninfo,               {}},
     {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
     {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},

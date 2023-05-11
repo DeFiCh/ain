@@ -53,13 +53,16 @@ pub trait MetachainRPC {
     fn get_block_by_number(
         &self,
         block_number: BlockNumber,
-        full_transactions: bool,
+        full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>>;
 
     /// Retrieves a specific block, identified by its hash.
     #[method(name = "eth_getBlockByHash")]
-    fn get_block_by_hash(&self, hash: H256, full_transactions: bool)
-        -> RpcResult<Option<RpcBlock>>;
+    fn get_block_by_hash(
+        &self,
+        hash: H256,
+        full_transactions: Option<bool>,
+    ) -> RpcResult<Option<RpcBlock>>;
 
     /// Retrieves the transaction count for a specific block, identified by its hash.
     #[method(name = "eth_getBlockTransactionCountByHash")]
@@ -262,10 +265,14 @@ impl MetachainRPCServer for MetachainRPCModule {
             "Getting balance for address: {:?} at block : {} ",
             address, block_number
         );
-        self.handler
+        let balance = self
+            .handler
             .evm
             .get_balance(address, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address balance : {e:?}")))
+            .unwrap_or(U256::zero());
+
+        debug!("Address: {:?} balance : {} ", address, balance);
+        Ok(balance)
     }
 
     fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
@@ -303,7 +310,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .evm
             .get_storage_at(address, position, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address storage at : {e:?}")))?
+            .map_err(|e| Error::Custom(format!("get_storage_at error : {e:?}")))?
             .map_or(Ok(H256::default()), |storage| {
                 Ok(H256::from_slice(&storage))
             })
@@ -312,13 +319,16 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_block_by_hash(
         &self,
         hash: H256,
-        full_transactions: bool,
+        full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
         self.handler
             .storage
             .get_block_by_hash(&hash)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(block, full_transactions)))
+                Ok(Some(RpcBlock::from_block_with_tx(
+                    block,
+                    full_transactions.unwrap_or_default(),
+                )))
             })
     }
 
@@ -355,15 +365,18 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_block_by_number(
         &self,
         block_number: BlockNumber,
-        full_transactions: bool,
+        full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
-        debug!("Getting block by number : {:#?}", block_number);
         let block_number = self.block_number_to_u256(Some(block_number));
+        debug!("Getting block by number : {}", block_number);
         self.handler
             .storage
             .get_block_by_number(&block_number)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(block, full_transactions)))
+                Ok(Some(RpcBlock::from_block_with_tx(
+                    block,
+                    full_transactions.unwrap_or_default(),
+                )))
             })
     }
 
@@ -442,7 +455,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
-        debug!("Sending raw transaction: {:?}", tx);
+        debug!("[send_raw_transaction] Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
@@ -451,19 +464,32 @@ impl MetachainRPCServer for MetachainRPCModule {
             Ok(true) => {
                 let signed_tx = SignedTx::try_from(raw_tx)
                     .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+
                 debug!(
-                    "Publishing transaction with hash: {:#x}",
+                    "[send_raw_transaction] signed_tx sender : {:#x}",
+                    signed_tx.sender
+                );
+                debug!(
+                    "[send_raw_transaction] signed_tx nonce : {:#x}",
+                    signed_tx.nonce()
+                );
+                debug!(
+                    "[send_raw_transaction] transaction hash : {:#x}",
                     signed_tx.transaction.hash()
                 );
+
                 Ok(format!("{:#x}", signed_tx.transaction.hash()))
             }
             Ok(false) => {
-                debug!("Could not publish raw transaction: {tx}");
+                debug!("[send_raw_transaction] Could not publish raw transaction: {tx}");
                 Err(Error::Custom(format!(
                     "Could not publish raw transaction: {tx}"
                 )))
             }
-            Err(e) => Err(Error::Custom(format!("Error publishing TX {e:?}"))),
+            Err(e) => {
+                debug!("[send_raw_transaction] Error publishing TX {e:?}");
+                Err(Error::Custom(format!("Error publishing TX {e:?}")))
+            }
         }
     }
 
