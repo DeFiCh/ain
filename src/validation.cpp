@@ -2890,7 +2890,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (tx && potentialTxsToUndo.count(tx->GetHash())) {
                 std::vector<unsigned char> metadata;
                 const auto txType = GuessCustomTxType(*tx, metadata, false);
-                if (txType == CustomTxType::TransferBalance) {
+                if (txType == CustomTxType::TransferDomain) {
                     txsToUndo.insert(tx->GetHash());
                 }
             }
