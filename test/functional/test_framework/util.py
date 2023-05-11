@@ -331,7 +331,7 @@ def grpc_url(datadir, i, chain, grpchost):
             host, port = parts
         else:
             host = grpchost
-    
+
     return "http://%s:%s@%s:%d" % (grpc_u, grpc_p, host, int(port))
 
 
@@ -345,7 +345,7 @@ def eth_rpc_url(datadir, i, chain, ethrpchost):
             host, port = parts
         else:
             host = ethrpchost
-    
+
     return "http://%s:%s@%s:%d" % (ethrpc_u, ethrpc_p, host, int(port))
 
 

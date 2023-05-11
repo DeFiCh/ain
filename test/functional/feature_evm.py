@@ -52,7 +52,6 @@ class EVMTest(DefiTestFramework):
 
     def run_test(self):
 
-        miner_eth = '0xb36814fd26190b321aa985809293a41273cfe15e' # node0 miner reward will go to this address on EVM side
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
