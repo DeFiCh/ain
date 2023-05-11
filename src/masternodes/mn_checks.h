@@ -7,6 +7,7 @@
 
 #include <consensus/params.h>
 #include <consensus/tx_check.h>
+#include <masternodes/evm.h>
 #include <masternodes/masternodes.h>
 #include <cstring>
 #include <vector>

@@ -51,10 +51,6 @@ def assert_greater_than_or_equal(thing1, thing2):
         raise AssertionError("%s < %s" % (str(thing1), str(thing2)))
 
 
-def almost_equal(x, y, threshold=0.0001):
-    return abs(x - y) < threshold
-
-
 def assert_raises(exc, fun, *args, **kwds):
     assert_raises_message(exc, None, fun, *args, **kwds)
 
@@ -197,6 +193,14 @@ def check_json_precision():
         raise RuntimeError("JSON encode/decode loses precision")
 
 
+def almost_equal(x, y, threshold=0.0001):
+    return abs(x - y) < threshold
+
+
+def truncate(str, decimal):
+    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
+
+
 def count_bytes(hex_string):
     return len(bytearray.fromhex(hex_string))
 
@@ -211,6 +215,11 @@ def str_to_b64str(string):
 
 def satoshi_round(amount):
     return Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+
+
+def get_decimal_amount(amount):
+    account_tmp = amount.split('@')[0]
+    return Decimal(account_tmp)
 
 
 def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
@@ -400,8 +409,10 @@ def get_auth_cookie(datadir, chain):
     return user, password
 
 
-# If a cookie file exists in the given datadir, delete it.
 def delete_cookie_file(datadir, chain):
+    """
+    If a cookie file exists in the given datadir, delete it.
+    """
     if os.path.isfile(os.path.join(datadir, chain, ".cookie")):
         logger.debug("Deleting leftover cookie file")
         os.remove(os.path.join(datadir, chain, ".cookie"))
@@ -546,9 +557,60 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
     return (txid, signresult["hex"], fee)
 
 
-# Helper to create at least "count" utxos
-# Pass in a fee that is sufficient for relay and mining new transactions.
+def make_utxo(node, amount, confirmed=True, scriptPubKey=None):
+    """
+    Create a txout with a given amount and scriptPubKey that mines coins as needed.
+    confirmed txouts created will be confirmed in the blockchain.
+    """
+    from .script import CScript
+    from .messages import COIN, CTransaction, CTxIn, COutPoint, CTxOut, ToHex
+
+    if not scriptPubKey:
+        scriptPubKey = CScript([1])
+
+    fee = 1 * COIN
+    while node.getbalance() < satoshi_round((amount + fee) / COIN):
+        node.generate(100)
+
+    new_addr = node.getnewaddress()
+    txid = node.sendtoaddress(new_addr, satoshi_round((amount + fee) / COIN))
+    tx1 = node.getrawtransaction(txid, 1)
+    txid = int(txid, 16)
+    i = None
+
+    for i, txout in enumerate(tx1['vout']):
+        if txout['scriptPubKey']['addresses'] == [new_addr]:
+            break
+    assert i is not None
+
+    tx2 = CTransaction()
+    tx2.vin = [CTxIn(COutPoint(txid, i))]
+    tx2.vout = [CTxOut(amount, scriptPubKey)]
+    tx2.rehash()
+
+    signed_tx = node.signrawtransactionwithwallet(ToHex(tx2))
+
+    txid = node.sendrawtransaction(signed_tx['hex'], 0)
+
+    # If requested, ensure txouts are confirmed.
+    if confirmed:
+        mempool_size = len(node.getrawmempool())
+        while mempool_size > 0:
+            node.generate(1)
+            new_size = len(node.getrawmempool())
+            # Error out if we have something stuck in the mempool, as this
+            # would likely be a bug.
+            assert new_size < mempool_size
+            mempool_size = new_size
+
+    return COutPoint(int(txid, 16), 0)
+
+
 def create_confirmed_utxos(fee, node, count):
+    """
+    Helper function to create at least "count" utxos.
+    Pass in a fee that is sufficient for relaying and mining new transactions.
+    """
     to_generate = int(0.5 * count) + 101
     while to_generate > 0:
         node.generate(min(25, to_generate))
@@ -579,9 +641,11 @@ def create_confirmed_utxos(fee, node, count):
     return utxos
 
 
-# Create large OP_RETURN txouts that can be appended to a transaction
-# to make it large (helper for constructing large transactions).
 def gen_return_txouts():
+    """
+    Create a large OP_RETURN txouts that can append to a transaction to make it large (helper for
+    constructing large transactions).
+    """
     # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
     # So we have big transactions (and therefore can't fit very many into each block)
     # create one script_pubkey
@@ -597,9 +661,61 @@ def gen_return_txouts():
     return txouts
 
 
-# Create a spend of each passed-in utxo, splicing in "txouts" to each raw
-# transaction to make it large.  See gen_return_txouts() above.
+def find_spendable_utxo(node, min_value):
+    """
+    Get utxo with a value equal to or higher than the minimum value.
+    """
+    for utxo in node.listunspent(query_options={'minimumAmount': min_value}):
+        if utxo['spendable']:
+            return utxo
+
+    raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
+
+
+def list_unspent_tx(node, address):
+    """
+    Return list of spendable utxos in an address.
+    """
+    result = []
+    vals = node.listunspent()
+    for i in range(0, len(vals)):
+        if vals[i]['address'] == address:
+            result.append(vals[i])
+    return result
+
+
+def unspent_amount(node, address):
+    """
+    Get the total spendable amount in an address.
+    """
+    result = 0
+    vals = node.listunspent()
+    for i in range(0, len(vals)):
+        if vals[i]['address'] == address:
+            result += vals[i]['amount']
+    return result
+
+
+def fund_tx(node, address, amount):
+    """
+    Create and send new utxo of the specified amount to address.
+    """
+    missing_auth_tx = node.sendtoaddress(address, amount)
+    count, missing_input_vout = 0, 0
+    for vout in node.getrawtransaction(missing_auth_tx, 1)['vout']:
+        if vout['scriptPubKey']['addresses'][0] == address:
+            missing_input_vout = count
+            break
+        count += 1
+    node.generate(1)
+    return missing_auth_tx, missing_input_vout
+
+
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
+    """
+    Create a spend of each passed-in utxo, splicing in "txouts" to each raw transaction to make
+    it large. See gen_return_txouts() above.
+    """
     addr = node.getnewaddress()
     txids = []
     from .messages import CTransaction
@@ -622,8 +738,9 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
 
 
 def mine_large_block(node, utxos=None):
-    # generate a ~1M transaction,
-    # and 16 of them is close to the 16MB block limit
+    """
+    Generate a ~1M transaction, and 16 of them will be close to the the 16MB block limit.
+    """
     num = 16  # old value 14
 
     from .messages import CTxOut
@@ -650,3 +767,26 @@ def find_vout_for_address(node, txid, addr):
         if any([addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
+
+
+# Token functions
+#############################
+
+def get_id_token(node, symbol):
+    """
+    Get the token ID
+    """
+    list_tokens = node.listtokens()
+    for idx, token in list_tokens.items():
+        if (token["symbol"] == symbol):
+            return str(idx)
+
+
+def token_index_in_account(account, symbol):
+    """
+    Get token id in a given account
+    """
+    for id in range(len(account)):
+        if symbol in account[id]:
+            return id
+    return -1
