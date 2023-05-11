@@ -245,12 +245,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
-    std::vector<uint8_t> evmHeader{};
+    std::vector<uint8_t> evmBlockHash{};
     if (IsEVMEnabled(nHeight, mnview)) {
         std::array<uint8_t, 20> dummyAddress{};
         auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress, blockTime);
-        evmHeader.resize(blockResult.block_header.size());
-        std::copy(blockResult.block_header.begin(), blockResult.block_header.end(), evmHeader.begin());
+        evmBlockHash.resize(blockResult.block_hash.size());
+        std::copy(blockResult.block_hash.begin(), blockResult.block_hash.end(), evmBlockHash.begin());
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -334,13 +334,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !evmHeader.empty()) {
+        if (IsEVMEnabled(nHeight, mnview) && !evmBlockHash.empty()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
             CScript script;
-            script << OP_RETURN << evmHeader;
+            script << OP_RETURN << evmBlockHash;
             coinbaseTx.vout[headerIndex].scriptPubKey = script;
         }
 

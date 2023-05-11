@@ -28,8 +28,9 @@ pub mod ffi {
     }
 
     pub struct FinalizeBlockResult {
-        block_header: Vec<u8>,
+        block_hash: [u8; 32],
         failed_transactions: Vec<String>,
+        miner_fee: u64,
     }
 
     extern "Rust" {
@@ -176,7 +177,6 @@ fn evm_queue_tx(context: u64, raw_tx: &str, hash: [u8; 32]) -> Result<bool, Box<
     }
 }
 
-use rlp::Encodable;
 fn evm_finalize(
     context: u64,
     update_state: bool,
@@ -185,7 +185,7 @@ fn evm_finalize(
     timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, failed_txs) = RUNTIME.handlers.finalize_block(
+    let (block, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
         context,
         update_state,
         difficulty,
@@ -193,8 +193,9 @@ fn evm_finalize(
         timestamp,
     )?;
     Ok(ffi::FinalizeBlockResult {
-        block_header: block.header.rlp_bytes().into(),
+        block_hash: *block.header.hash().as_fixed_bytes(),
         failed_transactions: failed_txs,
+        miner_fee: gas_used,
     })
 }
 
