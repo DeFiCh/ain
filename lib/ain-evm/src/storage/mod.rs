@@ -164,3 +164,12 @@ impl Storage {
         self.blockchain_data_handler.put_code(&hash, &code)
     }
 }
+
+impl Storage {
+    pub fn dump_db(&self) {
+        println!(
+            "self.block_data_handler : {:#?}",
+            self.blockchain_data_handler
+        );
+    }
+}

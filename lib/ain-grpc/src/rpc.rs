@@ -1,4 +1,5 @@
 use crate::block::{BlockNumber, RpcBlock};
+use crate::bytes::Bytes;
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
 
@@ -24,7 +25,7 @@ pub trait MetachainRPC {
     /// Makes a call to the Ethereum node without creating a transaction on the blockchain.
     /// Returns the output data as a hexadecimal string.
     #[method(name = "eth_call")]
-    fn call(&self, input: CallRequest) -> RpcResult<String>;
+    fn call(&self, input: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes>;
 
     /// Retrieves the list of accounts managed by the node.
     /// Returns a vector of Ethereum addresses as hexadecimal strings.
@@ -180,6 +181,10 @@ pub trait MetachainRPC {
     /// Returns current gas_price.
     #[method(name = "eth_gasPrice")]
     fn gas_price(&self) -> RpcResult<U256>;
+
+    // Dump full db
+    #[method(name = "dumpdb")]
+    fn dump_db(&self) -> RpcResult<()>;
 }
 
 pub struct MetachainRPCModule {
@@ -227,7 +232,8 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, input: CallRequest) -> RpcResult<String> {
+    fn call(&self, input: CallRequest, _block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+        debug!(target:"rpc", "[RPC] Call input {:#?}", input);
         let CallRequest {
             from,
             to,
@@ -243,13 +249,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 from,
                 to,
                 value.unwrap_or_default(),
-                &data.unwrap_or_default(),
+                &data.map(|d| d.0).unwrap_or_default(),
                 gas.unwrap_or_default().as_u64(),
                 vec![],
             )
-            .map_err(|e| Error::Custom(format!("Error getting address balance : {e:?}")))?;
+            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
-        Ok(hex::encode(data))
+        Ok(Bytes(data))
     }
 
     fn accounts(&self) -> RpcResult<Vec<String>> {
@@ -261,7 +267,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
         let block_number = self.block_number_to_u256(block_number);
-        debug!(
+        debug!(target:"rpc",
             "Getting balance for address: {:?} at block : {} ",
             address, block_number
         );
@@ -271,14 +277,14 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_balance(address, block_number)
             .unwrap_or(U256::zero());
 
-        debug!("Address: {:?} balance : {} ", address, balance);
+        debug!(target:"rpc","Address: {:?} balance : {} ", address, balance);
         Ok(balance)
     }
 
     fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
         let block_number = self.block_number_to_u256(block_number);
 
-        debug!(
+        debug!(target:"rpc",
             "Getting code for address: {:?} at block : {}",
             address, block_number
         );
@@ -302,7 +308,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<H256> {
         let block_number = self.block_number_to_u256(block_number);
-        debug!(
+        debug!(target:"rpc",
             "Getting storage for address: {:?}, at position {:?}, for block {}",
             address, position, block_number
         );
@@ -321,6 +327,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         hash: H256,
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
+        debug!("Getting block by hash {:#x}", hash);
         self.handler
             .storage
             .get_block_by_hash(&hash)
@@ -358,7 +365,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map(|block| block.header.number)
             .unwrap_or_default();
 
-        debug!("Current block number: {:?}", count);
+        debug!(target:"rpc","Current block number: {:?}", count);
         Ok(count)
     }
 
@@ -368,7 +375,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
         let block_number = self.block_number_to_u256(Some(block_number));
-        debug!("Getting block by number : {}", block_number);
+        debug!(target:"rpc","Getting block by number : {}", block_number);
         self.handler
             .storage
             .get_block_by_number(&block_number)
@@ -455,7 +462,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
-        debug!("[send_raw_transaction] Sending raw transaction: {:?}", tx);
+        debug!(target:"rpc","[send_raw_transaction] Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
@@ -465,15 +472,15 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let signed_tx = SignedTx::try_from(raw_tx)
                     .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
 
-                debug!(
+                debug!(target:"rpc",
                     "[send_raw_transaction] signed_tx sender : {:#x}",
                     signed_tx.sender
                 );
-                debug!(
+                debug!(target:"rpc",
                     "[send_raw_transaction] signed_tx nonce : {:#x}",
                     signed_tx.nonce()
                 );
-                debug!(
+                debug!(target:"rpc",
                     "[send_raw_transaction] transaction hash : {:#x}",
                     signed_tx.transaction.hash()
                 );
@@ -481,13 +488,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 Ok(format!("{:#x}", signed_tx.transaction.hash()))
             }
             Ok(false) => {
-                debug!("[send_raw_transaction] Could not publish raw transaction: {tx}");
+                debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
                 Err(Error::Custom(format!(
                     "Could not publish raw transaction: {tx}"
                 )))
             }
             Err(e) => {
-                debug!("[send_raw_transaction] Error publishing TX {e:?}");
+                debug!(target:"rpc","[send_raw_transaction] Error publishing TX {e:?}");
                 Err(Error::Custom(format!("Error publishing TX {e:?}")))
             }
         }
@@ -498,7 +505,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         address: H160,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
-        debug!("Getting transaction count for address: {:?}", address);
+        debug!(target:"rpc","Getting transaction count for address: {:?}", address);
         let block_number = self.block_number_to_u256(block_number);
         let nonce = self
             .handler
@@ -508,7 +515,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 Error::Custom(format!("Error getting address transaction count : {e:?}"))
             })?;
 
-        debug!("Count: {:#?}", nonce);
+        debug!(target:"rpc","Count: {:#?}", nonce);
         Ok(nonce)
     }
 
@@ -529,20 +536,20 @@ impl MetachainRPCServer for MetachainRPCModule {
                 from,
                 to,
                 value.unwrap_or_default(),
-                &data.unwrap_or_default(),
+                &data.map(|d| d.0).unwrap_or_default(),
                 gas.unwrap_or_default().as_u64(),
                 vec![],
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
         let native_size = ain_cpp_imports::get_native_tx_size(data).unwrap_or(0);
-        debug!("estimateGas: {:#?} + {:#?}", native_size, used_gas);
+        debug!(target:"rpc","estimateGas: {:#?} + {:#?}", native_size, used_gas);
         Ok(U256::from(native_size + std::cmp::max(21000, used_gas)))
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
         let gas_price = ain_cpp_imports::get_min_relay_tx_fee().unwrap_or(10);
-        debug!("gasPrice: {:#?}", gas_price);
+        debug!(target:"rpc","gasPrice: {:#?}", gas_price);
         Ok(U256::from(gas_price))
     }
 
@@ -567,5 +574,10 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn eth_submithashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
         Ok(false)
+    }
+
+    fn dump_db(&self) -> RpcResult<()> {
+        self.handler.storage.dump_db();
+        Ok(())
     }
 }
