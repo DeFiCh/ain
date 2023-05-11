@@ -738,14 +738,38 @@ check_git_dirty() {
 }
 
 check_rs() {
+    check_enter_build_rs_dir
+    lint_cargo_check
+    lint_cargo_clippy
+    lint_cargo_fmt
+    _exit_dir
+}
+
+check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
     _ensure_enter_dir "$build_dir/lib" || { 
         echo "Please configure first";
-    }
-    # shellcheck disable=SC2015 # Intended
-    make check && make clippy  || { 
+        exit 1; }
+}
+
+lint_cargo_check() {
+    check_enter_build_rs_dir
+    make check || { 
         echo "Error: Please resolve compiler checks before commit"; 
         exit 1; }
+    _exit_dir
+}
+
+lint_cargo_clippy() {
+    check_enter_build_rs_dir 
+    make clippy || { 
+        echo "Error: Please resolve compiler lints before commit"; 
+        exit 1; }
+    _exit_dir
+}
+
+lint_cargo_fmt() {
+    check_enter_build_rs_dir
     cargo fmt --all --check  || {
         echo "Error: Please format code before commit"; 
         exit 1; }
