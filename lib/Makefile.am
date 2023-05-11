@@ -24,6 +24,9 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 # don't end up in unexpected places (Currently protobuf-src is affected)
 
 .PHONY:
+all: build
+
+.PHONY:
 build: 
 	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
 	CC="$(CC)" CXX="$(CXX)" \
@@ -37,6 +40,7 @@ build:
 		$(if $(TARGET),--target $(TARGET),) && \
 	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(TARGET_DIR)/lib/
 
+.PHONY:
 check:
 	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
 	CC="$(CC)" CXX="$(CXX)" \
@@ -48,6 +52,7 @@ check:
 		--target-dir "$(TARGET_DIR)" \
 		$(if $(TARGET),--target $(TARGET),)
 
+.PHONY:
 clippy:
 	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
 	CC="$(CC)" CXX="$(CXX)" \

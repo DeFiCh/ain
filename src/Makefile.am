@@ -699,6 +699,8 @@ defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
+defid: $(LIBAIN_RS_LIB)
+
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)
 defid_LDADD = \
