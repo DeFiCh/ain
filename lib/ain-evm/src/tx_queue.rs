@@ -1,13 +1,12 @@
-use primitive_types::{H160, U256};
 use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Mutex, RwLock},
 };
 
-use crate::transaction::{
-    bridge::{BalanceUpdate, BridgeTx},
-    SignedTx,
+use crate::{
+    evm::NativeTxHash,
+    transaction::{bridge::BridgeTx, SignedTx},
 };
 
 #[derive(Debug)]
@@ -54,16 +53,21 @@ impl TransactionQueueMap {
             .map(TransactionQueue::clear)
     }
 
-    pub fn add_signed_tx(&self, context_id: u64, signed_tx: SignedTx) -> Result<(), QueueError> {
+    pub fn queue_tx(
+        &self,
+        context_id: u64,
+        tx: QueueTx,
+        hash: NativeTxHash,
+    ) -> Result<(), QueueError> {
         self.queues
             .read()
             .unwrap()
             .get(&context_id)
             .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.add_signed_tx(signed_tx))
+            .map(|queue| queue.queue_tx((tx, hash)))
     }
 
-    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTx> {
+    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
         self.queues
             .read()
             .unwrap()
@@ -78,34 +82,6 @@ impl TransactionQueueMap {
             .get(&context_id)
             .map_or(0, TransactionQueue::len)
     }
-
-    pub fn add_balance(
-        &self,
-        context_id: u64,
-        address: H160,
-        value: U256,
-    ) -> Result<(), QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&context_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.add_balance(address, value))
-    }
-
-    pub fn sub_balance(
-        &self,
-        context_id: u64,
-        address: H160,
-        value: U256,
-    ) -> Result<(), QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&context_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.sub_balance(address, value))
-    }
 }
 
 #[derive(Debug)]
@@ -114,9 +90,11 @@ pub enum QueueTx {
     BridgeTx(BridgeTx),
 }
 
+type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
+
 #[derive(Debug, Default)]
 pub struct TransactionQueue {
-    transactions: Mutex<Vec<QueueTx>>,
+    transactions: Mutex<Vec<QueueTxWithNativeHash>>,
 }
 
 impl TransactionQueue {
@@ -130,43 +108,26 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().clear();
     }
 
-    pub fn drain_all(&self) -> Vec<QueueTx> {
+    pub fn drain_all(&self) -> Vec<QueueTxWithNativeHash> {
         self.transactions
             .lock()
             .unwrap()
             .drain(..)
-            .collect::<Vec<QueueTx>>()
+            .collect::<Vec<QueueTxWithNativeHash>>()
     }
 
-    pub fn add_signed_tx(&self, signed_tx: SignedTx) {
-        self.transactions
-            .lock()
-            .unwrap()
-            .push(QueueTx::SignedTx(Box::new(signed_tx)));
+    pub fn queue_tx(&self, tx: QueueTxWithNativeHash) {
+        self.transactions.lock().unwrap().push(tx);
     }
 
     pub fn len(&self) -> usize {
         self.transactions.lock().unwrap().len()
     }
+}
 
-    pub fn add_balance(&self, address: H160, amount: U256) {
-        self.transactions
-            .lock()
-            .unwrap()
-            .push(QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate {
-                address,
-                amount,
-            })));
-    }
-
-    pub fn sub_balance(&self, address: H160, amount: U256) {
-        self.transactions
-            .lock()
-            .unwrap()
-            .push(QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate {
-                address,
-                amount,
-            })));
+impl From<SignedTx> for QueueTx {
+    fn from(tx: SignedTx) -> Self {
+        Self::SignedTx(Box::new(tx))
     }
 }
 

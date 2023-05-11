@@ -9,7 +9,7 @@ use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::QueueTx;
 
-use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -50,7 +50,7 @@ impl Handlers {
         update_state: bool,
         difficulty: u32,
         miner_address: Option<H160>,
-    ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
+    ) -> Result<(BlockAny, Vec<String>), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -75,7 +75,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for queue_tx in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
@@ -85,19 +85,17 @@ impl Handlers {
                         receipt,
                         ..
                     } = executor.exec(&signed_tx);
-
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
                         signed_tx.transaction.hash()
                     );
 
-                    if exit_reason.is_succeed() {
-                        all_transactions.push(signed_tx);
-                    } else {
-                        failed_transactions.push(signed_tx.transaction.clone());
-                        all_transactions.push(signed_tx);
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(hex::encode(hash));
                     }
+
+                    all_transactions.push(signed_tx);
 
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
@@ -107,14 +105,24 @@ impl Handlers {
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "EvmIn for address {:x?}, amount: {}, context {}",
+                        "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
                         address, amount, context
                     );
-                    executor.add_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    if let Err(e) = executor.add_balance(address, amount) {
+                        debug!("[finalize_block] EvmIn failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
-                    debug!("EvmOut for address {}, amount: {}", address, amount);
-                    executor.sub_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    debug!(
+                        "[finalize_block] EvmOut for address {}, amount: {}",
+                        address, amount
+                    );
+
+                    if let Err(e) = executor.sub_balance(address, amount) {
+                        debug!("[finalize_block] EvmOut failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
             }
         }
@@ -136,7 +144,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: parent_number + 1,
-                gas_limit: U256::from(30000000),
+                gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)

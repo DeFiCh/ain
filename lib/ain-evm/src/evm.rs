@@ -2,7 +2,8 @@ use crate::backend::{EVMBackend, EVMBackendError, Vicinity};
 use crate::executor::TxResponse;
 use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
 use crate::storage::Storage;
-use crate::tx_queue::TransactionQueueMap;
+use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::tx_queue::{QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
@@ -22,6 +23,8 @@ use vsdb_core::vsdb_set_base_dir;
 use vsdb_trie_db::MptStore;
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
+
+pub type NativeTxHash = [u8; 32];
 
 pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
@@ -113,27 +116,6 @@ impl EVMHandler {
         ))
     }
 
-    pub fn add_balance(
-        &self,
-        context: u64,
-        address: H160,
-        value: U256,
-    ) -> Result<(), Box<dyn Error>> {
-        self.tx_queues.add_balance(context, address, value)?;
-        Ok(())
-    }
-
-    pub fn sub_balance(
-        &self,
-        context: u64,
-        address: H160,
-        value: U256,
-    ) -> Result<(), Box<dyn Error>> {
-        self.tx_queues
-            .sub_balance(context, address, value)
-            .map_err(|e| e.into())
-    }
-
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -161,7 +143,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if nonce > signed_tx.nonce() {
+        if nonce != signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -191,21 +173,6 @@ impl EVMHandler {
         }
     }
 
-    pub fn get_context(&self) -> u64 {
-        self.tx_queues.get_context()
-    }
-
-    pub fn discard_context(&self, context: u64) -> Result<(), Box<dyn Error>> {
-        self.tx_queues.clear(context)?;
-        Ok(())
-    }
-
-    pub fn queue_tx(&self, context: u64, raw_tx: &str) -> Result<(), Box<dyn Error>> {
-        let signed_tx = self.validate_raw_tx(raw_tx)?;
-        self.tx_queues.add_signed_tx(context, signed_tx)?;
-        Ok(())
-    }
-
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
         for log in logs {
             bloom.accrue(BloomInput::Raw(&log.address[..]));
@@ -213,6 +180,50 @@ impl EVMHandler {
                 bloom.accrue(BloomInput::Raw(&topic[..]));
             }
         }
+    }
+}
+
+impl EVMHandler {
+    pub fn queue_tx(
+        &self,
+        context: u64,
+        tx: QueueTx,
+        hash: NativeTxHash,
+    ) -> Result<(), Box<dyn Error>> {
+        self.tx_queues.queue_tx(context, tx, hash)?;
+        Ok(())
+    }
+    pub fn add_balance(
+        &self,
+        context: u64,
+        address: H160,
+        amount: U256,
+        hash: NativeTxHash,
+    ) -> Result<(), Box<dyn Error>> {
+        let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
+        self.tx_queues.queue_tx(context, queue_tx, hash)?;
+        Ok(())
+    }
+
+    pub fn sub_balance(
+        &self,
+        context: u64,
+        address: H160,
+        amount: U256,
+        hash: NativeTxHash,
+    ) -> Result<(), Box<dyn Error>> {
+        let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
+        self.tx_queues.queue_tx(context, queue_tx, hash)?;
+        Ok(())
+    }
+
+    pub fn get_context(&self) -> u64 {
+        self.tx_queues.get_context()
+    }
+
+    pub fn clear(&self, context: u64) -> Result<(), Box<dyn Error>> {
+        self.tx_queues.clear(context)?;
+        Ok(())
     }
 }
 
