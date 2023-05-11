@@ -127,7 +127,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(latest_block['number'], "0x3")
 
         # Test full transaction block
-        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
