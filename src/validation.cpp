@@ -2906,7 +2906,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::copy(minter.begin(), minter.end(), minerAddress.begin());
         }
 
-        const auto blockResult = evm_finalize(evmContext, true, block.nBits, minerAddress);
+        const auto blockResult = evm_finalize(evmContext, true, block.nBits, minerAddress, block.GetBlockTime());
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;

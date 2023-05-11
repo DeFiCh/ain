@@ -15,7 +15,6 @@ use log::debug;
 use primitive_types::H256;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const GENESIS_STATE_ROOT: &str =
     "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
@@ -49,7 +48,8 @@ impl Handlers {
         context: u64,
         update_state: bool,
         difficulty: u32,
-        miner_address: Option<H160>,
+        beneficiary: H160,
+        timestamp: u64,
     ) -> Result<(BlockAny, Vec<String>), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -134,7 +134,7 @@ impl Handlers {
         let block = Block::new(
             PartialHeader {
                 parent_hash,
-                beneficiary: miner_address.unwrap_or_default(),
+                beneficiary,
                 state_root: if update_state {
                     backend.commit()
                 } else {
@@ -146,10 +146,7 @@ impl Handlers {
                 number: parent_number + 1,
                 gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
+                timestamp,
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
                 nonce: H64::default(),
