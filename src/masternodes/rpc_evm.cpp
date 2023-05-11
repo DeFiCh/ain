@@ -2,18 +2,7 @@
 
 #include <ain_rs_exports.h>
 #include <key_io.h>
-
-std::vector<uint8_t> HexToBytes(const std::string& hex) {
-  std::vector<uint8_t> bytes;
-
-  for (unsigned int i = 0; i < hex.length(); i += 2) {
-    std::string byteString = hex.substr(i, 2);
-    uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
-    bytes.push_back(byte);
-  }
-
-  return bytes;
-}
+#include <util/strencodings.h>
 
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
@@ -163,7 +152,7 @@ UniValue evmrawtx(const JSONRPCRequest& request) {
 
     const auto signedTx = request.params[0].get_str();
 
-    std::vector<uint8_t> evmTx = HexToBytes(signedTx);
+    std::vector<uint8_t> evmTx = ParseHex(signedTx);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
