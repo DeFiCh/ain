@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::{
     backend::EVMBackendError,
     evm::EVMHandler,
@@ -14,6 +12,7 @@ use evm::{
     Config, ExitReason,
 };
 use primitive_types::H160;
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct AinExecutor<'backend, B: Backend> {

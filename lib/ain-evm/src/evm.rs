@@ -91,6 +91,7 @@ impl EVMHandler {
             .get_latest_block()
             .map(|block| block.header.state_root)
             .unwrap_or_default();
+        println!("state_root : {:#?}", state_root);
         let vicinity = Vicinity {};
         let mut backend = EVMBackend::from_root(
             state_root,
