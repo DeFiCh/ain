@@ -181,6 +181,10 @@ pub trait MetachainRPC {
     /// Returns current gas_price.
     #[method(name = "eth_gasPrice")]
     fn gas_price(&self) -> RpcResult<U256>;
+
+    // Dump full db
+    #[method(name = "dumpdb")]
+    fn dump_db(&self) -> RpcResult<()>;
 }
 
 pub struct MetachainRPCModule {
@@ -570,5 +574,10 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn eth_submithashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
         Ok(false)
+    }
+
+    fn dump_db(&self) -> RpcResult<()> {
+        self.handler.storage.dump_db();
+        Ok(())
     }
 }
