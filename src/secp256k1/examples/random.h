@@ -29,7 +29,7 @@
 #endif
 
 #include <stddef.h>
-#include <limits>
+#include <limits.h>
 #include <stdio.h>
 
 
