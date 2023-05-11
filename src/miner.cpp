@@ -237,11 +237,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     const auto evmContext = evm_get_context();
+    std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
     std::vector<uint8_t> evmHeader{};
@@ -256,7 +257,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             failedTransactions.emplace_back(rust_string.data(), rust_string.length());
         }
 
-        RemoveFailedTransactions(failedTransactions, mnview);
+        RemoveFailedTransactions(failedTransactions, txFees);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -498,7 +499,7 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
-void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, CCustomCSView &mnview) {
+void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees) {
     if (failedTransactions.empty()) {
         return;
     }
@@ -551,14 +552,9 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
         std::ignore = BroadcastTransaction(tx, error, {COIN / 10}, false, false);
 
         // Remove fees.
-        CAmount fee{};
-        CValidationState state;
-        const auto result = Consensus::CheckTxInputs(*tx, state, ::ChainstateActive().CoinsTip(), mnview, nHeight, fee, chainparams);
-        if (!result) {
-            LogPrintf("XXX CheckTxInputs failed reason %s debug msg %s\n", state.GetRejectReason(), state.GetDebugMessage());
+        if (txFees.count(tx->GetHash())) {
+            nFees -= txFees.at(tx->GetHash());
         }
-        LogPrintf("XXX TX fee found %d\n", fee);
-        nFees -= fee;
     }
 }
 
@@ -599,7 +595,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -774,6 +770,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         }
 
         for (size_t i=0; i<sortedEntries.size(); ++i) {
+            txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
