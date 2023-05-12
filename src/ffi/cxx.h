@@ -1,4 +1,6 @@
-#pragma once
+#ifndef DEFI_FFI_CXX_H
+#define DEFI_FFI_CXX_H
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -1109,3 +1111,5 @@ struct IsRelocatable
 
 } // namespace cxxbridge1
 } // namespace rust
+
+#endif // DEFI_FFI_CXX_H

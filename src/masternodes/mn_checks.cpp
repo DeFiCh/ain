@@ -3860,7 +3860,7 @@ public:
 
                     arith_uint256 balanceIn = amount;
                     balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
+                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
                 }
             }
         } else if (obj.type == CTransferDomainType::EVMToDVMToken) {
@@ -3895,7 +3895,7 @@ public:
 
                     arith_uint256 balanceIn = amount;
                     balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
+                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
                         return Res::Err("Not enough balance in %s to cover \"evmout\" transfer", EncodeDestination(dest));
                     }
                 }
@@ -3934,7 +3934,7 @@ public:
             return Res::Err("evm tx failed to validate");
         }
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed())) {
             return Res::Err("evm tx failed to queue");
         }
 

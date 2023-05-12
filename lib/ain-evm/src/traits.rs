@@ -3,6 +3,7 @@ use ethereum::AccessList;
 use evm::Config;
 use primitive_types::{H160, U256};
 
+#[derive(Debug)]
 pub struct ExecutorContext<'a> {
     pub caller: Option<H160>,
     pub to: Option<H160>,

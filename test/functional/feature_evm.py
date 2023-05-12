@@ -141,6 +141,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # Try and send a TX with a high nonce
+        assert_raises_rpc_error(-32600, "evm tx failed to validate", self.nodes[0].evmtx, ethAddress, 1, 21, 21000, to_address, 1)
+
         # Test EVM Tx
         tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx)

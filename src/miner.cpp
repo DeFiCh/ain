@@ -5,6 +5,7 @@
 
 #include <miner.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
@@ -14,13 +15,13 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <ain_rs_exports.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <memory.h>
 #include <net.h>
+#include <node/transaction.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <pos.h>
@@ -101,9 +102,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     resetBlock();
 
-    pblocktemplate.reset(new CBlockTemplate());
+    pblocktemplate = std::make_unique<CBlockTemplate>();
 
-    if(!pblocktemplate.get())
+    if(!pblocktemplate)
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
@@ -236,20 +237,27 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     const auto evmContext = evm_get_context();
+    std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
-    // TODO Get failed TXs and try to restore to mempool
-    std::vector<uint8_t> evmHeader{};
+    std::vector<uint8_t> evmBlockHash{};
     if (IsEVMEnabled(nHeight, mnview)) {
         std::array<uint8_t, 20> dummyAddress{};
-        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
-        evmHeader.resize(rustHeader.size());
-        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress, blockTime);
+        evmBlockHash.resize(blockResult.block_hash.size());
+        std::copy(blockResult.block_hash.begin(), blockResult.block_hash.end(), evmBlockHash.begin());
+
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        }
+
+        RemoveFailedTransactions(failedTransactions, txFees);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -326,13 +334,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !evmHeader.empty()) {
+        if (IsEVMEnabled(nHeight, mnview) && !evmBlockHash.empty()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
             CScript script;
-            script << OP_RETURN << evmHeader;
+            script << OP_RETURN << evmBlockHash;
             coinbaseTx.vout[headerIndex].scriptPubKey = script;
         }
 
@@ -491,6 +499,65 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
+void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees) {
+    if (failedTransactions.empty()) {
+        return;
+    }
+
+    std::vector<uint256> txsToErase;
+    for (const auto &txStr : failedTransactions) {
+        txsToErase.push_back(uint256S(txStr));
+    }
+
+    // Get a copy of the TXs to be erased for restoring to the mempool later
+    std::vector<CTransactionRef> txsToRestore;
+    std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
+
+    for (const auto &tx : pblock->vtx) {
+        if (tx && txsToEraseSet.count(tx->GetHash())) {
+            txsToRestore.push_back(tx);
+        }
+    }
+
+    // Add descendants and in turn add their descendants. This needs to
+    // be done in the order that the TXs are in the block for txsToRestore.
+    auto size = txsToErase.size();
+    for (std::vector<uint256>::size_type i{}; i < size; ++i) {
+        for (const auto &tx : pblock->vtx) {
+            if (tx) {
+                for (const auto &vin : tx->vin) {
+                    if (vin.prevout.hash == txsToErase[i] &&
+                        std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
+                    {
+                        txsToRestore.push_back(tx);
+                        txsToErase.push_back(tx->GetHash());
+                        ++size;
+                    }
+                }
+            }
+        }
+    }
+
+    // Erase TXs from block
+    txsToEraseSet = std::set<uint256>(txsToErase.begin(), txsToErase.end());
+    pblock->vtx.erase(
+            std::remove_if(pblock->vtx.begin(), pblock->vtx.end(),
+                           [&txsToEraseSet](const auto &tx) {
+                return tx && txsToEraseSet.count(tx.get()->GetHash());
+            }),pblock->vtx.end());
+
+    for (const auto &tx : txsToRestore) {
+        // Broadcast TXs, this will restore them to the mempool without actually relaying them.
+        std::string error;
+        std::ignore = BroadcastTransaction(tx, error, {COIN / 10}, false, false);
+
+        // Remove fees.
+        if (txFees.count(tx->GetHash())) {
+            nFees -= txFees.at(tx->GetHash());
+        }
+    }
+}
+
 // Skip entries in mapTx that are already in a block or are present
 // in mapModifiedTx (which implies that the mapTx ancestor state is
 // stale due to ancestor inclusion in the block)
@@ -528,7 +595,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -703,6 +770,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         }
 
         for (size_t i=0; i<sortedEntries.size(); ++i) {
+            txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);

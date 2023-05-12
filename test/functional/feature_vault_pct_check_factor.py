@@ -6,22 +6,15 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    token_index_in_account,
+    get_decimal_amount,
+)
+
 import calendar
 import time
 from decimal import Decimal
-
-
-def get_decimal_amount(amount):
-    account_tmp = amount.split('@')[0]
-    return Decimal(account_tmp)
-
-
-def token_index_in_account(accounts, symbol):
-    for id in range(len(accounts)):
-        if symbol in accounts[id]:
-            return id
-    return -1
 
 
 ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI"

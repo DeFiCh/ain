@@ -1,5 +1,5 @@
-#ifndef DEFI_EVM_FFI_H
-#define DEFI_EVM_FFI_H
+#ifndef DEFI_FFI_FFIEXPORTS_H
+#define DEFI_FFI_FFIEXPORTS_H
 
 #include <chainparams.h>
 #include <key.h>
@@ -17,4 +17,4 @@ rust::vec<rust::string> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
 
-#endif // DEFI_EVM_FFI_H
+#endif // DEFI_FFI_FFIEXPORTS_H

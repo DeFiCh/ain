@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 ain-grpc = { path = "../ain-grpc" }
 
-jsonrpsee = { version = "0.15", features = ["http-client"] }
+jsonrpsee = { version = "0.18", features = ["http-client"] }
 structopt = "0.3.26"
 primitive-types = "0.12.1"
 serde = "1.0.160"

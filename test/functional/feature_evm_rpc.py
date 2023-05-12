@@ -112,7 +112,7 @@ class EVMTest(DefiTestFramework):
 
         blockNumber = self.nodes[0].eth_blockNumber()
 
-        self.nodes[0].transferbalance("evmin",{self.address:["50@DFI"]}, {self.ethAddress:["50@DFI"]})
+        self.nodes[0].transferdomain(1,{self.address:["50@DFI"]}, {self.ethAddress:["50@DFI"]})
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(address, "latest")
@@ -127,7 +127,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(latest_block['number'], "0x3")
 
         # Test full transaction block
-        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
@@ -159,7 +159,7 @@ class EVMTest(DefiTestFramework):
 
         self.test_accounts()
 
-        self.nodes[0].transferdomain("evmin",{self.address:["100@DFI"]}, {self.ethAddress:["100@DFI"]})
+        self.nodes[0].transferdomain(1,{self.address:["100@DFI"]}, {self.ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
 
         self.test_address_state(self.ethAddress) # TODO test smart contract

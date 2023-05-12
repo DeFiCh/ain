@@ -117,10 +117,12 @@ impl EVMBackend {
 
 impl Backend for EVMBackend {
     fn gas_price(&self) -> U256 {
+        debug!(target: "backend", "[EVMBackend] Getting gas");
         unimplemented!()
     }
 
     fn origin(&self) -> H160 {
+        debug!(target: "backend", "[EVMBackend] Getting origin");
         unimplemented!()
     }
 
@@ -149,7 +151,9 @@ impl Backend for EVMBackend {
     }
 
     fn block_base_fee_per_gas(&self) -> U256 {
-        unimplemented!("Implement block_base_fee_per_gas function")
+        debug!(target: "backend", "[EVMBackend] Getting block_base_fee_per_gas");
+        U256::default()
+        // unimplemented!("Implement block_base_fee_per_gas function")
     }
 
     fn chain_id(&self) -> U256 {
@@ -161,6 +165,7 @@ impl Backend for EVMBackend {
     }
 
     fn basic(&self, address: H160) -> Basic {
+        debug!(target: "backend", "[EVMBackend] basic for address {:x?}", address);
         self.get_account(address)
             .map(|account| Basic {
                 balance: account.balance,
@@ -170,12 +175,14 @@ impl Backend for EVMBackend {
     }
 
     fn code(&self, address: H160) -> Vec<u8> {
+        debug!(target: "backend", "[EVMBackend] code for address {:x?}", address);
         self.get_account(address)
             .and_then(|account| self.storage.get_code_by_hash(account.code_hash))
             .unwrap_or_default()
     }
 
     fn storage(&self, address: H160, index: H256) -> H256 {
+        debug!(target: "backend", "[EVMBackend] Getting storage for address {:x?} at index {:x?}", address, index);
         self.get_account(address)
             .and_then(|account| {
                 self.trie_store
@@ -189,6 +196,7 @@ impl Backend for EVMBackend {
     }
 
     fn original_storage(&self, address: H160, index: H256) -> Option<H256> {
+        debug!(target: "backend", "[EVMBackend] Getting original storage for address {:x?} at index {:x?}", address, index);
         Some(self.storage(address, index))
     }
 }

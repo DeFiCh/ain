@@ -1,5 +1,5 @@
-use ain_evm::transaction;
-use ain_grpc::{init_runtime, start_servers, stop_runtime};
+use ain_evm::transaction::{self, SignedTx};
+use ain_grpc::{init_evm_runtime, start_servers, stop_evm_runtime};
 
 use ain_evm::runtime::RUNTIME;
 use log::debug;
@@ -25,25 +25,43 @@ pub mod ffi {
         priv_key: [u8; 32],
     }
 
+    pub struct FinalizeBlockResult {
+        block_hash: [u8; 32],
+        failed_transactions: Vec<String>,
+        miner_fee: u64,
+    }
+
     extern "Rust" {
         fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
-        fn evm_add_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<()>;
-        fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32]) -> Result<bool>;
+        fn evm_add_balance(
+            context: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        ) -> Result<()>;
+        fn evm_sub_balance(
+            context: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        ) -> Result<bool>;
         fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
-        fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool>;
+        fn evm_queue_tx(context: u64, raw_tx: &str, native_tx_hash: [u8; 32]) -> Result<bool>;
         fn evm_finalize(
             context: u64,
             update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],
-        ) -> Result<Vec<u8>>;
+            timestamp: u64,
+        ) -> Result<FinalizeBlockResult>;
 
-        fn init_runtime();
+        fn preinit();
+        fn init_evm_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
-        fn stop_runtime();
+        fn stop_evm_runtime();
 
         fn create_and_sign_tx(ctx: CreateTransactionContext) -> Result<Vec<u8>>;
     }
@@ -96,13 +114,14 @@ pub fn evm_add_balance(
     context: u64,
     address: &str,
     amount: [u8; 32],
+    hash: [u8; 32],
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
 
     RUNTIME
         .handlers
         .evm
-        .add_balance(context, address, amount.into())?;
+        .add_balance(context, address, amount.into(), hash)?;
     Ok(())
 }
 
@@ -110,12 +129,13 @@ pub fn evm_sub_balance(
     context: u64,
     address: &str,
     amount: [u8; 32],
+    hash: [u8; 32],
 ) -> Result<bool, Box<dyn Error>> {
     let address = address.parse()?;
     match RUNTIME
         .handlers
         .evm
-        .sub_balance(context, address, amount.into())
+        .sub_balance(context, address, amount.into(), hash)
     {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
@@ -139,28 +159,44 @@ pub fn evm_get_context() -> u64 {
 
 fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
     // TODO discard
-    RUNTIME.handlers.evm.discard_context(context)?;
+    RUNTIME.handlers.evm.clear(context)?;
     Ok(())
 }
 
-fn evm_queue_tx(context: u64, raw_tx: &str) -> Result<bool, Box<dyn Error>> {
-    match RUNTIME.handlers.evm.queue_tx(context, raw_tx) {
+fn evm_queue_tx(context: u64, raw_tx: &str, hash: [u8; 32]) -> Result<bool, Box<dyn Error>> {
+    let signed_tx: SignedTx = raw_tx.try_into()?;
+    match RUNTIME
+        .handlers
+        .evm
+        .queue_tx(context, signed_tx.into(), hash)
+    {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
 }
 
-use rlp::Encodable;
 fn evm_finalize(
     context: u64,
     update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
-) -> Result<Vec<u8>, Box<dyn Error>> {
+    timestamp: u64,
+) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, _failed_tx) =
-        RUNTIME
-            .handlers
-            .finalize_block(context, update_state, difficulty, Some(eth_address))?;
-    Ok(block.header.rlp_bytes().into())
+    let (block, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
+        context,
+        update_state,
+        difficulty,
+        eth_address,
+        timestamp,
+    )?;
+    Ok(ffi::FinalizeBlockResult {
+        block_hash: *block.header.hash().as_fixed_bytes(),
+        failed_transactions: failed_txs,
+        miner_fee: gas_used,
+    })
+}
+
+pub fn preinit() {
+    ain_grpc::preinit();
 }

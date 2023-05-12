@@ -2905,7 +2905,7 @@ static const CRPCCommand commands[] =
 //  -------------  ------------------------ ----------------------  ----------
     {"accounts",   "listaccounts",             &listaccounts,              {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts",   "getaccount",               &getaccount,                {"owner", "pagination", "indexed_amounts"}},
-    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup"}},
+    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup", "include_eth"}},
     {"accounts",   "utxostoaccount",           &utxostoaccount,            {"amounts", "inputs"}},
     {"accounts",   "sendutxosfrom",            &sendutxosfrom,             {"from", "to", "amount", "change"}},
     {"accounts",   "accounttoaccount",         &accounttoaccount,          {"from", "to", "inputs"}},

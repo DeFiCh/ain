@@ -6,18 +6,15 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
-
-from test_framework.util import assert_equal, assert_greater_than_or_equal
+from test_framework.util import (
+    assert_equal,
+    assert_greater_than_or_equal,
+    get_decimal_amount,
+)
 
 import calendar
 import time
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
-
-
-def getDecimalAmount(amount):
-    amountTmp = amount.split('@')[0]
-    return Decimal(amountTmp)
-
 
 class NegativeInterestTest(DefiTestFramework):
     def set_test_params(self):
@@ -770,14 +767,14 @@ class NegativeInterestTest(DefiTestFramework):
 
         amounts0 = []
         for amount in vault["loanAmounts"]:
-            amounts0.append(getDecimalAmount(amount))
+            amounts0.append(get_decimal_amount(amount))
 
         self.nodes[0].generate(1)
 
         vault = self.nodes[0].getvault(self.vaultId7, verbose)
         amounts1 = []
         for amount in vault["loanAmounts"]:
-            amounts1.append(getDecimalAmount(amount))
+            amounts1.append(get_decimal_amount(amount))
 
         for amount in amounts0:
             assert_greater_than_or_equal(amount, amounts1[amounts0.index(amount)])
@@ -791,7 +788,7 @@ class NegativeInterestTest(DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaultId7, verbose)
         amounts2 = []
         for amount in vault["loanAmounts"]:
-            amounts2.append(getDecimalAmount(amount))
+            amounts2.append(get_decimal_amount(amount))
 
         for amount in amounts1:
             assert_greater_than_or_equal(amount, amounts2[amounts1.index(amount)])
@@ -870,7 +867,7 @@ class NegativeInterestTest(DefiTestFramework):
         assert_equal(storedInterest["interestToHeight"], '0.000000000000000000000000')
 
         storedLoans = loanTokens
-        storedAmount = getDecimalAmount(storedLoans[0])
+        storedAmount = get_decimal_amount(storedLoans[0])
         self.nodes[0].generate(10)
 
         self.nodes[0].takeloan({
@@ -878,7 +875,7 @@ class NegativeInterestTest(DefiTestFramework):
             'amounts': "0.00000001@" + self.symboldUSD})
         self.nodes[0].generate(1)
         storedLoans1 = self.nodes[0].getloantokens(self.vaultId8)
-        storedAmount1 = getDecimalAmount(storedLoans1[0])
+        storedAmount1 = get_decimal_amount(storedLoans1[0])
         storedInterest1 = self.nodes[0].getstoredinterest(self.vaultId8, self.symboldUSD)
 
         assert (storedAmount > storedAmount1)
@@ -918,7 +915,7 @@ class NegativeInterestTest(DefiTestFramework):
         assert_equal(vault["interestPerBlockValue"], '-0.095129280821917808219178')
 
         storedLoans = self.nodes[0].getloantokens(self.vaultId9)
-        storedAmount = getDecimalAmount(storedLoans[0])
+        storedAmount = get_decimal_amount(storedLoans[0])
         assert_equal(storedAmount, Decimal('10.00000000'))
 
         [balanceDUSDbefore, _] = self.nodes[0].getaccount(self.account)[0].split('@')
@@ -946,13 +943,13 @@ class NegativeInterestTest(DefiTestFramework):
         self.nodes[0].generate(10)
 
         accountInfo = self.nodes[0].getaccount(self.account)
-        assert_equal(getDecimalAmount(accountInfo[0]), Decimal('10.00000000') + Decimal(balanceDUSDafter))
+        assert_equal(get_decimal_amount(accountInfo[0]), Decimal('10.00000000') + Decimal(balanceDUSDafter))
         vault = self.nodes[0].getvault(self.vaultId9, verbose)
         assert_equal(vault["loanValue"], Decimal('9.04870720'))
         assert_equal(vault["interestPerBlockValue"], '-0.095129280821917808219178')
 
         storedLoans = self.nodes[0].getloantokens(self.vaultId9)
-        storedAmount = getDecimalAmount(storedLoans[0])
+        storedAmount = get_decimal_amount(storedLoans[0])
         storedInterest = self.nodes[0].getstoredinterest(self.vaultId9, self.symboldUSD)
         assert_equal(storedAmount, Decimal('10.00000000'))
 
@@ -973,7 +970,7 @@ class NegativeInterestTest(DefiTestFramework):
         assert_equal(Decimal(loanAmount), Decimal(loanAmountBefore) - Decimal('0.00000001') + Decimal(interestAmount))
 
         storedLoans1 = self.nodes[0].getloantokens(self.vaultId9)
-        storedAmount1 = getDecimalAmount(storedLoans1[0])
+        storedAmount1 = get_decimal_amount(storedLoans1[0])
         expectedAmount = Decimal(
             Decimal('10') + 10 * Decimal(storedInterest["interestPerBlock"]) - Decimal('0.00000001')).quantize(
             Decimal('1E-8'), ROUND_UP)

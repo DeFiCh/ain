@@ -2,6 +2,8 @@ use ethereum::AccessListItem;
 use primitive_types::{H160, U256};
 use serde::Deserialize;
 
+use crate::bytes::Bytes;
+
 /// Call request
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -22,7 +24,7 @@ pub struct CallRequest {
     /// Value
     pub value: Option<U256>,
     /// Data
-    pub data: Option<Vec<u8>>,
+    pub data: Option<Bytes>,
     /// Nonce
     pub nonce: Option<U256>,
     /// AccessList
