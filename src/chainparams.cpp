@@ -782,7 +782,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("35.187.53.161");
-        vSeeds.emplace_back("34.89.0.103");
+        vSeeds.emplace_back("34.89.47.54");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
