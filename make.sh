@@ -436,7 +436,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip
+        curl cmake unzip libc6-dev
 
     _fold_end
 }
@@ -459,7 +459,7 @@ pkg_install_deps_armhf() {
     _fold_start "pkg-install-deps-armhf"
 
     apt install -y \
-        g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+        g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross
 
     _fold_end
 }
@@ -468,7 +468,7 @@ pkg_install_deps_arm64() {
     _fold_start "pkg-install-deps-arm64"
 
     apt install -y \
-        g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+        g++-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
 
     _fold_end
 }
