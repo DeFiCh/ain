@@ -4,8 +4,6 @@ use ain_grpc::{init_evm_runtime, start_servers, stop_evm_runtime};
 use ain_evm::runtime::RUNTIME;
 use log::debug;
 use std::error::Error;
-use std::ffi::CStr;
-use std::os::raw::c_char;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
@@ -59,7 +57,7 @@ pub mod ffi {
             timestamp: u64,
         ) -> Result<FinalizeBlockResult>;
 
-        unsafe fn init(_argc: i32, _argv: *const *const c_char);
+        fn preinit();
         fn init_evm_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
         fn stop_evm_runtime();
@@ -198,12 +196,6 @@ fn evm_finalize(
     })
 }
 
-/// # Safety
-/// Ensure that argc passed counts the exact number of argument variables that is passed into init
-pub unsafe fn init(argc: i32, argv: *const *const c_char) {
-    let args: Vec<&str> = (0..argc)
-        .map(|i| unsafe { CStr::from_ptr(*argv.add(i as usize)).to_str().unwrap() })
-        .collect();
-    println!("{}", "Calling init");
-    ain_grpc::init(args);
+pub fn preinit() {
+    ain_grpc::preinit();
 }

@@ -12,11 +12,11 @@ pub mod rpc;
 mod transaction;
 mod utils;
 
-use env_logger::{Builder as LogBuilder, Env, Target};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
+
 #[allow(unused)]
-use log::{debug, info, Level};
+use log::{debug, info};
 
 use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
 
@@ -55,10 +55,12 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn init(_args: Vec<&str>) {
-    LogBuilder::from_env(Env::default().default_filter_or(Level::Info.as_str()))
-        .target(Target::Stdout)
-        .init();
+pub fn preinit() {
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
+    )
+    .target(env_logger::Target::Stdout)
+    .init();
     info!("init");
 }
 
