@@ -111,11 +111,11 @@ BOOST_AUTO_TEST_CASE(ToStringTest)
     BOOST_CHECK_EQUAL(feeRate.ToString(), "0.00000001 DFI/kB");
 }
 
-//Tests whether the function GetDecimaleString() returns the correct string value
+//Tests whether the function GetDecimalString() returns the correct string value
 BOOST_AUTO_TEST_CASE(GetDecimaleString_Test)
 {
     CAmount val = 1200;
-    BOOST_CHECK_EQUAL(GetDecimaleString(val), "0.00001200");
+    BOOST_CHECK_EQUAL(GetDecimalString(val), "0.00001200");
 }
 
 

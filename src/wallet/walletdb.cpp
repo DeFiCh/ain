@@ -86,7 +86,7 @@ bool WalletBatch::WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubk
     return WriteIC(std::make_pair(DBKeys::KEYMETA, pubkey), meta, overwrite);
 }
 
-bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
+bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta, const bool ethAddress)
 {
     if (!WriteKeyMetadata(keyMeta, vchPubKey, false)) {
         return false;
@@ -98,7 +98,7 @@ bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey,
     vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
     vchKey.insert(vchKey.end(), vchPrivKey.begin(), vchPrivKey.end());
 
-    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), std::make_pair(vchPrivKey, Hash(vchKey.begin(), vchKey.end())), false);
+    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), CKeyData{vchPrivKey, Hash(vchKey.begin(), vchKey.end()), ethAddress}, false);
 }
 
 bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
@@ -316,7 +316,15 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = "Error reading wallet database: CPrivKey corrupt";
                 return false;
             }
-            if (!pwallet->LoadKey(key, vchPubKey))
+
+            bool ethAddress{};
+            try
+            {
+                ssValue >> ethAddress;
+            }
+            catch (...) {}
+
+            if (!pwallet->LoadKey(key, vchPubKey, ethAddress))
             {
                 strErr = "Error reading wallet database: LoadKey failed";
                 return false;
@@ -358,7 +366,11 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKeyMetadata keyMeta;
             ssValue >> keyMeta;
             wss.nKeyMeta++;
-            pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
+            if (keyMeta.nVersion == CKeyMetadata::VERSION_ETH) {
+                pwallet->LoadKeyMetadata(vchPubKey.GetEthID(), keyMeta);
+            } else {
+                pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
+            }
         } else if (strType == DBKeys::WATCHMETA) {
             CScript script;
             ssKey >> script;
@@ -675,6 +687,40 @@ void MaybeCompactWalletDB()
     }
 
     fOneThread = false;
+}
+
+void AutoBackupWallet() {
+    for (const std::shared_ptr<CWallet> &pwallet: GetWallets()) {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+        auto env = pwallet->GetDBHandle().env;
+        std::string walletName = pwallet->GetName().empty() ? "default" : pwallet->GetName();
+        fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1", walletName);
+        fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2", walletName);
+        if (fs::exists(prevBackup) && !fs::exists(currentBackup)) {
+            pwallet->BackupWallet(currentBackup.string());
+        } else if (fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            fs::remove(prevBackup);
+            try {
+                fs::rename(currentBackup, prevBackup);
+            } catch (const fs::filesystem_error &) {
+                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+            }
+            pwallet->BackupWallet(currentBackup.string());
+
+        } else if (!fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            try {
+                fs::rename(currentBackup, prevBackup);
+            } catch (const fs::filesystem_error &) {
+                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+            }
+            pwallet->BackupWallet(currentBackup.string());
+        } else {
+            pwallet->BackupWallet(prevBackup.string());
+        }
+
+    }
 }
 
 //

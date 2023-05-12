@@ -8,6 +8,7 @@ from test_framework.messages import CMerkleBlock, FromHex, ToHex
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+
 class MerkleBlockTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -59,26 +60,38 @@ class MerkleBlockTest(DefiTestFramework):
         txid_unspent = txid1 if txin_spent["txid"] != txid1 else txid2
 
         # Invalid txids
-        assert_raises_rpc_error(-8, "txid must be of length 64 (not 32, for '00000000000000000000000000000000')", self.nodes[2].gettxoutproof, ["00000000000000000000000000000000"], blockhash)
-        assert_raises_rpc_error(-8, "txid must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')", self.nodes[2].gettxoutproof, ["ZZZ0000000000000000000000000000000000000000000000000000000000000"], blockhash)
+        assert_raises_rpc_error(-8, "txid must be of length 64 (not 32, for '00000000000000000000000000000000')",
+                                self.nodes[2].gettxoutproof, ["00000000000000000000000000000000"], blockhash)
+        assert_raises_rpc_error(-8,
+                                "txid must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')",
+                                self.nodes[2].gettxoutproof,
+                                ["ZZZ0000000000000000000000000000000000000000000000000000000000000"], blockhash)
         # Invalid blockhashes
-        assert_raises_rpc_error(-8, "blockhash must be of length 64 (not 32, for '00000000000000000000000000000000')", self.nodes[2].gettxoutproof, [txid_spent], "00000000000000000000000000000000")
-        assert_raises_rpc_error(-8, "blockhash must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')", self.nodes[2].gettxoutproof, [txid_spent], "ZZZ0000000000000000000000000000000000000000000000000000000000000")
+        assert_raises_rpc_error(-8, "blockhash must be of length 64 (not 32, for '00000000000000000000000000000000')",
+                                self.nodes[2].gettxoutproof, [txid_spent], "00000000000000000000000000000000")
+        assert_raises_rpc_error(-8,
+                                "blockhash must be hexadecimal string (not 'ZZZ0000000000000000000000000000000000000000000000000000000000000')",
+                                self.nodes[2].gettxoutproof, [txid_spent],
+                                "ZZZ0000000000000000000000000000000000000000000000000000000000000")
         # We can't find the block from a fully-spent tx
         assert_raises_rpc_error(-5, "Transaction not yet in block", self.nodes[2].gettxoutproof, [txid_spent])
         # We can get the proof if we specify the block
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid_spent], blockhash)), [txid_spent])
         # We can't get the proof if we specify a non-existent block
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[2].gettxoutproof, [txid_spent], "0000000000000000000000000000000000000000000000000000000000000000")
+        assert_raises_rpc_error(-5, "Block not found", self.nodes[2].gettxoutproof, [txid_spent],
+                                "0000000000000000000000000000000000000000000000000000000000000000")
         # We can get the proof if the transaction is unspent
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid_unspent])), [txid_unspent])
         # We can get the proof if we provide a list of transactions and one of them is unspent. The ordering of the list should not matter.
-        assert_equal(sorted(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2]))), sorted(txlist))
-        assert_equal(sorted(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid2, txid1]))), sorted(txlist))
+        assert_equal(sorted(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2]))),
+                     sorted(txlist))
+        assert_equal(sorted(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid2, txid1]))),
+                     sorted(txlist))
         # We can always get a proof if we have a -txindex
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[3].gettxoutproof([txid_spent])), [txid_spent])
         # We can't get a proof if we specify transactions from different blocks
-        assert_raises_rpc_error(-5, "Not all transactions found in specified or retrieved block", self.nodes[2].gettxoutproof, [txid1, txid3])
+        assert_raises_rpc_error(-5, "Not all transactions found in specified or retrieved block",
+                                self.nodes[2].gettxoutproof, [txid1, txid3])
 
         # Now we'll try tweaking a proof.
         proof = self.nodes[3].gettxoutproof([txid1, txid2])
@@ -94,13 +107,14 @@ class MerkleBlockTest(DefiTestFramework):
         # single-transaction block
         tweaked_proof.txn.nTransactions = 1
         tweaked_proof.txn.vHash = [tweaked_proof.header.hashMerkleRoot]
-        tweaked_proof.txn.vBits = [True] + [False]*7
+        tweaked_proof.txn.vBits = [True] + [False] * 7
 
         for n in self.nodes:
             assert not n.verifytxoutproof(ToHex(tweaked_proof))
 
         # TODO: try more variants, eg transactions at different depths, and
         # verify that the proofs are invalid
+
 
 if __name__ == '__main__':
     MerkleBlockTest().main()

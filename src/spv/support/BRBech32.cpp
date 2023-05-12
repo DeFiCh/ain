@@ -23,14 +23,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRBech32.h"
-#include "BRAddress.h"
-#include "BRCrypto.h"
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
+
+#include <spv/support/BRBech32.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRCrypto.h>
 
 // bech32 address format: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
 

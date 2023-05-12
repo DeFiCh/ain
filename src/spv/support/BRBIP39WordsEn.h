@@ -25,7 +25,7 @@
 #ifndef BRBIP39WordsEn_h
 #define BRBIP39WordsEn_h
 
-#include "BRBIP39Mnemonic.h"
+#include <spv/support/BRBIP39Mnemonic.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -23,14 +23,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRBase58.h"
-#include "BRCrypto.h"
+
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
 #include <vector>
+
+#include <spv/support/BRBase58.h>
+#include <spv/support/BRCrypto.h>
 
 // base58 and base58check encoding: https://en.bitcoin.it/wiki/Base58Check_encoding
 

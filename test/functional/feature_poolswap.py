@@ -9,38 +9,45 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
+from test_framework.fixture_util import CommonFixture
 from test_framework.util import (
     assert_equal,
     disconnect_nodes,
     assert_raises_rpc_error,
+    get_id_token,
 )
 
 from decimal import Decimal
 from math import trunc
 
-class PoolPairTest (DefiTestFramework):
+
+class PoolPairTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         # node0: main (Foundation)
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-dexstats']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',
+             '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177',
+             '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',
+             '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177',
+             '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',
+             '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177',
+             '-grandcentralheight=200', '-dexstats']]
 
     def setup(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
-        self.setup_tokens()
-        self.symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-        self.symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
+        CommonFixture.setup_default_tokens(self)
+        self.symbolGOLD = "GOLD#" + get_id_token(self.nodes[0], "GOLD")
+        self.symbolSILVER = "SILVER#" + get_id_token(self.nodes[0], "SILVER")
         self.idGold = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
         self.idSilver = list(self.nodes[0].gettoken(self.symbolSILVER).keys())[0]
 
         self.init_accounts()
         self.create_poolpair()
-
 
     def init_accounts(self):
         self.accountGN0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -76,13 +83,13 @@ class PoolPairTest (DefiTestFramework):
 
     def test_swap_with_no_liquidity(self):
         assert_raises_rpc_error(-32600, "Lack of liquidity", self.nodes[0].poolswap, {
-                "from": self.accountGN0,
-                "tokenFrom": self.symbolSILVER,
-                "amountFrom": 10,
-                "to": self.accountSN1,
-                "tokenTo": self.symbolGOLD,
-            }
-        )
+            "from": self.accountGN0,
+            "tokenFrom": self.symbolSILVER,
+            "amountFrom": 10,
+            "to": self.accountSN1,
+            "tokenTo": self.symbolGOLD,
+        }
+                                )
 
     def test_add_liquidity_from_different_nodes(self):
         self.nodes[0].addpoolliquidity({
@@ -108,7 +115,7 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[0].listpoolpairs()
 
         assert_equal(list_pool['1']['reserveA'], 200)  # GOLD
-        assert_equal(list_pool['1']['reserveB'], 1000) # SILVER
+        assert_equal(list_pool['1']['reserveB'], 1000)  # SILVER
 
     def turn_off_pool_and_try_swap(self):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": False})
@@ -123,13 +130,13 @@ class PoolPairTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("turned off" in errorString)
+        assert ("turned off" in errorString)
 
     def turn_on_pool_and_swap(self):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
 
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
+        testPoolSwapRes = self.nodes[0].testpoolswap({
             "from": self.accountGN0,
             "tokenFrom": self.symbolSILVER,
             "amountFrom": 10,
@@ -145,7 +152,7 @@ class PoolPairTest (DefiTestFramework):
         psTestTokenId = testPoolSwapSplit[1]
         assert_equal(psTestTokenId, self.idGold)
 
-        testPoolSwapVerbose =  self.nodes[0].testpoolswap({
+        testPoolSwapVerbose = self.nodes[0].testpoolswap({
             "from": self.accountGN0,
             "tokenFrom": self.symbolSILVER,
             "amountFrom": 10,
@@ -170,8 +177,8 @@ class PoolPairTest (DefiTestFramework):
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         # silver is tokenB
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(self.idGS)], Decimal('9.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(self.idGS)], Decimal('1.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b' % (self.idGS)], Decimal('9.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b' % (self.idGS)], Decimal('1.0'))
 
         goldCheckN0 = self.nodes[2].getaccount(self.accountGN0, {}, True)[self.idGold]
         silverCheckN0 = self.nodes[2].getaccount(self.accountGN0, {}, True)[self.idSilver]
@@ -182,11 +189,11 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[2].listpoolpairs()
 
         assert_equal(goldCheckN0, 700)
-        assert_equal(str(silverCheckN0), "490.49999997") # TODO: calculate "true" values with trading fee!
-        assert_equal(list_pool['1']['reserveA'] + goldCheckN1 , 300)
+        assert_equal(str(silverCheckN0), "490.49999997")  # TODO: calculate "true" values with trading fee!
+        assert_equal(list_pool['1']['reserveA'] + goldCheckN1, 300)
         assert_equal(Decimal(self.goldCheckPS) + Decimal(self.psTestAmount), Decimal(goldCheckN1))
         assert_equal(str(silverCheckN1), "500.50000000")
-        assert_equal(list_pool['1']['reserveB'], 1009) #1010 - 1 (commission)
+        assert_equal(list_pool['1']['reserveB'], 1009)  # 1010 - 1 (commission)
 
     def test_price_higher_than_indicated(self):
         list_pool = self.nodes[2].listpoolpairs()
@@ -202,7 +209,7 @@ class PoolPairTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price is higher than indicated." in errorString)
+        assert ("Price is higher than indicated." in errorString)
 
     def test_max_price(self):
         maxPrice = self.nodes[0].listpoolpairs()['1']['reserveB/reserveA']
@@ -223,12 +230,12 @@ class PoolPairTest (DefiTestFramework):
                                     "tokenTo": self.symbolGOLD,
                                     "maxPrice": maxPrice,
                                 }
-        )
+                                )
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(self.idGS)], Decimal('189.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(self.idGS)], Decimal('21.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b' % (self.idGS)], Decimal('189.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b' % (self.idGS)], Decimal('21.0'))
 
         maxPrice = self.nodes[0].listpoolpairs()['1']['reserveB/reserveA']
         # exchange tokens each other should work
@@ -252,10 +259,10 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a'%(self.idGS)], Decimal('180.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a'%(self.idGS)], Decimal('20.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(self.idGS)], Decimal('369.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(self.idGS)], Decimal('41.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a' % (self.idGS)], Decimal('180.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a' % (self.idGS)], Decimal('20.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b' % (self.idGS)], Decimal('369.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b' % (self.idGS)], Decimal('41.0'))
 
     def test_fort_canning_max_price_change(self):
         disconnect_nodes(self.nodes[0], 1)
@@ -308,7 +315,7 @@ class PoolPairTest (DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price is higher than indicated" in errorString)
+        assert ("Price is higher than indicated" in errorString)
 
     def setup_new_pool_BTC_LTC(self):
 
@@ -316,17 +323,17 @@ class PoolPairTest (DefiTestFramework):
         self.symbolLTC = "LTC"
 
         self.nodes[0].createtoken({
-                "symbol": self.symbolBTC,
-                "name": self.symbolBTC,
-                "collateralAddress": self.accountGN0,
-                "isDAT" : True
-            })
+            "symbol": self.symbolBTC,
+            "name": self.symbolBTC,
+            "collateralAddress": self.accountGN0,
+            "isDAT": True
+        })
         self.nodes[0].createtoken({
-                "symbol": self.symbolLTC,
-                "name": self.symbolLTC,
-                "collateralAddress": self.accountGN0,
-                "isDAT" : True
-            })
+            "symbol": self.symbolLTC,
+            "name": self.symbolLTC,
+            "collateralAddress": self.accountGN0,
+            "isDAT": True
+        })
         self.nodes[0].generate(1)
 
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
@@ -356,12 +363,12 @@ class PoolPairTest (DefiTestFramework):
     def one_satoshi_swap(self):
         new_dest = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].poolswap({
-                "from": self.accountGN0,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": 0.00000001,
-                "to": new_dest,
-                "tokenTo": self.symbolBTC
-            })
+            "from": self.accountGN0,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": 0.00000001,
+            "to": new_dest,
+            "tokenTo": self.symbolBTC
+        })
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[self.idBTC], Decimal('0.00000001'))
@@ -373,19 +380,19 @@ class PoolPairTest (DefiTestFramework):
 
         new_dest = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].poolswap({
-                "from": self.accountGN0,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": 0.00000190,
-                "to": new_dest,
-                "tokenTo": self.symbolBTC
-            })
+            "from": self.accountGN0,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": 0.00000190,
+            "to": new_dest,
+            "tokenTo": self.symbolBTC
+        })
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a'%(self.idBL)], Decimal('0.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a'%(self.idBL)], Decimal('0.0'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(self.idBL)], Decimal('0.00000189'))
-        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(self.idBL)], Decimal('1E-8'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a' % (self.idBL)], Decimal('0.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a' % (self.idBL)], Decimal('0.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b' % (self.idBL)], Decimal('0.00000189'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b' % (self.idBL)], Decimal('1E-8'))
 
         expected_round_up = FCP and Decimal('0.00000001') or Decimal('0.00000002')
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[self.idBTC], expected_round_up)
@@ -398,23 +405,24 @@ class PoolPairTest (DefiTestFramework):
         new_dest = self.nodes[0].getnewaddress("", "legacy")
         # Test swap now results in zero amount
         self.nodes[0].poolswap({
-                "from": self.accountGN0,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": 0.00000001,
-                "to": new_dest,
-                "tokenTo": self.symbolBTC
-            })
+            "from": self.accountGN0,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": 0.00000001,
+            "to": new_dest,
+            "tokenTo": self.symbolBTC
+        })
         self.nodes[0].generate(1)
 
-        assert(self.idBTC not in self.nodes[0].getaccount(new_dest, {}, True))
+        assert (self.idBTC not in self.nodes[0].getaccount(new_dest, {}, True))
 
     def set_token_and_pool_fees(self):
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(self.idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(self.idGS): '0.08'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/poolpairs/%s/token_a_fee_pct' % (self.idGS): '0.05',
+                                             'v0/poolpairs/%s/token_b_fee_pct' % (self.idGS): '0.08'}})
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(self.idGS)], '0.05')
-        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(self.idGS)], '0.08')
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct' % (self.idGS)], '0.05')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct' % (self.idGS)], '0.08')
 
         result = self.nodes[0].getpoolpair(self.idGS)
         assert_equal(result[self.idGS]['dexFeePctTokenA'], Decimal('0.05'))
@@ -445,21 +453,24 @@ class PoolPairTest (DefiTestFramework):
         amountB = reserveB - pool['reserveB']
         dexoutfee = round(amountB * Decimal(0.08), 8)
         assert_equal(amountB - dexoutfee, swapped)
-        assert_equal(self.nodes[0].listaccounthistory(self.accountGN0, {'token':self.symbolGOLD})[0]['amounts'], ['-200.00000000@'+self.symbolGOLD])
+        assert_equal(self.nodes[0].listaccounthistory(self.accountGN0, {'token': self.symbolGOLD})[0]['amounts'],
+                     ['-200.00000000@' + self.symbolGOLD])
 
-        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+self.symbolGOLD, '%.8f'%(dexoutfee)+self.symbolSILVER].sort())
+        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(),
+                     ['%.8f' % (dexinfee) + self.symbolGOLD, '%.8f' % (dexoutfee) + self.symbolSILVER].sort())
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idGS)], dexinfee)
-        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(self.idGS)], dexoutfee)
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a' % (self.idGS)], dexinfee)
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b' % (self.idGS)], dexoutfee)
 
     def update_comission_and_fee_to_1pct_pool1(self):
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(self.idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(self.idGS): '0.01'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/poolpairs/%s/token_a_fee_pct' % (self.idGS): '0.01',
+                                             'v0/poolpairs/%s/token_b_fee_pct' % (self.idGS): '0.01'}})
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(self.idGS)], '0.01')
-        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(self.idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct' % (self.idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct' % (self.idGS)], '0.01')
 
         self.nodes[0].updatepoolpair({"pool": "GS", "commission": 0.01})
         self.nodes[0].generate(1)
@@ -481,21 +492,23 @@ class PoolPairTest (DefiTestFramework):
         pool = self.nodes[0].getpoolpair("GS")[self.idGS]
         assert_equal(reserveA, pool['reserveA'])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(self.idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(self.idBL): '0.01'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/poolpairs/%s/token_a_fee_pct' % (self.idBL): '0.01',
+                                             'v0/poolpairs/%s/token_b_fee_pct' % (self.idBL): '0.01'}})
         self.nodes[0].generate(1)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(self.idGS)], '0.01')
-        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(self.idGS)], '0.01')
-        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(self.idBL)], '0.01')
-        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(self.idBL)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct' % (self.idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct' % (self.idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct' % (self.idBL)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct' % (self.idBL)], '0.01')
 
     def update_comission_and_fee_to_1pct_pool2(self):
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/%s/dex_in_fee_pct'%(self.idLTC): '0.02', 'v0/token/%s/dex_out_fee_pct'%(self.idBTC): '0.05'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/%s/dex_in_fee_pct' % (self.idLTC): '0.02',
+                                             'v0/token/%s/dex_out_fee_pct' % (self.idBTC): '0.05'}})
         self.nodes[0].generate(1)
 
         result = self.nodes[0].getpoolpair(self.idBL)
@@ -505,11 +518,11 @@ class PoolPairTest (DefiTestFramework):
         destBTC = self.nodes[0].getnewaddress("", "legacy")
         swapltc = 10
         self.nodes[0].poolswap({
-                "from": self.accountGN0,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": swapltc,
-                "to": destBTC,
-                "tokenTo": self.symbolBTC
+            "from": self.accountGN0,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": swapltc,
+            "to": destBTC,
+            "tokenTo": self.symbolBTC
         })
         commission = round((swapltc * 0.01), 8)
         amountB = Decimal(swapltc - commission)
@@ -529,8 +542,8 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(round(amountA - Decimal(dexoutfee), 8), round(swapped, 8))
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(self.idBL)], round(dexinfee, 8))
-        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b' % (self.idBL)], round(dexinfee, 8))
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a' % (self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
     def test_swap_to_self(self):
 
@@ -556,18 +569,20 @@ class PoolPairTest (DefiTestFramework):
 
     def test_testpoolswap_errors(self):
         assert_raises_rpc_error(-8, "tokenFrom is empty", self.nodes[0].testpoolswap, {
-                                "amountFrom": 0.1, "tokenFrom": "", "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+            "amountFrom": 0.1, "tokenFrom": "", "tokenTo": self.symbolBTC, "from": self.accountGN0,
+            "to": self.accountSN1, "maxPrice": 0.1})
         assert_raises_rpc_error(-8, "tokenTo is empty", self.nodes[0].testpoolswap, {
-                                "amountFrom": 0.1, "tokenFrom": self.symbolBTC, "tokenTo": "", "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+            "amountFrom": 0.1, "tokenFrom": self.symbolBTC, "tokenTo": "", "from": self.accountGN0,
+            "to": self.accountSN1, "maxPrice": 0.1})
         assert_raises_rpc_error(-32600, "Input amount should be positive", self.nodes[0].testpoolswap, {
-                                "amountFrom": 0, "tokenFrom": self.symbolLTC, "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+            "amountFrom": 0, "tokenFrom": self.symbolLTC, "tokenTo": self.symbolBTC, "from": self.accountGN0,
+            "to": self.accountSN1, "maxPrice": 0.1})
 
     def revert_to_initial_state(self):
-        self.rollback_to(block=0, nodes=[0, 1, 2])
+        self.rollback_to(block=0)
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
         assert_equal(len(self.nodes[1].listpoolpairs()), 0)
         assert_equal(len(self.nodes[2].listpoolpairs()), 0)
-
 
     def run_test(self):
         self.setup()
@@ -593,5 +608,6 @@ class PoolPairTest (DefiTestFramework):
         self.test_swap_to_self()
         self.revert_to_initial_state()
 
+
 if __name__ == '__main__':
-    PoolPairTest ().main ()
+    PoolPairTest().main()

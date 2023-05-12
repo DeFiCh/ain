@@ -11,11 +11,12 @@ from test_framework.util import assert_equal
 from test_framework.authproxy import JSONRPCException
 from decimal import Decimal
 
+
 class BitcoinSPVTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1"],
+            ["-dummypos=1", "-spv=1"],
         ]
         self.setup_clean_chain = True
 
@@ -44,7 +45,7 @@ class BitcoinSPVTests(DefiTestFramework):
             self.nodes[0].spv_sendtoaddress(dummy_address, 0.1)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Invalid address" in errorString)
+            assert ("Invalid address" in errorString)
 
         # Send to external address
         dummy_address = "bcrt1qfpnmx6jrn30yvscrw9spudj5aphyrc8es6epva"
@@ -53,7 +54,7 @@ class BitcoinSPVTests(DefiTestFramework):
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
-        assert(result['txid'] in txs)
+        assert (result['txid'] in txs)
 
         # Make sure balance reduced
         balance = self.nodes[0].spv_getbalance()
@@ -65,7 +66,7 @@ class BitcoinSPVTests(DefiTestFramework):
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
-        assert(result['txid'] in txs)
+        assert (result['txid'] in txs)
 
         # Make sure balance reduced
         balance = self.nodes[0].spv_getbalance()
@@ -92,6 +93,7 @@ class BitcoinSPVTests(DefiTestFramework):
         wallet_change_priv_key = self.nodes[0].dumpprivkey(change_address)
         assert_equal(wallet_priv_key, priv_key)
         assert_equal(wallet_change_priv_key, change_priv_key)
+
 
 if __name__ == '__main__':
     BitcoinSPVTests().main()

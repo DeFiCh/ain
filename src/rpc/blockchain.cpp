@@ -23,6 +23,7 @@
 #include <primitives/transaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
+#include <rpc/resultcache.h>
 #include <script/descriptor.h>
 #include <streams.h>
 #include <sync.h>
@@ -1298,6 +1299,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     LOCK(cs_main);
 
     const CBlockIndex* tip = ::ChainActive().Tip();
@@ -1350,12 +1353,14 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
     BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
     BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.GrandCentralEpilogueHeight);
-    BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.NextNetworkUpgrade);
+    BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.NextNetworkUpgradeHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
     obj.pushKV("warnings", GetWarnings("statusbar"));
-    return obj;
+
+    return GetRPCResultCache()
+        .Set(request, obj);
 }
 
 /** Comparison function for sorting the getchaintips heads.  */

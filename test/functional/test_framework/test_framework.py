@@ -15,7 +15,9 @@ import shutil
 import sys
 import tempfile
 import time
+import re
 
+from typing import List
 from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
@@ -25,6 +27,7 @@ from .util import (
     PortSeed,
     assert_equal,
     check_json_precision,
+    connect_nodes,
     connect_nodes_bi,
     disconnect_nodes,
     get_datadir_path,
@@ -38,6 +41,7 @@ class TestStatus(Enum):
     PASSED = 1
     FAILED = 2
     SKIPPED = 3
+
 
 TEST_EXIT_PASSED = 0
 TEST_EXIT_FAILED = 1
@@ -73,6 +77,27 @@ class DefiTestMetaClass(type):
         return super().__new__(cls, clsname, bases, dct)
 
 
+def get_default_config_path():
+    current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+    default_config_paths = [
+        # default priority to be for build dir specific build
+        current_file_path + "/../../../build/test/config.ini",
+        # tree-path specific for build explicitly built in tree
+        current_file_path + "/../../config.ini",
+        # priority host specific build selection for standard dev envs
+        current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
+        current_file_path + "/../../../build/aarch64-apple-darwin/test/config.ini",
+        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
+        current_file_path + "/../../../build/x86_64-w64-migw32/test/config.ini",
+        # aarch64 / arm builds are by default lower priority when selecting host specific build
+        current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
+        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
+    ]
+    for p in default_config_paths:
+        if os.path.exists(p):
+            return os.path.abspath(p)
+    return None
+
 class DefiTestFramework(metaclass=DefiTestMetaClass):
     """Base class for a defi test script.
 
@@ -93,7 +118,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         """Sets test framework defaults. Do not override this method. Instead, override the set_test_params() method"""
         self.chain = 'regtest'
         self.setup_clean_chain = False
-        self.nodes = []
+        self.nodes: List[TestNode] = []
         self.network_thread = None
         self.rpc_timeout = 60  # Wait for up to 60 seconds for the RPC server to respond
         self.supports_cli = False
@@ -110,7 +135,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="Leave defids and test.* datadir on exit or error")
         parser.add_argument("--noshutdown", dest="noshutdown", default=False, action="store_true",
                             help="Don't stop defids after the test execution")
-        parser.add_argument("--cachedir", dest="cachedir", default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../cache"),
+        parser.add_argument("--cachedir", dest="cachedir",
+                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../cache"),
                             help="Directory for caching pregenerated datadirs (default: %(default)s)")
         parser.add_argument("--tmpdir", dest="tmpdir", help="Root directory for datadirs")
         parser.add_argument("-l", "--loglevel", dest="loglevel", default="INFO",
@@ -121,9 +147,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="The seed to use for assigning port numbers (default: current process id)")
         parser.add_argument("--coveragedir", dest="coveragedir",
                             help="Write tested RPC commands into this directory")
-        parser.add_argument("--configfile", dest="configfile",
-                            default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../config.ini"),
-                            help="Location of the test framework config file (default: %(default)s)")
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
@@ -134,6 +157,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                             help="run nodes under the valgrind memory error detector: expect at least a ~10x slowdown, valgrind 3.14 or later required")
         parser.add_argument("--randomseed", type=int,
                             help="set a random seed for deterministically reproducing a previous test run")
+        parser.add_argument("--configfile", dest="configfile",
+                            default=get_default_config_path(),
+                            help="Location of the test framework config file (default: %(default)s)")
         self.add_options(parser)
         self.options = parser.parse_args()
 
@@ -146,12 +172,15 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
         self.config = config
-        self.options.defid = os.getenv("DEFID", default=config["environment"]["BUILDDIR"] + '/src/defid' + config["environment"]["EXEEXT"])
-        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' + config["environment"]["EXEEXT"])
+        self.options.defid = os.getenv("DEFID",
+                                       default=config["environment"]["BUILDDIR"] +
+                                       '/src/defid' +
+                                       config["environment"]["EXEEXT"])
+        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' +
+                                                            config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
-            os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
             os.environ['PATH']
         ])
 
@@ -225,10 +254,10 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             self.log.info("Note: defids were not stopped and may still be running")
 
         should_clean_up = (
-            not self.options.nocleanup and
-            not self.options.noshutdown and
-            success != TestStatus.FAILED and
-            not self.options.perf
+                not self.options.nocleanup and
+                not self.options.noshutdown and
+                success != TestStatus.FAILED and
+                not self.options.perf
         )
         if should_clean_up:
             self.log.info("Cleaning up {} on exit".format(self.options.tmpdir))
@@ -248,8 +277,11 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             exit_code = TEST_EXIT_SKIPPED
         else:
             self.log.error("Test failed. Test logging available at %s/test_framework.log", self.options.tmpdir)
-            self.log.error("Hint: Call {} '{}' to consolidate all logs".format(os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"), self.options.tmpdir))
+            self.log.error("Hint: Call {} '{}' to consolidate all logs".format(
+                os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"),
+                self.options.tmpdir))
             exit_code = TEST_EXIT_FAILED
+
         logging.shutdown()
         if cleanup_tree_on_exit:
             shutil.rmtree(self.options.tmpdir)
@@ -316,83 +348,6 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
 
-    def get_id_token(self, symbol):
-        list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
-            if (token["symbol"] == symbol):
-                return str(idx)
-
-    def setup_tokens(self, my_tokens = None):
-        assert(self.setup_clean_chain == True)
-        assert('-txnotokens=0' in self.extra_args[0])
-        assert('-txnotokens=0' in self.extra_args[1])
-        self.nodes[0].generate(25)
-        self.nodes[1].generate(25)
-        self.sync_blocks()
-        self.nodes[0].generate(98)
-        self.sync_blocks()
-
-        if my_tokens is not None:
-            '''
-                my_tokens list should contain objects with following structure:
-                {
-                    "wallet": node_obj,             # The test node obj with "collateralAddress" secret key in wallet
-                    "symbol": "SYMBOL",             # The token symbol
-                    "name": "token name",           # The token name
-                    "collateralAddress": "address", # The token collateral address
-                    "amount": amount,               # The token amount for minting
-                }
-            '''
-            # create tokens
-            for token in my_tokens:
-                token["wallet"].createtoken({
-                    "symbol": token["symbol"],
-                    "name": token["name"],
-                    "collateralAddress": token["collateralAddress"]
-                })
-            self.sync_mempools()
-            self.nodes[0].generate(1)
-            tokens = self.nodes[1].listtokens()
-            assert_equal(len(tokens), len(my_tokens) + 1)
-
-            # mint tokens
-            for token in my_tokens:
-                token["tokenId"] = self.get_id_token(token["symbol"])
-                token["symbolId"] = token["symbol"] + "#" + token["tokenId"]
-                token["wallet"].minttokens(str(token["amount"]) + "@" + token["symbolId"])
-
-            self.sync_mempools()
-            self.nodes[0].generate(1)
-        else:
-            # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
-            self.nodes[0].createtoken({
-                "symbol": "GOLD",
-                "name": "shiny gold",
-                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
-            })
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            self.nodes[1].createtoken({
-                "symbol": "SILVER",
-                "name": "just silver",
-                "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
-            })
-            self.nodes[1].generate(1)
-            self.sync_blocks()
-            # At this point, tokens was created
-            tokens = self.nodes[0].listtokens()
-            assert_equal(len(tokens), 3)
-
-            symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-            symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
-
-            self.nodes[0].minttokens("1000@" + symbolGOLD)
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            self.nodes[1].minttokens("2000@" + symbolSILVER)
-            self.nodes[1].generate(1)
-            self.sync_blocks()
-
     def import_deterministic_coinbase_privkeys(self):
         for n in self.nodes:
             try:
@@ -405,8 +360,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     # rollback one node (Default = node 0)
-    def _rollback_to(self, block, node=0):
-        node = self.nodes[node]
+    def _rollback_to(self, block, node):
         current_height = node.getblockcount()
         if current_height == block:
             return
@@ -417,11 +371,26 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # rollback to block
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
-        if nodes is None:
-            self._rollback_to(block)
-        else:
-            for node in nodes:
-                self._rollback_to(block, node=node)
+        nodes = nodes or self.nodes
+        connections = {}
+        for node in nodes:
+            nodes_connections = []
+            for x in node.getpeerinfo():
+                if not x['inbound']:
+                    node_number = re.findall(r'\d+', x['subver'])[-1]
+                    nodes_connections.append(int(node_number))
+            connections[node] = nodes_connections
+
+        for node in nodes:
+            for x in connections[node]:
+                disconnect_nodes(node, x)
+
+        for node in nodes:
+            self._rollback_to(block, node)
+
+        for node in nodes:
+            for x in connections[node]:
+                connect_nodes(node, x)
 
     def run_test(self):
         """Tests must override this method to define test logic"""
@@ -488,7 +457,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 node.start(extra_args[i], *args, **kwargs)
             for node in self.nodes:
                 node.wait_for_rpc_connection()
-        except:
+        except Exception:
             # If one node failed to start, stop the others
             self.stop_nodes()
             raise
@@ -561,7 +530,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         ll = int(self.options.loglevel) if self.options.loglevel.isdigit() else self.options.loglevel.upper()
         ch.setLevel(ll)
         # Format logs the same as defid's debug.log with microprecision (so log files can be concatenated and sorted)
-        formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d000Z %(name)s (%(levelname)s): %(message)s', datefmt='%Y-%m-%dT%H:%M:%S')
+        formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d000Z %(name)s (%(levelname)s): %(message)s',
+                                      datefmt='%Y-%m-%dT%H:%M:%S')
         formatter.converter = time.gmtime
         fh.setFormatter(formatter)
         ch.setFormatter(formatter)
@@ -610,8 +580,10 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             # Wait for RPC connections to be ready
             self.nodes[CACHE_NODE_ID].wait_for_rpc_connection()
 
-            self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().ownerPrivKey, label='coinbase')
-            self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().operatorPrivKey, label='coinbase')
+            self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().ownerPrivKey,
+                                                    label='coinbase')
+            self.nodes[CACHE_NODE_ID].importprivkey(
+                privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().operatorPrivKey, label='coinbase')
 
             # Create a 199-block-long chain; each of the 4 first nodes
             # gets 25 mature blocks and 25 immature.
@@ -642,7 +614,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             shutil.rmtree(cache_path('burn'))
 
             for entry in os.listdir(cache_path()):
-                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'history']:  # Only keep chainstate and blocks folder
+                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors',
+                                 'history']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):

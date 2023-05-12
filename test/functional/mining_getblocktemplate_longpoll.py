@@ -11,6 +11,7 @@ from test_framework.util import get_rpc_proxy, random_transaction
 
 import threading
 
+
 class LongpollThread(threading.Thread):
     def __init__(self, node):
         threading.Thread.__init__(self)
@@ -23,6 +24,7 @@ class LongpollThread(threading.Thread):
 
     def run(self):
         self.node.getblocktemplate({'longpollid': self.longpollid, 'rules': ['segwit']})
+
 
 class GetBlockTemplateLPTest(DefiTestFramework):
     def set_test_params(self):
@@ -70,6 +72,7 @@ class GetBlockTemplateLPTest(DefiTestFramework):
         # after one minute, every 10 seconds the mempool is probed, so in 80 seconds it should have returned
         thr.join(60 + 20)
         assert not thr.is_alive()
+
 
 if __name__ == '__main__':
     GetBlockTemplateLPTest().main()

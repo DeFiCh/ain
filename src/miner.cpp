@@ -14,6 +14,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -34,6 +35,7 @@
 #include <algorithm>
 #include <queue>
 #include <utility>
+#include <random>
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -217,13 +219,38 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
 
-    const auto timeOrdering = gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING);
-    if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
-    } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
+    bool timeOrdering{false};
+    if (txOrdering == MIXED_ORDERING) {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<unsigned long long> dis;
+
+        if (dis(rd) % 2 == 0)
+            timeOrdering = false;
+        else
+            timeOrdering = true;
+    } else if (txOrdering == ENTRYTIME_ORDERING) {
+        timeOrdering = true;
+    } else if (txOrdering == FEE_ORDERING) {
+        timeOrdering = false;
     }
 
+    const auto evmContext = evm_get_context();
+
+    if (timeOrdering) {
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+    } else {
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+    }
+
+    // TODO Get failed TXs and try to restore to mempool
+    std::vector<uint8_t> evmHeader{};
+    if (IsEVMEnabled(nHeight, mnview)) {
+        std::array<uint8_t, 20> dummyAddress{};
+        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
+        evmHeader.resize(rustHeader.size());
+        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+    }
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
@@ -297,6 +324,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         } else {
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+        }
+
+        if (IsEVMEnabled(nHeight, mnview) && !evmHeader.empty()) {
+            const auto headerIndex = coinbaseTx.vout.size();
+            coinbaseTx.vout.resize(headerIndex + 1);
+            coinbaseTx.vout[headerIndex].nValue = 0;
+
+            CScript script;
+            script << OP_RETURN << evmHeader;
+            coinbaseTx.vout[headerIndex].scriptPubKey = script;
         }
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
@@ -491,7 +528,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -639,7 +676,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime);
+                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
@@ -701,7 +738,7 @@ namespace pos {
 
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
-    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    AtomicMutex cs_MNLastBlockCreationAttemptTs;
     int64_t Staker::nLastCoinStakeSearchTime{0};
     int64_t Staker::nFutureTime{0};
     uint256 Staker::lastBlockSeen{};
@@ -774,7 +811,11 @@ namespace pos {
             blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            const auto optTimeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+            if (!optTimeLock)
+                return Status::stakeWaiting;
+
+            timelock = *optTimeLock;
 
             // Get block times
             subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
@@ -802,7 +843,7 @@ namespace pos {
         withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
             // update last block creation attempt ts for the master node here
             {
-                CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+                std::unique_lock l{pos::cs_MNLastBlockCreationAttemptTs};
                 pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
             }
             CheckContextState ctxState;

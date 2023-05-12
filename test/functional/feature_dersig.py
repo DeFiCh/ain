@@ -23,6 +23,7 @@ DERSIG_HEIGHT = 1251
 REJECT_INVALID = 16
 REJECT_NONSTANDARD = 64
 
+
 # A canonical signature consists of:
 # <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
 def unDERify(tx):
@@ -40,11 +41,11 @@ def unDERify(tx):
     tx.vin[0].scriptSig = CScript(newscript)
 
 
-
 class BIP66Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', '-par=1', '-enablebip61']]  # Use only one script thread to get the exact reject reason for testing
+        self.extra_args = [['-whitelist=127.0.0.1', '-par=1',
+                            '-enablebip61']]  # Use only one script thread to get the exact reject reason for testing
         self.setup_clean_chain = True
         self.rpc_timeout = 120
 
@@ -61,7 +62,7 @@ class BIP66Test(DefiTestFramework):
         self.log.info("Test that a transaction with non-DER signature can still appear in a block")
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0],
-                self.nodeaddress, amount=1.0)
+                                     self.nodeaddress, amount=1.0)
         unDERify(spendtx)
         spendtx.rehash()
 
@@ -94,14 +95,15 @@ class BIP66Test(DefiTestFramework):
         block.nVersion = 3
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
-                self.nodeaddress, amount=1.0)
+                                     self.nodeaddress, amount=1.0)
         unDERify(spendtx)
         spendtx.rehash()
 
         # First we show that this tx is valid except for DERSIG by getting it
         # rejected from the mempool for exactly that reason.
         assert_equal(
-            [{'txid': spendtx.hash, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Non-canonical DER signature)'}],
+            [{'txid': spendtx.hash, 'allowed': False,
+              'reject-reason': '64: non-mandatory-script-verify-flag (Non-canonical DER signature)'}],
             self.nodes[0].testmempoolaccept(rawtxs=[spendtx.serialize().hex()], maxfeerate=0)
         )
 
@@ -111,7 +113,9 @@ class BIP66Test(DefiTestFramework):
         block.rehash()
         block.solve()
 
-        with self.nodes[0].assert_debug_log(expected_msgs=['CheckInputs on {} failed with non-mandatory-script-verify-flag (Non-canonical DER signature)'.format(block.vtx[-1].hash)]):
+        with self.nodes[0].assert_debug_log(expected_msgs=[
+            'CheckInputs on {} failed with non-mandatory-script-verify-flag (Non-canonical DER signature)'.format(
+                    block.vtx[-1].hash)]):
             self.nodes[0].p2p.send_and_ping(msg_block(block))
             assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
             self.nodes[0].p2p.sync_with_ping()

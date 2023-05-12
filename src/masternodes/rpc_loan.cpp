@@ -1,12 +1,13 @@
-#include <masternodes/mn_rpc.h>
-#include <masternodes/govvariables/attributes.h>
 #include <boost/asio.hpp>
 
-extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+#include <masternodes/mn_rpc.h>
+#include <masternodes/govvariables/attributes.h>
+#include <masternodes/threadpool.h>
+
+extern UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplementation &token, bool verbose);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
-UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
-{
+UniValue setCollateralTokenToJSON(CCustomCSView &view, const CLoanSetCollateralTokenImplementation &collToken) {
     UniValue collTokenObj(UniValue::VOBJ);
 
     auto token = view.GetToken(collToken.idToken);
@@ -22,8 +23,7 @@ UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenIm
     return (collTokenObj);
 }
 
-UniValue setLoanTokenToJSON(CCustomCSView& view, CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
-{
+UniValue setLoanTokenToJSON(CCustomCSView &view, const CLoanSetLoanTokenImplementation &loanToken, DCT_ID tokenId) {
     UniValue loanTokenObj(UniValue::VOBJ);
 
     auto token = view.GetToken(tokenId);
@@ -109,7 +109,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                            "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
-    UniValue const & txInputs = request.params[1];
+    const UniValue &txInputs = request.params[1];
 
     std::string tokenSymbol;
     CLoanSetCollateralToken collToken;
@@ -155,7 +155,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -167,7 +167,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -238,7 +238,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
-    view.ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
+    view.ForEachLoanCollateralToken([&](const CollateralTokenKey &key, const uint256 &collTokenTx) {
         auto collToken = view.GetLoanCollateralToken(collTokenTx);
         if (collToken)
             ret.push_back(setCollateralTokenToJSON(view, *collToken));
@@ -318,7 +318,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                            "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
-    UniValue const & txInputs = request.params[1];
+    const UniValue &txInputs = request.params[1];
 
     CLoanSetLoanToken loanToken;
 
@@ -360,7 +360,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -372,7 +372,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -427,7 +427,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
-    UniValue const & txInputs = request.params[2];
+    const UniValue &txInputs   = request.params[2];
 
     std::optional<CLoanSetLoanTokenImplementation> loanToken;
     std::optional<CTokenImplementation> token;
@@ -481,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -493,7 +493,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -648,7 +648,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -661,7 +661,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -735,7 +735,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -748,7 +748,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -811,7 +811,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -823,7 +823,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -890,7 +890,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -902,7 +902,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1063,7 +1063,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
                            "{\"vaultId\",\"amounts\"}");
 
     UniValue metaObj = request.params[0].get_obj();
-    UniValue const & txInputs = request.params[1];
+    const UniValue &txInputs = request.params[1];
 
     CLoanTakeLoanMessage takeLoan;
 
@@ -1103,7 +1103,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1115,7 +1115,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1286,8 +1286,8 @@ UniValue paybackloan(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
-    UniValue const & txInputs = request.params[1];
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    const UniValue &txInputs = request.params[1];
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1299,7 +1299,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     if (IsValidDestination(dest))
         coinControl.destChange = dest;
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1340,15 +1340,12 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto defaultScheme = view.GetDefaultLoanScheme();
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
 
-    // TODO: Later optimize this into a general dynamic worker pool, so we don't
-    // need to recreate these threads on each call.
-    boost::asio::thread_pool workerPool{[]() {
-        const size_t workersMax = GetNumCores() - 1;
-        // More than 8 is likely not very fruitful for ~10k vaults.
-        return std::min(workersMax > 2 ? workersMax : 3, static_cast<size_t>(8));
-    }()};
+    TaskGroup g;
+    g.AddTask();
 
-    boost::asio::post(workerPool, [&] {
+    auto &pool = DfTxTaskPool->pool;
+
+    boost::asio::post(pool, [&] {
         view.ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data) {
             totalLoanSchemes++;
             return true;
@@ -1386,32 +1383,41 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
             totalAuctions += data.batchCount;
             return true;
         }, height);
+
+        g.RemoveTask();
     });
 
     std::atomic<uint64_t> vaultsTotal{0};
     std::atomic<uint64_t> colsValTotal{0};
     std::atomic<uint64_t> loansValTotal{0};
 
-    view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal,
-            &loansValTotal=loansValTotal, &vaultsTotal=vaultsTotal,
-            vaultId=vaultId, height=height, useNextPrice=useNextPrice,
-            requireLivePrice=requireLivePrice] {
-            auto collaterals = view.GetVaultCollaterals(vaultId);
-            if (!collaterals)
-                collaterals = CBalances{};
-            auto rate = view.GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
-            if (rate)
-            {
-                colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);
-                loansValTotal.fetch_add(rate.val->totalLoans, std::memory_order_relaxed);
-            }
-            vaultsTotal.fetch_add(1, std::memory_order_relaxed);
-        });
+    view.ForEachVault([&](const CVaultId &vaultId, const CVaultData &data) {
+        g.AddTask();
+        boost::asio::post(pool,
+                          [&,
+                           &colsValTotal    = colsValTotal,
+                           &loansValTotal   = loansValTotal,
+                           &vaultsTotal     = vaultsTotal,
+                           vaultId          = vaultId,
+                           height           = height,
+                           useNextPrice     = useNextPrice,
+                           requireLivePrice = requireLivePrice] {
+                              auto collaterals = view.GetVaultCollaterals(vaultId);
+                              if (!collaterals)
+                                  collaterals = CBalances{};
+                              auto rate = view.GetVaultAssets(
+                                  vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+                              if (rate) {
+                                  colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);
+                                  loansValTotal.fetch_add(rate.val->totalLoans, std::memory_order_relaxed);
+                              }
+                              vaultsTotal.fetch_add(1, std::memory_order_relaxed);
+                              g.RemoveTask();
+                          });
         return true;
     });
 
-    workerPool.join();
+    g.WaitForCompletion();
     // We use relaxed ordering to increment. Thread joins should in theory,
     // resolve have resulted in full barriers, but we ensure
     // to throw in a full barrier anyway. x86 arch might appear to work without
@@ -1594,11 +1600,11 @@ UniValue paybackwithcollateral(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    UniValue const & txInputs = request.params[3];
+    const UniValue &txInputs = request.params[3];
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1609,7 +1615,7 @@ UniValue paybackwithcollateral(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

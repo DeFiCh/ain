@@ -23,6 +23,7 @@ from test_framework.util import connect_nodes, assert_equal
 # 2 hashes required per regtest block (with no difficulty adjustment)
 REGTEST_WORK_PER_BLOCK = 2
 
+
 class MinimumChainWorkTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -38,13 +39,13 @@ class MinimumChainWorkTest(DefiTestFramework):
         # peers, so ensure that we're mining on an outbound peer and testing
         # block relay to inbound peers.
         self.setup_nodes()
-        for i in range(self.num_nodes-1):
-            connect_nodes(self.nodes[i+1], i)
+        for i in range(self.num_nodes - 1):
+            connect_nodes(self.nodes[i + 1], i)
 
     def run_test(self):
         # Start building a chain on node0.  node2 shouldn't be able to sync until node1's
         # minchainwork is exceeded
-        starting_chain_work = REGTEST_WORK_PER_BLOCK # Genesis block's work
+        starting_chain_work = REGTEST_WORK_PER_BLOCK  # Genesis block's work
         self.log.info("Testing relay across node %d (minChainWork = %d)", 1, self.node_min_work[1])
 
         starting_blockcount = self.nodes[2].getblockcount()
@@ -84,6 +85,7 @@ class MinimumChainWorkTest(DefiTestFramework):
 
         self.sync_blocks()
         self.log.info("Blockcounts: %s", [n.getblockcount() for n in self.nodes])
+
 
 if __name__ == '__main__':
     MinimumChainWorkTest().main()

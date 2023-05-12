@@ -25,9 +25,10 @@
 #ifndef BRMerkleBlock_h
 #define BRMerkleBlock_h
 
-#include "BRLargeInt.h"
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <spv/support/BRLargeInt.h>
 
 #ifdef __cplusplus
 extern "C" {

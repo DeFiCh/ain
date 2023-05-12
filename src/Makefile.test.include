@@ -29,7 +29,7 @@ FUZZ_TARGETS = \
 if ENABLE_FUZZ
 noinst_PROGRAMS += $(FUZZ_TARGETS:=)
 else
-bin_PROGRAMS += test/test_defi
+noinst_PROGRAMS += test/test_defi
 endif
 
 TEST_SRCDIR = test
@@ -66,13 +66,13 @@ FUZZ_SUITE_LD_COMMON = \
  $(LIBDEFI_COMMON) \
  $(LIBDEFI_UTIL) \
  $(LIBDEFI_CONSENSUS) \
- $(LIBDEFI_CRYPTO) \
- $(LIBUNIVALUE) \
  $(LIBDEFI_SPV) \
+ $(LIBDEFI_CRYPTO) \
  $(LIBLEVELDB) \
  $(BOOST_LIBS) \
  $(LIBMEMENV) \
  $(LIBSECP256K1) \
+ $(LIBUNIVALUE) \
  $(EVENT_LIBS) \
  $(EVENT_PTHREADS_LIBS)
 
@@ -365,7 +365,7 @@ if TARGET_WINDOWS
 else
 if ENABLE_BENCH
 	@echo "Running bench/bench_defi -evals=1 -scaling=0..."
-	$(BENCH_BINARY) -evals=1 -scaling=0 > /dev/null
+	$(BENCH_BINARY) -evals=1 -scaling=0
 endif
 endif
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
@@ -374,8 +374,8 @@ if EMBEDDED_UNIVALUE
 endif
 
 %.cpp.test: %.cpp
-	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $<
-	$(AM_V_at)$(TEST_BINARY) -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" > $<.log 2>&1 || (cat $<.log && false)
+	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $@ $<
+	$(AM_V_at)$(TEST_BINARY) -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" > $@.log 2>&1 || (cat $@.log && false)
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)

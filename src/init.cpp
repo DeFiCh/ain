@@ -23,11 +23,13 @@
 #include <index/txindex.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/threadpool.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -285,6 +287,7 @@ void Shutdown(InitInterfaces& interfaces)
 
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
+    ShutdownDfTxGlobalTaskPool();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -505,14 +508,15 @@ void SetupServerArgs()
     gArgs.AddArg("-greatworldheight", "Alias for Fort Canning Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-grandcentralepilogueheight", "Grand Central Next fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-nextnetworkupgradeheight", "Next Network Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-grandcentralepilogueheight", "Grand Central Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-nextnetworkupgradeheight", "Next NEtwork Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-blocktimeordering", strprintf("Whether to order transactions by time, otherwise ordered by fee (default: %u)", DEFAULT_FEE_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -630,6 +634,12 @@ void SetupServerArgs()
     gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-rpc-governance-accept-neutral", "Allow voting with neutral votes for JellyFish purpose", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-dftxworkers=<n>", strprintf("No. of parallel workers associated with the DfTx related work pool. Stock splits, parallel processing of the chain where appropriate, etc use this worker pool (default: %d)", DEFAULT_DFTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-maxaddrratepersecond=<n>", strprintf("Sets MAX_ADDR_RATE_PER_SECOND limit for ADDR messages(default: %f)", MAX_ADDR_RATE_PER_SECOND), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JASON-RPC connections on <port>> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -637,6 +647,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-daemon");
 #endif
 
+    RPCMetadata::SetupArgs(gArgs);
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
 }
@@ -870,6 +881,7 @@ static bool AppInitServers()
         default: return RPCResultCache::RPCCacheMode::None;
     }}();
     GetRPCResultCache().Init(rpcCacheMode);
+    GetMemoizedResultCache().Init(rpcCacheMode);
 
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
@@ -945,6 +957,26 @@ void InitParameterInteraction()
         if (gArgs.SoftSetBoolArg("-whitelistrelay", true))
             LogPrintf("%s: parameter interaction: -whitelistforcerelay=1 -> setting -whitelistrelay=1\n", __func__);
     }
+
+    // Parse leveldb checksum
+    const auto checksumArg = gArgs.GetArg("-leveldbchecksum", DEFAULT_LEVELDB_CHECKSUM);
+    if (checksumArg == "true"){
+        levelDBChecksum = true;
+    } else if (checksumArg == "false") {
+        levelDBChecksum = false;
+    } else {
+        if (checksumArg != "auto"){
+            InitWarning("Invalid value for -leveldbchecksum, setting default value -> 'auto'");
+        }
+        if (levelDBChecksum = gArgs.IsArgSet("-masternode_operator"); levelDBChecksum) {
+            LogPrintf("%s: parameter interaction: -masternode_operator -> setting -leveldbchecksum='true'\n", __func__);
+        }
+    }
+
+    txOrdering = static_cast<TxOrderings>(gArgs.GetArg("-txordering", DEFAULT_TX_ORDERING));
+
+    if (gArgs.GetBoolArg("-blocktimeordering", false))
+        txOrdering = TxOrderings::ENTRYTIME_ORDERING;
 }
 
 /**
@@ -1222,6 +1254,17 @@ bool AppInitParameterInteraction()
         return InitError("peertimeout cannot be configured with a negative value.");
     }
 
+    maxAddrRatePerSecond = gArgs.GetDoubleArg("-maxaddrratepersecond", Params().NetworkIDString() == CBaseChainParams::REGTEST ? MAX_ADDR_RATE_PER_SECOND_REGTEST : MAX_ADDR_RATE_PER_SECOND);
+
+    if (maxAddrRatePerSecond <= static_cast<double>(0)) {
+        return InitError("maxaddrratepersecond cannot be configured with a negative value.");
+    }
+
+    maxAddrProcessingTokenBucket = gArgs.GetArg("-maxaddrprocessingtokenbucket", MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+    if (maxAddrProcessingTokenBucket <= 0) {
+        return InitError("maxaddrprocessingtokenbucket cannot be configured with a negative value.");
+    }
+
     if (gArgs.IsArgSet("-minrelaytxfee")) {
         CAmount n = 0;
         if (!ParseMoney(gArgs.GetArg("-minrelaytxfee", ""), n)) {
@@ -1380,6 +1423,24 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
+static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
+    LOCK(cs_main);
+
+    std::set<CVaultId> vaults;
+    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        vaults.insert(vaultId);
+        return true;
+    });
+
+    for (const auto &vaultId : vaults) {
+        const auto vault = mnview.GetVault(vaultId);
+        if (!vault) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1430,12 +1491,17 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     InitSignatureCache();
     InitScriptExecutionCache();
+    RPCMetadata::InitFromArgs(gArgs);
 
     int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
     if (script_threads <= 0) {
         // -par=0 means autodetect (number of cores - 1 script threads)
         // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
         script_threads += GetNumCores();
+        // DeFiChain specific:
+        // Set this to a max value, since most custom TXs don't utilize this unfortunately
+        // and is just a waste of resources.
+        script_threads = std::min(script_threads, 4);
     }
 
     // Subtract 1 because the main thread counts towards the par threads
@@ -1485,6 +1551,13 @@ bool AppInitMain(InitInterfaces& interfaces)
         if (!AppInitServers())
             return InitError(_("Unable to start HTTP server. See debug log for details.").translated);
     }
+
+    // ********************************************************* Step 4b: application initialization
+
+    init_runtime();
+    int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+    int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
+    start_servers("127.0.0.1:" + std::to_string(eth_rpc_port), "127.0.0.1:" +  std::to_string(grpc_port));
 
     // ********************************************************* Step 5: verify wallet database integrity
     for (const auto& client : interfaces.chain_clients) {
@@ -1649,6 +1722,8 @@ bool AppInitMain(InitInterfaces& interfaces)
     LogPrintf("* Using %.1f MiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 
+    InitDfTxGlobalTaskPool();
+
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
         bool fReset = fReindex;
@@ -1740,6 +1815,11 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
+                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();
@@ -2145,7 +2225,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         auto pwallet = GetWallets()[0];
         pwallet->SetAddressBook(dest, "", "receive");
-        pwallet->ImportPrivKeys({{keyID, key}}, time);
+        pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
 
         // Create masternode
         CMasternode node;

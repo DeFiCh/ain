@@ -14,16 +14,19 @@ import calendar
 import time
 from decimal import Decimal
 
-class LoanTakeLoanTest (DefiTestFramework):
+
+class LoanTakeLoanTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=220', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=220', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
+             '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         print("Generating initial chain...")
         self.nodes[0].generate(50)
@@ -81,38 +84,38 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].setcollateraltoken({
-                                    'token': idDFI,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"})
+            'token': idDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
-                                    'token': idBTC,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"})
+            'token': idBTC,
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
-                                    'symbol': symbolTSLA,
-                                    'name': "Tesla stock token",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': False,
-                                    'interest': 1})
+            'symbol': symbolTSLA,
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': False,
+            'interest': 1})
 
         self.nodes[0].setloantoken({
-                                    'symbol': symbolGOOGL,
-                                    'name': "Tesla stock token",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': True,
-                                    'interest': 2})
+            'symbol': symbolGOOGL,
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': True,
+            'interest': 2})
 
         self.nodes[0].setloantoken({
-                                    'symbol': symboldUSD,
-                                    'name': "DUSD stable token",
-                                    'fixedIntervalPriceId': "DUSD/USD",
-                                    'mintable': True,
-                                    'interest': 1})
+            'symbol': symboldUSD,
+            'name': "DUSD stable token",
+            'fixedIntervalPriceId': "DUSD/USD",
+            'mintable': True,
+            'interest': 1})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -135,7 +138,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         idTSLA = list(self.nodes[0].getloantoken(symbolTSLA)["token"])[0]
         idGOOGL = list(self.nodes[0].getloantoken(symbolGOOGL)["token"])[0]
 
-        vaultId1 = self.nodes[0].createvault( account0, 'LOAN150')
+        vaultId1 = self.nodes[0].createvault(account0, 'LOAN150')
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -146,8 +149,8 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': vaultId1,
-                    'amounts': "2000@" + symboldUSD})
+            'vaultId': vaultId1,
+            'amounts': "2000@" + symboldUSD})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -174,7 +177,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        vaultId = self.nodes[0].createvault( account0, 'LOAN150')
+        vaultId = self.nodes[0].createvault(account0, 'LOAN150')
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -183,46 +186,47 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         try:
             self.nodes[0].takeloan({
-                    'vaultId': setLoanTokenTSLA,
-                    'amounts': "1@" + symbolTSLA})
+                'vaultId': setLoanTokenTSLA,
+                'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Vault <{}> not found".format(setLoanTokenTSLA) in errorString)
+        assert ("Vault <{}> not found".format(setLoanTokenTSLA) in errorString)
 
         try:
             self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "1@" + symbolBTC})
+                'vaultId': vaultId,
+                'amounts': "1@" + symbolBTC})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan token with id (" + idBTC + ") does not exist" in errorString)
+        assert ("Loan token with id (" + idBTC + ") does not exist" in errorString)
 
         try:
             self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "1@AAAA"})
+                'vaultId': vaultId,
+                'amounts': "1@AAAA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid Defi token: AAAA" in errorString)
+        assert ("Invalid Defi token: AAAA" in errorString)
 
         try:
             self.nodes[1].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "1@" + symbolTSLA})
+                'vaultId': vaultId,
+                'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Incorrect authorization for" in errorString)
+        assert ("Incorrect authorization for" in errorString)
 
         try:
             self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "1@" + symbolTSLA})
+                'vaultId': vaultId,
+                'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan cannot be taken on token with id (" + idTSLA + ") as \"mintable\" is currently false" in errorString)
+        assert (
+                    "Loan cannot be taken on token with id (" + idTSLA + ") as \"mintable\" is currently false" in errorString)
 
-        setLoanTokenTSLA = self.nodes[0].updateloantoken(idTSLA,{
-                                    'mintable': True})
+        setLoanTokenTSLA = self.nodes[0].updateloantoken(idTSLA, {
+            'mintable': True})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -263,15 +267,16 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
+            'vaultId': vaultId,
+            'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000114@' + symbolTSLA, '2.00000266@' + symbolGOOGL]))
-        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00000266@GOOGL','0.00000114@TSLA']))
+        assert_equal(sorted(vaultInfo['loanAmounts']),
+                     sorted(['1.00000114@' + symbolTSLA, '2.00000266@' + symbolGOOGL]))
+        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00000266@GOOGL', '0.00000114@TSLA']))
         assert_equal(vaultInfo['interestValue'], Decimal('0.00003800'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2'))
@@ -290,7 +295,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(loans['totals']['collateralTokens'], 2)
         assert_equal(loans['totals']['loanTokens'], 3)
 
-        vaultId2 = self.nodes[1].createvault( account1, 'LOAN150')
+        vaultId2 = self.nodes[1].createvault(account1, 'LOAN150')
 
         self.nodes[1].generate(2)
         self.sync_blocks()
@@ -307,21 +312,21 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': setLoanTokenTSLA,
-                        'from': account0,
-                        'amounts': "0.5@" + symbolTSLA})
+                'vaultId': setLoanTokenTSLA,
+                'from': account0,
+                'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing vault with id" in errorString)
+        assert ("Cannot find existing vault with id" in errorString)
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': vaultId2,
-                        'from': account0,
-                        'amounts': "0.5@" + symbolTSLA})
+                'vaultId': vaultId2,
+                'from': account0,
+                'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Vault with id " + vaultId2 + " has no collaterals" in errorString)
+        assert ("Vault with id " + vaultId2 + " has no collaterals" in errorString)
 
         self.nodes[1].deposittovault(vaultId2, account1, "100@" + symbolDFI)
 
@@ -330,12 +335,12 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': vaultId2,
-                        'from': account0,
-                        'amounts': "0.5@" + symbolTSLA})
+                'vaultId': vaultId2,
+                'from': account0,
+                'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("There are no loans on this vault" in errorString)
+        assert ("There are no loans on this vault" in errorString)
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:
@@ -344,21 +349,23 @@ class LoanTakeLoanTest (DefiTestFramework):
                 assert_equal(interest['totalInterest'], Decimal('0.00001064'))
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000456@' + symbolTSLA, '2.00001064@' + symbolGOOGL]))
+        assert_equal(sorted(vaultInfo['loanAmounts']),
+                     sorted(['1.00000456@' + symbolTSLA, '2.00001064@' + symbolGOOGL]))
         assert_equal(vaultInfo['interestValue'], Decimal('0.00015200'))
-        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00001064@GOOGL','0.00000456@TSLA']))
+        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00001064@GOOGL', '0.00000456@TSLA']))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))
 
         self.nodes[0].paybackloan({
-                    'vaultId': vaultId,
-                    'from': account0,
-                    'amounts': ["0.50000456@" + symbolTSLA, "1.00001064@" + symbolGOOGL]})
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': ["0.50000456@" + symbolTSLA, "1.00001064@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001064@GOOGL', '-0.50000456@TSLA']))
+        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']),
+                     sorted(['-1.00001064@GOOGL', '-0.50000456@TSLA']))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('0.49999544'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('0.99998937'))
 
@@ -371,43 +378,46 @@ class LoanTakeLoanTest (DefiTestFramework):
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(self.nodes[0].getburninfo()['paybackburn'], ['0.00186822@' + symbolDFI])
-        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
+        assert_equal(sorted(vaultInfo['loanAmounts']),
+                     sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
 
         try:
             self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot withdraw all collaterals as there are still active loans in this vault" in errorString)
+        assert ("Cannot withdraw all collaterals as there are still active loans in this vault" in errorString)
 
         try:
             self.nodes[0].withdrawfromvault(vaultId, account0, "199@" + symbolDFI)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
+        assert ("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].withdrawfromvault(vaultId, account0, "100@" + symbolDFI)
         # self.nodes[0].generate(1)
 
-        #to be able to repay whole loan
+        # to be able to repay whole loan
         self.nodes[0].minttokens(["0.00001083@" + symbolTSLA, "0.00002659@" + symbolGOOGL])
 
         self.nodes[0].generate(10)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000627@' + symbolTSLA, '1.00001463@' + symbolGOOGL]))
+        assert_equal(sorted(vaultInfo['loanAmounts']),
+                     sorted(['0.50000627@' + symbolTSLA, '1.00001463@' + symbolGOOGL]))
 
         self.nodes[0].paybackloan({
-                    'vaultId': vaultId,
-                    'from': account0,
-                    'amounts': vaultInfo['loanAmounts']})
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': vaultInfo['loanAmounts']})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmounts'], [])
-        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
+        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']),
+                     sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
         assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], ['0.00443685@' + symbolDFI])
 
         for interest in self.nodes[0].getinterest('LOAN150'):
@@ -429,9 +439,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(vaultInfo['loanValue'], Decimal('0.00000000'))
 
         self.nodes[0].paybackloan({
-                    'vaultId': vaultId1,
-                    'from': account0,
-                    'amounts': "500@" + symboldUSD})
+            'vaultId': vaultId1,
+            'from': account0,
+            'amounts': "500@" + symboldUSD})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -475,7 +485,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         address2 = self.nodes[0].getnewaddress()
-        self.nodes[0].sendtokenstoaddress({}, {address2:["5@TSLA", "5@GOOGL"]}) # split into two address
+        self.nodes[0].sendtokenstoaddress({}, {address2: ["5@TSLA", "5@GOOGL"]})  # split into two address
         self.nodes[0].generate(1)
 
         try:
@@ -486,19 +496,19 @@ class LoanTakeLoanTest (DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
+        assert ("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
 
         self.nodes[0].paybackloan({
-                'vaultId': vaultId3,
-                'from': "*",
-                'amounts': "5@" + symbolTSLA
+            'vaultId': vaultId3,
+            'from': "*",
+            'amounts': "5@" + symbolTSLA
         })
         self.nodes[0].generate(1)
 
         vault = self.nodes[0].getvault(vaultId3)
         assert_equal(sorted(vault['loanAmounts']), sorted(['5.00002853@' + symbolTSLA, '10.00003993@' + symbolGOOGL]))
 
-        self.nodes[0].sendtokenstoaddress({}, {address2:["5@" + symbolTSLA, "10@" + symbolGOOGL]})
+        self.nodes[0].sendtokenstoaddress({}, {address2: ["5@" + symbolTSLA, "10@" + symbolGOOGL]})
         self.nodes[0].generate(1)
 
         self.nodes[0].paybackloan({
@@ -510,7 +520,6 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vault = self.nodes[0].getvault(vaultId3)
         assert_equal(sorted(vault['loanAmounts']), sorted(['0.00003425@' + symbolTSLA, '0.00005324@' + symbolGOOGL]))
-
 
         # Test 100% interest on 1 sat loan
         address = self.nodes[0].getnewaddress()
@@ -533,12 +542,12 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(vaultId4)
-        assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA") # 100% interest
+        assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA")  # 100% interest
 
         self.nodes[0].minttokens(["5@" + symbolTSLA])
         self.nodes[0].generate(1)
 
-        self.nodes[0].sendtokenstoaddress({}, {address2 :["5@" + symbolTSLA]})
+        self.nodes[0].sendtokenstoaddress({}, {address2: ["5@" + symbolTSLA]})
         self.nodes[0].generate(1)
 
         for _ in range(1, 100):
@@ -550,20 +559,20 @@ class LoanTakeLoanTest (DefiTestFramework):
             self.nodes[0].generate(1)
 
             vault = self.nodes[0].getvault(vaultId4)
-            assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA") # 100% interest
+            assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA")  # 100% interest
 
         self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(vaultId4)
         assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA")
 
-        self.nodes[0].generate(40) # 40 blocks don't accrue interest
+        self.nodes[0].generate(40)  # 40 blocks don't accrue interest
         vaultAfter = self.nodes[0].getvault(vaultId4)
         assert_equal(vault['loanAmounts'][0], vaultAfter['loanAmounts'][0])
 
         self.nodes[0].paybackloan({
             'vaultId': vaultId4,
             'from': "*",
-            'amounts': vault['loanAmounts'][0] # Has to pay whole loanAmounts to be able to close vault
+            'amounts': vault['loanAmounts'][0]  # Has to pay whole loanAmounts to be able to close vault
         })
         self.nodes[0].generate(1)
 

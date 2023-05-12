@@ -11,11 +11,16 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 
+
 class DUSDCollateralFactorTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=200', '-jellyfish_regtest=1']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1',
+             '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1', '-fortcanninghillheight=1',
+             '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=200',
+             '-jellyfish_regtest=1']]
 
     def run_test(self):
         # Setup
@@ -109,9 +114,9 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def set_collateral_factor(self):
-
         # Test setting new token factor before fork
-        assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.49'}})
+        assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setgov,
+                                {"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.49'}})
 
         # Move to fork
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
@@ -121,10 +126,12 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Test setting higher than the lowest scheme rate
-        assert_raises_rpc_error(-32600, "Factor cannot be more than or equal to the lowest scheme rate of 1.50000000", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.50'}})
+        assert_raises_rpc_error(-32600, "Factor cannot be more than or equal to the lowest scheme rate of 1.50000000",
+                                self.nodes[0].setgov,
+                                {"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.50'}})
 
         # Now set new token factor
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.49'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.49'}})
         self.nodes[0].generate(1)
 
         # Check results
@@ -132,7 +139,6 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         assert_equal(attributes['v0/token/1/loan_collateral_factor'], '1.49')
 
     def take_dusd_loan(self):
-
         # Create vault
         vault_address = self.nodes[0].getnewaddress('', 'legacy')
         vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
@@ -145,7 +151,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take DUSD loan greater than collateral amount
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"2.98@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"2.98@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check that we are on 150% collateral ratio
@@ -156,7 +162,6 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         assert_equal(vault['loanValue'], Decimal('2.98000000'))
 
     def take_multiple_loans(self):
-
         # Create vault
         vault_address = self.nodes[0].getnewaddress('', 'legacy')
         vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
@@ -169,7 +174,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take TSLA loan for half the available ratio
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolTSLA}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolTSLA}"})
         self.nodes[0].generate(1)
 
         # Check that we are on 300% collateral ratio
@@ -180,7 +185,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         assert_equal(vault['loanValue'], Decimal('1.00000000'))
 
         # Take a DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check that vault still has capacity to take more loans
@@ -190,6 +195,6 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         assert_equal(vault['informativeRatio'], Decimal('186.75000000'))
         assert_equal(vault['collateralRatio'], 187)
 
+
 if __name__ == '__main__':
     DUSDCollateralFactorTest().main()
-

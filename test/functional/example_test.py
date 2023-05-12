@@ -29,6 +29,7 @@ from test_framework.util import (
     wait_until,
 )
 
+
 # P2PInterface is a class containing callbacks to be executed when a P2P
 # message is received from the node-under-test. Subclass P2PInterface and
 # override the on_*() methods if you need custom behaviour.
@@ -58,6 +59,7 @@ class BaseNode(P2PInterface):
     def on_inv(self, message):
         """Override the standard on_inv callback"""
         pass
+
 
 def custom_function():
     """Do some custom behaviour
@@ -170,7 +172,7 @@ class ExampleTest(DefiTestFramework):
             # Use the mininode and blocktools functionality to manually build a block
             # Calling the generate() rpc is easier, but this allows us to exactly
             # control the blocks and transactions.
-            block = create_block(self.tip, create_coinbase(height+1), self.block_time)
+            block = create_block(self.tip, create_coinbase(height + 1), self.block_time)
             block.solve()
             block_message = msg_block(block)
             # Send message is used to send a P2P message to the node over our P2PInterface
@@ -203,7 +205,8 @@ class ExampleTest(DefiTestFramework):
 
         # wait_until() will loop until a predicate condition is met. Use it to test properties of the
         # P2PInterface objects.
-        wait_until(lambda: sorted(blocks) == sorted(list(self.nodes[2].p2p.block_receive_map.keys())), timeout=5, lock=mininode_lock)
+        wait_until(lambda: sorted(blocks) == sorted(list(self.nodes[2].p2p.block_receive_map.keys())), timeout=5,
+                   lock=mininode_lock)
 
         self.log.info("Check that each block was received only once")
         # The network thread uses a global lock on data access to the P2PConnection objects when sending and receiving
@@ -212,6 +215,7 @@ class ExampleTest(DefiTestFramework):
         with mininode_lock:
             for block in self.nodes[2].p2p.block_receive_map.values():
                 assert_equal(block, 1)
+
 
 if __name__ == '__main__':
     ExampleTest().main()

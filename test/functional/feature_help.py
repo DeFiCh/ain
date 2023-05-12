@@ -7,6 +7,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
+
 class HelpTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True

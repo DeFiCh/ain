@@ -8,6 +8,7 @@ INPUT_CHARSET = "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|
 CHECKSUM_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 GENERATOR = [0xf5dee51989, 0xa9fdca3312, 0x1bab10e32d, 0x3706b1677a, 0x644d626ffd]
 
+
 def descsum_polymod(symbols):
     """Internal function that computes the descriptor checksum."""
     chk = 1
@@ -17,6 +18,7 @@ def descsum_polymod(symbols):
         for i in range(5):
             chk ^= GENERATOR[i] if ((top >> i) & 1) else 0
     return chk
+
 
 def descsum_expand(s):
     """Internal function that does the character to symbol expansion"""
@@ -37,11 +39,13 @@ def descsum_expand(s):
         symbols.append(groups[0] * 3 + groups[1])
     return symbols
 
+
 def descsum_create(s):
     """Add a checksum to a descriptor without"""
     symbols = descsum_expand(s) + [0, 0, 0, 0, 0, 0, 0, 0]
     checksum = descsum_polymod(symbols) ^ 1
     return s + '#' + ''.join(CHECKSUM_CHARSET[(checksum >> (5 * (7 - i))) & 31] for i in range(8))
+
 
 def descsum_check(s, require=True):
     """Verify that the checksum is correct in a descriptor"""

@@ -1,57 +1,53 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:18.04 as builder-base
+FROM --platform=linux/amd64 debian:10 as builder
 ARG TARGET
-LABEL org.defichain.name="defichain-builder-base"
+ARG CLANG_VERSION=15
+LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-RUN apt update && apt install -y apt-transport-https
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm_ubuntu_18_04
-
-# -----------
-FROM builder-base as depends-builder
-ARG TARGET
-LABEL org.defichain.name="defichain-depends-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-COPY ./depends ./depends
-
-RUN ./make.sh clean-depends && ./make.sh build-deps
-
-# -----------
-FROM builder-base as builder
-ARG TARGET
-ARG BUILD_VERSION=
-
-LABEL org.defichain.name="defichain-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_llvm
 
 COPY . .
-RUN ./make.sh purge && rm -rf ./depends
-COPY --from=depends-builder /work/depends ./depends
+RUN ./make.sh clean-depends && \
+    export MAKE_DEPS_ARGS="\
+        x86_64_linux_CC=clang-${CLANG_VERSION} \
+        x86_64_linux_CXX=clang++-${CLANG_VERSION}" && \
+    ./make.sh build-deps
+RUN export MAKE_CONF_ARGS="\
+    CC=clang-${CLANG_VERSION} \
+    CXX=clang++-${CLANG_VERSION}" && \
+    ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-make
 
-RUN ./make.sh clean && ./autogen.sh
-RUN export MAKE_COMPILER="CC=clang-14 CCX=clang++-14" && \
-    ./make.sh build-conf && ./make.sh build-make
-
-RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
+RUN mkdir /app && cd build/${TARGET} && \
+    make -s prefix=/ DESTDIR=/app install
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:18.04
+FROM --platform=linux/amd64 debian:10
 ARG TARGET
+ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-
 COPY --from=builder /app/. ./
 
+RUN useradd --create-home defi && \
+    mkdir -p /data && \
+    chown defi:defi /data && \
+    ln -s /data /home/defi/.defi
+
+VOLUME ["/data"]
+
+USER defi:defi
+CMD [ "/app/bin/defid" ]
+
+EXPOSE 8554 8550 8551 18554 18550 18551 19554 19550 19551 20554 20550 20551

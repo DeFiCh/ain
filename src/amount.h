@@ -77,9 +77,11 @@ struct DCT_ID {
 
 static constexpr CAmount COIN = 100000000;
 static constexpr CAmount CENT = 1000000;
+static constexpr int64_t WEI_IN_GWEI    = 1000000000;
+static constexpr int64_t CAMOUNT_TO_WEI = 10;
 
 //Converts the given value to decimal format string with COIN precision.
-inline std::string GetDecimaleString(CAmount nValue)
+inline std::string GetDecimalString(CAmount nValue)
 {
     const bool sign = nValue < 0;
     const int64_t n_abs = (sign ? -nValue : nValue);
@@ -92,16 +94,20 @@ typedef std::map<DCT_ID, CAmount> TAmounts;
 
 inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     // check limits
-    Require(_a >= 0 && _b >= 0, "negative amount");
+    if (_a < 0 || _b < 0) {
+        return Res::Err("negative amount");
+    }
 
     // convert to unsigned, because signed overflow is UB
-    const uint64_t a = (uint64_t) _a;
-    const uint64_t b = (uint64_t) _b;
+    const auto a = static_cast<uint64_t>(_a);
+    const auto b = static_cast<uint64_t>(_b);
 
-    const uint64_t sum = a + b;
+    const auto sum = a + b;
     // check overflow
 
-    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, "overflow");
+    if ((sum - a) != b || static_cast<uint64_t>(std::numeric_limits<CAmount>::max()) < sum) {
+        return Res::Err("overflow");
+    }
     return {(CAmount) sum, Res::Ok()};
 }
 
@@ -120,16 +126,20 @@ struct CTokenAmount { // simple std::pair is less informative
     CAmount nValue;
 
     std::string ToString() const {
-        return strprintf("%s@%d", GetDecimaleString(nValue), nTokenId.v);
+        return strprintf("%s@%d", GetDecimalString(nValue), nTokenId.v);
     }
 
     Res Add(CAmount amount) {
         // safety checks
-        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+        if (amount < 0) {
+            return Res::Err("negative amount: %s", GetDecimalString(amount));
+        }
 
         // add
         auto sumRes = SafeAdd(nValue, amount);
-        Require(sumRes);
+        if (!sumRes) {
+            return std::move(sumRes);
+        }
 
         nValue = *sumRes;
         return Res::Ok();
@@ -137,8 +147,12 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Sub(CAmount amount) {
         // safety checks
-        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
-        Require(nValue >= amount, "amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
+        if (amount < 0) {
+            return Res::Err("negative amount: %s", GetDecimalString(amount));
+        }
+        if (this->nValue < amount) {
+            return Res::Err("amount %s is less than %s", GetDecimalString(this->nValue), GetDecimalString(amount));
+        }
 
         // sub
         nValue -= amount;

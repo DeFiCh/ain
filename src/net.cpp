@@ -533,6 +533,8 @@ void CNode::copyStats(CNodeStats &stats)
         LOCK(cs_feeFilter);
         X(minFeeFilter);
     }
+    X(nProcessedAddrs);
+    X(nRatelimitedAddrs);
 
     // It is common for nodes with good ping times to suddenly become lagged,
     // due to a new block arriving or other large transfer.
@@ -2648,6 +2650,8 @@ CNode::CNode(NodeId idIn, ServiceFlags nLocalServicesIn, int nMyStartingHeightIn
     } else {
         LogPrint(BCLog::NET, "Added connection peer=%d\n", id);
     }
+
+    nAddrTokenTimestamp = GetTimeMicros();
 }
 
 CNode::~CNode()

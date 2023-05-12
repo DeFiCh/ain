@@ -30,6 +30,8 @@ static const bool DEFAULT_GENERATE = false;
 
 static const bool DEFAULT_PRINTPRIORITY = false;
 
+extern TxOrderings txOrdering;
+
 struct CBlockTemplate
 {
     CBlock block;
@@ -191,7 +193,7 @@ private:
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
     template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -222,6 +224,9 @@ namespace pos {
 // The main staking routine.
 // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
 // Uses Args.getWallets() to receive and update wallets list.
+
+    extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
+
     class ThreadStaker {
     public:
 
@@ -256,7 +261,6 @@ namespace pos {
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
         static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;

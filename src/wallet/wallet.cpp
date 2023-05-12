@@ -261,22 +261,22 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     return &(*it);
 }
 
-CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
+CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal, const bool ethAddress)
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
     AssertLockHeld(cs_wallet);
-    bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
+    bool fCompressed = !ethAddress && CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
 
     CKey secret;
 
     // Create new metadata
     int64_t nCreationTime = GetTime();
-    CKeyMetadata metadata(nCreationTime);
+    CKeyMetadata metadata(nCreationTime, ethAddress);
 
     // use HD key derivation if HD was enabled during wallet creation and a seed is present
     if (IsHDEnabled()) {
-        DeriveNewChildKey(batch, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
+        DeriveNewChildKey(batch, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false), ethAddress);
     } else {
         secret.MakeNewKey(fCompressed);
     }
@@ -289,16 +289,17 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    mapKeyMetadata[pubkey.GetID()] = metadata;
+    const auto keyID = ethAddress ? pubkey.GetEthID() : pubkey.GetID();
+    mapKeyMetadata[keyID] = metadata;
     UpdateTimeFirstKey(nCreationTime);
 
-    if (!AddKeyPubKeyWithDB(batch, secret, pubkey)) {
+    if (!AddKeyPubKeyWithDB(batch, secret, pubkey, ethAddress)) {
         throw std::runtime_error(std::string(__func__) + ": AddKey failed");
     }
     return pubkey;
 }
 
-void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey& secret, bool internal)
+void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey& secret, bool internal, const bool ethAddress)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
     CKey seed;                     //seed (256bit)
@@ -327,7 +328,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
         // childIndex | BIP32_HARDENED_KEY_LIMIT = derive childIndex in hardened child-index-range
         // example: 1 | BIP32_HARDENED_KEY_LIMIT == 0x80000001 == 2147483649
         if (internal) {
-            chainChildKey.Derive(childKey, hdChain.nInternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
+            chainChildKey.Derive(childKey, hdChain.nInternalChainCounter | BIP32_HARDENED_KEY_LIMIT, ethAddress);
             metadata.hdKeypath = "m/0'/1'/" + std::to_string(hdChain.nInternalChainCounter) + "'";
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
             metadata.key_origin.path.push_back(1 | BIP32_HARDENED_KEY_LIMIT);
@@ -335,7 +336,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
             hdChain.nInternalChainCounter++;
         }
         else {
-            chainChildKey.Derive(childKey, hdChain.nExternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
+            chainChildKey.Derive(childKey, hdChain.nExternalChainCounter | BIP32_HARDENED_KEY_LIMIT, ethAddress);
             metadata.hdKeypath = "m/0'/0'/" + std::to_string(hdChain.nExternalChainCounter) + "'";
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
             metadata.key_origin.path.push_back(0 | BIP32_HARDENED_KEY_LIMIT);
@@ -353,7 +354,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
         throw std::runtime_error(std::string(__func__) + ": Writing HD chain model failed");
 }
 
-bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const CPubKey& pubkey)
+bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const CPubKey& pubkey, const bool ethAddress)
 {
     AssertLockHeld(cs_wallet);
 
@@ -367,7 +368,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     if (needsDB) {
         encrypted_batch = &batch;
     }
-    if (!AddKeyPubKeyInner(secret, pubkey)) {
+    if (!AddKeyPubKeyInner(secret, pubkey, ethAddress)) {
         if (needsDB) encrypted_batch = nullptr;
         return false;
     }
@@ -391,35 +392,39 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     }
 
     if (!IsCrypted()) {
+        const auto keyID = ethAddress ? pubkey.GetEthID() : pubkey.GetID();
         return batch.WriteKey(pubkey,
                               secret.GetPrivKey(),
-                              mapKeyMetadata[pubkey.GetID()]);
+                              mapKeyMetadata[keyID],
+                              ethAddress);
     }
     UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
 }
 
-bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
+bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey, const bool ethAddress)
 {
     WalletBatch batch(*database);
-    return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey);
+    return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey, ethAddress);
 }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
-                            const std::vector<unsigned char> &vchCryptedSecret)
+                            const std::vector<unsigned char> &vchCryptedSecret,
+                            const bool ethAddress)
 {
-    if (!AddCryptedKeyInner(vchPubKey, vchCryptedSecret))
+    if (!AddCryptedKeyInner(vchPubKey, vchCryptedSecret, ethAddress))
         return false;
     {
         LOCK(cs_wallet);
+        const auto keyID = ethAddress ? vchPubKey.GetEthID() : vchPubKey.GetID();
         if (encrypted_batch)
             return encrypted_batch->WriteCryptedKey(vchPubKey,
                                                         vchCryptedSecret,
-                                                        mapKeyMetadata[vchPubKey.GetID()]);
+                                                        mapKeyMetadata[keyID]);
         else
             return WalletBatch(*database).WriteCryptedKey(vchPubKey,
                                                             vchCryptedSecret,
-                                                            mapKeyMetadata[vchPubKey.GetID()]);
+                                                            mapKeyMetadata[keyID]);
     }
 }
 
@@ -1653,7 +1658,7 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         mapKeyMetadata[seed.GetID()] = metadata;
 
         // write the key&metadata to the database
-        if (!AddKeyPubKey(key, seed))
+        if (!AddKeyPubKey(key, seed, false))
             throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
     }
 
@@ -1814,13 +1819,12 @@ bool CWallet::ImportScripts(const std::set<CScript>& scripts, int64_t timestamp)
     return true;
 }
 
-bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const int64_t timestamp)
+bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, const int64_t timestamp)
 {
     WalletBatch batch(*database);
-    for (const auto& entry : privkey_map) {
-        const CKey& key = entry.second;
+    for (const auto& [id, keyPair] : privkey_map) {
+        const CKey& key = keyPair.first;
         CPubKey pubkey = key.GetPubKey();
-        const CKeyID& id = entry.first;
         assert(key.VerifyPubKey(pubkey));
         // Skip if we already have the key
         if (HaveKey(id)) {
@@ -1829,7 +1833,7 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         }
         mapKeyMetadata[id].nCreateTime = timestamp;
         // If the private key is not present in the wallet, insert it.
-        if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
+        if (!AddKeyPubKeyWithDB(batch, key, pubkey, keyPair.second)) {
             return false;
         }
         UpdateTimeFirstKey(timestamp);
@@ -2488,7 +2492,7 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const CoinSelectionOptions &coinSelectOpts) const
 {
     AssertLockHeld(cs_wallet);
 
@@ -2499,6 +2503,8 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     bool allow_used_addresses = !IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
+
+    bool skipSolvable = coinSelectOpts.IsSkipSolvableEnabled() || coinSelectOpts.IsFastSelectEnabled();
 
     for (const auto& wtx : mapWallet.get<ByHash>())
     {
@@ -2600,8 +2606,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 }
             }
 
-
-            bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = skipSolvable || IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
@@ -2850,7 +2855,7 @@ bool CWallet::SignTransaction(CMutableTransaction& tx)
     return true;
 }
 
-bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl& coinControl)
+bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl& coinControl, const CoinSelectionOptions &coinSelectOpts)
 {
     std::vector<CRecipient> vecSend;
 
@@ -2873,7 +2878,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     LOCK2(cs_wallet, locked_chain->mutex());
 
     CTransactionRef tx_new;
-    if (!CreateTransaction(*locked_chain, vecSend, tx_new, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
+    if (!CreateTransaction(*locked_chain, vecSend, tx_new, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, coinSelectOpts)) {
         return false;
     }
 
@@ -2989,7 +2994,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSendOrig, CTransactionRef& tx, CAmount& nFeeRet,
-                         /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                         /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, const CoinSelectionOptions &coinSelectOpts)
 {
     CAmount nValue = 0;
     std::vector<CRecipient> vecSend(vecSendOrig);
@@ -3005,19 +3010,22 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             strFailReason = _("Transaction amounts must not be negative").translated;
             return false;
         }
-        if (recipient.nTokenId == DCT_ID{0})
-        {
-            nValue += recipient.nAmount;
 
-            if (recipient.fSubtractFeeFromAmount)
-                nSubtractFeeFromAmount++;
+        if (recipient.nTokenId != DCT_ID{0}) {
+            strFailReason = "Unexpected token type set for recipient. Only native DFI token type expected.";
+            return false;
         }
-        else
-        {
-            assert(!recipient.fSubtractFeeFromAmount);
-            vTokenValues[recipient.nTokenId] += recipient.nAmount;
-        }
+
+        nValue += recipient.nAmount;
+
+        if (recipient.fSubtractFeeFromAmount)
+            nSubtractFeeFromAmount++;
     }
+
+    bool eagerSelect = coinSelectOpts.IsEagerSelectEnabled() || coinSelectOpts.IsFastSelectEnabled();
+    
+    const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
+
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient").translated;
@@ -3034,68 +3042,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
     const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
 
-    std::map<DCT_ID, std::unique_ptr<ReserveDestination> > tokensreservedest;
-    std::set<CInputCoin> tokenCoins;
-    {
-        auto locked_chain = chain().lock();
-        LOCK2(cs_wallet, locked_chain->mutex());
-
-        for (auto it = vTokenValues.begin(); it != vTokenValues.end(); ++it)
-        {
-            std::vector<COutput> vAvailableCoins;
-
-            DCT_ID tokenId = it->first;
-            CCoinControl ccSingleToken(coin_control);
-            ccSingleToken.m_tokenFilter = { tokenId };
-
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, MAX_MONEY, MAX_MONEY, 0);
-
-            tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
-            CScript scriptChange;
-            // coin control: send change to custom address
-            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
-                scriptChange = GetScriptForDestination(coin_control.destChange);
-            } else { // no coin control: send change to newly generated address
-                // Reserve a new key pair from key pool
-                if (!CanGetAddresses(true)) {
-                    strFailReason = _("Can't generate a change-address key. No keys in the internal keypool and can't generate any keys.").translated;
-                    return false;
-                }
-                CTxDestination dest;
-                if (!tokensreservedest.at(tokenId)->GetReservedDestination(change_type, dest, true))
-                {
-                    strFailReason = "Keypool ran out, please call keypoolrefill first";
-                    return false;
-                }
-                scriptChange = GetScriptForDestination(dest);
-            }
-
-            CAmount nValueIn;
-            std::set<CInputCoin> setCoins;
-            bool bnb_used;
-            CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
-            bool result = SelectCoins(vAvailableCoins, it->second, setCoins, nValueIn, ccSingleToken, coin_selection_params, bnb_used);
-            if (!result && bnb_used)
-            {
-                coin_selection_params.use_bnb = false;
-                result = SelectCoins(vAvailableCoins, it->second, setCoins, nValueIn, ccSingleToken, coin_selection_params, bnb_used);
-            }
-            if (!result)
-            {
-                strFailReason = _("Insufficient funds").translated;
-                return false;
-            }
-            tokenCoins.insert(setCoins.begin(), setCoins.end());
-
-            const CAmount nChange = nValueIn - it->second;
-            if (nChange > 0)
-            {
-                /// @todo tokens: ORDER???
-                vecSend.push_back(CRecipient{scriptChange, nChange, tokenId, false});
-            }
-        }
-    }
-
     FeeCalculation feeCalc;
     CAmount nFeeNeeded;
     int nBytes;
@@ -3105,7 +3051,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         LOCK2(cs_wallet, locked_chain->mutex());
         {
             std::vector<COutput> vAvailableCoins;
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, sumAmountToSelect, 0, coinSelectOpts);
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
             // Create change script that will be used if we need change
@@ -3272,9 +3218,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 for (const auto& coin : setCoins) {
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
                 }
-                for (const auto& coin : tokenCoins) {
-                    txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
-                }
 
                 nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly, coin_control.m_linkedCoins);
                 if (nBytes < 0) {
@@ -3357,7 +3300,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         // Shuffle selected coins and fill in final vin
         txNew.vin.clear();
         std::vector<CInputCoin> selected_coins(setCoins.begin(), setCoins.end());
-        selected_coins.insert(selected_coins.end(), tokenCoins.begin(), tokenCoins.end());
         Shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
 
         // Note how the sequence number is set to non-maxint so that
@@ -3420,9 +3362,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     // Before we return success, we assume any change key will be used to prevent
     // accidental re-use.
     reservedest.KeepDestination();
-    for (auto && pair : tokensreservedest) {
-        pair.second->KeepDestination();
-    }
 
     WalletLogPrintf("Fee Calculation: Fee:%d Bytes:%u Needed:%d Tgt:%d (requested %d) Reason:\"%s\" Decay %.5f: Estimation: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out) Fail: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out)\n",
               nFeeRet, nBytes, nFeeNeeded, feeCalc.returnedTarget, feeCalc.desiredTarget, StringForFeeReason(feeCalc.reason), feeCalc.est.decay,
@@ -3827,9 +3766,9 @@ void CWallet::ReturnKey(int64_t nIndex, bool fInternal, const CPubKey& pubkey)
     WalletLogPrintf("keypool return %d\n", nIndex);
 }
 
-bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
+bool CWallet::GetKeyFromPool(CPubKey& result, const bool ethAddress)
 {
-    if (!CanGetAddresses(internal)) {
+    if (!CanGetAddresses(/*internal=*/ false)) {
         return false;
     }
 
@@ -3837,10 +3776,10 @@ bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
     {
         LOCK(cs_wallet);
         int64_t nIndex;
-        if (!ReserveKeyFromKeyPool(nIndex, keypool, internal) && !IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        if (ethAddress || (!ReserveKeyFromKeyPool(nIndex, keypool, /*fRequestedInternal=*/ false) && !IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS))) {
             if (IsLocked()) return false;
             WalletBatch batch(*database);
-            result = GenerateNewKey(batch, internal);
+            result = GenerateNewKey(batch, /*internal=*/ false, ethAddress);
             return true;
         }
         KeepKey(nIndex);
@@ -3858,14 +3797,20 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
 
     // Generate a new key that is added to wallet
     CPubKey new_key;
-    if (!GetKeyFromPool(new_key)) {
+    if (!GetKeyFromPool(new_key, type == OutputType::ETH)) {
         error = "Error: Keypool ran out, please call keypoolrefill first";
         return false;
     }
+
     LearnRelatedScripts(new_key, type);
     dest = GetDestinationForKey(new_key, type);
 
-    SetAddressBook(dest, label, "receive");
+    if (type != OutputType::ETH) {
+        SetAddressBook(dest, label, "receive");
+    } else {
+        SetAddressBook(dest, "eth", "eth");
+    }
+
     return true;
 }
 
@@ -4817,6 +4762,9 @@ void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
         // Make sure the resulting program is solvable.
         assert(IsSolvable(*this, witprog));
         AddCScript(witprog);
+    } else if (!key.IsCompressed() && type == OutputType::ETH) {
+        CScript script = GetScriptForDestination(WitnessV16EthHash(key));
+        AddCScript(script);
     }
 }
 
@@ -5047,11 +4995,11 @@ bool CWallet::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
     return true;
 }
 
-bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey)
+bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const bool ethAddress)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {
-        return FillableSigningProvider::AddKeyPubKey(key, pubkey);
+        return FillableSigningProvider::AddKeyPubKey(key, pubkey, ethAddress);
     }
 
     if (IsLocked()) {
@@ -5064,21 +5012,22 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey)
         return false;
     }
 
-    if (!AddCryptedKey(pubkey, vchCryptedSecret)) {
+    if (!AddCryptedKey(pubkey, vchCryptedSecret, ethAddress)) {
         return false;
     }
     return true;
 }
 
 
-bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret)
+bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret, const bool ethAddress)
 {
     LOCK(cs_KeyStore);
     if (!SetCrypted()) {
         return false;
     }
 
-    mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+    const auto keyID = ethAddress ? vchPubKey.GetEthID() : vchPubKey.GetID();
+    mapCryptedKeys[keyID] = make_pair(vchPubKey, vchCryptedSecret);
     ImplicitlyLearnRelatedKeyScripts(vchPubKey);
     return true;
 }

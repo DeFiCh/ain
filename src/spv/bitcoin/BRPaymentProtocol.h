@@ -25,10 +25,11 @@
 #ifndef BRPaymentProtocol_h
 #define BRPaymentProtocol_h
 
-#include "BRTransaction.h"
-#include "BRAddress.h"
-#include "BRKey.h"
 #include <inttypes.h>
+
+#include <spv/bitcoin/BRTransaction.h>
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRKey.h>
 
 #ifdef __cplusplus
 extern "C" {

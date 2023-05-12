@@ -90,7 +90,7 @@ class OraclesTest(DefiTestFramework):
                         p['currency'] == q['currency']
                         and
                         math.isclose(decimal.Decimal(p['amount']), decimal.Decimal(q['amount'])),
-                    tpjs, tpps), True):
+                        tpjs, tpps), True):
                 raise Exception("prices are not equal")
 
     def synchronize(self, node: int):
@@ -178,14 +178,14 @@ class OraclesTest(DefiTestFramework):
                                         oracle_id=oracle_id1,
                                         weightage=10,
                                         price_feeds=price_feeds1,
-                                        token_prices=[]   # no prices yet
+                                        token_prices=[]  # no prices yet
                                         )
 
         self.assert_compare_oracle_data(oracle_data_json=self.nodes[1].getoracledata(oracle_id2),
                                         oracle_id=oracle_id2,
                                         weightage=15,
                                         price_feeds=price_feeds2,
-                                        token_prices=[]   # no prices yet
+                                        token_prices=[]  # no prices yet
                                         )
 
         all_oracles = self.nodes[1].listoracles()
@@ -216,17 +216,17 @@ class OraclesTest(DefiTestFramework):
         oracle_data_json = self.nodes[1].getoracledata(oracle_id1)
         self.assert_compare_oracle_data(oracle_data_json=oracle_data_json, oracle_id=oracle_id1,
                                         price_feeds=price_feeds1, weightage=10,
-                                        token_prices=oracle1_prices)    # now we have prices
+                                        token_prices=oracle1_prices)  # now we have prices
 
         # decimals are not strict values, so we need to look how small is the difference
         assert (math.isclose(
-            self.nodes[1].getprice({"currency":"USD", "token":"PT"}), decimal.Decimal(10.1)))
+            self.nodes[1].getprice({"currency": "USD", "token": "PT"}), decimal.Decimal(10.1)))
 
         assert (math.isclose(
-            self.nodes[1].getprice({"currency":"USD", "token":"GOLD"}), decimal.Decimal(5)))
+            self.nodes[1].getprice({"currency": "USD", "token": "GOLD"}), decimal.Decimal(5)))
 
         # Make sure that DUSD-USD always returns 1
-        assert_equal(self.nodes[1].getprice({"currency":"USD", "token":"DUSD"}), decimal.Decimal("1.00000000"))
+        assert_equal(self.nodes[1].getprice({"currency": "USD", "token": "DUSD"}), decimal.Decimal("1.00000000"))
 
         price_feeds1 = [
             {"currency": "USD", "token": "PT"},
@@ -324,14 +324,14 @@ class OraclesTest(DefiTestFramework):
                                 self.nodes[1].getprice, {"currency": "EUR", "token": "PT"})
 
         self.nodes[2].setoracledata(oracle_id2, timestamp, [
-                                    {"currency":"USD", "tokenAmount":"10@GOLD"},
-                                    {"currency":"EUR", "tokenAmount":"7@PT"}])
+            {"currency": "USD", "tokenAmount": "10@GOLD"},
+            {"currency": "EUR", "tokenAmount": "7@PT"}])
 
         token_prices1 = [
-            {"currency":"USD", "tokenAmount":"11@GOLD"},
-            {"currency":"EUR", "tokenAmount":"8@PT"},
-            {"currency":"EUR", "tokenAmount":"10@GOLD"},
-            {"currency":"USD", "tokenAmount":"7@PT"}
+            {"currency": "USD", "tokenAmount": "11@GOLD"},
+            {"currency": "EUR", "tokenAmount": "8@PT"},
+            {"currency": "EUR", "tokenAmount": "10@GOLD"},
+            {"currency": "USD", "tokenAmount": "7@PT"}
         ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp, token_prices1)
@@ -344,33 +344,33 @@ class OraclesTest(DefiTestFramework):
                                         token_prices=token_prices1)
 
         # === check date in range 0 -> now+300s (5 minutes) ===
-        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
+        token_prices1 = [{"currency": "USD", "tokenAmount": "7@PT"}]
 
-        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
+        future_timestamp = (calendar.timegm(time.gmtime())) + 310  # add 5 minutes +10s for slow tests case
         assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
                                 self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
 
         # === check expired price feed ===
         token_prices1 = [
-            {"currency":"USD", "tokenAmount":"11@GOLD"},
-            {"currency":"EUR", "tokenAmount":"8@PT"},
-            {"currency":"EUR", "tokenAmount":"10@GOLD"},
-            {"currency":"USD", "tokenAmount":"7@PT"}
+            {"currency": "USD", "tokenAmount": "11@GOLD"},
+            {"currency": "EUR", "tokenAmount": "8@PT"},
+            {"currency": "EUR", "tokenAmount": "10@GOLD"},
+            {"currency": "USD", "tokenAmount": "7@PT"}
         ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp - 7200, token_prices1)
-        self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency":"USD", "tokenAmount":"7@PT"}])
+        self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency": "USD", "tokenAmount": "7@PT"}])
 
         self.synchronize(node=2)
 
-        pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
+        pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency": "USD", "token": "PT"})
 
         assert_equal(len(pt_in_usd_raw_prices), 2)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
         assert_equal(pt_in_usd_raw_prices[1]['state'], 'expired')
 
         # === check price not be zero
-        token_prices1 = [{"currency":"USD", "tokenAmount":"1@PT"}]
+        token_prices1 = [{"currency": "USD", "tokenAmount": "1@PT"}]
         tx = self.nodes[2].setoracledata(oracle_id1, timestamp, token_prices1)
         rawTx = self.nodes[2].getrawtransaction(tx)
         self.nodes[2].clearmempool()
@@ -387,14 +387,15 @@ class OraclesTest(DefiTestFramework):
 
         assert_raises_rpc_error(-32600, 'oracle <{}> not found'.format(invalid_oracle_id),
                                 self.nodes[0].updateoracle,
-                                invalid_oracle_id, oracle_address2, [{"currency":"USD", "token":"PT"}], 15)
+                                invalid_oracle_id, oracle_address2, [{"currency": "USD", "token": "PT"}], 15)
 
         assert_raises_rpc_error(-32600, 'oracle <{}> not found'.format(invalid_oracle_id),
                                 self.nodes[0].setoracledata,
-                                invalid_oracle_id, timestamp, [{"currency":"USD", "tokenAmount":"10@PT"}])
+                                invalid_oracle_id, timestamp, [{"currency": "USD", "tokenAmount": "10@PT"}])
 
         self.nodes[0].removeoracle(oracle_id1)
         self.nodes[0].removeoracle(oracle_id2)
+
 
 if __name__ == '__main__':
     OraclesTest().main()

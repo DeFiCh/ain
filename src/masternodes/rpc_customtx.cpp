@@ -305,7 +305,7 @@ public:
 
                 UniValue uniPair(UniValue::VOBJ);
                 uniPair.pushKV("currency", currency);
-                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimaleString(amount), token));
+                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimalString(amount), token));
                 tokenPrices.push_back(uniPair);
             }
         }
@@ -505,41 +505,55 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
-    void operator()(const CCreatePropMessage &obj) const {
+    void operator()(const CCreateProposalMessage &obj) const {
         auto propId = tx.GetHash();
         rpcInfo.pushKV("proposalId", propId.GetHex());
-        auto type = static_cast<CPropType>(obj.type);
-        rpcInfo.pushKV("type", CPropTypeToString(type));
+        auto type = static_cast<CProposalType>(obj.type);
+        rpcInfo.pushKV("type", CProposalTypeToString(type));
         rpcInfo.pushKV("title", obj.title);
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
-        auto proposalEndHeight = height;
-        if (auto prop = mnview.GetProp(propId)) {
+        int64_t proposalEndHeight{};
+        if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
-            auto votingPeriod = prop->votingPeriod;
+            // TX still in mempool. For the most accurate guesstimate use
+            // votingPeriod as it would be set when TX is added to the chain.
+            const auto votingPeriod = obj.options & CProposalOption::Emergency ?
+                                mnview.GetEmergencyPeriodFromAttributes(type) :
+                                mnview.GetVotingPeriodFromAttributes();
             proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 proposalEndHeight += votingPeriod;
             }
         }
-        rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
+        rpcInfo.pushKV("proposalEndHeight", proposalEndHeight);
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);
-            if (obj.options & CPropOption::Emergency)
+            if (obj.options & CProposalOption::Emergency)
                 opt.push_back("emergency");
 
             rpcInfo.pushKV("options", opt);
         }
     }
 
-    void operator()(const CPropVoteMessage &obj) const {
+    void operator()(const CProposalVoteMessage &obj) const {
         rpcInfo.pushKV("proposalId", obj.propId.GetHex());
         rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
-        auto vote = static_cast<CPropVoteType>(obj.vote);
-        rpcInfo.pushKV("vote", CPropVoteToString(vote));
+        auto vote = static_cast<CProposalVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CProposalVoteToString(vote));
+    }
+
+    void operator()(const CTransferBalanceMessage &obj) const {
+        rpcInfo.pushKV("type", CTransferBalanceTypeToString(static_cast<CTransferBalanceType>(obj.type)));
+        rpcInfo.pushKV("from", accountsInfo(obj.from));
+        rpcInfo.pushKV("to", accountsInfo(obj.to));
+    }
+
+    void operator()(const CEvmTxMessage &obj) const {
+        rpcInfo.pushKV("evmTx", HexStr(obj.evmTx.begin(),obj.evmTx.end()));
     }
 
     void operator()(const CCustomTxMessageNone &) const {}

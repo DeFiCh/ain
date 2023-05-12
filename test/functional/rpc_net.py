@@ -22,11 +22,12 @@ from test_framework.util import (
 from test_framework.mininode import P2PInterface
 from test_framework.messages import CAddress, msg_addr, NODE_NETWORK, NODE_WITNESS
 
+
 class NetTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
-        self.extra_args = [["-minrelaytxfee=0.00001000"],["-minrelaytxfee=0.00000500"]]
+        self.extra_args = [["-minrelaytxfee=0.00001000"], ["-minrelaytxfee=0.00000500"]]
 
     def run_test(self):
         self._test_connection_count()
@@ -62,13 +63,19 @@ class NetTest(DefiTestFramework):
         # the bytes sent/received should change
         # note ping and pong are 32 bytes each
         self.nodes[0].ping()
-        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytessent'] >= net_totals_after['totalbytessent'] + 32 * 2), timeout=1)
-        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_after['totalbytesrecv'] + 32 * 2), timeout=1)
+        wait_until(
+            lambda: (self.nodes[0].getnettotals()['totalbytessent'] >= net_totals_after['totalbytessent'] + 32 * 2),
+            timeout=1)
+        wait_until(
+            lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_after['totalbytesrecv'] + 32 * 2),
+            timeout=1)
 
         peer_info_after_ping = self.nodes[0].getpeerinfo()
         for before, after in zip(peer_info, peer_info_after_ping):
-            assert_greater_than_or_equal(after['bytesrecv_per_msg'].get('pong', 0), before['bytesrecv_per_msg'].get('pong', 0) + 32)
-            assert_greater_than_or_equal(after['bytessent_per_msg'].get('ping', 0), before['bytessent_per_msg'].get('ping', 0) + 32)
+            assert_greater_than_or_equal(after['bytesrecv_per_msg'].get('pong', 0),
+                                         before['bytesrecv_per_msg'].get('pong', 0) + 32)
+            assert_greater_than_or_equal(after['bytessent_per_msg'].get('ping', 0),
+                                         before['bytessent_per_msg'].get('ping', 0) + 32)
 
     def _test_getnetworkinginfo(self):
         assert_equal(self.nodes[0].getnetworkinfo()['networkactive'], True)
@@ -127,7 +134,7 @@ class NetTest(DefiTestFramework):
         node_addresses = self.nodes[0].getnodeaddresses(REQUEST_COUNT)
         assert_equal(len(node_addresses), REQUEST_COUNT)
         for a in node_addresses:
-            assert_greater_than(a["time"], 1527811200) # 1st June 2018
+            assert_greater_than(a["time"], 1527811200)  # 1st June 2018
             assert_equal(a["services"], NODE_NETWORK | NODE_WITNESS)
             assert a["address"] in imported_addrs
             assert_equal(a["port"], 8555)
@@ -139,6 +146,7 @@ class NetTest(DefiTestFramework):
         LARGE_REQUEST_COUNT = 10000
         node_addresses = self.nodes[0].getnodeaddresses(LARGE_REQUEST_COUNT)
         assert_greater_than(LARGE_REQUEST_COUNT, len(node_addresses))
+
 
 if __name__ == '__main__':
     NetTest().main()

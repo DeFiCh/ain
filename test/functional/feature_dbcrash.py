@@ -91,7 +91,7 @@ class ChainstateWriteCrashTest(DefiTestFramework):
                 self.nodes[node_index].waitforblock(expected_tip)
                 utxo_hash = self.nodes[node_index].gettxoutsetinfo()['hash_serialized_2']
                 return utxo_hash
-            except:
+            except Exception:
                 # An exception here should mean the node is about to crash.
                 # If defid exits, then try again.  wait_for_node_exit()
                 # should raise an exception if defid doesn't exit.
@@ -215,7 +215,7 @@ class ChainstateWriteCrashTest(DefiTestFramework):
     def run_test(self):
         # Track test coverage statistics
         self.restart_counts = [0, 0, 0]  # Track the restarts for nodes 0-2
-        self.crashed_on_restart = 0      # Track count of crashes during recovery
+        self.crashed_on_restart = 0  # Track count of crashes during recovery
 
         # Start by creating a lot of utxos on node3
         initial_height = self.nodes[3].getblockcount()
@@ -279,6 +279,7 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         for i in range(3):
             if self.restart_counts[i] == 0:
                 self.log.warning("Node %d never crashed during utxo flush!", i)
+
 
 if __name__ == "__main__":
     ChainstateWriteCrashTest().main()

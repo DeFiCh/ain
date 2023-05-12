@@ -26,6 +26,7 @@ CLTV_HEIGHT = 1351
 REJECT_INVALID = 16
 REJECT_NONSTANDARD = 64
 
+
 def cltv_invalidate(tx):
     '''Modify the signature in vin 0 of the tx to fail CLTV
 
@@ -36,6 +37,7 @@ def cltv_invalidate(tx):
     '''
     tx.vin[0].scriptSig = CScript([OP_1NEGATE, OP_CHECKLOCKTIMEVERIFY, OP_DROP] +
                                   list(CScript(tx.vin[0].scriptSig)))
+
 
 def cltv_validate(node, tx, height):
     '''Modify the signature in vin 0 of the tx to pass CLTV
@@ -50,7 +52,7 @@ def cltv_validate(node, tx, height):
     new_tx.deserialize(BytesIO(hex_str_to_bytes(signed_result['hex'])))
 
     new_tx.vin[0].scriptSig = CScript([CScriptNum(height), OP_CHECKLOCKTIMEVERIFY, OP_DROP] +
-                                  list(CScript(new_tx.vin[0].scriptSig)))
+                                      list(CScript(new_tx.vin[0].scriptSig)))
     return new_tx
 
 
@@ -78,7 +80,7 @@ class BIP65Test(DefiTestFramework):
         self.log.info("Test that an invalid-according-to-CLTV transaction can still appear in a block")
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0],
-                self.nodeaddress, amount=1.0)
+                                     self.nodeaddress, amount=1.0)
         cltv_invalidate(spendtx)
         spendtx.rehash()
 
@@ -109,14 +111,15 @@ class BIP65Test(DefiTestFramework):
         block.nVersion = 4
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
-                self.nodeaddress, amount=1.0)
+                                     self.nodeaddress, amount=1.0)
         cltv_invalidate(spendtx)
         spendtx.rehash()
 
         # First we show that this tx is valid except for CLTV by getting it
         # rejected from the mempool for exactly that reason.
         assert_equal(
-            [{'txid': spendtx.hash, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Negative locktime)'}],
+            [{'txid': spendtx.hash, 'allowed': False,
+              'reject-reason': '64: non-mandatory-script-verify-flag (Negative locktime)'}],
             self.nodes[0].testmempoolaccept(rawtxs=[spendtx.serialize().hex()], maxfeerate=0)
         )
 
@@ -125,7 +128,9 @@ class BIP65Test(DefiTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.solve()
 
-        with self.nodes[0].assert_debug_log(expected_msgs=['CheckInputs on {} failed with non-mandatory-script-verify-flag (Negative locktime)'.format(block.vtx[-1].hash)]):
+        with self.nodes[0].assert_debug_log(expected_msgs=[
+            'CheckInputs on {} failed with non-mandatory-script-verify-flag (Negative locktime)'.format(
+                    block.vtx[-1].hash)]):
             self.nodes[0].p2p.send_and_ping(msg_block(block))
             assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
             self.nodes[0].p2p.sync_with_ping()

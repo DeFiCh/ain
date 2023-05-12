@@ -7,18 +7,17 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 
-from test_framework.util import assert_equal, assert_greater_than_or_equal
+from test_framework.util import (
+    assert_equal,
+    assert_greater_than_or_equal,
+    get_decimal_amount,
+)
 
 import calendar
 import time
 from decimal import ROUND_DOWN, Decimal
 
 BLOCKS_PER_YEAR = Decimal(1051200)
-
-
-def get_decimal_amount(amount):
-    account_tmp = amount.split('@')[0]
-    return Decimal(account_tmp)
 
 
 class GetStoredInterestTest(DefiTestFramework):
@@ -29,30 +28,19 @@ class GetStoredInterestTest(DefiTestFramework):
         self.fortcanninggreatworldheight = 700
         self.extra_args = [
             ['-txnotokens=0',
-            '-amkheight=1',
-            '-bayfrontheight=1',
-            '-eunosheight=1',
-            '-fortcanningheight=1',
-            '-fortcanningmuseumheight=1',
-            '-fortcanningparkheight=1',
-            '-fortcanninghillheight=1',
-            '-fortcanningroadheight=1',
-            '-fortcanningcrunchheight=1',
-            '-fortcanningspringheight=1',
-            f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
-            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+             '-amkheight=1',
+             '-bayfrontheight=1',
+             '-eunosheight=1',
+             '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1',
+             '-fortcanningparkheight=1',
+             '-fortcanninghillheight=1',
+             '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1',
+             '-fortcanningspringheight=1',
+             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
+             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
-
-    # Utils
-    def rollback_to(self, block):
-        node = self.nodes[0]
-        current_height = node.getblockcount()
-        if current_height == block:
-            return
-        blockhash = node.getblockhash(block + 1)
-        node.invalidateblock(blockhash)
-        node.clearmempool()
-        assert_equal(block, node.getblockcount())
 
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -1267,6 +1255,7 @@ class GetStoredInterestTest(DefiTestFramework):
         self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
+
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()

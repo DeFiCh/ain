@@ -10,11 +10,13 @@ from test_framework.util import (
     assert_equal,
 )
 
+
 def assert_approx(v, vexp, vspan=0.00001):
     if v < vexp - vspan:
         raise AssertionError("%s < [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan)))
     if v > vexp + vspan:
         raise AssertionError("%s > [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan)))
+
 
 class WalletGroupTest(DefiTestFramework):
     def set_test_params(self):
@@ -69,14 +71,15 @@ class WalletGroupTest(DefiTestFramework):
         assert_approx(v[1], 1.3, 0.0001)
 
         # Empty out node2's wallet
-        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(), subtractfeefromamount=True)
+        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(),
+                                    subtractfeefromamount=True)
         self.sync_all()
         self.nodes[0].generate(1)
 
         # Fill node2's wallet with 10000 outputs corresponding to the same
         # scriptPubKey
         for i in range(5):
-            raw_tx = self.nodes[0].createrawtransaction([{"txid":"0"*64, "vout":0}], [{addr2[0]: 0.05}])
+            raw_tx = self.nodes[0].createrawtransaction([{"txid": "0" * 64, "vout": 0}], [{addr2[0]: 0.05}])
             tx = FromHex(CTransaction(), raw_tx)
             tx.vin = []
             tx.vout = [tx.vout[0]] * 2000
@@ -92,5 +95,6 @@ class WalletGroupTest(DefiTestFramework):
         # is way too big.
         assert self.nodes[2].sendtoaddress(address=addr2[0], amount=5)
 
+
 if __name__ == '__main__':
-    WalletGroupTest().main ()
+    WalletGroupTest().main()

@@ -11,15 +11,17 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
+
 class MigrateV1Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1']]
 
     def run_test(self):
-
         # Set up tokens
         self.setup_test_tokens()
 
@@ -90,16 +92,15 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def test_migration_on_fork(self):
-
         # Set all futures attributes
-        self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/params/dfip2203/reward_pct':'0.05',
-            'v0/params/dfip2203/block_period':'10'
+        self.nodes[0].setgov({"ATTRIBUTES": {
+            'v0/params/dfip2203/reward_pct': '0.05',
+            'v0/params/dfip2203/block_period': '10'
         }})
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/params/dfip2203/active':'true'
+        self.nodes[0].setgov({"ATTRIBUTES": {
+            'v0/params/dfip2203/active': 'true'
         }})
         self.nodes[0].generate(1)
 
@@ -109,21 +110,28 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(10)
 
         # Get pre-split values
-        [current_amount, current_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_current'][1].split('@')
-        [burnt_amount, burnt_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_burned'][1].split('@')
-        [minted_amount, minted_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_minted'][1].split('@')
+        [current_amount, current_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_current'][1].split('@')
+        [burnt_amount, burnt_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_burned'][1].split('@')
+        [minted_amount, minted_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_minted'][1].split('@')
 
         # Define multiplier
         multiplier = 2
 
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{self.nodes[0].getblockcount() + 2}':f'{self.idTSLA}/{multiplier}'}})
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {f'v0/oracles/splits/{self.nodes[0].getblockcount() + 2}': f'{self.idTSLA}/{multiplier}'}})
         self.nodes[0].generate(2)
 
         # Get split amounts
-        [current_split_amount, current_split_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_current'][1].split('@')
-        [burnt_split_amount, burnt_split_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_burned'][1].split('@')
-        [minted_split_amount, minted_split_symbol] = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_minted'][1].split('@')
+        [current_split_amount, current_split_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_current'][1].split('@')
+        [burnt_split_amount, burnt_split_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_burned'][1].split('@')
+        [minted_split_amount, minted_split_symbol] = \
+        self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/live/economy/dfip2203_minted'][1].split('@')
 
         # Check amounts updated as expected
         assert_equal(Decimal(current_amount) * multiplier, Decimal(current_split_amount))
@@ -134,6 +142,7 @@ class MigrateV1Test(DefiTestFramework):
         assert_equal(current_symbol, current_split_symbol)
         assert_equal(burnt_symbol, burnt_split_symbol)
         assert_equal(minted_symbol, minted_split_symbol)
+
 
 if __name__ == '__main__':
     MigrateV1Test().main()

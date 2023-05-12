@@ -14,7 +14,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-class TokensBasicTest (DefiTestFramework):
+
+class TokensBasicTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         # node0: main (Foundation)
@@ -27,9 +28,8 @@ class TokensBasicTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
-
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         self.nodes[0].generate(100)
         self.sync_blocks()
@@ -38,7 +38,7 @@ class TokensBasicTest (DefiTestFramework):
         self.stop_node(3)
 
         # CREATION:
-        #========================
+        # ========================
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
         self.nodes[0].generate(1)
@@ -99,7 +99,7 @@ class TokensBasicTest (DefiTestFramework):
 
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
-        self.stop_node(1) # for future test
+        self.stop_node(1)  # for future test
         connect_nodes_bi(self.nodes, 0, 2)
 
         # 4 Trying to make it DAT not from Foundation
@@ -107,14 +107,14 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[2].updatetoken("GOLD#128", {"isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("tx not from foundation member" in errorString)
+        assert ("tx not from foundation member" in errorString)
 
         # 4.1 Trying to set smth else
         try:
             self.nodes[2].updatetoken("GOLD#128", {"symbol": "G"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("before Bayfront fork" in errorString)
+        assert ("before Bayfront fork" in errorString)
 
         # 5 Making token isDAT from Foundation
         self.nodes[0].updatetoken("GOLD#128", {"isDAT": True}, [])
@@ -131,18 +131,19 @@ class TokensBasicTest (DefiTestFramework):
         self.sync_blocks([self.nodes[0], self.nodes[2]])
         tokens = self.nodes[2].listtokens()
         assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["isDAT"], False) # not synced cause new tx type (from node 0)
+        assert_equal(tokens['128']["isDAT"], False)  # not synced cause new tx type (from node 0)
 
         # 6.1 Restart with proper height and retry
         self.stop_node(2)
-        self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-reindex-chainstate']) # warning! simple '-reindex' not works!
+        self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50',
+                            '-reindex-chainstate'])  # warning! simple '-reindex' not works!
         # it looks like node can serve rpc in async while reindexing... wait:
         self.sync_blocks([self.nodes[0], self.nodes[2]])
         tokens = self.nodes[2].listtokens()
         assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["isDAT"], True) # synced now
+        assert_equal(tokens['128']["isDAT"], True)  # synced now
 
-        connect_nodes_bi(self.nodes, 0, 2) # for final sync at "REVERT"
+        connect_nodes_bi(self.nodes, 0, 2)  # for final sync at "REVERT"
 
         # 7 Removing DAT
         self.nodes[0].updatetoken("GOLD", {"isDAT": False}, [])
@@ -158,16 +159,16 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False)
         assert_equal(self.nodes[1].gettoken('128')['128']["isDAT"], False)
 
-        self.nodes[1].importprivkey(self.nodes[0].get_genesis_keys().ownerPrivKey) # there is no need to import the key, cause node#1 is founder itself... but it has no utxos for auth
+        self.nodes[1].importprivkey(self.nodes[
+                                        0].get_genesis_keys().ownerPrivKey)  # there is no need to import the key, cause node#1 is founder itself... but it has no utxos for auth
         self.nodes[1].updatetoken('128', {"isDAT": True})
         self.nodes[1].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
-        assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False) # tx not applyed cause "old"
+        assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False)  # tx not applyed cause "old"
         assert_equal(self.nodes[1].gettoken('128')['128']["isDAT"], True)
 
-
         # 8. changing token's symbol:
-        self.nodes[0].updatetoken("GOLD#128", {"symbol":"gold"})
+        self.nodes[0].updatetoken("GOLD#128", {"symbol": "gold"})
         self.nodes[0].generate(1)
         token = self.nodes[0].gettoken('128')
         assert_equal(token['128']["symbol"], "gold")
@@ -176,16 +177,16 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken('gold#128'), token)
 
         # changing token's symbol AND DAT at once:
-        self.nodes[0].updatetoken("128", {"symbol":"goldy", "isDAT":True})
+        self.nodes[0].updatetoken("128", {"symbol": "goldy", "isDAT": True})
         self.nodes[0].generate(1)
         token = self.nodes[0].gettoken('128')
         assert_equal(token['128']["symbol"], "goldy")
         assert_equal(token['128']["symbolKey"], "goldy")
         assert_equal(token['128']["isDAT"], True)
-        assert_equal(self.nodes[0].gettoken('goldy'), token) # can do it w/o '#'' cause it should be DAT
+        assert_equal(self.nodes[0].gettoken('goldy'), token)  # can do it w/o '#'' cause it should be DAT
 
         # changing other properties:
-        self.nodes[0].updatetoken("128", {"name":"new name", "tradeable": False, "mintable": False, "finalize": True})
+        self.nodes[0].updatetoken("128", {"name": "new name", "tradeable": False, "mintable": False, "finalize": True})
         self.nodes[0].generate(1)
         token = self.nodes[0].gettoken('128')
         assert_equal(token['128']["name"], "new name")
@@ -198,14 +199,14 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[0].updatetoken("128", {"tradable": True})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("can't alter 'Finalized' tokens" in errorString)
+        assert ("can't alter 'Finalized' tokens" in errorString)
 
         # Fail get token
         try:
             self.nodes[0].gettoken("GOLD")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Token not found" in errorString)
+        assert ("Token not found" in errorString)
 
         self.nodes[0].generate(1)
 
@@ -234,14 +235,14 @@ class TokensBasicTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("already exists" in errorString)
+        assert ("already exists" in errorString)
 
         # 10 Fail to update
         self.nodes[0].createtoken({
             "symbol": "TEST",
             "name": "TEST token copy",
             "isDAT": False,
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # !from founders!!
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress  # !from founders!!
         }, [])
 
         self.nodes[0].generate(1)
@@ -256,12 +257,11 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[0].updatetoken("TEST#129", {"isDAT": True})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("already exists" in errorString)
-
+        assert ("already exists" in errorString)
 
         # REVERTING:
-        #========================
-        print ("Reverting...")
+        # ========================
+        print("Reverting...")
         # Reverting creation!
         self.start_node(3)
         self.nodes[3].generate(30)
@@ -270,5 +270,6 @@ class TokensBasicTest (DefiTestFramework):
         self.sync_blocks()
         assert_equal(len(self.nodes[0].listtokens()), 1)
 
+
 if __name__ == '__main__':
-    TokensBasicTest ().main ()
+    TokensBasicTest().main()

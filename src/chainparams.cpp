@@ -119,28 +119,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.AMKHeight = 356500;
-        consensus.BayfrontHeight = 405000;
-        consensus.BayfrontMarinaHeight = 465150;
-        consensus.BayfrontGardensHeight = 488300;
-        consensus.ClarkeQuayHeight = 595738;
-        consensus.DakotaHeight = 678000; // 1st March 2021
-        consensus.DakotaCrescentHeight = 733000; // 25th March 2021
-        consensus.EunosHeight = 894000; // 3rd June 2021
-        consensus.EunosKampungHeight = 895743;
-        consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
-        consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
-        consensus.FortCanningMuseumHeight = 1430640;
-        consensus.FortCanningParkHeight = 1503143;
-        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
-        consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
-        consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
+        consensus.AMKHeight = 356500; // Oct 12th, 2020.
+        consensus.BayfrontHeight = 405000; // Nov 2nd, 2020.
+        consensus.BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
+        consensus.ClarkeQuayHeight = 595738; // Jan 24th, 2021.
+        consensus.DakotaHeight = 678000; // Mar 1st, 2021.
+        consensus.DakotaCrescentHeight = 733000; // Mar 25th, 2021.
+        consensus.EunosHeight = 894000; // Jun 3rd, 2021.
+        consensus.EunosKampungHeight = 895743; // Jun 4th, 2021.
+        consensus.EunosPayaHeight = 1072000; // Aug 5th, 2021.
+        consensus.FortCanningHeight = 1367000; // Nov 15th, 2021.
+        consensus.FortCanningMuseumHeight = 1430640; // Dec 7th, 2021.
+        consensus.FortCanningParkHeight = 1503143; // Jan 2nd, 2022.
+        consensus.FortCanningHillHeight = 1604999; // Feb 7th, 2022.
+        consensus.FortCanningRoadHeight = 1786000; // April 11th, 2022.
+        consensus.FortCanningCrunchHeight = 1936000; // June 2nd, 2022.
+        consensus.FortCanningSpringHeight = 2033000; // July 6th, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
         consensus.GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
-        consensus.NextNetworkUpgrade = std::numeric_limits<int>::max();
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -333,16 +333,31 @@ public:
                 {450000, uint256S("03701a440b02d61b875ba2503bb53f1f1360cf66b4f0cf472e660a6809534379")},
                 {500000, uint256S("6a5b285bc68362deb66148069f55f82c02974056e73f5cc96971f7661ecd5880")},
                 {550000, uint256S("3f9aab70727d3cc76a3d406f520a71ccc6095aeea2d185e489f563320d429d5b")},
-                {597925, uint256S("0ff2aa3749300e3d0b5bc8d48f9d699bc42e222fe718dc011b33913127087c6d")},
                 {600000, uint256S("79ddf4537e40cb59335a0551e5edc7bd396e6949aa2864c3200ca66f9c455405")},
                 {650000, uint256S("f18d64dd75c53590e833d3068132a65644963d5c5aebb4c73d42cbde8dc28d68")},
                 {700000, uint256S("0d0f779d7f43cc3fd9f01e71e136f7e9319d73791f8839720ab495327075e272")},
-                {757420, uint256S("8d4918be2b2df30175f9e611d9ceb494215b93f2267075ace3f031e784cbccbe")},
+                {750000, uint256S("d65c1f983b015ad665b2db9a206e2a7a0e8c51789918ea5bfda2f8121adc6f0f")},
                 {800000, uint256S("8d9ade23a54f16a0a5a6ce5d14788f93bfd7e703be8a3a07a85c935b47511f95")},
                 {850000, uint256S("2d7d58ae18a74f73b9836a8fffd3f65ce409536e654a6c644ce735215238a004")},
-                {875000, uint256S("44d3b3ba8e920cef86b7ec096ab0a2e608d9fedc14a59611a76a5e40aa53145e")},
-                {895741, uint256S("61bc1d73c720990dde43a3fec1f703a222ec5c265e6d491efd60eeec1bdb6dc3")},
-                {1505965,uint256S("f7474c805de4f05673df2103bd5d8b8dea09b0d22f808ee957a9ceefc0720609")},
+                {900000, uint256S("02818c71fe7d8bcba7c778a73832a7e7b6603a8537bf61915ace497d2b0dec40")},
+                {1000000, uint256S("253d7137cfcda8d63e5f352ce1162c51a263dba6f9cad7a52f93308c91f04301")},
+                {1100000, uint256S("96d30c51e1617a12454a9ffa68a0e5746377063bdf09d1bf80bc5053ef8a392b")},
+                {1200000, uint256S("0859876a88c08242c77a1deea7d01757e3c6c1b3155e73bff60e28c8f6e65911")},
+                {1300000, uint256S("be6dc303c212243899478b8908c1f7c54217bb735655cdef8d85ae2c3c548229")},
+                {1400000, uint256S("a222eb0930af41d1d5a6f367a9532ee319630fd72d72055fde5da6b57feabbc1")},
+                {1500000, uint256S("c35a8a2fa6d076208dbb47e37b46b9da2da778bc06e2f224d5d5f370b8d71485")},
+                {1600000,uint256S("213c49a84a8c01b412e13169ac0c1e070b828a73fa50b02e7ac18520155cb98a")},
+                {1700000,uint256S("724af81603f524a0b54dea8348d8275e329b80e028982a706608099d68d01c9d")},
+                {1800000,uint256S("324cafa596501d4dda404727fc466eb493e072b669e00b007508fc1f69443991")},
+                {1900000,uint256S("65843174fc86bf26d65d3e10290c3e5f64fc946617ed0c9a391ecb17f55ecad5")},
+                {2000000,uint256S("85b935cbac0cfc668033788a6103fd8f72894d34770a95ff72230d69bfa0aea1")},
+                {2100000,uint256S("87a29a768d79f40ea79dda558033fb97049f6984d2d60dba481f01944303cd45")},
+                {2200000,uint256S("349416f5fcfb72e740fca63e56dec9ba05b5cc7e836859e7bcbb5be6dfb13588")},
+                {2300000,uint256S("19d753f1834a282c72daaa2a98841ae84f7f7a97ae78b355b1dd550a813a13fd")},
+                {2400000,uint256S("7ffa9f56e9a14002a4fbe8c7f6e0b1a5ce0f75def6124f5907ee2a6c328c9619")},
+                {2500000,uint256S("cf1df1124af59b9928fac48947883206dd33d165022086bee9d5001d047395da")},
+                {2600000,uint256S("af065074bb15c3583abcd3e7c22035a026cfd8d3fbc72d890fcd8b435cd8b7b4")},
+                {2700000,uint256S("3cf74bcaea19d457c7d8e7896177035e3e446f41ee2ac72dbfb25ac2072f49c5")},
             }
         };
 
@@ -397,7 +412,7 @@ public:
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgrade = std::numeric_limits<int>::max();
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -560,6 +575,8 @@ public:
                 {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                 {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                 {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
+                {1471000, uint256S("dcf4a5fb69c004d0921710e09a09d10f275b3bc696e45ca03f6c322bb32f41bc")},
             }
         };
 
@@ -610,7 +627,7 @@ public:
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgrade = std::numeric_limits<int>::max();
+        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -755,7 +772,7 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-//        vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("35.187.53.161");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
@@ -769,6 +786,7 @@ public:
                         {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                         {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                         {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                        {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
                 }
         };
 
@@ -824,7 +842,7 @@ public:
         consensus.FortCanningEpilogueHeight = 10000000;
         consensus.GrandCentralHeight = 10000000;
         consensus.GrandCentralEpilogueHeight = 10000000;
-        consensus.NextNetworkUpgrade = 10000000;
+        consensus.NextNetworkUpgradeHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1066,7 +1084,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
-    UpdateHeightValidation("Grand Central Next", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
+    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
+    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1186,7 +1205,7 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
+    Require(file.good(), [=]{ return strprintf("Could not read %s. Ensure it exists and has read permissions", fileName); });
 
     ClearCheckpoints(params);
 
@@ -1198,13 +1217,13 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
+        Require((iss >> heightStr >> hashStr), [=]{ return strprintf("Error parsing line %s", trimmed); });
 
         uint256 hash;
-        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
+        Require(ParseHashStr(hashStr, hash), [=]{ return strprintf("Invalid hash: %s", hashStr); });
 
         int32_t height;
-        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
+        Require(ParseInt32(heightStr, &height), [=]{ return strprintf("Invalid height: %s", heightStr); });
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }

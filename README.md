@@ -1,14 +1,10 @@
 [![Lint](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml)
-[![Tests](https://github.com/DeFiCh/ain/actions/workflows/tests.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/tests.yaml)
-[![Dev Build](https://github.com/DeFiCh/ain/actions/workflows/dev-builds.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/dev-builds.yaml)
+[![Tests](https://github.com/DeFiCh/ain/actions/workflows/tests-e2e.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/tests-e2e.yaml)
+[![Build - Dev](https://github.com/DeFiCh/ain/actions/workflows/build-dev.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/build-dev.yaml)
 
 ![DeFiChain Logo](doc/img/defichain-logo.svg)
 
-# [DeFiChain](https://defichain.com)
-
-> **NOTE**: _master_ branch is a development branch and is thus _unstable_. Do not run from it. Run or compile from [tagged releases](https://github.com/DeFiCh/ain/releases) instead, unless you know what you are doing.
-
-## What is DeFiChain?
+## What is [DeFiChain](https://defichain.com)?
 
 DeFiChain’s primary vision is to enable decentralized finance with Bitcoin-grade security, strength and immutability.
 It's a blockchain dedicated to fast, intelligent and transparent financial services, accessible by everyone.
@@ -19,6 +15,8 @@ For more information:
 - Read our [white-paper](https://defichain.com/white-paper/)
 
 Downloadable binaries are available from the [GitHub Releases](https://github.com/DeFiCh/ain/releases) page.
+
+> **NOTE**: _master_ branch is a development branch and is not suitable for production. Please download [tagged releases](https://github.com/DeFiCh/ain/releases) or compile from the release tags.
 
 ### Bitcoin Core
 

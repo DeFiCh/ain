@@ -8,9 +8,10 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal, assert_is_hex_string, assert_raises_rpc_error,
     connect_nodes, disconnect_nodes, sync_blocks
-    )
+)
 
 FILTER_TYPES = ["basic"]
+
 
 class GetBlockFilterTest(DefiTestFramework):
     def set_test_params(self):
@@ -54,6 +55,7 @@ class GetBlockFilterTest(DefiTestFramework):
         # Test getblockfilter with undefined filter type
         genesis_hash = self.nodes[0].getblockhash(0)
         assert_raises_rpc_error(-5, "Unknown filtertype", self.nodes[0].getblockfilter, genesis_hash, "unknown")
+
 
 if __name__ == '__main__':
     GetBlockFilterTest().main()

@@ -9,10 +9,12 @@
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
 #include <masternodes/govvariables/loan_splits.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/mn_rpc.h>
 #include <masternodes/validation.h>
+#include <masternodes/threadpool.h>
 #include <masternodes/vaulthistory.h>
 #include <validation.h>
 
@@ -307,7 +309,7 @@ static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, 
                 cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
 
                 // Add transfer as additional TX in block
-                pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
+                cache.GetHistoryWriters().WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
                                                     {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
             }
             else // Log burn failure
@@ -369,11 +371,11 @@ static void ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache,
     });
 }
 
-std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
+std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& vaultAssets, const TAmounts& collBalances, const TAmounts& loanBalances)
 {
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
-    auto totalCollateralsValue = collLoan.totalCollaterals;
-    auto totalLoansValue = collLoan.totalLoans;
+    auto totalCollateralsValue = vaultAssets.totalCollaterals;
+    auto totalLoansValue = vaultAssets.totalLoans;
 
     auto maxCollateralsValue = totalCollateralsValue;
     auto maxLoansValue = totalLoansValue;
@@ -392,7 +394,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     };
 
     std::vector<CAuctionBatch> batches;
-    for (const auto& loan : collLoan.loans) {
+    for (const auto& loan : vaultAssets.loans) {
         auto maxLoanAmount = loanBalances.at(loan.nTokenId);
         auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoansValue)), maxLoansValue);
         auto collateralChunkValue = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollateralsValue)), maxCollateralsValue);
@@ -489,134 +491,193 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
-        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-            auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
-            if (!collateral) {
-                return true;
-            }
+        auto &pool = DfTxTaskPool->pool;
 
-            auto vault = cache.GetVault(vaultId);
-            assert(vault);
-            auto scheme = cache.GetLoanScheme(vault->schemeId);
-            assert(scheme);
-            if (scheme->ratio <= collateral.val->ratio()) {
-                // All good, within ratio, nothing more to do.
-                return true;
-            }
+        struct VaultWithCollateralInfo {
+            CVaultId vaultId;
+            CBalances collaterals;
+            CVaultAssets vaultAssets;
+            CVaultData vault;
+        };
 
-            // Time to liquidate vault.
-            vault->isUnderLiquidation = true;
-            cache.StoreVault(vaultId, *vault);
-            auto loanTokens = cache.GetLoanTokens(vaultId);
-            assert(loanTokens);
+        struct LiquidationVaults {
+            public:
+                AtomicMutex m;
+                std::vector<VaultWithCollateralInfo> vaults;
+        };
+        LiquidationVaults lv;
 
-            // Get the interest rate for each loan token in the vault, find
-            // the interest value and move it to the totals, removing it from the
-            // vault, while also stopping the vault from accumulating interest
-            // further. Note, however, it's added back so that it's accurate
-            // for auction calculations.
-            CBalances totalInterest;
-            for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
-                const auto &[tokenId, tokenValue] = *it;
+        TaskGroup g;
 
-                auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
-                assert(rate);
+        const auto markCompleted = [&g] { g.RemoveTask(); };
 
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
-                if (subInterest > 0) {
-                    totalInterest.Add({tokenId, subInterest});
-                }
+        cache.ForEachVaultCollateral(
+            [&](const CVaultId &vaultId, const CBalances &collaterals) {
+                g.AddTask();
 
-                // Remove loan from the vault
-                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
+                CVaultId vaultIdCopy = vaultId;
+                CBalances collateralsCopy = collaterals;
 
-                if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
-                    TrackDUSDSub(cache, {tokenId, tokenValue});
-                }
+                boost::asio::post(pool, [
+                    vaultIdCopy, collateralsCopy,
+                    &cache, pindex,
+                    useNextPrice, requireLivePrice,
+                    &lv, &markCompleted] {
 
-                // Remove interest from the vault
-                cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue,
-                                       subInterest < 0 || (!subInterest && rate->interestPerBlock.negative) ? std::numeric_limits<CAmount>::max() : subInterest);
+                    auto vaultId = vaultIdCopy;
+                    auto collaterals = collateralsCopy;
 
-                // Putting this back in now for auction calculations.
-                it->second += subInterest;
+                    auto vaultAssets  = cache.GetVaultAssets(
+                        vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
 
-                // If loan amount fully negated then remove it
-                if (it->second < 0) {
-
-                    TrackNegativeInterest(cache, {tokenId, tokenValue});
-
-                    it = loanTokens->balances.erase(it);
-                } else {
-
-                    if (subInterest < 0) {
-                        TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                    if (!vaultAssets) {
+                        markCompleted();
+                        return;
                     }
 
-                    ++it;
-                }
-            }
+                    auto vault = cache.GetVault(vaultId);
+                    assert(vault);
 
-            // Remove the collaterals out of the vault.
-            // (Prep to get the auction batches instead)
-            for (const auto& col : collaterals.balances) {
-                auto tokenId = col.first;
-                auto tokenValue = col.second;
-                cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
-            }
+                    auto scheme = cache.GetLoanScheme(vault->schemeId);
+                    assert(scheme);
 
-            auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
-
-            // Now, let's add the remaining amounts and store the batch.
-            CBalances totalLoanInBatches{};
-            for (auto i = 0u; i < batches.size(); i++) {
-                auto& batch = batches[i];
-                totalLoanInBatches.Add(batch.loanAmount);
-                auto tokenId = batch.loanAmount.nTokenId;
-                auto interest = totalInterest.balances[tokenId];
-                if (interest > 0) {
-                    auto balance = loanTokens->balances[tokenId];
-                    auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
-                    batch.loanInterest = MultiplyAmounts(interestPart, interest);
-                    totalLoanInBatches.Sub({tokenId, batch.loanInterest});
-                }
-                cache.StoreAuctionBatch({vaultId, i}, batch);
-            }
-
-            // Check if more than loan amount was generated.
-            CBalances balances;
-            for (const auto& [tokenId, amount] : loanTokens->balances) {
-                if (totalLoanInBatches.balances.count(tokenId)) {
-                    const auto interest = totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
-                    if (totalLoanInBatches.balances[tokenId] > amount - interest) {
-                        balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                    if (scheme->ratio <= vaultAssets.val->ratio()) {
+                        // All good, within ratio, nothing more to do.
+                        markCompleted();
+                        return;
                     }
-                }
-            }
 
-            // Only store to attributes if there has been a rounding error.
-            if (!balances.balances.empty()) {
-                TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
-            }
-
-            // All done. Ready to save the overall auction.
-            cache.StoreAuction(vaultId, CAuctionData{
-                    uint32_t(batches.size()),
-                    pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
-                    cache.GetLoanLiquidationPenalty()
+                    {
+                        std::unique_lock lock{lv.m};
+                        lv.vaults.push_back(VaultWithCollateralInfo{vaultId, collaterals, vaultAssets, *vault});
+                    }
+                    markCompleted();
+                });
+                return true;
             });
 
-            // Store state in vault DB
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, collateral.val->ratio());
-            }
+        g.WaitForCompletion();
 
-            return true;
-        });
+        {
+            std::unique_lock lock{lv.m};
+            for (auto &[vaultId, collaterals, vaultAssets, vault]: lv.vaults) {
+
+                // Time to liquidate vault.
+                vault.isUnderLiquidation = true;
+                cache.StoreVault(vaultId, vault);
+                auto loanTokens = cache.GetLoanTokens(vaultId);
+                assert(loanTokens);
+
+                // Get the interest rate for each loan token in the vault, find
+                // the interest value and move it to the totals, removing it from the
+                // vault, while also stopping the vault from accumulating interest
+                // further. Note, however, it's added back so that it's accurate
+                // for auction calculations.
+                CBalances totalInterest;
+                for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
+                    const auto &[tokenId, tokenValue] = *it;
+
+                    auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
+                    assert(rate);
+
+                    auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                    if (subInterest > 0) {
+                        totalInterest.Add({tokenId, subInterest});
+                    }
+
+                    // Remove loan from the vault
+                    cache.SubLoanToken(vaultId, {tokenId, tokenValue});
+
+                    if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
+                        TrackDUSDSub(cache, {tokenId, tokenValue});
+                    }
+
+                    // Remove interest from the vault
+                    cache.DecreaseInterest(pindex->nHeight,
+                                            vaultId,
+                                            vault.schemeId,
+                                            tokenId,
+                                            tokenValue,
+                                            subInterest < 0 || (!subInterest && rate->interestPerBlock.negative)
+                                                ? std::numeric_limits<CAmount>::max()
+                                                : subInterest);
+
+                    // Putting this back in now for auction calculations.
+                    it->second += subInterest;
+
+                    // If loan amount fully negated then remove it
+                    if (it->second < 0) {
+                        TrackNegativeInterest(cache, {tokenId, tokenValue});
+
+                        it = loanTokens->balances.erase(it);
+                    } else {
+                        if (subInterest < 0) {
+                            TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                        }
+
+                        ++it;
+                    }
+                }
+
+                // Remove the collaterals out of the vault.
+                // (Prep to get the auction batches instead)
+                for (const auto &col : collaterals.balances) {
+                    auto tokenId    = col.first;
+                    auto tokenValue = col.second;
+                    cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
+                }
+
+                auto batches = CollectAuctionBatches(vaultAssets, collaterals.balances, loanTokens->balances);
+
+                // Now, let's add the remaining amounts and store the batch.
+                CBalances totalLoanInBatches{};
+                for (auto i = 0u; i < batches.size(); i++) {
+                    auto &batch = batches[i];
+                    totalLoanInBatches.Add(batch.loanAmount);
+                    auto tokenId  = batch.loanAmount.nTokenId;
+                    auto interest = totalInterest.balances[tokenId];
+                    if (interest > 0) {
+                        auto balance       = loanTokens->balances[tokenId];
+                        auto interestPart  = DivideAmounts(batch.loanAmount.nValue, balance);
+                        batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                        totalLoanInBatches.Sub({tokenId, batch.loanInterest});
+                    }
+                    cache.StoreAuctionBatch({vaultId, i}, batch);
+                }
+
+                // Check if more than loan amount was generated.
+                CBalances balances;
+                for (const auto &[tokenId, amount] : loanTokens->balances) {
+                    if (totalLoanInBatches.balances.count(tokenId)) {
+                        const auto interest =
+                            totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
+                        if (totalLoanInBatches.balances[tokenId] > amount - interest) {
+                            balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                        }
+                    }
+                }
+
+                // Only store to attributes if there has been a rounding error.
+                if (!balances.balances.empty()) {
+                    TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
+                }
+
+                // All done. Ready to save the overall auction.
+                cache.StoreAuction(vaultId,
+                                    CAuctionData{uint32_t(batches.size()),
+                                                pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                                cache.GetLoanLiquidationPenalty()});
+
+                // Store state in vault DB
+                if (pvaultHistoryDB) {
+                    pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, vaultAssets.ratio());
+                }
+            }
+        }
+
     }
 
-    CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};
-    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), &writers);
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
 
     view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
         if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
@@ -674,11 +735,9 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     LogPrintf("AuctionBid: SubMintedTokens failed: %s\n", res.msg);
                 }
 
-                if (paccountHistoryDB) {
-                    AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
-                    AuctionHistoryValue value{bidTokenAmount, batch->collaterals.balances};
-                    paccountHistoryDB->WriteAuctionHistory(key, value);
-                }
+                AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
+                AuctionHistoryValue value{bidTokenAmount, batch->collaterals.balances};
+                cache.GetHistoryWriters().WriteAuctionHistory(key, value);
 
             } else {
                 // we should return loan including interest
@@ -711,18 +770,12 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
         view.EraseAuction(vaultId, pindex->nHeight);
 
         // Store state in vault DB
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->WriteVaultState(view, *pindex, vaultId);
-        }
+        cache.GetHistoryWriters().WriteVaultState(view, *pindex, vaultId);
 
         return true;
     }, pindex->nHeight);
 
     view.Flush();
-    pburnHistoryDB->Flush();
-    if (paccountHistoryDB) {
-        paccountHistoryDB->Flush();
-    }
 }
 
 static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
@@ -829,8 +882,7 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
 
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
-        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapExecution));
 
         deletionPending.insert(key);
 
@@ -895,13 +947,11 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
 
-        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
         subView.SubBalance(*contractAddressValue, value.source);
         subView.Flush();
 
-        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
         addView.AddBalance(key.owner, value.source);
         addView.Flush();
 
@@ -1278,8 +1328,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (owner != Params().GetConsensus().burnAddress) {
-                    CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                     res = subView.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                     if (!res.ok) {
@@ -1315,8 +1364,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     totalBalance += amountB;
                 }
 
-                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 auto refundBalances = [&, owner = owner]() {
                     addView.AddBalance(owner, {newPoolPair.idTokenA, amountA});
@@ -1496,7 +1544,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         });
     }
 
-    Require(failedVault == CVaultId{}, "Failed to get vault data for: %s", failedVault.ToString());
+    Require(failedVault == CVaultId{}, [=]{ return strprintf("Failed to get vault data for: %s", failedVault.ToString()); });
 
     attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
     attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
@@ -1515,21 +1563,19 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         Require(view.AddLoanToken(vaultId, newTokenAmount));
 
-        if (view.GetVaultHistoryStore()) {
-            if (const auto vault = view.GetVault(vaultId)) {
-                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
-                VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
-                view.GetVaultHistoryStore()->WriteVaultHistory(subKey, subValue);
+        if (const auto vault = view.GetVault(vaultId)) {
+            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+            view.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
 
-                VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
-                VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
-                view.GetVaultHistoryStore()->WriteVaultHistory(addKey, addValue);
-            }
+            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+            view.GetHistoryWriters().WriteVaultHistory(addKey, addValue);
         }
     }
 
     const auto loanToken = view.GetLoanTokenByID(newTokenId);
-    Require(loanToken, "Failed to get loan token.");
+    Require(loanToken, []{ return "Failed to get loan token."; });
 
     // Pre-populate to save repeated calls to get loan scheme
     std::map<std::string, CAmount> loanSchemes;
@@ -1664,10 +1710,10 @@ static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attribute
     if (attributes.CheckKey(ascendantKey)) {
         const auto& [previousID, str] = attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
         auto previousToken = view.GetToken(DCT_ID{previousID});
-        Require(previousToken, "Previous token %d not found\n", id);
+        Require(previousToken, [=]{ return strprintf("Previous token %d not found\n", id); });
 
         const auto found = previousToken->symbol.find(newSuffix);
-        Require(found != std::string::npos, "Previous token name not valid: %s\n", previousToken->symbol);
+        Require(found != std::string::npos, [=]{ return strprintf("Previous token name not valid: %s\n", previousToken->symbol); });
 
         const auto versionNumber  = previousToken->symbol.substr(found + newSuffix.size());
         uint32_t previousVersion{};
@@ -1712,8 +1758,6 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         }
 
         auto view{cache};
-        view.SetAccountHistoryStore();
-        view.SetVaultHistoryStore();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -1843,8 +1887,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
 
             for (const auto& [owner, balances] : balanceUpdates) {
 
-                CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 res = subView.SubBalance(owner, balances.second);
                 if (!res) {
@@ -1852,8 +1895,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
                 }
                 subView.Flush();
 
-                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
-                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenSplit));
 
                 res = addView.AddBalance(owner, balances.first);
                 if (!res) {
@@ -1934,12 +1976,6 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         }
 
         view.Flush();
-        if (auto accountHistory = view.GetAccountHistoryStore()) {
-            accountHistory->Flush();
-        }
-        if (auto vaultHistory = view.GetVaultHistoryStore()) {
-            vaultHistory->Flush();
-        }
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
@@ -2005,13 +2041,11 @@ static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, 
 
             const CTokenAmount source{dfiID, amount};
 
-            CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-            CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+            CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
             subView.SubBalance(*contractAddressValue, source);
             subView.Flush();
 
-            CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-            CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+            CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapRefund));
             addView.AddBalance(key.owner, source);
             addView.Flush();
 
@@ -2044,8 +2078,7 @@ static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, 
 
     cache.ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
 
-        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::FutureSwapExecution));
 
         deletionPending.insert(key);
 
@@ -2152,8 +2185,8 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
     }
 
     std::set<uint256> activeMasternodes;
-    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
-        if (prop.status != CPropStatusType::Voting) return true;
+    cache.ForEachCycleProposal([&](CProposalId const& propId, CProposalObject const& prop) {
+        if (prop.status != CProposalStatusType::Voting) return true;
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
@@ -2167,16 +2200,18 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
             }
         }
 
-        uint32_t voteYes = 0;
+        uint32_t voteYes = 0, voteNeutral = 0;
         std::set<uint256> voters{};
-        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+        cache.ForEachProposalVote([&](CProposalId const & pId, uint8_t cycle, uint256 const & mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop.cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
                 voters.insert(mnId);
-                if (vote == CPropVoteType::VoteYes) {
+                if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
+                } else if (vote == CProposalVoteType::VoteNeutral) {
+                    ++voteNeutral;
                 }
             }
             return true;
@@ -2203,13 +2238,17 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                     );
                 }
 
-                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::ProposalFeeRedistribution), &subWriters);
+                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
 
                 auto res = subView.AddBalance(scriptPubKey, {DCT_ID{0}, amountPerVoter});
                 if (!res) {
                     LogPrintf("Proposal fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
                 }
+
+                if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+                    subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
+                }
+
                 subView.Flush();
             }
 
@@ -2225,25 +2264,31 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= prop.quorum) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
         }
 
-        if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+        if (pindex->nHeight < chainparams.GetConsensus().NextNetworkUpgradeHeight && lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
+        } else if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight) {
+                auto onlyNeutral = voters.size() == voteNeutral;
+                if (onlyNeutral || lround(voteYes * 10000.f / (voters.size() - voteNeutral)) <= prop.approvalThreshold) {
+                    cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
+                    return true;
+                }
         }
 
         if (prop.nCycles == prop.cycle) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+            cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
         } else {
             assert(prop.nCycles > prop.cycle);
-            cache.UpdatePropCycle(propId, prop.cycle + 1);
+            cache.UpdateProposalCycle(propId, prop.cycle + 1);
         }
 
         CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
 
-        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
+        if (prop.type == CProposalType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);

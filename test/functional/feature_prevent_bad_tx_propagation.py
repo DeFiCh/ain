@@ -9,6 +9,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
+
 class AccountMiningTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -39,7 +40,7 @@ class AccountMiningTest(DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
 
-        assert('bad-txns-customtx' in errorString)
+        assert ('bad-txns-customtx' in errorString)
 
         # Store block height
         blockcount = node.getblockcount()
@@ -53,5 +54,6 @@ class AccountMiningTest(DefiTestFramework):
         # Account should have 1@DFI
         assert_equal(node.getaccount(account)[0], "1.00000000@DFI")
 
+
 if __name__ == '__main__':
-    AccountMiningTest().main ()
+    AccountMiningTest().main()

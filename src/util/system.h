@@ -31,6 +31,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <optional>
 
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
@@ -46,6 +47,11 @@ bool error(const char* fmt, const Args&... args)
     LogPrintf("ERROR: %s\n", tfm::format(fmt, args...));
     return false;
 }
+
+// Adding some generic function pointers to keep things contained without taking
+// dependencies on HTTPServer on libs that don't need it
+typedef std::function<std::pair<bool, std::string>(const std::string&)> HTTPHeaderQueryFunc;
+typedef std::function<void(const std::string&, const std::string&)> HTTPHeaderWriterFunc;
 
 void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
 bool FileCommit(FILE *file);
@@ -231,6 +237,15 @@ public:
     int64_t GetArg(const std::string& strArg, int64_t nDefault) const;
 
     /**
+     * Return integer argument or default value
+     *
+     * @param strArg Argument to get (e.g. "-foo")
+     * @param fDefault (e.g. 1.0)
+     * @return command-line argument (0.0 if invalid number) or default value
+     */
+    double GetDoubleArg(const std::string& strArg, double fDefault) const;
+
+    /**
      * Return boolean argument or default value
      *
      * @param strArg Argument to get (e.g. "-foo")
@@ -238,6 +253,14 @@ public:
      * @return command-line argument or default value
      */
     bool GetBoolArg(const std::string& strArg, bool fDefault) const;
+
+    /**
+     * Return boolean argument if present or empty
+     *
+     * @param strArg Argument to get (e.g. "-foo")
+     * @return command-line argument or null value
+     */
+    std::optional<bool> GetOptionalBoolArg(const std::string& strArg) const;
 
     /**
      * Set an argument if it doesn't already have a value

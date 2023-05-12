@@ -19,6 +19,8 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
+    CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
+
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(account, targetHeight);
@@ -108,7 +110,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control, const CoinSelectionOptions &coinSelectOpts) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
@@ -130,7 +132,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     // we does not honor non locking spends anymore
     // it ensures auto auth not overlap regular tx inputs
     const bool lockUnspents = true;
-    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
+    if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl, coinSelectOpts)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
     for (auto& txin : mtx.vin) {
@@ -144,7 +146,7 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
     return mtx;
 }
 
-static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
 
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
@@ -184,7 +186,7 @@ static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CT
     return MakeTransactionRef(std::move(mtx));
 }
 
-static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
+CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
 
     if (optAuthTx) {
         send(optAuthTx, {});
@@ -290,7 +292,7 @@ std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth, const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault()) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -300,8 +302,9 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
 
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
-
-    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
+    
+    // Note, for auth, we call this with 1 as max count, so should early exit
+    pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1, coinSelectOpts);
 
     if (vecOutputs.empty()) {
         return {};
@@ -313,7 +316,11 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
     return txin;
 }
 
-static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScript> const & auths, int32_t txVersion) {
+static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, 
+    std::set<CScript> const & auths,
+    int32_t txVersion,
+    const CoinSelectionOptions &coinSelectOpts) {
+
     CMutableTransaction mtx(txVersion);
     CCoinControl coinControl;
 
@@ -334,7 +341,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
         // Create output to cover 1KB transaction
         CTxOut authOut(GetMinimumFee(*pwallet, 1000, coinControl, nullptr), auth);
         mtx.vout.push_back(authOut);
-        fund(mtx, pwallet, {}, &coinControl);
+        fund(mtx, pwallet, {}, &coinControl, coinSelectOpts);
 
         // AutoAuthPrep, auth output and change
         if (mtx.vout.size() == 3) {
@@ -353,7 +360,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
         mtx.vout.push_back(authOut);
     }
 
-    return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
+    return fund(mtx, pwallet, {}, &coinControl, coinSelectOpts), sign(mtx, pwallet, {});
 }
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
@@ -379,7 +386,7 @@ static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwal
     return {};
 }
 
-std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs, const CoinSelectionOptions &coinSelectOpts) {
 
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -396,7 +403,10 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         if (IsMineCached(*pwallet, auth) != ISMINE_SPENDABLE) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
-        auto authInput = GetAuthInputOnly(pwallet, destination);
+        auto authInput = GetAuthInputOnly(
+            pwallet, 
+            destination, 
+            coinSelectOpts);
         if (authInput) {
             result.push_back(authInput.value());
         }
@@ -422,7 +432,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
     // at last, create additional tx for missed
     if (!notFoundYet.empty()) {
         try {
-            optAuthTx = CreateAuthTx(pwallet, notFoundYet, txVersion); // success or throw
+            optAuthTx = CreateAuthTx(pwallet, notFoundYet, txVersion, coinSelectOpts); // success or throw
         } catch (const UniValue& objError) {
             throw JSONRPCError(objError["code"].get_int(), "Add-on auth TX failed: " + objError["message"].getValStr());
         }
@@ -491,6 +501,18 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
     return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
+std::string CTransferBalanceTypeToString(const CTransferBalanceType type) {
+    switch (type) {
+        case CTransferBalanceType::AccountToAccount:
+            return "AccountToAccount";
+        case CTransferBalanceType::EvmIn:
+            return "EvmIn";
+        case CTransferBalanceType::EvmOut:
+            return "EvmOut";
+    }
+    return "Unknown";
+}
+
 UniValue setgov(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -551,8 +573,17 @@ UniValue setgov(const JSONRPCRequest& request) {
                 const auto attrMap = attributes->GetAttributesMap();
                 for (const auto& [key, value] : attrMap) {
                     if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                        if (attrV0->type == AttributeTypes::Consortium && (attrV0->typeId == 0 || pcustomcsview->GetLoanTokenByID({attrV0->typeId}))) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI or loan tokens");
+                        DCT_ID tokenID{attrV0->typeId};
+                        if (attrV0->type == AttributeTypes::Consortium) {
+                            bool isDAT{};
+                            if (auto token = pcustomcsview->GetToken(tokenID)) {
+                                isDAT = token->IsDAT();
+                            }
+
+                            if (attrV0->typeId == 0 ||
+                                !isDAT ||
+                                pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                                throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
                     }
                 }
@@ -578,18 +609,20 @@ UniValue setgov(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -668,18 +701,20 @@ UniValue unsetgov(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -739,6 +774,32 @@ UniValue setgovheight(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
         }
         varStream << name << *gv;
+
+        if (name == "ATTRIBUTES") {
+            const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!attributes) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
+            }
+
+            LOCK(cs_main);
+            const auto attrMap = attributes->GetAttributesMap();
+            for (const auto& [key, value] : attrMap) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
+                    DCT_ID tokenID{attrV0->typeId};
+                    if (attrV0->type == AttributeTypes::Consortium) {
+                        bool isDAT{};
+                        if (auto token = pcustomcsview->GetToken(tokenID)) {
+                            isDAT = token->IsDAT();
+                        }
+
+                        if (attrV0->typeId == 0 ||
+                            !isDAT ||
+                            pcustomcsview->GetLoanTokenByID({attrV0->typeId}))
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
+                    }
+                }
+            }
+        }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
     }
@@ -762,18 +823,20 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
     // Set change to selected foundation address
-    CTxDestination dest;
-    ExtractDestination(*auths.cbegin(), dest);
-    if (IsValidDestination(dest)) {
-        coinControl.destChange = dest;
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);

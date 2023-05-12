@@ -212,6 +212,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "gettokenbalances", 0, "pagination" },
     { "gettokenbalances", 1, "indexed_amounts" },
     { "gettokenbalances", 2, "symbol_lookup" },
+    { "gettokenbalances", 3, "include_eth" },
     { "accounttoaccount", 1, "to" },
     { "accounttoaccount", 2, "inputs" },
     { "accounttoutxos", 1, "to" },
@@ -356,7 +357,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "creategovvoc", 0, "data" },
     { "creategovvoc", 1, "inputs" },
     { "listgovproposalvotes", 2, "cycle" },
-    { "listgovproposals", 0, "type" },
+    { "listgovproposalvotes", 3, "pagination" },
+    { "listgovproposals", 2, "cycle" },
+    { "listgovproposals", 3, "pagination" },
 };
 // clang-format on
 

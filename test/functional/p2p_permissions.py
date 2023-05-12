@@ -15,11 +15,12 @@ from test_framework.util import (
     p2p_port,
 )
 
+
 class P2PPermissionsTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [[],[]]
+        self.extra_args = [[], []]
 
     def run_test(self):
         self.checkpermission(
@@ -48,9 +49,9 @@ class P2PPermissionsTests(DefiTestFramework):
         ip_port = "127.0.0.1:{}".format(p2p_port(1))
         self.replaceinconfig(1, "bind=127.0.0.1", "whitebind=bloomfilter,forcerelay@" + ip_port)
         self.checkpermission(
-            ["-whitelist=noban@127.0.0.1" ],
+            ["-whitelist=noban@127.0.0.1"],
             # Check parameter interaction forcerelay should activate relay
-            ["noban", "bloomfilter", "forcerelay", "relay" ],
+            ["noban", "bloomfilter", "forcerelay", "relay"],
             False)
         self.replaceinconfig(1, "whitebind=bloomfilter,forcerelay@" + ip_port, "bind=127.0.0.1")
 
@@ -79,9 +80,13 @@ class P2PPermissionsTests(DefiTestFramework):
             False)
 
         self.stop_node(1)
-        self.nodes[1].assert_start_raises_init_error(["-whitelist=oopsie@127.0.0.1"], "Invalid P2P permission", match=ErrorMatch.PARTIAL_REGEX)
-        self.nodes[1].assert_start_raises_init_error(["-whitelist=noban@127.0.0.1:230"], "Invalid netmask specified in", match=ErrorMatch.PARTIAL_REGEX)
-        self.nodes[1].assert_start_raises_init_error(["-whitebind=noban@127.0.0.1/10"], "Cannot resolve -whitebind address", match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[1].assert_start_raises_init_error(["-whitelist=oopsie@127.0.0.1"], "Invalid P2P permission",
+                                                     match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[1].assert_start_raises_init_error(["-whitelist=noban@127.0.0.1:230"], "Invalid netmask specified in",
+                                                     match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[1].assert_start_raises_init_error(["-whitebind=noban@127.0.0.1/10"],
+                                                     "Cannot resolve -whitebind address",
+                                                     match=ErrorMatch.PARTIAL_REGEX)
 
     def checkpermission(self, args, expectedPermissions, whitelisted):
         self.restart_node(1, args)
@@ -95,9 +100,10 @@ class P2PPermissionsTests(DefiTestFramework):
 
     def replaceinconfig(self, nodeid, old, new):
         with open(self.nodes[nodeid].deficonf, encoding="utf8") as f:
-            newText=f.read().replace(old, new)
+            newText = f.read().replace(old, new)
         with open(self.nodes[nodeid].deficonf, 'w', encoding="utf8") as f:
             f.write(newText)
+
 
 if __name__ == '__main__':
     P2PPermissionsTests().main()

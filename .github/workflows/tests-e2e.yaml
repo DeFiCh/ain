@@ -1,0 +1,32 @@
+name: Tests - E2E
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "!v*"
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  unit_tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PULL_REQUEST: ${{ github.event.number }}
+    steps:
+    - name: Checkout base branch and/or merge
+      if: github.event_name != 'pull_request'
+      uses: actions/checkout@v2
+
+    - name: Checkout pull request head commit
+      if: github.event_name == 'pull_request'
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Tests
+      run: ./ci/test/main.sh

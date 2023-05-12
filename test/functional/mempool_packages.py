@@ -17,6 +17,7 @@ from test_framework.util import (
 MAX_ANCESTORS = 25
 MAX_DESCENDANTS = 25
 
+
 class MempoolPackagesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -28,8 +29,8 @@ class MempoolPackagesTest(DefiTestFramework):
     # Build a transaction that spends parent_txid:vout
     # Return amount sent
     def chain_transaction(self, node, parent_txid, vout, value, fee, num_outputs):
-        send_value = satoshi_round((value - fee)/num_outputs)
-        inputs = [ {'txid' : parent_txid, 'vout' : vout} ]
+        send_value = satoshi_round((value - fee) / num_outputs)
+        inputs = [{'txid': parent_txid, 'vout': vout}]
         outputs = {}
         for i in range(num_outputs):
             outputs[node.getnewaddress()] = send_value
@@ -104,9 +105,9 @@ class MempoolPackagesTest(DefiTestFramework):
 
             # Check getmempooldescendants verbose output is correct
             for descendant, dinfo in self.nodes[0].getmempooldescendants(x, True).items():
-                assert_equal(dinfo['depends'], [chain[chain.index(descendant)-1]])
+                assert_equal(dinfo['depends'], [chain[chain.index(descendant) - 1]])
                 if dinfo['descendantcount'] > 1:
-                    assert_equal(dinfo['spentby'], [chain[chain.index(descendant)+1]])
+                    assert_equal(dinfo['spentby'], [chain[chain.index(descendant) + 1]])
                 else:
                     assert_equal(dinfo['spentby'], [])
             descendants.append(x)
@@ -117,22 +118,21 @@ class MempoolPackagesTest(DefiTestFramework):
 
             # Check that getmempoolancestors verbose output is correct
             for ancestor, ainfo in self.nodes[0].getmempoolancestors(x, True).items():
-                assert_equal(ainfo['spentby'], [chain[chain.index(ancestor)+1]])
+                assert_equal(ainfo['spentby'], [chain[chain.index(ancestor) + 1]])
                 if ainfo['ancestorcount'] > 1:
-                    assert_equal(ainfo['depends'], [chain[chain.index(ancestor)-1]])
+                    assert_equal(ainfo['depends'], [chain[chain.index(ancestor) - 1]])
                 else:
                     assert_equal(ainfo['depends'], [])
 
-
         # Check that getmempoolancestors/getmempooldescendants correctly handle verbose=true
         v_ancestors = self.nodes[0].getmempoolancestors(chain[-1], True)
-        assert_equal(len(v_ancestors), len(chain)-1)
+        assert_equal(len(v_ancestors), len(chain) - 1)
         for x in v_ancestors.keys():
             assert_equal(mempool[x], v_ancestors[x])
         assert chain[-1] not in v_ancestors.keys()
 
         v_descendants = self.nodes[0].getmempooldescendants(chain[0], True)
-        assert_equal(len(v_descendants), len(chain)-1)
+        assert_equal(len(v_descendants), len(chain) - 1)
         for x in v_descendants.keys():
             assert_equal(mempool[x], v_descendants[x])
         assert chain[0] not in v_descendants.keys()
@@ -162,7 +162,8 @@ class MempoolPackagesTest(DefiTestFramework):
             assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN + 1000)
 
         # Adding one more transaction on to the chain should fail.
-        assert_raises_rpc_error(-26, "too-long-mempool-chain", self.chain_transaction, self.nodes[0], txid, vout, value, fee, 1)
+        assert_raises_rpc_error(-26, "too-long-mempool-chain", self.chain_transaction, self.nodes[0], txid, vout, value,
+                                fee, 1)
 
         # Check that prioritising a tx before it's added to the mempool works
         # First clear the mempool by mining a block.
@@ -183,10 +184,10 @@ class MempoolPackagesTest(DefiTestFramework):
         for x in reversed(chain):
             descendant_fees += mempool[x]['fee']
             if (x == chain[-1]):
-                assert_equal(mempool[x]['modifiedfee'], mempool[x]['fee']+satoshi_round(0.00002))
-                assert_equal(mempool[x]['fees']['modified'], mempool[x]['fee']+satoshi_round(0.00002))
+                assert_equal(mempool[x]['modifiedfee'], mempool[x]['fee'] + satoshi_round(0.00002))
+                assert_equal(mempool[x]['fees']['modified'], mempool[x]['fee'] + satoshi_round(0.00002))
             assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN + 2000)
-            assert_equal(mempool[x]['fees']['descendant'], descendant_fees+satoshi_round(0.00002))
+            assert_equal(mempool[x]['fees']['descendant'], descendant_fees + satoshi_round(0.00002))
 
         # TODO: check that node1's mempool is as expected
 
@@ -208,7 +209,8 @@ class MempoolPackagesTest(DefiTestFramework):
         # Sign and send up to MAX_DESCENDANT transactions chained off the parent tx
         for i in range(MAX_DESCENDANTS - 1):
             utxo = transaction_package.pop(0)
-            (txid, sent_value) = self.chain_transaction(self.nodes[0], utxo['txid'], utxo['vout'], utxo['amount'], fee, 10)
+            (txid, sent_value) = self.chain_transaction(self.nodes[0], utxo['txid'], utxo['vout'], utxo['amount'], fee,
+                                                        10)
             if utxo['txid'] is parent_transaction:
                 tx_children.append(txid)
             for j in range(10):
@@ -223,7 +225,8 @@ class MempoolPackagesTest(DefiTestFramework):
 
         # Sending one more chained transaction will fail
         utxo = transaction_package.pop(0)
-        assert_raises_rpc_error(-26, "too-long-mempool-chain", self.chain_transaction, self.nodes[0], utxo['txid'], utxo['vout'], utxo['amount'], fee, 10)
+        assert_raises_rpc_error(-26, "too-long-mempool-chain", self.chain_transaction, self.nodes[0], utxo['txid'],
+                                utxo['vout'], utxo['amount'], fee, 10)
 
         # TODO: check that node1's mempool is as expected
 
@@ -255,8 +258,8 @@ class MempoolPackagesTest(DefiTestFramework):
         value = utxo[0]['amount']
         vout = utxo[0]['vout']
 
-        send_value = satoshi_round((value - fee)/2)
-        inputs = [ {'txid' : txid, 'vout' : vout} ]
+        send_value = satoshi_round((value - fee) / 2)
+        inputs = [{'txid': txid, 'vout': vout}]
         outputs = {}
         for i in range(2):
             outputs[self.nodes[0].getnewaddress()] = send_value
@@ -282,8 +285,8 @@ class MempoolPackagesTest(DefiTestFramework):
         self.sync_blocks()
 
         # Now generate tx8, with a big fee
-        inputs = [ {'txid' : tx1_id, 'vout': 0}, {'txid' : txid, 'vout': 0} ]
-        outputs = { self.nodes[0].getnewaddress() : send_value + value - 4*fee }
+        inputs = [{'txid': tx1_id, 'vout': 0}, {'txid': txid, 'vout': 0}]
+        outputs = {self.nodes[0].getnewaddress(): send_value + value - 4 * fee}
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         txid = self.nodes[0].sendrawtransaction(signedtx['hex'])
@@ -293,6 +296,7 @@ class MempoolPackagesTest(DefiTestFramework):
         self.nodes[1].invalidateblock(self.nodes[1].getbestblockhash())
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
         self.sync_blocks()
+
 
 if __name__ == '__main__':
     MempoolPackagesTest().main()

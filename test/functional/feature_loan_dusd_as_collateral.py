@@ -12,12 +12,14 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 
-class LoanDUSDCollateralTest (DefiTestFramework):
+
+class LoanDUSDCollateralTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=200', '-fortcanningroadheight=215', '-jellyfish_regtest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanninghillheight=200', '-fortcanningroadheight=215', '-jellyfish_regtest=1']]
 
     def run_test(self):
         self.nodes[0].generate(120)
@@ -78,12 +80,12 @@ class LoanDUSDCollateralTest (DefiTestFramework):
             mn_address: [
                 '10000@' + symbolDFI,
                 '8000@' + symbolDUSD]
-            }, mn_address)
+        }, mn_address)
         self.nodes[0].addpoolliquidity({
             mn_address: [
                 '10000@' + symbolDFI,
                 '8000@' + symbolBTC]
-            }, mn_address)
+        }, mn_address)
         self.nodes[0].generate(1)
 
         # Set up Oracles
@@ -105,25 +107,25 @@ class LoanDUSDCollateralTest (DefiTestFramework):
 
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
-                                    'token': symbolDFI,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DFI/USD"
-                                    })
+            'token': symbolDFI,
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"
+        })
 
         self.nodes[0].setcollateraltoken({
-                                    'token': symbolBTC,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "BTC/USD"
-                                    })
+            'token': symbolBTC,
+            'factor': 1,
+            'fixedIntervalPriceId': "BTC/USD"
+        })
 
         token_factor_dusd = 0.99
         activate = self.nodes[0].getblockcount() + 50
         self.nodes[0].setcollateraltoken({
-                                    'token': symbolDUSD,
-                                    'factor': token_factor_dusd,
-                                    'fixedIntervalPriceId': "DUSD/USD",
-                                    'activateAfterBlock': activate
-                                    })
+            'token': symbolDUSD,
+            'factor': token_factor_dusd,
+            'fixedIntervalPriceId': "DUSD/USD",
+            'activateAfterBlock': activate
+        })
         self.nodes[0].generate(1)
 
         # Create loan scheme
@@ -144,7 +146,8 @@ class LoanDUSDCollateralTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # DUSD is not active as a collateral token yet
-        assert_raises_rpc_error(-32600, "Collateral token with id (1) does not exist!", self.nodes[0].deposittovault, vault_id, vault_address, str(collateral) + "@" + symbolDUSD)
+        assert_raises_rpc_error(-32600, "Collateral token with id (1) does not exist!", self.nodes[0].deposittovault,
+                                vault_id, vault_address, str(collateral) + "@" + symbolDUSD)
 
         # Activates DUSD as collateral token
         self.nodes[0].generate(activate - self.nodes[0].getblockcount())
@@ -155,18 +158,18 @@ class LoanDUSDCollateralTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         vault = self.nodes[0].getvault(vault_id)
-        assert("DUSD" in vault['collateralAmounts'][1])
+        assert ("DUSD" in vault['collateralAmounts'][1])
         assert_equal(vault['collateralValue'], collateral * token_factor_dusd + collateral)
 
         # Move to FortCanningHill fork
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Enable loan payback
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idDUSD + '/payback_dfi':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/token/' + idDUSD + '/payback_dfi': 'true'}})
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD})
         self.nodes[0].generate(1)
 
         # Loan value loan amount + interest
@@ -203,15 +206,15 @@ class LoanDUSDCollateralTest (DefiTestFramework):
 
         # Try to take DUSD loan with DUSD as sole collateral
         try:
-            self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
+            self.nodes[0].takeloan({"vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI" in errorString)
+        assert ("At least 50% of the minimum required collateral must be in DFI" in errorString)
 
-        self.nodes[0].generate(215 - self.nodes[0].getblockcount()) # move to fortcanningroad height
+        self.nodes[0].generate(215 - self.nodes[0].getblockcount())  # move to fortcanningroad height
 
         # Take DUSD loan with DUSD as sole collateral
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD})
         self.nodes[0].generate(1)
 
         vault = self.nodes[0].getvault(vault_id)
@@ -219,18 +222,21 @@ class LoanDUSDCollateralTest (DefiTestFramework):
 
         # Try to take DUSD loan with DUSD less than 50% of total collateralized loan value
         # This tests for collateral factor
-        assert_raises_rpc_error(-32600, "Vault does not have enough collateralization ratio defined by loan scheme - 149 < 150", self.nodes[0].takeloan, { "vaultId": vault_id, "amounts": "333@" + symbolDUSD })
+        assert_raises_rpc_error(-32600,
+                                "Vault does not have enough collateralization ratio defined by loan scheme - 149 < 150",
+                                self.nodes[0].takeloan, {"vaultId": vault_id, "amounts": "333@" + symbolDUSD})
 
         # Set DUSD collateral factor back to 1
         self.nodes[0].setcollateraltoken({
-                                    'token': symbolDUSD,
-                                    'factor': 1,
-                                    'fixedIntervalPriceId': "DUSD/USD"
-                                    })
+            'token': symbolDUSD,
+            'factor': 1,
+            'fixedIntervalPriceId': "DUSD/USD"
+        })
         self.nodes[0].generate(10)
 
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": "333@" + symbolDUSD })
+        self.nodes[0].takeloan({"vaultId": vault_id, "amounts": "333@" + symbolDUSD})
         self.nodes[0].generate(1)
+
 
 if __name__ == '__main__':
     LoanDUSDCollateralTest().main()

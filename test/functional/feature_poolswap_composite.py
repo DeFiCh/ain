@@ -6,23 +6,27 @@
 """Test poolpair composite swap RPC."""
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.authproxy import JSONRPCException
+from test_framework.fixture_util import CommonFixture
 from test_framework.util import (
     assert_equal,
     disconnect_nodes,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    get_id_token,
 )
 
 from decimal import Decimal
+
 
 class PoolPairCompositeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108',
+             '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108',
+             '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
 
     def run_test(self):
 
@@ -65,14 +69,14 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "amount": 1000000
             },
         ]
-        self.setup_tokens(tokens)
+        CommonFixture.setup_default_tokens(self, tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDOGE = "DOGE#" + self.get_id_token("DOGE")
-        symbolTSLA = "TSLA#" + self.get_id_token("TSLA")
-        symbolDUSD = "DUSD#" + self.get_id_token("DUSD")
-        symbolLTC = "LTC#" + self.get_id_token("LTC")
-        symbolUSDC = "USDC#" + self.get_id_token("USDC")
+        symbolDOGE = "DOGE#" + get_id_token(self.nodes[0], "DOGE")
+        symbolTSLA = "TSLA#" + get_id_token(self.nodes[0], "TSLA")
+        symbolDUSD = "DUSD#" + get_id_token(self.nodes[0], "DUSD")
+        symbolLTC = "LTC#" + get_id_token(self.nodes[0], "LTC")
+        symbolUSDC = "USDC#" + get_id_token(self.nodes[0], "USDC")
 
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]
@@ -149,8 +153,8 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"LTC-DFI":"Lack of liquidity."' in errorString)
-        assert('"LTC-USDC":"Lack of liquidity."' in errorString)
+        assert ('"LTC-DFI":"Lack of liquidity."' in errorString)
+        assert ('"LTC-USDC":"Lack of liquidity."' in errorString)
 
         # Add pool liquidity
         self.nodes[0].addpoolliquidity({
@@ -167,7 +171,6 @@ class PoolPairCompositeTest(DefiTestFramework):
             collateral: ["100@" + symbolLTC, "500@DFI"]
         }, collateral, [])
         self.nodes[0].generate(1)
-
 
         self.nodes[0].compositeswap({
             "from": source,
@@ -229,8 +232,8 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"DOGE-DFI":"Price is higher than indicated."' in errorString)
-        assert('"LTC-USDC":"Lack of liquidity."' in errorString)
+        assert ('"DOGE-DFI":"Price is higher than indicated."' in errorString)
+        assert ('"LTC-USDC":"Lack of liquidity."' in errorString)
 
         # Add better route for swap with double amount
         self.nodes[0].addpoolliquidity({
@@ -282,7 +285,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Cannot find usable pool pair.' in errorString)
+        assert ('Cannot find usable pool pair.' in errorString)
 
         # Let's add a pool to bridge TSLA-DUSD and LTC-DFI
         self.nodes[0].createpoolpair({
@@ -306,7 +309,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"DUSD-DFI":"Lack of liquidity."' in errorString)
+        assert ('"DUSD-DFI":"Lack of liquidity."' in errorString)
 
         # Add some liquidity
         self.nodes[0].addpoolliquidity({
@@ -326,7 +329,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
+        assert ('"LTC-DFI":"Price is higher than indicated."' in errorString)
 
         self.nodes[0].compositeswap({
             "from": source,
@@ -382,8 +385,8 @@ class PoolPairCompositeTest(DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
-        assert('"LTC-USDC":"Price is higher than indicated."' in errorString)
+        assert ('"LTC-DFI":"Price is higher than indicated."' in errorString)
+        assert ('"LTC-USDC":"Price is higher than indicated."' in errorString)
 
         tx = self.nodes[0].compositeswap({
             "from": source,
@@ -392,7 +395,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "to": destination,
             "tokenTo": symbolLTC,
             "maxPrice": "0.03361578"
-            })
+        })
         self.nodes[0].generate(1)
 
         # Check source
@@ -446,7 +449,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         rawtx = self.nodes[0].getrawtransaction(tx)
 
         updated_metadata = metadata.replace(hex(int(idLTC))[
-                                            2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
+                                                2] + "00" + hex(int(idLTC))[3],
+                                            hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
         updated_rawtx = rawtx.replace(metadata, updated_metadata)
 
         self.nodes[0].clearmempool()
@@ -469,7 +473,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "amountFrom": tsla_to_ltc_from,
             "to": destination,
             "tokenTo": 0
-            })
+        })
 
         rawtx_verbose = self.nodes[0].getrawtransaction(tx, 1)
         metadata = rawtx_verbose['vout'][0]['scriptPubKey']['hex']
@@ -479,17 +483,20 @@ class PoolPairCompositeTest(DefiTestFramework):
         updated_metadata = metadata.replace('020206', '0402060206')
         updated_rawtx = rawtx.replace('5a' + metadata, '5c6a4c59' + updated_metadata[6:])
 
-        assert_raises_rpc_error(-26, "Too many pool IDs provided, max 3 allowed, 4 provided", self.nodes[0].sendrawtransaction, updated_rawtx)
+        assert_raises_rpc_error(-26, "Too many pool IDs provided, max 3 allowed, 4 provided",
+                                self.nodes[0].sendrawtransaction, updated_rawtx)
 
         updated_metadata = metadata.replace('020206', '03020602')
         updated_rawtx = rawtx.replace('5a' + metadata, '5b6a4c58' + updated_metadata[6:])
 
-        assert_raises_rpc_error(-26, "Final swap should have idTokenTo as destination, not source", self.nodes[0].sendrawtransaction, updated_rawtx)
+        assert_raises_rpc_error(-26, "Final swap should have idTokenTo as destination, not source",
+                                self.nodes[0].sendrawtransaction, updated_rawtx)
 
         updated_metadata = metadata.replace('020206', '0102')
         updated_rawtx = rawtx.replace('5a' + metadata, '596a4c56' + updated_metadata[6:])
 
-        assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided", self.nodes[0].sendrawtransaction, updated_rawtx)
+        assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided",
+                                self.nodes[0].sendrawtransaction, updated_rawtx)
         self.nodes[0].clearmempool()
 
         # Test too many pools error message.
@@ -499,14 +506,16 @@ class PoolPairCompositeTest(DefiTestFramework):
         idUSDCLTC = list(self.nodes[0].gettoken("LTC-USDC").keys())[0]
 
         # Test four pool composite swap
-        assert_raises_rpc_error(-32600, 'Too many pool IDs provided, max 3 allowed, 4 provided', self.nodes[0].testpoolswap,
-        {
-            "from": source,
-            "tokenFrom": symbolDOGE,
-            "amountFrom": 1,
-            "to": destination,
-            "tokenTo": symbolLTC,
-        }, [idDOGEDFI, idDFIDUSD, idDUSDUSDC, idUSDCLTC])
+        assert_raises_rpc_error(-32600, 'Too many pool IDs provided, max 3 allowed, 4 provided',
+                                self.nodes[0].testpoolswap,
+                                {
+                                    "from": source,
+                                    "tokenFrom": symbolDOGE,
+                                    "amountFrom": 1,
+                                    "to": destination,
+                                    "tokenTo": symbolLTC,
+                                }, [idDOGEDFI, idDFIDUSD, idDUSDUSDC, idUSDCLTC])
+
 
 if __name__ == '__main__':
     PoolPairCompositeTest().main()
