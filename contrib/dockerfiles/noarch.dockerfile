@@ -1,4 +1,7 @@
-ARG TARGET=x86_64-pc-linux-gnu
+# This is required to be passed in for compilation. 
+# This is the dockerfile to use for adding support to new arch or or arch
+# without end docker images, like darwin x84_64 and darwin aarch64 platforms 
+ARG TARGET=unknown
 
 # -----------
 FROM --platform=linux/amd64 ubuntu:latest as builder
@@ -23,25 +26,5 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
-# -----------
-### Actual image that contains defi binaries
-FROM --platform=linux/amd64 ubuntu:latest
-ARG TARGET
-ENV PATH=/app/bin:$PATH
-LABEL org.defichain.name="defichain"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /app
-COPY --from=builder /app/. ./
-
-RUN useradd --create-home defi && \
-    mkdir -p /data && \
-    chown defi:defi /data && \
-    ln -s /data /home/defi/.defi
-
-VOLUME ["/data"]
-
-USER defi:defi
-CMD [ "/app/bin/defid" ]
-
-EXPOSE 8554 8550 8551 18554 18550 18551 19554 19550 19551 20554 20550 20551
+# NOTE: These may or may not be runnable binaries on the platform. 
+# So we do not add into a scratch base image. Extract and use as needed.

@@ -42,11 +42,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     File::create(out_include_dir.join(header_file_path))?.write_all(&codegen.header)?;
     File::create(out_src_dir.join(source_file_path))?.write_all(cpp_stuff.as_bytes())?;
 
-    println!("cargo:rerun-if-changed={}", lib_path.as_path().display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        lib_path.as_path().to_str().ok_or("lib path err")?
+    );
     // Using a direct path for now
     let git_head_path = manifest_path.join("../../.git/HEAD");
     if git_head_path.exists() {
-        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
+        println!(
+            "cargo:rerun-if-changed={}",
+            git_head_path.to_str().ok_or("git head path err")?
+        );
     }
 
     Ok(())

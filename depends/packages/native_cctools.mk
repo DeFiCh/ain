@@ -56,8 +56,8 @@ endef
 #       - Then, just do a move to the right location where autoconf later expects it
 define $(package)_preprocess_cmds
   sed -i.old 's/$$MAKE install-libtapi/$$MAKE DESTDIR=\"$$$$INSTALLPREFIX\" install-libtapi/' ./libtapi/install.sh && \
-  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/build.sh && \
-  CC=$($(package)_cc) CXX=$($(package)_cxx) INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/install.sh && \
+  CC="$($(package)_cc)" CXX="$($(package)_cxx)" INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/build.sh && \
+  CC="$($(package)_cc)" CXX="$($(package)_cxx)" INSTALLPREFIX="$($(package)_extract_dir)" ./libtapi/install.sh && \
   sed -i.old "/define HAVE_PTHREADS/d" $($(package)_build_subdir)/ld64/src/ld/InputFiles.h && \
   mv "$($(package)_extract_dir)/$($(package)_extract_dir)/include" $($(package)_extract_dir)/ && \
   mv "$($(package)_extract_dir)/$($(package)_extract_dir)/lib" $($(package)_extract_dir)/
