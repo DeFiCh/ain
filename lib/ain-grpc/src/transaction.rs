@@ -10,7 +10,7 @@ use crate::{
 impl From<SignedTx> for EthTransactionInfo {
     fn from(signed_tx: SignedTx) -> Self {
         let input = if signed_tx.data().is_empty() {
-            String::from("0x0")
+            String::from("0x")
         } else {
             format!("0x{}", hex::encode(signed_tx.data()))
         };
