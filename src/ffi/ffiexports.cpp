@@ -176,3 +176,16 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
 uint64_t getMinRelayTxFee() {
     return ::minRelayTxFee.GetFeePerK() * 10000000;
 }
+
+std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
+    for (const auto &wallet : GetWallets()) {
+        const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
+        CKey ethPrivKey;
+        if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
+            std::array<uint8_t, 32> privKeyArray{};
+            std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
+            return privKeyArray;
+        }
+    }
+    return {};
+}
