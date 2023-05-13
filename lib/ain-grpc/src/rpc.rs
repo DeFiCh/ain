@@ -4,16 +4,21 @@ use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
 
 use crate::receipt::ReceiptResult;
+use crate::transaction_request::{TransactionMessage, TransactionRequest};
+use ain_cpp_imports::get_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
+use ethereum::TransactionV2 as EthereumTransaction;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
+use libsecp256k1::SecretKey;
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[rpc(server, client)]
@@ -165,10 +170,16 @@ pub trait MetachainRPC {
     // ----------------------------------------
     // Send
     // ----------------------------------------
+
     /// Sends a signed transaction.
     /// Returns the transaction hash as a hexadecimal string.
     #[method(name = "eth_sendRawTransaction")]
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String>;
+
+    /// Sends a transaction.
+    /// Returns the transaction hash as a hexadecimal string.
+    #[method(name = "eth_sendTransaction")]
+    fn send_transaction(&self, req: TransactionRequest) -> RpcResult<String>;
 
     // ----------------------------------------
     // Gas
@@ -461,6 +472,85 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
+    fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
+        debug!(target:"rpc","[send_transaction] Sending transaction: {:?}", request);
+
+        let from = match request.from {
+            Some(from) => from,
+            None => {
+                let accounts = match self.accounts() {
+                    Ok(accounts) => accounts,
+                    Err(e) => return Err(e),
+                };
+
+                match accounts.get(0) {
+                    Some(account) => H160::from_str(account.as_str()).unwrap(),
+                    None => return Err(Error::Custom(String::from("from is not available"))),
+                }
+            }
+        };
+
+        let chain_id = self.chain_id().unwrap().parse::<u64>().unwrap();
+
+        let block_number = BlockNumber::Num(self.block_number().unwrap().as_u64());
+
+        let nonce = match request.nonce {
+            Some(nonce) => nonce,
+            None => match self.get_transaction_count(from, Some(block_number)) {
+                Ok(nonce) => nonce,
+                Err(e) => return Err(e),
+            },
+        };
+
+        let gas_price = request.gas_price;
+        let gas_limit = match request.gas {
+            Some(gas_limit) => gas_limit,
+            // TODO(): get the gas_limit from block.header
+            // set 21000 (min gas_limit req) by default first
+            None => U256::from(21000),
+        };
+        let max_fee_per_gas = request.max_fee_per_gas;
+        let message: Option<TransactionMessage> = request.into();
+        let message = match message {
+            Some(TransactionMessage::Legacy(mut m)) => {
+                m.nonce = nonce;
+                m.chain_id = Some(chain_id);
+                m.gas_limit = U256::from(1);
+                if gas_price.is_none() {
+                    m.gas_price = self.gas_price().unwrap();
+                }
+                TransactionMessage::Legacy(m)
+            }
+            Some(TransactionMessage::EIP2930(mut m)) => {
+                m.nonce = nonce;
+                m.chain_id = chain_id;
+                m.gas_limit = gas_limit;
+                if gas_price.is_none() {
+                    m.gas_price = self.gas_price().unwrap();
+                }
+                TransactionMessage::EIP2930(m)
+            }
+            Some(TransactionMessage::EIP1559(mut m)) => {
+                m.nonce = nonce;
+                m.chain_id = chain_id;
+                m.gas_limit = gas_limit;
+                if max_fee_per_gas.is_none() {
+                    m.max_fee_per_gas = self.gas_price().unwrap();
+                }
+                TransactionMessage::EIP1559(m)
+            }
+            _ => {
+                return Err(Error::Custom(String::from(
+                    "invalid transaction parameters",
+                )))
+            }
+        };
+
+        let transaction = sign(from, message)?;
+        let hash = self.send_raw_transaction(format!("{:#x}", transaction.hash()).as_str())?;
+        Ok(hash)
+    }
+
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
         debug!(target:"rpc","[send_raw_transaction] Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
@@ -580,4 +670,82 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler.storage.dump_db();
         Ok(())
     }
+}
+
+fn sign(address: H160, message: TransactionMessage) -> RpcResult<EthereumTransaction> {
+    let priv_key = get_priv_key(address).unwrap();
+    let secret_key = SecretKey::parse(&priv_key).unwrap();
+
+    let mut transaction = None;
+
+    match message {
+        TransactionMessage::Legacy(m) => {
+            let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
+                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+            let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
+            let v = match m.chain_id {
+                None => 27 + recid.serialize() as u64,
+                Some(chain_id) => 2 * chain_id + 35 + recid.serialize() as u64,
+            };
+            let rs = signature.serialize();
+            let r = H256::from_slice(&rs[0..32]);
+            let s = H256::from_slice(&rs[32..64]);
+            transaction = Some(EthereumTransaction::Legacy(ethereum::LegacyTransaction {
+                nonce: m.nonce,
+                gas_price: m.gas_price,
+                gas_limit: m.gas_limit,
+                action: m.action,
+                value: m.value,
+                input: m.input,
+                signature: ethereum::TransactionSignature::new(v, r, s).ok_or_else(|| {
+                    Error::Custom(String::from("signer generated invalid signature"))
+                })?,
+            }));
+        }
+        TransactionMessage::EIP2930(m) => {
+            let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
+                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+            let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
+            let rs = signature.serialize();
+            let r = H256::from_slice(&rs[0..32]);
+            let s = H256::from_slice(&rs[32..64]);
+            transaction = Some(EthereumTransaction::EIP2930(ethereum::EIP2930Transaction {
+                chain_id: m.chain_id,
+                nonce: m.nonce,
+                gas_price: m.gas_price,
+                gas_limit: m.gas_limit,
+                action: m.action,
+                value: m.value,
+                input: m.input.clone(),
+                access_list: m.access_list,
+                odd_y_parity: recid.serialize() != 0,
+                r,
+                s,
+            }));
+        }
+        TransactionMessage::EIP1559(m) => {
+            let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
+                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+            let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
+            let rs = signature.serialize();
+            let r = H256::from_slice(&rs[0..32]);
+            let s = H256::from_slice(&rs[32..64]);
+            transaction = Some(EthereumTransaction::EIP1559(ethereum::EIP1559Transaction {
+                chain_id: m.chain_id,
+                nonce: m.nonce,
+                max_priority_fee_per_gas: m.max_priority_fee_per_gas,
+                max_fee_per_gas: m.max_fee_per_gas,
+                gas_limit: m.gas_limit,
+                action: m.action,
+                value: m.value,
+                input: m.input.clone(),
+                access_list: m.access_list,
+                odd_y_parity: recid.serialize() != 0,
+                r,
+                s,
+            }));
+        }
+    }
+
+    Ok(transaction.unwrap())
 }
