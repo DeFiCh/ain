@@ -1,6 +1,6 @@
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
-use ethereum::{EnvelopedEncodable, ReceiptV3};
+use ethereum::{EIP658ReceiptData, EnvelopedEncodable, ReceiptV3};
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;
@@ -20,6 +20,8 @@ pub struct Receipt {
     pub tx_index: usize,
     pub tx_type: u8,
     pub contract_address: Option<H160>,
+    pub logs_index: usize,
+    pub cumulative_gas: U256,
 }
 
 pub struct ReceiptHandler {
@@ -54,12 +56,15 @@ impl ReceiptHandler {
         block_hash: H256,
         block_number: U256,
     ) -> Vec<Receipt> {
+        let mut logs_size = 0;
+        let mut cumulative_gas = U256::zero();
+
         transactions
             .iter()
             .enumerate()
             .zip(receipts.into_iter())
             .map(|((index, signed_tx), receipt)| Receipt {
-                receipt,
+                receipt: receipt.clone(),
                 block_hash,
                 block_number,
                 tx_hash: signed_tx.transaction.hash(),
@@ -71,6 +76,17 @@ impl ReceiptHandler {
                     .to()
                     .is_none()
                     .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
+                logs_index: {
+                    let logs_len = EIP658ReceiptData::from(receipt.clone()).logs.len();
+                    logs_size += logs_len;
+
+                    logs_size - logs_len
+                },
+                cumulative_gas: {
+                    cumulative_gas += EIP658ReceiptData::from(receipt).used_gas;
+
+                    cumulative_gas
+                },
             })
             .collect()
     }
