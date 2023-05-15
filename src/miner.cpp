@@ -536,21 +536,30 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
 
     std::vector<uint256> txsToErase;
     for (const auto &txStr : failedTransactions) {
-        txsToErase.push_back(uint256S(txStr));
+        const auto failedHash = uint256S(txStr);
+        for (const auto &tx : pblock->vtx) {
+            if (tx->GetHash() == failedHash) {
+                std::vector<unsigned char> metadata;
+                const auto txType = GuessCustomTxType(*tx, metadata, false);
+                if (txType == CustomTxType::TransferDomain) {
+                    txsToErase.push_back(failedHash);
+                }
+            }
+        }
     }
 
     // Get a copy of the TXs to be erased for restoring to the mempool later
-    std::vector<CTransactionRef> txsToRestore;
+    std::vector<CTransactionRef> txsToRemove;
     std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
 
     for (const auto &tx : pblock->vtx) {
         if (tx && txsToEraseSet.count(tx->GetHash())) {
-            txsToRestore.push_back(tx);
+            txsToRemove.push_back(tx);
         }
     }
 
     // Add descendants and in turn add their descendants. This needs to
-    // be done in the order that the TXs are in the block for txsToRestore.
+    // be done in the order that the TXs are in the block for txsToRemove.
     auto size = txsToErase.size();
     for (std::vector<uint256>::size_type i{}; i < size; ++i) {
         for (const auto &tx : pblock->vtx) {
@@ -559,7 +568,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
                     if (vin.prevout.hash == txsToErase[i] &&
                         std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
                     {
-                        txsToRestore.push_back(tx);
+                        txsToRemove.push_back(tx);
                         txsToErase.push_back(tx->GetHash());
                         ++size;
                     }
@@ -576,11 +585,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
                 return tx && txsToEraseSet.count(tx.get()->GetHash());
             }),pblock->vtx.end());
 
-    for (const auto &tx : txsToRestore) {
-        // Broadcast TXs, this will restore them to the mempool without actually relaying them.
-        std::string error;
-        std::ignore = BroadcastTransaction(tx, error, {COIN / 10}, false, false);
-
+    for (const auto &tx : txsToRemove) {
         // Remove fees.
         if (txFees.count(tx->GetHash())) {
             nFees -= txFees.at(tx->GetHash());
