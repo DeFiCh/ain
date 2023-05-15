@@ -65,6 +65,16 @@ clippy:
 		$(if $(TARGET),--target $(TARGET),)
 
 .PHONY:
+fmt-check:
+	$(CARGO) fmt --all --check \
+		--manifest-path "$(CARGO_MANIFEST_PATH)"
+
+.PHONY:
+fmt:
+	$(CARGO) fmt --all \
+		--manifest-path "$(CARGO_MANIFEST_PATH)"
+
+.PHONY:
 clean-local:
 	$(CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
