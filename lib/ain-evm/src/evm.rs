@@ -127,9 +127,11 @@ impl EVMHandler {
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
+        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
             .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
 
         let block_number = self
             .storage
