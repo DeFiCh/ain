@@ -1,7 +1,7 @@
+use crate::utils::format_bytes;
 use ain_evm::receipt::Receipt;
 use ethereum::EIP658ReceiptData;
 use primitive_types::{H160, H256, U256};
-use crate::utils::format_bytes;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +14,7 @@ pub struct LogResult {
     pub transaction_hash: H256,
     pub transaction_index: String,
     pub log_index: usize,
-    pub removed: bool
+    pub removed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -50,20 +50,23 @@ impl From<Receipt> for ReceiptResult {
             logs: {
                 let mut log_index = 0;
 
-                data.logs.iter().map(|x| LogResult {
-                    address: x.clone().address,
-                    topics: x.clone().topics,
-                    data: format_bytes(x.data.to_ascii_lowercase()),
-                    block_number: b.block_number,
-                    block_hash: b.block_hash,
-                    transaction_hash: b.tx_hash,
-                    transaction_index: format!("{:#x}", b.tx_index),
-                    log_index: {
-                        log_index += 1;
-                        log_index - 1
-                    },
-                    removed: false,
-                }).collect::<Vec<LogResult>>()
+                data.logs
+                    .iter()
+                    .map(|x| LogResult {
+                        address: x.clone().address,
+                        topics: x.clone().topics,
+                        data: format_bytes(x.data.to_ascii_lowercase()),
+                        block_number: b.block_number,
+                        block_hash: b.block_hash,
+                        transaction_hash: b.tx_hash,
+                        transaction_index: format!("{:#x}", b.tx_index),
+                        log_index: {
+                            log_index += 1;
+                            log_index - 1
+                        },
+                        removed: false,
+                    })
+                    .collect::<Vec<LogResult>>()
             },
             logs_bloom: format!("{:#x}", data.logs_bloom),
             status: format!("{:#x}", data.status_code),
