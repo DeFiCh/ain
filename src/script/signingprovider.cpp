@@ -155,6 +155,17 @@ bool FillableSigningProvider::GetKey(const CKeyID &address, CKey &keyOut) const
     return false;
 }
 
+bool FillableSigningProvider::GetEthKey(const CKeyID &address, CKey &keyOut) const
+{
+    LOCK(cs_KeyStore);
+    auto mi = mapEthKeys.find(address);
+    if (mi != mapEthKeys.end()) {
+        keyOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
 bool FillableSigningProvider::AddCScript(const CScript& redeemScript)
 {
     if (redeemScript.size() > MAX_SCRIPT_ELEMENT_SIZE)
