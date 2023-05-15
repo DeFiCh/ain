@@ -35,7 +35,7 @@ setup_vars() {
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.69.0"}
     
-    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
+    MAKE_DEBUG=${MAKE_DEBUG:-"1"}
 
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
@@ -770,7 +770,7 @@ lint_cargo_clippy() {
 
 lint_cargo_fmt() {
     check_enter_build_rs_dir
-    cargo fmt --all --check  || {
+    make fmt-check  || {
         echo "Error: Please format code before commit"; 
         exit 1; }
     _exit_dir
