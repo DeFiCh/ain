@@ -78,7 +78,7 @@ impl ReceiptHandler {
                     logs_size += logs_len;
 
                     logs_size - logs_len
-                }
+                },
             })
             .collect()
     }
