@@ -308,9 +308,9 @@ use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]
 pub struct InsufficientBalance {
-    address: H160,
-    account_balance: U256,
-    amount: U256,
+    pub address: H160,
+    pub account_balance: U256,
+    pub amount: U256,
 }
 
 #[derive(Debug)]
