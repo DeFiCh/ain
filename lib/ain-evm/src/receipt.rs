@@ -21,6 +21,7 @@ pub struct Receipt {
     pub tx_type: u8,
     pub contract_address: Option<H160>,
     pub logs_index: usize,
+    pub cumulative_gas: U256,
 }
 
 pub struct ReceiptHandler {
@@ -56,6 +57,8 @@ impl ReceiptHandler {
         block_number: U256,
     ) -> Vec<Receipt> {
         let mut logs_size = 0;
+        let mut cumulative_gas = U256::zero();
+
         transactions
             .iter()
             .enumerate()
@@ -74,10 +77,15 @@ impl ReceiptHandler {
                     .is_none()
                     .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
                 logs_index: {
-                    let logs_len = EIP658ReceiptData::from(receipt).logs.len();
+                    let logs_len = EIP658ReceiptData::from(receipt.clone()).logs.len();
                     logs_size += logs_len;
 
                     logs_size - logs_len
+                },
+                cumulative_gas: {
+                    cumulative_gas = cumulative_gas + EIP658ReceiptData::from(receipt).used_gas;
+
+                    cumulative_gas
                 },
             })
             .collect()
