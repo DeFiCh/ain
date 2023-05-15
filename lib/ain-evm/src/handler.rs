@@ -9,7 +9,7 @@ use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::QueueTx;
 
-use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3};
+use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -50,7 +50,7 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<(BlockAny, Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -171,6 +171,10 @@ impl Handlers {
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((block, failed_transactions, gas_used))
+        Ok((
+            *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            gas_used,
+        ))
     }
 }
