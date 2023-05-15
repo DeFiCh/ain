@@ -257,8 +257,10 @@ struct CCreateMasterNodeMessage {
         if (!s.eof()) {
             READWRITE(timelock);
         }
-        READWRITE(rewardType);
-        READWRITE(rewardAddress);
+        if (!s.eof()) {
+            READWRITE(rewardType);
+            READWRITE(rewardAddress);
+        }
     }
 };
 

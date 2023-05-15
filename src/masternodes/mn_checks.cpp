@@ -820,8 +820,8 @@ public:
         node.creationHeight      = height;
         node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
-        node.rewardAddressType   = obj.rewardType;
         if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            node.rewardAddressType   = obj.rewardType;
             node.rewardAddress = obj.rewardAddress;
         }
 
