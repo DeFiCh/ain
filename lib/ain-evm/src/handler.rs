@@ -171,6 +171,10 @@ impl Handlers {
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((*block.header.hash().as_fixed_bytes(), failed_transactions, gas_used))
+        Ok((
+            *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            gas_used,
+        ))
     }
 }
