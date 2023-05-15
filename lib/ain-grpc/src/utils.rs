@@ -11,3 +11,7 @@ pub fn format_address(hash: H160) -> String {
 pub fn format_u256(number: U256) -> String {
     format!("{number:#x}")
 }
+
+pub fn format_bytes(bytes: Vec<u8>) -> String {
+    format!("0x{}", String::from_utf8(bytes).unwrap())
+}
