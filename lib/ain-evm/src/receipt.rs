@@ -1,6 +1,6 @@
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
-use ethereum::{EIP658ReceiptData, EnvelopedEncodable, ReceiptV3};
+use ethereum::{EnvelopedEncodable, ReceiptV3};
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;
@@ -63,30 +63,33 @@ impl ReceiptHandler {
             .iter()
             .enumerate()
             .zip(receipts.into_iter())
-            .map(|((index, signed_tx), receipt)| Receipt {
-                receipt: receipt.clone(),
-                block_hash,
-                block_number,
-                tx_hash: signed_tx.transaction.hash(),
-                from: signed_tx.sender,
-                to: signed_tx.to(),
-                tx_index: index,
-                tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap_or_default(),
-                contract_address: signed_tx
-                    .to()
-                    .is_none()
-                    .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
-                logs_index: {
-                    let logs_len = EIP658ReceiptData::from(receipt.clone()).logs.len();
-                    logs_size += logs_len;
+            .map(|((index, signed_tx), receipt)| {
+                let receipt_data = match &receipt {
+                    ReceiptV3::Legacy(data)
+                    | ReceiptV3::EIP2930(data)
+                    | ReceiptV3::EIP1559(data) => data,
+                };
+                let logs_len = receipt_data.logs.len();
+                logs_size += logs_len;
+                cumulative_gas += receipt_data.used_gas;
 
-                    logs_size - logs_len
-                },
-                cumulative_gas: {
-                    cumulative_gas += EIP658ReceiptData::from(receipt).used_gas;
-
-                    cumulative_gas
-                },
+                Receipt {
+                    receipt,
+                    block_hash,
+                    block_number,
+                    tx_hash: signed_tx.transaction.hash(),
+                    from: signed_tx.sender,
+                    to: signed_tx.to(),
+                    tx_index: index,
+                    tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction)
+                        .unwrap_or_default(),
+                    contract_address: signed_tx
+                        .to()
+                        .is_none()
+                        .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
+                    logs_index: logs_size - logs_len,
+                    cumulative_gas,
+                }
             })
             .collect()
     }
