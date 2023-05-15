@@ -99,13 +99,20 @@ impl EVMHandler {
         gas_limit: u64,
         access_list: AccessList,
     ) -> Result<TxResponse, Box<dyn Error>> {
-        let state_root = self
+        let (state_root, block_number) = self
             .storage
             .get_latest_block()
-            .map(|block| block.header.state_root)
+            .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
         println!("state_root : {:#?}", state_root);
-        let vicinity = Vicinity {};
+
+        let vicinity = Vicinity {
+            block_number,
+            origin: caller.unwrap_or_default(),
+            gas_limit: U256::from(gas_limit),
+            ..Default::default()
+        };
+
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -251,13 +258,12 @@ impl EVMHandler {
             .or_else(|| self.storage.get_latest_block())
             .map(|block| block.header.state_root)
             .unwrap_or_default();
-        let vicinity = Vicinity {};
 
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            vicinity,
+            Vicinity::default(),
         )?;
         Ok(backend.get_account(address))
     }
