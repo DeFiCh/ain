@@ -48,11 +48,10 @@ impl From<Receipt> for ReceiptResult {
             from: b.from,
             gas_used: data.used_gas,
             logs: {
-                let mut log_index = 0;
-
                 data.logs
                     .iter()
-                    .map(|x| LogResult {
+                    .enumerate()
+                    .map(|(index, x)| LogResult {
                         address: x.clone().address,
                         topics: x.clone().topics,
                         data: format_bytes(x.data.to_ascii_lowercase()),
@@ -60,10 +59,7 @@ impl From<Receipt> for ReceiptResult {
                         block_hash: b.block_hash,
                         transaction_hash: b.tx_hash,
                         transaction_index: format!("{:#x}", b.tx_index),
-                        log_index: {
-                            log_index += 1;
-                            format!("{:#x}", b.logs_index + log_index - 1)
-                        },
+                        log_index: { format!("{:#x}", b.logs_index + log_index) },
                         removed: false,
                     })
                     .collect::<Vec<LogResult>>()
