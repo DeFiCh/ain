@@ -13,7 +13,7 @@ pub struct LogResult {
     pub block_hash: H256,
     pub transaction_hash: H256,
     pub transaction_index: String,
-    pub log_index: usize,
+    pub log_index: String,
     pub removed: bool,
 }
 
@@ -62,7 +62,7 @@ impl From<Receipt> for ReceiptResult {
                         transaction_index: format!("{:#x}", b.tx_index),
                         log_index: {
                             log_index += 1;
-                            log_index - 1
+                            format!("{:#x}", log_index - 1)
                         },
                         removed: false,
                     })
