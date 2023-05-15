@@ -51,7 +51,7 @@ impl From<Receipt> for ReceiptResult {
                 data.logs
                     .iter()
                     .enumerate()
-                    .map(|(index, x)| LogResult {
+                    .map(|(log_index, x)| LogResult {
                         address: x.clone().address,
                         topics: x.clone().topics,
                         data: format_bytes(x.data.to_ascii_lowercase()),

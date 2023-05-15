@@ -83,7 +83,7 @@ impl ReceiptHandler {
                     logs_size - logs_len
                 },
                 cumulative_gas: {
-                    cumulative_gas = cumulative_gas + EIP658ReceiptData::from(receipt).used_gas;
+                    cumulative_gas += EIP658ReceiptData::from(receipt).used_gas;
 
                     cumulative_gas
                 },
