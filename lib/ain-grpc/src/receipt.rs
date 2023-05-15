@@ -62,7 +62,7 @@ impl From<Receipt> for ReceiptResult {
                         transaction_index: format!("{:#x}", b.tx_index),
                         log_index: {
                             log_index += 1;
-                            format!("{:#x}", log_index - 1)
+                            format!("{:#x}", b.logs_index + log_index - 1)
                         },
                         removed: false,
                     })
