@@ -102,7 +102,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@DFI"]})
         assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {ethAddress:["100@BTC"]})
         assert_raises_rpc_error(-32600, "For \"evmin\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@BTC"]})
-        #assert_raises_rpc_error(-32600, "Not enough balance in " + ethAddress + " to cover \"evmout\" transfer", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "Not enough balance in " + ethAddress + " to cover \"evmout\" transfer", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
 
         self.nodes[0].transferdomain(1,{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
