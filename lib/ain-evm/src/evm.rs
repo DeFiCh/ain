@@ -1,9 +1,9 @@
-use crate::backend::{EVMBackend, EVMBackendError, Vicinity};
+use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
 use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
-use crate::tx_queue::{QueueTx, TransactionQueueMap};
+use crate::tx_queue::{QueueError, QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
@@ -99,13 +99,20 @@ impl EVMHandler {
         gas_limit: u64,
         access_list: AccessList,
     ) -> Result<TxResponse, Box<dyn Error>> {
-        let state_root = self
+        let (state_root, block_number) = self
             .storage
             .get_latest_block()
-            .map(|block| block.header.state_root)
+            .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
         println!("state_root : {:#?}", state_root);
-        let vicinity = Vicinity {};
+
+        let vicinity = Vicinity {
+            block_number,
+            origin: caller.unwrap_or_default(),
+            gas_limit: U256::from(gas_limit),
+            ..Default::default()
+        };
+
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -127,9 +134,11 @@ impl EVMHandler {
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
+        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
             .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
 
         let block_number = self
             .storage
@@ -194,12 +203,7 @@ impl EVMHandler {
 }
 
 impl EVMHandler {
-    pub fn queue_tx(
-        &self,
-        context: u64,
-        tx: QueueTx,
-        hash: NativeTxHash,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
         self.tx_queues.queue_tx(context, tx, hash)?;
         Ok(())
     }
@@ -209,7 +213,7 @@ impl EVMHandler {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues.queue_tx(context, queue_tx, hash)?;
         Ok(())
@@ -221,17 +225,31 @@ impl EVMHandler {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), Box<dyn Error>> {
-        let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
-        self.tx_queues.queue_tx(context, queue_tx, hash)?;
-        Ok(())
+    ) -> Result<(), EVMError> {
+        let block_number = self
+            .storage
+            .get_latest_block()
+            .map_or(U256::default(), |block| block.header.number);
+        let balance = self.get_balance(address, block_number)?;
+        if balance < amount {
+            Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
+                address,
+                account_balance: balance,
+                amount,
+            })
+            .into())
+        } else {
+            let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
+            self.tx_queues.queue_tx(context, queue_tx, hash)?;
+            Ok(())
+        }
     }
 
     pub fn get_context(&self) -> u64 {
         self.tx_queues.get_context()
     }
 
-    pub fn clear(&self, context: u64) -> Result<(), Box<dyn Error>> {
+    pub fn clear(&self, context: u64) -> Result<(), EVMError> {
         self.tx_queues.clear(context)?;
         Ok(())
     }
@@ -249,13 +267,12 @@ impl EVMHandler {
             .or_else(|| self.storage.get_latest_block())
             .map(|block| block.header.state_root)
             .unwrap_or_default();
-        let vicinity = Vicinity {};
 
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            vicinity,
+            Vicinity::default(),
         )?;
         Ok(backend.get_account(address))
     }
@@ -314,6 +331,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),
+    QueueError(QueueError),
     NoSuchAccount(H160),
     TrieError(String),
 }
@@ -322,6 +340,7 @@ impl fmt::Display for EVMError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {e}"),
+            EVMError::QueueError(e) => write!(f, "EVMError: Queue error: {e}"),
             EVMError::NoSuchAccount(address) => {
                 write!(f, "EVMError: No such acccount for address {address:#x}")
             }
@@ -335,6 +354,12 @@ impl fmt::Display for EVMError {
 impl From<EVMBackendError> for EVMError {
     fn from(e: EVMBackendError) -> Self {
         EVMError::BackendError(e)
+    }
+}
+
+impl From<QueueError> for EVMError {
+    fn from(e: QueueError) -> Self {
+        EVMError::QueueError(e)
     }
 }
 

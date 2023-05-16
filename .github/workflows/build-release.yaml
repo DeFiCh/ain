@@ -8,6 +8,7 @@ on:
 env:
   BUILD_VERSION: latest # Computed
   DOCKER_HUB_USER: defi
+  MAKE_DEBUG: 0
 
 jobs:
   linux-x64:

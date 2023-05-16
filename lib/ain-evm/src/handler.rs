@@ -9,7 +9,7 @@ use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::QueueTx;
 
-use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3};
+use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -50,13 +50,14 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<(BlockAny, Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
+        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
         let state_root = self
             .storage
             .get_latest_block()
@@ -64,7 +65,12 @@ impl Handlers {
                 block.header.state_root
             });
 
-        let vicinity = Vicinity {};
+        let vicinity = Vicinity {
+            beneficiary,
+            timestamp: U256::from(timestamp),
+            block_number: parent_number + 1,
+            ..Default::default()
+        };
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -101,7 +107,7 @@ impl Handlers {
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
 
-                    executor.backend.commit();
+                    executor.commit();
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -128,8 +134,6 @@ impl Handlers {
         }
 
         self.evm.tx_queues.remove(context);
-
-        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
 
         let block = Block::new(
             PartialHeader {
@@ -166,11 +170,18 @@ impl Handlers {
         );
 
         if update_state {
-            debug!("new_state_root : {:#x}", block.header.state_root);
+            debug!(
+                "[finalize_block] Updating state with new state_root : {:#x}",
+                block.header.state_root
+            );
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((block, failed_transactions, gas_used))
+        Ok((
+            *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            gas_used,
+        ))
     }
 }

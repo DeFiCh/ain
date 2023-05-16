@@ -324,6 +324,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+    { "transferdomain", 0, "type" },
     { "transferdomain", 1, "from" },
     { "transferdomain", 2, "to" },
     { "getanchorteams", 0, "blockHeight" },

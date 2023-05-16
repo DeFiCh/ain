@@ -34,9 +34,32 @@
 #include <wallet/wallet.h>
 
 #include <algorithm>
-#include <queue>
 #include <utility>
 #include <random>
+
+struct EVM {
+    uint256 blockHash;
+    uint64_t minerFee;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(blockHash);
+        READWRITE(minerFee);
+    }
+};
+
+struct XVM {
+    EVM evm;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(evm);
+    }
+};
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -245,12 +268,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
-    std::vector<uint8_t> evmBlockHash{};
+    XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview)) {
         std::array<uint8_t, 20> dummyAddress{};
         auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress, blockTime);
-        evmBlockHash.resize(blockResult.block_hash.size());
-        std::copy(blockResult.block_hash.begin(), blockResult.block_hash.end(), evmBlockHash.begin());
+
+        // TODO use the following instead of all 1s placeholder
+        // const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
+
+        xvm = XVM{{uint256S(std::string(64, '1')), blockResult.miner_fee}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -334,13 +360,17 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !evmBlockHash.empty()) {
+        if (IsEVMEnabled(nHeight, mnview) && !xvm.evm.blockHash.IsNull()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
+            CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
+            metadata << xvm;
+
             CScript script;
-            script << OP_RETURN << evmBlockHash;
+            script << OP_RETURN << ToByteVector(metadata);
+
             coinbaseTx.vout[headerIndex].scriptPubKey = script;
         }
 
@@ -506,21 +536,30 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
 
     std::vector<uint256> txsToErase;
     for (const auto &txStr : failedTransactions) {
-        txsToErase.push_back(uint256S(txStr));
+        const auto failedHash = uint256S(txStr);
+        for (const auto &tx : pblock->vtx) {
+            if (tx->GetHash() == failedHash) {
+                std::vector<unsigned char> metadata;
+                const auto txType = GuessCustomTxType(*tx, metadata, false);
+                if (txType == CustomTxType::TransferDomain) {
+                    txsToErase.push_back(failedHash);
+                }
+            }
+        }
     }
 
     // Get a copy of the TXs to be erased for restoring to the mempool later
-    std::vector<CTransactionRef> txsToRestore;
+    std::vector<CTransactionRef> txsToRemove;
     std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
 
     for (const auto &tx : pblock->vtx) {
         if (tx && txsToEraseSet.count(tx->GetHash())) {
-            txsToRestore.push_back(tx);
+            txsToRemove.push_back(tx);
         }
     }
 
     // Add descendants and in turn add their descendants. This needs to
-    // be done in the order that the TXs are in the block for txsToRestore.
+    // be done in the order that the TXs are in the block for txsToRemove.
     auto size = txsToErase.size();
     for (std::vector<uint256>::size_type i{}; i < size; ++i) {
         for (const auto &tx : pblock->vtx) {
@@ -529,7 +568,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
                     if (vin.prevout.hash == txsToErase[i] &&
                         std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
                     {
-                        txsToRestore.push_back(tx);
+                        txsToRemove.push_back(tx);
                         txsToErase.push_back(tx->GetHash());
                         ++size;
                     }
@@ -546,11 +585,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
                 return tx && txsToEraseSet.count(tx.get()->GetHash());
             }),pblock->vtx.end());
 
-    for (const auto &tx : txsToRestore) {
-        // Broadcast TXs, this will restore them to the mempool without actually relaying them.
-        std::string error;
-        std::ignore = BroadcastTransaction(tx, error, {COIN / 10}, false, false);
-
+    for (const auto &tx : txsToRemove) {
         // Remove fees.
         if (txFees.count(tx->GetHash())) {
             nFees -= txFees.at(tx->GetHash());

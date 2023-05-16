@@ -183,7 +183,7 @@ fn evm_finalize(
     timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
+    let (block_hash, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
         context,
         update_state,
         difficulty,
@@ -191,7 +191,7 @@ fn evm_finalize(
         timestamp,
     )?;
     Ok(ffi::FinalizeBlockResult {
-        block_hash: *block.header.hash().as_fixed_bytes(),
+        block_hash,
         failed_transactions: failed_txs,
         miner_fee: gas_used,
     })
