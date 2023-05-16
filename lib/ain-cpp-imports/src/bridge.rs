@@ -3,7 +3,6 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
 
-        fn getPrivKey(fromAddress: String) -> [u8; 32];
         fn getChainId() -> u64;
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> bool;

@@ -84,7 +84,6 @@ dependencies = [
  "anyhow",
  "cxx",
  "cxx-build",
- "primitive-types",
 ]
 
 [[package]]

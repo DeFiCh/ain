@@ -1,7 +1,5 @@
 use std::error::Error;
 
-use primitive_types::H160;
-
 #[cfg(not(any(test, bench, example, doc)))]
 mod bridge;
 
@@ -12,9 +10,6 @@ use bridge::ffi;
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
-    pub fn getPrivKey(_fromAddress: String) -> [u8; 32] {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -45,14 +40,9 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthPrivKey(key_id: [u8; 20]) -> [u8; 32] {
+    pub fn getEthPrivKey(_key_id: [u8; 20]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
-}
-
-pub fn get_priv_key(address: H160) -> Result<[u8; 32], Box<dyn Error>> {
-    let priv_key = ffi::getPrivKey(address.to_string());
-    Ok(priv_key)
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {

@@ -5,7 +5,7 @@ use crate::codegen::types::EthTransactionInfo;
 
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
-use ain_cpp_imports::get_priv_key;
+use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
@@ -674,7 +674,10 @@ impl MetachainRPCServer for MetachainRPCModule {
 }
 
 fn sign(address: H160, message: TransactionMessage) -> RpcResult<EthereumTransaction> {
-    let priv_key = get_priv_key(address).unwrap();
+    let mut key_id: [u8; 20] = [0; 20];
+    hex::decode_to_slice(address, &mut key_id)
+        .map_err(|e| Error::Custom(format!("Error decoding H160 address {e:?}")))?;
+    let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
     let mut transaction = None;
