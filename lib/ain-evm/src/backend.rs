@@ -118,6 +118,11 @@ impl EVMBackend {
         self.state.commit().into()
     }
 
+    // Read-only state root. Does not commit changes to database
+    pub fn root(&self) -> H256 {
+        self.state.root().into()
+    }
+
     pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
         self.vicinity = Vicinity {
             origin: tx.sender,
