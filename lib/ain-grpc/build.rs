@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     std::fs::create_dir_all(&proto_rs_target_path)?;
 
     let proto_include = std::env::var("PROTOC_INCLUDE_DIR")
-        .map(|x| PathBuf::from(x))
+        .map(PathBuf::from)
         .unwrap_or(proto_rs_target_path.clone());
 
     let methods = compile_proto_and_generate_services(

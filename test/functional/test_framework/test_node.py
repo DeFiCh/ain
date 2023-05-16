@@ -161,7 +161,7 @@ class TestNode():
         "eth_getBlockByNumber",
         "eth_getBlockTransactionCountByHash",
         "eth_getBlockTransactionCountByNumber",
-        " eth_getUncleCountByBlockHash",
+        "eth_getUncleCountByBlockHash",
         "eth_getUncleCountByBlockNumber",
         # client
         "eth_chainId",
