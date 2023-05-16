@@ -490,7 +490,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let chain_id = self.chain_id().unwrap().parse::<u64>().unwrap();
+        let chain_id = ain_cpp_imports::get_chain_id()
+            .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
 
         let block_number = BlockNumber::Num(self.block_number().unwrap().as_u64());
 
