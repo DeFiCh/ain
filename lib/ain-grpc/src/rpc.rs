@@ -365,7 +365,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map(|block| block.header.number)
             .unwrap_or_default();
 
-        debug!(target:"rpc","Current block number: {:?}", count);
+        trace!(target:"rpc", "Current block number: {:?}", count);
         Ok(count)
     }
 
