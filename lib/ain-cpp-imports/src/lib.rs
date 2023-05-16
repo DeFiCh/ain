@@ -40,7 +40,7 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthPrivKey(key_id: [u8; 20]) -> [u8; 32] {
+    pub fn getEthPrivKey(_key_id: [u8; 20]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
