@@ -11,7 +11,7 @@ use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage}
 use ain_evm::transaction::{SignedTx, TransactionError};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
-use log::debug;
+use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::sync::Arc;
