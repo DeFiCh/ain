@@ -529,7 +529,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
-        let TxResponse {  used_gas, .. } = self
+        let TxResponse { used_gas, .. } = self
             .handler
             .evm
             .call(
