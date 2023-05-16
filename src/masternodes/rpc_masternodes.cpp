@@ -193,8 +193,6 @@ UniValue createmasternode(const JSONRPCRequest& request)
         metadata << static_cast<char>(rewardDest.index()) << rewardAuthKey;
     }
 
-    metadata << static_cast<char>(rewardDest.index()) << rewardAuthKey;
-
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
