@@ -537,14 +537,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or_default().as_u64(),
+                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
-        let native_size = ain_cpp_imports::get_native_tx_size(data).unwrap_or(0);
-        debug!(target:"rpc","estimateGas: {:#?} + {:#?}", native_size, used_gas);
-        Ok(U256::from(native_size + std::cmp::max(21000, used_gas)))
+        debug!(target:"rpc","estimateGas: {:#?}", used_gas);
+        Ok(U256::from(used_gas))
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
