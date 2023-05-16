@@ -537,7 +537,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or_default().as_u64(),
+                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
