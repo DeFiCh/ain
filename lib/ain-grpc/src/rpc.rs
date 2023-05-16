@@ -674,9 +674,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 }
 
 fn sign(address: H160, message: TransactionMessage) -> RpcResult<EthereumTransaction> {
-    let mut key_id: [u8; 20] = [0; 20];
-    hex::decode_to_slice(address, &mut key_id)
-        .map_err(|e| Error::Custom(format!("Error decoding H160 address {e:?}")))?;
+    let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
