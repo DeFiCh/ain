@@ -186,13 +186,15 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
 
         # Check EVM blockhash and miner fee shown
-        eth_hash = self.nodes[0].eth_getBlockByNumber('latest')['hash'][2:]
+        eth_block = self.nodes[0].eth_getBlockByNumber('latest')
+        eth_hash = eth_block['hash'][2:]
+        eth_fee = eth_block['gasUsed'][2:]
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
         block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][4:68]
         fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
         assert_equal(block_hash, eth_hash)
-        assert_equal(fee_amount, '0852000000000000')
+        assert_equal(fee_amount[2:4] + fee_amount[0:2], eth_fee)
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
