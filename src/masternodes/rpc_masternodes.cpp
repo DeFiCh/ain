@@ -145,6 +145,12 @@ UniValue createmasternode(const JSONRPCRequest& request)
         eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
     }
 
+    bool nextNetworkUpdate;
+    {
+        LOCK(cs_main);
+        nextNetworkUpdate = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().NextNetworkUpgradeHeight;
+    }
+
     // Get timelock if any
     uint16_t timelock{0};
     if (!request.params[3].isNull()) {
@@ -181,6 +187,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     if (eunosPaya) {
         metadata << timelock;
+    }
+
+    if (nextNetworkUpdate) {
+        metadata << static_cast<char>(rewardDest.index()) << rewardAuthKey;
     }
 
     metadata << static_cast<char>(rewardDest.index()) << rewardAuthKey;
