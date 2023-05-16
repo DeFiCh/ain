@@ -140,16 +140,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
-    // in fact, this may be redundant cause it was checked upthere in the miner
-    std::optional<std::pair<CKeyID, uint256>> myIDs;
-    std::optional<CMasternode> nodePtr;
-    if (!blockTime) {
-        myIDs = pcustomcsview->AmIOperator();
-        if (!myIDs)
-            return nullptr;
-        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
-            return nullptr;
+
+    const auto myIDs = pcustomcsview->AmIOperator();
+    if (!myIDs) {
+        return nullptr;
+    }
+    const auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+    if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
+        return nullptr;
     }
 
     auto consensus = chainparams.GetConsensus();
@@ -270,13 +268,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview)) {
-        std::array<uint8_t, 20> dummyAddress{};
-        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress, blockTime);
+        std::array<uint8_t, 20> beneficiary{};
+        std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
+        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
 
-        // TODO use the following instead of all 1s placeholder
-        // const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
+        const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{{uint256S(std::string(64, '1')), blockResult.miner_fee}};
+        xvm = XVM{{uint256(blockHash), blockResult.miner_fee}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -420,7 +418,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
-    if (myIDs) {
+    if (!blockTime) {
         pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
