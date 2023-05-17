@@ -15,7 +15,7 @@ use ethereum::TransactionV2 as EthereumTransaction;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
-use log::debug;
+use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 use std::convert::Into;
 use std::str::FromStr;
@@ -376,7 +376,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map(|block| block.header.number)
             .unwrap_or_default();
 
-        debug!(target:"rpc","Current block number: {:?}", count);
+        trace!(target:"rpc", "Current block number: {:?}", count);
         Ok(count)
     }
 
@@ -620,7 +620,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
-        let TxResponse { data, used_gas, .. } = self
+        let TxResponse { used_gas, .. } = self
             .handler
             .evm
             .call(
@@ -628,14 +628,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or_default().as_u64(),
+                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
-        let native_size = ain_cpp_imports::get_native_tx_size(data).unwrap_or(0);
-        debug!(target:"rpc","estimateGas: {:#?} + {:#?}", native_size, used_gas);
-        Ok(U256::from(native_size + std::cmp::max(21000, used_gas)))
+        debug!(target:"rpc","estimateGas: {:#?}", used_gas);
+        Ok(U256::from(used_gas))
     }
 
     fn gas_price(&self) -> RpcResult<U256> {

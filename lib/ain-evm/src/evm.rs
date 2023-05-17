@@ -313,7 +313,7 @@ impl EVMHandler {
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.balance);
 
-        debug!("Account {} balance {}", address, block_number);
+        debug!("Account {:x?} balance {:x?}", address, balance);
         Ok(balance)
     }
 
@@ -322,7 +322,7 @@ impl EVMHandler {
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.nonce);
 
-        debug!("Account {} nonce {}", address, nonce);
+        debug!("Account {:x?} nonce {:x?}", address, nonce);
         Ok(nonce)
     }
 }
