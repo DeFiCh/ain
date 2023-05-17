@@ -478,10 +478,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let from = match request.from {
             Some(from) => from,
             None => {
-                let accounts = match self.accounts() {
-                    Ok(accounts) => accounts,
-                    Err(e) => return Err(e),
-                };
+                let accounts = self.accounts()?;
 
                 match accounts.get(0) {
                     Some(account) => H160::from_str(account.as_str()).unwrap(),
@@ -493,14 +490,17 @@ impl MetachainRPCServer for MetachainRPCModule {
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
 
-        let block_number = BlockNumber::Num(self.block_number().unwrap().as_u64());
+        let block_number = self.block_number()?;
 
         let nonce = match request.nonce {
             Some(nonce) => nonce,
-            None => match self.get_transaction_count(from, Some(block_number)) {
-                Ok(nonce) => nonce,
-                Err(e) => return Err(e),
-            },
+            None => self
+                .handler
+                .evm
+                .get_nonce(from, block_number)
+                .map_err(|e| {
+                    Error::Custom(format!("Error getting address transaction count : {e:?}"))
+                })?,
         };
 
         let gas_price = request.gas_price;
