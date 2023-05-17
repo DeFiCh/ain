@@ -89,10 +89,9 @@ class EVMTest(DefiTestFramework):
         estimate_gas = self.nodes[0].eth_estimateGas({
             'from': self.ethAddress,
             'to': self.toAddress,
-            'gas': "0x5208", # 21_000
             'value': "0x0",
         })
-        assert_equal(estimate_gas, "0x5278")
+        assert_equal(estimate_gas, "0x5208")
 
         gas_price = self.nodes[0].eth_gasPrice()
         assert_equal(gas_price, "0x2540be400") # 10_000_000_000
@@ -142,7 +141,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(latest_full_block['transactions'][0]['gas'], '0x5208')
         assert_equal(latest_full_block['transactions'][0]['gasPrice'], '0x4e3b29200')
         assert_equal(latest_full_block['transactions'][0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
-        assert_equal(latest_full_block['transactions'][0]['input'], '0x0')
+        assert_equal(latest_full_block['transactions'][0]['input'], '0x')
         assert_equal(latest_full_block['transactions'][0]['nonce'], '0x0')
         assert_equal(latest_full_block['transactions'][0]['to'], self.toAddress)
         assert_equal(latest_full_block['transactions'][0]['transactionIndex'], '0x0')
