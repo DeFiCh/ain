@@ -123,7 +123,7 @@ class RPCBindTest(DefiTestFramework):
 
         # check only non-loopback interface
         self.run_bind_test([self.non_loopback_ip], self.non_loopback_ip, [self.non_loopback_ip],
-                           [(self.non_loopback_ip, self.defaultport)])
+                           [('127.0.0.1', self.defaultport + 10000), (self.non_loopback_ip, self.defaultport)])
 
         # Check that with invalid rpcallowip, we are denied
         self.run_allowip_test([self.non_loopback_ip], self.non_loopback_ip, self.defaultport)
