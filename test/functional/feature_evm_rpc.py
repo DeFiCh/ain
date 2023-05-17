@@ -92,7 +92,7 @@ class EVMTest(DefiTestFramework):
             'gas': "0x5208", # 21_000
             'value': "0x0",
         })
-        assert_equal(estimate_gas, "0x5278")
+        assert_equal(estimate_gas, "0x5208")
 
         gas_price = self.nodes[0].eth_gasPrice()
         assert_equal(gas_price, "0x2540be400") # 10_000_000_000
