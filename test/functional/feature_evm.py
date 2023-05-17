@@ -157,7 +157,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['gas'], '0x5208')
         assert_equal(result[0]['gasPrice'], '0x4e3b29200')
         assert_equal(result[0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
-        assert_equal(result[0]['input'], '0x0')
+        assert_equal(result[0]['input'], '0x')
         assert_equal(result[0]['nonce'], '0x0')
         assert_equal(result[0]['to'], to_address)
         assert_equal(result[0]['transactionIndex'], '0x0')
