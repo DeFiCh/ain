@@ -89,7 +89,6 @@ class EVMTest(DefiTestFramework):
         estimate_gas = self.nodes[0].eth_estimateGas({
             'from': self.ethAddress,
             'to': self.toAddress,
-            'gas': "0x5208", # 21_000
             'value': "0x0",
         })
         assert_equal(estimate_gas, "0x5208")
