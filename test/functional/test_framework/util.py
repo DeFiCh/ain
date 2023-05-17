@@ -671,31 +671,6 @@ def find_spendable_utxo(node, min_value):
 
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
 
-
-def list_unspent_tx(node, address):
-    """
-    Return list of spendable utxos in an address.
-    """
-    result = []
-    vals = node.listunspent()
-    for i in range(0, len(vals)):
-        if vals[i]['address'] == address:
-            result.append(vals[i])
-    return result
-
-
-def unspent_amount(node, address):
-    """
-    Get the total spendable amount in an address.
-    """
-    result = 0
-    vals = node.listunspent()
-    for i in range(0, len(vals)):
-        if vals[i]['address'] == address:
-            result += vals[i]['amount']
-    return result
-
-
 def fund_tx(node, address, amount):
     """
     Create and send new utxo of the specified amount to address.
