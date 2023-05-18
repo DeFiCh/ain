@@ -77,7 +77,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     }
 
     const arith_uint256 valueParam = AmountFromValue(request.params[5]);
-    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_WEI * WEI_IN_GWEI);
+    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_GWEI * WEI_IN_GWEI);
 
     rust::Vec<uint8_t> input{};
     if (!request.params[6].isNull()) {

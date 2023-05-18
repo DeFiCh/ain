@@ -2920,7 +2920,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
         }
 
-        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee)});
+        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
