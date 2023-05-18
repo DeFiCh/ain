@@ -230,6 +230,10 @@ std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &id
     return ReadBy<Owner, uint256>(id);
 }
 
+std::optional<uint256> CMasternodesView::GetMasternodeIdByDelegate(const CKeyID &id) const {
+    return ReadBy<Delegate, uint256>(id);
+}
+
 void CMasternodesView::ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
                                          const uint256 &start) {
     ForEach<ID, uint256, CMasternode>(callback, start);
@@ -314,6 +318,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
     if (timelock > 0) {
         WriteBy<Timelock>(nodeId, timelock);
     }
+    WriteBy<Delegate>(node.voteDelegationAddress, nodeId);
 
     return Res::Ok();
 }

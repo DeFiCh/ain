@@ -214,6 +214,7 @@ public:
     std::optional<CMasternode> GetMasternode(const uint256 &id) const;
     std::optional<uint256> GetMasternodeIdByOperator(const CKeyID &id) const;
     std::optional<uint256> GetMasternodeIdByOwner(const CKeyID &id) const;
+    std::optional<uint256> GetMasternodeIdByDelegate(const CKeyID &id) const;
     void ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
                            const uint256 &start = uint256());
 
@@ -307,6 +308,10 @@ public:
     // Store long term time lock
     struct Timelock {
         static constexpr uint8_t prefix() { return 'K'; }
+    };
+
+    struct Delegate {
+        static constexpr uint8_t prefix() { return 'D'; }
     };
 };
 
