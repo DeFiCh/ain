@@ -25,6 +25,7 @@ from test_framework.util import (
     connect_nodes,
     hex_str_to_bytes,
     try_rpc,
+    find_spendable_utxo,
 )
 
 NODE_0 = 0
@@ -38,17 +39,6 @@ def getutxo(txid):
     utxo["vout"] = 0
     utxo["txid"] = txid
     return utxo
-
-
-def find_spendable_utxo(node, min_value):
-    for utxo in node.listunspent(query_options={'minimumAmount': min_value}):
-        if utxo['spendable']:
-            return utxo
-
-    raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
-
-
-txs_mined = {}  # txindex from txid to blockhash
 
 
 class SegWitTest(DefiTestFramework):
@@ -103,6 +93,7 @@ class SegWitTest(DefiTestFramework):
                                 insert_redeem_script=redeem_script)
 
     def run_test(self):
+        txs_mined = {}  # txindex from txid to blockhash
         self.nodes[0].generate(161)  # block 161
 
         self.log.info("Verify sigops are counted in GBT with pre-BIP141 rules before the fork")
@@ -470,11 +461,11 @@ class SegWitTest(DefiTestFramework):
 
         spendable_txid = []
         solvable_txid = []
-        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime, 2))
-        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime, 1))
+        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime, 2, txs_mined))
+        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime, 1, txs_mined))
         self.mine_and_test_listunspent(
             spendable_after_importaddress + solvable_after_importaddress + unseen_anytime + unsolvable_after_importaddress,
-            0)
+            0, txs_mined)
 
         importlist = []
         for i in compressed_spendable_address + uncompressed_spendable_address + compressed_solvable_address + uncompressed_solvable_address:
@@ -507,15 +498,15 @@ class SegWitTest(DefiTestFramework):
         self.nodes[0].importaddress(script_to_p2sh(op0))  # import OP_0 as address only
         self.nodes[0].importaddress(multisig_without_privkey_address)  # Test multisig_without_privkey
 
-        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
-        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
-        self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        self.mine_and_test_listunspent(unseen_anytime, 0)
+        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2, txs_mined))
+        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1, txs_mined))
+        self.mine_and_test_listunspent(unsolvable_after_importaddress, 1, txs_mined)
+        self.mine_and_test_listunspent(unseen_anytime, 0, txs_mined)
 
-        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
-        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
-        self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        self.mine_and_test_listunspent(unseen_anytime, 0)
+        spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2, txs_mined))
+        solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1, txs_mined))
+        self.mine_and_test_listunspent(unsolvable_after_importaddress, 1, txs_mined)
+        self.mine_and_test_listunspent(unseen_anytime, 0, txs_mined)
 
         # Repeat some tests. This time we don't add witness scripts with importaddress
         # Import a compressed key and an uncompressed key, generate some multisig addresses
@@ -585,9 +576,9 @@ class SegWitTest(DefiTestFramework):
                 # P2SH_P2PK, P2SH_P2PKH with compressed keys are always solvable
                 solvable_anytime.extend([p2wpkh, p2sh_p2wpkh])
 
-        self.mine_and_test_listunspent(spendable_anytime, 2)
-        self.mine_and_test_listunspent(solvable_anytime, 1)
-        self.mine_and_test_listunspent(unseen_anytime, 0)
+        self.mine_and_test_listunspent(spendable_anytime, 2, txs_mined)
+        self.mine_and_test_listunspent(solvable_anytime, 1, txs_mined)
+        self.mine_and_test_listunspent(unseen_anytime, 0, txs_mined)
 
         # Check that createrawtransaction/decoderawtransaction with non-v0 Bech32 works
         v1_addr = program_to_witness(1, [3, 5])
@@ -597,7 +588,7 @@ class SegWitTest(DefiTestFramework):
         assert_equal(v1_decoded['vout'][0]['scriptPubKey']['hex'], "51020305")
 
         # Check that spendable outputs are really spendable
-        self.create_and_mine_tx_from_txids(spendable_txid)
+        self.create_and_mine_tx_from_txids(spendable_txid, txs_mined)
 
         # import all the private keys so solvable addresses become spendable
         self.nodes[0].importprivkey("cPiM8Ub4heR9NBYmgVzJQiUH1if44GSBGiqaeJySuL2BKxubvgwb")
@@ -606,7 +597,7 @@ class SegWitTest(DefiTestFramework):
         self.nodes[0].importprivkey("cPQFjcVRpAUBG8BA9hzr2yEzHwKoMgLkJZBBtK9vJnvGJgMjzTbd")
         self.nodes[0].importprivkey("cQGtcm34xiLjB1v7bkRa4V3aAc9tS2UTuBZ1UnZGeSeNy627fN66")
         self.nodes[0].importprivkey("cTW5mR5M45vHxXkeChZdtSPozrFwFgmEvTNnanCW6wrqwaCZ1X7K")
-        self.create_and_mine_tx_from_txids(solvable_txid)
+        self.create_and_mine_tx_from_txids(solvable_txid, txs_mined)
 
         # Test that importing native P2WPKH/P2WSH scripts works
         for use_p2wsh in [False, True]:
@@ -631,7 +622,7 @@ class SegWitTest(DefiTestFramework):
             assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
             assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
 
-    def mine_and_test_listunspent(self, script_list, ismine):
+    def mine_and_test_listunspent(self, script_list, ismine, txs_mined):
         utxo = find_spendable_utxo(self.nodes[0], 50)
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int('0x' + utxo['txid'], 0), utxo['vout'])))
@@ -680,7 +671,7 @@ class SegWitTest(DefiTestFramework):
         return [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk,
                 p2sh_p2wsh_p2pkh]
 
-    def create_and_mine_tx_from_txids(self, txids, success=True):
+    def create_and_mine_tx_from_txids(self, txids, txs_mined, success=True):
         tx = CTransaction()
         for i in txids:
             txtmp = CTransaction()

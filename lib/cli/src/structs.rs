@@ -57,17 +57,17 @@ pub struct CallRequest {
 
 fn parse_h160(s: &str) -> Result<H160, String> {
     s.parse::<H160>()
-        .map_err(|e| format!("Failed to parse H160: {}", e))
+        .map_err(|e| format!("Failed to parse H160: {e}"))
 }
 
 fn parse_u256(s: &str) -> Result<U256, String> {
     s.parse::<U256>()
-        .map_err(|e| format!("Failed to parse U256: {}", e))
+        .map_err(|e| format!("Failed to parse U256: {e}"))
 }
 
 fn parse_hex_data(s: &str) -> Result<HexData, String> {
     if let Some(stripped) = s.strip_prefix("0x") {
-        let hex = hex::decode(stripped).map_err(|e| format!("Failed to parse hex data: {}", e))?;
+        let hex = hex::decode(stripped).map_err(|e| format!("Failed to parse hex data: {e}"))?;
         Ok(HexData(hex))
     } else {
         Err("Data must start with 0x".to_string())
@@ -75,7 +75,7 @@ fn parse_hex_data(s: &str) -> Result<HexData, String> {
 }
 
 fn parse_access_list(s: &str) -> Result<Vec<AccessListItem>, String> {
-    serde_json::from_str(s).map_err(|e| format!("Failed to parse access list: {}", e))
+    serde_json::from_str(s).map_err(|e| format!("Failed to parse access list: {e}"))
 }
 
 impl From<CallRequest> for ain_grpc::call_request::CallRequest {

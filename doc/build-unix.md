@@ -77,7 +77,7 @@ Finally, clang (often less resource hungry) can be used instead of gcc, which is
 
 Build requirements:
 
-    sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3 curl
+    sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3 curl clang-15
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 

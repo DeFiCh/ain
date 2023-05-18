@@ -12,10 +12,6 @@ from decimal import Decimal
 import time
 
 
-def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
-
-
 class TokenSplitMechanismTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1

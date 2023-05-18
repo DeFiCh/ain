@@ -95,7 +95,7 @@ class EVMTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.smartContractAddress)
         assert_equal(balance, int_to_eth_u256(0))
 
-        self.nodes[0].transferbalance("evmin",{self.address:["50@DFI"]}, {self.smartContractAddress:["50@DFI"]})
+        self.nodes[0].transferdomain(1,{self.address:["50@DFI"]}, {self.smartContractAddress:["50@DFI"]})
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.smartContractAddress, "latest")
@@ -124,7 +124,7 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        self.nodes[0].transferbalance("evmin",{self.address:["100@DFI"]}, {self.creationAddress:["100@DFI"]})
+        self.nodes[0].transferdomain(1,{self.address:["100@DFI"]}, {self.creationAddress:["100@DFI"]})
         self.nodes[0].generate(1)
 
         self.test_deploy_smart_contract()

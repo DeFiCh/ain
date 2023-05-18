@@ -13,6 +13,34 @@ from test_framework.util import (
 
 from decimal import Decimal
 
+def int_to_eth_u256(value):
+    """
+    Convert a non-negative integer to an Ethereum U256-compatible format.
+    The input value is multiplied by a fixed factor of 10^18 (1 ether in wei)
+    and represented as a hexadecimal string. This function validates that the
+    input is a non-negative integer and checks if the converted value is within
+    the range of U256 values (0 to 2^256 - 1). If the input is valid and within
+    range, it returns the corresponding U256-compatible hexadecimal representation.
+    Args:
+        value (int): The non-negative integer to convert.
+    Returns:
+        str: The U256-compatible hexadecimal representation of the input value.
+    Raises:
+        ValueError: If the input is not a non-negative integer or if the
+                    converted value is outside the U256 range.
+    """
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer")
+
+    max_u256_value = 2**256 - 1
+    factor = 10**18
+
+    converted_value = value * factor
+    if converted_value > max_u256_value:
+        raise ValueError(f"Value must be less than or equal to {max_u256_value}")
+
+    return hex(converted_value)
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -37,43 +65,84 @@ class EVMTest(DefiTestFramework):
 
         # Move to fork height
         self.nodes[0].generate(4)
+        self.sync_blocks()
 
-        self.nodes[0].getbalance()
-        self.nodes[0].utxostoaccount({address: "101@DFI"})
+        # activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        assert_raises_rpc_error(-32600, "amount 0.00000000 is less than 100.00000000", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+
+        self.nodes[0].createtoken({
+            "symbol": "BTC",
+            "name": "BTC token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        self.nodes[0].getbalance()
+        self.nodes[0].utxostoaccount({address: "101@DFI"})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         DFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
-        ETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
-
+        ETHbalance = self.nodes[0].eth_getBalance(ethAddress)
         assert_equal(DFIbalance, Decimal('101'))
-        assert_equal(len(ETHbalance), 0)
+        assert_equal(ETHbalance, int_to_eth_u256(0))
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
-        self.nodes[0].transferbalance("evmin",{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-3, "xpected type number, got string", self.nodes[0].transferdomain, "blabla", {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)", self.nodes[0].transferdomain, 0, {address:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, 1, {"blablabla":["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {"blablabla":["100@DFI"]})
+
+        assert_raises_rpc_error(-32600, "From address must not be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, 1, {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "To address must be an ETH address in case of \"evmin\" transfer type", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["101@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 1, {address:["100@DFI"]}, {ethAddress:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "For \"evmin\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, 1, {address:["100@BTC"]}, {ethAddress:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "Not enough balance in " + ethAddress + " to cover \"evmout\" transfer", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
+
+        self.nodes[0].transferdomain(1,{address:["100@DFI"]}, {ethAddress:["100@DFI"]})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that EVM balance shows in gettokenabalances
         assert_equal(self.nodes[0].gettokenbalances({}, False, False, True), ['101.00000000@0'])
 
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
-        newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)
+        newETHbalance = self.nodes[0].eth_getBalance(ethAddress)
 
         assert_equal(newDFIbalance, DFIbalance - Decimal('100'))
-        assert_equal(len(newETHbalance), 0)
+        assert_equal(newETHbalance, int_to_eth_u256(100))
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
-        self.nodes[0].transferbalance("evmout", {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
-        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-32600, "From address must be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {address:["100@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "To address must not be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["101@DFI"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["100@BTC"]}, {address:["100@DFI"]})
+        assert_raises_rpc_error(-32600, "sum of inputs (from) != sum of outputs (to)", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {address:["100@BTC"]})
+        assert_raises_rpc_error(-32600, "For \"evmout\" transfers, only DFI token is currently supported", self.nodes[0].transferdomain, 2, {ethAddress:["100@BTC"]}, {address:["100@BTC"]})
 
-        newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
-        # newETHbalance = self.nodes[0].getaccount(ethAddress, {}, True)['0']
-
-        assert_equal(newDFIbalance, DFIbalance)
-        # assert_equal(newETHbalance, ETHbalance)
-
-        # Fund Eth address
-        self.nodes[0].transferbalance("evmin",{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
+        self.nodes[0].transferdomain(2, {ethAddress:["100@DFI"]}, {address:["100@DFI"]})
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
+        newETHbalance = self.nodes[0].eth_getBalance(ethAddress)
+
+        assert_equal(newDFIbalance, DFIbalance)
+        assert_equal(newETHbalance, ETHbalance)
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
+
+        # Fund Eth address
+        self.nodes[0].transferdomain(1,{address:["10@DFI"]}, {ethAddress:["10@DFI"]})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Try and send a TX with a high nonce
+        assert_raises_rpc_error(-32600, "evm tx failed to validate", self.nodes[0].evmtx, ethAddress, 1, 21, 21000, to_address, 1)
 
         # Test EVM Tx
         tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
@@ -88,7 +157,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['gas'], '0x5208')
         assert_equal(result[0]['gasPrice'], '0x4e3b29200')
         assert_equal(result[0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
-        assert_equal(result[0]['input'], '0x0')
+        assert_equal(result[0]['input'], '0x')
         assert_equal(result[0]['nonce'], '0x0')
         assert_equal(result[0]['to'], to_address)
         assert_equal(result[0]['transactionIndex'], '0x0')
@@ -115,6 +184,14 @@ class EVMTest(DefiTestFramework):
 
         # Try and send EVM TX a second time
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
+
+        # Check EVM blockhash and miner fee shown
+        block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
+        block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][4:68]
+        fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
+        assert_equal(block_hash, '1111111111111111111111111111111111111111111111111111111111111111')
+        assert_equal(fee_amount, '0852000000000000')
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))

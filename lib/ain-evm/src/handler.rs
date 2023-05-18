@@ -9,13 +9,12 @@ use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::QueueTx;
 
-use ethereum::{Block, BlockAny, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const GENESIS_STATE_ROOT: &str =
     "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
@@ -49,14 +48,16 @@ impl Handlers {
         context: u64,
         update_state: bool,
         difficulty: u32,
-        miner_address: Option<H160>,
-    ) -> Result<(BlockAny, Vec<TransactionV2>), Box<dyn Error>> {
+        beneficiary: H160,
+        timestamp: u64,
+    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
+        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
         let state_root = self
             .storage
             .get_latest_block()
@@ -64,7 +65,12 @@ impl Handlers {
                 block.header.state_root
             });
 
-        let vicinity = Vicinity {};
+        let vicinity = Vicinity {
+            beneficiary,
+            timestamp: U256::from(timestamp),
+            block_number: parent_number + 1,
+            ..Default::default()
+        };
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -75,7 +81,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for queue_tx in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
@@ -85,52 +91,66 @@ impl Handlers {
                         receipt,
                         ..
                     } = executor.exec(&signed_tx);
-                    if exit_reason.is_succeed() {
-                        all_transactions.push(signed_tx);
-                    } else {
-                        failed_transactions.push(signed_tx.transaction.clone());
-                        all_transactions.push(signed_tx);
+                    debug!(
+                        "receipt : {:#?} for signed_tx : {:#x}",
+                        receipt,
+                        signed_tx.transaction.hash()
+                    );
+
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(hex::encode(hash));
                     }
+
+                    all_transactions.push(signed_tx);
 
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
 
-                    executor.backend.commit();
+                    executor.commit();
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "EvmIn for address {:x?}, amount: {}, context {}",
+                        "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
                         address, amount, context
                     );
-                    executor.add_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    if let Err(e) = executor.add_balance(address, amount) {
+                        debug!("[finalize_block] EvmIn failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
-                    debug!("EvmOut for address {}, amount: {}", address, amount);
-                    executor.sub_balance(address, amount).unwrap(); // Need to return this fail tx somehow
+                    debug!(
+                        "[finalize_block] EvmOut for address {}, amount: {}",
+                        address, amount
+                    );
+
+                    if let Err(e) = executor.sub_balance(address, amount) {
+                        debug!("[finalize_block] EvmOut failed with {e}");
+                        failed_transactions.push(hex::encode(hash));
+                    }
                 }
             }
         }
 
         self.evm.tx_queues.remove(context);
 
-        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
-
-        let mut block = Block::new(
+        let block = Block::new(
             PartialHeader {
                 parent_hash,
-                beneficiary: miner_address.unwrap_or_default(),
-                state_root: Default::default(),
+                beneficiary,
+                state_root: if update_state {
+                    backend.commit()
+                } else {
+                    Default::default()
+                },
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: parent_number + 1,
-                gas_limit: U256::from(30000000),
+                gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
+                timestamp,
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
                 nonce: H64::default(),
@@ -150,15 +170,18 @@ impl Handlers {
         );
 
         if update_state {
-            let new_state_root = backend.commit();
-
-            debug!("new_state_root : {:#x}", new_state_root);
-
-            block.header.state_root = new_state_root;
+            debug!(
+                "[finalize_block] Updating state with new state_root : {:#x}",
+                block.header.state_root
+            );
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);
         }
 
-        Ok((block, failed_transactions))
+        Ok((
+            *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            gas_used,
+        ))
     }
 }

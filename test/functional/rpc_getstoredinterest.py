@@ -7,18 +7,17 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 
-from test_framework.util import assert_equal, assert_greater_than_or_equal
+from test_framework.util import (
+    assert_equal,
+    assert_greater_than_or_equal,
+    get_decimal_amount,
+)
 
 import calendar
 import time
 from decimal import ROUND_DOWN, Decimal
 
 BLOCKS_PER_YEAR = Decimal(1051200)
-
-
-def get_decimal_amount(amount):
-    account_tmp = amount.split('@')[0]
-    return Decimal(account_tmp)
 
 
 class GetStoredInterestTest(DefiTestFramework):

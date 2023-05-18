@@ -1,14 +1,19 @@
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
-use log::debug;
+use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
 use vsdb_trie_db::MptOnce;
 
-use crate::{evm::TrieDBStore, storage::Storage, traits::BridgeBackend};
+use crate::{
+    evm::TrieDBStore,
+    storage::{traits::BlockStorage, Storage},
+    traits::BridgeBackend,
+    transaction::SignedTx,
+};
 
 type Hasher = Blake2Hasher;
 
@@ -16,14 +21,22 @@ fn is_empty_account(account: &Account) -> bool {
     account.balance.is_zero() && account.nonce.is_zero() && account.code_hash.is_zero()
 }
 
-// TBD
-pub struct Vicinity;
+#[derive(Default, Debug)]
+pub struct Vicinity {
+    pub gas_price: U256,
+    pub origin: H160,
+    pub beneficiary: H160,
+    pub block_number: U256,
+    pub timestamp: U256,
+    pub gas_limit: U256,
+    pub block_base_fee_per_gas: U256,
+}
 
 pub struct EVMBackend {
     state: MptOnce,
     trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
-    _vicinity: Vicinity,
+    pub vicinity: Vicinity,
 }
 
 type Result<T> = std::result::Result<T, EVMBackendError>;
@@ -33,7 +46,7 @@ impl EVMBackend {
         state_root: H256,
         trie_store: Arc<TrieDBStore>,
         storage: Arc<Storage>,
-        _vicinity: Vicinity,
+        vicinity: Vicinity,
     ) -> Result<Self> {
         let state = trie_store
             .trie_db
@@ -44,7 +57,7 @@ impl EVMBackend {
             state,
             trie_store,
             storage,
-            _vicinity,
+            vicinity,
         })
     }
 
@@ -104,6 +117,15 @@ impl EVMBackend {
     pub fn commit(&mut self) -> H256 {
         self.state.commit().into()
     }
+
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
+        self.vicinity = Vicinity {
+            origin: tx.sender,
+            gas_price: tx.gas_price(),
+            gas_limit: tx.gas_limit(),
+            ..self.vicinity
+        };
+    }
 }
 
 impl EVMBackend {
@@ -117,27 +139,33 @@ impl EVMBackend {
 
 impl Backend for EVMBackend {
     fn gas_price(&self) -> U256 {
-        unimplemented!()
+        trace!(target: "backend", "[EVMBackend] Getting gas");
+        self.vicinity.gas_price
     }
 
     fn origin(&self) -> H160 {
-        unimplemented!()
+        trace!(target: "backend", "[EVMBackend] Getting origin");
+        self.vicinity.origin
     }
 
-    fn block_hash(&self, _number: U256) -> H256 {
-        unimplemented!("Implement block_hash function")
+    fn block_hash(&self, number: U256) -> H256 {
+        trace!(target: "backend", "[EVMBackend] Getting block hash for block {:x?}", number);
+        self.storage
+            .get_block_by_number(&number)
+            .map_or(H256::zero(), |block| block.header.hash())
     }
 
     fn block_number(&self) -> U256 {
-        unimplemented!()
+        trace!(target: "backend", "[EVMBackend] Getting current block number");
+        self.vicinity.block_number
     }
 
     fn block_coinbase(&self) -> H160 {
-        unimplemented!("Implement block_coinbase function")
+        self.vicinity.beneficiary
     }
 
     fn block_timestamp(&self) -> U256 {
-        unimplemented!("Implement block_timestamp function")
+        self.vicinity.timestamp
     }
 
     fn block_difficulty(&self) -> U256 {
@@ -145,11 +173,12 @@ impl Backend for EVMBackend {
     }
 
     fn block_gas_limit(&self) -> U256 {
-        unimplemented!("Implement block_gas_limit function")
+        self.vicinity.gas_limit
     }
 
     fn block_base_fee_per_gas(&self) -> U256 {
-        unimplemented!("Implement block_base_fee_per_gas function")
+        trace!(target: "backend", "[EVMBackend] Getting block_base_fee_per_gas");
+        self.vicinity.block_base_fee_per_gas
     }
 
     fn chain_id(&self) -> U256 {
@@ -161,6 +190,7 @@ impl Backend for EVMBackend {
     }
 
     fn basic(&self, address: H160) -> Basic {
+        trace!(target: "backend", "[EVMBackend] basic for address {:x?}", address);
         self.get_account(address)
             .map(|account| Basic {
                 balance: account.balance,
@@ -170,12 +200,14 @@ impl Backend for EVMBackend {
     }
 
     fn code(&self, address: H160) -> Vec<u8> {
+        trace!(target: "backend", "[EVMBackend] code for address {:x?}", address);
         self.get_account(address)
             .and_then(|account| self.storage.get_code_by_hash(account.code_hash))
             .unwrap_or_default()
     }
 
     fn storage(&self, address: H160, index: H256) -> H256 {
+        trace!(target: "backend", "[EVMBackend] Getting storage for address {:x?} at index {:x?}", address, index);
         self.get_account(address)
             .and_then(|account| {
                 self.trie_store
@@ -189,6 +221,7 @@ impl Backend for EVMBackend {
     }
 
     fn original_storage(&self, address: H160, index: H256) -> Option<H256> {
+        trace!(target: "backend", "[EVMBackend] Getting original storage for address {:x?} at index {:x?}", address, index);
         Some(self.storage(address, index))
     }
 }
@@ -275,9 +308,9 @@ use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]
 pub struct InsufficientBalance {
-    address: H160,
-    account_balance: U256,
-    amount: U256,
+    pub address: H160,
+    pub account_balance: U256,
+    pub amount: U256,
 }
 
 #[derive(Debug)]

@@ -24,7 +24,7 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
-#include <limits.h>
+#include <limits>
 #include <time.h>
 
 #include <util/strencodings.h>

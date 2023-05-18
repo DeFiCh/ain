@@ -40,6 +40,9 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEthPrivKey(_key_id: [u8; 20]) -> [u8; 32] {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -90,6 +93,11 @@ pub fn get_native_tx_size(data: Vec<u8>) -> Result<u64, Box<dyn Error>> {
 pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
     let tx_fee = ffi::getMinRelayTxFee();
     Ok(tx_fee)
+}
+
+pub fn get_eth_priv_key(key_id: [u8; 20]) -> Result<[u8; 32], Box<dyn Error>> {
+    let eth_key = ffi::getEthPrivKey(key_id);
+    Ok(eth_key)
 }
 
 #[cfg(test)]

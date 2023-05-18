@@ -1,17 +1,20 @@
-# TODO: Refine these vars with graceful swichover to local and
-# ensure it works without them set as well as with them set
-CARGO_HOME ?=
-RUSTUP_HOME ?=
-CARGO ?= cargo
+CARGO := $(if $(CARGO),$(CARGO),cargo)
 
-# RUST_TARGET is set from configure
-TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),x86_64-unknown-linux-gnu)
+# RUST_TARGET is set from configure. Can be empty. If it is we skip
+# setting target. This is done to emulate cargo's default behavior where
+# it puts things into `target/` directly where no `--target <triplet>`
+# is set. If set, it uses `target/<triplet>` and there's no way to force
+# cargo to always just stick to one.
+# 
+# If it's empty, this collapses dir for SPECIFIC_TARGET_DIR to retain
+# cargo's behavior
+TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),)
 
 # This is set from configure
-RUST_DEBUG ?=
+ENABLE_DEBUG ?= 
 # We use DEBUG as well, since that's the more conventional
 # setup. Either of them set will result in debug builds
-DEBUG ?= $(RUST_DEBUG)
+DEBUG ?= $(ENABLE_DEBUG)
 
 TARGET_DIR ?= $(abs_builddir)/target
 SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
@@ -21,10 +24,15 @@ CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 # don't end up in unexpected places (Currently protobuf-src is affected)
 
 .PHONY:
-all:
-	DESTDIR= TARGET_DIR=$(TARGET_DIR) \
-	RUSTUP_HOME=$(RUSTUP_HOME) \
-	CARGO_HOME=$(CARGO_HOME) \
+all: build
+
+.PHONY:
+build: 
+	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
+	CC="$(CC)" CXX="$(CXX)" \
+	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
 	$(CARGO) build \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" \
@@ -33,9 +41,41 @@ all:
 	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(TARGET_DIR)/lib/
 
 .PHONY:
+check:
+	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
+	CC="$(CC)" CXX="$(CXX)" \
+	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
+	$(CARGO) test \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" \
+		$(if $(TARGET),--target $(TARGET),)
+
+.PHONY:
+clippy:
+	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
+	CC="$(CC)" CXX="$(CXX)" \
+	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
+	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
+	$(CARGO) clippy \
+		--manifest-path "$(CARGO_MANIFEST_PATH)" \
+		--target-dir "$(TARGET_DIR)" \
+		$(if $(TARGET),--target $(TARGET),)
+
+.PHONY:
+fmt-check:
+	$(CARGO) fmt --all --check \
+		--manifest-path "$(CARGO_MANIFEST_PATH)"
+
+.PHONY:
+fmt:
+	$(CARGO) fmt --all \
+		--manifest-path "$(CARGO_MANIFEST_PATH)"
+
+.PHONY:
 clean-local:
-	RUSTUP_HOME=$(RUSTUP_HOME) \
-	CARGO_HOME=$(CARGO_HOME) \
 	$(CARGO) clean \
 		--manifest-path "$(CARGO_MANIFEST_PATH)" \
 		--target-dir "$(TARGET_DIR)" && \

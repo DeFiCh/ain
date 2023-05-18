@@ -7,7 +7,7 @@ use serde::{
 };
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
     pub hash: H256,
@@ -23,40 +23,63 @@ pub struct RpcBlock {
     pub extra_data: Vec<u8>,
     pub timestamp: U256,
     pub difficulty: U256,
-    pub total_difficulty: Option<U256>,
+    pub total_difficulty: U256,
     pub seal_fields: Vec<Vec<u8>>,
     pub uncles: Vec<H256>,
-    pub transactions: Vec<H256>,
+    pub transactions: BlockTransactions,
     pub nonce: U256,
-    pub sha3_uncles: String,
+    pub sha3_uncles: H256,
     pub logs_bloom: String,
     pub size: String,
 }
 
-impl From<BlockAny> for RpcBlock {
-    fn from(b: BlockAny) -> Self {
-        let header_size = b.header.rlp_bytes().len();
+impl RpcBlock {
+    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
+        let header_size = block.header.rlp_bytes().len();
         RpcBlock {
-            hash: b.header.hash(),
-            mix_hash: b.header.hash(),
-            number: b.header.number,
-            parent_hash: b.header.parent_hash,
-            transactions_root: b.header.transactions_root,
-            state_root: b.header.state_root,
-            receipts_root: b.header.receipts_root,
-            miner: b.header.beneficiary,
-            difficulty: b.header.difficulty,
-            total_difficulty: Some(U256::zero()),
+            hash: block.header.hash(),
+            mix_hash: block.header.hash(),
+            number: block.header.number,
+            parent_hash: block.header.parent_hash,
+            transactions_root: block.header.transactions_root,
+            state_root: block.header.state_root,
+            receipts_root: block.header.receipts_root,
+            miner: block.header.beneficiary,
+            difficulty: block.header.difficulty,
+            total_difficulty: U256::zero(),
             seal_fields: vec![],
-            gas_limit: b.header.gas_limit,
-            gas_used: b.header.gas_used,
-            timestamp: b.header.timestamp.into(),
-            transactions: b.transactions.into_iter().map(|t| t.hash()).collect(),
+            gas_limit: block.header.gas_limit,
+            gas_used: block.header.gas_used,
+            timestamp: block.header.timestamp.into(),
+            transactions: {
+                if full_transactions {
+                    // Discard failed to retrieved transactions with flat_map.
+                    // Should not happen as the transaction should not make it in the block in the first place.
+                    BlockTransactions::Full(
+                        block
+                            .transactions
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(index, tx)| {
+                                EthTransactionInfo::try_from_tx_block_and_index(tx, &block, index)
+                            })
+                            .collect(),
+                    )
+                } else {
+                    BlockTransactions::Hashes(
+                        block
+                            .transactions
+                            .iter()
+                            .map(|transaction| transaction.hash())
+                            .collect(),
+                    )
+                }
+            },
             uncles: vec![],
-            nonce: U256::default(),
-            extra_data: b.header.extra_data,
-            sha3_uncles: String::default(),
-            logs_bloom: String::default(),
+            nonce: U256::zero(),
+            extra_data: block.header.extra_data,
+            sha3_uncles: H256::default(),
+            logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
         }
     }
@@ -232,6 +255,8 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
 
 use std::str::FromStr;
 
+use crate::codegen::types::EthTransactionInfo;
+
 impl FromStr for BlockNumber {
     type Err = serde_json::Error;
 
@@ -279,5 +304,26 @@ mod tests {
         assert_eq!(match_block_number(bn_tag_safe).unwrap(), 999);
         assert_eq!(match_block_number(bn_tag_finalized).unwrap(), 999);
         assert_eq!(match_block_number(bn_tag_pending).unwrap(), 1001);
+    }
+}
+
+/// Block Transactions
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub enum BlockTransactions {
+    /// Only hashes
+    Hashes(Vec<H256>),
+    /// Full transactions
+    Full(Vec<EthTransactionInfo>),
+}
+
+impl Serialize for BlockTransactions {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
+            BlockTransactions::Full(ref ts) => ts.serialize(serializer),
+        }
     }
 }

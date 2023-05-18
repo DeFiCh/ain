@@ -7,6 +7,7 @@
 
 #include <consensus/params.h>
 #include <consensus/tx_check.h>
+#include <masternodes/evm.h>
 #include <masternodes/masternodes.h>
 #include <cstring>
 #include <vector>
@@ -143,7 +144,7 @@ enum class CustomTxType : uint8_t {
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
     // EVM
-    TransferBalance                  = '8',
+    TransferDomain                  = '8',
     EvmTx                     = '9',
 };
 
@@ -209,7 +210,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
-        case CustomTxType::TransferBalance:
+        case CustomTxType::TransferDomain:
         case CustomTxType::EvmTx:
         case CustomTxType::None:
             return type;
@@ -449,7 +450,7 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CAuctionBidMessage,
                                       CCreateProposalMessage,
                                       CProposalVoteMessage,
-                                      CTransferBalanceMessage,
+                                      CTransferDomainMessage,
                                       CEvmTxMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

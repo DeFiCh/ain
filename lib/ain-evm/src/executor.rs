@@ -1,7 +1,5 @@
-use std::collections::BTreeMap;
-
 use crate::{
-    backend::EVMBackendError,
+    backend::{EVMBackend, EVMBackendError},
     evm::EVMHandler,
     traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
@@ -9,22 +7,22 @@ use crate::{
 use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, U256};
 use evm::{
-    backend::{ApplyBackend, Backend},
+    backend::ApplyBackend,
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, ExitReason,
 };
-use primitive_types::H160;
+use log::trace;
+use primitive_types::{H160, H256};
+use std::collections::BTreeMap;
 
-#[derive(Debug)]
-pub struct AinExecutor<'backend, B: Backend> {
-    pub backend: &'backend mut B,
+pub struct AinExecutor<'backend> {
+    backend: &'backend mut EVMBackend,
 }
 
-impl<'backend, B> AinExecutor<'backend, B>
-where
-    B: Backend + ApplyBackend + BridgeBackend,
-{
-    pub fn new(backend: &'backend mut B) -> Self {
+impl<'backend> AinExecutor<'backend> {}
+
+impl<'backend> AinExecutor<'backend> {
+    pub fn new(backend: &'backend mut EVMBackend) -> Self {
         Self { backend }
     }
 
@@ -35,12 +33,13 @@ where
     pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
         self.backend.sub_balance(address, amount)
     }
+
+    pub fn commit(&mut self) -> H256 {
+        self.backend.commit()
+    }
 }
 
-impl<'backend, B> Executor for AinExecutor<'backend, B>
-where
-    B: Backend + ApplyBackend,
-{
+impl<'backend> Executor for AinExecutor<'backend> {
     const CONFIG: Config = Config::london();
 
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse {
@@ -75,7 +74,7 @@ where
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
         if apply && exit_reason.is_succeed() {
-            self.backend.apply(values, logs.clone(), true);
+            ApplyBackend::apply(self.backend, values, logs.clone(), true);
         }
 
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
@@ -100,6 +99,11 @@ where
 
     fn exec(&mut self, signed_tx: &SignedTx) -> TxResponse {
         let apply = true;
+        self.backend.update_vicinity_from_tx(signed_tx);
+        trace!(
+            "[Executor] Executing EVM TX with vicinity : {:?}",
+            self.backend.vicinity
+        );
         self.call(
             ExecutorContext {
                 caller: Some(signed_tx.sender),

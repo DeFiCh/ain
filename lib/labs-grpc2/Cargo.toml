@@ -23,7 +23,6 @@ async-trait = "0.1.68"
 prost-build = "0.11"
 tonic-build = "0.9"
 anyhow = "1.0.70"
-protobuf-src = "1.1.0"
 tonic = "0.9"
 
 [dev-dependencies]

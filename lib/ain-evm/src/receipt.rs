@@ -20,6 +20,8 @@ pub struct Receipt {
     pub tx_index: usize,
     pub tx_type: u8,
     pub contract_address: Option<H160>,
+    pub logs_index: usize,
+    pub cumulative_gas: U256,
 }
 
 pub struct ReceiptHandler {
@@ -54,23 +56,40 @@ impl ReceiptHandler {
         block_hash: H256,
         block_number: U256,
     ) -> Vec<Receipt> {
+        let mut logs_size = 0;
+        let mut cumulative_gas = U256::zero();
+
         transactions
             .iter()
             .enumerate()
             .zip(receipts.into_iter())
-            .map(|((index, signed_tx), receipt)| Receipt {
-                receipt,
-                block_hash,
-                block_number,
-                tx_hash: signed_tx.transaction.hash(),
-                from: signed_tx.sender,
-                to: signed_tx.to(),
-                tx_index: index,
-                tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap_or_default(),
-                contract_address: signed_tx
-                    .to()
-                    .is_none()
-                    .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
+            .map(|((index, signed_tx), receipt)| {
+                let receipt_data = match &receipt {
+                    ReceiptV3::Legacy(data)
+                    | ReceiptV3::EIP2930(data)
+                    | ReceiptV3::EIP1559(data) => data,
+                };
+                let logs_len = receipt_data.logs.len();
+                logs_size += logs_len;
+                cumulative_gas += receipt_data.used_gas;
+
+                Receipt {
+                    receipt,
+                    block_hash,
+                    block_number,
+                    tx_hash: signed_tx.transaction.hash(),
+                    from: signed_tx.sender,
+                    to: signed_tx.to(),
+                    tx_index: index,
+                    tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction)
+                        .unwrap_or_default(),
+                    contract_address: signed_tx
+                        .to()
+                        .is_none()
+                        .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
+                    logs_index: logs_size - logs_len,
+                    cumulative_gas,
+                }
             })
             .collect()
     }

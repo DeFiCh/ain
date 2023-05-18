@@ -1,5 +1,5 @@
-#ifndef DEFI_EVM_FFI_H
-#define DEFI_EVM_FFI_H
+#ifndef DEFI_FFI_FFIEXPORTS_H
+#define DEFI_FFI_FFIEXPORTS_H
 
 #include <chainparams.h>
 #include <ffi/cxx.h>
@@ -14,5 +14,6 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<rust::string> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
+std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID);
 
-#endif // DEFI_EVM_FFI_H
+#endif // DEFI_FFI_FFIEXPORTS_H

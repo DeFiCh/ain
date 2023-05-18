@@ -14,9 +14,6 @@ use std::rc::Rc;
 use std::{env, fs, io};
 
 fn main() -> Result<()> {
-    std::env::set_var("PROTOC", protobuf_src::protoc());
-    let proto_include = protobuf_src::include();
-
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     let proto_path = manifest_path
         .parent()
@@ -28,10 +25,14 @@ fn main() -> Result<()> {
     let proto_rs_target_path = out_dir.join("proto");
     std::fs::create_dir_all(&proto_rs_target_path)?;
 
+    let proto_include = std::env::var("PROTOC_INCLUDE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or(proto_rs_target_path.clone());
+
     let methods = compile_proto_and_generate_services(
         &proto_path,
         Path::new(&proto_rs_target_path),
-        &proto_include,
+        Path::new(&proto_include),
     );
     modify_generate_code(methods, &Path::new(&proto_rs_target_path).join("types.rs"));
 

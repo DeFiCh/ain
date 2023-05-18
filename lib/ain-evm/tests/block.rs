@@ -72,7 +72,7 @@ fn test_finalize_block_and_update_state() {
         failed_txs,
         vec![tx3]
             .into_iter()
-            .map(|t| t.transaction)
+            .map(|t| hex::encode(ethereum::EnvelopedEncodable::encode(&t.transaction)))
             .collect::<Vec<_>>()
     );
 
