@@ -126,10 +126,50 @@ class EVMTest(DefiTestFramework):
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
         
+    def test_send_transaction(self):
+        contractBytecode = '0x608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033'
+        
+        # TODO(): test txLegacy
+
+        tx2930 = {
+            'value': '0x00',
+            'data': contractBytecode,
+            'gas': '0x7a120', # 500_000
+            'gasPrice': '0x22ecb25c00', # 150_000_000_000,
+            'accessList': [
+                {
+                    'address': self.ethAddress,
+                    'storageKeys': [
+                        "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    ]
+                },
+            ],
+            'type': '0x1'
+        }
+        hash = self.nodes[0].eth_sendTransaction(tx2930)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
+        assert_is_hex_string(receipt['contractAddress'])
+
+        tx1559 = {
+            'value': '0x0',
+            'data': contractBytecode,
+            'gas': '0x18e70', # 102_000
+            'maxPriorityFeePerGas': '0x2363e7f000', # 152_000_000_000
+            'maxFeePerGas': '0x22ecb25c00', # 150_000_000_000
+            'type': '0x2'
+        }
+        hash = self.nodes[0].eth_sendTransaction(tx1559)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
+        assert_is_hex_string(receipt['contractAddress'])
+        
     def run_test(self):
         self.setup()
         
         self.test_send_raw_transaction()
+        
+        self.test_send_transaction()
         
 
 
