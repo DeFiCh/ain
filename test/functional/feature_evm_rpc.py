@@ -195,7 +195,6 @@ class EVMTest(DefiTestFramework):
         hash = self.nodes[0].eth_sendRawTransaction(rawtx)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        print('receipt:', receipt)
         assert_is_hex_string(receipt['contractAddress'])
 
     def run_test(self):
