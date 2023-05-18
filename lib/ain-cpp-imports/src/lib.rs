@@ -9,7 +9,7 @@ use bridge::ffi;
 #[cfg(any(test, bench, example, doc))]
 #[allow(non_snake_case)]
 mod ffi {
-    const UNIMPL_MSG: &'static str = "This cannot be used on a test path";
+    const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
