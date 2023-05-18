@@ -207,14 +207,19 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
         block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][4:68]
+        assert_equal(block_hash, eth_hash)
 
         # Check EVM miner fee
         opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
         opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
         eth_fee_sats = Decimal(int(eth_fee, 16)) / 1000000000
-        assert_equal(block_hash, eth_hash)
         assert_equal(opreturn_fee_sats, eth_fee_sats)
         assert_equal(opreturn_fee_sats, miner_fee)
+
+        # Test rollback of EVM TX
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+        assert_equal(miner_before, miner_rollback)
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
