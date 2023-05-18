@@ -821,6 +821,11 @@ public:
         node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
 
+        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            node.voteDelegationType = obj.voteDelegationType;
+            node.voteDelegationAddress = obj.voteDelegationAddress;
+        }
+
         // Set masternode version2 after FC for new serialisation
         if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
             node.version = CMasternode::VERSION0;

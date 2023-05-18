@@ -76,6 +76,7 @@ public:
     enum Version : int32_t {
         PRE_FORT_CANNING = -1,
         VERSION0         = 0,
+        VERSION1         = 1,
     };
 
     //! Minted blocks counter
@@ -103,6 +104,10 @@ public:
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
     uint256 collateralTx;
+
+    //! THis field will be used for vote delegation
+    char voteDelegationType;
+    CKeyID voteDelegationAddress;
 
     //! empty constructor
     CMasternode();
@@ -134,6 +139,11 @@ public:
         if (version > PRE_FORT_CANNING) {
             READWRITE(rewardAddress);
             READWRITE(rewardAddressType);
+        }
+
+        if (version > VERSION1){
+            READWRITE(voteDelegationType);
+            READWRITE(voteDelegationAddress);
         }
     }
 

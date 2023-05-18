@@ -109,6 +109,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
                                                                               "specify either FIVEYEARTIMELOCK or TENYEARTIMELOCK to create a masternode that cannot be resigned for\n"
                                                                               "five or ten years and will have 1.5x or 2.0 the staking power respectively. Be aware that this means\n"
                                                                               "that you cannot spend the collateral used to create a masternode for whatever period is specified."},
+                   {"delegateAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Any valid address for delegating vote (any P2PKH or P2WKH address)"},
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -133,13 +134,22 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     std::string ownerAddress = request.params[0].getValStr();
     std::string operatorAddress = request.params.size() > 1 && !request.params[1].getValStr().empty() ? request.params[1].getValStr() : ownerAddress;
+    std::string delegateAddress = !request.params[4].getValStr().empty() ? request.params[4].getValStr() : ownerAddress;
     CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
+    CTxDestination delegateDest = DecodeDestination(delegateAddress);
+
 
     bool eunosPaya;
     {
         LOCK(cs_main);
         eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
+    }
+
+    bool nextNetworkUpdate;
+    {
+        LOCK(cs_main);
+        nextNetworkUpdate = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().NextNetworkUpgradeHeight;
     }
 
     // Get timelock if any
@@ -165,7 +175,12 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
+    if (delegateDest.index() != 1 && delegateDest.index() != 4) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "delegateAddress (" + delegateAddress + ") does not refer to a P2PKH or P2WPKH address");
+    }
+
     CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+    CKeyID const delegateAuthKey = delegateDest.index() == 1 ? CKeyID(std::get<PKHash>(delegateDest)) : CKeyID(std::get<WitnessV0KeyHash>(delegateDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -173,6 +188,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     if (eunosPaya) {
         metadata << timelock;
+    }
+
+    if (nextNetworkUpdate) {
+        metadata << static_cast<char>(delegateDest.index()) << delegateAuthKey;
     }
 
     CScript scriptMeta;
