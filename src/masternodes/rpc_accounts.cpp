@@ -472,21 +472,43 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
 
+    CAmount evmAmount{};
+    CTxDestination dest;
+    if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
+        const auto keyID = std::get<WitnessV16EthHash>(dest);
+        const arith_uint256 height = targetHeight;
+        evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()), ArithToUint256(height).ToArrayReversed());
+    }
+
+    CTokenAmount dfiAmount{DCT_ID{}};
     mnview.ForEachBalance(
         [&](const CScript &owner, CTokenAmount balance) {
             if (owner != reqOwner) {
                 return false;
             }
 
-            if (indexed_amounts)
+            if (balance.nTokenId.v == 0) {
+                dfiAmount.nValue = balance.nValue;
+            } else if (indexed_amounts) {
                 ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
-            else
+            } else {
                 ret.push_back(tokenAmountString(balance));
+            }
 
             limit--;
             return limit != 0;
         },
         BalanceKey{reqOwner, start});
+
+    dfiAmount.nValue += evmAmount;
+    if (dfiAmount.nValue) {
+        if (indexed_amounts) {
+            ret.pushKV(dfiAmount.nTokenId.ToString(), ValueFromAmount(dfiAmount.nValue));
+        } else {
+            ret.push_back(tokenAmountString(dfiAmount));
+        }
+    }
+
     return GetRPCResultCache().Set(request, ret);
 }
 

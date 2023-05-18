@@ -116,7 +116,8 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(newDFIbalance, DFIbalance - Decimal('100'))
         assert_equal(newETHbalance, int_to_eth_u256(100))
-        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 1)
+        assert_equal(self.nodes[0].getaccount(ethAddress)[0], "100.00000000@DFI")
 
         assert_raises_rpc_error(-32600, "From address must be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {address:["100@DFI"]}, {address:["100@DFI"]})
         assert_raises_rpc_error(-32600, "To address must not be an ETH address in case of \"evmout\" transfer type", self.nodes[0].transferdomain, 2, {ethAddress:["100@DFI"]}, {ethAddress:["100@DFI"]})
