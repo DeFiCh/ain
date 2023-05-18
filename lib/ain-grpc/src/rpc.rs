@@ -11,7 +11,7 @@ use ain_evm::handler::Handlers;
 
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::TransactionV2 as EthereumTransaction;
+use ethereum::{EnvelopedEncodable, TransactionV2 as EthereumTransaction};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
@@ -547,8 +547,13 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let transaction = sign(from, message)?;
-        let hash = self.send_raw_transaction(format!("{:#x}", transaction.hash()).as_str())?;
+        let transaction = sign(from, message).unwrap();
+
+        let encoded_bytes = transaction.encode();
+        let encoded_string = hex::encode(encoded_bytes);
+        let encoded = encoded_string.as_str();
+        let hash = self.send_raw_transaction(encoded)?;
+
         Ok(hash)
     }
 
@@ -672,7 +677,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 }
 
-fn sign(address: H160, message: TransactionMessage) -> RpcResult<EthereumTransaction> {
+fn sign(
+    address: H160,
+    message: TransactionMessage,
+) -> Result<EthereumTransaction, Box<dyn std::error::Error>> {
     let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
