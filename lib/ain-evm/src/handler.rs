@@ -142,7 +142,7 @@ impl Handlers {
                 state_root: if update_state {
                     backend.commit()
                 } else {
-                    Default::default()
+                    backend.root()
                 },
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
