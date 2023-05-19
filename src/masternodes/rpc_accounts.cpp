@@ -655,6 +655,10 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     CUtxosToAccountMessage msg{};
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj());
 
+    for (const auto& [to, amount] : msg.to) {
+        RejectEthAddress(to);
+    }
+
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
@@ -809,6 +813,11 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     msg.from = DecodeScript(request.params[0].get_str());
 
+    for (const auto& [to, amount] : msg.to) {
+        RejectEthAddress(to);
+    }
+    RejectEthAddress(msg.from);
+
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToAccount)
@@ -895,6 +904,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // decode sender and recipients
     CAccountToUtxosMessage msg{};
     msg.from = DecodeScript(request.params[0].get_str());
+    RejectEthAddress(msg.from);
     const auto to = DecodeRecipients(pwallet->chain(), request.params[1]);
     msg.balances = SumAllTransfers(to);
     if (msg.balances.balances.empty()) {
@@ -1902,6 +1912,13 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
     }
 
+    for (const auto& [to, amount] : msg.to) {
+        RejectEthAddress(to);
+    }
+    for (const auto& [from, amount] : msg.from) {
+        RejectEthAddress(from);
+    }
+
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AnyAccountsToAccounts)
@@ -2357,6 +2374,7 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
     const auto script = GetScriptForDestination(dest);
+    RejectEthAddress(script);
 
     CSmartContractMessage msg{};
     msg.name = contractPair.first;
@@ -2498,6 +2516,8 @@ UniValue futureswap(const JSONRPCRequest& request) {
     msg.owner = GetScriptForDestination(dest);
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
 
+    RejectEthAddress(msg.owner);
+
     if (!request.params[2].isNull()) {
         DCT_ID destTokenID{};
 
@@ -2599,6 +2619,8 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
 
         msg.destination = destTokenID.v;
     }
+
+    RejectEthAddress(msg.owner);
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

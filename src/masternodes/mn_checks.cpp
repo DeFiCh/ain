@@ -495,6 +495,21 @@ Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return Res::Err("tx must have at least one input from account owner");
 }
 
+Res CCustomTxVisitor::HasEthAuth(const CScript &auth) const {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        std::vector<TBytes> vRet;
+        if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH) {
+            auto it = input.scriptSig.begin();
+            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+            if (GetScriptForDestination(WitnessV16EthHash(pubkey)) == auth) {
+                return Res::Ok();
+            }
+        }
+    }
+    return Res::Err("tx must have at least one input from account owner");
+}
+
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
     Require(HasAuth(auth.out.scriptPubKey), "tx must have at least one input from the owner");
@@ -3870,20 +3885,7 @@ public:
                         return Res::Err("From address must be an ETH address in case of \"evmout\" transfer type");
                     }
                 }
-                bool foundAuth = false;
-                for (const auto &input : tx.vin) {
-                    const Coin &coin = coins.AccessCoin(input.prevout);
-                    std::vector<TBytes> vRet;
-                    if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                    {
-                        auto it = input.scriptSig.begin();
-                        CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                        if (script == addr)
-                            foundAuth = true;
-                    }
-                }
-                if (!foundAuth)
+                if (!HasEthAuth(addr))
                     return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
 
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);

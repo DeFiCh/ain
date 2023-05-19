@@ -37,6 +37,7 @@ public:
 
 protected:
     Res HasAuth(const CScript &auth) const;
+    Res HasEthAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
