@@ -10,6 +10,7 @@ mod impls;
 mod receipt;
 pub mod rpc;
 mod transaction;
+mod transaction_request;
 mod utils;
 
 use jsonrpsee::core::server::rpc_module::Methods;
