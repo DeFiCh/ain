@@ -171,8 +171,8 @@ impl Handlers {
 
         if update_state {
             debug!(
-                "[finalize_block] Updating state with new state_root : {:#x}",
-                block.header.state_root
+                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+                block.header.number, block.header.state_root
             );
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);

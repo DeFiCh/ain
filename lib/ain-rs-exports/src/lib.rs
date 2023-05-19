@@ -1,4 +1,7 @@
-use ain_evm::transaction::{self, SignedTx};
+use ain_evm::{
+    storage::traits::Rollback,
+    transaction::{self, SignedTx},
+};
 use ain_grpc::{init_evm_runtime, start_servers, stop_evm_runtime};
 
 use ain_evm::runtime::RUNTIME;
@@ -64,6 +67,8 @@ pub mod ffi {
         fn stop_evm_runtime();
 
         fn create_and_sign_tx(ctx: CreateTransactionContext) -> Result<Vec<u8>>;
+
+        fn evm_disconnect_latest_block() -> Result<()>;
     }
 }
 
@@ -199,4 +204,9 @@ fn evm_finalize(
 
 pub fn preinit() {
     ain_grpc::preinit();
+}
+
+fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {
+    RUNTIME.handlers.storage.disconnect_latest_block();
+    Ok(())
 }

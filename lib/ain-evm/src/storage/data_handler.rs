@@ -6,9 +6,12 @@ use std::borrow::ToOwned;
 
 use crate::receipt::Receipt;
 
-use super::traits::{
-    BlockStorage, FlushableStorage, PersistentState, PersistentStateError, ReceiptStorage,
-    TransactionStorage,
+use super::{
+    code::CodeHistory,
+    traits::{
+        BlockStorage, FlushableStorage, PersistentState, PersistentStateError, ReceiptStorage,
+        Rollback, TransactionStorage,
+    },
 };
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
@@ -16,20 +19,19 @@ pub static BLOCK_DATA_PATH: &str = "block_data.bin";
 pub static LATEST_BLOCK_DATA_PATH: &str = "latest_block_data.bin";
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 pub static CODE_MAP_PATH: &str = "code_map.bin";
-// pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
+pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
 type Blocks = HashMap<U256, BlockAny>;
 type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
-type CodeHashToCode = HashMap<H256, Vec<u8>>;
 
 impl PersistentState for BlockHashtoBlock {}
 impl PersistentState for Blocks {}
 impl PersistentState for LatestBlockNumber {}
 impl PersistentState for TransactionHashToReceipt {}
-impl PersistentState for CodeHashToCode {}
+impl PersistentState for TxHashToTx {}
 
 #[derive(Debug)]
 pub struct BlockchainDataHandler {
@@ -42,14 +44,16 @@ pub struct BlockchainDataHandler {
     blocks: RwLock<Blocks>,
     latest_block_number: RwLock<Option<LatestBlockNumber>>,
 
-    code_map: RwLock<CodeHashToCode>,
+    code_map: RwLock<CodeHistory>,
 }
 
 impl BlockchainDataHandler {
     pub fn new() -> Self {
-        let blocks = Blocks::load_from_disk(BLOCK_DATA_PATH).expect("Error loading blocks data");
         BlockchainDataHandler {
-            transactions: RwLock::new(HashMap::new()),
+            transactions: RwLock::new(
+                TxHashToTx::load_from_disk(TRANSACTION_DATA_PATH)
+                    .expect("Error loading blocks data"),
+            ),
             block_map: RwLock::new(
                 BlockHashtoBlock::load_from_disk(BLOCK_MAP_PATH)
                     .expect("Error loading block_map data"),
@@ -57,13 +61,15 @@ impl BlockchainDataHandler {
             latest_block_number: RwLock::new(
                 LatestBlockNumber::load_from_disk(LATEST_BLOCK_DATA_PATH).ok(),
             ),
-            blocks: RwLock::new(blocks),
+            blocks: RwLock::new(
+                Blocks::load_from_disk(BLOCK_DATA_PATH).expect("Error loading blocks data"),
+            ),
             receipts: RwLock::new(
                 TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH)
                     .expect("Error loading receipts data"),
             ),
             code_map: RwLock::new(
-                CodeHashToCode::load_from_disk(CODE_MAP_PATH).expect("Error loading code data"),
+                CodeHistory::load_from_disk(CODE_MAP_PATH).expect("Error loading code data"),
             ),
         }
     }
@@ -80,13 +86,12 @@ impl TransactionStorage for BlockchainDataHandler {
         }
     }
 
-    fn get_transaction_by_hash(&self, _hash: &H256) -> Option<TransactionV2> {
-        None
-        // self.transactions
-        //     .read()
-        //     .unwrap()
-        //     .get(hash)
-        //     .map(ToOwned::to_owned)
+    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
+        self.transactions
+            .read()
+            .unwrap()
+            .get(hash)
+            .map(ToOwned::to_owned)
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -162,9 +167,9 @@ impl BlockStorage for BlockchainDataHandler {
             .and_then(|number| self.get_block_by_number(number))
     }
 
-    fn put_latest_block(&self, block: &BlockAny) {
+    fn put_latest_block(&self, block: Option<&BlockAny>) {
         let mut latest_block_number = self.latest_block_number.write().unwrap();
-        *latest_block_number = Some(block.header.number);
+        *latest_block_number = block.map(|b| b.header.number);
     }
 }
 
@@ -197,6 +202,10 @@ impl FlushableStorage for BlockchainDataHandler {
             .write()
             .unwrap()
             .save_to_disk(RECEIPT_MAP_PATH)?;
+        self.transactions
+            .write()
+            .unwrap()
+            .save_to_disk(TRANSACTION_DATA_PATH)?;
         self.code_map.write().unwrap().save_to_disk(CODE_MAP_PATH)
     }
 }
@@ -210,7 +219,36 @@ impl BlockchainDataHandler {
             .map(ToOwned::to_owned)
     }
 
-    pub fn put_code(&self, hash: &H256, code: &[u8]) -> Option<Vec<u8>> {
-        self.code_map.write().unwrap().insert(*hash, code.to_vec())
+    pub fn put_code(&self, hash: &H256, code: &[u8]) {
+        let block_number = self
+            .get_latest_block()
+            .map(|b| b.header.number)
+            .unwrap_or_default()
+            + 1;
+        self.code_map
+            .write()
+            .unwrap()
+            .insert(block_number, *hash, code.to_vec())
+    }
+}
+
+impl Rollback for BlockchainDataHandler {
+    fn disconnect_latest_block(&self) {
+        if let Some(block) = self.get_latest_block() {
+            println!("disconnecting block number : {:x?}", block.header.number);
+            let mut transactions = self.transactions.write().unwrap();
+            let mut receipts = self.receipts.write().unwrap();
+            for tx in &block.transactions {
+                let hash = &tx.hash();
+                transactions.remove(hash);
+                receipts.remove(hash);
+            }
+
+            self.block_map.write().unwrap().remove(&block.header.hash());
+            self.blocks.write().unwrap().remove(&block.header.number);
+            self.code_map.write().unwrap().rollback(block.header.number);
+
+            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
+        }
     }
 }
