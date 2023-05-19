@@ -16,7 +16,7 @@ mod ffi {
     pub fn isMining() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn publishEthTransaction(_data: Vec<u8>) -> bool {
+    pub fn publishEthTransaction(_data: Vec<u8>) -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getAccounts() -> Vec<String> {
@@ -55,7 +55,7 @@ pub fn is_mining() -> Result<bool, Box<dyn Error>> {
     Ok(is_mining)
 }
 
-pub fn publish_eth_transaction(data: Vec<u8>) -> Result<bool, Box<dyn Error>> {
+pub fn publish_eth_transaction(data: Vec<u8>) -> Result<String, Box<dyn Error>> {
     let publish = ffi::publishEthTransaction(data);
     Ok(publish)
 }

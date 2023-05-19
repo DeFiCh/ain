@@ -6,7 +6,7 @@
 
 uint64_t getChainId();
 bool isMining();
-bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
+rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
 rust::string getDatadir();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
