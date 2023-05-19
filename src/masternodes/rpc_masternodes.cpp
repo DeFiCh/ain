@@ -26,6 +26,14 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
         else {
             obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
         }
+        if (node.voteDelegationType != 0) {
+            obj.pushKV("delegateAddress", EncodeDestination(
+                    node.voteDelegationType == 1 ? CTxDestination(PKHash(node.voteDelegationAddress)) : CTxDestination(
+                            WitnessV0KeyHash(node.voteDelegationAddress))));
+        }
+        else {
+            obj.pushKV("delegateAddress", EncodeDestination(CTxDestination()));
+        }
 
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
