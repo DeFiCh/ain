@@ -74,9 +74,9 @@ public:
     enum TimeLock { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
 
     enum Version : int32_t {
-        PRE_FORT_CANNING = -1,
-        VERSION0         = 0,
-        VERSION1         = 1,
+        VERSION0_PRE_FORT_CANNING = -1,
+        VERSION1         = 0,
+        VERSION2         = 1,
     };
 
     //! Minted blocks counter
@@ -136,7 +136,7 @@ public:
         READWRITE(collateralTx);
 
         // Only available after FortCanning
-        if (version > PRE_FORT_CANNING) {
+        if (version > VERSION0_PRE_FORT_CANNING) {
             READWRITE(rewardAddress);
             READWRITE(rewardAddressType);
         }
@@ -310,7 +310,7 @@ public:
         static constexpr uint8_t prefix() { return 'K'; }
     };
 
-    struct Delegate {
+    struct VoteDelegate {
         static constexpr uint8_t prefix() { return 'D'; }
     };
 };

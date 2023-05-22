@@ -26,6 +26,8 @@ std::string ToString(CustomTxType type) {
     switch (type) {
         case CustomTxType::CreateMasternode:
             return "CreateMasternode";
+        case CustomTxType::CreateMasternodeV2:
+            return "CreateMasternodeV2";
         case CustomTxType::ResignMasternode:
             return "ResignMasternode";
         case CustomTxType::UpdateMasternode:
@@ -187,6 +189,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType) {
         case CustomTxType::CreateMasternode:
             return CCreateMasterNodeMessage{};
+        case CustomTxType::CreateMasternodeV2:
+            return CCreateMasterNodeV2Message{};
         case CustomTxType::ResignMasternode:
             return CResignMasterNodeMessage{};
         case CustomTxType::UpdateMasternode:
@@ -440,6 +444,7 @@ public:
             return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
         else if constexpr (IsOneOf<T,
                 CCreateMasterNodeMessage,
+                CCreateMasterNodeV2Message,
                 CResignMasterNodeMessage>())
             return Res::Ok();
         else
@@ -821,14 +826,84 @@ public:
         node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
 
-        if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
-            node.voteDelegationType = obj.voteDelegationType;
-            node.voteDelegationAddress = obj.voteDelegationAddress;
+        // Set masternode version2 after FC for new serialisation
+        if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
+            node.version = CMasternode::VERSION1;
+
+        bool duplicate{};
+        mnview.ForEachNewCollateral([&](const uint256 &key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
+            const auto &value = valueKey.get();
+            if (height > value.blockHeight) {
+                return true;
+            }
+            const auto &coin = coins.AccessCoin({key, 1});
+            assert(!coin.IsSpent());
+            CTxDestination pendingDest;
+            assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
+            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest))
+                                                                      : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+                duplicate = true;
+                return false;
+            }
+            return true;
+        });
+
+        if (duplicate) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending");
         }
+
+        Require(mnview.CreateMasternode(tx.GetHash(), node, obj.timelock));
+        // Build coinage from the point of masternode creation
+
+        if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight))
+            for (uint8_t i{0}; i < SUBNODE_COUNT; ++i)
+                mnview.SetSubNodesBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), i, time);
+
+        else if (height >= static_cast<uint32_t>(consensus.DakotaCrescentHeight))
+            mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CCreateMasterNodeV2Message &obj) const {
+        Require(CheckMasternodeCreationTx());
+
+        if (height >= static_cast<uint32_t>(consensus.EunosHeight))
+            Require(HasAuth(tx.vout[1].scriptPubKey), "masternode creation needs owner auth");
+
+        if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight)) {
+            switch (obj.timelock) {
+                case CMasternode::ZEROYEAR:
+                case CMasternode::FIVEYEAR:
+                case CMasternode::TENYEAR:
+                    break;
+                default:
+                    return Res::Err("Timelock must be set to either 0, 5 or 10 years");
+            }
+        } else
+            Require(obj.timelock == 0, "collateral timelock cannot be set below EunosPaya");
+
+        CMasternode node;
+        CTxDestination dest;
+        if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
+            if (dest.index() == PKHashType) {
+                node.ownerType        = 1;
+                node.ownerAuthAddress = CKeyID(std::get<PKHash>(dest));
+            } else if (dest.index() == WitV0KeyHashType) {
+                node.ownerType        = 4;
+                node.ownerAuthAddress = CKeyID(std::get<WitnessV0KeyHash>(dest));
+            }
+        }
+        node.creationHeight      = height;
+        node.operatorType        = obj.operatorType;
+        node.operatorAuthAddress = obj.operatorAuthAddress;
+        node.voteDelegationType = obj.voteDelegationType;
+        node.voteDelegationAddress = obj.voteDelegationAddress;
 
         // Set masternode version2 after FC for new serialisation
         if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
-            node.version = CMasternode::VERSION0;
+            node.version = CMasternode::VERSION1;
 
         bool duplicate{};
         mnview.ForEachNewCollateral([&](const uint256 &key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
@@ -4142,7 +4217,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             }
 
             // Track burn fee
-            if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+            if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateMasternodeV2) {
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }
 
@@ -4352,7 +4427,7 @@ bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
     if (ptx) {
         std::vector<unsigned char> dummy;
         CustomTxType txType = GuessCustomTxType(*ptx, dummy);
-        return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
+        return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternodeV2;
     }
     return false;
 }

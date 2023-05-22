@@ -231,7 +231,7 @@ std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &id
 }
 
 std::optional<uint256> CMasternodesView::GetMasternodeIdByDelegate(const CKeyID &id) const {
-    return ReadBy<Delegate, uint256>(id);
+    return ReadBy<VoteDelegate, uint256>(id);
 }
 
 void CMasternodesView::ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
@@ -318,7 +318,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
     if (timelock > 0) {
         WriteBy<Timelock>(nodeId, timelock);
     }
-    WriteBy<Delegate>(node.voteDelegationAddress, nodeId);
+    WriteBy<VoteDelegate>(node.voteDelegationAddress, nodeId);
 
     return Res::Ok();
 }
@@ -350,8 +350,8 @@ void CMasternodesView::SetForcedRewardAddress(const uint256 &nodeId,
                                               const CKeyID &rewardAddress,
                                               int height) {
     // If old masternode update for new serialisation
-    if (node.version < CMasternode::VERSION0) {
-        node.version = CMasternode::VERSION0;
+    if (node.version < CMasternode::VERSION1) {
+        node.version = CMasternode::VERSION1;
     }
 
     // Set new reward address

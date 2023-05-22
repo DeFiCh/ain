@@ -2234,7 +2234,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         node.ownerAuthAddress = keyID;
         node.operatorType = WitV0KeyHashType;
         node.operatorAuthAddress = keyID;
-        node.version = CMasternode::VERSION0;
+        node.version = CMasternode::VERSION1;
         pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
         for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
             pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);

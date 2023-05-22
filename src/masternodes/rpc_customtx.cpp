@@ -80,6 +80,15 @@ public:
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
+    void operator()(const CCreateMasterNodeV2Message &obj) const {
+        rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
+        rpcInfo.pushKV("masternodeoperator",
+                       EncodeDestination(obj.operatorType == PKHashType
+                                         ? CTxDestination(PKHash(obj.operatorAuthAddress))
+                                         : CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
+        rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
+    }
+
     void operator()(const CResignMasterNodeMessage &obj) const { rpcInfo.pushKV("id", obj.GetHex()); }
 
     void operator()(const CUpdateMasterNodeMessage &obj) const {

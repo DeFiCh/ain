@@ -76,6 +76,7 @@ enum class CustomTxType : uint8_t {
 
     // masternodes:
     CreateMasternode = 'C',
+    CreateMasternodeV2 = 'f',
     ResignMasternode = 'R',
     UpdateMasternode = 'm',
     // custom tokens:
@@ -152,6 +153,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     auto type = static_cast<CustomTxType>(ch);
     switch (type) {
         case CustomTxType::CreateMasternode:
+        case CustomTxType::CreateMasternodeV2:
         case CustomTxType::ResignMasternode:
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
@@ -244,8 +246,6 @@ struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
     uint16_t timelock{0};
-    char voteDelegationType;
-    CKeyID voteDelegationAddress;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -257,11 +257,24 @@ struct CCreateMasterNodeMessage {
         if (!s.eof()) {
             READWRITE(timelock);
         }
+    }
+};
 
-        if (!s.eof()) {
-            READWRITE(voteDelegationType);
-            READWRITE(voteDelegationAddress);
-        }
+struct CCreateMasterNodeV2Message {
+    char operatorType;
+    CKeyID operatorAuthAddress;
+    uint16_t timelock{0};
+    char voteDelegationType;
+    CKeyID voteDelegationAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+        READWRITE(timelock);
+        READWRITE(voteDelegationType);
+        READWRITE(voteDelegationAddress);
     }
 };
 
@@ -406,6 +419,7 @@ struct CCustomTxMessageNone {};
 
 using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CCreateMasterNodeMessage,
+                                      CCreateMasterNodeV2Message,
                                       CResignMasterNodeMessage,
                                       CUpdateMasterNodeMessage,
                                       CCreateTokenMessage,

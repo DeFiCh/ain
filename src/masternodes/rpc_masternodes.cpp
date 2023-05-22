@@ -191,14 +191,15 @@ UniValue createmasternode(const JSONRPCRequest& request)
     CKeyID const delegateAuthKey = delegateDest.index() == 1 ? CKeyID(std::get<PKHash>(delegateDest)) : CKeyID(std::get<WitnessV0KeyHash>(delegateDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-             << static_cast<char>(operatorDest.index()) << operatorAuthKey;
+    nextNetworkUpdate ? metadata << static_cast<unsigned char>(CustomTxType::CreateMasternodeV2) : metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode);
+    metadata << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
     if (eunosPaya) {
         metadata << timelock;
     }
 
     if (nextNetworkUpdate) {
+        LogInstance().LogPrintStr("delegate is here : " + delegateAddress);
         metadata << static_cast<char>(delegateDest.index()) << delegateAuthKey;
     }
 

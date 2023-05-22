@@ -2188,6 +2188,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
                     // Fee burn
                     if (value.category == uint8_t(CustomTxType::CreateMasternode) ||
+                        value.category == uint8_t(CustomTxType::CreateMasternodeV2) ||
                         value.category == uint8_t(CustomTxType::CreateToken) ||
                         value.category == uint8_t(CustomTxType::Vault) ||
                         value.category == uint8_t(CustomTxType::CreateCfp) ||
