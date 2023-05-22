@@ -1,4 +1,3 @@
-use crate::utils::format_bytes;
 use ain_evm::receipt::Receipt;
 use ethereum::EIP658ReceiptData;
 use primitive_types::{H160, H256, U256};
@@ -54,7 +53,7 @@ impl From<Receipt> for ReceiptResult {
                     .map(|(log_index, x)| LogResult {
                         address: x.clone().address,
                         topics: x.clone().topics,
-                        data: format_bytes(x.data.to_ascii_lowercase()),
+                        data: format!("{:#x?}", x.data.to_ascii_lowercase()),
                         block_number: b.block_number,
                         block_hash: b.block_hash,
                         transaction_hash: b.tx_hash,
