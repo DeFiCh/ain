@@ -17,8 +17,9 @@ impl BlockHandler {
     pub fn get_latest_block_hash_and_number(&self) -> (H256, U256) {
         self.storage
             .get_latest_block()
-            .map(|latest_block| (latest_block.header.hash(), latest_block.header.number))
-            .unwrap_or((H256::default(), U256::zero()))
+            .map_or((H256::default(), U256::zero()), |latest_block| {
+                (latest_block.header.hash(), latest_block.header.number)
+            })
     }
 
     pub fn get_latest_state_root(&self) -> H256 {
@@ -30,6 +31,6 @@ impl BlockHandler {
 
     pub fn connect_block(&self, block: BlockAny) {
         self.storage.put_latest_block(&block);
-        self.storage.put_block(&block)
+        self.storage.put_block(&block);
     }
 }

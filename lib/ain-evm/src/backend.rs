@@ -92,13 +92,11 @@ impl EVMBackend {
             let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
         });
 
-        let code_hash = code
-            .map(|code| {
-                let code_hash = Hasher::hash(&code);
-                self.storage.put_code(code_hash, code);
-                code_hash
-            })
-            .unwrap_or(account.code_hash);
+        let code_hash = code.map_or(account.code_hash, |code| {
+            let code_hash = Hasher::hash(&code);
+            self.storage.put_code(code_hash, code);
+            code_hash
+        });
 
         let new_account = Account {
             nonce: basic.nonce,
@@ -109,7 +107,7 @@ impl EVMBackend {
 
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
-            .map_err(|e| EVMBackendError::TrieError(format!("{}", e)))?;
+            .map_err(|e| EVMBackendError::TrieError(format!("{e}")))?;
 
         Ok(new_account)
     }
@@ -238,7 +236,7 @@ impl ApplyBackend for EVMBackend {
         I: IntoIterator<Item = (H256, H256)>,
         L: IntoIterator<Item = Log>,
     {
-        for apply in values.into_iter() {
+        for apply in values {
             match apply {
                 Apply::Modify {
                     address,
@@ -331,12 +329,12 @@ impl fmt::Display for EVMBackendError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             EVMBackendError::TrieCreationFailed(e) => {
-                write!(f, "EVMBackendError: Failed to create trie {}", e)
+                write!(f, "EVMBackendError: Failed to create trie {e}")
             }
             EVMBackendError::TrieRestoreFailed(e) => {
-                write!(f, "EVMBackendError: Failed to restore trie {}", e)
+                write!(f, "EVMBackendError: Failed to restore trie {e}")
             }
-            EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {}", e),
+            EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {e}"),
             EVMBackendError::NoSuchAccount(address) => {
                 write!(
                     f,
@@ -349,7 +347,7 @@ impl fmt::Display for EVMBackendError {
                 account_balance,
                 amount,
             }) => {
-                write!(f, "EVMBackendError: Insufficient balance for address {}, trying to deduct {} but address has only {}", address, amount, account_balance)
+                write!(f, "EVMBackendError: Insufficient balance for address {address}, trying to deduct {amount} but address has only {account_balance}")
             }
         }
     }
