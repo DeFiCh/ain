@@ -53,7 +53,7 @@ impl From<Receipt> for ReceiptResult {
                     .map(|(log_index, x)| LogResult {
                         address: x.clone().address,
                         topics: x.clone().topics,
-                        data: format!("{:#x?}", x.data.to_ascii_lowercase()),
+                        data: format!("0x{}", hex::encode(x.clone().data)),
                         block_number: b.block_number,
                         block_hash: b.block_hash,
                         transaction_hash: b.tx_hash,
