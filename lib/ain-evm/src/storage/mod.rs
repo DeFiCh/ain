@@ -1,4 +1,5 @@
 mod cache;
+mod code;
 mod data_handler;
 pub mod traits;
 
@@ -11,7 +12,8 @@ use self::{
     cache::Cache,
     data_handler::BlockchainDataHandler,
     traits::{
-        BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage, TransactionStorage,
+        BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage, Rollback,
+        TransactionStorage,
     },
 };
 
@@ -66,13 +68,13 @@ impl BlockStorage for Storage {
         self.cache.get_latest_block().or_else(|| {
             let latest_block = self.blockchain_data_handler.get_latest_block();
             if let Some(ref block) = latest_block {
-                self.cache.put_latest_block(block);
+                self.cache.put_latest_block(Some(block));
             }
             latest_block
         })
     }
 
-    fn put_latest_block(&self, block: &BlockAny) {
+    fn put_latest_block(&self, block: Option<&BlockAny>) {
         self.cache.put_latest_block(block);
         self.blockchain_data_handler.put_latest_block(block);
     }
@@ -160,7 +162,7 @@ impl Storage {
         self.blockchain_data_handler.get_code_by_hash(&hash)
     }
 
-    pub fn put_code(&self, hash: H256, code: Vec<u8>) -> Option<Vec<u8>> {
+    pub fn put_code(&self, hash: H256, code: Vec<u8>) {
         self.blockchain_data_handler.put_code(&hash, &code)
     }
 }
@@ -171,5 +173,12 @@ impl Storage {
             "self.block_data_handler : {:#?}",
             self.blockchain_data_handler
         );
+    }
+}
+
+impl Rollback for Storage {
+    fn disconnect_latest_block(&self) {
+        self.cache.disconnect_latest_block();
+        self.blockchain_data_handler.disconnect_latest_block();
     }
 }

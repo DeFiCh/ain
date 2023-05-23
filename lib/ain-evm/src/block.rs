@@ -30,7 +30,7 @@ impl BlockHandler {
     }
 
     pub fn connect_block(&self, block: BlockAny) {
-        self.storage.put_latest_block(&block);
+        self.storage.put_latest_block(Some(&block));
         self.storage.put_block(&block);
     }
 }
