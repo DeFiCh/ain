@@ -3930,13 +3930,11 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
+        if (!evm_validate_raw_tx(HexStr(obj.evmTx)))
             return Res::Err("evm tx failed to validate");
-        }
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed())) {
+        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
             return Res::Err("evm tx failed to queue");
-        }
 
         return Res::Ok();
     }
