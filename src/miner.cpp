@@ -536,7 +536,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
     for (const auto &txStr : failedTransactions) {
         const auto failedHash = uint256S(txStr);
         for (const auto &tx : pblock->vtx) {
-            if (tx->GetHash() == failedHash) {
+            if (tx && tx->GetHash() == failedHash) {
                 std::vector<unsigned char> metadata;
                 const auto txType = GuessCustomTxType(*tx, metadata, false);
                 if (txType == CustomTxType::TransferDomain) {
