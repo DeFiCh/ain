@@ -48,7 +48,7 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
-        fn evm_validate_raw_tx(tx: &str) -> Result<bool>;
+        fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
@@ -228,11 +228,11 @@ pub fn evm_sub_balance(
 /// # Returns
 ///
 /// Returns `true` if the transaction is valid, logs the error and returns `false` otherwise.
-pub fn evm_validate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
+pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
         Ok(_) => Ok(true),
         Err(e) => {
-            debug!("evm_validate_raw_tx fails with error: {:?}", e);
+            debug!("evm_prevalidate_raw_tx fails with error: {:?}", e);
             Ok(false)
         }
     }
