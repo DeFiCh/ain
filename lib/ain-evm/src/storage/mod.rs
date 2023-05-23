@@ -41,7 +41,7 @@ impl BlockStorage for Storage {
         self.cache.get_block_by_number(number).or_else(|| {
             let block = self.blockchain_data_handler.get_block_by_number(number);
             if let Some(ref block) = block {
-                self.cache.put_block(block)
+                self.cache.put_block(block);
             }
             block
         })
@@ -51,7 +51,7 @@ impl BlockStorage for Storage {
         self.cache.get_block_by_hash(block_hash).or_else(|| {
             let block = self.blockchain_data_handler.get_block_by_hash(block_hash);
             if let Some(ref block) = block {
-                self.cache.put_block(block)
+                self.cache.put_block(block);
             }
             block
         })
@@ -59,14 +59,14 @@ impl BlockStorage for Storage {
 
     fn put_block(&self, block: &BlockAny) {
         self.cache.put_block(block);
-        self.blockchain_data_handler.put_block(block)
+        self.blockchain_data_handler.put_block(block);
     }
 
     fn get_latest_block(&self) -> Option<BlockAny> {
         self.cache.get_latest_block().or_else(|| {
             let latest_block = self.blockchain_data_handler.get_latest_block();
             if let Some(ref block) = latest_block {
-                self.cache.put_latest_block(block)
+                self.cache.put_latest_block(block);
             }
             latest_block
         })
@@ -91,7 +91,7 @@ impl TransactionStorage for Storage {
         self.cache.get_transaction_by_hash(hash).or_else(|| {
             let transaction = self.blockchain_data_handler.get_transaction_by_hash(hash);
             if let Some(ref transaction) = transaction {
-                self.cache.put_transaction(transaction)
+                self.cache.put_transaction(transaction);
             }
             transaction
         })

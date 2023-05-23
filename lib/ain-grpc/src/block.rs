@@ -1,4 +1,4 @@
-use ethereum::BlockAny;
+use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 use rlp::Encodable;
 use serde::{
@@ -67,11 +67,7 @@ impl RpcBlock {
                     )
                 } else {
                     BlockTransactions::Hashes(
-                        block
-                            .transactions
-                            .iter()
-                            .map(|transaction| transaction.hash())
-                            .collect(),
+                        block.transactions.iter().map(TransactionV2::hash).collect(),
                     )
                 }
             },
