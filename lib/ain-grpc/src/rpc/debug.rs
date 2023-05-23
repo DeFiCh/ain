@@ -9,12 +9,12 @@ use ain_evm::executor::TxResponse;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::SignedTx;
 use crate::codegen::types::EthTransactionInfo;
-use crate::transaction::TraceLogs;
+use crate::transaction::{TraceLogs, TraceTransactionResult};
 
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<Vec<ExecutionStep>>;
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
 
     // Dump full db
     #[method(name = "dumpdb")]
@@ -33,7 +33,7 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<Vec<ExecutionStep>> {
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
         debug!(target: "rpc", "Tracing transaction {tx_hash}");
 
         let receipt = self.handler.storage.get_receipt(&tx_hash).expect("Receipt not found");
@@ -41,7 +41,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         let signed_tx = SignedTx::try_from(tx).expect("Unable to construct signed TX");
 
-        let logs = self
+        let (logs, succeeded, return_data) = self
             .handler
             .evm
             .trace_transaction(
@@ -55,7 +55,14 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
-        Ok(logs)
+        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
+
+        Ok(TraceTransactionResult {
+            gas: Default::default(),
+            failed: !succeeded,
+            return_value: format!("{}", hex::encode(return_data)),
+            struct_logs: trace_logs,
+        })
     }
 
     fn dump_db(&self) -> RpcResult<()> {
