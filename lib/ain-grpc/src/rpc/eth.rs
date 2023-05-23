@@ -133,16 +133,8 @@ pub trait MetachainRPC {
     #[method(name = "getTransactionReceipt")]
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>>;
 
-    /// Retrieves the number of transactions sent from a specific address.
-    #[method(name = "getTransactionCount")]
-    fn get_transaction_count(
-        &self,
-        address: H160,
-        block_number: Option<BlockNumber>,
-    ) -> RpcResult<U256>;
-
     // ----------------------------------------
-    // State
+    // Account state
     // ----------------------------------------
 
     /// Retrieves the balance of a specific Ethereum address at a given block number.
@@ -163,6 +155,14 @@ pub trait MetachainRPC {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<H256>;
 
+    /// Retrieves the number of transactions sent from a specific address.
+    #[method(name = "eth_getTransactionCount")]
+    fn get_transaction_count(
+        &self,
+        address: H160,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<U256>;
+
     // ----------------------------------------
     // Send
     // ----------------------------------------
@@ -182,8 +182,12 @@ pub trait MetachainRPC {
     // ----------------------------------------
 
     /// Estimate gas needed for execution of given contract.
-    #[method(name = "estimateGas")]
-    fn estimate_gas(&self, input: CallRequest) -> RpcResult<U256>;
+    #[method(name = "eth_estimateGas")]
+    fn estimate_gas(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<U256>;
 
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
@@ -235,7 +239,7 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, input: CallRequest, _block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+    fn call(&self, input: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
         debug!(target:"rpc", "[RPC] Call input {:#?}", input);
         let CallRequest {
             from,
@@ -255,6 +259,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 &data.map(|d| d.0).unwrap_or_default(),
                 gas.unwrap_or_default().as_u64(),
                 vec![],
+                self.block_number_to_u256(block_number),
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
@@ -600,7 +605,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(nonce)
     }
 
-    fn estimate_gas(&self, input: CallRequest) -> RpcResult<U256> {
+    fn estimate_gas(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<U256> {
         let CallRequest {
             from,
             to,
@@ -610,6 +619,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
+        let block_number = self.block_number_to_u256(block_number);
         let TxResponse { used_gas, .. } = self
             .handler
             .evm
@@ -620,10 +630,11 @@ impl MetachainRPCServer for MetachainRPCModule {
                 &data.map(|d| d.0).unwrap_or_default(),
                 gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
+                block_number,
             )
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
-        debug!(target:"rpc","estimateGas: {:#?}", used_gas);
+        debug!(target:"rpc", "estimateGas: {:#?} at block {:#x}", used_gas, block_number);
         Ok(U256::from(used_gas))
     }
 
