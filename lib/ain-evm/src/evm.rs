@@ -35,8 +35,7 @@ pub struct EVMHandler {
     storage: Arc<Storage>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct ExecutionStep {
     pub pc: usize,
     pub op: u8,
@@ -123,7 +122,7 @@ impl EVMHandler {
         gas_limit: u64,
         access_list: AccessList,
         block_number: U256,
-    ) -> Result<Vec<ExecutionStep>, Box<dyn Error>> {
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>), Box<dyn Error>> {
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -174,7 +173,6 @@ impl EVMHandler {
         });
 
         while let Ok(_) = machine.step() {
-            debug!("Stepping");
             let (opcode, stack) = machine.inspect().unwrap();
             trace.push(ExecutionStep {
                 pc: machine.position().clone().unwrap(),
@@ -186,7 +184,16 @@ impl EVMHandler {
             });
         }
 
-        Ok(trace)
+        Ok((
+            trace,
+            machine
+                .position()
+                .clone()
+                .err()
+                .expect("Execution not completed")
+                .is_succeed(),
+            machine.return_value(),
+        ))
     }
 
     pub fn call(

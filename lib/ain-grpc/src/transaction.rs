@@ -1,7 +1,9 @@
+use std::hash::Hash;
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::EnvelopedEncodable;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H256, U256};
+use ain_evm::evm::ExecutionStep;
 
 use crate::{
     codegen::types::EthTransactionInfo,
@@ -92,12 +94,25 @@ impl EthTransactionInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TraceLogs {
-    pub pc: u64,
-    pub op: String,
+    pub pc: usize,
+    pub op: u8,
     pub gas: u64,
     pub gas_cost: u64,
     pub stack: Vec<String>,
-    pub memory: Vec<String>
+    pub memory: String
+}
+
+impl From<ExecutionStep> for TraceLogs {
+    fn from(step: ExecutionStep) -> Self {
+        TraceLogs {
+            pc: step.pc,
+            op: step.op,
+            gas: step.gas,
+            gas_cost: step.gas_cost,
+            stack: step.stack.iter().map(|&item| format_h256(item)).collect(),
+            memory: format!("{}", hex::encode(step.memory)),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
