@@ -58,6 +58,16 @@ impl TrieDBStore {
         }
     }
 }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionStep {
+    pub pc: usize,
+    pub op: u8,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<H256>,
+    pub memory: Vec<u8>
+}
 
 impl PersistentState for TrieDBStore {}
 
@@ -88,6 +98,67 @@ impl EVMHandler {
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
         self.trie_store.save_to_disk(TRIE_DB_STORE)
+    }
+
+    pub fn trace_transaction(
+        &self,
+        caller: H160,
+        to: H160,
+        value: U256,
+        data: &[u8],
+        gas_limit: u64,
+        access_list: AccessList,
+        block_number: U256,
+    )-> Result<Vec<ExecutionStep>, Box<dyn Error>> {
+        let (state_root, block_number) = self
+            .storage
+            .get_block_by_number(&block_number)
+            .map(|block| (block.header.state_root, block.header.number))
+            .unwrap_or_default();
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let vicinity = Vicinity {
+            block_number,
+            origin: caller,
+            gas_limit: U256::from(gas_limit),
+            ..Default::default()
+        };
+
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+        )
+            .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+
+        let mut machine = evm::Machine::new(
+            Rc::new(self.get_code(to, block_number).unwrap_or_default().unwrap_or_default()),
+            Rc::new(data.to_vec()),
+            1024,
+            usize::MAX,
+        );
+
+        let mut trace: Vec<ExecutionStep> = Vec::new();
+
+
+        while let Ok(_) = machine.step() {
+            debug!("Stepping");
+            let (opcode, stack) = machine.inspect().unwrap();
+            trace.push(ExecutionStep {
+                pc: machine.position().clone().unwrap(),
+                op: opcode.as_u8(),
+                gas: 0,
+                gas_cost: 0,
+                stack: machine.stack().data().to_vec(),
+                memory: machine.memory().data().to_vec(),
+            });
+        }
+
+        Ok(trace)
     }
 
     pub fn call(
@@ -333,6 +404,9 @@ impl EVMHandler {
 }
 
 use std::fmt;
+use std::rc::Rc;
+use evm::Opcode;
+
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),
