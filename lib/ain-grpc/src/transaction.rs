@@ -88,3 +88,23 @@ impl EthTransactionInfo {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceLogs {
+    pub pc: u64,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<String>,
+    pub memory: Vec<String>
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceTransactionResult {
+    pub gas: U256,
+    pub failed: bool,
+    pub return_value: String,
+    pub struct_logs: Vec<TraceLogs>
+}
