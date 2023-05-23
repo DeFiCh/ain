@@ -11,7 +11,7 @@ use ain_evm::handler::Handlers;
 
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::{EnvelopedEncodable, TransactionV2 as EthereumTransaction};
+use ethereum::{EnvelopedEncodable, TransactionV2};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
@@ -671,7 +671,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 fn sign(
     address: H160,
     message: TransactionMessage,
-) -> Result<EthereumTransaction, Box<dyn std::error::Error>> {
+) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
@@ -689,16 +689,16 @@ fn sign(
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
 
-            Ok(EthereumTransaction::Legacy(ethereum::LegacyTransaction {
+            Ok(TransactionV2::Legacy(ethereum::LegacyTransaction {
                 nonce: m.nonce,
-                gas_price: m.gas_price,
-                gas_limit: m.gas_limit,
-                action: m.action,
                 value: m.value,
                 input: m.input,
                 signature: ethereum::TransactionSignature::new(v, r, s).ok_or_else(|| {
                     Error::Custom(String::from("signer generated invalid signature"))
                 })?,
+                gas_price: m.gas_price,
+                gas_limit: m.gas_limit,
+                action: m.action,
             }))
         }
         TransactionMessage::EIP2930(m) => {
@@ -709,7 +709,7 @@ fn sign(
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
 
-            Ok(EthereumTransaction::EIP2930(ethereum::EIP2930Transaction {
+            Ok(TransactionV2::EIP2930(ethereum::EIP2930Transaction {
                 chain_id: m.chain_id,
                 nonce: m.nonce,
                 gas_price: m.gas_price,
@@ -731,7 +731,7 @@ fn sign(
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
 
-            Ok(EthereumTransaction::EIP1559(ethereum::EIP1559Transaction {
+            Ok(TransactionV2::EIP1559(ethereum::EIP1559Transaction {
                 chain_id: m.chain_id,
                 nonce: m.nonce,
                 max_priority_fee_per_gas: m.max_priority_fee_per_gas,
