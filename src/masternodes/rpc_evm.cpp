@@ -177,12 +177,34 @@ UniValue evmrawtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
+UniValue evmmap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+    RPCHelpMan{"evmmap",
+               "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
+               {
+                       {"object", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("evmmap", R"('"<hex>"')")
+               },
+    }.Check(request);
+
+    const std::string object = request.params[0].get_str();
+    const CPubKey key = AddrToPubKey(pwallet, object);
+    const auto addr = WitnessV16EthHash(key.GetID()).GetHex();
+    return addr;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
     {"evm",         "evmrawtx",                  &evmrawtx,              {"rawtx"}},
+    {"evm",         "evmmap",                    &evmmap,                { "object"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
