@@ -30,6 +30,7 @@ pub struct Vicinity {
     pub timestamp: U256,
     pub gas_limit: U256,
     pub block_base_fee_per_gas: U256,
+    pub block_randomness: Option<H256>,
 }
 
 pub struct EVMBackend {
@@ -175,6 +176,10 @@ impl Backend for EVMBackend {
 
     fn block_difficulty(&self) -> U256 {
         U256::zero()
+    }
+
+    fn block_randomness(&self) -> Option<H256> {
+        self.vicinity.block_randomness
     }
 
     fn block_gas_limit(&self) -> U256 {
