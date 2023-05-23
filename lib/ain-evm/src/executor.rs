@@ -40,7 +40,7 @@ impl<'backend> AinExecutor<'backend> {
 }
 
 impl<'backend> Executor for AinExecutor<'backend> {
-    const CONFIG: Config = Config::london();
+    const CONFIG: Config = Config::shanghai();
 
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);

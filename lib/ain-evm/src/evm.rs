@@ -98,13 +98,17 @@ impl EVMHandler {
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
+        block_number: U256,
     ) -> Result<TxResponse, Box<dyn Error>> {
         let (state_root, block_number) = self
             .storage
-            .get_latest_block()
+            .get_block_by_number(&block_number)
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
-        println!("state_root : {:#?}", state_root);
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
 
         let vicinity = Vicinity {
             block_number,
