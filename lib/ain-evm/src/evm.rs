@@ -162,6 +162,17 @@ impl EVMHandler {
 
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
+        let (opcode, stack) = machine.inspect().unwrap();
+
+        trace.push(ExecutionStep {
+            pc: 0,
+            op: opcode.as_u8(),
+            gas: 0,
+            gas_cost: 0,
+            stack: stack.data().to_vec(),
+            memory: vec![],
+        });
+
         while let Ok(_) = machine.step() {
             debug!("Stepping");
             let (opcode, stack) = machine.inspect().unwrap();
@@ -170,7 +181,7 @@ impl EVMHandler {
                 op: opcode.as_u8(),
                 gas: 0,
                 gas_cost: 0,
-                stack: machine.stack().data().to_vec(),
+                stack: stack.data().to_vec(),
                 memory: machine.memory().data().to_vec(),
             });
         }
