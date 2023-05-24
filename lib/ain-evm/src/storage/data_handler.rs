@@ -68,9 +68,7 @@ impl BlockchainDataHandler {
                 TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH)
                     .expect("Error loading receipts data"),
             ),
-            code_map: RwLock::new(
-                CodeHistory::load_from_disk(CODE_MAP_PATH).expect("Error loading code data"),
-            ),
+            code_map: RwLock::new(CodeHistory::load_from_disk(CODE_MAP_PATH).unwrap_or_default()),
         }
     }
 }
