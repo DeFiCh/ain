@@ -4,6 +4,14 @@
 #include <key_io.h>
 #include <util/strencodings.h>
 
+enum evmMapType {
+    AUTO,
+    DFI_ADDRESS_TO_EVM,
+    EVM_ADDRESS_TO_DFI,
+    DFI_TX_TO_EVM,
+    EVM_TX_TO_DFI,
+};
+
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -183,26 +191,31 @@ UniValue evmmap(const JSONRPCRequest& request) {
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI tx to EVM, 4 - EVM to DFI tx"}
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("evmmap", R"('"<hex>"')")
+                       HelpExampleCli("evmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
 
     const std::string object = request.params[0].get_str();
-    const CTxDestination dest = DecodeDestination(object);
-    if (IsValidDestination(dest)) {
-        const CPubKey key = AddrToPubKey(pwallet, object);
-        std::string addr;
-        if (dest.index() == WitV16KeyEthHashType) {
-            addr = EncodeDestination(PKHash(key.GetID()));
-        } else {
-            addr = EncodeDestination(WitnessV16EthHash(key.GetID()));
+    const int type = request.params[1].get_int();
+    switch (type) {
+        case DFI_ADDRESS_TO_EVM: {
+            const CPubKey key = AddrToPubKey(pwallet, object);
+            std::string addr;
+            return EncodeDestination(WitnessV16EthHash(key.GetID()));
         }
-        return addr;
+        case EVM_ADDRESS_TO_DFI: {
+            const CPubKey key = AddrToPubKey(pwallet, object);
+            std::string addr;
+            return EncodeDestination(PKHash(key.GetID()));
+        }
+        default:
+            return "";
     }
 }
 
@@ -212,7 +225,7 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------       ---------------------   ----------
     {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
     {"evm",         "evmrawtx",                  &evmrawtx,              {"rawtx"}},
-    {"evm",         "evmmap",                    &evmmap,                { "hash"}},
+    {"evm",         "evmmap",                    &evmmap,                { "hash", "type"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
