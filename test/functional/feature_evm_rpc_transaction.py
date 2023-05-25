@@ -80,16 +80,19 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance, int_to_eth_u256(50))
         
     def test_send_raw_transaction(self):
+        # TODO(canonbrother): debugging the value and chainId field error
         # LEGACY_TX = {
-        #     value: 0,
+        #     value: 0, // must be zero for now https://github.com/rust-blockchain/evm/blob/a14b6b02452ebf8e8a039b92ab1191041f806794/src/executor/stack/memory.rs#L356
         #     data: contractBytecode,
-        #     gasLimit: 72_000,
-        #     gasPrice: 8,
+        #     gasLimit: 21_000,
+        #     gasPrice: 21_000_000_000,
+        #     chainId: 1133, // must be set else error https://github.com/rust-blockchain/ethereum/blob/0ffbe47d1da71841be274442a3050da9c895e10a/src/transaction.rs#L74
         # }
-        # TODO(): debugging signing_hash err causes connection refused
-        # rawtx = '0xf9014b8008830119408080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c634300080200331ba0f531cca7810ea999647ff5da417365083cce67ff4c985ba7ff8c9e34f34eaf58a04233cfa0f0afb10a0d617ca15fdae36df7bfae34a29ac2135843c526460cd93c'
-        # hash = self.nodes[0].eth_sendRawTransaction(rawtx)
-        # print('hash:', hash)
+        rawtx = '0xf90152808522ecb25c008307a1208080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c634300080200338208fea0fa8bbf844bfaef999aa77c92785e491cd92699c95b72a4582be7b056e5576854a0574606ad9efa8685c3bcd8c8cba7783336a0831e8690d6faf326b7e3eeb34f8b'
+        hash = self.nodes[0].eth_sendRawTransaction(rawtx)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
+        assert_is_hex_string(receipt['contractAddress'])
         
         # EIP2930_TX = {
         #     value: 0,
@@ -127,9 +130,24 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
         
     def test_send_transaction(self):
+        # pragma solidity ^0.8.2;
+        # contract Multiply {
+        #     function multiply(uint a, uint b) public pure returns (uint) {
+        #         return a * b;
+        #     }
+        # }
         contractBytecode = '0x608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033'
         
-        # TODO(): test txLegacy
+        txLegacy = {
+            'value': '0x00',
+            'data': contractBytecode,
+            'gas': '0x7a120', # 500_000
+            'gasPrice': '0x22ecb25c00', # 150_000_000_000,
+        }
+        hash = self.nodes[0].eth_sendTransaction(txLegacy)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
+        assert_is_hex_string(receipt['contractAddress'])
 
         tx2930 = {
             'value': '0x00',
@@ -146,7 +164,9 @@ class EVMTest(DefiTestFramework):
             ],
             'type': '0x1'
         }
+        import pdb; pdb.set_trace()
         hash = self.nodes[0].eth_sendTransaction(tx2930)
+        pdb.set_trace()
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])

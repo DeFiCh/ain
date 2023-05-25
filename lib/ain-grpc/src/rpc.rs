@@ -516,7 +516,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             Some(TransactionMessage::Legacy(mut m)) => {
                 m.nonce = nonce;
                 m.chain_id = Some(chain_id);
-                m.gas_limit = U256::from(1);
+                m.gas_limit = gas_limit;
                 if gas_price.is_none() {
                     m.gas_price = self.gas_price().unwrap();
                 }
@@ -553,6 +553,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let encoded_string = hex::encode(encoded_bytes);
         let encoded = encoded_string.as_str();
         let hash = self.send_raw_transaction(encoded)?;
+        debug!(target:"rpc","[send_transaction] signed: {:?}", hash);
 
         Ok(hash)
     }
