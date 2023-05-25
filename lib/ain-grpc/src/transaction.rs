@@ -70,6 +70,7 @@ impl EthTransactionInfo {
         })
     }
 
+    #[must_use]
     pub fn into_pending_transaction_info(self) -> Self {
         Self {
             block_hash: Some(format_h256(H256::zero())),

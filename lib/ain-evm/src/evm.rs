@@ -260,21 +260,7 @@ impl EVMHandler {
         //     return Err(anyhow!("Insufficiant balance to pay fees").into());
         // }
 
-        match self.call(
-            Some(signed_tx.sender),
-            signed_tx.to(),
-            signed_tx.value(),
-            signed_tx.data(),
-            signed_tx.gas_limit().as_u64(),
-            signed_tx.access_list(),
-            block_number,
-        ) {
-            Ok(TxResponse { exit_reason, .. }) if exit_reason.is_succeed() => Ok(signed_tx),
-            Ok(TxResponse { exit_reason, .. }) => {
-                Err(anyhow!("Error calling EVM {:?}", exit_reason).into())
-            }
-            Err(e) => Err(anyhow!("Error calling EVM {:?}", e).into()),
-        }
+        Ok(signed_tx)
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {

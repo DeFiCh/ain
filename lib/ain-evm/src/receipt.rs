@@ -33,7 +33,7 @@ fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
     stream.append(sender);
     stream.append(nonce);
 
-    return H160::from(keccak(stream.as_raw()));
+    H160::from(keccak(stream.as_raw()))
 }
 
 impl ReceiptHandler {
@@ -81,8 +81,7 @@ impl ReceiptHandler {
                     from: signed_tx.sender,
                     to: signed_tx.to(),
                     tx_index: index,
-                    tx_type: EnvelopedEncodable::type_id(&signed_tx.transaction)
-                        .unwrap_or_default(),
+                    tx_type: signed_tx.transaction.type_id().unwrap_or_default(),
                     contract_address: signed_tx
                         .to()
                         .is_none()
