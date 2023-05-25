@@ -16,10 +16,12 @@ use anyhow::anyhow;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
 
-use evm::Opcode;
+use crate::opcode::OpCode;
+use evm::{ExitReason, Opcode};
 use hex::FromHex;
 use log::debug;
 use std::error::Error;
+use std::fmt::format;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -38,7 +40,7 @@ pub struct EVMHandler {
 #[derive(Clone)]
 pub struct ExecutionStep {
     pub pc: usize,
-    pub op: u8,
+    pub op: String,
     pub gas: u64,
     pub gas_cost: u64,
     pub stack: Vec<H256>,
@@ -162,26 +164,37 @@ impl EVMHandler {
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
         let (opcode, stack) = machine.inspect().unwrap();
+        let mut gas = gas_limit.clone() - 21000; // TODO: this is not exactly 21000, find out the reason for difference between gas limit and first entry
+
+        let converted_opcode = OpCode(opcode);
+        let gas_cost = converted_opcode.gas_cost();
 
         trace.push(ExecutionStep {
             pc: 0,
-            op: opcode.as_u8(),
-            gas: 0,
-            gas_cost: 0,
+            op: format!("{}", converted_opcode),
+            gas: gas,
+            gas_cost,
             stack: stack.data().to_vec(),
             memory: vec![],
         });
 
+        gas = gas - gas_cost;
+
         while let Ok(_) = machine.step() {
             let (opcode, stack) = machine.inspect().unwrap();
+            let converted_opcode = OpCode(opcode);
+            let gas_cost = converted_opcode.gas_cost();
+
             trace.push(ExecutionStep {
                 pc: machine.position().clone().unwrap(),
-                op: opcode.as_u8(),
-                gas: 0,
-                gas_cost: 0,
+                op: format!("{}", converted_opcode),
+                gas,
+                gas_cost,
                 stack: stack.data().to_vec(),
                 memory: machine.memory().data().to_vec(),
             });
+
+            gas = gas - gas_cost;
         }
 
         Ok((
