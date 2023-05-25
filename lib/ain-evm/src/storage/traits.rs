@@ -17,7 +17,7 @@ pub trait BlockStorage {
     fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny>;
     fn put_block(&self, block: &BlockAny);
     fn get_latest_block(&self) -> Option<BlockAny>;
-    fn put_latest_block(&self, block: &BlockAny);
+    fn put_latest_block(&self, block: Option<&BlockAny>);
 }
 
 pub trait TransactionStorage {
@@ -43,6 +43,10 @@ pub trait ReceiptStorage {
 
 pub trait FlushableStorage {
     fn flush(&self) -> Result<(), PersistentStateError>;
+}
+
+pub trait Rollback {
+    fn disconnect_latest_block(&self);
 }
 
 pub trait PersistentState {
