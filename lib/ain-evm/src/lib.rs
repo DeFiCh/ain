@@ -9,4 +9,5 @@ pub mod runtime;
 pub mod storage;
 pub mod traits;
 pub mod transaction;
+pub mod opcode;
 mod tx_queue;

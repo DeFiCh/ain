@@ -85,7 +85,7 @@ impl EthTransactionInfo {
 #[serde(rename_all = "camelCase")]
 pub struct TraceLogs {
     pub pc: usize,
-    pub op: u8,
+    pub op: String,
     pub gas: u64,
     pub gas_cost: u64,
     pub stack: Vec<String>,
