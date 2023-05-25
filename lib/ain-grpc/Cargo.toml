@@ -9,7 +9,7 @@ ain-evm = { path = "../ain-evm" }
 ain-cpp-imports = { path = "../ain-cpp-imports" }
 cxx = "1.0"
 env_logger = "0.10"
-jsonrpsee = { version = "0.15", features = ["http-server", "macros", "http-client"] }
+jsonrpsee = { version = "0.15", features = ["http-server", "ws-server", "macros", "http-client"] }
 lazy_static = "1.4"
 log = "0.4"
 libsecp256k1 = "0.7.1"
@@ -26,6 +26,7 @@ hex = "0.4.3"
 async-trait = "0.1.68"
 rlp = "0.5.2"
 rustc-hex = "2.1.0"
+rand = "0.8.5"
 
 [build-dependencies]
 cxx-gen = "0.7"

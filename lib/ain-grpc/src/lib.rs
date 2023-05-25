@@ -9,12 +9,14 @@ pub mod codegen;
 mod impls;
 mod receipt;
 pub mod rpc;
+mod subscription;
 mod transaction;
 mod transaction_request;
 mod utils;
 
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
+use jsonrpsee::ws_server::{WsServerBuilder, WsServerHandle};
 
 #[allow(unused)]
 use log::{debug, info};
@@ -25,6 +27,8 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
 };
 
+use crate::subscription::{MetachainPubSubModule, MetachainPubSubServer};
+
 use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -33,6 +37,15 @@ use ain_evm::runtime::{Runtime, RUNTIME};
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Debug, Default)]
+pub struct MetachainSubIdProvider;
+
+impl jsonrpsee::core::traits::IdProvider for MetachainSubIdProvider {
+    fn next_id(&self) -> jsonrpsee::types::SubscriptionId<'static> {
+        format!("0x{}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
+    }
+}
 
 pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Error>> {
     info!("Starting JSON RPC server at {}", addr);
@@ -43,12 +56,25 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
             .custom_tokio_runtime(handle)
             .build(addr),
     )?;
-    let mut methods: Methods = Methods::new();
+    let mut methods = Methods::new();
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
     methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
     methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
+
+    let ws_handle = runtime.ws_rt_handle.clone();
+    let ws_server = runtime.ws_rt_handle.block_on(
+        WsServerBuilder::new()
+            .custom_tokio_runtime(ws_handle)
+            .set_id_provider(MetachainSubIdProvider::default())
+            .build("127.0.0.1:9999"),
+    )?;
+
+    let mut methods = Methods::new();
+    methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
+
+    *runtime.ws_handle.lock().unwrap() = Some(ws_server.start(methods)?);
     Ok(())
 }
 

@@ -18,12 +18,23 @@ use primitive_types::H256;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::RwLock;
+
+pub enum Notification {
+    Block(H256),
+    Transaction(H256),
+}
 
 pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
     pub receipt: ReceiptHandler,
     pub storage: Arc<Storage>,
+    pub channel: (
+        UnboundedSender<Notification>,
+        RwLock<UnboundedReceiver<Notification>>,
+    ),
 }
 
 impl Handlers {
@@ -43,6 +54,9 @@ impl Handlers {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self, anyhow::Error> {
+        let channel = mpsc::unbounded_channel();
+        let sender = channel.0;
+
         if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
                 return Err(anyhow!(
@@ -51,21 +65,23 @@ impl Handlers {
             }
             let storage = Arc::new(Storage::new());
             Ok(Self {
-                evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
+                evm: EVMHandler::new_from_json(Arc::clone(&storage), sender.clone(), PathBuf::from(path)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 storage,
+                channel: (sender, RwLock::new(channel.1)),
             })
         } else {
             let storage = Arc::new(Storage::restore());
             Ok(Self {
-                evm: EVMHandler::restore(Arc::clone(&storage)),
+                evm: EVMHandler::restore(Arc::clone(&storage), sender.clone()),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 storage,
+                channel: (sender, RwLock::new(channel.1)),
             })
-        }
     }
+}
 
     pub fn finalize_block(
         &self,
@@ -222,6 +238,11 @@ impl Handlers {
 
             self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
+
+            let _ = self
+                .channel
+                .0
+                .send(Notification::Block(block.header.hash()));
         }
 
         Ok((

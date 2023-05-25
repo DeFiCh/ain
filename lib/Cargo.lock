@@ -103,6 +103,7 @@ dependencies = [
  "jsonrpsee-core 0.18.2",
  "jsonrpsee-http-server",
  "jsonrpsee-types 0.18.2",
+ "jsonrpsee-ws-server",
  "keccak-hash",
  "lazy_static",
  "libsecp256k1",
@@ -150,6 +151,7 @@ dependencies = [
  "prost",
  "prost-build",
  "quote",
+ "rand 0.8.5",
  "regex",
  "rlp",
  "rustc-hex",
@@ -3044,6 +3046,7 @@ dependencies = [
  "jsonrpsee-http-server",
  "jsonrpsee-proc-macros",
  "jsonrpsee-types 0.15.1",
+ "jsonrpsee-ws-server",
  "tracing",
 ]
 
@@ -3080,6 +3083,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
+ "soketto",
  "thiserror",
  "tokio",
  "tracing",
@@ -3200,6 +3204,26 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-ws-server"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d488ba74fb369e5ab68926feb75a483458b88e768d44319f37e4ecad283c7325"
+dependencies = [
+ "futures-channel",
+ "futures-util",
+ "http",
+ "jsonrpsee-core 0.15.1",
+ "jsonrpsee-types 0.15.1",
+ "serde_json",
+ "soketto",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -5106,6 +5130,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha-1"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99cd6713db3cf16b6c84e06321e049a9b9f699826e16096d23bbcc44d15d51a6"
+dependencies = [
+ "block-buffer 0.9.0",
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.9.0",
+ "opaque-debug 0.3.0",
+]
+
+[[package]]
 name = "sha2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5282,6 +5319,21 @@ checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "soketto"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d1c5305e39e09653383c2c7244f2f78b3bcae37cf50c64cb4789c9f5096ec2"
+dependencies = [
+ "base64 0.13.1",
+ "bytes",
+ "futures",
+ "httparse",
+ "log",
+ "rand 0.8.5",
+ "sha-1",
 ]
 
 [[package]]
@@ -6027,6 +6079,7 @@ checksum = "806fe8c2c87eccc8b3267cbae29ed3ab2d0bd37fca70ab622e46aaa9375ddb7d"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",

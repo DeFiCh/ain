@@ -3,7 +3,6 @@
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
 
-
 uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
 }
@@ -200,4 +199,13 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
 
 rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
+}
+
+SyncStatusMetadata getSyncStatus() {
+    SyncStatusMetadata syncStatus;
+    syncStatus.currentBlock = ::ChainActive().Height();
+    syncStatus.highestBlock = pindexBestHeader ? pindexBestHeader->nHeight : -1;
+    syncStatus.syncing = syncStatus.currentBlock != syncStatus.highestBlock;
+    syncStatus.startingBlock = 0;
+    return syncStatus;
 }

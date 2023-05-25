@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::RwLock};
 
 use ethereum::{BlockAny, TransactionV2};
+use log::debug;
 use primitive_types::{H256, U256};
 use std::borrow::ToOwned;
 
@@ -256,7 +257,7 @@ impl BlockchainDataHandler {
 impl Rollback for BlockchainDataHandler {
     fn disconnect_latest_block(&self) {
         if let Some(block) = self.get_latest_block() {
-            println!("disconnecting block number : {:x?}", block.header.number);
+            debug!("disconnecting block number : {:x?}", block.header.number);
             let mut transactions = self.transactions.write().unwrap();
             let mut receipts = self.receipts.write().unwrap();
             for tx in &block.transactions {

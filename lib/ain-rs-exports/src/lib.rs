@@ -381,7 +381,7 @@ fn evm_try_queue_tx(
     match RUNTIME
         .handlers
         .evm
-        .queue_tx(context, signed_tx.into(), hash)
+        .queue_signed_tx(context, signed_tx, hash)
     {
         Ok(_) => {
             result.ok = true;

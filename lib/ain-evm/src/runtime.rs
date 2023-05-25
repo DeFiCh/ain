@@ -2,6 +2,7 @@ use crate::handler::Handlers;
 use crate::storage::traits::FlushableStorage;
 
 use jsonrpsee_http_server::HttpServerHandle;
+use jsonrpsee_ws_server::WsServerHandle;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle as AsyncHandle};
@@ -17,6 +18,8 @@ pub struct Runtime {
     pub tx: Sender<()>,
     pub handle: Mutex<Option<JoinHandle<()>>>,
     pub jrpc_handle: Mutex<Option<HttpServerHandle>>, // dropping the handle kills server
+    pub ws_rt_handle: AsyncHandle,
+    pub ws_handle: Mutex<Option<WsServerHandle>>, // dropping the handle kills server
     pub handlers: Arc<Handlers>,
 }
 
@@ -34,6 +37,7 @@ impl Runtime {
         Runtime {
             tx,
             rt_handle: r.handle().clone(),
+            ws_rt_handle: r.handle().clone(),
             handle: Mutex::new(Some(thread::spawn(move || {
                 log::info!("Starting runtime in a separate thread");
                 r.block_on(async move {
@@ -41,6 +45,7 @@ impl Runtime {
                 });
             }))),
             jrpc_handle: Mutex::new(None),
+            ws_handle: Mutex::new(None),
             handlers: Arc::new(Handlers::new().expect("Error initializating handlers")),
         }
     }

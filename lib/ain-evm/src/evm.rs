@@ -1,6 +1,7 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
+use crate::handler::Notification;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -20,6 +21,7 @@ use log::debug;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::mpsc::UnboundedSender;
 use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
@@ -28,6 +30,7 @@ pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
+    sender: UnboundedSender<Notification>,
 }
 
 fn init_vsdb() {
@@ -43,17 +46,18 @@ fn init_vsdb() {
 }
 
 impl EVMHandler {
-    pub fn restore(storage: Arc<Storage>) -> Self {
+    pub fn restore(storage: Arc<Storage>, sender: UnboundedSender<Notification>) -> Self {
         init_vsdb();
 
         Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             storage,
+            sender,
         }
     }
 
-    pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Self {
+    pub fn new_from_json(storage: Arc<Storage>, sender: UnboundedSender<Notification>, path: PathBuf) -> Self {
         debug!("Loading genesis state from {}", path.display());
         init_vsdb();
 
@@ -61,6 +65,7 @@ impl EVMHandler {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
+            sender
         };
         let state_root =
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
@@ -239,6 +244,24 @@ impl EVMHandler {
         self.tx_queues.queue_tx(context, tx, hash)?;
         Ok(())
     }
+
+    pub fn queue_signed_tx(
+        &self,
+        context: u64,
+        tx: SignedTx,
+        hash: NativeTxHash,
+    ) -> Result<(), EVMError> {
+        let tx_hash = &tx.transaction.hash();
+
+        let queue_tx = QueueTx::SignedTx(Box::new(tx));
+        self.tx_queues.queue_tx(context, queue_tx, hash)?;
+        let _ = self
+            .sender
+            .send(Notification::Transaction(tx_hash.to_owned()));
+
+        Ok(())
+    }
+
     pub fn add_balance(
         &self,
         context: u64,

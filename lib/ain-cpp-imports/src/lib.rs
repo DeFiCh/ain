@@ -9,6 +9,13 @@ use bridge::ffi;
 #[cfg(any(test, bench, example, doc))]
 #[allow(non_snake_case)]
 mod ffi {
+    pub struct SyncStatusMetadata {
+        pub syncing: bool,
+        pub starting_block: u64,
+        pub current_block: u64,
+        pub highest_block: u64,
+    }
+
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
@@ -47,6 +54,9 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getStateInputJSON() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getSyncStatus() -> SyncStatusMetadata {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -117,6 +127,11 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
+}
+
+pub fn get_sync_status() -> Result<ffi::SyncStatusMetadata, Box<dyn Error>> {
+    let sync_status = ffi::getSyncStatus();
+    Ok(sync_status)
 }
 
 #[cfg(test)]

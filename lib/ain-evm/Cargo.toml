@@ -36,6 +36,7 @@ vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 lazy_static = "1.4"
 jsonrpsee-core = "0.18"
 jsonrpsee-http-server = "0.15"
+jsonrpsee-ws-server = "0.15"
 jsonrpsee-types = "0.18"
 tokio = { version = "1.1", features = ["rt-multi-thread"] }
 
