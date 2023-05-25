@@ -156,7 +156,7 @@ pub trait MetachainRPC {
     ) -> RpcResult<H256>;
 
     /// Retrieves the number of transactions sent from a specific address.
-    #[method(name = "eth_getTransactionCount")]
+    #[method(name = "getTransactionCount")]
     fn get_transaction_count(
         &self,
         address: H160,
@@ -182,7 +182,7 @@ pub trait MetachainRPC {
     // ----------------------------------------
 
     /// Estimate gas needed for execution of given contract.
-    #[method(name = "eth_estimateGas")]
+    #[method(name = "estimateGas")]
     fn estimate_gas(
         &self,
         input: CallRequest,
