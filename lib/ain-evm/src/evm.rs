@@ -15,15 +15,19 @@ use crate::{
 };
 use anyhow::anyhow;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
+use ethereum_types::{Bloom, BloomInput};
+use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
 use evm::Capture::Exit;
-use evm::{Capture, ExitReason, Opcode, Trap};
+use evm::{Capture, Config, Context, ExitReason, Opcode, Trap};
 use sp_core::crypto::UncheckedInto;
 
 use crate::opcode::OpCode;
 use evm::ExitError;
 use hex::FromHex;
 use log::debug;
+use primitive_types::{H160, H256, U256};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::format;
 use std::path::PathBuf;
@@ -44,7 +48,7 @@ pub struct EVMHandler {
     storage: Arc<Storage>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExecutionStep {
     pub pc: usize,
     pub op: String,
@@ -157,20 +161,31 @@ impl EVMHandler {
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
 
-        let mut machine = evm::Machine::new(
+        let config = Config::shanghai();
+        let metadata = StackSubstateMetadata::new(gas_limit, &config);
+        let state = MemoryStackState::new(metadata, &backend);
+        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let mut executor = StackExecutor::new_with_precompiles(state, &config, &precompiles);
+
+        let mut runtime = evm::Runtime::new(
             Rc::new(
                 self.get_code(to, block_number)
                     .unwrap_or_default()
                     .unwrap_or_default(),
             ),
             Rc::new(data.to_vec()),
+            Context {
+                caller,
+                address: caller,
+                apparent_value: U256::default(),
+            },
             1024,
             usize::MAX,
         );
 
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
-        let (opcode, stack) = machine.inspect().unwrap();
+        let (opcode, stack) = runtime.machine().inspect().unwrap();
         let mut gas = gas_limit.clone() - 21000; // TODO: use gasometer::call_transaction_cost, gasometer::create_transaction_cost
 
         let gas_cost = opcode::get_cost(opcode).unwrap();
@@ -186,19 +201,21 @@ impl EVMHandler {
 
         gas = gas - gas_cost;
 
-        while let t = machine.step() {
+        while let t = runtime.step(&mut executor) {
             match t {
                 Ok(_) => {
-                    let (opcode, stack) = machine.inspect().unwrap();
-                    let gas_cost = opcode::get_cost(opcode).unwrap();
+                    let (opcode, stack) = runtime.machine().inspect().unwrap();
+                    println!("opcode : {:#?}", opcode);
+                    println!("stack : {:#?}", stack);
+                    let gas_cost = opcode::get_cost(opcode).unwrap_or_default();
 
                     trace.push(ExecutionStep {
-                        pc: machine.position().clone().unwrap(),
+                        pc: runtime.machine().position().clone().unwrap(),
                         op: format!("{}", opcode::opcode_to_string(opcode)),
                         gas,
                         gas_cost,
                         stack: stack.data().to_vec(),
-                        memory: machine.memory().data().to_vec(),
+                        memory: runtime.machine().memory().data().to_vec(),
                     });
 
                     gas = gas - gas_cost;
@@ -210,22 +227,28 @@ impl EVMHandler {
                     }
                     Capture::Trap(_) => {
                         debug!("Trapped");
-                        debug!("Next opcode: {:#x?}", machine.inspect().unwrap().0.as_u8());
+                        debug!(
+                            "Next opcode: {:#x?}",
+                            runtime.machine().inspect().unwrap().0.as_u8()
+                        );
                         break;
                     }
                 },
             }
         }
 
+        println!("trace : {:#?}", trace);
+
         Ok((
             trace,
-            machine
+            runtime
+                .machine()
                 .position()
                 .clone()
                 .err()
                 .expect("Execution not completed")
                 .is_succeed(),
-            machine.return_value(),
+            runtime.machine().return_value(),
         ))
     }
 
@@ -539,7 +562,6 @@ impl EVMHandler {
     }
 }
 
-use primitive_types::H256;
 use std::fmt;
 
 #[derive(Debug)]
