@@ -9,15 +9,19 @@ use crate::trie::TrieDBStore;
 use crate::tx_queue::{QueueError, QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
+    opcode,
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
 use anyhow::anyhow;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
+use evm::Capture::Exit;
+use evm::{Capture, ExitReason, Opcode, Trap};
+use sp_core::crypto::UncheckedInto;
 
 use crate::opcode::OpCode;
-use evm::{ExitReason, Opcode};
+use evm::ExitError;
 use hex::FromHex;
 use log::debug;
 use std::error::Error;
@@ -26,6 +30,9 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
+use vsdb_trie_db::MptStore;
+
+pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 
 pub type NativeTxHash = [u8; 32];
 
@@ -164,15 +171,14 @@ impl EVMHandler {
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
         let (opcode, stack) = machine.inspect().unwrap();
-        let mut gas = gas_limit.clone() - 21000; // TODO: this is not exactly 21000, find out the reason for difference between gas limit and first entry
+        let mut gas = gas_limit.clone() - 21000; // TODO: use gasometer::call_transaction_cost, gasometer::create_transaction_cost
 
-        let converted_opcode = OpCode(opcode);
-        let gas_cost = converted_opcode.gas_cost();
+        let gas_cost = opcode::get_cost(opcode).unwrap();
 
         trace.push(ExecutionStep {
             pc: 0,
-            op: format!("{}", converted_opcode),
-            gas: gas,
+            op: format!("{}", opcode::opcode_to_string(opcode)),
+            gas,
             gas_cost,
             stack: stack.data().to_vec(),
             memory: vec![],
@@ -180,21 +186,35 @@ impl EVMHandler {
 
         gas = gas - gas_cost;
 
-        while let Ok(_) = machine.step() {
-            let (opcode, stack) = machine.inspect().unwrap();
-            let converted_opcode = OpCode(opcode);
-            let gas_cost = converted_opcode.gas_cost();
+        while let t = machine.step() {
+            match t {
+                Ok(_) => {
+                    let (opcode, stack) = machine.inspect().unwrap();
+                    let gas_cost = opcode::get_cost(opcode).unwrap();
 
-            trace.push(ExecutionStep {
-                pc: machine.position().clone().unwrap(),
-                op: format!("{}", converted_opcode),
-                gas,
-                gas_cost,
-                stack: stack.data().to_vec(),
-                memory: machine.memory().data().to_vec(),
-            });
+                    trace.push(ExecutionStep {
+                        pc: machine.position().clone().unwrap(),
+                        op: format!("{}", opcode::opcode_to_string(opcode)),
+                        gas,
+                        gas_cost,
+                        stack: stack.data().to_vec(),
+                        memory: machine.memory().data().to_vec(),
+                    });
 
-            gas = gas - gas_cost;
+                    gas = gas - gas_cost;
+                }
+                Err(e) => match e {
+                    Exit(_) => {
+                        debug!("Errored",);
+                        break;
+                    }
+                    Capture::Trap(_) => {
+                        debug!("Trapped");
+                        debug!("Next opcode: {:#x?}", machine.inspect().unwrap().0.as_u8());
+                        break;
+                    }
+                },
+            }
         }
 
         Ok((
