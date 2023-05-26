@@ -1,32 +1,27 @@
 use std::fmt;
 use std::fmt::Write;
 use evm::Opcode;
+use evm::gasometer;
+use evm::gasometer::GasCost;
 
-pub struct OpCode(pub Opcode);
-
-impl fmt::Display for OpCode {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            OpCode(Opcode::STOP) => fmt.write_str("STOP"),
-            OpCode(Opcode::MSTORE) => fmt.write_str("MSTORE"),
-            OpCode(Opcode::CALLVALUE) => fmt.write_str("CALLVALUE"),
-            OpCode(Opcode::DUP1) => fmt.write_str("DUP1"),
-            OpCode(Opcode::PUSH1) => fmt.write_str("PUSH1"),
-            OpCode(Opcode::PUSH6) => fmt.write_str("PUSH6"),
-            _ => fmt.write_str("UNKNOWN")
-        }
+pub fn get_cost(opcode: Opcode) -> Option<u64> {
+    if opcode == Opcode::MSTORE { // TODO: fallback to dynamic_opcode_cost
+        return Some(3);
     }
+
+    gasometer::static_opcode_cost(opcode)
 }
 
-impl OpCode {
-    pub fn gas_cost(&self) -> u64 {
-        match *self {
-            OpCode(Opcode::STOP) => 0,
-            OpCode(Opcode::MSTORE) => 3,
-            OpCode(Opcode::CALLVALUE) => 2,
-            OpCode(Opcode::DUP1) => 3,
-            OpCode(Opcode::PUSH1) | OpCode(Opcode::PUSH6) => 3,
-            _ => 0,
-        }
-    }
+pub fn opcode_to_string(opcode: Opcode) -> String {
+    let x = match opcode {
+        Opcode::STOP => "STOP",
+        Opcode::MSTORE => "MSTORE",
+        Opcode::CALLVALUE => "CALLVALUE",
+        Opcode::DUP1 => "DUP1",
+        Opcode::PUSH1 => "PUSH1",
+        Opcode::PUSH6 => "PUSH6",
+        _ => "UNKNOWN"
+    };
+
+    return String::from(x);
 }
