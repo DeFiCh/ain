@@ -554,30 +554,31 @@ impl MetachainRPCServer for MetachainRPCModule {
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
 
         match ain_cpp_imports::publish_eth_transaction(hex) {
-            Ok(true) => {
-                let signed_tx = SignedTx::try_from(raw_tx)
-                    .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+            Ok(res_string) => {
+                if res_string.is_empty() {
+                    let signed_tx = SignedTx::try_from(raw_tx)
+                        .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
 
-                debug!(target:"rpc",
-                    "[send_raw_transaction] signed_tx sender : {:#x}",
-                    signed_tx.sender
-                );
-                debug!(target:"rpc",
-                    "[send_raw_transaction] signed_tx nonce : {:#x}",
-                    signed_tx.nonce()
-                );
-                debug!(target:"rpc",
-                    "[send_raw_transaction] transaction hash : {:#x}",
-                    signed_tx.transaction.hash()
-                );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] signed_tx sender : {:#x}",
+                        signed_tx.sender
+                    );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] signed_tx nonce : {:#x}",
+                        signed_tx.nonce()
+                    );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] transaction hash : {:#x}",
+                        signed_tx.transaction.hash()
+                    );
 
-                Ok(format!("{:#x}", signed_tx.transaction.hash()))
-            }
-            Ok(false) => {
-                debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
-                Err(Error::Custom(format!(
-                    "Could not publish raw transaction: {tx}"
-                )))
+                    Ok(format!("{:#x}", signed_tx.transaction.hash()))
+                } else {
+                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
+                    Err(Error::Custom(format!(
+                        "Could not publish raw transaction: {tx} resaon: {res_string}"
+                    )))
+                }
             }
             Err(e) => {
                 debug!(target:"rpc","[send_raw_transaction] Error publishing TX {e:?}");
