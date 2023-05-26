@@ -4,24 +4,29 @@ use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::{QueueError, QueueTx, TransactionQueueMap};
-use crate::{executor::AinExecutor, opcode, traits::{Executor, ExecutorContext}, transaction::SignedTx};
+use crate::{
+    executor::AinExecutor,
+    opcode,
+    traits::{Executor, ExecutorContext},
+    transaction::SignedTx,
+};
 use anyhow::anyhow;
 use ethereum::{AccessList, Account, Log, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
-use evm::{Capture, ExitReason, Opcode, Trap};
+use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
 use evm::Capture::Exit;
-use sp_core::crypto::UncheckedInto;
+use evm::{Capture, Config, Context};
 
 use hex::FromHex;
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
 use vsdb_trie_db::MptStore;
-use evm::ExitError;
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 
@@ -59,14 +64,14 @@ impl TrieDBStore {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExecutionStep {
     pub pc: usize,
     pub op: String,
     pub gas: u64,
     pub gas_cost: u64,
     pub stack: Vec<H256>,
-    pub memory: Vec<u8>
+    pub memory: Vec<u8>,
 }
 
 impl PersistentState for TrieDBStore {}
@@ -109,7 +114,7 @@ impl EVMHandler {
         gas_limit: u64,
         access_list: AccessList,
         block_number: U256,
-    )-> Result<(Vec<ExecutionStep>, bool, Vec<u8>), Box<dyn Error>> {
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>), Box<dyn Error>> {
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -133,18 +138,33 @@ impl EVMHandler {
             Arc::clone(&self.storage),
             vicinity,
         )
-            .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+        .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
 
-        let mut machine = evm::Machine::new(
-            Rc::new(self.get_code(to, block_number).unwrap_or_default().unwrap_or_default()),
+        let config = Config::shanghai();
+        let metadata = StackSubstateMetadata::new(gas_limit, &config);
+        let state = MemoryStackState::new(metadata, &backend);
+        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let mut executor = StackExecutor::new_with_precompiles(state, &config, &precompiles);
+
+        let mut runtime = evm::Runtime::new(
+            Rc::new(
+                self.get_code(to, block_number)
+                    .unwrap_or_default()
+                    .unwrap_or_default(),
+            ),
             Rc::new(data.to_vec()),
+            Context {
+                caller,
+                address: caller,
+                apparent_value: U256::default(),
+            },
             1024,
             usize::MAX,
         );
 
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
-        let (opcode, stack) = machine.inspect().unwrap();
+        let (opcode, stack) = runtime.machine().inspect().unwrap();
         let mut gas = gas_limit.clone() - 21000; // TODO: use gasometer::call_transaction_cost, gasometer::create_transaction_cost
 
         let gas_cost = opcode::get_cost(opcode).unwrap();
@@ -160,40 +180,55 @@ impl EVMHandler {
 
         gas = gas - gas_cost;
 
-        while let t = machine.step() {
+        while let t = runtime.step(&mut executor) {
             match t {
                 Ok(_) => {
-                    let (opcode, stack) = machine.inspect().unwrap();
-                    let gas_cost = opcode::get_cost(opcode).unwrap();
+                    let (opcode, stack) = runtime.machine().inspect().unwrap();
+                    println!("opcode : {:#?}", opcode);
+                    println!("stack : {:#?}", stack);
+                    let gas_cost = opcode::get_cost(opcode).unwrap_or_default();
 
                     trace.push(ExecutionStep {
-                        pc: machine.position().clone().unwrap(),
+                        pc: runtime.machine().position().clone().unwrap(),
                         op: format!("{}", opcode::opcode_to_string(opcode)),
                         gas,
                         gas_cost,
                         stack: stack.data().to_vec(),
-                        memory: machine.memory().data().to_vec(),
+                        memory: runtime.machine().memory().data().to_vec(),
                     });
 
                     gas = gas - gas_cost;
                 }
-                Err(e) => {
-                    match e {
-                        Exit(_) => {
-                            debug!("Errored",);
-                            break
-                        }
-                        Capture::Trap(_) => {
-                            debug!("Trapped");
-                            debug!("Next opcode: {:#x?}", machine.inspect().unwrap().0.as_u8());
-                            break
-                        }
+                Err(e) => match e {
+                    Exit(_) => {
+                        debug!("Errored",);
+                        break;
                     }
-                }
+                    Capture::Trap(_) => {
+                        debug!("Trapped");
+                        debug!(
+                            "Next opcode: {:#x?}",
+                            runtime.machine().inspect().unwrap().0.as_u8()
+                        );
+                        break;
+                    }
+                },
             }
         }
 
-        Ok((trace, machine.position().clone().err().expect("Execution not completed").is_succeed(), machine.return_value()))
+        println!("trace : {:#?}", trace);
+
+        Ok((
+            trace,
+            runtime
+                .machine()
+                .position()
+                .clone()
+                .err()
+                .expect("Execution not completed")
+                .is_succeed(),
+            runtime.machine().return_value(),
+        ))
     }
 
     pub fn call(
