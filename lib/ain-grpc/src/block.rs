@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 use rlp::Encodable;
@@ -20,7 +21,7 @@ pub struct RpcBlock {
     pub number: U256,
     pub gas_used: U256,
     pub gas_limit: U256,
-    pub extra_data: Vec<u8>,
+    pub extra_data: Bytes,
     pub timestamp: U256,
     pub difficulty: U256,
     pub total_difficulty: U256,
@@ -73,7 +74,7 @@ impl RpcBlock {
             },
             uncles: vec![],
             nonce: U256::zero(),
-            extra_data: block.header.extra_data,
+            extra_data: Bytes(block.header.extra_data.clone()),
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
