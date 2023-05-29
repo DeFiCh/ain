@@ -3,6 +3,7 @@
 #include <ain_rs_exports.h>
 #include <key_io.h>
 #include <util/strencodings.h>
+#include <index/txindex.h>
 
 enum evmMapType {
     AUTO,
@@ -213,6 +214,31 @@ UniValue evmmap(const JSONRPCRequest& request) {
             const CPubKey key = AddrToPubKey(pwallet, object);
             std::string addr;
             return EncodeDestination(PKHash(key.GetID()));
+        }
+        case DFI_TX_TO_EVM: {
+            uint256 hashBlock;
+            CTransactionRef tx;
+            LOCK(cs_main);
+            if (g_txindex) {
+                if (!(g_txindex->FindTx(uint256S(object), hashBlock, tx))) {
+                    return "Tx not found";
+                }
+            } else {
+                return "Transaction index not available";
+            }
+            std::vector<unsigned char> metadata;
+            auto txType = GuessCustomTxType(*tx, metadata);
+            if (txType == CustomTxType::EvmTx) {
+                CCustomTxMessage txMessage{CEvmTxMessage{}};
+                const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
+                if (!res) {
+                    return "Failed parse metadata";
+                }
+                const CEvmTxMessage obj = std::get<CEvmTxMessage>(txMessage);
+                return HexStr(obj.evmTx);
+            } else {
+                return "Not a EVM tx";
+            }
         }
         default:
             return "";
