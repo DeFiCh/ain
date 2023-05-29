@@ -9,7 +9,7 @@ use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::tx_queue::QueueTx;
 
-use ethereum::{Block, PartialHeader, ReceiptV3};
+use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -55,6 +55,7 @@ impl Handlers {
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
+        let mut total_gas_limit = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
         let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
@@ -101,8 +102,11 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx);
+                    all_transactions.push(signed_tx.clone());
 
+                    total_gas_limit += match signed_tx.transaction {
+                        TransactionV2::Legacy(t) | TransactionV2::EIP2930(t) | TransactionV2::EIP1559(t) => {t.gas_limit}
+                    };
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
@@ -148,7 +152,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: parent_number + 1,
-                gas_limit: U256::from(30_000_000),
+                gas_limit: U256::from(total_gas_limit),
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),
