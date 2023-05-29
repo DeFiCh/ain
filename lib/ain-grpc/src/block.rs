@@ -31,10 +31,11 @@ pub struct RpcBlock {
     pub sha3_uncles: H256,
     pub logs_bloom: String,
     pub size: String,
+    pub base_fee_per_gas: U256,
 }
 
 impl RpcBlock {
-    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
+    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool, base_fee: U256) -> Self {
         let header_size = block.header.rlp_bytes().len();
         RpcBlock {
             hash: block.header.hash(),
@@ -77,6 +78,7 @@ impl RpcBlock {
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
+            base_fee_per_gas: base_fee
         }
     }
 }

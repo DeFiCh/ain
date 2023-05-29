@@ -29,8 +29,9 @@ impl BlockHandler {
             .unwrap_or_default()
     }
 
-    pub fn connect_block(&self, block: BlockAny) {
+    pub fn connect_block(&self, block: BlockAny, base_fee: U256) {
         self.storage.put_latest_block(Some(&block));
         self.storage.put_block(&block);
+        self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 }
