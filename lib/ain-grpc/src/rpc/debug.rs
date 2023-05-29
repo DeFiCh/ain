@@ -46,7 +46,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .evm
             .trace_transaction(
                 signed_tx.sender,
-                signed_tx.to().unwrap_or_default(),
+                signed_tx.to(),
                 signed_tx.value(),
                 signed_tx.data(),
                 signed_tx.gas_limit().as_u64(),

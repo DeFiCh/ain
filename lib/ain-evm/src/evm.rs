@@ -22,6 +22,7 @@ use evm::{Capture, Config, Context, ExitReason, Opcode, Trap};
 use sp_core::crypto::UncheckedInto;
 
 use crate::opcode::OpCode;
+use evm::gasometer;
 use evm::ExitError;
 use hex::FromHex;
 use log::debug;
@@ -129,8 +130,8 @@ impl EVMHandler {
     pub fn trace_transaction(
         &self,
         caller: H160,
-        to: H160,
-        value: U256,
+        to: Option<H160>,
+        _value: U256,
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
@@ -168,11 +169,13 @@ impl EVMHandler {
         let mut executor = StackExecutor::new_with_precompiles(state, &config, &precompiles);
 
         let mut runtime = evm::Runtime::new(
-            Rc::new(
-                self.get_code(to, block_number)
+            Rc::new(match to {
+                Some(to) => self
+                    .get_code(to, block_number)
                     .unwrap_or_default()
                     .unwrap_or_default(),
-            ),
+                None => Vec::new(),
+            }),
             Rc::new(data.to_vec()),
             Context {
                 caller,
@@ -186,39 +189,82 @@ impl EVMHandler {
         let mut trace: Vec<ExecutionStep> = Vec::new();
 
         let (opcode, stack) = runtime.machine().inspect().unwrap();
-        let mut gas = gas_limit.clone() - 21000; // TODO: use gasometer::call_transaction_cost, gasometer::create_transaction_cost
+        let mut al = Vec::new();
+        let _ = access_list
+            .into_iter()
+            .map(|x| al.push((x.clone().address, x.clone().storage_keys)));
 
-        let gas_cost = opcode::get_cost(opcode).unwrap();
+        let mut gasometer = gasometer::Gasometer::new(gas_limit, &config);
+        let base_cost = match to {
+            Some(_) => gasometer::call_transaction_cost(data, al.as_slice()),
+            None => gasometer::create_transaction_cost(data, al.as_slice()),
+        };
 
+        gasometer.record_transaction(base_cost).unwrap();
+        let gas_before = gasometer.gas();
+        match gasometer::static_opcode_cost(opcode) {
+            Some(cost) => gasometer.record_cost(cost).expect("Out of Gas"),
+            None => {
+                let (gas_cost, _, memory) = gasometer::dynamic_opcode_cost(
+                    to.unwrap_or_default(),
+                    opcode,
+                    stack,
+                    false,
+                    &config,
+                    &mut executor,
+                )
+                .expect("Error getting dynamic cost");
+                gasometer
+                    .record_dynamic_cost(gas_cost, memory)
+                    .expect("Error recording dynamic gas cost");
+            }
+        }
+
+        // Record initial state
         trace.push(ExecutionStep {
             pc: 0,
             op: format!("{}", opcode::opcode_to_string(opcode)),
-            gas,
-            gas_cost,
+            gas: gas_before,
+            gas_cost: gas_before - gasometer.gas(),
             stack: stack.data().to_vec(),
             memory: vec![],
         });
 
-        gas = gas - gas_cost;
-
-        while let t = runtime.step(&mut executor) {
+        loop {
+            let t = runtime.step(&mut executor);
             match t {
                 Ok(_) => {
                     let (opcode, stack) = runtime.machine().inspect().unwrap();
                     println!("opcode : {:#?}", opcode);
                     println!("stack : {:#?}", stack);
-                    let gas_cost = opcode::get_cost(opcode).unwrap_or_default();
+
+                    let gas_before = gasometer.gas();
+                    match gasometer::static_opcode_cost(opcode) {
+                        Some(cost) => gasometer.record_cost(cost).expect("Out of Gas"),
+                        None => {
+                            let (gas_cost, _, memory) = gasometer::dynamic_opcode_cost(
+                                to.unwrap_or_default(),
+                                opcode,
+                                stack,
+                                false,
+                                &config,
+                                &mut executor,
+                            )
+                            .expect("Error getting dynamic cost");
+                            gasometer
+                                .record_dynamic_cost(gas_cost, memory)
+                                .expect("Error recording dynamic gas cost");
+                        }
+                    }
 
                     trace.push(ExecutionStep {
                         pc: runtime.machine().position().clone().unwrap(),
                         op: format!("{}", opcode::opcode_to_string(opcode)),
-                        gas,
-                        gas_cost,
+                        gas: gas_before,
+                        gas_cost: gas_before - gasometer.gas(),
                         stack: stack.data().to_vec(),
                         memory: runtime.machine().memory().data().to_vec(),
                     });
-
-                    gas = gas - gas_cost;
                 }
                 Err(e) => match e {
                     Exit(_) => {
