@@ -176,13 +176,14 @@ impl Handlers {
         );
 
         // calculate base fee
+        let base_fee = self.block.calculate_base_fee(parent_hash);
 
         if update_state {
             debug!(
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
-            self.block.connect_block(block.clone(), U256::zero()); // TODO: replace with base fee
+            self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
         }
 
