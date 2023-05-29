@@ -20,13 +20,17 @@ jobs:
     - name: Install dependencies
       run: sudo ./make.sh pkg-install-deps && sudo ./make.sh pkg-install-llvm
 
-    - name: Build and run defid node
-      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build && ./build/x86_64-pc-linux-gnu/src/defid -regtest --daemon
+    - name: Build binaries
+      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
+      
+    - name: Run defid node
+      run: ./build/src/defid -regtest --daemon
     
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version: '^1.17.0'
+
     - name: Run EVM RPC tests
       uses: actions/checkout@v3
       with:
