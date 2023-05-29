@@ -75,7 +75,7 @@ impl RpcBlock {
             },
             uncles: vec![],
             nonce: block.header.nonce,
-            extra_data: Bytes(block.header.extra_data.clone()),
+            extra_data: Bytes::from(block.header.extra_data),
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
