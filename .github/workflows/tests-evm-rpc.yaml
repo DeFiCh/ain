@@ -17,6 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install dependencies
+      run: ./make.sh pkg-install-deps && ./make.sh pkg-install-llvm
+
     - name: Build and run defid node
       run: TARGET="x86_64-pc-linux-gnu" ./make.sh build && ./build/x86_64-pc-linux-gnu/src/defid -regtest --daemon
     
