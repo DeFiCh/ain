@@ -5,7 +5,7 @@ use lru::LruCache;
 use primitive_types::{H256, U256};
 use std::borrow::ToOwned;
 
-use super::traits::{BlockStorage, TransactionStorage};
+use super::traits::{BlockStorage, Rollback, TransactionStorage};
 
 #[derive(Debug)]
 pub struct Cache {
@@ -71,9 +71,9 @@ impl BlockStorage for Cache {
             .map(ToOwned::to_owned)
     }
 
-    fn put_latest_block(&self, block: &BlockAny) {
+    fn put_latest_block(&self, block: Option<&BlockAny>) {
         let mut cache = self.latest_block.write().unwrap();
-        *cache = Some(block.clone());
+        *cache = block.cloned();
     }
 }
 
@@ -128,5 +128,21 @@ impl TransactionStorage for Cache {
             .write()
             .unwrap()
             .put(transaction.hash(), transaction.clone());
+    }
+}
+
+impl Rollback for Cache {
+    fn disconnect_latest_block(&self) {
+        if let Some(block) = self.get_latest_block() {
+            let mut transaction_cache = self.transactions.write().unwrap();
+            for tx in &block.transactions {
+                transaction_cache.pop(&tx.hash());
+            }
+
+            self.block_hashes.write().unwrap().pop(&block.header.hash());
+            self.blocks.write().unwrap().pop(&block.header.number);
+
+            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
+        }
     }
 }

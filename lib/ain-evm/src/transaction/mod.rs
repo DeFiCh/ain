@@ -189,8 +189,7 @@ impl SignedTx {
     }
 
     pub fn to(&self) -> Option<H160> {
-        let action = self.action();
-        match action {
+        match self.action() {
             TransactionAction::Call(to) => Some(to),
             TransactionAction::Create => None,
         }

@@ -14,7 +14,7 @@ pub struct ExecutorContext<'a> {
 }
 
 pub trait Executor {
-    const CONFIG: Config = Config::london();
+    const CONFIG: Config = Config::shanghai();
 
     fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse;
 

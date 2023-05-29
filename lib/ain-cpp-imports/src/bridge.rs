@@ -5,7 +5,7 @@ pub mod ffi {
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
-        fn publishEthTransaction(data: Vec<u8>) -> bool;
+        fn publishEthTransaction(data: Vec<u8>) -> String;
         fn getAccounts() -> Vec<String>;
         fn getDatadir() -> String;
         fn getDifficulty(_block_hash: [u8; 32]) -> u32;
