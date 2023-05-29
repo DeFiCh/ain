@@ -136,7 +136,7 @@ impl EVMHandler {
         gas_limit: u64,
         access_list: AccessList,
         block_number: U256,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>), Box<dyn Error>> {
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64), Box<dyn Error>> {
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -263,6 +263,7 @@ impl EVMHandler {
                 .expect("Execution not completed")
                 .is_succeed(),
             runtime.machine().return_value(),
+            gasometer.total_used_gas(),
         ))
     }
 
