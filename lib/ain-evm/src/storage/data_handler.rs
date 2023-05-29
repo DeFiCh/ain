@@ -71,7 +71,9 @@ impl BlockchainDataHandler {
                 TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH)
                     .expect("Error loading receipts data"),
             ),
-            base_fee_map: RwLock::new(BlockHashtoBaseFee::load_from_disk(BASE_FEE_MAP_PATH).unwrap_or_default()),
+            base_fee_map: RwLock::new(
+                BlockHashtoBaseFee::load_from_disk(BASE_FEE_MAP_PATH).unwrap_or_default(),
+            ),
             code_map: RwLock::new(CodeHistory::load_from_disk(CODE_MAP_PATH).unwrap_or_default()),
         }
     }
@@ -175,7 +177,11 @@ impl BlockStorage for BlockchainDataHandler {
     }
 
     fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
-        self.base_fee_map.read().unwrap().get(block_hash).map(ToOwned::to_owned)
+        self.base_fee_map
+            .read()
+            .unwrap()
+            .get(block_hash)
+            .map(ToOwned::to_owned)
     }
 
     fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
@@ -256,7 +262,10 @@ impl Rollback for BlockchainDataHandler {
             }
 
             self.block_map.write().unwrap().remove(&block.header.hash());
-            self.base_fee_map.write().unwrap().remove(&block.header.hash());
+            self.base_fee_map
+                .write()
+                .unwrap()
+                .remove(&block.header.hash());
             self.blocks.write().unwrap().remove(&block.header.number);
             self.code_map.write().unwrap().rollback(block.header.number);
 

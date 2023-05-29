@@ -78,7 +78,7 @@ impl RpcBlock {
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
-            base_fee_per_gas: base_fee
+            base_fee_per_gas: base_fee,
         }
     }
 }

@@ -91,7 +91,8 @@ impl BlockStorage for Storage {
 
     fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
         self.cache.set_base_fee(block_hash, base_fee);
-        self.blockchain_data_handler.set_base_fee(block_hash, base_fee);
+        self.blockchain_data_handler
+            .set_base_fee(block_hash, base_fee);
     }
 }
 

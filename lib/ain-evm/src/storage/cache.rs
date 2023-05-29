@@ -81,7 +81,11 @@ impl BlockStorage for Cache {
     }
 
     fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
-        self.base_fee.write().unwrap().get(block_hash).map(ToOwned::to_owned)
+        self.base_fee
+            .write()
+            .unwrap()
+            .get(block_hash)
+            .map(ToOwned::to_owned)
     }
 
     fn set_base_fee(&self, block_hash: H256, base_fee: U256) {

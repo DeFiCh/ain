@@ -343,7 +343,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block.clone(),
                     full_transactions.unwrap_or_default(),
-                    self.handler.storage.get_base_fee(&hash).unwrap_or_default()
+                    self.handler.storage.get_base_fee(&hash).unwrap_or_default(),
                 )))
             })
     }
@@ -385,7 +385,10 @@ impl MetachainRPCServer for MetachainRPCModule {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block.clone(),
                     full_transactions.unwrap_or_default(),
-                    self.handler.storage.get_base_fee(&block.header.hash()).unwrap_or_default()
+                    self.handler
+                        .storage
+                        .get_base_fee(&block.header.hash())
+                        .unwrap_or_default(),
                 )))
             })
     }
