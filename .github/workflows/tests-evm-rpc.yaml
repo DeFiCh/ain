@@ -2,19 +2,24 @@ name: Tests - EVM
 on:
   workflow_dispatch:
 env:
-  NODE_URL: "http://35.187.53.161:20551/"
+  NODE_URL: "http://127.0.0.1:19551/"
   AUTH_ID: ${{ secrets.INFURA_GOERLI_PROJECT_ID }}
   AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 jobs:
   node-rpc-tests:
-    name: E2E tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '^1.17.0'
-      - uses: actions/checkout@v3
-        with:
-          repository: 'DeFiCh/go-ethlibs'
-      - name: Run e2e tests
-        run: go test -v ./node/rpc_test.go
+    - uses: actions/checkout@v3
+
+    - name: Build and run defid node
+      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build && ./build/x86_64-pc-linux-gnu/src/defid -regtest --daemon
+    
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '^1.17.0'
+    - name: Run EVM RPC tests
+      uses: actions/checkout@v3
+      with:
+        repository: 'DeFiCh/go-ethlibs'
+        run: go test -v ./node/rpc_meta_test.go
