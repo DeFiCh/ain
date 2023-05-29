@@ -1,10 +1,13 @@
 name: Tests - EVM
+
 on:
   workflow_dispatch:
+
 env:
   NODE_URL: "http://127.0.0.1:19551/"
   AUTH_ID: ${{ secrets.INFURA_GOERLI_PROJECT_ID }}
   AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
+
 jobs:
   node-rpc-tests:
     runs-on: ubuntu-latest
