@@ -1,5 +1,6 @@
 use crate::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::H64;
 use primitive_types::{H160, H256, U256};
 use rlp::Encodable;
 use serde::{
@@ -28,7 +29,7 @@ pub struct RpcBlock {
     pub seal_fields: Vec<Vec<u8>>,
     pub uncles: Vec<H256>,
     pub transactions: BlockTransactions,
-    pub nonce: U256,
+    pub nonce: H64,
     pub sha3_uncles: H256,
     pub logs_bloom: String,
     pub size: String,
@@ -73,7 +74,7 @@ impl RpcBlock {
                 }
             },
             uncles: vec![],
-            nonce: U256::zero(),
+            nonce: block.header.nonce,
             extra_data: Bytes(block.header.extra_data.clone()),
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
