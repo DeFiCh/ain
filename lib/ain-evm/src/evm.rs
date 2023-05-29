@@ -202,23 +202,7 @@ impl EVMHandler {
 
         gasometer.record_transaction(base_cost).unwrap();
         let gas_before = gasometer.gas();
-        match gasometer::static_opcode_cost(opcode) {
-            Some(cost) => gasometer.record_cost(cost).expect("Out of Gas"),
-            None => {
-                let (gas_cost, _, memory) = gasometer::dynamic_opcode_cost(
-                    to.unwrap_or_default(),
-                    opcode,
-                    stack,
-                    false,
-                    &config,
-                    &mut executor,
-                )
-                .expect("Error getting dynamic cost");
-                gasometer
-                    .record_dynamic_cost(gas_cost, memory)
-                    .expect("Error recording dynamic gas cost");
-            }
-        }
+        opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
 
         // Record initial state
         trace.push(ExecutionStep {
@@ -239,23 +223,7 @@ impl EVMHandler {
                     println!("stack : {:#?}", stack);
 
                     let gas_before = gasometer.gas();
-                    match gasometer::static_opcode_cost(opcode) {
-                        Some(cost) => gasometer.record_cost(cost).expect("Out of Gas"),
-                        None => {
-                            let (gas_cost, _, memory) = gasometer::dynamic_opcode_cost(
-                                to.unwrap_or_default(),
-                                opcode,
-                                stack,
-                                false,
-                                &config,
-                                &mut executor,
-                            )
-                            .expect("Error getting dynamic cost");
-                            gasometer
-                                .record_dynamic_cost(gas_cost, memory)
-                                .expect("Error recording dynamic gas cost");
-                        }
-                    }
+                    opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
 
                     trace.push(ExecutionStep {
                         pc: runtime.machine().position().clone().unwrap(),
