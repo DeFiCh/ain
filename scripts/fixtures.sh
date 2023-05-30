@@ -10,18 +10,18 @@ contract_counter="0x60c0604052600760808190526621b7bab73a32b960c91b60a09081526100
 contract_countercaller="0x608060405234801561001057600080fd5b5060405161025c38038061025c83398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610082565b600060208284031215610065578081fd5b81516001600160a01b038116811461007b578182fd5b9392505050565b6101cb806100916000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c806360598c0114610046578063a87d942c14610050578063c3da42b81461006b575b600080fd5b61004e610096565b005b6100586100f1565b6040519081526020015b60405180910390f35b60005461007e906001600160a01b031681565b6040516001600160a01b039091168152602001610062565b6000805460408051630467eef560e21b815290516001600160a01b039092169263119fbbd49260048084019382900301818387803b1580156100d757600080fd5b505af11580156100eb573d6000803e3d6000fd5b50505050565b60008060009054906101000a90046001600160a01b03166001600160a01b031663a87d942c6040518163ffffffff1660e01b815260040160206040518083038186803b15801561014057600080fd5b505afa158015610154573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610178919061017d565b905090565b60006020828403121561018e578081fd5b505191905056fea2646970667358221220220b50dea2907d54fd36279d0583e05fe9868a78b29df0e8d111fabac5ef1d9564736f6c63430008020033"
 
 # push fixtures
-defi-cli -regtest importprivkey $privkey_alice owner true
-defi-cli -regtest importprivkey $privkey_bob operator true
-defi-cli -regtest generatetoaddress 100 $ownerauthaddr
+./build/src/defi-cli -regtest importprivkey $privkey_alice owner true
+./build/src/defi-cli -regtest importprivkey $privkey_bob operator true
+./build/src/defi-cli -regtest generatetoaddress 100 $ownerauthaddr
 
-defi-cli -regtest utxostoaccount '{"'"$ownerauthaddr"'":"5000@DFI"}'
-defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+./build/src/defi-cli -regtest utxostoaccount '{"'"$ownerauthaddr"'":"5000@DFI"}'
+./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
 
-defi-cli -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
-defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+./build/src/defi-cli -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
+./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
 
-defi-cli -regtest transferdomain 1 '{"'"$ownerauthaddr"'":["2000@DFI"]}' '{"'"$alice"'":["2000@DFI"]}'
-defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+./build/src/defi-cli -regtest transferdomain 1 '{"'"$ownerauthaddr"'":["2000@DFI"]}' '{"'"$alice"'":["2000@DFI"]}'
+./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
 
 curl http://localhost:19551 \
   -H 'content-type:application/json' \
@@ -37,7 +37,7 @@ curl http://localhost:19551 \
       "gasPrice": "0x22ecb25c00"
     }]
   }'
-defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
 
 curl http://localhost:19551 \
   -H 'content-type:application/json' \
@@ -53,4 +53,4 @@ curl http://localhost:19551 \
       "gasPrice": "0x22ecb25c00"
     }]
   }'
-defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
