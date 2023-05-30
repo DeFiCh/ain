@@ -110,10 +110,7 @@ impl BlockHandler {
             block_number -= U256::from(1);
         }
 
-        let oldest_block = match descending {
-            true => blocks.last().unwrap().header.hash(),
-            false => blocks.first().unwrap().header.hash(),
-        };
+        let oldest_block = blocks.last().unwrap().header.hash();
 
         let (base_fee_per_gas, gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
             .iter()

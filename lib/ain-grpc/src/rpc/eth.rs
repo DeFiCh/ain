@@ -6,7 +6,6 @@ use crate::codegen::types::EthTransactionInfo;
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::block::FeeHistoryData;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
@@ -197,9 +196,8 @@ pub trait MetachainRPC {
     #[method(name = "feeHistory")]
     fn fee_history(
         &self,
-        block_count: usize,
+        block_count: U256,
         first_block: U256,
-        descending: bool,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 }
