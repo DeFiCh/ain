@@ -28,8 +28,9 @@ jobs:
       with:
         name: defibins
         path: |
-         build/src/defid
-         build/src/defi-cli
+          build/src/defid
+          build/src/defi-cli
+          scripts/fixtures.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
@@ -46,6 +47,11 @@ jobs:
         chmod 777 defi-cli
         ./defid -regtest --daemon
 
+    - name: Push fixtures
+      run: |
+        chmod 777 fixtures.sh
+        ./fixtures.sh
+      
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
