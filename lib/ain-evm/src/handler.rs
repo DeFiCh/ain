@@ -6,7 +6,7 @@ use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::transaction::bridge::{BridgeTx, BridgeTxType};
 use crate::tx_queue::QueueTx;
 
 use ethereum::{Block, PartialHeader, ReceiptV3};
@@ -109,7 +109,12 @@ impl Handlers {
 
                     executor.commit();
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
+                QueueTx::BridgeTx(BridgeTx {
+                    address,
+                    amount,
+                    r#type: BridgeTxType::EvmIn,
+                    ..
+                }) => {
                     debug!(
                         "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
                         address, amount, context
@@ -119,7 +124,12 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
+                QueueTx::BridgeTx(BridgeTx {
+                    address,
+                    amount,
+                    r#type: BridgeTxType::EvmOut,
+                    ..
+                }) => {
                     debug!(
                         "[finalize_block] EvmOut for address {}, amount: {}",
                         address, amount

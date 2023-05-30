@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity}
 use crate::executor::TxResponse;
 use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
 use crate::storage::Storage;
-use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::transaction::bridge::{BridgeTx, BridgeTxType};
 use crate::tx_queue::{QueueError, QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
@@ -166,7 +166,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if nonce != signed_tx.nonce() {
+        if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -205,7 +205,12 @@ impl EVMHandler {
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
-        let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
+        let queue_tx = QueueTx::BridgeTx(BridgeTx {
+            address,
+            amount,
+            nonce: U256::zero(),
+            r#type: BridgeTxType::EvmIn,
+        });
         self.tx_queues.queue_tx(context, queue_tx, hash)?;
         Ok(())
     }
@@ -230,7 +235,12 @@ impl EVMHandler {
             })
             .into())
         } else {
-            let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
+            let queue_tx = QueueTx::BridgeTx(BridgeTx {
+                address,
+                amount,
+                nonce: U256::zero(),
+                r#type: BridgeTxType::EvmOut,
+            });
             self.tx_queues.queue_tx(context, queue_tx, hash)?;
             Ok(())
         }
