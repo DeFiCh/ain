@@ -50,7 +50,7 @@ jobs:
 
     - name: Run defid node
       run: |
-        ./build/src/defid -regtest -daemon -debug=rpc -printtoconsole -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_operator=mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ -masternode_operator=bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv -masternode_operator=bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r -dummypos=0 -subsidytest=1 -txnotokens=0 -txindex=1 -amkheight=0 -bayfrontheight=1 -clarkequayheight=3 -dakotaheight=4 -dakotacrescentheight=5 -eunosheight=6 -eunospayaheight=7 -fortcanningheight=8 -fortcanningmuseumheight=9 -fortcanninghillheight=10 -fortcanningroadheight=11 -fortcanningcrunchheight=12 -fortcanningspringheight=13 -fortcanninggreatworldheight=14 -fortcanningepilogueheight=15 -grandcentralheight=16 -nextnetworkupgradeheight=17
+        ./build/src/defid -regtest -daemon -debug=rpc -printtoconsole -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_owner=mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU -dummypos=0 -subsidytest=1 -txnotokens=0 -txindex=1 -amkheight=0 -bayfrontheight=1 -clarkequayheight=3 -dakotaheight=4 -dakotacrescentheight=5 -eunosheight=6 -eunospayaheight=7 -fortcanningheight=8 -fortcanningmuseumheight=9 -fortcanninghillheight=10 -fortcanningroadheight=11 -fortcanningcrunchheight=12 -fortcanningspringheight=13 -fortcanninggreatworldheight=14 -fortcanningepilogueheight=15 -grandcentralheight=16 -nextnetworkupgradeheight=17
 
     - name: Push fixtures
       run: |
