@@ -95,7 +95,6 @@ impl BlockHandler {
         &self,
         block_count: usize,
         first_block: U256,
-        descending: bool,
         priority_fee_percentile: Vec<usize>,
     ) -> FeeHistoryData {
         let mut blocks = Vec::with_capacity(block_count);
@@ -108,10 +107,7 @@ impl BlockHandler {
                     .expect(&format!("Block {} out of range", block_number)),
             );
 
-            match descending {
-                true => block_number -= U256::from(1),
-                false => block_number += U256::from(1),
-            }
+            block_number -= U256::from(1);
         }
 
         let oldest_block = match descending {
@@ -190,10 +186,6 @@ impl BlockHandler {
 
             Some(reward)
         };
-
-        for x in gas_used_ratio.iter() {
-            debug!("used ratio: {}", x);
-        }
 
         return FeeHistoryData {
             oldest_block,

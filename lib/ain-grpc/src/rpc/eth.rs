@@ -685,15 +685,13 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn fee_history(
         &self,
-        block_count: usize,
+        block_count: U256,
         first_block: U256,
-        descending: bool,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
         Ok(RpcFeeHistory::from(self.handler.block.fee_history(
-            block_count,
+            block_count.as_usize(),
             first_block,
-            true,
             priority_fee_percentile,
         )))
     }
