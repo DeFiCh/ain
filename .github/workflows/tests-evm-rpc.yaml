@@ -57,4 +57,4 @@ jobs:
         repository: 'DeFiCh/go-ethlibs'
 
     - name: Run EVM RPC tests
-      run: go test -v ./node/rpc_meta_test.go
+      run: ls -R && go test -v ./node/rpc_meta_test.go
