@@ -1,5 +1,5 @@
 mod backend;
-mod block;
+pub mod block;
 mod ecrecover;
 pub mod evm;
 pub mod executor;

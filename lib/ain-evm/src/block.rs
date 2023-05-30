@@ -1,13 +1,22 @@
-use ethereum::BlockAny;
+use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use primitive_types::U256;
 use std::cmp::max;
 use std::sync::Arc;
+use log::debug;
+use statrs::statistics::{Data, OrderStatistics};
 
 use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
+}
+
+pub struct FeeHistoryData {
+    pub oldest_block: H256,
+    pub base_fee_per_gas: Vec<U256>,
+    pub gas_used_ratio: Vec<f64>,
+    pub reward: Option<Vec<Vec<U256>>>,
 }
 
 impl BlockHandler {
@@ -79,6 +88,115 @@ impl BlockHandler {
                 / base_fee_max_change_denominator;
 
             parent_base_fee - base_fee_per_gas_delta
+        };
+    }
+
+    pub fn fee_history(
+        &self,
+        block_count: usize,
+        first_block: U256,
+        descending: bool,
+        priority_fee_percentile: Vec<usize>,
+    ) -> FeeHistoryData {
+        let mut blocks = Vec::with_capacity(block_count);
+        let mut block_number = first_block;
+
+        for _ in 0..=block_count {
+            blocks.push(
+                self.storage
+                    .get_block_by_number(&block_number)
+                    .expect(&format!("Block {} out of range", block_number)),
+            );
+
+            match descending {
+                true => block_number -= U256::from(1),
+                false => block_number += U256::from(1),
+            }
+        }
+
+        let oldest_block = match descending {
+            true => blocks.last().unwrap().header.hash(),
+            false => blocks.first().unwrap().header.hash(),
+        };
+
+        let (base_fee_per_gas, gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
+            .iter()
+            .map(|block| {
+                debug!("Processing block {}", block.header.number);
+                let base_fee = self
+                    .storage
+                    .get_base_fee(&block.header.hash())
+                    .expect(&format!("No base fee for block {}", block.header.number));
+
+                let gas_ratio = if block.header.gas_limit == U256::zero() {
+                    f64::default() // empty block
+                } else {
+                    block.header.gas_used.as_u64() as f64 / block.header.gas_limit.as_u64() as f64
+                };
+
+                return (base_fee, gas_ratio);
+            })
+            .unzip();
+
+        let reward = if priority_fee_percentile.len() == 0 {
+            None
+        } else {
+            let mut eip_transactions = Vec::new();
+
+            for block in blocks {
+                let mut block_eip_transaction = Vec::new();
+                for tx in block.transactions {
+                    match tx {
+                        TransactionAny::Legacy(_) | TransactionAny::EIP2930(_) => {
+                            continue;
+                        }
+                        TransactionAny::EIP1559(t) => {
+                            block_eip_transaction.push(t);
+                        }
+                    }
+                }
+                block_eip_transaction
+                    .sort_by(|a, b| a.max_priority_fee_per_gas.cmp(&b.max_priority_fee_per_gas));
+                eip_transactions.push(block_eip_transaction);
+            }
+
+            /*
+                TODO: assumption here is that max priority fee = priority fee paid, however
+                priority fee can be lower if gas costs hit max_fee_per_gas.
+                we will need to check the base fee paid to get the actual priority fee paid
+            */
+
+            let mut reward = Vec::new();
+
+            for block_eip_tx in eip_transactions {
+                if block_eip_tx.is_empty() {
+                    reward.push(vec![U256::zero()]);
+                    continue;
+                }
+
+                let mut block_rewards = Vec::new();
+                let priority_fees = block_eip_tx.iter().map(|tx| tx.max_priority_fee_per_gas.as_u64() as f64).collect::<Vec<f64>>();
+                let mut data = Data::new(priority_fees);
+
+                for pct in priority_fee_percentile.iter() {
+                    block_rewards.push(U256::from(data.percentile(*pct).ceil() as u64));
+                }
+
+                reward.push(block_rewards);
+            }
+
+            Some(reward)
+        };
+
+        for x in gas_used_ratio.iter() {
+            debug!("used ratio: {}", x);
+        }
+
+        return FeeHistoryData {
+            oldest_block,
+            base_fee_per_gas,
+            gas_used_ratio,
+            reward,
         };
     }
 }

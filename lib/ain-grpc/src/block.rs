@@ -252,6 +252,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
 }
 
 use std::str::FromStr;
+use ain_evm::block::FeeHistoryData;
 
 use crate::codegen::types::EthTransactionInfo;
 
@@ -322,6 +323,26 @@ impl Serialize for BlockTransactions {
         match *self {
             BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
             BlockTransactions::Full(ref ts) => ts.serialize(serializer),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcFeeHistory {
+    pub oldest_block: H256,
+    pub base_fee_per_gas: Vec<U256>,
+    pub gas_used_ratio: Vec<f64>,
+    pub reward: Option<Vec<Vec<U256>>>,
+}
+
+impl From<FeeHistoryData> for RpcFeeHistory {
+    fn from(value: FeeHistoryData) -> Self {
+        Self {
+            oldest_block: value.oldest_block,
+            base_fee_per_gas: value.base_fee_per_gas,
+            gas_used_ratio: value.gas_used_ratio,
+            reward: value.reward,
         }
     }
 }
