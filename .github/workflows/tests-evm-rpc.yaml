@@ -5,8 +5,6 @@ on:
   pull_request:
     branches:
       - feature/evm
-    tags:
-      - evm
   push:
     branches:
       - feature/evm
@@ -15,8 +13,6 @@ on:
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
-  AUTH_ID: ${{ secrets.INFURA_GOERLI_PROJECT_ID }}
-  AUTH_PASS: ${{ secrets.INFURA_GOERLI_API_KEY }}
 
 jobs:
   build-binaries:
