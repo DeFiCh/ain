@@ -43,17 +43,21 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defibins
-
+        
+    - name: Chores
+      run: |
+        chmod -R uog+x build/src/defid
+        chmod -R uog+x build/src/defi-cli
+        chmod -R uog+x scripts/fixtures.sh
+        export PATH=$PATH:`pwd`/build/src
+        
     - name: Run defid node
       run: |
-        chmod 777 defid
-        chmod 777 defi-cli
-        RUST_LOG=debug ./defid -debug=rpc -printtoconsole -regtest -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_owner=mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU -dummypos=0 -txnotokens=0 -amkheight=50 -bayfrontheight=51 -eunosheight=80 -fortcanningheight=82 -fortcanninghillheight=84 -fortcanningroadheight=86 -fortcanningcrunchheight=88 -fortcanningspringheight=90 -fortcanninggreatworldheight=94 -fortcanningepilogueheight=96 -grandcentralheight=101 -nextnetworkupgradeheight=105 -subsidytest=1 -txindex=1
+        RUST_LOG=debug defid -debug=rpc -printtoconsole -regtest -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_owner=mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU -dummypos=0 -txnotokens=0 -amkheight=50 -bayfrontheight=51 -eunosheight=80 -fortcanningheight=82 -fortcanninghillheight=84 -fortcanningroadheight=86 -fortcanningcrunchheight=88 -fortcanningspringheight=90 -fortcanninggreatworldheight=94 -fortcanningepilogueheight=96 -grandcentralheight=101 -nextnetworkupgradeheight=105 -subsidytest=1 -txindex=1
 
     - name: Push fixtures
       run: |
-        chmod 777 fixtures.sh
-        ./fixtures.sh
+        ./scripts/fixtures.sh
       
     - name: Set up Go
       uses: actions/setup-go@v3
