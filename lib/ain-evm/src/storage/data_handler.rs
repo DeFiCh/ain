@@ -224,7 +224,10 @@ impl FlushableStorage for BlockchainDataHandler {
             .unwrap()
             .save_to_disk(TRANSACTION_DATA_PATH)?;
         self.code_map.write().unwrap().save_to_disk(CODE_MAP_PATH)?;
-        self.base_fee_map.write().unwrap().save_to_disk(BASE_FEE_MAP_PATH)
+        self.base_fee_map
+            .write()
+            .unwrap()
+            .save_to_disk(BASE_FEE_MAP_PATH)
     }
 }
 

@@ -1,10 +1,10 @@
 use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
+use log::debug;
 use primitive_types::U256;
+use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::max;
 use std::sync::Arc;
-use log::debug;
-use statrs::statistics::{Data, OrderStatistics};
 
 use crate::storage::{traits::BlockStorage, Storage};
 
@@ -175,7 +175,10 @@ impl BlockHandler {
                 }
 
                 let mut block_rewards = Vec::new();
-                let priority_fees = block_eip_tx.iter().map(|tx| tx.max_priority_fee_per_gas.as_u64() as f64).collect::<Vec<f64>>();
+                let priority_fees = block_eip_tx
+                    .iter()
+                    .map(|tx| tx.max_priority_fee_per_gas.as_u64() as f64)
+                    .collect::<Vec<f64>>();
                 let mut data = Data::new(priority_fees);
 
                 for pct in priority_fee_percentile.iter() {

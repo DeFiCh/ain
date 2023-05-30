@@ -6,9 +6,9 @@ use crate::codegen::types::EthTransactionInfo;
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::block::FeeHistoryData;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
-use ain_evm::block::FeeHistoryData;
 
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
@@ -195,7 +195,13 @@ pub trait MetachainRPC {
     fn gas_price(&self) -> RpcResult<U256>;
 
     #[method(name = "feeHistory")]
-    fn fee_history(&self, block_count: usize, first_block: U256, descending: bool, priority_fee_percentile: Vec<usize>) -> RpcResult<RpcFeeHistory>;
+    fn fee_history(
+        &self,
+        block_count: usize,
+        first_block: U256,
+        descending: bool,
+        priority_fee_percentile: Vec<usize>,
+    ) -> RpcResult<RpcFeeHistory>;
 }
 
 pub struct MetachainRPCModule {
@@ -677,8 +683,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(false)
     }
 
-    fn fee_history(&self, block_count: usize, first_block: U256, descending: bool, priority_fee_percentile: Vec<usize>) -> RpcResult<RpcFeeHistory> {
-        Ok(RpcFeeHistory::from(self.handler.block.fee_history(block_count, first_block, true, priority_fee_percentile)))
+    fn fee_history(
+        &self,
+        block_count: usize,
+        first_block: U256,
+        descending: bool,
+        priority_fee_percentile: Vec<usize>,
+    ) -> RpcResult<RpcFeeHistory> {
+        Ok(RpcFeeHistory::from(self.handler.block.fee_history(
+            block_count,
+            first_block,
+            true,
+            priority_fee_percentile,
+        )))
     }
 }
 
