@@ -202,15 +202,16 @@ impl BlockHandler {
             .get_latest_block()
             .expect("Unable to find latest block");
         blocks.push(block.clone());
+        let mut parent_hash = block.header.parent_hash;
 
-        loop {
-            let parent_hash = block.header.hash();
-            let blk = self.storage.get_block_by_hash(&parent_hash);
-            if blk.is_none() || blocks.len() == blocks.capacity() {
-                break;
+        while blocks.len() <= blocks.capacity() {
+            match self.storage.get_block_by_hash(&parent_hash) {
+                Some(block) => {
+                    blocks.push(block.clone());
+                    parent_hash = block.header.parent_hash;
+                }
+                None => break,
             }
-
-            blocks.push(block.clone());
         }
 
         /*
