@@ -7,10 +7,12 @@
 
 enum evmMapType {
     AUTO,
-    DFI_ADDRESS_TO_EVM,
-    EVM_ADDRESS_TO_DFI,
-    DFI_TX_TO_EVM,
-    EVM_TX_TO_DFI,
+    DVM_ADDRESS_TO_EVM,
+    EVM_ADDRESS_TO_DVM,
+    DVM_TX_TO_EVM,
+    EVM_TX_TO_DVM,
+    DVM_BLOCK_TO_EVM,
+    EVM_BLOCK_TO_DVM
 };
 
 UniValue evmtx(const JSONRPCRequest& request) {
@@ -205,17 +207,17 @@ UniValue evmmap(const JSONRPCRequest& request) {
     const std::string object = request.params[0].get_str();
     const int type = request.params[1].get_int();
     switch (type) {
-        case DFI_ADDRESS_TO_EVM: {
+        case DVM_ADDRESS_TO_EVM: {
             const CPubKey key = AddrToPubKey(pwallet, object);
             std::string addr;
             return EncodeDestination(WitnessV16EthHash(key.GetID()));
         }
-        case EVM_ADDRESS_TO_DFI: {
+        case EVM_ADDRESS_TO_DVM: {
             const CPubKey key = AddrToPubKey(pwallet, object);
             std::string addr;
             return EncodeDestination(PKHash(key.GetID()));
         }
-        case DFI_TX_TO_EVM: {
+        case DVM_TX_TO_EVM: {
             uint256 hashBlock;
             CTransactionRef tx;
             LOCK(cs_main);
