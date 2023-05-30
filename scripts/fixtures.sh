@@ -45,6 +45,8 @@ curl http://localhost:19551 \
     }]
   }'
 ./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+# contract address
+# 0x966aaec51a95a737d086d21f015a6991dd5559ae
 
 curl http://localhost:19551 \
   -H 'content-type:application/json' \
@@ -61,3 +63,5 @@ curl http://localhost:19551 \
     }]
   }'
 ./build/src/defi-cli -regtest generatetoaddress 1 $ownerauthaddr
+# contract address
+# 0x007138e9d5bdb3f0b7f3abf2d46ad4f9184ef99d
