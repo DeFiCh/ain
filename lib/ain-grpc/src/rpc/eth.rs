@@ -200,6 +200,9 @@ pub trait MetachainRPC {
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
+
+    #[method(name = "maxPriorityFeePerGas")]
+    fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 }
 
 pub struct MetachainRPCModule {
@@ -692,6 +695,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             first_block,
             priority_fee_percentile,
         )))
+    }
+
+    fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+        Ok(self.handler.block.suggested_priority_fee())
     }
 }
 

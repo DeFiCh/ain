@@ -191,4 +191,52 @@ impl BlockHandler {
             reward,
         };
     }
+
+    /// Returns the 60th percentile priority fee for the last 20 blocks
+    /// Ref: https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41
+    /// TODO: these should be configurable by the user
+    pub fn suggested_priority_fee(&self) -> U256 {
+        let mut blocks = Vec::with_capacity(20);
+        let block = self
+            .storage
+            .get_latest_block()
+            .expect("Unable to find latest block");
+        blocks.push(block.clone());
+
+        loop {
+            let parent_hash = block.header.hash();
+            let blk = self.storage.get_block_by_hash(&parent_hash);
+            if blk.is_none() || blocks.len() == blocks.capacity() {
+                break;
+            }
+
+            blocks.push(block.clone());
+        }
+
+        /*
+            TODO: assumption here is that max priority fee = priority fee paid, however
+            priority fee can be lower if gas costs hit max_fee_per_gas.
+            we will need to check the base fee paid to get the actual priority fee paid
+        */
+
+        let mut priority_fees = Vec::new();
+
+        for block in blocks {
+            for tx in block.transactions {
+                match tx {
+                    TransactionAny::Legacy(_) | TransactionAny::EIP2930(_) => {
+                        continue;
+                    }
+                    TransactionAny::EIP1559(t) => {
+                        priority_fees.push(t.max_priority_fee_per_gas.as_u64() as f64);
+                    }
+                }
+            }
+        }
+
+        priority_fees.sort_by(|a, b| a.partial_cmp(b).expect("Invalid f64 value"));
+        let mut data = Data::new(priority_fees);
+
+        U256::from(data.percentile(60).ceil() as u64)
+    }
 }
