@@ -5,6 +5,13 @@ on:
   pull_request:
     branches:
       - feature/evm
+    tags:
+      - evm
+  push:
+    branches:
+      - feature/evm
+    tags:
+      - evm
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
