@@ -20,19 +20,19 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install dependencies
-      run: sudo ./make.sh pkg-install-deps && sudo ./make.sh pkg-install-llvm
+    # - name: Install dependencies
+    #   run: sudo ./make.sh pkg-install-deps && sudo ./make.sh pkg-install-llvm
 
-    - name: Build binaries
-      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
+    # - name: Build binaries
+    #   run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
       
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-          build/src/defid
-          build/src/defi-cli
+          defid
+          defi-cli
           scripts/fixtures.sh
 
   node-rpc-tests:
@@ -46,9 +46,7 @@ jobs:
         
     - name: Chores
       run: |
-        chmod -R uog+x build/src/defid
-        chmod -R uog+x build/src/defi-cli
-        chmod -R uog+x scripts/fixtures.sh
+        chmod -R uog+x defid defi-cli scripts/fixtures.sh
         
     - name: Run defid node
       run: |
