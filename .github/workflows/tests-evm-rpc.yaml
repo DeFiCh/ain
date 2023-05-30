@@ -5,9 +5,11 @@ on:
   pull_request:
     branches:
       - feature/evm
+      - niven/evm-tests-ci
   push:
     branches:
       - feature/evm
+      - niven/evm-tests-ci
     tags:
       - evm
 
@@ -68,5 +70,3 @@ jobs:
 
     - name: Run EVM RPC tests
       run: go test -v ./node/rpc_meta_test.go
-
-# push
