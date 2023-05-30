@@ -209,12 +209,10 @@ UniValue evmmap(const JSONRPCRequest& request) {
     switch (type) {
         case DVM_ADDRESS_TO_EVM: {
             const CPubKey key = AddrToPubKey(pwallet, object);
-            std::string addr;
             return EncodeDestination(WitnessV16EthHash(key.GetID()));
         }
         case EVM_ADDRESS_TO_DVM: {
             const CPubKey key = AddrToPubKey(pwallet, object);
-            std::string addr;
             return EncodeDestination(PKHash(key.GetID()));
         }
         case DVM_TX_TO_EVM: {
