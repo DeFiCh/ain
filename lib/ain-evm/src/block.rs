@@ -69,7 +69,7 @@ impl BlockHandler {
         let parent_gas_used = parent_block.header.gas_used;
         let parent_gas_target = parent_block.header.gas_limit / elasticity_multiplier;
 
-        return if parent_gas_used == parent_gas_target {
+        if parent_gas_used == parent_gas_target {
             parent_base_fee
         } else if parent_gas_used > parent_gas_target {
             let gas_used_delta = parent_gas_used - parent_gas_target;
@@ -88,7 +88,7 @@ impl BlockHandler {
                 / base_fee_max_change_denominator;
 
             parent_base_fee - base_fee_per_gas_delta
-        };
+        }
     }
 
     pub fn fee_history(
@@ -184,12 +184,12 @@ impl BlockHandler {
             Some(reward)
         };
 
-        return FeeHistoryData {
+        FeeHistoryData {
             oldest_block,
             base_fee_per_gas,
             gas_used_ratio,
             reward,
-        };
+        }
     }
 
     /// Returns the 60th percentile priority fee for the last 20 blocks

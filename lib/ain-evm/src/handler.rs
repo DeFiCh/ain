@@ -102,13 +102,13 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx.clone());
-
-                    total_gas_limit += match signed_tx.transaction {
+                    total_gas_limit += match &signed_tx.transaction {
                         TransactionV2::Legacy(t) => t.gas_limit,
                         TransactionV2::EIP2930(t) => t.gas_limit,
                         TransactionV2::EIP1559(t) => t.gas_limit,
                     };
+
+                    all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
@@ -175,14 +175,14 @@ impl Handlers {
             block.header.number,
         );
 
-        // calculate base fee
-        let base_fee = self.block.calculate_base_fee(parent_hash);
-
         if update_state {
             debug!(
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
+            // calculate base fee
+            let base_fee = self.block.calculate_base_fee(parent_hash);
+
             self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
         }

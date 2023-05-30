@@ -351,8 +351,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_hash(&hash)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(
-                    block.clone(),
+                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
+                    block,
                     full_transactions.unwrap_or_default(),
                     self.handler.storage.get_base_fee(&hash).unwrap_or_default(),
                 )))
@@ -393,12 +393,13 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_number(&block_number)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(
-                    block.clone(),
+                let tx_hash = &block.header.hash();
+                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
+                    block,
                     full_transactions.unwrap_or_default(),
                     self.handler
                         .storage
-                        .get_base_fee(&block.header.hash())
+                        .get_base_fee(tx_hash)
                         .unwrap_or_default(),
                 )))
             })

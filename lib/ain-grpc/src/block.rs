@@ -35,7 +35,11 @@ pub struct RpcBlock {
 }
 
 impl RpcBlock {
-    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool, base_fee: U256) -> Self {
+    pub fn from_block_with_tx_and_base_fee(
+        block: BlockAny,
+        full_transactions: bool,
+        base_fee: U256,
+    ) -> Self {
         let header_size = block.header.rlp_bytes().len();
         RpcBlock {
             hash: block.header.hash(),
