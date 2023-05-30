@@ -51,8 +51,10 @@ jobs:
       with:
         go-version: '^1.17.0'
 
-    - name: Run EVM RPC tests
+    - name: Set up go eth test suites library
       uses: actions/checkout@v3
       with:
         repository: 'DeFiCh/go-ethlibs'
-        run: go test -v ./node/rpc_meta_test.go
+
+    - name: Run EVM RPC tests
+      run: go test -v ./node/rpc_meta_test.go
