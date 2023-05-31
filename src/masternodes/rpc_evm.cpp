@@ -4,6 +4,9 @@
 #include <key_io.h>
 #include <util/strencodings.h>
 #include <index/txindex.h>
+#include "BRCrypto.h"
+#include "BRLargeInt.h"
+#include "BRInt.h"
 
 enum evmMapType {
     AUTO,
@@ -235,7 +238,9 @@ UniValue evmmap(const JSONRPCRequest& request) {
                     return "Failed parse metadata";
                 }
                 const CEvmTxMessage obj = std::get<CEvmTxMessage>(txMessage);
-                return HexStr(obj.evmTx);
+                UInt256 result;
+                BRKeccak256(&result, std::data(obj.evmTx), obj.evmTx.size());
+                return "0x" + u256hex(result);
             } else {
                 return "Not a EVM tx";
             }
