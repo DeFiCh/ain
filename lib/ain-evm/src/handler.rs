@@ -55,7 +55,6 @@ impl Handlers {
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
-        let mut total_gas_limit = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
 
         let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
@@ -101,12 +100,6 @@ impl Handlers {
                     if !exit_reason.is_succeed() {
                         failed_transactions.push(hex::encode(hash));
                     }
-
-                    total_gas_limit += match &signed_tx.transaction {
-                        TransactionV2::Legacy(t) => t.gas_limit,
-                        TransactionV2::EIP2930(t) => t.gas_limit,
-                        TransactionV2::EIP1559(t) => t.gas_limit,
-                    };
 
                     all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
@@ -154,7 +147,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: parent_number + 1,
-                gas_limit: total_gas_limit,
+                gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),

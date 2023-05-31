@@ -47,7 +47,7 @@ impl BlockHandler {
 
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
         // constants
-        let initial_base_fee: U256 = U256::from(1_000_000_000); // wei
+        let initial_base_fee: U256 = U256::from(10_000_000_000 as u64); // wei
         let base_fee_max_change_denominator: U256 = U256::from(8);
         let elasticity_multiplier: U256 = U256::from(2);
 
@@ -80,14 +80,14 @@ impl BlockHandler {
                 U256::from(1),
             );
 
-            parent_base_fee + base_fee_per_gas_delta
+            max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
         } else {
             let gas_used_delta = parent_gas_target - parent_gas_used;
             let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
                 / parent_gas_target
                 / base_fee_max_change_denominator;
 
-            parent_base_fee - base_fee_per_gas_delta
+            max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
         }
     }
 
@@ -112,7 +112,7 @@ impl BlockHandler {
 
         let oldest_block = blocks.last().unwrap().header.hash();
 
-        let (base_fee_per_gas, gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
+        let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
             .iter()
             .map(|block| {
                 debug!("Processing block {}", block.header.number);
@@ -181,8 +181,12 @@ impl BlockHandler {
                 reward.push(block_rewards);
             }
 
+            reward.reverse();
             Some(reward)
         };
+
+        base_fee_per_gas.reverse();
+        gas_used_ratio.reverse();
 
         FeeHistoryData {
             oldest_block,
