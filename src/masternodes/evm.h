@@ -26,4 +26,19 @@ struct CEvmTxMessage {
     }
 };
 
+enum CEvmDvmMapType : uint8_t {
+    DvmEvm            = 0x01,
+    EvmDvm            = 0x02,
+};
+
+class CEvmDvmView : public virtual CStorageView {
+public:
+    uint256 GetBlockHash(uint8_t, uint256) const;
+    void SetBlockHash(uint8_t, uint256, uint256);
+
+    struct BlockHash {
+        static constexpr uint8_t prefix() { return 'N'; }
+    };
+};
+
 #endif // DEFI_MASTERNODES_EVM_H

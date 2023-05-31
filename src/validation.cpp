@@ -2910,6 +2910,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         const auto blockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
+        const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
+
+        mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(blockHash), block.GetHash());
+        mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(blockHash));
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
