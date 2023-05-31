@@ -3,7 +3,7 @@ use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
-use std::cmp::max;
+use std::cmp::{max, Ordering};
 use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
@@ -66,28 +66,31 @@ impl BlockHandler {
             .storage
             .get_base_fee(&parent_block.header.hash())
             .expect("Parent base fee not found");
-        let parent_gas_used = parent_block.header.gas_used;
-        let parent_gas_target = parent_block.header.gas_limit / elasticity_multiplier;
+        let parent_gas_used = parent_block.header.gas_used.as_u64();
+        let parent_gas_target =
+            parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
 
-        if parent_gas_used == parent_gas_target {
-            parent_base_fee
-        } else if parent_gas_used > parent_gas_target {
-            let gas_used_delta = parent_gas_used - parent_gas_target;
-            let base_fee_per_gas_delta = max(
-                parent_base_fee * gas_used_delta
+        match parent_gas_used.cmp(&parent_gas_target) {
+            Ordering::Less => parent_base_fee,
+            Ordering::Equal => {
+                let gas_used_delta = parent_gas_used - parent_gas_target;
+                let base_fee_per_gas_delta = max(
+                    parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator,
+                    U256::from(1),
+                );
+
+                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+            }
+            Ordering::Greater => {
+                let gas_used_delta = parent_gas_target - parent_gas_used;
+                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
                     / parent_gas_target
-                    / base_fee_max_change_denominator,
-                U256::from(1),
-            );
+                    / base_fee_max_change_denominator;
 
-            max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
-        } else {
-            let gas_used_delta = parent_gas_target - parent_gas_used;
-            let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                / parent_gas_target
-                / base_fee_max_change_denominator;
-
-            max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+            }
         }
     }
 
