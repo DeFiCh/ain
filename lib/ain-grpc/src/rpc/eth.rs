@@ -476,6 +476,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 }
             }
         };
+        debug!(target:"rpc","[send_transaction] from: {:?}", from);
 
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
@@ -674,6 +675,7 @@ fn sign(
     address: H160,
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
+    debug!("sign address {:#x}", address);
     let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
