@@ -245,6 +245,12 @@ UniValue evmmap(const JSONRPCRequest& request) {
                 return "Not a EVM tx";
             }
         }
+        case EVM_BLOCK_TO_DVM: {
+            return CEvmDvmView().GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
+        }
+        case DVM_BLOCK_TO_EVM: {
+            return CEvmDvmView().GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(object)).ToString();
+        }
         default:
             return "";
     }
