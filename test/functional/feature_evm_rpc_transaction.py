@@ -164,9 +164,7 @@ class EVMTest(DefiTestFramework):
             ],
             'type': '0x1'
         }
-        import pdb; pdb.set_trace()
         hash = self.nodes[0].eth_sendTransaction(tx2930)
-        pdb.set_trace()
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
