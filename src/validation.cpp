@@ -2915,16 +2915,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
         mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
 
-        if (!blockResult.failed_transactions.empty()) {
+        if (!evmBlockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
-            for (const auto& rust_string : blockResult.failed_transactions) {
+            for (const auto& rust_string : evmBlockResult.failed_transactions) {
                 failedTransactions.emplace_back(rust_string.data(), rust_string.length());
             }
 
             RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
         }
 
-        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee)});
+        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(evmBlockResult.miner_fee)});
     }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
