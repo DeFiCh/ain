@@ -1,5 +1,5 @@
 use ain_evm::receipt::Receipt;
-use ethereum::EIP658ReceiptData;
+use ethereum::{EIP658ReceiptData, Log};
 use primitive_types::{H160, H256, U256};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -48,19 +48,28 @@ impl From<Receipt> for ReceiptResult {
             gas_used: data.used_gas,
             logs: {
                 data.logs
-                    .iter()
+                    .into_iter()
                     .enumerate()
-                    .map(|(log_index, x)| LogResult {
-                        address: x.clone().address,
-                        topics: x.clone().topics,
-                        data: format!("0x{}", hex::encode(x.clone().data)),
-                        block_number: b.block_number,
-                        block_hash: b.block_hash,
-                        transaction_hash: b.tx_hash,
-                        transaction_index: format!("{:#x}", b.tx_index),
-                        log_index: { format!("{:#x}", b.logs_index + log_index) },
-                        removed: false,
-                    })
+                    .map(
+                        |(
+                            log_index,
+                            Log {
+                                address,
+                                topics,
+                                data,
+                            },
+                        )| LogResult {
+                            address,
+                            topics,
+                            data: format!("0x{}", hex::encode(data)),
+                            block_number: b.block_number,
+                            block_hash: b.block_hash,
+                            transaction_hash: b.tx_hash,
+                            transaction_index: format!("{:#x}", b.tx_index),
+                            log_index: { format!("{:#x}", b.logs_index + log_index) },
+                            removed: false,
+                        },
+                    )
                     .collect::<Vec<LogResult>>()
             },
             logs_bloom: format!("{:#x}", data.logs_bloom),

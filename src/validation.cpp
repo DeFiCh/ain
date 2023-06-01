@@ -1857,7 +1857,11 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         }
     }
+
+    evm_disconnect_latest_block();
+
     mnview.SetLastHeight(pindex->pprev->nHeight);
+
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }

@@ -11,7 +11,7 @@ use ain_evm::handler::Handlers;
 
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::{EnvelopedEncodable, TransactionV2 as EthereumTransaction};
+use ethereum::{EnvelopedEncodable, TransactionV2};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
@@ -156,7 +156,7 @@ pub trait MetachainRPC {
     ) -> RpcResult<H256>;
 
     /// Retrieves the number of transactions sent from a specific address.
-    #[method(name = "eth_getTransactionCount")]
+    #[method(name = "getTransactionCount")]
     fn get_transaction_count(
         &self,
         address: H160,
@@ -182,7 +182,7 @@ pub trait MetachainRPC {
     // ----------------------------------------
 
     /// Estimate gas needed for execution of given contract.
-    #[method(name = "eth_estimateGas")]
+    #[method(name = "estimateGas")]
     fn estimate_gas(
         &self,
         input: CallRequest,
@@ -257,7 +257,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or_default().as_u64(),
+                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
                 self.block_number_to_u256(block_number),
             )
@@ -506,7 +506,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             Some(TransactionMessage::Legacy(mut m)) => {
                 m.nonce = nonce;
                 m.chain_id = Some(chain_id);
-                m.gas_limit = U256::from(1);
+                m.gas_limit = gas_limit;
                 if gas_price.is_none() {
                     m.gas_price = self.gas_price().unwrap();
                 }
@@ -554,30 +554,31 @@ impl MetachainRPCServer for MetachainRPCModule {
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
 
         match ain_cpp_imports::publish_eth_transaction(hex) {
-            Ok(true) => {
-                let signed_tx = SignedTx::try_from(raw_tx)
-                    .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+            Ok(res_string) => {
+                if res_string.is_empty() {
+                    let signed_tx = SignedTx::try_from(raw_tx)
+                        .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
 
-                debug!(target:"rpc",
-                    "[send_raw_transaction] signed_tx sender : {:#x}",
-                    signed_tx.sender
-                );
-                debug!(target:"rpc",
-                    "[send_raw_transaction] signed_tx nonce : {:#x}",
-                    signed_tx.nonce()
-                );
-                debug!(target:"rpc",
-                    "[send_raw_transaction] transaction hash : {:#x}",
-                    signed_tx.transaction.hash()
-                );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] signed_tx sender : {:#x}",
+                        signed_tx.sender
+                    );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] signed_tx nonce : {:#x}",
+                        signed_tx.nonce()
+                    );
+                    debug!(target:"rpc",
+                        "[send_raw_transaction] transaction hash : {:#x}",
+                        signed_tx.transaction.hash()
+                    );
 
-                Ok(format!("{:#x}", signed_tx.transaction.hash()))
-            }
-            Ok(false) => {
-                debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
-                Err(Error::Custom(format!(
-                    "Could not publish raw transaction: {tx}"
-                )))
+                    Ok(format!("{:#x}", signed_tx.transaction.hash()))
+                } else {
+                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
+                    Err(Error::Custom(format!(
+                        "Could not publish raw transaction: {tx} resaon: {res_string}"
+                    )))
+                }
             }
             Err(e) => {
                 debug!(target:"rpc","[send_raw_transaction] Error publishing TX {e:?}");
@@ -671,12 +672,10 @@ impl MetachainRPCServer for MetachainRPCModule {
 fn sign(
     address: H160,
     message: TransactionMessage,
-) -> Result<EthereumTransaction, Box<dyn std::error::Error>> {
+) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
-
-    let mut transaction = None;
 
     match message {
         TransactionMessage::Legacy(m) => {
@@ -690,17 +689,18 @@ fn sign(
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
-            transaction = Some(EthereumTransaction::Legacy(ethereum::LegacyTransaction {
+
+            Ok(TransactionV2::Legacy(ethereum::LegacyTransaction {
                 nonce: m.nonce,
-                gas_price: m.gas_price,
-                gas_limit: m.gas_limit,
-                action: m.action,
                 value: m.value,
                 input: m.input,
                 signature: ethereum::TransactionSignature::new(v, r, s).ok_or_else(|| {
                     Error::Custom(String::from("signer generated invalid signature"))
                 })?,
-            }));
+                gas_price: m.gas_price,
+                gas_limit: m.gas_limit,
+                action: m.action,
+            }))
         }
         TransactionMessage::EIP2930(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
@@ -709,7 +709,8 @@ fn sign(
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
-            transaction = Some(EthereumTransaction::EIP2930(ethereum::EIP2930Transaction {
+
+            Ok(TransactionV2::EIP2930(ethereum::EIP2930Transaction {
                 chain_id: m.chain_id,
                 nonce: m.nonce,
                 gas_price: m.gas_price,
@@ -721,7 +722,7 @@ fn sign(
                 odd_y_parity: recid.serialize() != 0,
                 r,
                 s,
-            }));
+            }))
         }
         TransactionMessage::EIP1559(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
@@ -730,7 +731,8 @@ fn sign(
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
             let s = H256::from_slice(&rs[32..64]);
-            transaction = Some(EthereumTransaction::EIP1559(ethereum::EIP1559Transaction {
+
+            Ok(TransactionV2::EIP1559(ethereum::EIP1559Transaction {
                 chain_id: m.chain_id,
                 nonce: m.nonce,
                 max_priority_fee_per_gas: m.max_priority_fee_per_gas,
@@ -743,9 +745,7 @@ fn sign(
                 odd_y_parity: recid.serialize() != 0,
                 r,
                 s,
-            }));
+            }))
         }
     }
-
-    Ok(transaction.unwrap())
 }
