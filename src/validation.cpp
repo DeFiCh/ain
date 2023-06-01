@@ -2909,11 +2909,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             minerAddress = GetScriptForDestination(dest);
         }
 
-        const auto blockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
-        const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
+        const auto evmBlockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
+        const auto evmBlockHash = std::vector<uint8_t>(evmBlockResult.block_hash.begin(), evmBlockResult.block_hash.end());
 
-        mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(blockHash), block.GetHash());
-        mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(blockHash));
+        mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
+        mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
