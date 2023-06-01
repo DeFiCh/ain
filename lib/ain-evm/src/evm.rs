@@ -208,7 +208,6 @@ impl EVMHandler {
         let queue_tx = QueueTx::BridgeTx(BridgeTx {
             address,
             amount,
-            nonce: U256::zero(),
             r#type: BridgeTxType::EvmIn,
         });
         self.tx_queues.queue_tx(context, queue_tx, hash)?;
@@ -238,7 +237,6 @@ impl EVMHandler {
             let queue_tx = QueueTx::BridgeTx(BridgeTx {
                 address,
                 amount,
-                nonce: U256::zero(),
                 r#type: BridgeTxType::EvmOut,
             });
             self.tx_queues.queue_tx(context, queue_tx, hash)?;

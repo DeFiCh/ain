@@ -8,7 +8,6 @@ pub enum BridgeTxType {
 
 #[derive(Debug, Clone)]
 pub struct BridgeTx {
-    pub nonce: U256,
     pub r#type: BridgeTxType,
     pub address: H160,
     pub amount: U256,
