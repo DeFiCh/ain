@@ -80,9 +80,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance, int_to_eth_u256(50))
         
     def test_send_raw_transaction(self):
-        # TODO(canonbrother): debugging the value and chainId field error
         # LEGACY_TX = {
-        #     value: 0, // must be zero for now https://github.com/rust-blockchain/evm/blob/a14b6b02452ebf8e8a039b92ab1191041f806794/src/executor/stack/memory.rs#L356
+        #     value: 0, // must be set else error https://github.com/rust-blockchain/evm/blob/a14b6b02452ebf8e8a039b92ab1191041f806794/src/executor/stack/memory.rs#L356
         #     data: contractBytecode,
         #     gasLimit: 21_000,
         #     gasPrice: 21_000_000_000,
@@ -116,8 +115,7 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
        
         # EIP1559_TX = {
-        #     NOTE(canonbrother): take note on your own nonce value if sending raw tx
-        #     nonce: 1, 
+        #     nonce: 1, // take note on your own nonce value if sending raw tx
         #     value: 0,
         #     data: contractBytecode,
         #     gasLimit: 3_000_000_000_000_000,
