@@ -3,6 +3,7 @@ mod block;
 mod ecrecover;
 pub mod evm;
 pub mod executor;
+mod genesis;
 pub mod handler;
 pub mod receipt;
 pub mod runtime;

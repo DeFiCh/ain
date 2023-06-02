@@ -113,6 +113,7 @@ dependencies = [
  "rand 0.8.5",
  "rlp",
  "serde",
+ "serde_json",
  "sha3",
  "sp-core",
  "tempdir",

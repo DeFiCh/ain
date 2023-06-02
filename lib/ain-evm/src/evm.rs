@@ -1,5 +1,6 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
+use crate::genesis::GenesisData;
 use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -13,17 +14,21 @@ use anyhow::anyhow;
 use ethereum::{AccessList, Account, Log, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
 
+use evm::backend::{Backend, Basic};
 use hex::FromHex;
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
 use vsdb_trie_db::MptStore;
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
+pub static GENESIS_STATE_ROOT: &str =
+    "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
 
 pub type NativeTxHash = [u8; 32];
 
@@ -56,6 +61,49 @@ impl TrieDBStore {
         Self {
             trie_db: trie_store,
         }
+    }
+
+    pub fn genesis_state_root_from_json(
+        trie_store: Arc<TrieDBStore>,
+        storage: Arc<Storage>,
+        json_file: PathBuf,
+    ) -> Result<H256, std::io::Error> {
+        let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
+
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&trie_store),
+            Arc::clone(&storage),
+            Vicinity::default(),
+        )
+        .expect("Could not restore backend");
+
+        let file = fs::File::open(json_file)?;
+        let reader = BufReader::new(file);
+        let genesis: GenesisData = serde_json::from_reader(reader)?;
+
+        for (address, data) in genesis.alloc {
+            let basic = backend.basic(address);
+
+            let new_basic = Basic {
+                balance: data.balance,
+                ..basic
+            };
+            backend
+                .apply(
+                    address,
+                    new_basic,
+                    data.code,
+                    data.storage.unwrap_or_default(),
+                    false,
+                )
+                .expect("Could not set account data");
+            backend.commit();
+        }
+
+        let state_root: H256 = backend.commit().into();
+        debug!("Loaded genesis state_root : {:#x}", state_root);
+        Ok(state_root)
     }
 }
 
@@ -318,7 +366,7 @@ impl EVMHandler {
     }
 }
 
-use std::fmt;
+use std::{fmt, fs};
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),

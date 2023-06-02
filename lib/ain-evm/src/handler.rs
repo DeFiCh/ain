@@ -1,6 +1,6 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use crate::evm::{EVMHandler, GENESIS_STATE_ROOT};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
@@ -15,9 +15,6 @@ use log::debug;
 use primitive_types::H256;
 use std::error::Error;
 use std::sync::Arc;
-
-const GENESIS_STATE_ROOT: &str =
-    "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
 
 pub struct Handlers {
     pub evm: EVMHandler,
