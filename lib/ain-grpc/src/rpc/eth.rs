@@ -544,6 +544,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let encoded_string = hex::encode(encoded_bytes);
         let encoded = encoded_string.as_str();
         let hash = self.send_raw_transaction(encoded)?;
+        debug!(target:"rpc","[send_transaction] signed: {:?}", hash);
 
         Ok(hash)
     }
