@@ -578,7 +578,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 } else {
                     debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
                     Err(Error::Custom(format!(
-                        "Could not publish raw transaction: {tx} resaon: {res_string}"
+                        "Could not publish raw transaction: {tx} reason: {res_string}"
                     )))
                 }
             }
