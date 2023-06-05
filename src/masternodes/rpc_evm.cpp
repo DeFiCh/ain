@@ -249,11 +249,14 @@ UniValue evmmap(const JSONRPCRequest& request) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Not an EVM tx"));
                 }
             }
-            case EvmMapType::EVM_BLOCK_TO_DVM: {
-                return pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
+            case EvmMapType::EVM_TX_TO_DVM: {
+                return "";
             }
             case EvmMapType::DVM_BLOCK_TO_EVM: {
                 return pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(object)).ToString();
+            }
+            case EvmMapType::EVM_BLOCK_TO_DVM: {
+                return pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
             }
             case EvmMapType::AUTO: {
                 return "";
