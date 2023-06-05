@@ -414,6 +414,9 @@ class TestNode():
     def wait_until_stopped(self, timeout=DEFID_PROC_WAIT_TIMEOUT):
         wait_until(self.is_node_stopped, timeout=timeout)
 
+    def get_evm_rpc(self) -> str:
+        return self.evm_url
+
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs, timeout=2):
         time_end = time.time() + timeout
