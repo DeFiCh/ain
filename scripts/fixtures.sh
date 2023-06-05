@@ -1,5 +1,6 @@
-export LC_ALL=C
 #!/usr/bin/env bash
+
+export LC_ALL=C
 
 # setup_var
 ownerauthaddr="mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU"
