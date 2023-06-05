@@ -2013,14 +2013,13 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
 }
 
 static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
-    if (obj.type == CTransferDomainType::DVMTokenToEVM) {
-        for (const auto& [owner, balance] : obj.from) {
-            mnview.AddBalances(owner, balance);
-        }
-    } else {
-        for (const auto& [owner, balance] : obj.to) {
-            mnview.SubBalances(owner, balance);
-        }
+    for (const auto &idx : obj.transfers) {
+        const auto &src = idx.first;
+        const auto &dst = idx.second;
+        if (src.domain == CTransferDomain::DVMDomain)
+            mnview.AddBalance(src.address, src.amount);
+        if (dst.domain == CTransferDomain::DVMDomain)
+            mnview.SubBalance(dst.address, dst.amount);
     }
 }
 

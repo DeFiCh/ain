@@ -3806,70 +3806,60 @@ public:
     }
 
     Res operator()(const CTransferDomainMessage &obj) const {
+        // Check if EVM feature is active
         if (!IsEVMEnabled(height, mnview)) {
             return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
         auto res = Res::Ok();
 
-        // compare
-        const auto sumFrom = SumAllTransfers(obj.from);
-        const auto sumTo   = SumAllTransfers(obj.to);
+        // Iterate over array of transfers
+        for (const auto &[src, dst] : obj.transfers) {
+            // Reject if transfer is within same domain
+            if (src.domain == dst.domain)
+                return Res::Err("Cannot transfer inside same domain");
 
-        if (sumFrom != sumTo)
-            return Res::Err("sum of inputs (from) != sum of outputs (to)");
+            // Check for amounts out equals amounts in
+            if (src.amount.nValue != dst.amount.nValue)
+                return Res::Err("Source amount must be equal to destination amount");
 
-        CTxDestination dest;
-        if (obj.type == CTransferDomainType::DVMTokenToEVM) {
-            // owner auth
-            for (const auto &[addr, amounts] : obj.from) {
-                if (ExtractDestination(addr, dest)) {
+            // Restrict only for use with DFI token for now
+            if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+                return Res::Err("For transferdomain, only DFI token is currently supported");
+
+            CTxDestination dest;
+
+            // Soruce validation
+            // Check domain type
+            if (src.domain == CTransferDomain::DVMDomain) {
+                // Reject if source address is ETH address
+                if (ExtractDestination(src.address, dest)) {
                     if (dest.index() == WitV16KeyEthHashType) {
-                        return Res::Err("From address must not be an ETH address in case of \"evmin\" transfer type");
+                        return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
                     }
                 }
 
-                res = HasAuth(addr);
+                // Check for authorization on source address
+                res = HasAuth(src.address);
                 if (!res)
                     return res;
 
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
-                    }
-                }
-            }
+                // Subtract balance from DFI address
+                CBalances balance;
+                balance.Add(src.amount);
+                res = SubBalanceDelShares(src.address, balance);
+                if (!res)
+                    return res;
 
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-
-            for (const auto& [addr, amounts] : obj.to) {
-                if (ExtractDestination(addr, dest)) {
+            } else if (src.domain == CTransferDomain::EVMDomain) {
+                // Reject if source address is DFI address
+                if (ExtractDestination(src.address, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfer type");
+                        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
                     }
                 }
 
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
-                }
-            }
-        } else if (obj.type == CTransferDomainType::EVMToDVMToken) {
-            for (const auto& [addr, amounts] : obj.from) {
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfer type");
-                    }
-                }
+                // Check for authorization on source address
                 bool foundAuth = false;
                 for (const auto &input : tx.vin) {
                     const Coin &coin = coins.AccessCoin(input.prevout);
@@ -3879,45 +3869,55 @@ public:
                         auto it = input.scriptSig.begin();
                         CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                         auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                        if (script == addr)
+                        if (script == src.address)
                             foundAuth = true;
                     }
                 }
                 if (!foundAuth)
-                    return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
+                    return Res::Err("tx must have at least one input from account owner");
 
+                // Subtract balance from ETH address
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover \"evmout\" transfer", EncodeDestination(dest));
-                    }
+                arith_uint256 balanceIn = src.amount.nValue;
+                balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                    return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
                 }
-            }
-            for (const auto& [addr, amounts] : obj.to) {
-                if (ExtractDestination(addr, dest)) {
+            } else
+                return Res::Err("Invalid domain set for \"src\" argument");
+
+            // Destination validation
+            // Check domain type
+            if (dst.domain == CTransferDomain::DVMDomain) {
+                // Reject if source address is ETH address
+                if (ExtractDestination(dst.address, dest)) {
                     if (dest.index() == WitV16KeyEthHashType) {
-                        return Res::Err("To address must not be an ETH address in case of \"evmout\" transfer type");
+                        return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
                     }
                 }
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
-                    }
-                }
-            }
 
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
-        } else
-            return Res::Err("Invalid transfer type");
+                // Add balance to DFI address
+                CBalances balance;
+                balance.Add(dst.amount);
+                res = AddBalanceSetShares(dst.address, balance);
+                if (!res)
+                    return res;
+            } else if (dst.domain == CTransferDomain::EVMDomain) {
+                // Reject if source address is DFI address
+                if (ExtractDestination(dst.address, dest)) {
+                    if (dest.index() != WitV16KeyEthHashType) {
+                        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+                    }
+                }
+
+                // Add balance to ETH address
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+            } else
+                return Res::Err("Invalid domain set for \"dst\" argument");
+        }
 
         return res;
     }

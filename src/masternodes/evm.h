@@ -13,7 +13,7 @@ constexpr const uint16_t EVM_TX_SIZE = 32768;
 
 using CRawEvmTx = TBytes;
 
-extern std::string CTransferDomainTypeToString(const CTransferDomainType type);
+extern std::string CTransferDomainToString(const CTransferDomain domain);
 
 struct CEvmTxMessage {
     CRawEvmTx evmTx;
