@@ -55,6 +55,7 @@ class EVMTest(DefiTestFramework):
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
+        ethAddress1 = self.nodes[0].getnewaddress("ethAddress1", "eth")
         self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23') # ethAddress
         self.nodes[0].importprivkey('17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35') # to_address
 
@@ -171,23 +172,74 @@ class EVMTest(DefiTestFramework):
         assert_equal(newETHbalance, ETHbalance)
         assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
-        # Create transferdomain DVM->EVM with data field
-        datatx = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 1, "data":"nonce1"}, "dst":{"address":ethAddress, "amount":"10@DFI", "domain": 2}}])
+        # Check multiple transfers in one tx
+        tx3 = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 1}, "dst":{"address":ethAddress, "amount":"10@DFI", "domain": 2}},
+                                      {"src": {"address":address, "amount":"20@DFI", "domain": 1}, "dst":{"address":ethAddress1, "amount":"20@DFI", "domain": 2}}])
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Check tx3 fields
+        result = self.nodes[0].getcustomtx(tx3)["results"]["transfers"]
+        assert_equal(result[0]["src"]["address"], address)
+        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
+        assert_equal(result[0]["src"]["domain"], "DVM")
+        assert_equal(result[0]["dst"]["address"], ethAddress)
+        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
+        assert_equal(result[0]["dst"]["domain"], "EVM")
+        assert_equal(result[1]["src"]["address"], address)
+        assert_equal(result[1]["src"]["amount"], "20.00000000@0")
+        assert_equal(result[1]["src"]["domain"], "DVM")
+        assert_equal(result[1]["dst"]["address"], ethAddress1)
+        assert_equal(result[1]["dst"]["amount"], "20.00000000@0")
+        assert_equal(result[1]["dst"]["domain"], "EVM")
+
+        # Check new balances
+        newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
+        newETHbalance = self.nodes[0].eth_getBalance(ethAddress)
+        newETHbalance1 = self.nodes[0].eth_getBalance(ethAddress1)
+        assert_equal(newDFIbalance, DFIbalance - Decimal('30'))
+        assert_equal(newETHbalance, int_to_eth_u256(10))
+        assert_equal(newETHbalance1, int_to_eth_u256(20))
+
+        # Create transferdomain DVM->EVM with data field, and in same tx do EVM->DVM transfer (mixed transfers)
+        datatx = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 1, "data":"nonce1"}, "dst":{"address":ethAddress, "amount":"10@DFI", "domain": 2}},
+                                               {"src": {"address":ethAddress1, "amount":"20@DFI", "domain": 2}, "dst":{"address":address, "amount":"20@DFI", "domain": 1}}])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Check data field
-        result = self.nodes[0].getcustomtx(datatx)["results"]["transfers"][0]
-        assert_equal(result["src"]["data"], "nonce1")
+        result = self.nodes[0].getcustomtx(datatx)["results"]["transfers"]
+        assert_equal(result[0]["src"]["address"], address)
+        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
+        assert_equal(result[0]["src"]["domain"], "DVM")
+        assert_equal(result[0]["src"]["data"], "nonce1")
+        assert_equal(result[0]["dst"]["address"], ethAddress)
+        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
+        assert_equal(result[0]["dst"]["domain"], "EVM")
+        assert_equal(result[1]["src"]["address"], ethAddress1)
+        assert_equal(result[1]["src"]["amount"], "20.00000000@0")
+        assert_equal(result[1]["src"]["domain"], "EVM")
+        assert_equal(result[1]["dst"]["address"], address)
+        assert_equal(result[1]["dst"]["amount"], "20.00000000@0")
+        assert_equal(result[1]["dst"]["domain"], "DVM")
 
         # Create transferdomain DVM->EVM with data field
-        datatx = self.nodes[0].transferdomain([{"src": {"address":ethAddress, "amount":"10@DFI", "domain": 2}, "dst":{"address":address, "amount":"10@DFI", "domain": 1, "data":"nonce2"}}])
+        datatx = self.nodes[0].transferdomain([{"src": {"address":ethAddress, "amount":"20@DFI", "domain": 2}, "dst":{"address":address, "amount":"20@DFI", "domain": 1, "data":"nonce2"}}])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Check data field
         result = self.nodes[0].getcustomtx(datatx)["results"]["transfers"][0]
         assert_equal(result["dst"]["data"], "nonce2")
+
+        # Check new balances
+        newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']
+        newETHbalance = self.nodes[0].eth_getBalance(ethAddress)
+        newETHbalance1 = self.nodes[0].eth_getBalance(ethAddress1)
+        assert_equal(newDFIbalance, DFIbalance)
+        assert_equal(newETHbalance, ETHbalance)
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
+        assert_equal(newETHbalance1, int_to_eth_u256(0))
 
         # evmtx tests
 
