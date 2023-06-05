@@ -7,8 +7,6 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    list_unspent_tx,
-    unspent_amount,
     fund_tx,
 )
 from decimal import Decimal
@@ -219,23 +217,19 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress': forced_reward_address})
         self.nodes[0].generate(11)
 
-        fra_amount = unspent_amount(self.nodes[0], forced_reward_address)
-        fra_unspent = list_unspent_tx(self.nodes[0], forced_reward_address)
-        assert_equal(len(fra_unspent), 0)
-        assert_equal(fra_amount, 0)
-
         self.stop_node(1)
         self.restart_node(0, ['-gen', '-masternode_operator=' + operator_address, '-txindex=1', '-txnotokens=0',
                               '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=1'])
 
         # Mine blocks
-        self.nodes[0].generate(300)
+        self.nodes[0].generate(101)
+
+        # Check balance to new reward address
+        assert_equal(len(self.nodes[0].listunspent(addresses=[forced_reward_address])), 1)
+        assert_equal(self.nodes[0].listunspent(addresses=[forced_reward_address])[0]['amount'], Decimal('19.00000000'))
 
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress': ''})
         self.nodes[0].generate(1)
-
-        assert (len(list_unspent_tx(self.nodes[0], forced_reward_address)) > len(fra_unspent))
-        assert (unspent_amount(self.nodes[0], forced_reward_address) > fra_amount)
 
         # CLI Reward address for test -rewardaddress
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
@@ -245,16 +239,12 @@ class TestForcedRewardAddress(DefiTestFramework):
                            '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50',
                            '-grandcentralheight=1'])
 
-        cra_unspent = list_unspent_tx(self.nodes[0], cli_reward_address)
-        cra_amount = unspent_amount(self.nodes[0], cli_reward_address)
-        assert_equal(len(cra_unspent), 0)
-        assert_equal(cra_amount, 0)
-
         # Mine blocks
-        self.nodes[0].generate(400)
+        self.nodes[0].generate(101)
 
-        assert (len(list_unspent_tx(self.nodes[0], cli_reward_address)) > len(fra_unspent))
-        assert (unspent_amount(self.nodes[0], cli_reward_address) > fra_amount)
+        # Check balance to new reward address
+        assert_equal(len(self.nodes[0].listunspent(addresses=[forced_reward_address])), 1)
+        assert_equal(self.nodes[0].listunspent(addresses=[forced_reward_address])[0]['amount'], Decimal('19.00000000'))
 
         # Test updating operator and reward address simultaniously
         new_operator_address = self.nodes[0].getnewaddress("", "legacy")
