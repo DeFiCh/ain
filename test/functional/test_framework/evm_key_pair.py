@@ -1,8 +1,6 @@
 from eth_account import Account
 from web3 import Web3
 
-from .test_node import TestNode
-
 
 def validate_keys(pkey, pkey_address):
     account = Account.from_key(pkey)
@@ -19,7 +17,7 @@ def validate_keys(pkey, pkey_address):
 
 
 class KeyPair:
-    def __init__(self, node: TestNode = None, pkey: str = None, pkey_address: str = None):
+    def __init__(self, node=None, pkey: str = None, pkey_address: str = None):
         if pkey and pkey_address:
             self.pkey, self.address = pkey, pkey_address
         elif (pkey is None or pkey_address is None) and node:

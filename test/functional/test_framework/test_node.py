@@ -31,6 +31,7 @@ from .util import (
     wait_until,
     p2p_port,
 )
+from .evm_provider import EVMProvider
 
 DEFID_PROC_WAIT_TIMEOUT = 60
 
@@ -129,6 +130,8 @@ class TestNode():
         self.perf_subprocesses = {}
 
         self.p2ps = []
+
+        self.evm = None
 
     MnKeys = collections.namedtuple('MnKeys',
                                     ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
@@ -340,6 +343,7 @@ class TestNode():
                 self.rpc_connected = True
                 self.url = self.rpc.url
                 self.evm_url = self.evm_rpc.url
+                self.evm = EVMProvider(self.evm_url, self.generate)
                 return
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?

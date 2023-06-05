@@ -6,7 +6,6 @@
 """Test EVM contract"""
 
 from test.functional.test_framework.util import assert_equal
-from test_framework.evm_provider import EVMProvider
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contracts import EVMContract
 from test_framework.evm_key_pair import KeyPair
@@ -36,20 +35,20 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def run_test(self):
+        node = self.nodes[0]
         self.setup()
 
-        key_pair = KeyPair(self.nodes[0])
-        provider = EVMProvider(self.nodes[0])
+        key_pair = KeyPair(node)
         address = key_pair.address
 
-        self.nodes[0].transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
-        self.nodes[0].generate(1)
+        node.transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
+        node.generate(1)
 
         evm_contract = EVMContract("SimpleStorage.sol", "Test").compile()
-        contract = provider.deploy_compiled_contract(key_pair, evm_contract)
+        contract = node.evm.deploy_compiled_contract(key_pair, evm_contract)
 
         # set variable
-        provider.sign_and_send(contract.functions.store(10), key_pair)
+        node.evm.sign_and_send(contract.functions.store(10), key_pair)
 
         # get variable
         assert_equal(contract.functions.retrieve().call(), 10)

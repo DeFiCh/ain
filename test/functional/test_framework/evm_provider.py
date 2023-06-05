@@ -1,18 +1,16 @@
-from typing import Callable, Type
+from typing import Type
 
-from eth_account import Account
 from web3 import Web3
-from web3.contract import Contract, ContractConstructor
+from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from .evm_key_pair import KeyPair
-from .test_node import TestNode
 
 
 class EVMProvider:
-    def __init__(self, node: TestNode):
-        self.generator = node.generate
-        self.w3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
+    def __init__(self, rpc_url, generate):
+        self.generator = generate
+        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
 
     def deploy_compiled_contract(self, signer: KeyPair, compiled_contract, constructor=None) -> Type[Contract]:
         abi, bytecode = compiled_contract
