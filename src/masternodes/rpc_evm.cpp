@@ -8,7 +8,7 @@
 #include "BRLargeInt.h"
 #include "BRInt.h"
 
-enum evmMapType {
+enum class EvmMapType {
     AUTO,
     DVM_ADDRESS_TO_EVM,
     EVM_ADDRESS_TO_DVM,
@@ -17,6 +17,8 @@ enum evmMapType {
     DVM_BLOCK_TO_EVM,
     EVM_BLOCK_TO_DVM
 };
+
+static int NumEvmMapType = 7;
 
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
@@ -197,7 +199,7 @@ UniValue evmmap(const JSONRPCRequest& request) {
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
-                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI tx to EVM, 4 - EVM to DFI tx"}
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
@@ -208,51 +210,60 @@ UniValue evmmap(const JSONRPCRequest& request) {
     }.Check(request);
 
     const std::string object = request.params[0].get_str();
-    const int type = request.params[1].get_int();
-    switch (type) {
-        case DVM_ADDRESS_TO_EVM: {
-            const CPubKey key = AddrToPubKey(pwallet, object);
-            return EncodeDestination(WitnessV16EthHash(key.GetID()));
-        }
-        case EVM_ADDRESS_TO_DVM: {
-            const CPubKey key = AddrToPubKey(pwallet, object);
-            return EncodeDestination(PKHash(key.GetID()));
-        }
-        case DVM_TX_TO_EVM: {
-            uint256 hashBlock;
-            CTransactionRef tx;
-            LOCK(cs_main);
-            if (g_txindex) {
-                if (!(g_txindex->FindTx(uint256S(object), hashBlock, tx))) {
-                    return "Tx not found";
-                }
-            } else {
-                return "Transaction index not available";
+
+    if (request.params[1].get_int() < 7) {
+        const EvmMapType type = static_cast<EvmMapType>(request.params[1].get_int());
+        switch (type) {
+            case EvmMapType::DVM_ADDRESS_TO_EVM: {
+                const CPubKey key = AddrToPubKey(pwallet, object);
+                return EncodeDestination(WitnessV16EthHash(key.GetID()));
             }
-            std::vector<unsigned char> metadata;
-            auto txType = GuessCustomTxType(*tx, metadata);
-            if (txType == CustomTxType::EvmTx) {
-                CCustomTxMessage txMessage{CEvmTxMessage{}};
-                const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
-                if (!res) {
-                    return "Failed parse metadata";
-                }
-                const CEvmTxMessage obj = std::get<CEvmTxMessage>(txMessage);
-                UInt256 result;
-                BRKeccak256(&result, std::data(obj.evmTx), obj.evmTx.size());
-                return "0x" + u256hex(result);
-            } else {
-                return "Not a EVM tx";
+            case EvmMapType::EVM_ADDRESS_TO_DVM: {
+                const CPubKey key = AddrToPubKey(pwallet, object);
+                return EncodeDestination(PKHash(key.GetID()));
             }
+            case EvmMapType::DVM_TX_TO_EVM: {
+                uint256 hashBlock;
+                CTransactionRef tx;
+                LOCK(cs_main);
+                if (g_txindex) {
+                    if (!(g_txindex->FindTx(uint256S(object), hashBlock, tx))) {
+                        throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Tx not found"));
+                    }
+                } else {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Tx index not available"));
+                }
+                std::vector<unsigned char> metadata;
+                auto txType = GuessCustomTxType(*tx, metadata);
+                if (txType == CustomTxType::EvmTx) {
+                    CCustomTxMessage txMessage{CEvmTxMessage{}};
+                    const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
+                    if (!res) {
+                        throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Failed parse metadata"));
+                    }
+                    const CEvmTxMessage obj = std::get<CEvmTxMessage>(txMessage);
+                    UInt256 result;
+                    BRKeccak256(&result, std::data(obj.evmTx), obj.evmTx.size());
+                    return "0x" + u256hex(result);
+                } else {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Not an EVM tx"));
+                }
+            }
+            case EvmMapType::EVM_BLOCK_TO_DVM: {
+                return pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
+            }
+            case EvmMapType::DVM_BLOCK_TO_EVM: {
+                return pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(object)).ToString();
+            }
+            case EvmMapType::AUTO: {
+                return "";
+            }
+            default:
+                break;
         }
-        case EVM_BLOCK_TO_DVM: {
-            return pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
-        }
-        case DVM_BLOCK_TO_EVM: {
-            return pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(object)).ToString();
-        }
-        default:
-            return "";
+    }
+    else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", NumEvmMapType));
     }
 }
 
