@@ -40,8 +40,8 @@ pub mod ffi {
     }
 
     extern "Rust" {
-        fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
-        fn evm_get_nonce(address: &str, block_number: [u8; 32]) -> Result<u64>;
+        fn evm_get_balance(address: [u8; 20]) -> Result<u64>;
+        fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
 
         fn evm_add_balance(
             context: u64,
@@ -125,12 +125,11 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
     Ok(signed.encode().into())
 }
 
-/// Retrieves the balance of an EVM account at a specific block number.
+/// Retrieves the balance of an EVM account at latest block height.
 ///
 /// # Arguments
 ///
 /// * `address` - The EVM address of the account.
-/// * `block_number` - The block number as a byte array.
 ///
 /// # Errors
 ///
@@ -139,24 +138,24 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
-    let account = address.parse()?;
+pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+    let account = H160::from(address);
+    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
     let mut balance = RUNTIME
         .handlers
         .evm
-        .get_balance(account, U256::from(block_number))
+        .get_balance(account, latest_block_number)
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     Ok(balance.as_u64())
 }
 
-/// Retrieves the nonce of an EVM account at a specific block number.
+/// Retrieves the nonce of an EVM account at latest block height.
 ///
 /// # Arguments
 ///
 /// * `address` - The EVM address of the account.
-/// * `block_number` - The block number as a byte array.
 ///
 /// # Errors
 ///
@@ -165,12 +164,13 @@ pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box
 /// # Returns
 ///
 /// Returns the nonce of the account as a `u64` on success.
-pub fn evm_get_nonce(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
-    let account = address.parse()?;
+pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+    let account = H160::from(address);
+    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
     let nonce = RUNTIME
         .handlers
         .evm
-        .get_nonce(account, U256::from(block_number))
+        .get_nonce(account, latest_block_number)
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     Ok(nonce.as_u64())
 }
