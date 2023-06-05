@@ -1861,11 +1861,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     if (IsEVMEnabled(pindex->nHeight, mnview)) {
         evm_disconnect_latest_block();
 
-        uint256 evmBlockHash;
-        const auto res = mnview.GetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), evmBlockHash);
+        const auto res = mnview.GetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
         if (res) {
             mnview.EraseBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
-            mnview.EraseBlockHash(CEvmDvmMapType::EvmDvm, evmBlockHash);
+            mnview.EraseBlockHash(CEvmDvmMapType::EvmDvm, *res.val);
         }
     }
 

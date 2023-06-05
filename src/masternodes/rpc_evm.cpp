@@ -253,24 +253,22 @@ UniValue evmmap(const JSONRPCRequest& request) {
                 return "";
             }
             case EvmMapType::DVM_BLOCK_TO_EVM: {
-                uint256 evmHash;
-                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash), evmHash);
+                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
                 if (!res) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
                 }
                 else {
-                    return evmHash.ToString();
+                    return res.val->ToString();
                 }
             }
             case EvmMapType::EVM_BLOCK_TO_DVM: {
-                uint256 dvmHash;
-                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash), dvmHash);
+                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
                 if (!res) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
                 }
                 else
                 {
-                    return dvmHash.ToString();
+                    return res.val->ToString();
                 }
             }
             case EvmMapType::AUTO: {

@@ -33,9 +33,9 @@ enum CEvmDvmMapType : uint8_t {
 
 class CEvmDvmView : public virtual CStorageView {
 public:
-    void SetBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash);
-    Res GetBlockHash(uint8_t type, uint256 blockHashKey, uint256& blockHash) const;
+    Res SetBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash);
     Res EraseBlockHash(uint8_t type, uint256 blockHashKey);
+    ResVal<uint256> GetBlockHash(uint8_t type, uint256 blockHashKey) const;
 
     struct BlockHash {
         static constexpr uint8_t prefix() { return 'N'; }
