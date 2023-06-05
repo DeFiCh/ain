@@ -2922,7 +2922,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         const auto evmBlockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
-        const auto evmBlockHash = std::vector<uint8_t>(evmBlockResult.block_hash.begin(), evmBlockResult.block_hash.end());
+        auto evmBlockHash = std::vector<uint8_t>(evmBlockResult.block_hash.begin(), evmBlockResult.block_hash.end());
+        std::reverse(evmBlockHash.begin(), evmBlockHash.end());
 
         mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
         mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
