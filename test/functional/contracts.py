@@ -66,7 +66,7 @@ class EVMContract:
         self.w3 = Web3(Web3.HTTPProvider(provider))
         self.contract = self.w3.eth.contract(abi=abi, bytecode=bytecode)
 
-    def deploy_contract(self, constructor) -> Type[Contract]:
+    def deploy(self, constructor) -> Type[Contract]:
         nonce = self.w3.eth.get_transaction_count(self.address)
         tx = self.contract.constructor(constructor).build_transaction({
             'chainId': 1133,

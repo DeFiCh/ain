@@ -35,7 +35,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].transferdomain(1,{self.address:["50@DFI"]}, {address:["50@DFI"]})
         self.nodes[0].generate(1)
 
-        contract = evmcontract.deploy_contract(None)
+        contract = evmcontract.deploy(None)
 
         # set variable
         evmcontract.sign_and_send(contract.functions.store(10))
