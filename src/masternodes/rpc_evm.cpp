@@ -212,7 +212,7 @@ UniValue evmmap(const JSONRPCRequest& request) {
     const std::string object = request.params[0].get_str();
 
     if (request.params[1].get_int() < 7) {
-        const EvmMapType type = static_cast<EvmMapType>(request.params[1].get_int());
+        const auto type = static_cast<EvmMapType>(request.params[1].get_int());
         switch (type) {
             case EvmMapType::DVM_ADDRESS_TO_EVM: {
                 const CPubKey key = AddrToPubKey(pwallet, object);

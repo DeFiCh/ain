@@ -1862,8 +1862,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         evm_disconnect_latest_block();
 
         uint256 evmBlockHash = mnview.GetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
-        mnview.EraseBlockHash(CEvmDvmMapType::EvmDvm, evmBlockHash);
         mnview.EraseBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
+        mnview.EraseBlockHash(CEvmDvmMapType::EvmDvm, evmBlockHash);
     }
 
     mnview.SetLastHeight(pindex->pprev->nHeight);
@@ -2922,8 +2922,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         const auto evmBlockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
         const auto evmBlockHash = std::vector<uint8_t>(evmBlockResult.block_hash.begin(), evmBlockResult.block_hash.end());
 
-        mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
         mnview.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
+        mnview.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
 
         if (!evmBlockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
