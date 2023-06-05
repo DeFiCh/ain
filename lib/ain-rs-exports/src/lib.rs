@@ -36,6 +36,8 @@ pub mod ffi {
 
     extern "Rust" {
         fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
+        fn evm_get_nonce(address: &str, block_number: [u8; 32]) -> Result<u64>;
+
         fn evm_add_balance(
             context: u64,
             address: &str,
@@ -48,11 +50,13 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
-        fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool>;
+
+        fn evm_prevalidate_raw_tx(tx: &str) -> Result<u64>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
         fn evm_queue_tx(context: u64, raw_tx: &str, native_tx_hash: [u8; 32]) -> Result<bool>;
+
         fn evm_finalize(
             context: u64,
             update_state: bool,
@@ -142,6 +146,30 @@ pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box
     Ok(balance.as_u64())
 }
 
+/// Retrieves the nonce of an EVM account at a specific block number.
+///
+/// # Arguments
+///
+/// * `address` - The EVM address of the account.
+/// * `block_number` - The block number as a byte array.
+///
+/// # Errors
+///
+/// Throws an Error if the address is not a valid EVM address.
+///
+/// # Returns
+///
+/// Returns the nonce of the account as a `u64` on success.
+pub fn evm_get_nonce(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
+    let account = address.parse()?;
+    let nonce = RUNTIME
+        .handlers
+        .evm
+        .get_nonce(account, U256::from(block_number))
+        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
+    Ok(nonce.as_u64())
+}
+
 /// EvmIn. Send DFI to an EVM account.
 ///
 /// # Arguments
@@ -227,13 +255,13 @@ pub fn evm_sub_balance(
 ///
 /// # Returns
 ///
-/// Returns `true` if the transaction is valid, logs the error and returns `false` otherwise.
-pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
+/// Returns the transaction nonce as a u64 if the transaction is valid, logs and throws the error otherwise.
+pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<u64, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok(_) => Ok(true),
+        Ok(signed_tx) => Ok(signed_tx.nonce().as_u64()),
         Err(e) => {
-            debug!("evm_prevalidate_raw_tx fails with error: {:?}", e);
-            Ok(false)
+            debug!("evm_prevalidate_raw_tx fails with error: {e}");
+            Err(e)
         }
     }
 }
