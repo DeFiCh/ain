@@ -1,3 +1,4 @@
+import os
 from typing import Type, Callable
 
 from solcx import compile_standard, install_solc
@@ -27,16 +28,17 @@ class EVMContract:
     def __init__(self, file_name: str, contract_name: str, provider: str, generator: Callable,
                  pkey: str = "6dff3b5d0e3dd33c391caf81a4e7bc54e800b7a55cb8bfe3ade558ba945790b2",
                  pkey_address: str = "0x16b84F92f4F265f4D969378ad7394056FB56d1eb"):
+        self.generator = generator
+
         # Validate keys
         validate_keys(pkey, pkey_address)
         self.pkey = pkey
         self.address = pkey_address
-        self.generator = generator
 
         # Install solc
         install_solc(self._solc_version)
 
-        with open(f"./{self._path_prefix}/{file_name}", "r") as file:
+        with open(f"{os.path.dirname(__file__)}/{self._path_prefix}/{file_name}", "r") as file:
             compiled_sol = compile_standard(
                 {
                     "language": "Solidity",
