@@ -15,6 +15,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <ffi/cxx.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -776,6 +777,22 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
+                if (txType == CustomTxType::EvmTx) {
+                    auto txMessage = customTypeToMessage(txType);
+                    const auto obj = std::get<CEvmTxMessage>(txMessage);
+                    try {
+                        const auto txResult = evm_prevalidate_raw_tx(HexStr(obj.evmTx));
+                        const auto nonce = evm_get_nonce(txResult.sender);
+                        if (nonce != txResult.nonce) {
+                            customTxPassed = false;
+                            break;
+                        }
+                    } catch (const rust::Error&) {
+                        customTxPassed = false;
+                        break;
+                    }
+                }
+
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
 
                 // Not okay invalidate, undo and skip
