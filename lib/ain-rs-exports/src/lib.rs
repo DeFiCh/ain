@@ -34,6 +34,11 @@ pub mod ffi {
         miner_fee: u64,
     }
 
+    pub struct ValidateTxResult {
+        nonce: u64,
+        sender: [u8; 20],
+    }
+
     extern "Rust" {
         fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
         fn evm_get_nonce(address: &str, block_number: [u8; 32]) -> Result<u64>;
@@ -51,7 +56,7 @@ pub mod ffi {
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
 
-        fn evm_prevalidate_raw_tx(tx: &str) -> Result<u64>;
+        fn evm_prevalidate_raw_tx(tx: &str) -> Result<ValidateTxResult>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
@@ -255,10 +260,13 @@ pub fn evm_sub_balance(
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce as a u64 if the transaction is valid, logs and throws the error otherwise.
-pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<u64, Box<dyn Error>> {
+/// Returns the transaction nonce and sender address if the transaction is valid, logs and throws the error otherwise.
+pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok(signed_tx) => Ok(signed_tx.nonce().as_u64()),
+        Ok(signed_tx) => Ok(ffi::ValidateTxResult {
+            nonce: signed_tx.nonce().as_u64(),
+            sender: signed_tx.sender.to_fixed_bytes(),
+        }),
         Err(e) => {
             debug!("evm_prevalidate_raw_tx fails with error: {e}");
             Err(e)
