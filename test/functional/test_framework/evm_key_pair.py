@@ -1,6 +1,7 @@
 from eth_account import Account
 from web3 import Web3
-from test_framework.test_node import TestNode
+
+from .test_node import TestNode
 
 
 def validate_keys(pkey, pkey_address):

@@ -4,10 +4,12 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM contract"""
-from provider import EVMProvider
+
+from test.functional.test_framework.util import assert_equal
+from test_framework.evm_provider import EVMProvider
 from test_framework.test_framework import DefiTestFramework
-from contracts import EVMContract
-from key_pair import KeyPair
+from test_framework.evm_contracts import EVMContract
+from test_framework.evm_key_pair import KeyPair
 
 
 class EVMTest(DefiTestFramework):
@@ -50,7 +52,7 @@ class EVMTest(DefiTestFramework):
         provider.sign_and_send(contract.functions.store(10), key_pair)
 
         # get variable
-        print(contract.functions.retrieve().call())
+        assert_equal(contract.functions.retrieve().call(), 10)
 
 
 if __name__ == '__main__':

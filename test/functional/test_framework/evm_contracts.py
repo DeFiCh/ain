@@ -2,13 +2,12 @@ import os
 from typing import List, Dict
 
 from solcx import compile_standard
-from web3 import Web3
 
 
 class EVMContract:
     # Solidity compiler version
     _solc_version = "0.8.10"
-    _path_prefix = "contracts"
+    _path_prefix = "../contracts"
 
     def __init__(self, file_name: str, contract_name: str):
         self.file_name = file_name

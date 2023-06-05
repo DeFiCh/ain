@@ -5,11 +5,8 @@ from web3 import Web3
 from web3.contract import Contract, ContractConstructor
 from web3.contract.contract import ContractFunction
 
-from key_pair import KeyPair
-from test_framework.test_node import TestNode
-
-
-
+from .evm_key_pair import KeyPair
+from .test_node import TestNode
 
 
 class EVMProvider:
