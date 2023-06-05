@@ -209,17 +209,17 @@ UniValue evmmap(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    const std::string object = request.params[0].get_str();
+    const std::string hash = request.params[0].get_str();
 
     if (request.params[1].get_int() < 7) {
         const auto type = static_cast<EvmMapType>(request.params[1].get_int());
         switch (type) {
             case EvmMapType::DVM_ADDRESS_TO_EVM: {
-                const CPubKey key = AddrToPubKey(pwallet, object);
+                const CPubKey key = AddrToPubKey(pwallet, hash);
                 return EncodeDestination(WitnessV16EthHash(key.GetID()));
             }
             case EvmMapType::EVM_ADDRESS_TO_DVM: {
-                const CPubKey key = AddrToPubKey(pwallet, object);
+                const CPubKey key = AddrToPubKey(pwallet, hash);
                 return EncodeDestination(PKHash(key.GetID()));
             }
             case EvmMapType::DVM_TX_TO_EVM: {
@@ -227,7 +227,7 @@ UniValue evmmap(const JSONRPCRequest& request) {
                 CTransactionRef tx;
                 LOCK(cs_main);
                 if (g_txindex) {
-                    if (!(g_txindex->FindTx(uint256S(object), hashBlock, tx))) {
+                    if (!(g_txindex->FindTx(uint256S(hash), hashBlock, tx))) {
                         throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Tx not found"));
                     }
                 } else {
@@ -253,10 +253,25 @@ UniValue evmmap(const JSONRPCRequest& request) {
                 return "";
             }
             case EvmMapType::DVM_BLOCK_TO_EVM: {
-                return "0x" + pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(object)).ToString();
+                uint256 evmHash;
+                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash), evmHash);
+                if (!res) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+                }
+                else {
+                    return evmHash.ToString();
+                }
             }
             case EvmMapType::EVM_BLOCK_TO_DVM: {
-                return pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(object)).ToString();
+                uint256 dvmHash;
+                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash), dvmHash);
+                if (!res) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+                }
+                else
+                {
+                    return dvmHash.ToString();
+                }
             }
             case EvmMapType::AUTO: {
                 return "";
