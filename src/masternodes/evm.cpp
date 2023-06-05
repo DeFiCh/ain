@@ -12,3 +12,9 @@ void CEvmDvmView::SetBlockHash(uint8_t type, uint256 blockHashKey, uint256 block
 {
     WriteBy<BlockHash>(std::pair(type, blockHashKey), blockHash);
 }
+
+Res CEvmDvmView::EraseBlockHash(uint8_t type, uint256 blockHashKey)
+{
+    EraseBy<BlockHash>(std::pair(type, blockHashKey));
+    return Res::Ok();
+}

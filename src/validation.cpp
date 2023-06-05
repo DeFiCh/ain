@@ -1858,7 +1858,13 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
 
-    evm_disconnect_latest_block();
+    if (IsEVMEnabled(pindex->nHeight, mnview)) {
+        evm_disconnect_latest_block();
+
+        uint256 evmBlockHash = mnview.GetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
+        mnview.EraseBlockHash(CEvmDvmMapType::EvmDvm, evmBlockHash);
+        mnview.EraseBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
+    }
 
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
