@@ -1,3 +1,4 @@
+export LC_ALL=C
 #!/usr/bin/env bash
 
 # setup_var
