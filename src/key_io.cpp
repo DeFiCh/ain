@@ -61,7 +61,20 @@ public:
 
     std::string operator()(const WitnessV16EthHash& id) const
     {
-        return ETH_ADDR_PREFIX + HexStr(id);
+        const auto address = id.ToString();
+        std::vector<unsigned char> input(address.begin(), address.end());
+        std::vector<unsigned char> output;
+        sha3(input, output);
+        const auto hashedAddress = HexStr(output);
+        std::string result;
+        for (size_t i{}; i < address.size(); ++i) {
+            if (std::isdigit(address[i]) || hashedAddress[i] < '8') {
+                result += address[i];
+            } else {
+                result += std::toupper(address[i]);
+            }
+        }
+        return ETH_ADDR_PREFIX + result;
     }
 
     std::string operator()(const CNoDestination& no) const { return {}; }
