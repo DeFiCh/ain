@@ -9,8 +9,12 @@ from .evm_key_pair import KeyPair
 
 class EVMProvider:
     def __init__(self, rpc_url, generate):
-        self.generator = generate
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        self.generator = generate
+
+    @staticmethod
+    def from_node(node):
+        return EVMProvider(node.get_evm_rpc(), node.generate)
 
     def deploy_compiled_contract(self, signer: KeyPair, compiled_contract, constructor=None) -> Type[Contract]:
         abi, bytecode = compiled_contract
