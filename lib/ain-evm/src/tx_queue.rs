@@ -21,6 +21,9 @@ impl Default for TransactionQueueMap {
     }
 }
 
+/// Holds multiple `TransactionQueue`s, each associated with a unique context ID.
+///
+/// Context IDs are randomly generated and used to access distinct transaction queues.
 impl TransactionQueueMap {
     pub fn new() -> Self {
         TransactionQueueMap {
@@ -28,6 +31,8 @@ impl TransactionQueueMap {
         }
     }
 
+    /// `get_context` generates a unique random ID, creates a new `TransactionQueue` for that ID,
+    /// and then returns the ID.
     pub fn get_context(&self) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
@@ -41,10 +46,13 @@ impl TransactionQueueMap {
         }
     }
 
+    /// Try to remove and return the `TransactionQueue` associated with the provided
+    /// context ID.
     pub fn remove(&self, context_id: u64) -> Option<TransactionQueue> {
         self.queues.write().unwrap().remove(&context_id)
     }
 
+    /// Clears the `TransactionQueue` vector associated with the provided context ID.
     pub fn clear(&self, context_id: u64) -> Result<(), QueueError> {
         self.queues
             .read()
@@ -54,6 +62,12 @@ impl TransactionQueueMap {
             .map(TransactionQueue::clear)
     }
 
+    /// Attempts to add a new transaction to the `TransactionQueue` associated with the
+    /// provided context ID. If the transaction is a `SignedTx`, it also updates the
+    /// corresponding account's nonce. The method assumes that transactions are signed and nonces
+    /// are properly handled before being added to the queue. Nonces for each account's transactions
+    /// should be in increasing order, e.g., if the last queued transaction for an account has nonce 3,
+    /// the next one should have nonce 4.
     pub fn queue_tx(
         &self,
         context_id: u64,
@@ -68,6 +82,9 @@ impl TransactionQueueMap {
             .map(|queue| queue.queue_tx((tx, hash)))
     }
 
+    /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
+    /// provided context ID, removing them from the queue. Transactions are returned in the
+    /// order they were added.
     pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
         self.queues
             .read()
@@ -76,6 +93,8 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
+    /// `len` returns the number of transactions in the `TransactionQueue` associated with the
+    /// provided context ID.
     pub fn len(&self, context_id: u64) -> usize {
         self.queues
             .read()
@@ -84,6 +103,10 @@ impl TransactionQueueMap {
             .map_or(0, TransactionQueue::len)
     }
 
+    /// `get_nonce` returns the latest nonce for the account with the provided address in the
+    /// `TransactionQueue` associated with the provided context ID. This method assumes that
+    /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
+    /// and that their nonces are in increasing order.
     pub fn get_nonce(&self, context_id: u64, address: H160) -> Option<U256> {
         self.queues
             .read()
@@ -101,6 +124,9 @@ pub enum QueueTx {
 
 type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
 
+/// The `TransactionQueue` holds a queue of transactions and a map of account nonces.
+/// It's used to manage and process transactions for different accounts.
+///
 #[derive(Debug, Default)]
 pub struct TransactionQueue {
     transactions: Mutex<Vec<QueueTxWithNativeHash>>,
