@@ -773,12 +773,17 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             AddCoins(coins, tx, nHeight, false); // do not check
 
             std::vector<unsigned char> metadata;
-            CustomTxType txType = GuessCustomTxType(tx, metadata);
+            CustomTxType txType = GuessCustomTxType(tx, metadata, true);
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
                 if (txType == CustomTxType::EvmTx) {
                     auto txMessage = customTypeToMessage(txType);
+                    if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
+                        customTxPassed = false;
+                        break;
+                    }
+
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     RustRes result;
