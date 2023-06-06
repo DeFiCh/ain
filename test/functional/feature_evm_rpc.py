@@ -149,6 +149,10 @@ class EVMTest(DefiTestFramework):
         assert_equal(latest_full_block['transactions'][0]['v'], '0x25')
         assert_equal(latest_full_block['transactions'][0]['r'], '0x37f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376')
 
+        # state check
+        block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
+        assert_equal(block, latest_block)
+
     def run_test(self):
         self.setup()
 

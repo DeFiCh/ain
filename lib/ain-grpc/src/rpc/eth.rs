@@ -476,6 +476,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 }
             }
         };
+        debug!(target:"rpc","[send_transaction] from: {:?}", from);
 
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
@@ -543,6 +544,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let encoded_string = hex::encode(encoded_bytes);
         let encoded = encoded_string.as_str();
         let hash = self.send_raw_transaction(encoded)?;
+        debug!(target:"rpc","[send_transaction] signed: {:?}", hash);
 
         Ok(hash)
     }
@@ -576,7 +578,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 } else {
                     debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
                     Err(Error::Custom(format!(
-                        "Could not publish raw transaction: {tx} resaon: {res_string}"
+                        "Could not publish raw transaction: {tx} reason: {res_string}"
                     )))
                 }
             }
@@ -673,6 +675,7 @@ fn sign(
     address: H160,
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
+    debug!("sign address {:#x}", address);
     let key_id = address.as_fixed_bytes().to_owned();
     let priv_key = get_eth_priv_key(key_id).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();

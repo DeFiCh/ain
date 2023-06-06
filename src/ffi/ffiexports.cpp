@@ -46,6 +46,10 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
         send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
     } catch (std::runtime_error& e) {
         return e.what();
+    } catch (const UniValue& objError) {
+        const auto obj = objError.get_obj();
+
+        return obj["message"].get_str();
     }
 
     return {};
