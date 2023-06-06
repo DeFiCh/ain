@@ -63,7 +63,7 @@ public:
     {
         // Raw addr = ETH_ADDR_PREFIX + HexStr(id);
         // Produce ETH checksum address: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
-        const auto address = id.ToString();
+        const auto address = HexStr(id);
         std::vector<unsigned char> input(address.begin(), address.end());
         std::vector<unsigned char> output;
         sha3(input, output);
