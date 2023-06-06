@@ -7,7 +7,7 @@
 
 from test_framework.util import assert_equal
 from test_framework.test_framework import DefiTestFramework
-from test_framework.evm_contracts import EVMContract
+from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import KeyPair
 
 
@@ -44,7 +44,7 @@ class EVMTest(DefiTestFramework):
         node.transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
         node.generate(1)
 
-        evm_contract = EVMContract("SimpleStorage.sol", "Test").compile()
+        evm_contract = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
         contract = node.evm.deploy_compiled_contract(key_pair, evm_contract)
 
         # set variable

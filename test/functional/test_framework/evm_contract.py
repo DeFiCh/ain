@@ -9,12 +9,15 @@ class EVMContract:
     _solc_version = "0.8.10"
     _path_prefix = "../contracts"
 
-    def __init__(self, file_name: str, contract_name: str):
+    def __init__(self, code: str, file_name: str, contract_name: str):
+        self.code = code
         self.file_name = file_name
         self.contract_name = contract_name
 
-        with open(f"{os.path.dirname(__file__)}/{self._path_prefix}/{file_name}", "r") as file:
-            self.code = file.read()
+    @staticmethod
+    def from_file(file_name: str, contract_name: str):
+        with open(f"{os.path.dirname(__file__)}/{EVMContract._path_prefix}/{file_name}", "r") as file:
+            return EVMContract(file.read(), file_name, contract_name)
 
     def compile(self) -> (List[Dict], str):
         compiled_sol = compile_standard(
