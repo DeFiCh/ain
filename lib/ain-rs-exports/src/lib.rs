@@ -68,7 +68,12 @@ pub mod ffi {
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
-        fn evm_queue_tx(context: u64, raw_tx: &str, native_tx_hash: [u8; 32]) -> Result<bool>;
+        fn evm_try_queue_tx(
+            result: &mut RustRes,
+            context: u64,
+            raw_tx: &str,
+            native_tx_hash: [u8; 32],
+        ) -> Result<bool>;
 
         fn evm_finalize(
             context: u64,
@@ -336,15 +341,27 @@ fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
 /// # Returns
 ///
 /// Returns `true` if the transaction is successfully queued, `false` otherwise.
-fn evm_queue_tx(context: u64, raw_tx: &str, hash: [u8; 32]) -> Result<bool, Box<dyn Error>> {
+fn evm_try_queue_tx(
+    result: &mut RustRes,
+    context: u64,
+    raw_tx: &str,
+    hash: [u8; 32],
+) -> Result<bool, Box<dyn Error>> {
     let signed_tx: SignedTx = raw_tx.try_into()?;
     match RUNTIME
         .handlers
         .evm
         .queue_tx(context, signed_tx.into(), hash)
     {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+        Ok(_) => {
+            result.ok = true;
+            Ok(true)
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+            Ok(false)
+        }
     }
 }
 

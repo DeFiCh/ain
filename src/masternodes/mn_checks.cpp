@@ -3935,12 +3935,15 @@ public:
         evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
 
         if (!result.ok) {
-            LogPrintf("------ EVM reason : %s ----\n", result.reason);
+            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to validate %s", result.reason);
         }
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
-            return Res::Err("evm tx failed to queue");
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        if (!result.ok) {
+            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
+        }
 
         return Res::Ok();
     }
