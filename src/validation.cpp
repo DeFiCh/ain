@@ -2013,6 +2013,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
 }
 
 static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
+   // NOTE: Each domain's revert is handle by it's own domain module. This function reverts only the DVM aspect. EVM will handle it's own revert.  
     for (const auto &idx : obj.transfers) {
         const auto &src = idx.first;
         const auto &dst = idx.second;
