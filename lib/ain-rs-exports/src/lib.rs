@@ -12,6 +12,8 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
+use crate::ffi::RustRes;
+
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
 
@@ -34,9 +36,15 @@ pub mod ffi {
         miner_fee: u64,
     }
 
+    #[derive(Default)]
     pub struct ValidateTxResult {
         nonce: u64,
         sender: [u8; 20],
+    }
+
+    pub struct RustRes {
+        ok: bool,
+        reason: String,
     }
 
     extern "Rust" {
@@ -56,7 +64,7 @@ pub mod ffi {
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
 
-        fn evm_prevalidate_raw_tx(tx: &str) -> Result<ValidateTxResult>;
+        fn evm_try_prevalidate_raw_tx(result: &mut RustRes, tx: &str) -> Result<ValidateTxResult>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
@@ -261,15 +269,24 @@ pub fn evm_sub_balance(
 /// # Returns
 ///
 /// Returns the transaction nonce and sender address if the transaction is valid, logs and throws the error otherwise.
-pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
+pub fn evm_try_prevalidate_raw_tx(
+    result: &mut RustRes,
+    tx: &str,
+) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok(signed_tx) => Ok(ffi::ValidateTxResult {
-            nonce: signed_tx.nonce().as_u64(),
-            sender: signed_tx.sender.to_fixed_bytes(),
-        }),
+        Ok(signed_tx) => {
+            result.ok = true;
+            Ok(ffi::ValidateTxResult {
+                nonce: signed_tx.nonce().as_u64(),
+                sender: signed_tx.sender.to_fixed_bytes(),
+            })
+        }
         Err(e) => {
-            debug!("evm_prevalidate_raw_tx fails with error: {e}");
-            Err(e)
+            debug!("evm_try_prevalidate_raw_tx fails with error: {e}");
+            result.ok = false;
+            result.reason = e.to_string();
+
+            Ok(ffi::ValidateTxResult::default())
         }
     }
 }

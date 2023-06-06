@@ -3931,12 +3931,14 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        try {
-            evm_prevalidate_raw_tx(HexStr(obj.evmTx));
-        } catch (const rust::Error&) {
-            return Res::Err("evm tx failed to validate");
+        RustRes result;
+        evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+
+        if (!result.ok) {
+            LogPrintf("------ EVM reason : %s ----\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
         }
-        
+
         if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
             return Res::Err("evm tx failed to queue");
 

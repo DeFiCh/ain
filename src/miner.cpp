@@ -780,14 +780,16 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 if (txType == CustomTxType::EvmTx) {
                     auto txMessage = customTypeToMessage(txType);
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    try {
-                        const auto txResult = evm_prevalidate_raw_tx(HexStr(obj.evmTx));
-                        const auto nonce = evm_get_nonce(txResult.sender);
-                        if (nonce != txResult.nonce) {
-                            customTxPassed = false;
-                            break;
-                        }
-                    } catch (const rust::Error&) {
+
+                    RustRes result;
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+                    if (!result.ok) {
+                        customTxPassed = false;
+                        break;
+                    }
+
+                    const auto nonce = evm_get_nonce(txResult.sender);
+                    if (nonce != txResult.nonce) {
                         customTxPassed = false;
                         break;
                     }
