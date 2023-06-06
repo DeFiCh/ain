@@ -133,7 +133,9 @@ impl Handlers {
             }
         }
 
-        self.evm.tx_queues.remove(context);
+        if update_state {
+            self.evm.tx_queues.remove(context);
+        }
 
         let block = Block::new(
             PartialHeader {
