@@ -657,9 +657,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = ain_cpp_imports::get_min_relay_tx_fee().unwrap_or(10);
+        let gas_price = self.handler.block.get_legacy_fee();
         debug!(target:"rpc","gasPrice: {:#?}", gas_price);
-        Ok(U256::from(gas_price))
+        Ok(gas_price)
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {

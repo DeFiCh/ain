@@ -247,4 +247,17 @@ impl BlockHandler {
 
         U256::from(data.percentile(60).ceil() as u64)
     }
+
+    pub fn get_legacy_fee(&self) -> U256 {
+        let priority_fee = self.suggested_priority_fee();
+        let latest_block_hash = self
+            .storage
+            .get_latest_block()
+            .expect("Unable to get latest block")
+            .header
+            .hash();
+        let base_fee = self.storage.get_base_fee(&latest_block_hash).unwrap();
+
+        base_fee + priority_fee
+    }
 }
