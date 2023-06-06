@@ -75,6 +75,14 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
+    pub fn iter(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .map_or(Vec::new(), TransactionQueue::iter)
+    }
+
     pub fn len(&self, context_id: u64) -> usize {
         self.queues
             .read()
@@ -84,7 +92,7 @@ impl TransactionQueueMap {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
     BridgeTx(BridgeTx),
@@ -114,6 +122,10 @@ impl TransactionQueue {
             .unwrap()
             .drain(..)
             .collect::<Vec<QueueTxWithNativeHash>>()
+    }
+
+    pub fn iter(&self) -> Vec<QueueTxWithNativeHash> {
+        self.transactions.lock().unwrap().clone()
     }
 
     pub fn queue_tx(&self, tx: QueueTxWithNativeHash) {

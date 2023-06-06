@@ -81,7 +81,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.iter(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
