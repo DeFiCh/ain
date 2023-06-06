@@ -316,6 +316,28 @@ impl EVMHandler {
         debug!("Account {:x?} nonce {:x?}", address, nonce);
         Ok(nonce)
     }
+
+    pub fn get_nonce_in_context(&self, context: u64, address: H160) -> Result<U256, EVMError> {
+        let nonce = self
+            .tx_queues
+            .get_nonce(context, address)
+            .unwrap_or_else(|| {
+                let latest_block = self
+                    .storage
+                    .get_latest_block()
+                    .map(|b| b.header.number)
+                    .unwrap_or_else(|| U256::zero());
+
+                self.get_nonce(address, latest_block)
+                    .unwrap_or_else(|_| U256::zero())
+            });
+
+        debug!(
+            "Account {:x?} nonce {:x?} in context {context}",
+            address, nonce
+        );
+        Ok(nonce)
+    }
 }
 
 use std::fmt;

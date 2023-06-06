@@ -1,3 +1,4 @@
+use ethereum_types::{H160, U256};
 use rand::Rng;
 use std::{
     collections::HashMap,
@@ -82,6 +83,14 @@ impl TransactionQueueMap {
             .get(&context_id)
             .map_or(0, TransactionQueue::len)
     }
+
+    pub fn get_nonce(&self, context_id: u64, address: H160) -> Option<U256> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .map_or(None, |queue| queue.get_nonce(address))
+    }
 }
 
 #[derive(Debug)]
@@ -95,12 +104,14 @@ type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
 #[derive(Debug, Default)]
 pub struct TransactionQueue {
     transactions: Mutex<Vec<QueueTxWithNativeHash>>,
+    account_nonces: Mutex<HashMap<H160, U256>>,
 }
 
 impl TransactionQueue {
     pub fn new() -> Self {
         Self {
             transactions: Mutex::new(Vec::new()),
+            account_nonces: Mutex::new(HashMap::new()),
         }
     }
 
@@ -117,11 +128,25 @@ impl TransactionQueue {
     }
 
     pub fn queue_tx(&self, tx: QueueTxWithNativeHash) {
+        if let QueueTx::SignedTx(signed_tx) = &tx.0 {
+            self.account_nonces
+                .lock()
+                .unwrap()
+                .insert(signed_tx.sender, signed_tx.nonce());
+        }
         self.transactions.lock().unwrap().push(tx);
     }
 
     pub fn len(&self) -> usize {
         self.transactions.lock().unwrap().len()
+    }
+
+    pub fn get_nonce(&self, address: H160) -> Option<U256> {
+        self.account_nonces
+            .lock()
+            .unwrap()
+            .get(&address)
+            .map(ToOwned::to_owned)
     }
 }
 
