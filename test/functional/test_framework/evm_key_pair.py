@@ -17,15 +17,14 @@ def validate_keys(pkey, pkey_address):
 
 
 class KeyPair:
-    def __init__(self, node=None, pkey: str = None, pkey_address: str = None):
-        if pkey and pkey_address:
-            self.pkey, self.address = pkey, pkey_address
-        elif (pkey is None or pkey_address is None) and node:
-            # get address from node
-            # TODO: remove to_checksum_address(), getnewaddress should return a checksum address
-            self.address = Web3.to_checksum_address(node.getnewaddress("", "eth"))
-            self.pkey = node.dumpprivkey(self.address)
-        else:
-            raise RuntimeError("Unable to get signing keys. Provide node or a key pair.")
+    def __init__(self, pkey: str = None, pkey_address: str = None):
+        self.pkey, self.address = validate_keys(pkey, pkey_address)
 
-        self.pkey, self.address = validate_keys(self.pkey, self.address)
+    @staticmethod
+    def from_node(node):
+        # get address from node
+        # TODO: remove to_checksum_address(), getnewaddress should return a checksum address
+        address = Web3.to_checksum_address(node.getnewaddress("", "eth"))
+        pkey = node.dumpprivkey(address)
+
+        return KeyPair(pkey, address)

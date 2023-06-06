@@ -5,7 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM contract"""
 
-from test.functional.test_framework.util import assert_equal
+from test_framework.util import assert_equal
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contracts import EVMContract
 from test_framework.evm_key_pair import KeyPair
@@ -38,7 +38,7 @@ class EVMTest(DefiTestFramework):
         node = self.nodes[0]
         self.setup()
 
-        key_pair = KeyPair(node)
+        key_pair = KeyPair.from_node(node)
         address = key_pair.address
 
         node.transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
