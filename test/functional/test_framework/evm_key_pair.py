@@ -1,5 +1,4 @@
 from eth_account import Account
-from web3 import Web3
 
 
 def validate_keys(pkey, pkey_address):
@@ -23,8 +22,7 @@ class KeyPair:
     @staticmethod
     def from_node(node):
         # get address from node
-        # TODO: remove to_checksum_address(), getnewaddress should return a checksum address
-        address = Web3.to_checksum_address(node.getnewaddress("", "eth"))
+        address = node.getnewaddress("", "eth")
         pkey = node.dumpprivkey(address)
 
         return KeyPair(pkey, address)
