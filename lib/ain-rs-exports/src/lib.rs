@@ -50,7 +50,7 @@ pub mod ffi {
     extern "Rust" {
         fn evm_get_balance(address: [u8; 20]) -> Result<u64>;
         fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
-        fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> Result<u64>;
+        fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
         fn evm_add_balance(
             context: u64,
@@ -185,7 +185,7 @@ pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
         .handlers
         .evm
         .get_nonce(account, latest_block_number)
-        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
+        .unwrap_or_default();
     Ok(nonce.as_u64())
 }
 
@@ -196,21 +196,13 @@ pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
 /// * `context` - The context queue number.
 /// * `address` - The EVM address of the account.
 ///
-/// # Errors
-///
-/// Throws an Error if the address is not a valid EVM address.
-///
 /// # Returns
 ///
-/// Returns the nonce of the account in a specific context as a `u64` on success.
-pub fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+/// Returns the nonce of the account in a specific context as a `u64`
+pub fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
     let address = H160::from(address);
-    let nonce = RUNTIME
-        .handlers
-        .evm
-        .get_nonce_in_context(context, address)
-        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
-    Ok(nonce.as_u64())
+    let nonce = RUNTIME.handlers.evm.get_nonce_in_context(context, address);
+    nonce.as_u64()
 }
 
 /// EvmIn. Send DFI to an EVM account.

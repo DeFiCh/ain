@@ -793,7 +793,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    const auto nonce = evm_get_nonce(txResult.sender);
+                    const auto nonce = evm_get_nonce_in_context(evmContext, txResult.sender);
                     if (nonce != txResult.nonce) {
                         customTxPassed = false;
                         break;

@@ -317,7 +317,26 @@ impl EVMHandler {
         Ok(nonce)
     }
 
-    pub fn get_nonce_in_context(&self, context: u64, address: H160) -> Result<U256, EVMError> {
+    /// Retrieves the nonce for the specified account within a particular context.
+    ///
+    /// The method first attempts to retrieve the nonce from the transaction queue associated with the provided context.
+    /// If no nonce is found in the transaction queue, that means that no transactions have been queued for this account
+    /// in this context), it falls back to retrieving the nonce from the storage at the latest block
+    /// If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
+    /// the nonce is defaulted to zero.
+    ///
+    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
+    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context queue number.
+    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// Returns the nonce as a `U256`. Defaults to U256::zero()
+    pub fn get_nonce_in_context(&self, context: u64, address: H160) -> U256 {
         let nonce = self
             .tx_queues
             .get_nonce(context, address)
@@ -336,7 +355,7 @@ impl EVMHandler {
             "Account {:x?} nonce {:x?} in context {context}",
             address, nonce
         );
-        Ok(nonce)
+        nonce
     }
 }
 
