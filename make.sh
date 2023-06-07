@@ -854,6 +854,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
     pkg_setup_rust
+    pkg_install_solc
 }
 
 ci_setup_deps_target() {
