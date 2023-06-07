@@ -182,9 +182,9 @@ uint64_t getMinRelayTxFee() {
 }
 
 std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
+    CKey ethPrivKey;
+    const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet : GetWallets()) {
-        const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
-        CKey ethPrivKey;
         if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());

@@ -54,9 +54,18 @@ class EVMTest(DefiTestFramework):
 
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
-        to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
+        to_address = '0x6C34CBb9219d8cAa428835D2073E8ec88BA0a110'
+        to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
         self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23') # ethAddress
-        self.nodes[0].importprivkey('17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35') # to_address
+        self.nodes[0].importprivkey(to_address_privkey) # to_address
+
+        # Check export of private key
+        privkey = self.nodes[0].dumpprivkey(to_address)
+        assert_equal(privkey, to_address_privkey)
+
+        # Check creation and prikey dump of new Eth key
+        test_eth_dump = self.nodes[0].getnewaddress("", "eth")
+        self.nodes[0].dumpprivkey(test_eth_dump)
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -159,7 +168,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
         assert_equal(result[0]['input'], '0x')
         assert_equal(result[0]['nonce'], '0x0')
-        assert_equal(result[0]['to'], to_address)
+        assert_equal(result[0]['to'], to_address.lower())
         assert_equal(result[0]['transactionIndex'], '0x0')
         assert_equal(result[0]['value'], '0xde0b6b3a7640000')
         assert_equal(result[0]['v'], '0x25')
