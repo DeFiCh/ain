@@ -3860,7 +3860,7 @@ public:
                     }
 
                     arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                    balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                     evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
                 }
             }
@@ -3895,7 +3895,7 @@ public:
                     }
 
                     arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                    balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                     if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
                         return Res::Err("Not enough balance in %s to cover \"evmout\" transfer", EncodeDestination(dest));
                     }

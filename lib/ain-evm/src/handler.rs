@@ -81,7 +81,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
@@ -133,7 +133,9 @@ impl Handlers {
             }
         }
 
-        self.evm.tx_queues.remove(context);
+        if update_state {
+            self.evm.tx_queues.remove(context);
+        }
 
         let block = Block::new(
             PartialHeader {

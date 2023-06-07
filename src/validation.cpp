@@ -1858,10 +1858,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
 
-    evm_disconnect_latest_block();
-
     mnview.SetLastHeight(pindex->pprev->nHeight);
-
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -2010,39 +2007,6 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     }
 
     return flags;
-}
-
-static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
-    if (obj.type == CTransferDomainType::DVMTokenToEVM) {
-        for (const auto& [owner, balance] : obj.from) {
-            mnview.AddBalances(owner, balance);
-        }
-    } else {
-        for (const auto& [owner, balance] : obj.to) {
-            mnview.SubBalances(owner, balance);
-        }
-    }
-}
-
-static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failedTransactions, const CBlock& block, const Consensus::Params &consensus, const int height, CCustomCSView &mnview) {
-    std::set<uint256> potentialTxsToUndo;
-    for (const auto &txStr : failedTransactions) {
-        potentialTxsToUndo.insert(uint256S(txStr));
-    }
-
-    std::set<uint256> txsToUndo;
-    for (const auto &tx : block.vtx) {
-        if (tx && potentialTxsToUndo.count(tx->GetHash())) {
-            std::vector<unsigned char> metadata;
-            const auto txType = GuessCustomTxType(*tx, metadata, false);
-            if (txType == CustomTxType::TransferDomain) {
-                auto txMessage = customTypeToMessage(txType);
-                assert(CustomMetadataParse(height, consensus, metadata, txMessage));
-                auto obj = std::get<CTransferDomainMessage>(txMessage);
-                RevertTransferDomain(obj, mnview);
-            }
-        }
-    }
 }
 
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
@@ -2327,7 +2291,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmContext)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck, const int64_t evmContext)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2851,7 +2815,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -2870,62 +2834,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
-
-    if (IsEVMEnabled(pindex->nHeight, mnview)) {
-        CKeyID minter;
-        assert(block.ExtractMinterKey(minter));
-        std::array<uint8_t, 20> beneficiary{};
-        CScript minerAddress;
-
-        if (!fMockNetwork) {
-            const auto id = mnview.GetMasternodeIdByOperator(minter);
-            assert(id);
-            const auto node = mnview.GetMasternode(*id);
-            assert(node);
-
-            auto height = node->creationHeight;
-            auto mnID = *id;
-            if (!node->collateralTx.IsNull()) {
-                const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
-                assert(idHeight);
-                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
-                mnID = node->collateralTx;
-            }
-
-            const auto blockindex = ::ChainActive()[height];
-            assert(blockindex);
-
-            CTransactionRef tx;
-            uint256 hash_block;
-            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
-            assert(tx->vout.size() >= 2);
-
-            CTxDestination dest;
-            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
-            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
-
-            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
-            minerAddress = GetScriptForDestination(dest);
-        } else {
-            std::copy(minter.begin(), minter.end(), beneficiary.begin());
-            const auto dest = PKHash(minter);
-            minerAddress = GetScriptForDestination(dest);
-        }
-
-        const auto blockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
-
-        if (!blockResult.failed_transactions.empty()) {
-            std::vector<std::string> failedTransactions;
-            for (const auto& rust_string : blockResult.failed_transactions) {
-                failedTransactions.emplace_back(rust_string.data(), rust_string.length());
-            }
-
-            RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
-        }
-
-        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee)});
-    }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3228,6 +3136,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
+        evm_disconnect_latest_block();
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
@@ -3369,8 +3278,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
+        std::array<uint8_t, 20> beneficiary{};
         const auto evmContext = evm_get_context();
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmContext);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             evm_discard_context(evmContext);
@@ -3382,6 +3292,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
+        evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
@@ -4898,6 +4809,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
     bool dummyRewardedAnchors{};
+    std::array<uint8_t, 20> dummyBeneficiary{};
     CCustomCSView mnview(*pcustomcsview);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
@@ -4913,7 +4825,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary, true))
         return false;
     assert(state.IsValid());
 
@@ -5376,7 +5288,8 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             bool dummyRewardedAnchors{};
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
+            std::array<uint8_t, 20> dummyBeneficiary{};
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
