@@ -519,6 +519,13 @@ pkg_install_rust() {
     _fold_end
 }
 
+pkg_install_solc() {
+    _fold_start "pkg-install-solc"
+    python3 -m pip install py-solc-x
+    python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
+    _fold_end
+}
+
 pkg_setup_rust() {
     local target=${TARGET}
     local rust_target
