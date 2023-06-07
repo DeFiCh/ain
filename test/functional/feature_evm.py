@@ -150,9 +150,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        # Try and send a TX with a high nonce
-        assert_raises_rpc_error(-32600, "evm tx failed to validate", self.nodes[0].evmtx, ethAddress, 1, 21, 21000, to_address, 1)
-
         # Check Eth balances before transfer
         assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 10000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
@@ -161,7 +158,8 @@ class EVMTest(DefiTestFramework):
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
 
         # Test EVM Tx
-        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21001, to_address, 1)
+        tx2 = self.nodes[0].evmtx(ethAddress, 1, 21, 21001, to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx)
         self.sync_mempools()
 
@@ -170,26 +168,31 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['blockHash'], '0x0000000000000000000000000000000000000000000000000000000000000000')
         assert_equal(result[0]['blockNumber'], 'null')
         assert_equal(result[0]['from'], ethAddress)
-        assert_equal(result[0]['gas'], '0x5208')
+        assert_equal(result[0]['gas'], '0x5209')
         assert_equal(result[0]['gasPrice'], '0x4e3b29200')
-        assert_equal(result[0]['hash'], '0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497')
+        assert_equal(result[0]['hash'], '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb')
         assert_equal(result[0]['input'], '0x')
         assert_equal(result[0]['nonce'], '0x0')
         assert_equal(result[0]['to'], to_address.lower())
         assert_equal(result[0]['transactionIndex'], '0x0')
         assert_equal(result[0]['value'], '0xde0b6b3a7640000')
-        assert_equal(result[0]['v'], '0x25')
-        assert_equal(result[0]['r'], '0x37f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376')
-        assert_equal(result[0]['s'], '0x5eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e')
+        assert_equal(result[0]['v'], '0x26')
+        assert_equal(result[0]['r'], '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c')
+        assert_equal(result[0]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
-        # Check mempools for TX
-        assert_equal(self.nodes[0].getrawmempool(), [tx])
-        assert_equal(self.nodes[1].getrawmempool(), [tx])
+        # Check mempools for TX in reverse order of nonce
+        assert_equal(self.nodes[0].getrawmempool(), [tx2, tx])
+        assert_equal(self.nodes[1].getrawmempool(), [tx2, tx])
         self.nodes[0].generate(1)
 
+        # Check TXs in block in correct order
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(block_txs[1], tx)
+        assert_equal(block_txs[2], tx2)
+
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 9000000000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 1000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 8000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 2000000000000000000)
 
         # Check miner account balance after transfer
         miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
@@ -201,7 +204,7 @@ class EVMTest(DefiTestFramework):
 
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(block['transactions'], ['0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497'])
+        assert_equal(block['transactions'], ['0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb', '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a'])
 
         # Check pending TXs now empty
         assert_equal(self.nodes[0].eth_pendingTransactions(), [])
