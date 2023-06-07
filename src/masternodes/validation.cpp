@@ -2386,12 +2386,11 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext) {
+static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
 
     if (IsEVMEnabled(pindex->nHeight, cache)) {
         CKeyID minter;
         assert(block.ExtractMinterKey(minter));
-        std::array<uint8_t, 20> beneficiary{};
         CScript minerAddress;
 
         if (!fMockNetwork) {
@@ -2430,7 +2429,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
             minerAddress = GetScriptForDestination(dest);
         }
 
-        const auto blockResult = evm_finalize(evmContext, true, block.nBits, beneficiary, block.GetBlockTime());
+        const auto blockResult = evm_finalize(evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
@@ -2445,7 +2444,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     }
 }
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext) {
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2500,7 +2499,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessGrandCentralEvents(pindex, cache, chainparams);
 
     // Execute EVM Queue
-    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext);
+    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
 
     // construct undo
     auto& flushable = cache.GetStorage();
