@@ -175,11 +175,6 @@ impl EVMHandler {
             .into());
         }
 
-        // TODO validate balance to pay gas
-        // if account.balance < MIN_GAS {
-        //     return Err(anyhow!("Insufficiant balance to pay fees").into());
-        // }
-
         Ok(signed_tx)
     }
 
