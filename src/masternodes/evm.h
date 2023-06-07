@@ -37,8 +37,16 @@ public:
     Res EraseBlockHash(uint8_t type, uint256 blockHashKey);
     ResVal<uint256> GetBlockHash(uint8_t type, uint256 blockHashKey) const;
 
+    Res SetTxHash(uint8_t type, uint256 txHashKey, uint256 txHash);
+    Res EraseTxHash(uint8_t type, uint256 txHashKey);
+    ResVal<uint256> GetTxHash(uint8_t type, uint256 txHashKey) const;
+
     struct BlockHash {
         static constexpr uint8_t prefix() { return 'N'; }
+    };
+
+    struct TxHash {
+        static constexpr uint8_t prefix() { return 'T'; }
     };
 };
 

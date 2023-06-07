@@ -223,34 +223,22 @@ UniValue evmmap(const JSONRPCRequest& request) {
                 return EncodeDestination(PKHash(key.GetID()));
             }
             case EvmMapType::DVM_TX_TO_EVM: {
-                uint256 hashBlock;
-                CTransactionRef tx;
-                LOCK(cs_main);
-                if (g_txindex) {
-                    if (!(g_txindex->FindTx(uint256S(hash), hashBlock, tx))) {
-                        throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Tx not found"));
-                    }
-                } else {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Tx index not available"));
+                const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
+                if (!res) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
                 }
-                std::vector<unsigned char> metadata;
-                auto txType = GuessCustomTxType(*tx, metadata);
-                if (txType == CustomTxType::EvmTx) {
-                    CCustomTxMessage txMessage{CEvmTxMessage{}};
-                    const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
-                    if (!res) {
-                        throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Failed parse metadata"));
-                    }
-                    const CEvmTxMessage obj = std::get<CEvmTxMessage>(txMessage);
-                    UInt256 result;
-                    BRKeccak256(&result, std::data(obj.evmTx), obj.evmTx.size());
-                    return "0x" + u256hex(result);
-                } else {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Not an EVM tx"));
+                else {
+                    return res.val->ToString();
                 }
             }
             case EvmMapType::EVM_TX_TO_DVM: {
-                return "";
+                const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
+                if (!res) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+                }
+                else {
+                    return res.val->ToString();
+                }
             }
             case EvmMapType::DVM_BLOCK_TO_EVM: {
                 const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash));

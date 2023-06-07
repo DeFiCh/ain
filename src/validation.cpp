@@ -1861,6 +1861,12 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     if (IsEVMEnabled(pindex->nHeight, mnview)) {
         evm_disconnect_latest_block();
 
+        for (const std::shared_ptr<const CTransaction> &tx : block.vtx) {
+            uint256 evmTx = mnview.GetTxHash(CEvmDvmMapType::DvmEvm, tx->GetHash());
+            mnview.EraseTxHash(CEvmDvmMapType::DvmEvm, tx->GetHash());
+            mnview.EraseTxHash(CEvmDvmMapType::EvmDvm, evmTx);
+        }
+
         const auto res = mnview.GetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());
         if (res) {
             mnview.EraseBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash());

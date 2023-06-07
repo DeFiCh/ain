@@ -2,6 +2,9 @@
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
+#include "BRLargeInt.h"
+#include "BRCrypto.h"
+#include "BRInt.h"
 
 
 uint64_t getChainId() {
@@ -16,8 +19,9 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    CEvmTxMessage message = CEvmTxMessage{evmTx};
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
-             << CEvmTxMessage{evmTx};
+             << message;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -43,7 +47,14 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     // TODO Replace execTestTx with non-throwing function
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-        send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
+        LogPrintf("[RAWTX HASH] dvm: %s\n", rawTx.GetHash().GetHex());
+        uint256 txHash = send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash();
+        UInt256 result;
+        BRKeccak256(&result, std::data(message.evmTx), message.evmTx.size());
+        auto evmTxHash = uint256S(u256hex(result));
+        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, txHash, evmTxHash);
+        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, evmTxHash, txHash);
+        LogPrintf("[TX HASH] evm: %s dvm: %s\n", evmTxHash.GetHex(), txHash.ToString());
     } catch (std::runtime_error& e) {
         return e.what();
     } catch (const UniValue& objError) {
@@ -51,7 +62,6 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
 
         return obj["message"].get_str();
     }
-
     return {};
 }
 
