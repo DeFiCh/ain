@@ -210,3 +210,86 @@ impl std::fmt::Display for QueueError {
 }
 
 impl std::error::Error for QueueError {}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use ethereum_types::{H256, U256};
+
+    use crate::transaction::bridge::BalanceUpdate;
+
+    use super::*;
+
+    #[test]
+    fn test_invalid_nonce_order() -> Result<(), QueueError> {
+        let queue = TransactionQueue::new();
+
+        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
+
+        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
+        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
+
+        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
+
+        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()))?;
+        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()))?;
+        // Should fail as nonce 2 is already queued for this sender
+        let queued = queue.queue_tx((tx3, H256::from_low_u64_be(3).into()));
+        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), QueueError> {
+        let queue = TransactionQueue::new();
+
+        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
+
+        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
+        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
+
+        // sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
+        let tx3 = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate {
+            address: H160::from_str("0x6bc42fd533d6cb9d973604155e1f7197a3b0e703").unwrap(),
+            amount: U256::one(),
+        }));
+
+        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
+
+        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()))?;
+        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()))?;
+        queue.queue_tx((tx3, H256::from_low_u64_be(3).into()))?;
+        // Should fail as nonce 2 is already queued for this sender
+        let queued = queue.queue_tx((tx4, H256::from_low_u64_be(4).into()));
+        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        Ok(())
+    }
+
+    #[test]
+    fn test_valid_nonce_order() -> Result<(), QueueError> {
+        let queue = TransactionQueue::new();
+
+        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
+
+        // Nonce 1, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869018502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0dd1fad9a8465969354d567e8a74af3f6de3e56abbe1b71154d7929d0bd5cc170a0353190adb50e3cfae82a77c2ea56b49a86f72bd0071a70d1c25c49827654aa68").unwrap()));
+
+        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
+        let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
+
+        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
+        let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
+
+        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()))?;
+        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()))?;
+        queue.queue_tx((tx3, H256::from_low_u64_be(3).into()))?;
+        queue.queue_tx((tx4, H256::from_low_u64_be(4).into()))?;
+        Ok(())
+    }
+}
