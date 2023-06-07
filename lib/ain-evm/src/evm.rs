@@ -1,9 +1,9 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
-use crate::genesis::GenesisData;
-use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
+use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::trie::TrieDBStore;
 use crate::tx_queue::{QueueError, QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
@@ -11,24 +11,15 @@ use crate::{
     transaction::SignedTx,
 };
 use anyhow::anyhow;
-use ethereum::{AccessList, Account, Log, TransactionV2};
-use ethereum_types::{Bloom, BloomInput};
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum_types::{Bloom, BloomInput, H160, U256};
 
-use evm::backend::{Backend, Basic};
 use hex::FromHex;
 use log::debug;
-use primitive_types::{H160, H256, U256};
-use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
-use vsdb_trie_db::MptStore;
-
-pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
-pub static GENESIS_STATE_ROOT: &str =
-    "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
 
 pub type NativeTxHash = [u8; 32];
 
@@ -37,77 +28,6 @@ pub struct EVMHandler {
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct TrieDBStore {
-    pub trie_db: MptStore,
-}
-
-impl Default for TrieDBStore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TrieDBStore {
-    pub fn new() -> Self {
-        debug!("Creating new trie store");
-        let trie_store = MptStore::new();
-        let mut trie = trie_store
-            .trie_create(&[0], None, false)
-            .expect("Error creating initial backend");
-        let state_root: H256 = trie.commit().into();
-        debug!("Initial state_root : {:#x}", state_root);
-        Self {
-            trie_db: trie_store,
-        }
-    }
-
-    pub fn genesis_state_root_from_json(
-        trie_store: &Arc<TrieDBStore>,
-        storage: &Arc<Storage>,
-        json_file: PathBuf,
-    ) -> Result<H256, std::io::Error> {
-        let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
-
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(trie_store),
-            Arc::clone(storage),
-            Vicinity::default(),
-        )
-        .expect("Could not restore backend");
-
-        let file = fs::File::open(json_file)?;
-        let reader = BufReader::new(file);
-        let genesis: GenesisData = serde_json::from_reader(reader)?;
-
-        for (address, data) in genesis.alloc {
-            let basic = backend.basic(address);
-
-            let new_basic = Basic {
-                balance: data.balance,
-                ..basic
-            };
-            backend
-                .apply(
-                    address,
-                    new_basic,
-                    data.code,
-                    data.storage.unwrap_or_default(),
-                    false,
-                )
-                .expect("Could not set account data");
-            backend.commit();
-        }
-
-        let state_root: H256 = backend.commit().into();
-        debug!("Loaded genesis state_root : {:#x}", state_root);
-        Ok(state_root)
-    }
-}
-
-impl PersistentState for TrieDBStore {}
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
@@ -122,29 +42,55 @@ fn init_vsdb() {
 }
 
 impl EVMHandler {
-    pub fn new(storage: Arc<Storage>) -> Self {
+    pub fn restore(storage: Arc<Storage>) -> Self {
+        init_vsdb();
+
+        Self {
+            tx_queues: Arc::new(TransactionQueueMap::new()),
+            trie_store: Arc::new(TrieDBStore::restore()),
+            storage,
+        }
+    }
+
+    pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Self {
         init_vsdb();
 
         let handler = Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
-            trie_store: Arc::new(
-                TrieDBStore::load_from_disk(TRIE_DB_STORE).expect("Error loading trie db store"),
-            ),
-            storage,
+            trie_store: Arc::new(TrieDBStore::new()),
+            storage: Arc::clone(&storage),
         };
-
-        let path = ain_cpp_imports::get_state_input_json().unwrap();
-        if path != "" {
-            let path = PathBuf::from(path);
+        let state_root =
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
-                .unwrap();
-        }
+                .expect("Error getting genesis state root from json");
+
+        let block: Block<TransactionV2> = Block::new(
+            PartialHeader {
+                state_root,
+                number: U256::zero(),
+                parent_hash: Default::default(),
+                beneficiary: Default::default(),
+                receipts_root: Default::default(),
+                logs_bloom: Default::default(),
+                difficulty: Default::default(),
+                gas_limit: Default::default(),
+                gas_used: Default::default(),
+                timestamp: Default::default(),
+                extra_data: Default::default(),
+                mix_hash: Default::default(),
+                nonce: Default::default(),
+            },
+            Vec::new(),
+            Vec::new(),
+        );
+        storage.put_latest_block(Some(&block));
+        storage.put_block(&block);
 
         handler
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {
-        self.trie_store.save_to_disk(TRIE_DB_STORE)
+        self.trie_store.flush()
     }
 
     pub fn call(
@@ -375,7 +321,7 @@ impl EVMHandler {
     }
 }
 
-use std::{fmt, fs};
+use std::fmt;
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),

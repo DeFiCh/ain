@@ -10,4 +10,5 @@ pub mod runtime;
 pub mod storage;
 pub mod traits;
 pub mod transaction;
+mod trie;
 mod tx_queue;

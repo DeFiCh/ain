@@ -1,12 +1,13 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::{EVMHandler, GENESIS_STATE_ROOT};
+use crate::evm::EVMHandler;
 use crate::executor::{AinExecutor, TxResponse};
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
 use ethereum::{Block, PartialHeader, ReceiptV3};
@@ -14,6 +15,7 @@ use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct Handlers {
@@ -31,12 +33,25 @@ impl Default for Handlers {
 
 impl Handlers {
     pub fn new() -> Self {
-        let storage = Arc::new(Storage::new());
-        Self {
-            evm: EVMHandler::new(Arc::clone(&storage)),
-            block: BlockHandler::new(Arc::clone(&storage)),
-            receipt: ReceiptHandler::new(Arc::clone(&storage)),
-            storage,
+        if let Some(path) = ain_cpp_imports::get_state_input_json() {
+            if ain_cpp_imports::get_network() != "regtest" {
+                panic!("Loading a genesis from JSON file is restricted to regtest network")
+            }
+            let storage = Arc::new(Storage::new());
+            Self {
+                evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
+                block: BlockHandler::new(Arc::clone(&storage)),
+                receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                storage,
+            }
+        } else {
+            let storage = Arc::new(Storage::restore());
+            Self {
+                evm: EVMHandler::restore(Arc::clone(&storage)),
+                block: BlockHandler::new(Arc::clone(&storage)),
+                receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                storage,
+            }
         }
     }
 

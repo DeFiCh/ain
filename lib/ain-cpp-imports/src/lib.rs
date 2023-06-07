@@ -25,6 +25,9 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getNetwork() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getDifficulty(_block_hash: [u8; 32]) -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -73,6 +76,10 @@ pub fn get_datadir() -> Result<String, Box<dyn Error>> {
     Ok(datadir)
 }
 
+pub fn get_network() -> String {
+    ffi::getNetwork()
+}
+
 pub fn get_difficulty(block_hash: [u8; 32]) -> Result<u32, Box<dyn Error>> {
     let bits = ffi::getDifficulty(block_hash);
     Ok(bits)
@@ -103,9 +110,13 @@ pub fn get_eth_priv_key(key_id: [u8; 20]) -> Result<[u8; 32], Box<dyn Error>> {
     Ok(eth_key)
 }
 
-pub fn get_state_input_json() -> Result<String, Box<dyn Error>> {
-    let json = ffi::getStateInputJSON();
-    Ok(json)
+pub fn get_state_input_json() -> Option<String> {
+    let json_path = ffi::getStateInputJSON();
+    if json_path.is_empty() {
+        None
+    } else {
+        Some(json_path)
+    }
 }
 
 #[cfg(test)]

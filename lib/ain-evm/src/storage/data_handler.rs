@@ -33,7 +33,7 @@ impl PersistentState for LatestBlockNumber {}
 impl PersistentState for TransactionHashToReceipt {}
 impl PersistentState for TxHashToTx {}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BlockchainDataHandler {
     // Improvements: Add transaction_map behind feature flag -txindex or equivalent
     transactions: RwLock<TxHashToTx>,
@@ -48,7 +48,7 @@ pub struct BlockchainDataHandler {
 }
 
 impl BlockchainDataHandler {
-    pub fn new() -> Self {
+    pub fn restore() -> Self {
         BlockchainDataHandler {
             transactions: RwLock::new(
                 TxHashToTx::load_from_disk(TRANSACTION_DATA_PATH)

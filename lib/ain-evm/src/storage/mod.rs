@@ -33,7 +33,14 @@ impl Storage {
     pub fn new() -> Self {
         Self {
             cache: Cache::new(None),
-            blockchain_data_handler: BlockchainDataHandler::new(),
+            blockchain_data_handler: BlockchainDataHandler::default(),
+        }
+    }
+
+    pub fn restore() -> Self {
+        Self {
+            cache: Cache::new(None),
+            blockchain_data_handler: BlockchainDataHandler::restore(),
         }
     }
 }
