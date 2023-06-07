@@ -2815,7 +2815,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
