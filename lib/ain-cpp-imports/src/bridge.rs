@@ -14,5 +14,6 @@ pub mod ffi {
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
         fn getEthPrivKey(key_id: [u8; 20]) -> [u8; 32];
+        fn getStateInputJSON() -> String;
     }
 }

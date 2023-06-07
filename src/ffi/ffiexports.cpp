@@ -189,3 +189,7 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
     }
     return {};
 }
+
+rust::string getStateInputJSON() {
+    return gArgs.GetArg("-ethstartstate", "");
+}

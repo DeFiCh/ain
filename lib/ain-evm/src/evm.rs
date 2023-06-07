@@ -64,16 +64,16 @@ impl TrieDBStore {
     }
 
     pub fn genesis_state_root_from_json(
-        trie_store: Arc<TrieDBStore>,
-        storage: Arc<Storage>,
+        trie_store: &Arc<TrieDBStore>,
+        storage: &Arc<Storage>,
         json_file: PathBuf,
     ) -> Result<H256, std::io::Error> {
         let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
 
         let mut backend = EVMBackend::from_root(
             state_root,
-            Arc::clone(&trie_store),
-            Arc::clone(&storage),
+            Arc::clone(trie_store),
+            Arc::clone(storage),
             Vicinity::default(),
         )
         .expect("Could not restore backend");
@@ -125,13 +125,22 @@ impl EVMHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
         init_vsdb();
 
-        Self {
+        let handler = Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(
                 TrieDBStore::load_from_disk(TRIE_DB_STORE).expect("Error loading trie db store"),
             ),
             storage,
+        };
+
+        let path = ain_cpp_imports::get_state_input_json().unwrap();
+        if path != "" {
+            let path = PathBuf::from(path);
+            TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
+                .unwrap();
         }
+
+        handler
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {

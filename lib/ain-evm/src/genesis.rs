@@ -20,11 +20,12 @@ pub struct Alloc {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GenesisData {
-    config: Config,
+    // config: Config,
     coinbase: String,
     difficulty: String,
-    extra_data: Vec<u8>,
+    extra_data: String,
     gas_limit: U256,
     nonce: H64,
     timestamp: U256,
