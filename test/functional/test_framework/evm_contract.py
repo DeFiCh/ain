@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict
 
-from solcx import compile_standard
+from solcx import compile_standard, install_solc
 
 
 class EVMContract:
@@ -20,6 +20,7 @@ class EVMContract:
             return EVMContract(file.read(), file_name, contract_name)
 
     def compile(self) -> (List[Dict], str):
+        install_solc(self._solc_version)
         compiled_sol = compile_standard(
             {
                 "language": "Solidity",
