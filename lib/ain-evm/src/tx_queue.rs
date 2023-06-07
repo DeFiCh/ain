@@ -80,7 +80,7 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&context_id)
-            .map_or(Vec::new(), TransactionQueue::iter)
+            .map_or(Vec::new(), TransactionQueue::get_cloned_vec)
     }
 
     pub fn len(&self, context_id: u64) -> usize {
