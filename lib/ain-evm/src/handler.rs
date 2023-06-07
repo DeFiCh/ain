@@ -10,6 +10,7 @@ use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
+use anyhow::anyhow;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
@@ -25,33 +26,40 @@ pub struct Handlers {
     pub storage: Arc<Storage>,
 }
 
-impl Default for Handlers {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Handlers {
-    pub fn new() -> Self {
+    /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
+    /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
+    /// Note, however, that this JSON-based initialization is exclusively reserved for regtest environments.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if an attempt is made to load a genesis state from a JSON file outside of a regtest environment.
+    ///
+    /// # Return
+    ///
+    /// Returns an instance of the struct, either restored from storage or created from a JSON file.
+    pub fn new() -> Result<Self, anyhow::Error> {
         if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
-                panic!("Loading a genesis from JSON file is restricted to regtest network")
+                return Err(anyhow!(
+                    "Loading a genesis from JSON file is restricted to regtest network"
+                ));
             }
             let storage = Arc::new(Storage::new());
-            Self {
+            Ok(Self {
                 evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 storage,
-            }
+            })
         } else {
             let storage = Arc::new(Storage::restore());
-            Self {
+            Ok(Self {
                 evm: EVMHandler::restore(Arc::clone(&storage)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 storage,
-            }
+            })
         }
     }
 
