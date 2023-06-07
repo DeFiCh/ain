@@ -166,7 +166,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if nonce != signed_tx.nonce() {
+        if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
