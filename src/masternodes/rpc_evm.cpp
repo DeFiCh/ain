@@ -211,63 +211,56 @@ UniValue xvmmap(const JSONRPCRequest& request) {
 
     const std::string hash = request.params[0].get_str();
 
-    if (request.params[1].get_int() < 7) {
-        const auto type = static_cast<EvmMapType>(request.params[1].get_int());
-        switch (type) {
-            case EvmMapType::DVM_ADDRESS_TO_EVM: {
-                const CPubKey key = AddrToPubKey(pwallet, hash);
-                return EncodeDestination(WitnessV16EthHash(key.GetID()));
-            }
-            case EvmMapType::EVM_ADDRESS_TO_DVM: {
-                const CPubKey key = AddrToPubKey(pwallet, hash);
-                return EncodeDestination(PKHash(key.GetID()));
-            }
-            case EvmMapType::DVM_TX_TO_EVM: {
-                const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
-                if (!res) {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-                }
-                else {
-                    return res.val->ToString();
-                }
-            }
-            case EvmMapType::EVM_TX_TO_DVM: {
-                const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
-                if (!res) {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-                }
-                else {
-                    return res.val->ToString();
-                }
-            }
-            case EvmMapType::DVM_BLOCK_TO_EVM: {
-                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
-                if (!res) {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-                }
-                else {
-                    return res.val->ToString();
-                }
-            }
-            case EvmMapType::EVM_BLOCK_TO_DVM: {
-                const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
-                if (!res) {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-                }
-                else
-                {
-                    return res.val->ToString();
-                }
-            }
-            case EvmMapType::AUTO: {
-                return "";
-            }
-            default:
-                break;
-        }
-    }
-    else {
+    if (request.params[1].get_int() >= NumEvmMapType) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", NumEvmMapType));
+    }
+    const auto type = static_cast<EvmMapType>(request.params[1].get_int());
+    switch (type) {
+        case EvmMapType::DVM_ADDRESS_TO_EVM: {
+            const CPubKey key = AddrToPubKey(pwallet, hash);
+            return EncodeDestination(WitnessV16EthHash(key.GetID()));
+        }
+        case EvmMapType::EVM_ADDRESS_TO_DVM: {
+            const CPubKey key = AddrToPubKey(pwallet, hash);
+            return EncodeDestination(PKHash(key.GetID()));
+        }
+        case EvmMapType::DVM_TX_TO_EVM: {
+            const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
+        }
+        case EvmMapType::EVM_TX_TO_DVM: {
+            const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
+        }
+        case EvmMapType::DVM_BLOCK_TO_EVM: {
+            const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
+        }
+        case EvmMapType::EVM_BLOCK_TO_DVM: {
+            const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
+        }
+        case EvmMapType::AUTO: {
+            return "";
+        }
+        default:
+            break;
     }
 }
 
