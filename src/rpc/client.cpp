@@ -367,7 +367,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "evmtx", 2, "gasPrice" },
     { "evmtx", 3, "gasLimit" },
     { "evmtx", 5, "value" },
-    { "evmmap",1, "hash"},
+    { "xvmmap",1, "hash"},
 };
 // clang-format on
 

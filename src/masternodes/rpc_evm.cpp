@@ -193,9 +193,9 @@ UniValue evmrawtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
-UniValue evmmap(const JSONRPCRequest& request) {
+UniValue xvmmap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
-    RPCHelpMan{"evmmap",
+    RPCHelpMan{"xvmmap",
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
@@ -205,7 +205,7 @@ UniValue evmmap(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("evmmap", R"('"<hex>"' 1)")
+                       HelpExampleCli("xvmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
 
@@ -275,9 +275,9 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm",         "evmrawtx",                  &evmrawtx,              {"rawtx"}},
-    {"evm",         "evmmap",                    &evmmap,                { "hash", "type"}},
+    {"evm",      "evmtx",                     &evmtx,                {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",      "evmrawtx",                  &evmrawtx,             {"rawtx"}},
+    {"evm",      "xvmmap",                    &xvmmap,               {"hash", "type"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
