@@ -75,7 +75,7 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
-    pub fn iter(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+    pub fn get_cloned_vec(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
         self.queues
             .read()
             .unwrap()
@@ -124,7 +124,7 @@ impl TransactionQueue {
             .collect::<Vec<QueueTxWithNativeHash>>()
     }
 
-    pub fn iter(&self) -> Vec<QueueTxWithNativeHash> {
+    pub fn get_cloned_vec(&self) -> Vec<QueueTxWithNativeHash> {
         self.transactions.lock().unwrap().clone()
     }
 
