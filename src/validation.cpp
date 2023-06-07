@@ -2009,39 +2009,6 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     return flags;
 }
 
-static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
-    if (obj.type == CTransferDomainType::DVMTokenToEVM) {
-        for (const auto& [owner, balance] : obj.from) {
-            mnview.AddBalances(owner, balance);
-        }
-    } else {
-        for (const auto& [owner, balance] : obj.to) {
-            mnview.SubBalances(owner, balance);
-        }
-    }
-}
-
-static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failedTransactions, const CBlock& block, const Consensus::Params &consensus, const int height, CCustomCSView &mnview) {
-    std::set<uint256> potentialTxsToUndo;
-    for (const auto &txStr : failedTransactions) {
-        potentialTxsToUndo.insert(uint256S(txStr));
-    }
-
-    std::set<uint256> txsToUndo;
-    for (const auto &tx : block.vtx) {
-        if (tx && potentialTxsToUndo.count(tx->GetHash())) {
-            std::vector<unsigned char> metadata;
-            const auto txType = GuessCustomTxType(*tx, metadata, false);
-            if (txType == CustomTxType::TransferDomain) {
-                auto txMessage = customTypeToMessage(txType);
-                assert(CustomMetadataParse(height, consensus, metadata, txMessage));
-                auto obj = std::get<CTransferDomainMessage>(txMessage);
-                RevertTransferDomain(obj, mnview);
-            }
-        }
-    }
-}
-
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
 {
     TAmounts const cbValues = tx.GetValuesOut();
@@ -2848,7 +2815,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -2867,61 +2834,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
-
-    if (IsEVMEnabled(pindex->nHeight, mnview)) {
-        CKeyID minter;
-        assert(block.ExtractMinterKey(minter));
-        CScript minerAddress;
-
-        if (!fMockNetwork) {
-            const auto id = mnview.GetMasternodeIdByOperator(minter);
-            assert(id);
-            const auto node = mnview.GetMasternode(*id);
-            assert(node);
-
-            auto height = node->creationHeight;
-            auto mnID = *id;
-            if (!node->collateralTx.IsNull()) {
-                const auto idHeight = mnview.GetNewCollateral(node->collateralTx);
-                assert(idHeight);
-                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
-                mnID = node->collateralTx;
-            }
-
-            const auto blockindex = ::ChainActive()[height];
-            assert(blockindex);
-
-            CTransactionRef tx;
-            uint256 hash_block;
-            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
-            assert(tx->vout.size() >= 2);
-
-            CTxDestination dest;
-            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
-            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
-
-            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
-            minerAddress = GetScriptForDestination(dest);
-        } else {
-            std::copy(minter.begin(), minter.end(), beneficiary.begin());
-            const auto dest = PKHash(minter);
-            minerAddress = GetScriptForDestination(dest);
-        }
-
-        const auto blockResult = evm_finalize(evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
-
-        if (!blockResult.failed_transactions.empty()) {
-            std::vector<std::string> failedTransactions;
-            for (const auto& rust_string : blockResult.failed_transactions) {
-                failedTransactions.emplace_back(rust_string.data(), rust_string.length());
-            }
-
-            RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, mnview);
-        }
-
-        mnview.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee)});
-    }
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
