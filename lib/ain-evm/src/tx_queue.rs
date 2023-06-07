@@ -64,10 +64,18 @@ impl TransactionQueueMap {
 
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the
     /// provided context ID. If the transaction is a `SignedTx`, it also updates the
-    /// corresponding account's nonce. The method assumes that transactions are signed and nonces
-    /// are properly handled before being added to the queue. Nonces for each account's transactions
-    /// should be in increasing order, e.g., if the last queued transaction for an account has nonce 3,
-    /// the next one should have nonce 4.
+    /// corresponding account's nonce.
+    /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
+    /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a nonce
+    /// that is not one more than the previous nonce is added, an error is returned. This helps to ensure the integrity
+    /// of the transaction queue and enforce correct nonce usage.
+    ///
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
+    /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
+    /// previous nonce of transactions from the same sender in the queue.
+    ///
     pub fn queue_tx(
         &self,
         context_id: u64,
@@ -79,7 +87,7 @@ impl TransactionQueueMap {
             .unwrap()
             .get(&context_id)
             .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.queue_tx((tx, hash)))
+            .map(|queue| queue.queue_tx((tx, hash)))?
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
@@ -153,14 +161,18 @@ impl TransactionQueue {
             .collect::<Vec<QueueTxWithNativeHash>>()
     }
 
-    pub fn queue_tx(&self, tx: QueueTxWithNativeHash) {
+    pub fn queue_tx(&self, tx: QueueTxWithNativeHash) -> Result<(), QueueError> {
         if let QueueTx::SignedTx(signed_tx) = &tx.0 {
-            self.account_nonces
-                .lock()
-                .unwrap()
-                .insert(signed_tx.sender, signed_tx.nonce());
+            let mut account_nonces = self.account_nonces.lock().unwrap();
+            if let Some(nonce) = account_nonces.get(&signed_tx.sender) {
+                if signed_tx.nonce() != nonce + 1 {
+                    return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
+                }
+            }
+            account_nonces.insert(signed_tx.sender, signed_tx.nonce());
         }
         self.transactions.lock().unwrap().push(tx);
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -185,12 +197,14 @@ impl From<SignedTx> for QueueTx {
 #[derive(Debug)]
 pub enum QueueError {
     NoSuchContext,
+    InvalidNonce((Box<SignedTx>, U256)),
 }
 
 impl std::fmt::Display for QueueError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             QueueError::NoSuchContext => write!(f, "No transaction queue for this context"),
+            QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
         }
     }
 }
