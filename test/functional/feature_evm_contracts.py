@@ -25,25 +25,27 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        
+        key_pair = KeyPair.from_node(self.nodes[0])
+        address = key_pair.address
 
         # Generate chain
         self.nodes[0].generate(105)
 
         self.nodes[0].getbalance()
         self.nodes[0].utxostoaccount({self.address: "201@DFI"})
+        
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
-
-    def run_test(self):
+        
+        self.nodes[0].transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
+        self.nodes[0].generate(1)
+        
+        return key_pair
+        
+    def test_create_and_call_contract(self, key_pair):
         node = self.nodes[0]
-        self.setup()
-
-        key_pair = KeyPair.from_node(node)
-        address = key_pair.address
-
-        node.transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
-        node.generate(1)
-
+        
         evm_contract = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
         contract = node.evm.deploy_compiled_contract(key_pair, evm_contract)
 
@@ -52,6 +54,27 @@ class EVMTest(DefiTestFramework):
 
         # get variable
         assert_equal(contract.functions.retrieve().call(), 10)
+        
+    def test_contracts_interaction(self, key_pair):
+        node = self.nodes[0]
+        
+        counter_json = EVMContract.from_file("Counter.sol", "Counter").compile()
+        counter_contract = node.evm.deploy_compiled_contract(key_pair, counter_json)
+        # print('counter_contract: ', counter_contract)
+        # print('counter_contract: ', counter_contract)
+        
+        # mul = node.evm.sign_and_send(contract.functions.mul(2,3), key_pair)
+        # print('mul: ', mul)
+        
+    def run_test(self):
+        key_pair = self.setup()
+        
+        # self.test_create_and_call_contract(key_pair)
+        
+        self.test_contracts_interaction(key_pair)
+        
+
+
 
 
 if __name__ == '__main__':
