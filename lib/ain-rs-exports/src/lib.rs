@@ -50,7 +50,7 @@ pub mod ffi {
     extern "Rust" {
         fn evm_get_balance(address: [u8; 20]) -> Result<u64>;
         fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
-        fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
+        fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
         fn evm_add_balance(
             context: u64,
@@ -189,7 +189,7 @@ pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
     Ok(nonce.as_u64())
 }
 
-/// Retrieves the nonce of an EVM account in a specific context
+/// Retrieves the next valid nonce of an EVM account in a specific context
 ///
 /// # Arguments
 ///
@@ -198,10 +198,13 @@ pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
 ///
 /// # Returns
 ///
-/// Returns the nonce of the account in a specific context as a `u64`
-pub fn evm_get_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
+/// Returns the next valid nonce of the account in a specific context as a `u64`
+pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
     let address = H160::from(address);
-    let nonce = RUNTIME.handlers.evm.get_nonce_in_context(context, address);
+    let nonce = RUNTIME
+        .handlers
+        .evm
+        .get_next_valid_nonce_in_context(context, address);
     nonce.as_u64()
 }
 

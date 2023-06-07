@@ -111,16 +111,16 @@ impl TransactionQueueMap {
             .map_or(0, TransactionQueue::len)
     }
 
-    /// `get_nonce` returns the latest nonce for the account with the provided address in the
-    /// `TransactionQueue` associated with the provided context ID. This method assumes that
+    /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
+    /// in the `TransactionQueue` associated with the provided context ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
     /// and that their nonces are in increasing order.
-    pub fn get_nonce(&self, context_id: u64, address: H160) -> Option<U256> {
+    pub fn get_next_valid_nonce(&self, context_id: u64, address: H160) -> Option<U256> {
         self.queues
             .read()
             .unwrap()
             .get(&context_id)
-            .map_or(None, |queue| queue.get_nonce(address))
+            .map_or(None, |queue| queue.get_next_valid_nonce(address))
     }
 }
 
@@ -179,12 +179,13 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().len()
     }
 
-    pub fn get_nonce(&self, address: H160) -> Option<U256> {
+    pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
         self.account_nonces
             .lock()
             .unwrap()
             .get(&address)
             .map(ToOwned::to_owned)
+            .map(|nonce| nonce + 1)
     }
 }
 

@@ -317,12 +317,12 @@ impl EVMHandler {
         Ok(nonce)
     }
 
-    /// Retrieves the nonce for the specified account within a particular context.
+    /// Retrieves the next valid nonce for the specified account within a particular context.
     ///
-    /// The method first attempts to retrieve the nonce from the transaction queue associated with the provided context.
-    /// If no nonce is found in the transaction queue, that means that no transactions have been queued for this account
-    /// in this context), it falls back to retrieving the nonce from the storage at the latest block
-    /// If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
+    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
+    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
     /// the nonce is defaulted to zero.
     ///
     /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
@@ -335,11 +335,11 @@ impl EVMHandler {
     ///
     /// # Returns
     ///
-    /// Returns the nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
+    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
         let nonce = self
             .tx_queues
-            .get_nonce(context, address)
+            .get_next_valid_nonce(context, address)
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
