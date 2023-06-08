@@ -29,11 +29,15 @@ pub struct Handlers {
 impl Handlers {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
-    /// Note, however, that this JSON-based initialization is exclusively reserved for regtest environments.
+    /// This JSON-based initialization is exclusively reserved for regtest environments.
+    ///
+    /// # Warning
+    ///
+    /// Loading state from JSON will overwrite previous stored state
     ///
     /// # Errors
     ///
-    /// This function will return an error if an attempt is made to load a genesis state from a JSON file outside of a regtest environment.
+    /// This method will return an error if an attempt is made to load a genesis state from a JSON file outside of a regtest environment.
     ///
     /// # Return
     ///
