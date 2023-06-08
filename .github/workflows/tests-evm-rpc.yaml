@@ -33,7 +33,7 @@ jobs:
         path: |
           build/src/defid
           build/src/defi-cli
-          scripts/fixtures.sh
+          .github/scripts/fixtures.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
         
     - name: Chores
       run: |
-        chmod uog+x build/src/defid build/src/defi-cli scripts/fixtures.sh
+        chmod uog+x build/src/defid build/src/defi-cli .github/scripts/fixtures.sh
 
     - name: Run defid node
       run: |
@@ -55,7 +55,7 @@ jobs:
     - name: Push fixtures
       run: |
         sleep 5
-        ./scripts/fixtures.sh
+        ./.github/scripts/fixtures.sh
       
     - name: Set up Go
       uses: actions/setup-go@v3

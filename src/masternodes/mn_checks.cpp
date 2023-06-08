@@ -3879,7 +3879,7 @@ public:
                 // Subtract balance from ETH address
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
-                balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
                     return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
                 }
@@ -3913,7 +3913,7 @@ public:
                 // Add balance to ETH address
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
-                balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
             } else
                 return Res::Err("Invalid domain set for \"dst\" argument");

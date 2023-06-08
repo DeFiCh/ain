@@ -143,7 +143,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result["dst"]["amount"], "100.00000000@0")
         assert_equal(result["dst"]["domain"], "EVM")
 
-        # Check that EVM balance shows in gettokenabalances
+        # Check that EVM balance shows in gettokenbalances
         assert_equal(self.nodes[0].gettokenbalances({}, False, False, True), ['101.00000000@0'])
 
         # Check new balances
@@ -261,6 +261,13 @@ class EVMTest(DefiTestFramework):
         # Try and send a TX with a high nonce
         assert_raises_rpc_error(-32600, "evm tx failed to validate", self.nodes[0].evmtx, ethAddress, 1, 21, 21000, to_address, 1)
 
+        # Check Eth balances before transfer
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 10000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
+
+        # Get miner DFI balance before transaction
+        miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+
         # Test EVM Tx
         tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21000, to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx)
@@ -288,6 +295,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(self.nodes[1].getrawmempool(), [tx])
         self.nodes[0].generate(1)
 
+        # Check Eth balances before transfer
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 9000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 1000000000000000000)
+
+        # Check miner account balance after transfer
+        miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+        miner_fee = miner_after - miner_before
+
         # Check EVM Tx is in block
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         assert_equal(block['tx'][1], tx)
@@ -302,16 +317,26 @@ class EVMTest(DefiTestFramework):
         # Try and send EVM TX a second time
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
 
-        # Check EVM blockhash and miner fee shown
+        # Check EVM blockhash
         eth_block = self.nodes[0].eth_getBlockByNumber('latest')
         eth_hash = eth_block['hash'][2:]
         eth_fee = eth_block['gasUsed'][2:]
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
         block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][4:68]
-        fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
         assert_equal(block_hash, eth_hash)
-        assert_equal(fee_amount[2:4] + fee_amount[0:2], eth_fee)
+
+        # Check EVM miner fee
+        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
+        opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
+        eth_fee_sats = Decimal(int(eth_fee, 16)) / 1000000000
+        assert_equal(opreturn_fee_sats, eth_fee_sats)
+        assert_equal(opreturn_fee_sats, miner_fee)
+
+        # Test rollback of EVM TX
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+        assert_equal(miner_before, miner_rollback)
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
