@@ -142,8 +142,8 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
-        case CustomTxType::TransferBalance:
-            return "TransferBalance";
+        case CustomTxType::TransferDomain:
+            return "TransferDomain";
         case CustomTxType::EvmTx:
             return "EvmTx";
         case CustomTxType::None:
@@ -303,8 +303,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
-        case CustomTxType::TransferBalance:
-            return CTransferBalanceMessage{};
+        case CustomTxType::TransferDomain:
+            return CTransferDomainMessage{};
         case CustomTxType::EvmTx:
             return CEvmTxMessage{};
         case CustomTxType::None:
@@ -435,7 +435,7 @@ public:
                 CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
         else if constexpr (IsOneOf<T,
-                CTransferBalanceMessage,
+                CTransferDomainMessage,
                 CEvmTxMessage>())
             return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
         else if constexpr (IsOneOf<T,
@@ -487,12 +487,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
-    for (const auto &input : tx.vin) {
-        const Coin &coin = coins.AccessCoin(input.prevout);
-        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
-            return Res::Ok();
-    }
-    return Res::Err("tx must have at least one input from account owner");
+    return ::HasAuth(tx, coins, auth);
 }
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
@@ -3457,7 +3452,7 @@ public:
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
                 if (!loanAmounts) return DeFiErrors::LoanInvalidVault(obj.vaultId);
 
-                if (!loanAmounts->balances.count(loanTokenId)) 
+                if (!loanAmounts->balances.count(loanTokenId))
                     return DeFiErrors::LoanInvalidTokenForSymbol(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
@@ -3805,102 +3800,48 @@ public:
         return mnview.AddProposalVote(obj.propId, obj.masternodeId, vote);
     }
 
-    Res operator()(const CTransferBalanceMessage &obj) const {
-        if (!IsEVMEnabled(height, mnview)) {
-            return Res::Err("Cannot create tx, EVM is not enabled");
+    Res operator()(const CTransferDomainMessage &obj) const {
+        auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj);
+        if (!res) {
+            return res;
         }
 
-        // owner auth
-        auto res = Res::Ok();
-        if (obj.type != CTransferBalanceType::EvmOut)
-            for (const auto &kv : obj.from) {
-                res = HasAuth(kv.first);
+        // Iterate over array of transfers
+        for (const auto &[src, dst] : obj.transfers) {
+            if (src.domain == CTransferDomain::DVMDomain) {
+                // Subtract balance from DFI address
+                CBalances balance;
+                balance.Add(src.amount);
+                res = SubBalanceDelShares(src.address, balance);
                 if (!res)
                     return res;
-            }
-
-        // compare
-        const auto sumFrom = SumAllTransfers(obj.from);
-        const auto sumTo   = SumAllTransfers(obj.to);
-
-        if (sumFrom != sumTo)
-            return Res::Err("sum of inputs (from) != sum of outputs (to)");
-
-        if (obj.type == CTransferBalanceType::AccountToAccount) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
-        } else if (obj.type == CTransferBalanceType::EvmIn) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-
-            for (const auto& [addr, balances] : obj.to) {
+            } else if (src.domain == CTransferDomain::EVMDomain) {
+                // Subtract balance from ETH address
                 CTxDestination dest;
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
-                    }
-                }
-
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM in transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
-                }
-            }
-        } else if (obj.type == CTransferBalanceType::EvmOut) {
-
-            for (const auto& [addr, balances] : obj.from) {
-                CTxDestination dest;
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfertype");
-                    }
-                }
-                bool foundAuth = false;
-                for (const auto &input : tx.vin) {
-                    const Coin &coin = coins.AccessCoin(input.prevout);
-                    std::vector<TBytes> vRet;
-                    if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                    {
-                        auto it = input.scriptSig.begin();
-                        CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                        if (script == addr)
-                            foundAuth = true;
-                    }
-                }
-                if (!foundAuth)
-                    return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
-
+                ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover EVM out", EncodeDestination(dest));
-                    }
+                arith_uint256 balanceIn = src.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                    return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
                 }
             }
-
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
+            if (dst.domain == CTransferDomain::DVMDomain) {
+                // Add balance to DFI address
+                CBalances balance;
+                balance.Add(dst.amount);
+                res = AddBalanceSetShares(dst.address, balance);
+                if (!res)
+                    return res;
+            } else if (dst.domain == CTransferDomain::EVMDomain) {
+                // Add balance to ETH address
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+            }
         }
 
         return res;
@@ -3927,6 +3868,109 @@ public:
 
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
+
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
+            return Res::Ok();
+    }
+    return Res::Err("tx must have at least one input from account owner");
+}
+
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj)
+{
+    auto res = Res::Ok();
+
+    // Check if EVM feature is active
+    if (!IsEVMEnabled(height, mnview)) {
+        return Res::Err("Cannot create tx, EVM is not enabled");
+    }
+
+    // Iterate over array of transfers
+    for (const auto &[src, dst] : obj.transfers) {
+        // Reject if transfer is within same domain
+        if (src.domain == dst.domain)
+            return Res::Err("Cannot transfer inside same domain");
+
+        // Check for amounts out equals amounts in
+        if (src.amount.nValue != dst.amount.nValue)
+            return Res::Err("Source amount must be equal to destination amount");
+
+        // Restrict only for use with DFI token for now
+        if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+            return Res::Err("For transferdomain, only DFI token is currently supported");
+
+        CTxDestination dest;
+
+        // Soruce validation
+        // Check domain type
+        if (src.domain == CTransferDomain::DVMDomain) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+                }
+            }
+
+            // Check for authorization on source address
+            res = HasAuth(tx, coins, src.address);
+            if (!res)
+                return res;
+        } else if (src.domain == CTransferDomain::EVMDomain) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+                }
+            }
+
+            // Check for authorization on source address
+            bool foundAuth = false;
+            for (const auto &input : tx.vin) {
+                const Coin &coin = coins.AccessCoin(input.prevout);
+                std::vector<TBytes> vRet;
+                if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+                {
+                    auto it = input.scriptSig.begin();
+                    CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    if (script == src.address)
+                        foundAuth = true;
+                }
+            }
+            if (!foundAuth)
+                return Res::Err("tx must have at least one input from account owner");
+        } else
+            return Res::Err("Invalid domain set for \"src\" argument");
+
+        // Destination validation
+        // Check domain type
+        if (dst.domain == CTransferDomain::DVMDomain) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+                }
+            }
+        } else if (dst.domain == CTransferDomain::EVMDomain) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+                }
+            }
+        } else
+            return Res::Err("Invalid domain set for \"dst\" argument");
+    }
+
+    return res;
+}
 
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,

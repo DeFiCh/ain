@@ -44,9 +44,9 @@ inline uint64_t evm_get_balance(::rust::Str address) {
     return {};
 }
 
-inline void evm_add_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount) {}
+inline void evm_add_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount, ::std::array<::std::uint8_t, 32> native_tx_hash) {}
 
-inline bool evm_sub_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount) {
+inline bool evm_sub_balance(::std::uint64_t context, ::rust::Str address, ::std::array<::std::uint8_t, 32> amount, ::std::array<::std::uint8_t, 32> native_tx_hash) {
     return {};
 }
 

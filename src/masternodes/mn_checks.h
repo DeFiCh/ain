@@ -144,7 +144,7 @@ enum class CustomTxType : uint8_t {
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
     // EVM
-    TransferBalance                  = '8',
+    TransferDomain                  = '8',
     EvmTx                     = '9',
 };
 
@@ -210,7 +210,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
-        case CustomTxType::TransferBalance:
+        case CustomTxType::TransferDomain:
         case CustomTxType::EvmTx:
         case CustomTxType::None:
             return type;
@@ -450,7 +450,7 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CAuctionBidMessage,
                                       CCreateProposalMessage,
                                       CProposalVoteMessage,
-                                      CTransferBalanceMessage,
+                                      CTransferDomainMessage,
                                       CEvmTxMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
@@ -510,6 +510,13 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
 bool IsEVMEnabled(const int height, const CCustomCSView &view);
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth);
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD

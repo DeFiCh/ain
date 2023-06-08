@@ -546,10 +546,33 @@ public:
         rpcInfo.pushKV("vote", CProposalVoteToString(vote));
     }
 
-    void operator()(const CTransferBalanceMessage &obj) const {
-        rpcInfo.pushKV("type", CTransferBalanceTypeToString(static_cast<CTransferBalanceType>(obj.type)));
-        rpcInfo.pushKV("from", accountsInfo(obj.from));
-        rpcInfo.pushKV("to", accountsInfo(obj.to));
+    void operator()(const CTransferDomainMessage &obj) const {
+        UniValue array{UniValue::VARR};
+        for (const auto &idx : obj.transfers) {
+            const auto &src = idx.first;
+            const auto &dst = idx.second;
+
+            UniValue elem{UniValue::VOBJ}, srcInfo{UniValue::VOBJ}, dstInfo{UniValue::VOBJ};
+
+            srcInfo.pushKV("address", ScriptToString(src.address));
+            srcInfo.pushKV("amount", src.amount.ToString());
+            srcInfo.pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(src.domain)));
+            if (!src.data.empty())
+                srcInfo.pushKV("data", std::string(src.data.begin(), src.data.end()));
+
+            dstInfo.pushKV("address", ScriptToString(dst.address));
+            dstInfo.pushKV("amount", dst.amount.ToString());
+            dstInfo.pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(dst.domain)));
+            if (!dst.data.empty())
+                dstInfo.pushKV("data", std::string(dst.data.begin(), dst.data.end()));
+
+            elem.pushKV("src", srcInfo);
+            elem.pushKV("dst", dstInfo);
+
+            array.push_back(elem);
+        }
+
+        rpcInfo.pushKV("transfers", array);
     }
 
     void operator()(const CEvmTxMessage &obj) const {

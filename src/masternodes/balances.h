@@ -208,24 +208,37 @@ struct CUtxosToAccountMessage {
     }
 };
 
-enum CTransferBalanceType : uint8_t {
-    AccountToAccount = 0x00,
-    EvmIn            = 0x01,
-    EvmOut           = 0x02,
+enum CTransferDomain : uint8_t {
+    DVMDomain      = 0x01,
+    EVMDomain      = 0x02,
 };
 
-struct CTransferBalanceMessage {
-    uint8_t type;
-    CAccounts from;  // from -> balances
-    CAccounts to;    // to -> balances
+struct CTransferDomainElement
+{
+    CScript address;
+    CTokenAmount amount;
+    uint8_t domain;
+    std::vector<uint8_t> data;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(type);
-        READWRITE(from);
-        READWRITE(to);
+        READWRITE(address);
+        READWRITE(amount);
+        READWRITE(domain);
+        READWRITE(data);
+    }
+};
+
+struct CTransferDomainMessage {
+    std::vector<std::pair<CTransferDomainElement, CTransferDomainElement>> transfers;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(transfers);
     }
 };
 
