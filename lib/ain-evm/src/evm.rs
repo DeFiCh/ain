@@ -53,6 +53,7 @@ impl EVMHandler {
     }
 
     pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Self {
+        debug!("Loading genesis state from {}", path.display());
         init_vsdb();
 
         let handler = Self {

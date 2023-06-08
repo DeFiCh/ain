@@ -50,8 +50,8 @@ impl TrieDBStore {
 
     /// # Warning
     ///
-    /// This function should only be used in a regtest environment. Can conflict with existing chain state if used
-    /// on another network
+    /// This function should only be used in a regtest environment.
+    /// Can conflict with existing chain state if used on another network
     pub fn genesis_state_root_from_json(
         trie_store: &Arc<TrieDBStore>,
         storage: &Arc<Storage>,
@@ -72,6 +72,7 @@ impl TrieDBStore {
         let genesis: GenesisData = serde_json::from_reader(reader)?;
 
         for (address, data) in genesis.alloc {
+            debug!("Setting data {:#?} for address {:x?}", data, address);
             let basic = backend.basic(address);
 
             let new_basic = Basic {
