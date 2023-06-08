@@ -46,8 +46,8 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1', '-txordering=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1', '-txordering=1']
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1']
         ]
 
     def run_test(self):
@@ -158,41 +158,45 @@ class EVMTest(DefiTestFramework):
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
 
         # Test EVM Tx
-        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21001, to_address, 1)
+        tx3 = self.nodes[0].evmtx(ethAddress, 2, 21, 21001, to_address, 1)
         tx2 = self.nodes[0].evmtx(ethAddress, 1, 21, 21001, to_address, 1)
+        tx = self.nodes[0].evmtx(ethAddress, 0, 21, 21001, to_address, 1)
+        tx4 = self.nodes[0].evmtx(ethAddress, 3, 21, 21001, to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx)
         self.sync_mempools()
 
         # Check the pending TXs
         result = self.nodes[0].eth_pendingTransactions()
-        assert_equal(result[0]['blockHash'], '0x0000000000000000000000000000000000000000000000000000000000000000')
-        assert_equal(result[0]['blockNumber'], 'null')
-        assert_equal(result[0]['from'], ethAddress)
-        assert_equal(result[0]['gas'], '0x5209')
-        assert_equal(result[0]['gasPrice'], '0x4e3b29200')
-        assert_equal(result[0]['hash'], '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb')
-        assert_equal(result[0]['input'], '0x')
-        assert_equal(result[0]['nonce'], '0x0')
-        assert_equal(result[0]['to'], to_address.lower())
-        assert_equal(result[0]['transactionIndex'], '0x0')
-        assert_equal(result[0]['value'], '0xde0b6b3a7640000')
-        assert_equal(result[0]['v'], '0x26')
-        assert_equal(result[0]['r'], '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c')
-        assert_equal(result[0]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
+        assert_equal(result[2]['blockHash'], '0x0000000000000000000000000000000000000000000000000000000000000000')
+        assert_equal(result[2]['blockNumber'], 'null')
+        assert_equal(result[2]['from'], ethAddress)
+        assert_equal(result[2]['gas'], '0x5209')
+        assert_equal(result[2]['gasPrice'], '0x4e3b29200')
+        assert_equal(result[2]['hash'], '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb')
+        assert_equal(result[2]['input'], '0x')
+        assert_equal(result[2]['nonce'], '0x0')
+        assert_equal(result[2]['to'], to_address.lower())
+        assert_equal(result[2]['transactionIndex'], '0x0')
+        assert_equal(result[2]['value'], '0xde0b6b3a7640000')
+        assert_equal(result[2]['v'], '0x26')
+        assert_equal(result[2]['r'], '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c')
+        assert_equal(result[2]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
-        # Check mempools for TX in reverse order of nonce
-        assert_equal(self.nodes[0].getrawmempool(), [tx2, tx])
-        assert_equal(self.nodes[1].getrawmempool(), [tx2, tx])
+        # Check mempools for TXs
+        assert_equal(self.nodes[0].getrawmempool(), [tx3, tx2, tx4, tx])
+        assert_equal(self.nodes[1].getrawmempool(), [tx3, tx2, tx4, tx])
         self.nodes[0].generate(1)
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(block_txs[1], tx)
         assert_equal(block_txs[2], tx2)
+        assert_equal(block_txs[3], tx3)
+        assert_equal(block_txs[4], tx4)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 8000000000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 2000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 6000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 4000000000000000000)
 
         # Check miner account balance after transfer
         miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
@@ -204,7 +208,12 @@ class EVMTest(DefiTestFramework):
 
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(block['transactions'], ['0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb', '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a'])
+        assert_equal(block['transactions'], [
+            '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb',
+            '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a',
+            '0x02b05a6646feb65bf9491f9551e02678263239dc2512d73c9ad6bc80dc1c13ff',
+            '0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c'
+        ])
 
         # Check pending TXs now empty
         assert_equal(self.nodes[0].eth_pendingTransactions(), [])
