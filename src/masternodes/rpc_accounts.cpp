@@ -2946,6 +2946,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
     {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
     {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
+    {"accounts",   "transferdomain",           &transferdomain,            {"array"}},
     {"accounts",   "getburninfo",              &getburninfo,               {}},
     {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
     {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},
