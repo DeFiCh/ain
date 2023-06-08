@@ -51,11 +51,13 @@ CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCre
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet);
 
 enum class UpdateMasternodeType : uint8_t {
-    None             = 0x00,
-    OwnerAddress     = 0x01,
-    OperatorAddress  = 0x02,
-    SetRewardAddress = 0x03,
-    RemRewardAddress = 0x04
+    None               = 0x00,
+    OwnerAddress       = 0x01,
+    OperatorAddress    = 0x02,
+    SetRewardAddress   = 0x03,
+    RemRewardAddress   = 0x04,
+    SetDelegateAddress = 0x05,
+    RemDelegateAddress = 0x06
 };
 
 constexpr uint8_t SUBNODE_COUNT{4};
@@ -237,6 +239,12 @@ public:
                                 const CKeyID &rewardAddress,
                                 int height);
     void RemForcedRewardAddress(const uint256 &nodeId, CMasternode &node, int height);
+    void SetForcedDelegateAddress(const uint256 &nodeId,
+                                CMasternode &node,
+                                const char delegateAddressType,
+                                const CKeyID &delegateAddress,
+                                int height);
+    void RemForcedDelegateAddress(const uint256 &nodeId, CMasternode &node, int height);
     void UpdateMasternodeOperator(const uint256 &nodeId,
                                   CMasternode &node,
                                   const char operatorType,
@@ -394,6 +402,7 @@ public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
     const std::string DEX_STATS_ENABLED     = "DexStatsEnabled";
     const std::string MN_REWARD_ADDRESSES   = "MNRewardAddresses";
+    const std::string MN_DELEGATE_ADDRESSES = "MNDelegateAddresses";
 
     void SetDexStatsLastHeight(int32_t height);
     std::optional<int32_t> GetDexStatsLastHeight();
@@ -402,6 +411,8 @@ public:
 
     std::optional<std::set<CScript>> SettingsGetRewardAddresses();
     void SettingsSetRewardAddresses(const std::set<CScript> &addresses);
+    std::optional<std::set<CScript>> SettingsGetDelegateAddresses();
+    void SettingsSetDelegateAddresses(const std::set<CScript> &addresses);
 
     struct KVSettings {
         static constexpr uint8_t prefix() { return '0'; }

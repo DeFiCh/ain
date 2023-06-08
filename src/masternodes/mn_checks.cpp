@@ -1097,6 +1097,32 @@ public:
                 rewardType = true;
 
                 mnview.RemForcedRewardAddress(obj.mnId, *node, height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::SetDelegateAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetDelegateAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
+
+                if (addressType != 1 && addressType != 4) {
+                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                }
+
+                const auto keyID = CKeyID(uint160(rawAddress));
+                mnview.SetForcedDelegateAddress(obj.mnId, *node, addressType, keyID, height);
+
+                if (auto addresses = mnview.SettingsGetDelegateAddresses()) {
+                    const CScript delegateAddress = GetScriptForDestination(addressType == PKHashType ?
+                                                                          CTxDestination(PKHash(keyID)) :
+                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    addresses->insert(delegateAddress);
+                    mnview.SettingsSetDelegateAddresses(*addresses);
+                }
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::RemDelegateAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetDelegateAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
+                mnview.RemForcedDelegateAddress(obj.mnId, *node, height);
             } else {
                 return Res::Err("Unknown update type provided");
             }

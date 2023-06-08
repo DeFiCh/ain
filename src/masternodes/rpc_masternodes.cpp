@@ -345,6 +345,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode owner address, requires masternode collateral fee (P2PKH or P2WPKH)"},
                             {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode operator address (P2PKH or P2WPKH)"},
                             {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Masternode`s new reward address, empty \"\" to remove reward address."},
+                            {"delegateAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Any valid address for delegating vote (any P2PKH or P2WKH address)"},
                        },
                    },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -390,7 +391,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    CTxDestination newOwnerDest, operatorDest, rewardDest;
+    CTxDestination newOwnerDest, operatorDest, rewardDest, delegateDest;
 
     UniValue metaObj = request.params[1].get_obj();
     if (!metaObj["ownerAddress"].isNull()) {
@@ -414,6 +415,17 @@ UniValue updatemasternode(const JSONRPCRequest& request)
             rewardDest = DecodeDestination(rewardAddress);
             if (rewardDest.index() != PKHashType && rewardDest.index() != WitV0KeyHashType) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+            }
+        }
+    }
+
+    std::string delegateAddress;
+    if (!metaObj["delegateAddress"].isNull()) {
+        delegateAddress = metaObj["delegateAddress"].getValStr();
+        if (!delegateAddress.empty()) {
+            delegateDest = DecodeDestination(delegateAddress);
+            if (delegateDest.index() != PKHashType && delegateDest.index() != WitV0KeyHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "delegateAddress (" + delegateAddress + ") does not refer to a P2PKH or P2WPKH address");
             }
         }
     }
@@ -448,6 +460,15 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         } else {
             const CKeyID keyID = rewardDest.index() == PKHashType ? CKeyID(std::get<PKHash>(rewardDest)) : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress), std::make_pair(static_cast<char>(rewardDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
+        }
+    }
+
+    if (!metaObj["delegateAddress"].isNull()) {
+        if (delegateAddress.empty()) {
+            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemDelegateAddress), std::pair<char, std::vector<unsigned char>>());
+        } else {
+            const CKeyID keyID = delegateDest.index() == PKHashType ? CKeyID(std::get<PKHash>(delegateDest)) : CKeyID(std::get<WitnessV0KeyHash>(delegateDest));
+            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetDelegateAddress), std::make_pair(static_cast<char>(delegateDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
         }
     }
 

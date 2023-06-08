@@ -372,6 +372,34 @@ void CMasternodesView::RemForcedRewardAddress(const uint256 &nodeId, CMasternode
     WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
 }
 
+void CMasternodesView::SetForcedDelegateAddress(const uint256 &nodeId,
+                                              CMasternode &node,
+                                              const char delegateAddressType,
+                                              const CKeyID &delegateAddress,
+                                              int height) {
+    // If old masternode update for new serialisation
+    if (node.version < CMasternode::VERSION2) {
+        node.version = CMasternode::VERSION2;
+    }
+
+    // Set new reward address
+    node.rewardAddressType = delegateAddressType;
+    node.rewardAddress     = delegateAddress;
+    WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+}
+
+void CMasternodesView::RemForcedDelegateAddress(const uint256 &nodeId, CMasternode &node, int height) {
+    node.voteDelegationType = 0;
+    node.voteDelegationAddress.SetNull();
+    WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+}
+
 std::optional<uint32_t> CMasternodesView::GetPendingHeight(const CKeyID &ownerAuthAddress) const {
     return ReadBy<PendingHeight, uint32_t>(ownerAuthAddress);
 }
@@ -768,6 +796,14 @@ std::optional<std::set<CScript>> CSettingsView::SettingsGetRewardAddresses() {
 
 void CSettingsView::SettingsSetRewardAddresses(const std::set<CScript> &addresses) {
     WriteBy<KVSettings>(MN_REWARD_ADDRESSES, addresses);
+}
+
+std::optional<std::set<CScript>> CSettingsView::SettingsGetDelegateAddresses() {
+    return ReadBy<KVSettings, std::set<CScript>>(MN_DELEGATE_ADDRESSES);
+}
+
+void CSettingsView::SettingsSetDelegateAddresses(const std::set<CScript> &addresses) {
+    WriteBy<KVSettings>(MN_DELEGATE_ADDRESSES, addresses);
 }
 
 /*

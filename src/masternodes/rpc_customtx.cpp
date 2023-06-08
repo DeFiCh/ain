@@ -114,6 +114,14 @@ public:
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 rpcInfo.pushKV("rewardAddress", "");
             }
+            if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetDelegateAddress)) {
+                rpcInfo.pushKV(
+                        "delegateAddress",
+                        EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
+                                                                    : CTxDestination(WitnessV0KeyHash(rawAddress))));
+            } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemDelegateAddress)) {
+                rpcInfo.pushKV("delegateAddress", "");
+            }
         }
     }
 
