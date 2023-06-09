@@ -718,12 +718,12 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
-        consensus.evmChainId = 1132; // dev chain ID
+        consensus.evmChainId = 1133; // changi chain ID
 
-        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0c;
-        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x10;
-        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x10;
-        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x08;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0d;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x11;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x09;
 
         nDefaultPort = 20555; /// @note devnet matter
         nPruneAfterHeight = 1000;
@@ -804,7 +804,10 @@ public:
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
+
+        UpdateActivationParametersFromArgs();
     }
+    void UpdateActivationParametersFromArgs();
 };
 
 /**
@@ -1350,6 +1353,16 @@ void CMainParams::UpdateActivationParametersFromArgs() {
     }
 }
 
+void CChangiParams::UpdateActivationParametersFromArgs() {
+    if (gArgs.IsArgSet("-devnet-bootstrap")) {
+        nDefaultPort = 18555;
+        vSeeds.emplace_back("testnet-seed.defichain.io");
+        pchMessageStartPostAMK[0] = 0x0b;
+        pchMessageStartPostAMK[1] = 0x11;
+        pchMessageStartPostAMK[2] = 0x09;
+        pchMessageStartPostAMK[3] = 0x07;
+    }
+}
 
 void CDevNetParams::UpdateActivationParametersFromArgs() {
     if (gArgs.IsArgSet("-devnet-bootstrap")) {
@@ -1361,7 +1374,6 @@ void CDevNetParams::UpdateActivationParametersFromArgs() {
         pchMessageStartPostAMK[3] = 0x07;
     }
 }
-
 
 void CRegTestParams::UpdateActivationParametersFromArgs()
 {
