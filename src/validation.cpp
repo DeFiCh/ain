@@ -2638,6 +2638,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto applyCustomTxTime = GetTimeMicros();
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
+            std::vector<unsigned char> metadata;
+            if (const auto txType = GuessCustomTxType(tx, metadata, true); txType == CustomTxType::EvmTx) {
+                std::array<uint8_t, 20> dummyAddress{};
+                auto blockResult = evm_finalize(evmContext, false, block.nBits, dummyAddress, block.GetBlockTime());
+                if (blockResult.miner_fee > MAX_BLOCK_GAS_LIMIT) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, blockResult.miner_fee, MAX_BLOCK_GAS_LIMIT),
+                                         REJECT_CUSTOMTX, "over-gas-limit");
+                }
+            }
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
