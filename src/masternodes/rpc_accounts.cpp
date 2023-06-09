@@ -2004,8 +2004,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferdomain", R"('[{"src":{"address":<DFI_address>, "amount\":"1.0@DFI", "domain": 1}, {"dst":{"address":<ETH_address>, "amount":"1.0@DFI", "domain": 2}}]')") +
-                        HelpExampleCli("transferdomain", R"('[{"src":{"address":<ETH_address>, "amount\":"1.0@DFI", "domain": 2}, {"dst":{"address":<DFI_address>, "amount":"1.0@DFI", "domain": 1}}]')")
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 1}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 2}}]')") +
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 1}}]')")
                         },
     }.Check(request);
 
