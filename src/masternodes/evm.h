@@ -13,7 +13,7 @@ constexpr const uint16_t EVM_TX_SIZE = 32768;
 
 using CRawEvmTx = TBytes;
 
-extern std::string CTransferBalanceTypeToString(const CTransferBalanceType type);
+extern std::string CTransferDomainToString(const VMDomain domain);
 
 struct CEvmTxMessage {
     CRawEvmTx evmTx;
@@ -27,4 +27,3 @@ struct CEvmTxMessage {
 };
 
 #endif // DEFI_MASTERNODES_EVM_H
-

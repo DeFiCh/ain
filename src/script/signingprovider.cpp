@@ -84,13 +84,13 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
     // "Implicitly" refers to fact that scripts are derived automatically from
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
-    if (pubkey.IsCompressed()) {
-        CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
-        // This does not use AddCScript, as it may be overridden.
+    if (ethAddress) {
+        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
         CScriptID id(script);
         mapScripts[id] = std::move(script);
-    } else if (ethAddress) {
-        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+    } else if (pubkey.IsCompressed()) {
+        CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
+        // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
         mapScripts[id] = std::move(script);
     }
@@ -112,6 +112,7 @@ bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubke
     mapKeys[pubkey.GetID()] = key;
     if (ethAddress) {
         mapKeys[pubkey.GetEthID()] = key;
+        mapEthKeys[pubkey.GetEthID()] = key;
     }
     ImplicitlyLearnRelatedKeyScripts(pubkey, ethAddress);
     return true;
@@ -148,6 +149,17 @@ bool FillableSigningProvider::GetKey(const CKeyID &address, CKey &keyOut) const
     LOCK(cs_KeyStore);
     KeyMap::const_iterator mi = mapKeys.find(address);
     if (mi != mapKeys.end()) {
+        keyOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
+bool FillableSigningProvider::GetEthKey(const CKeyID &address, CKey &keyOut) const
+{
+    LOCK(cs_KeyStore);
+    auto mi = mapEthKeys.find(address);
+    if (mi != mapEthKeys.end()) {
         keyOut = mi->second;
         return true;
     }

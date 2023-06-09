@@ -43,7 +43,8 @@ void RegisterICXOrderbookRPCCommands(CRPCTable &tableRPC);
 void RegisterLoanRPCCommands(CRPCTable &tableRPC);
 /** Register Vault RPC commands */
 void RegisterVaultRPCCommands(CRPCTable &tableRPC);
-
+/** Register EVM RPC commands */
+void RegisterEVMRPCCommands(CRPCTable &tableRPC);
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
 {
@@ -64,6 +65,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterICXOrderbookRPCCommands(t);
     RegisterLoanRPCCommands(t);
     RegisterVaultRPCCommands(t);
+    RegisterEVMRPCCommands(t);
 }
 
 #endif // DEFI_RPC_REGISTER_H

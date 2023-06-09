@@ -5,6 +5,7 @@
 
 #include <miner.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
@@ -14,13 +15,14 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <masternodes/ffi_temp_stub.h>
+#include <ffi/cxx.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <memory.h>
 #include <net.h>
+#include <node/transaction.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <pos.h>
@@ -33,9 +35,32 @@
 #include <wallet/wallet.h>
 
 #include <algorithm>
-#include <queue>
 #include <utility>
 #include <random>
+
+struct EVM {
+    uint256 blockHash;
+    uint64_t minerFee;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(blockHash);
+        READWRITE(minerFee);
+    }
+};
+
+struct XVM {
+    EVM evm;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(evm);
+    }
+};
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -101,9 +126,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     resetBlock();
 
-    pblocktemplate.reset(new CBlockTemplate());
+    pblocktemplate = std::make_unique<CBlockTemplate>();
 
-    if(!pblocktemplate.get())
+    if(!pblocktemplate)
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
@@ -116,16 +141,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
-    // in fact, this may be redundant cause it was checked upthere in the miner
-    std::optional<std::pair<CKeyID, uint256>> myIDs;
-    std::optional<CMasternode> nodePtr;
-    if (!blockTime) {
-        myIDs = pcustomcsview->AmIOperator();
-        if (!myIDs)
-            return nullptr;
-        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
-            return nullptr;
+
+    const auto myIDs = pcustomcsview->AmIOperator();
+    if (!myIDs) {
+        return nullptr;
+    }
+    const auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+    if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
+        return nullptr;
     }
 
     auto consensus = chainparams.GetConsensus();
@@ -236,20 +259,31 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     const auto evmContext = evm_get_context();
+    std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
     }
 
-    // TODO Get failed TXs and try to restore to mempool
-    std::vector<uint8_t> evmHeader{};
+    XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview)) {
-        std::array<uint8_t, 20> dummyAddress{};
-        const auto rustHeader = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), dummyAddress);
-        evmHeader.resize(rustHeader.size());
-        std::copy(rustHeader.begin(), rustHeader.end(), evmHeader.begin());
+        std::array<uint8_t, 20> beneficiary{};
+        std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
+        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
+        evm_discard_context(evmContext);
+
+        const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
+
+        xvm = XVM{{uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
+
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        }
+
+        RemoveFailedTransactions(failedTransactions, txFees);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -326,13 +360,17 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !evmHeader.empty()) {
+        if (IsEVMEnabled(nHeight, mnview) && !xvm.evm.blockHash.IsNull()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
+            CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
+            metadata << xvm;
+
             CScript script;
-            script << OP_RETURN << evmHeader;
+            script << OP_RETURN << ToByteVector(metadata);
+
             coinbaseTx.vout[headerIndex].scriptPubKey = script;
         }
 
@@ -382,7 +420,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
-    if (myIDs) {
+    if (!blockTime) {
         pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
@@ -491,6 +529,70 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
+void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees) {
+    if (failedTransactions.empty()) {
+        return;
+    }
+
+    std::vector<uint256> txsToErase;
+    for (const auto &txStr : failedTransactions) {
+        const auto failedHash = uint256S(txStr);
+        for (const auto &tx : pblock->vtx) {
+            if (tx && tx->GetHash() == failedHash) {
+                std::vector<unsigned char> metadata;
+                const auto txType = GuessCustomTxType(*tx, metadata, false);
+                if (txType == CustomTxType::TransferDomain) {
+                    txsToErase.push_back(failedHash);
+                }
+            }
+        }
+    }
+
+    // Get a copy of the TXs to be erased for restoring to the mempool later
+    std::vector<CTransactionRef> txsToRemove;
+    std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
+
+    for (const auto &tx : pblock->vtx) {
+        if (tx && txsToEraseSet.count(tx->GetHash())) {
+            txsToRemove.push_back(tx);
+        }
+    }
+
+    // Add descendants and in turn add their descendants. This needs to
+    // be done in the order that the TXs are in the block for txsToRemove.
+    auto size = txsToErase.size();
+    for (std::vector<uint256>::size_type i{}; i < size; ++i) {
+        for (const auto &tx : pblock->vtx) {
+            if (tx) {
+                for (const auto &vin : tx->vin) {
+                    if (vin.prevout.hash == txsToErase[i] &&
+                        std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
+                    {
+                        txsToRemove.push_back(tx);
+                        txsToErase.push_back(tx->GetHash());
+                        ++size;
+                    }
+                }
+            }
+        }
+    }
+
+    // Erase TXs from block
+    txsToEraseSet = std::set<uint256>(txsToErase.begin(), txsToErase.end());
+    pblock->vtx.erase(
+            std::remove_if(pblock->vtx.begin(), pblock->vtx.end(),
+                           [&txsToEraseSet](const auto &tx) {
+                return tx && txsToEraseSet.count(tx.get()->GetHash());
+            }),pblock->vtx.end());
+
+    for (const auto &tx : txsToRemove) {
+        // Remove fees.
+        if (txFees.count(tx->GetHash())) {
+            nFees -= txFees.at(tx->GetHash());
+        }
+    }
+}
+
 // Skip entries in mapTx that are already in a block or are present
 // in mapModifiedTx (which implies that the mapTx ancestor state is
 // stale due to ancestor inclusion in the block)
@@ -528,13 +630,15 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
     indexed_modified_transaction_set mapModifiedTx;
     // Keep track of entries that failed inclusion, to avoid duplicate work
     CTxMemPool::setEntries failedTx;
+    // Keep track of EVM entries that failed nonce check
+    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -555,7 +659,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty())
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
+
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -569,7 +676,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         bool fUsingModified = false;
 
         modtxscoreiter modit = mapModifiedTx.get<ancestor_score>().begin();
-        if (mi == mempool.mapTx.get<T>().end()) {
+        if (mi == mempool.mapTx.get<T>().end() && mapModifiedTx.empty()) {
+            const auto it = failedNonces.begin();
+            iter = it->second;
+            failedNonces.erase(it);
+        } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTx
             iter = modit->iter;
             fUsingModified = true;
@@ -603,7 +714,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             packageSigOpsCost = modit->nSigOpCostWithAncestors;
         }
 
-        if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
+        if (!IsEVMTx(iter->GetTx()) && packageFees < blockMinFeeRate.GetFee(packageSize)) {
             // Everything else we might consider has a lower fee rate
             break;
         }
@@ -672,13 +783,40 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             AddCoins(coins, tx, nHeight, false); // do not check
 
             std::vector<unsigned char> metadata;
-            CustomTxType txType = GuessCustomTxType(tx, metadata);
+            CustomTxType txType = GuessCustomTxType(tx, metadata, true);
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
+                if (txType == CustomTxType::EvmTx) {
+                    auto txMessage = customTypeToMessage(txType);
+                    if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
+                        customTxPassed = false;
+                        break;
+                    }
 
-                // Not okay invalidate, undo and skip
+                    const auto obj = std::get<CEvmTxMessage>(txMessage);
+
+                    RustRes result;
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
+                    if (!result.ok) {
+                        customTxPassed = false;
+                        break;
+                    }
+
+                    const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
+                    if (nonce != txResult.nonce) {
+                        // Only add if not already in failed TXs to prevent adding on second attempt.
+                        if (!failedTx.count(iter)) {
+                            failedNonces.emplace(nonce, iter);
+                        }
+                        customTxPassed = false;
+                        break;
+                    }
+                }
+
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
+                                // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
 
@@ -686,6 +824,12 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     break;
                 }
+
+                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
+                    customTxPassed = false;
+                    break;
+                }
+                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());
@@ -703,6 +847,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         }
 
         for (size_t i=0; i<sortedEntries.size(); ++i) {
+            txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
