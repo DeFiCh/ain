@@ -3878,6 +3878,22 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return Res::Err("tx must have at least one input from account owner");
 }
 
+Res HasAuthEth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        std::vector<TBytes> vRet;
+        if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+        {
+            auto it = input.scriptSig.begin();
+            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+            auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+            if (script == auth)
+                return Res::Ok();
+        }
+    }
+    return Res::Err("tx must have at least one input from account owner");
+}
+
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
@@ -3917,7 +3933,6 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
                 }
             }
-
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address);
             if (!res)
@@ -3929,23 +3944,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
                 }
             }
-
             // Check for authorization on source address
-            bool foundAuth = false;
-            for (const auto &input : tx.vin) {
-                const Coin &coin = coins.AccessCoin(input.prevout);
-                std::vector<TBytes> vRet;
-                if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                {
-                    auto it = input.scriptSig.begin();
-                    CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == src.address)
-                        foundAuth = true;
-                }
-            }
-            if (!foundAuth)
-                return Res::Err("tx must have at least one input from account owner");
+            res = HasAuthEth(tx, coins, src.address);
+            if (!res)
+                return res;
         } else
             return Res::Err("Invalid domain set for \"src\" argument");
 
