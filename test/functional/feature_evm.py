@@ -110,6 +110,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
 
         # Check for invalid parameters in transferdomain rpc
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].accounttoaccount, address, {ethAddress: "1@DFI"})
         assert_raises_rpc_error(-8, "Invalid parameters, src argument \"address\" must not be null", self.nodes[0].transferdomain, [{"src": {"amount":"100@DFI", "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-8, "Invalid parameters, src argument \"amount\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-8, "Invalid parameters, src argument \"domain\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI"}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
@@ -304,7 +305,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[4], tx4)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 6000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 5998236000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 4000000000000000000)
 
         # Check miner account balance after transfer

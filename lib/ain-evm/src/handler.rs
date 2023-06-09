@@ -100,13 +100,15 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    let TxResponse {
-                        exit_reason,
-                        logs,
-                        used_gas,
+                    let (
+                        TxResponse {
+                            exit_reason,
+                            logs,
+                            used_gas,
+                            ..
+                        },
                         receipt,
-                        ..
-                    } = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -117,13 +119,10 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx);
-
+                    all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
-
-                    executor.commit();
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -147,6 +146,8 @@ impl Handlers {
                     }
                 }
             }
+
+            executor.commit();
         }
 
         if update_state {
@@ -192,7 +193,10 @@ impl Handlers {
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
-            self.block.connect_block(block.clone());
+            // calculate base fee
+            let base_fee = self.block.calculate_base_fee(parent_hash);
+
+            self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
         }
 

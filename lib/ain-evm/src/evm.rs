@@ -1,5 +1,6 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
+use crate::fee::calculate_prepay_gas;
 use crate::storage::traits::{BlockStorage, PersistentState, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -124,17 +125,14 @@ impl EVMHandler {
             vicinity,
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
-        Ok(AinExecutor::new(&mut backend).call(
-            ExecutorContext {
-                caller,
-                to,
-                value,
-                data,
-                gas_limit,
-                access_list,
-            },
-            false,
-        ))
+        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        }))
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<(SignedTx, u64), Box<dyn Error>> {
@@ -173,6 +171,28 @@ impl EVMHandler {
                 signed_tx.nonce()
             )
             .into());
+        }
+
+        const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
+        let balance = self
+            .get_balance(signed_tx.sender, block_number)
+            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+
+        debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
+
+        let prepay_gas = calculate_prepay_gas(&signed_tx);
+        if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+            debug!("[validate_raw_tx] Insufficiant balance to pay fees");
+            return Err(anyhow!("Insufficiant balance to pay fees").into());
+        }
+
+        let gas_limit = U256::from(signed_tx.gas_limit());
+
+        // TODO lift MAX_GAS_PER_BLOCK
+        const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
+        println!("MAX_GAS_PER_BLOCK : {:#x}", MAX_GAS_PER_BLOCK);
+        if gas_limit > MAX_GAS_PER_BLOCK {
+            return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
         let TxResponse { used_gas, .. } = self.call(
@@ -248,6 +268,10 @@ impl EVMHandler {
     pub fn clear(&self, context: u64) -> Result<(), EVMError> {
         self.tx_queues.clear(context)?;
         Ok(())
+    }
+
+    pub fn remove(&self, context: u64) {
+        self.tx_queues.remove(context);
     }
 }
 

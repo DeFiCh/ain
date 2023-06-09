@@ -1,5 +1,5 @@
 use crate::{backend::EVMBackendError, executor::TxResponse, transaction::SignedTx};
-use ethereum::AccessList;
+use ethereum::{AccessList, ReceiptV3};
 use evm::Config;
 use primitive_types::{H160, U256};
 
@@ -16,9 +16,9 @@ pub struct ExecutorContext<'a> {
 pub trait Executor {
     const CONFIG: Config = Config::shanghai();
 
-    fn call(&mut self, ctx: ExecutorContext, apply: bool) -> TxResponse;
+    fn call(&mut self, ctx: ExecutorContext) -> TxResponse;
 
-    fn exec(&mut self, tx: &SignedTx) -> TxResponse;
+    fn exec(&mut self, tx: &SignedTx) -> (TxResponse, ReceiptV3);
 }
 
 pub trait BridgeBackend {

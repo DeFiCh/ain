@@ -69,7 +69,7 @@ pub mod ffi {
         fn evm_try_prevalidate_raw_tx(result: &mut RustRes, tx: &str) -> Result<ValidateTxResult>;
 
         fn evm_get_context() -> u64;
-        fn evm_discard_context(context: u64) -> Result<()>;
+        fn evm_discard_context(context: u64);
         fn evm_try_queue_tx(
             result: &mut RustRes,
             context: u64,
@@ -343,16 +343,8 @@ pub fn evm_get_context() -> u64 {
 ///
 /// * `context` - The context queue number.
 ///
-/// # Errors
-///
-/// Returns an Error if the context does not match any existing queue.
-/// # Returns
-///
-/// Returns `Ok(())` on success.
-fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
-    // TODO discard
-    RUNTIME.handlers.evm.clear(context)?;
-    Ok(())
+fn evm_discard_context(context: u64) {
+    RUNTIME.handlers.evm.remove(context)
 }
 
 /// Add an EVM transaction to a specific queue.

@@ -1,8 +1,9 @@
 mod backend;
-mod block;
+pub mod block;
 mod ecrecover;
 pub mod evm;
 pub mod executor;
+mod fee;
 pub mod handler;
 pub mod receipt;
 pub mod runtime;
