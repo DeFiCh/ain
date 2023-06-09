@@ -208,11 +208,12 @@ struct CUtxosToAccountMessage {
     }
 };
 
-enum CTransferDomain : uint8_t {
+enum VMDomain : uint8_t {
+    NONE     = 0x00,
     // UTXO Reserved
-    UTXO     = 0x00,
-    DVM      = 0x01,
-    EVM      = 0x02,
+    UTXO     = 0x01,
+    DVM      = 0x02,
+    EVM      = 0x03,
 };
 
 struct CTransferDomainItem
@@ -222,7 +223,7 @@ struct CTransferDomainItem
     uint8_t domain;
 
     // Optional data that'll vary based on the domain.
-    // EVMData, UTXOData with inputs, etc. 
+    // EVMData, UTXOData with inputs, etc.
     // Currently, unused.
     std::vector<uint8_t> data;
 

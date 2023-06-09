@@ -2027,13 +2027,13 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"amount\" must not be null");
 
             if (!srcObj["domain"].isNull())
-                src.domain = static_cast<CTransferDomain>(srcObj["domain"].get_int());
+                src.domain = static_cast<VMDomain>(srcObj["domain"].get_int());
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must not be null");
 
-            if (src.domain == CTransferDomain::DVM) {
+            if (src.domain == VMDomain::DVM) {
                 auths.insert(src.address);
-            } else if (src.domain == CTransferDomain::EVM) {
+            } else if (src.domain == VMDomain::EVM) {
                 const auto key = AddrToPubKey(pwallet, ScriptToString(src.address));
                 const auto auth = GetScriptForDestination(PKHash(key.GetID()));
                 auths.insert(auth);
@@ -2054,7 +2054,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"amount\" must not be null");
 
             if (!dstObj["domain"].isNull())
-                dst.domain = static_cast<CTransferDomain>(dstObj["domain"].get_int());
+                dst.domain = static_cast<VMDomain>(dstObj["domain"].get_int());
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"domain\" must not be null");
 
