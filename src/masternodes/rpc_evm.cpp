@@ -3,10 +3,6 @@
 #include <ain_rs_exports.h>
 #include <key_io.h>
 #include <util/strencodings.h>
-#include <index/txindex.h>
-#include "BRCrypto.h"
-#include "BRLargeInt.h"
-#include "BRInt.h"
 
 enum class EvmMapType {
     AUTO,
