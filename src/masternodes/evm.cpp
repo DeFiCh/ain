@@ -1,8 +1,7 @@
 #include <masternodes/evm.h>
-#include "masternodes/errors.h"
-#include "masternodes/res.h"
-#include "masternodes/tokens.h"
-#include "uint256.h"
+#include <masternodes/errors.h>
+#include <masternodes/res.h>
+#include <uint256.h>
 
 Res CEvmDvmView::SetBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash)
 {

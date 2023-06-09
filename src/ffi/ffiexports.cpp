@@ -2,9 +2,8 @@
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
-#include "BRLargeInt.h"
-#include "BRCrypto.h"
-#include "BRInt.h"
+#include <vector>
+#include <crypto/sha3.h>
 
 
 uint64_t getChainId() {
@@ -48,11 +47,10 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
         uint256 txHash = send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash();
-        UInt256 result;
-        BRKeccak256(&result, std::data(message.evmTx), message.evmTx.size());
-        auto evmTxHash = uint256S(u256hex(result));
-        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, txHash, evmTxHash);
-        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, evmTxHash, txHash);
+        std::vector<unsigned char> result;
+        sha3(message.evmTx, result);
+        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, txHash, uint256(result));
+        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, uint256(result), txHash);
     } catch (std::runtime_error& e) {
         return e.what();
     } catch (const UniValue& objError) {
