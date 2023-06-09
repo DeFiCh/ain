@@ -34,6 +34,21 @@ struct FinalizeBlockResult final {
     using IsRelocatable = ::std::true_type;
 };
 
+struct RustRes final {
+    bool ok;
+    ::rust::Str reason;
+
+    using IsRelocatable = ::std::true_type;
+};
+
+struct ValidateTxResult final {
+    ::std::uint64_t nonce;
+    ::std::array<::std::uint8_t, 20> sender;
+    ::std::uint64_t used_gas;
+
+    using IsRelocatable = ::std::true_type;
+};
+
 inline ::rust::Vec<::std::uint8_t> create_and_sign_tx(::CreateTransactionContext ctx) {
     return {};
 }
@@ -48,7 +63,7 @@ inline FinalizeBlockResult evm_finalize(::std::uint64_t context, bool update_sta
 
 inline void evm_discard_context(::std::uint64_t context) {}
 
-inline uint64_t evm_get_balance(::rust::Str address, ::std::array<::std::uint8_t, 32> block_number) {
+inline uint64_t evm_get_balance(::std::array<::std::uint8_t, 20> address) {
     return {};
 }
 
@@ -58,15 +73,19 @@ inline bool evm_sub_balance(::std::uint64_t context, ::rust::Str address, ::std:
     return {};
 }
 
-inline bool evm_validate_raw_tx(::rust::Str tx) {
+inline ValidateTxResult evm_try_prevalidate_raw_tx(::RustRes &result, ::rust::Str tx) {
     return {};
 }
 
-inline bool evm_queue_tx(::std::uint64_t context, ::rust::Str raw_tx, ::std::array<::std::uint8_t, 32> native_tx_hash) {
+inline bool evm_try_queue_tx(::RustRes &result, ::std::uint64_t context, ::rust::Str raw_tx, ::std::array<::std::uint8_t, 32> native_tx_hash) {
     return {};
 }
 
 inline bool evm_prevalidate_raw_tx(::rust::Str tx) {
+    return {};
+}
+
+inline uint64_t evm_get_next_valid_nonce_in_context(uint64_t context, ::std::array<::std::uint8_t, 20> address) {
     return {};
 }
 
