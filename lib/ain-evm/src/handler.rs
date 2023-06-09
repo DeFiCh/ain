@@ -119,8 +119,7 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx);
-
+                    all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
@@ -194,7 +193,10 @@ impl Handlers {
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
-            self.block.connect_block(block.clone());
+            // calculate base fee
+            let base_fee = self.block.calculate_base_fee(parent_hash);
+
+            self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
         }
 

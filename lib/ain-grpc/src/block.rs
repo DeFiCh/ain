@@ -33,10 +33,15 @@ pub struct RpcBlock {
     pub sha3_uncles: H256,
     pub logs_bloom: String,
     pub size: String,
+    pub base_fee_per_gas: U256,
 }
 
 impl RpcBlock {
-    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
+    pub fn from_block_with_tx_and_base_fee(
+        block: BlockAny,
+        full_transactions: bool,
+        base_fee: U256,
+    ) -> Self {
         let header_size = block.header.rlp_bytes().len();
         RpcBlock {
             hash: block.header.hash(),
@@ -79,6 +84,7 @@ impl RpcBlock {
             sha3_uncles: H256::default(),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
+            base_fee_per_gas: base_fee,
         }
     }
 }
@@ -251,6 +257,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
     }
 }
 
+use ain_evm::block::FeeHistoryData;
 use std::str::FromStr;
 
 use crate::codegen::types::EthTransactionInfo;
@@ -322,6 +329,26 @@ impl Serialize for BlockTransactions {
         match *self {
             BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
             BlockTransactions::Full(ref ts) => ts.serialize(serializer),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcFeeHistory {
+    pub oldest_block: H256,
+    pub base_fee_per_gas: Vec<U256>,
+    pub gas_used_ratio: Vec<f64>,
+    pub reward: Option<Vec<Vec<U256>>>,
+}
+
+impl From<FeeHistoryData> for RpcFeeHistory {
+    fn from(value: FeeHistoryData) -> Self {
+        Self {
+            oldest_block: value.oldest_block,
+            base_fee_per_gas: value.base_fee_per_gas,
+            gas_used_ratio: value.gas_used_ratio,
+            reward: value.reward,
         }
     }
 }
