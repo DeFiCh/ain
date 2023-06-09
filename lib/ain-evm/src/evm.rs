@@ -10,7 +10,7 @@ use crate::{
     transaction::SignedTx,
 };
 use anyhow::anyhow;
-use ethereum::{AccessList, Account, Block, BlockV2, Header, Log, TransactionV2};
+use ethereum::{AccessList, Account, Log, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
 
 use hex::FromHex;
