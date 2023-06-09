@@ -172,10 +172,16 @@ impl EVMHandler {
             .into());
         }
 
-        // TODO validate balance to pay gas
-        // if account.balance < MIN_GAS {
-        //     return Err(anyhow!("Insufficiant balance to pay fees").into());
-        // }
+        const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
+        let balance = self
+            .get_balance(signed_tx.sender, block_number)
+            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+
+        debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
+        if balance < MIN_GAS_PER_TX {
+            debug!("[validate_raw_tx] Insufficiant balance to pay fees");
+            return Err(anyhow!("Insufficiant balance to pay fees").into());
+        }
 
         Ok(signed_tx)
     }
