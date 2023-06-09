@@ -124,17 +124,14 @@ impl EVMHandler {
             vicinity,
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
-        Ok(AinExecutor::new(&mut backend).call(
-            ExecutorContext {
-                caller,
-                to,
-                value,
-                data,
-                gas_limit,
-                access_list,
-            },
-            false,
-        ))
+        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        }))
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
