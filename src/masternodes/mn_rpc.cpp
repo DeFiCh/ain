@@ -302,7 +302,7 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
 
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
-    
+
     // Note, for auth, we call this with 1 as max count, so should early exit
     pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1, coinSelectOpts);
 
@@ -316,7 +316,7 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
     return txin;
 }
 
-static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, 
+static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet,
     std::set<CScript> const & auths,
     int32_t txVersion,
     const CoinSelectionOptions &coinSelectOpts) {
@@ -404,8 +404,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
         auto authInput = GetAuthInputOnly(
-            pwallet, 
-            destination, 
+            pwallet,
+            destination,
             coinSelectOpts);
         if (authInput) {
             result.push_back(authInput.value());
@@ -501,14 +501,16 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
     return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
-std::string CTransferBalanceTypeToString(const CTransferBalanceType type) {
-    switch (type) {
-        case CTransferBalanceType::AccountToAccount:
-            return "AccountToAccount";
-        case CTransferBalanceType::EvmIn:
-            return "EvmIn";
-        case CTransferBalanceType::EvmOut:
-            return "EvmOut";
+std::string CTransferDomainToString(const VMDomain domain) {
+    switch (domain) {
+        case VMDomain::NONE:
+            return "NONE";
+        case VMDomain::UTXO:
+            return "UTXO";
+        case VMDomain::DVM:
+            return "DVM";
+        case VMDomain::EVM:
+            return "EVM";
     }
     return "Unknown";
 }
@@ -568,7 +570,7 @@ UniValue setgov(const JSONRPCRequest& request) {
                 if (!attributes) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
                 }
-                
+
                 LOCK(cs_main);
                 const auto attrMap = attributes->GetAttributesMap();
                 for (const auto& [key, value] : attrMap) {

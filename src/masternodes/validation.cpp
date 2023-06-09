@@ -2352,6 +2352,37 @@ static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& 
     cache.SetVariable(*attributes);
 }
 
+static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
+    // NOTE: Each domain's revert is handle by it's own domain module. This function reverts only the DVM aspect. EVM will handle it's own revert.
+    for (const auto &[src, dst] : obj.transfers) {
+        if (src.domain == VMDomain::DVM)
+            mnview.AddBalance(src.address, src.amount);
+        if (dst.domain == VMDomain::DVM)
+            mnview.SubBalance(dst.address, dst.amount);
+    }
+}
+
+static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failedTransactions, const CBlock& block, const Consensus::Params &consensus, const int height, CCustomCSView &mnview) {
+    std::set<uint256> potentialTxsToUndo;
+    for (const auto &txStr : failedTransactions) {
+        potentialTxsToUndo.insert(uint256S(txStr));
+    }
+
+    std::set<uint256> txsToUndo;
+    for (const auto &tx : block.vtx) {
+        if (tx && potentialTxsToUndo.count(tx->GetHash())) {
+            std::vector<unsigned char> metadata;
+            const auto txType = GuessCustomTxType(*tx, metadata, false);
+            if (txType == CustomTxType::TransferDomain) {
+                auto txMessage = customTypeToMessage(txType);
+                assert(CustomMetadataParse(height, consensus, metadata, txMessage));
+                auto obj = std::get<CTransferDomainMessage>(txMessage);
+                RevertTransferDomain(obj, mnview);
+            }
+        }
+    }
+}
+
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs) {
     CCustomCSView cache(mnview);
 
