@@ -825,11 +825,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     break;
                 }
 
-                totalGas += gasUsed;
-                if (totalGas > MAX_BLOCK_GAS_LIMIT) {
+                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
                     customTxPassed = false;
                     break;
                 }
+                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());
