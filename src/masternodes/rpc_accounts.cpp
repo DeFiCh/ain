@@ -476,8 +476,9 @@ UniValue getaccount(const JSONRPCRequest& request) {
     CTxDestination dest;
     if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
-        const arith_uint256 height = targetHeight;
-        if (const auto balance = evm_get_balance(HexStr(keyID.begin(), keyID.end()), ArithToUint256(height).ToArrayReversed())) {
+        std::array<uint8_t, 20> address{};
+        std::copy(keyID.begin(), keyID.end(), address.begin());
+        if (const auto balance = evm_get_balance(address)) {
             balances[DCT_ID{}] = balance;
         }
     }
