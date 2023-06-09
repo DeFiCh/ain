@@ -3808,14 +3808,14 @@ public:
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
-            if (src.domain == CTransferDomain::DVMDomain) {
+            if (src.domain == CTransferDomain::DVM) {
                 // Subtract balance from DFI address
                 CBalances balance;
                 balance.Add(src.amount);
                 res = SubBalanceDelShares(src.address, balance);
                 if (!res)
                     return res;
-            } else if (src.domain == CTransferDomain::EVMDomain) {
+            } else if (src.domain == CTransferDomain::EVM) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
@@ -3826,14 +3826,14 @@ public:
                     return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
                 }
             }
-            if (dst.domain == CTransferDomain::DVMDomain) {
+            if (dst.domain == CTransferDomain::DVM) {
                 // Add balance to DFI address
                 CBalances balance;
                 balance.Add(dst.amount);
                 res = AddBalanceSetShares(dst.address, balance);
                 if (!res)
                     return res;
-            } else if (dst.domain == CTransferDomain::EVMDomain) {
+            } else if (dst.domain == CTransferDomain::EVM) {
                 // Add balance to ETH address
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
@@ -3910,7 +3910,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         // Soruce validation
         // Check domain type
-        if (src.domain == CTransferDomain::DVMDomain) {
+        if (src.domain == CTransferDomain::DVM) {
             // Reject if source address is ETH address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
@@ -3922,7 +3922,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
             res = HasAuth(tx, coins, src.address);
             if (!res)
                 return res;
-        } else if (src.domain == CTransferDomain::EVMDomain) {
+        } else if (src.domain == CTransferDomain::EVM) {
             // Reject if source address is DFI address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
@@ -3951,14 +3951,14 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         // Destination validation
         // Check domain type
-        if (dst.domain == CTransferDomain::DVMDomain) {
+        if (dst.domain == CTransferDomain::DVM) {
             // Reject if source address is ETH address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
                     return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
                 }
             }
-        } else if (dst.domain == CTransferDomain::EVMDomain) {
+        } else if (dst.domain == CTransferDomain::EVM) {
             // Reject if source address is DFI address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {

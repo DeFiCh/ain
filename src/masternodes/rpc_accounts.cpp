@@ -2014,7 +2014,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             const UniValue& srcObj = elem["src"].get_obj();
             const UniValue& dstObj = elem["dst"].get_obj();
 
-            CTransferDomainElement src, dst;
+            CTransferDomainItem src, dst;
 
             if (!srcObj["address"].isNull())
                 src.address = DecodeScript(srcObj["address"].getValStr());
@@ -2031,9 +2031,9 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must not be null");
 
-            if (src.domain == CTransferDomain::DVMDomain) {
+            if (src.domain == CTransferDomain::DVM) {
                 auths.insert(src.address);
-            } else if (src.domain == CTransferDomain::EVMDomain) {
+            } else if (src.domain == CTransferDomain::EVM) {
                 const auto key = AddrToPubKey(pwallet, ScriptToString(src.address));
                 const auto auth = GetScriptForDestination(PKHash(key.GetID()));
                 auths.insert(auth);
