@@ -117,7 +117,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        # Check that EVM balance shows in gettokenabalances
+        # Check that EVM balance shows in gettokenbalances
         assert_equal(self.nodes[0].gettokenbalances({}, False, False, True), ['101.00000000@0'])
 
         newDFIbalance = self.nodes[0].getaccount(address, {}, True)['0']

@@ -17,7 +17,7 @@ class EVMContract:
 
     @staticmethod
     def from_file(file_name: str, contract_name: str):
-        with open(f"{os.path.dirname(__file__)}/{EVMContract.path_prefix}/{file_name}", "r") as file:
+        with open(f"{os.path.dirname(__file__)}/{EVMContract.path_prefix}/{file_name}", "r", encoding="utf8") as file:
             return EVMContract(file.read(), file_name, contract_name)
 
     def compile(self) -> (List[Dict], str):
