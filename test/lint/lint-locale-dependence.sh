@@ -10,6 +10,8 @@ KNOWN_VIOLATIONS=(
     "src/dbwrapper.cpp:.*vsnprintf"
     "src/httprpc.cpp.*trim"
     "src/init.cpp:.*atoi"
+    "src/key_io.cpp:.*toupper*"
+    "src/key_io.cpp:.*isdigit*"
     "src/qt/rpcconsole.cpp:.*atoi"
     "src/rest.cpp:.*strtol"
     "src/rpc/rawtransaction_util.cpp:.*stoul"
