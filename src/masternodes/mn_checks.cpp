@@ -3869,26 +3869,22 @@ public:
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth) {
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
-        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
+        if (strategy == AuthStrategy::DirectPubKeyMatch) {
+            if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
             return Res::Ok();
-    }
-    return Res::Err("tx must have at least one input from account owner");
-}
-
-Res HasAuthEth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth) {
-    for (const auto &input : tx.vin) {
-        const Coin &coin = coins.AccessCoin(input.prevout);
-        std::vector<TBytes> vRet;
-        if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-        {
-            auto it = input.scriptSig.begin();
-            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-            auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-            if (script == auth)
-                return Res::Ok();
+        } else if (strategy == AuthStrategy::EthKeyMatch) {
+            std::vector<TBytes> vRet;
+            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+            {
+                auto it = input.scriptSig.begin();
+                CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                if (script == auth)
+                    return Res::Ok();
+            }
         }
     }
     return Res::Err("tx must have at least one input from account owner");
@@ -3945,7 +3941,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 }
             }
             // Check for authorization on source address
-            res = HasAuthEth(tx, coins, src.address);
+            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
             if (!res)
                 return res;
         } else
