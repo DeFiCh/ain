@@ -139,7 +139,11 @@ impl EVMHandler {
         }))
     }
 
-    pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
+    pub fn validate_raw_tx(
+        &self,
+        tx: &str,
+        with_gas_usage: bool,
+    ) -> Result<(SignedTx, u64), Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -199,7 +203,22 @@ impl EVMHandler {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        Ok(signed_tx)
+        let used_gas = if with_gas_usage {
+            let TxResponse { used_gas, .. } = self.call(
+                Some(signed_tx.sender),
+                signed_tx.to(),
+                signed_tx.value(),
+                signed_tx.data(),
+                signed_tx.gas_limit().as_u64(),
+                signed_tx.access_list(),
+                block_number,
+            )?;
+            used_gas
+        } else {
+            u64::default()
+        };
+
+        Ok((signed_tx, used_gas))
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
