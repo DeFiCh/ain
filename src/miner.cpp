@@ -659,6 +659,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
+
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
@@ -811,24 +814,20 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
-
-                if (txType == CustomTxType::EvmTx) {
-                    std::array<uint8_t, 20> dummyAddress{};
-                    auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, Params().GetConsensus()), dummyAddress, pblock->GetBlockTime());
-
-                    if (blockResult.miner_fee > MAX_BLOCK_GAS_LIMIT) {
-                        customTxPassed = false;
-                        break;
-                    }
-                }
-
-                // Not okay invalidate, undo and skip
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
+                                // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
 
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
 
+                    break;
+                }
+
+                totalGas += gasUsed;
+                if (totalGas > MAX_BLOCK_GAS_LIMIT) {
+                    customTxPassed = false;
                     break;
                 }
 
