@@ -38,7 +38,11 @@
 #include <utility>
 #include <random>
 
+static const uint32_t XVM_VERSION = 0;
+static const uint32_t EVM_VERSION = 0;
+
 struct EVM {
+    uint32_t version;
     uint256 blockHash;
     uint64_t minerFee;
 
@@ -46,20 +50,29 @@ struct EVM {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(version);
         READWRITE(blockHash);
         READWRITE(minerFee);
     }
+
+    EVM() : version(EVM_VERSION) {};
+    EVM(uint256 blockHash, uint64_t minerFee) : version(EVM_VERSION), blockHash(blockHash), minerFee(minerFee) {};
 };
 
 struct XVM {
+    uint32_t version;
     EVM evm;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(version);
         READWRITE(evm);
     }
+
+    XVM() : version(XVM_VERSION) {};
+    XVM(EVM evm) : version(XVM_VERSION), evm(evm) {};
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
