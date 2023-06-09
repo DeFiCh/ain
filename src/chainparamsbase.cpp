@@ -25,6 +25,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-changi", "Use the changi chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-devnet", "Use the dev chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-devnet-bootstrap", "Use the dev chain and sync from testnet", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changi-bootstrap", "Use the changi chain and sync from testnet", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
 }
 
@@ -43,7 +44,11 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
     } else if (chain == CBaseChainParams::TESTNET) {
         return std::make_unique<CBaseChainParams>("testnet3", 18554, 18550, 18551);
     } else if (chain == CBaseChainParams::CHANGI) {
-        return std::make_unique<CBaseChainParams>("changi", 20554, 20550, 20551);
+        if (gArgs.IsArgSet("-changi-bootstrap")) {
+            return std::make_unique<CBaseChainParams>("changi", 18554, 18550, 18551);
+        } else {
+            return std::make_unique<CBaseChainParams>("changi", 20554, 20550, 20551);
+        }
     } else if (chain == CBaseChainParams::DEVNET) {
         if (gArgs.IsArgSet("-devnet-bootstrap")) {
             return std::make_unique<CBaseChainParams>("devnet", 18554, 18550, 18551);

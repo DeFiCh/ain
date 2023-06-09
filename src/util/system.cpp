@@ -972,7 +972,7 @@ std::string ArgsManager::GetChainName() const
     LOCK(cs_args);
     int fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest") ? 1 : 0;
     int fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet") ? 1 : 0;
-    int fChangi = ArgsManagerHelper::GetNetBoolArg(*this, "-changi") ? 1 : 0;
+    int fChangi = ArgsManagerHelper::GetNetBoolArg(*this, "-changi") || ArgsManagerHelper::GetNetBoolArg(*this, "-changi-bootstrap") ? 1 : 0;
     int fDevNet  = ArgsManagerHelper::GetNetBoolArg(*this, "-devnet") || ArgsManagerHelper::GetNetBoolArg(*this, "-devnet-bootstrap") ? 1 : 0;
 
     if (fTestNet + fDevNet + fRegTest + fChangi > 1)

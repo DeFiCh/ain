@@ -725,7 +725,7 @@ public:
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x11;
         pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x09;
 
-        nDefaultPort = 20555; /// @note devnet matter
+        nDefaultPort = 20555; /// @note changi matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
         m_assumed_chain_state_size = 2;
@@ -1354,7 +1354,7 @@ void CMainParams::UpdateActivationParametersFromArgs() {
 }
 
 void CChangiParams::UpdateActivationParametersFromArgs() {
-    if (gArgs.IsArgSet("-devnet-bootstrap")) {
+    if (gArgs.IsArgSet("-changi-bootstrap")) {
         nDefaultPort = 18555;
         vSeeds.emplace_back("testnet-seed.defichain.io");
         pchMessageStartPostAMK[0] = 0x0b;
