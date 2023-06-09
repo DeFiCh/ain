@@ -208,7 +208,7 @@ struct CUtxosToAccountMessage {
     }
 };
 
-enum VMDomain : uint8_t {
+enum class VMDomain : uint8_t {
     NONE     = 0x00,
     // UTXO Reserved
     UTXO     = 0x01,

@@ -561,7 +561,7 @@ public:
             for (auto &[j, o]: items) {
                 j.pushKV("address", ScriptToString(o.address));
                 j.pushKV("amount", o.amount.ToString());
-                j.pushKV("domain", CTransferDomainToString(static_cast<VMDomain>(o.domain)));
+                j.pushKV("domain", CTransferDomainToString(VMDomain(o.domain)));
                 if (!o.data.empty()) {
                     j.pushKV("data", std::string(o.data.begin(), o.data.end()));
                 }
