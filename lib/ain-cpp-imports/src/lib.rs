@@ -25,6 +25,9 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getNetwork() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getDifficulty(_block_hash: [u8; 32]) -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -41,6 +44,9 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getEthPrivKey(_key_id: [u8; 20]) -> [u8; 32] {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -68,6 +74,10 @@ pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
 pub fn get_datadir() -> Result<String, Box<dyn Error>> {
     let datadir = ffi::getDatadir();
     Ok(datadir)
+}
+
+pub fn get_network() -> String {
+    ffi::getNetwork()
 }
 
 pub fn get_difficulty(block_hash: [u8; 32]) -> Result<u32, Box<dyn Error>> {
@@ -98,6 +108,15 @@ pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
 pub fn get_eth_priv_key(key_id: [u8; 20]) -> Result<[u8; 32], Box<dyn Error>> {
     let eth_key = ffi::getEthPrivKey(key_id);
     Ok(eth_key)
+}
+
+pub fn get_state_input_json() -> Option<String> {
+    let json_path = ffi::getStateInputJSON();
+    if json_path.is_empty() {
+        None
+    } else {
+        Some(json_path)
+    }
 }
 
 #[cfg(test)]
