@@ -472,21 +472,37 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
 
+    std::map<DCT_ID, CAmount> balances{};
+    CTxDestination dest;
+    if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
+        const auto keyID = std::get<WitnessV16EthHash>(dest);
+        const arith_uint256 height = targetHeight;
+        if (const auto balance = evm_get_balance(HexStr(keyID.begin(), keyID.end()), ArithToUint256(height).ToArrayReversed())) {
+            balances[DCT_ID{}] = balance;
+        }
+    }
+
     mnview.ForEachBalance(
         [&](const CScript &owner, CTokenAmount balance) {
             if (owner != reqOwner) {
                 return false;
             }
 
-            if (indexed_amounts)
-                ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
-            else
-                ret.push_back(tokenAmountString(balance));
+            balances[balance.nTokenId] += balance.nValue;
 
             limit--;
             return limit != 0;
         },
         BalanceKey{reqOwner, start});
+
+    for (const auto& [id, amount] : balances) {
+        if (indexed_amounts) {
+            ret.pushKV(id.ToString(), ValueFromAmount(amount));
+        } else {
+            ret.push_back(tokenAmountString({id, amount}));
+        }
+    }
+
     return GetRPCResultCache().Set(request, ret);
 }
 

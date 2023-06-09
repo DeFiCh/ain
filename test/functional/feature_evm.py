@@ -151,7 +151,8 @@ class EVMTest(DefiTestFramework):
         newETHbalance = self.nodes[0].eth_getBalance(ethAddress)
         assert_equal(newDFIbalance, DFIbalance - Decimal('100'))
         assert_equal(newETHbalance, int_to_eth_u256(100))
-        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 0)
+        assert_equal(len(self.nodes[0].getaccount(ethAddress, {}, True)), 1)
+        assert_equal(self.nodes[0].getaccount(ethAddress)[0], "100.00000000@DFI")
 
         # Check for valid values EVM->DVM in transferdomain rpc
         assert_raises_rpc_error(-32600, "Src address must be an ETH address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
