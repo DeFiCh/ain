@@ -3936,6 +3936,10 @@ public:
         if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
             return Res::Err("evm tx failed to queue");
 
+        std::vector<unsigned char> result;
+        sha3(obj.evmTx, result);
+        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, tx.GetHash(), uint256(result));
+        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, uint256(result), tx.GetHash());
         return Res::Ok();
     }
 

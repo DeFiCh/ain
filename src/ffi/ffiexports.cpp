@@ -2,8 +2,6 @@
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
-#include <vector>
-#include <crypto/sha3.h>
 
 
 uint64_t getChainId() {
@@ -18,9 +16,8 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    CEvmTxMessage message = CEvmTxMessage{evmTx};
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
-             << message;
+             << CEvmTxMessage{evmTx};
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -46,11 +43,7 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     // TODO Replace execTestTx with non-throwing function
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-        uint256 txHash = send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash();
-        std::vector<unsigned char> result;
-        sha3(message.evmTx, result);
-        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, txHash, uint256(result));
-        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, uint256(result), txHash);
+        send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
     } catch (std::runtime_error& e) {
         return e.what();
     } catch (const UniValue& objError) {
@@ -58,6 +51,7 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
 
         return obj["message"].get_str();
     }
+
     return {};
 }
 
