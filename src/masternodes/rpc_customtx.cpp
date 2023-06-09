@@ -549,10 +549,9 @@ public:
     void operator()(const CTransferDomainMessage &obj) const {
         UniValue array{UniValue::VARR};
 
-        UniValue srcJson{UniValue::VOBJ};
-        UniValue dstJson{UniValue::VOBJ};
-
         for (const auto &[src, dst] : obj.transfers) {
+            UniValue srcJson{UniValue::VOBJ};
+            UniValue dstJson{UniValue::VOBJ};
             std::array<std::pair<UniValue&, const CTransferDomainItem>, 
             2> items {
                 std::make_pair(std::ref(srcJson), src),
