@@ -491,21 +491,6 @@ Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return ::HasAuth(tx, coins, auth);
 }
 
-Res CCustomTxVisitor::HasEthAuth(const CScript &auth) const {
-    for (const auto &input : tx.vin) {
-        const Coin &coin = coins.AccessCoin(input.prevout);
-        std::vector<TBytes> vRet;
-        if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH) {
-            auto it = input.scriptSig.begin();
-            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-            if (GetScriptForDestination(WitnessV16EthHash(pubkey)) == auth) {
-                return Res::Ok();
-            }
-        }
-    }
-    return Res::Err("tx must have at least one input from account owner");
-}
-
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
     Require(HasAuth(auth.out.scriptPubKey), "tx must have at least one input from the owner");
