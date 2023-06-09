@@ -487,12 +487,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
-    for (const auto &input : tx.vin) {
-        const Coin &coin = coins.AccessCoin(input.prevout);
-        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
-            return Res::Ok();
-    }
-    return Res::Err("tx must have at least one input from account owner");
+    return ::HasAuth(tx, coins, auth);
 }
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
@@ -3806,118 +3801,48 @@ public:
     }
 
     Res operator()(const CTransferDomainMessage &obj) const {
-        if (!IsEVMEnabled(height, mnview)) {
-            return Res::Err("Cannot create tx, EVM is not enabled");
+        auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj);
+        if (!res) {
+            return res;
         }
 
-        auto res = Res::Ok();
-
-        // compare
-        const auto sumFrom = SumAllTransfers(obj.from);
-        const auto sumTo   = SumAllTransfers(obj.to);
-
-        if (sumFrom != sumTo)
-            return Res::Err("sum of inputs (from) != sum of outputs (to)");
-
-        CTxDestination dest;
-        if (obj.type == CTransferDomainType::DVMTokenToEVM) {
-            // owner auth
-            for (const auto &[addr, amounts] : obj.from) {
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() == WitV16KeyEthHashType) {
-                        return Res::Err("From address must not be an ETH address in case of \"evmin\" transfer type");
-                    }
-                }
-
-                res = HasAuth(addr);
+        // Iterate over array of transfers
+        for (const auto &[src, dst] : obj.transfers) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                // Subtract balance from DFI address
+                CBalances balance;
+                balance.Add(src.amount);
+                res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
-                    }
-                }
-            }
-
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-
-            for (const auto& [addr, amounts] : obj.to) {
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfer type");
-                    }
-                }
-
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmin\" transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
-                }
-            }
-        } else if (obj.type == CTransferDomainType::EVMToDVMToken) {
-            for (const auto& [addr, amounts] : obj.from) {
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfer type");
-                    }
-                }
-                bool foundAuth = false;
-                for (const auto &input : tx.vin) {
-                    const Coin &coin = coins.AccessCoin(input.prevout);
-                    std::vector<TBytes> vRet;
-                    if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                    {
-                        auto it = input.scriptSig.begin();
-                        CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                        if (script == addr)
-                            foundAuth = true;
-                    }
-                }
-                if (!foundAuth)
-                    return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
-
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                // Subtract balance from ETH address
+                CTxDestination dest;
+                ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover \"evmout\" transfer", EncodeDestination(dest));
-                    }
+                arith_uint256 balanceIn = src.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
-            for (const auto& [addr, amounts] : obj.to) {
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() == WitV16KeyEthHashType) {
-                        return Res::Err("To address must not be an ETH address in case of \"evmout\" transfer type");
-                    }
-                }
-                for (const auto& [id, amount] : amounts.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For \"evmout\" transfers, only DFI token is currently supported");
-                    }
-                }
+            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                // Add balance to DFI address
+                CBalances balance;
+                balance.Add(dst.amount);
+                res = mnview.AddBalances(dst.address, balance);
+                if (!res)
+                    return res;
+            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                // Add balance to ETH address
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
             }
-
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
-        } else
-            return Res::Err("Invalid transfer type");
+        }
 
         return res;
     }
@@ -3945,6 +3870,109 @@ public:
 
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
+
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        if (coin.IsSpent()) continue;
+        if (strategy == AuthStrategy::DirectPubKeyMatch) {
+            if (coin.out.scriptPubKey == auth) {
+                return Res::Ok();
+            }
+        } else if (strategy == AuthStrategy::EthKeyMatch) {
+            std::vector<TBytes> vRet;
+            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+            {
+                auto it = input.scriptSig.begin();
+                CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                if (script == auth)
+                    return Res::Ok();
+            }
+        }
+    }
+    return DeFiErrors::InvalidAuth();
+}
+
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj)
+{
+    auto res = Res::Ok();
+
+    // Check if EVM feature is active
+    if (!IsEVMEnabled(height, mnview)) {
+        return DeFiErrors::TransferDomainEVMNotEnabled();
+    }
+
+    // Iterate over array of transfers
+    for (const auto &[src, dst] : obj.transfers) {
+        // Reject if transfer is within same domain
+        if (src.domain == dst.domain)
+            return DeFiErrors::TransferDomainSameDomain();
+
+        // Check for amounts out equals amounts in
+        if (src.amount.nValue != dst.amount.nValue)
+            return DeFiErrors::TransferDomainUnequalAmount();
+
+        // Restrict only for use with DFI token for now
+        if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+            return DeFiErrors::TransferDomainIncorrectToken();
+
+        CTxDestination dest;
+
+        // Soruce validation
+        // Check domain type
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainETHSourceAddress();
+                }
+            }
+            // Check for authorization on source address
+            res = HasAuth(tx, coins, src.address);
+            if (!res)
+                return res;
+        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainDFISourceAddress();
+                }
+            }
+            // Check for authorization on source address
+            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+            if (!res)
+                return res;
+        } else
+            return DeFiErrors::TransferDomainInvalidSourceDomain();
+
+        // Destination validation
+        // Check domain type
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
+                }
+            }
+        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
+                }
+            }
+        } else
+            return DeFiErrors::TransferDomainInvalidDestinationDomain();
+    }
+
+    return res;
+}
 
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,

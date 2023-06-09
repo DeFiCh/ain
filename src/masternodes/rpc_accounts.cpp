@@ -1959,17 +1959,28 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of transfer: 1 - DFI Token to EVM, 2 - EVM to DFI Token."},
-                    {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                    {"array", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of src and dst json objects",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The source defi address is the key, the value is amount in amount@token format. "
-                                                                                    "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                    },
-                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                    "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"src", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Source arguments",
+                                        {
+                                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
+                                            {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
+                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 1 - DVM, 2 - EVM"},
+                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                        },
+                                    },
+                                    {"dst", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Destination arguments",
+                                        {
+                                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
+                                            {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
+                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 1 - DVM, 2 - EVM"},
+                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                        },
+                                    }
+                                },
+                            },
                         },
                     },
                 },
@@ -1977,8 +1988,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferdomain", R"(1 '{\"<fromDFIAddress>\":\"1.0@DFI\"}' '{\"<toETHAddress>\":\"1.0@DFI\"}')") +
-                        HelpExampleCli("transferdomain", R"(2 '{\"<fromETHAddress>\":\"1.0@DFI\"}' '{\"<toDFIAddress>\":\"1.0@DFI\"}')")
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":<DFI_address>, "amount\":"1.0@DFI", "domain": 1}, {"dst":{"address":<ETH_address>, "amount":"1.0@DFI", "domain": 2}}]')") +
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":<ETH_address>, "amount\":"1.0@DFI", "domain": 2}, {"dst":{"address":<DFI_address>, "amount":"1.0@DFI", "domain": 1}}]')")
                         },
     }.Check(request);
 
@@ -1987,48 +1998,81 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VOBJ, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VARR}, false);
+
+    UniValue srcDstArray(UniValue::VARR);
+
+    srcDstArray = request.params[0].get_array();
+
+    CTransferDomainMessage msg;
+    std::set<CScript> auths;
+
+    try {
+        for (unsigned int i=0; i < srcDstArray.size(); i++) {
+            const UniValue& elem = srcDstArray[i];
+            RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ}, false);
+
+            const UniValue& srcObj = elem["src"].get_obj();
+            const UniValue& dstObj = elem["dst"].get_obj();
+
+            CTransferDomainItem src, dst;
+
+            if (!srcObj["address"].isNull())
+                src.address = DecodeScript(srcObj["address"].getValStr());
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"address\" must not be null");
+
+            if (!srcObj["amount"].isNull())
+                src.amount = DecodeAmount(pwallet->chain(), srcObj["amount"], "");
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"amount\" must not be null");
+
+            if (!srcObj["domain"].isNull())
+                src.domain = srcObj["domain"].get_int();
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must not be null");
+
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                auths.insert(src.address);
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                const auto key = AddrToPubKey(pwallet, ScriptToString(src.address));
+                const auto auth = GetScriptForDestination(PKHash(key.GetID()));
+                auths.insert(auth);
+            } else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)");
+
+            if (!srcObj["data"].isNull())
+                src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
+
+            if (!dstObj["address"].isNull())
+                dst.address = DecodeScript(dstObj["address"].getValStr());
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"address\" must not be null");
+
+            if (!dstObj["amount"].isNull())
+                dst.amount = DecodeAmount(pwallet->chain(), dstObj["amount"], "");
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"amount\" must not be null");
+
+            if (!dstObj["domain"].isNull())
+                dst.domain = dstObj["domain"].get_int();
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"domain\" must not be null");
+
+            if (!dstObj["data"].isNull())
+                dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+
+            msg.transfers.push_back({src, dst});
+
+        }
+    } catch(std::runtime_error& e) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
+    }
 
     int targetHeight;
     {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
-    }
-
-    CTransferDomainMessage msg;
-
-    try {
-        if (!request.params[0].isNull()){
-            auto type = request.params[0].get_int();
-
-            switch (type) {
-                case CTransferDomainType::DVMTokenToEVM:
-                    msg.type = CTransferDomainType::DVMTokenToEVM;
-                    break;
-                case CTransferDomainType::EVMToDVMToken:
-                    msg.type = CTransferDomainType::EVMToDVMToken;
-                    break;
-                default:
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)");
-                    break;
-            }
-        } else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"type\" must not be null");
-
-        if (!request.params[1].isNull())
-            msg.from = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
-
-        if (!request.params[2].isNull()){
-            const auto recipients = DecodeRecipientsGetRecipients(request.params[2].get_obj());
-            const auto accounts = DecodeRecipients(pwallet->chain(), recipients);
-            msg.to = accounts;
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"to\" must not be null");
-        }
-    } catch(std::runtime_error& e) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -2043,19 +2087,6 @@ UniValue transferdomain(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
-    if (msg.type == CTransferDomainType::DVMTokenToEVM) {
-        for(auto& address : msg.from){
-            auths.insert(address.first);
-        }
-    } else if (msg.type == CTransferDomainType::EVMToDVMToken) {
-        for(auto& address : msg.from) {
-            const auto key = AddrToPubKey(pwallet, ScriptToString(address.first));
-            const auto auth = GetScriptForDestination(PKHash(key.GetID()));
-            auths.insert(auth);
-        }
-    }
-
     UniValue txInputs(UniValue::VARR);
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
@@ -2916,7 +2947,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
     {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
     {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
-    {"accounts",   "transferdomain",          &transferdomain,           {"type", "from", "to"}},
+    {"accounts",   "transferdomain",           &transferdomain,            {"array"}},
     {"accounts",   "getburninfo",              &getburninfo,               {}},
     {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
     {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},

@@ -61,6 +61,11 @@ protected:
     Res IsOnChainGovernanceEnabled() const;
 };
 
+enum AuthStrategy: uint32_t {
+    DirectPubKeyMatch = 0,
+    EthKeyMatch = 1,
+};
+
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
 enum CustomTxErrCodes : uint32_t {
@@ -510,6 +515,13 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
 bool IsEVMEnabled(const int height, const CCustomCSView &view);
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
