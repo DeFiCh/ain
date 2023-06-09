@@ -3934,7 +3934,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         CTxDestination dest;
 
-        // Soruce validation
+        // Source validation
         // Check domain type
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
