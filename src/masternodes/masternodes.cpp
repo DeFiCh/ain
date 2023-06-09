@@ -310,6 +310,10 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
         return Res::Err(
             "bad owner and|or operator address (should be P2PKH or P2WPKH only) or node with those addresses exists");
     }
+    if (!node.voteDelegationAddress.IsNull() && ((node.voteDelegationType != 1 && node.voteDelegationType != 4) || GetMasternodeIdByDelegate(node.voteDelegationAddress))) {
+      return Res::Err(
+          "bad delegate address (should be P2PKH or P2WPKH only) or node with those addresses exists");
+    }
 
     WriteBy<ID>(nodeId, node);
     WriteBy<Owner>(node.ownerAuthAddress, nodeId);
@@ -383,8 +387,8 @@ void CMasternodesView::SetForcedDelegateAddress(const uint256 &nodeId,
     }
 
     // Set new reward address
-    node.rewardAddressType = delegateAddressType;
-    node.rewardAddress     = delegateAddress;
+    node.voteDelegationType    = delegateAddressType;
+    node.voteDelegationAddress = delegateAddress;
     WriteBy<ID>(nodeId, node);
 
     // Pending change
@@ -427,6 +431,8 @@ void CMasternodesView::UpdateMasternodeOperator(const uint256 &nodeId,
     // Overwrite and create new record
     WriteBy<ID>(nodeId, node);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
+
+    WriteBy<VoteDelegate>(node.voteDelegationAddress, nodeId);
 
     // Pending change
     WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
