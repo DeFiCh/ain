@@ -457,7 +457,8 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
         CCustomCSView view(*pcustomcsview);
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime);
+        uint64_t gasUsed{};
+        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime, gasUsed);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

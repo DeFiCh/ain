@@ -20,9 +20,7 @@
 #include <util/system.h>
 #include <util/threadnames.h>
 #include <util/translation.h>
-
-#include <masternodes/ffi_temp_stub.h>
-
+#include <ain_rs_exports.h>
 #include <functional>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;

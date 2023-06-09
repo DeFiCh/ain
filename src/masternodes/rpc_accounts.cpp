@@ -1,4 +1,4 @@
-#include <masternodes/ffi_temp_stub.h>
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>

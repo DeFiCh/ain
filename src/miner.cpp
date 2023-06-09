@@ -5,6 +5,7 @@
 
 #include <miner.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
@@ -14,7 +15,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <masternodes/ffi_temp_stub.h>
+#include <ffi/cxx.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -261,9 +262,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
     }
 
     XVM xvm{};
@@ -629,7 +630,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -657,6 +658,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
+
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -793,7 +797,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     RustRes result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
                     if (!result.ok) {
                         customTxPassed = false;
                         break;
@@ -810,9 +814,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
-
-                // Not okay invalidate, undo and skip
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
+                                // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
 
@@ -820,6 +824,12 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     break;
                 }
+
+                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
+                    customTxPassed = false;
+                    break;
+                }
+                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());

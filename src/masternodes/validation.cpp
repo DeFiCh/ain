@@ -2,9 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <ain_rs_exports.h>
 #include <chain.h>
 #include <masternodes/accountshistory.h>
-#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>

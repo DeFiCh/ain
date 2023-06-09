@@ -27,4 +27,3 @@ struct CEvmTxMessage {
 };
 
 #endif // DEFI_MASTERNODES_EVM_H
-

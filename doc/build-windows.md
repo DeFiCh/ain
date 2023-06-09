@@ -62,6 +62,7 @@ First, install the general dependencies:
     sudo apt update
     sudo apt upgrade
     sudo apt install build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 A host toolchain (`build-essential`) is necessary because some dependency
 packages (such as `protobuf`) need to build host utilities that are used in the

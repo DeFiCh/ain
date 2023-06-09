@@ -1,7 +1,8 @@
 #include <masternodes/mn_rpc.h>
 
-#include <masternodes/ffi_temp_stub.h>
+#include <ain_rs_exports.h>
 #include <key_io.h>
+#include <util/strencodings.h>
 
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
