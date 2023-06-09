@@ -9,6 +9,7 @@
 #include <flushablestorage.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/evm.h>
 #include <masternodes/gv.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/icxorder.h>
@@ -476,7 +477,7 @@ class CCustomCSView : public CMasternodesView,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
-            CProposalView              ::  ByType, ByCycle, ByMnVote, ByStatus
+            CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
     // clang-format on
