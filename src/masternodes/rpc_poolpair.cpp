@@ -404,6 +404,11 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
     msg.shareAddress = DecodeScript(request.params[1].get_str());
 
+    for (const auto& [from, balance] : msg.from) {
+        RejectEthAddress(from);
+    }
+    RejectEthAddress(msg.shareAddress);
+
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity) << msg;
@@ -496,6 +501,8 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
     CRemoveLiquidityMessage msg{};
     msg.from   = DecodeScript(from);
     msg.amount = DecodeAmount(pwallet->chain(), amount, from);
+
+    RejectEthAddress(msg.from);
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -636,6 +643,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     if (!metadataObj["customRewards"].isNull()) {
         rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
+    RejectEthAddress(ownerAddress);
 
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
@@ -815,6 +823,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                                                                std::numeric_limits<CAmount>::max()));
         }
     }
+    RejectEthAddress(ownerAddress);
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -931,6 +940,9 @@ UniValue poolswap(const JSONRPCRequest &request) {
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    RejectEthAddress(poolSwapMsg.from);
+    RejectEthAddress(poolSwapMsg.to);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap);
@@ -1049,6 +1061,9 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     CPoolSwapMessageV2 poolSwapMsgV2{};
     CPoolSwapMessage &poolSwapMsg = poolSwapMsgV2.swapInfo;
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
+
+    RejectEthAddress(poolSwapMsg.from);
+    RejectEthAddress(poolSwapMsg.to);
 
     {
         LOCK(cs_main);

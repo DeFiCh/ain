@@ -60,6 +60,7 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
+    preinit();
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -163,6 +164,7 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
+        init_evm_runtime();
         fRet = AppInitMain(interfaces);
     }
     catch (const std::exception& e) {
@@ -178,8 +180,7 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
-
-    stop_runtime();
+    stop_evm_runtime();
 
     return fRet;
 }

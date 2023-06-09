@@ -333,7 +333,7 @@ class CCustomMetadataParseVisitor {
     const Consensus::Params &consensus;
     const std::vector<unsigned char> &metadata;
 
-    Res IsHardforkEnabled(int startHeight) const {
+    Res IsHardforkEnabled(const uint32_t startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
                 { consensus.AMKHeight,                    "called before AMK height" },
                 { consensus.BayfrontHeight,               "called before Bayfront height" },
@@ -347,7 +347,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
                 { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
-        if (startHeight && int(height) < startHeight) {
+        if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
             assert(it != hardforks.end());
             return Res::Err(it->second);
@@ -3808,14 +3808,14 @@ public:
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
-            if (src.domain == VMDomain::DVM) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from DFI address
                 CBalances balance;
                 balance.Add(src.amount);
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-            } else if (src.domain == VMDomain::EVM) {
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
@@ -3826,14 +3826,14 @@ public:
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
-            if (dst.domain == VMDomain::DVM) {
+            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Add balance to DFI address
                 CBalances balance;
                 balance.Add(dst.amount);
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-            } else if (dst.domain == VMDomain::EVM) {
+            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
@@ -3855,12 +3855,18 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
-            return Res::Err("evm tx failed to validate");
+        RustRes result;
+        evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+
+        if (!result.ok) {
+            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
         }
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
-            return Res::Err("evm tx failed to queue");
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        if (!result.ok) {
+            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
         }
 
         return Res::Ok();
@@ -3922,9 +3928,9 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         CTxDestination dest;
 
-        // Soruce validation
+        // Source validation
         // Check domain type
-        if (src.domain == VMDomain::DVM) {
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
@@ -3935,7 +3941,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
             res = HasAuth(tx, coins, src.address);
             if (!res)
                 return res;
-        } else if (src.domain == VMDomain::EVM) {
+        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
@@ -3951,14 +3957,14 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         // Destination validation
         // Check domain type
-        if (dst.domain == VMDomain::DVM) {
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             }
-        } else if (dst.domain == VMDomain::EVM) {
+        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
