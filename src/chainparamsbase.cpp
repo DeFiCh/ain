@@ -12,6 +12,7 @@
 
 const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
+const std::string CBaseChainParams::CHANGI = "changi";
 const std::string CBaseChainParams::DEVNET = "devnet";
 const std::string CBaseChainParams::REGTEST = "regtest";
 
@@ -21,6 +22,7 @@ void SetupChainParamsBaseOptions()
                                    "This is intended for regression testing tools and app development.", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-segwitheight=<n>", "Set the activation height of segwit. -1 to disable. (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-testnet", "Use the test chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changi", "Use the changi chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-devnet", "Use the dev chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-devnet-bootstrap", "Use the dev chain and sync from testnet", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
@@ -40,11 +42,13 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
         return std::make_unique<CBaseChainParams>("", 8554, 8550, 8551);
     } else if (chain == CBaseChainParams::TESTNET) {
         return std::make_unique<CBaseChainParams>("testnet3", 18554, 18550, 18551);
+    } else if (chain == CBaseChainParams::CHANGI) {
+        return std::make_unique<CBaseChainParams>("changi", 20554, 20550, 20551);
     } else if (chain == CBaseChainParams::DEVNET) {
         if (gArgs.IsArgSet("-devnet-bootstrap")) {
             return std::make_unique<CBaseChainParams>("devnet", 18554, 18550, 18551);
         } else {
-            return std::make_unique<CBaseChainParams>("devnet", 20554, 20550, 20551);
+            return std::make_unique<CBaseChainParams>("devnet", 21554, 21550, 21551);
         }
     } else if (chain == CBaseChainParams::REGTEST) {
         return std::make_unique<CBaseChainParams>("regtest", 19554, 19550, 19551);

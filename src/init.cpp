@@ -385,10 +385,12 @@ void SetupServerArgs()
 
     const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
+    const auto changiBaseParams = CreateBaseChainParams(CBaseChainParams::CHANGI);
     const auto devnetBaseParams  = CreateBaseChainParams(CBaseChainParams::DEVNET);
     const auto regtestBaseParams = CreateBaseChainParams(CBaseChainParams::REGTEST);
     const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN);
     const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET);
+    const auto changiChainParams = CreateChainParams(CBaseChainParams::CHANGI);
     const auto devnetChainParams  = CreateChainParams(CBaseChainParams::DEVNET);
     const auto regtestChainParams = CreateChainParams(CBaseChainParams::REGTEST);
 
@@ -405,7 +407,7 @@ void SetupServerArgs()
 #if HAVE_SYSTEM
     gArgs.AddArg("-alertnotify=<cmd>", "Execute command when a relevant alert is received or we see a really long fork (%s in cmd is replaced by message)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #endif
-    gArgs.AddArg("-assumevalid=<hex>", strprintf("If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: %s, testnet: %s)", defaultChainParams->GetConsensus().defaultAssumeValid.GetHex(), testnetChainParams->GetConsensus().defaultAssumeValid.GetHex()), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS); // omit for devnet
+    gArgs.AddArg("-assumevalid=<hex>", strprintf("If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: %s, testnet: %s, changi: %s)", defaultChainParams->GetConsensus().defaultAssumeValid.GetHex(), testnetChainParams->GetConsensus().defaultAssumeValid.GetHex(), changiChainParams->GetConsensus().defaultAssumeValid.GetHex()), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS); // omit for devnet
     gArgs.AddArg("-blocksdir=<dir>", "Specify directory to hold blocks subdirectory for *.dat files (default: <datadir>)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #if HAVE_SYSTEM
     gArgs.AddArg("-blocknotify=<cmd>", "Execute command when the best block changes (%s in cmd is replaced by block hash)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -640,9 +642,9 @@ void SetupServerArgs()
     gArgs.AddArg("-maxaddrratepersecond=<n>", strprintf("Sets MAX_ADDR_RATE_PER_SECOND limit for ADDR messages(default: %f)", MAX_ADDR_RATE_PER_SECOND), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-grpcbind=<addr>[:port]", "Bind to given address to listen for JSON-gRPC connections. Do not expose the gRPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -grpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, devnet: %u, regtest: %u, changi: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort(), changiBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for ETH-JSON-RPC connections. Do not expose the ETH-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, devnet: %u, regtest: %u, changi: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1556,8 +1558,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 4b: application initialization
 
-    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH 
-     * RPC/gRPC server to bind to one address. By default, we will only take 
+    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
+     * RPC/gRPC server to bind to one address. By default, we will only take
      * the first address, if multiple addresses are specified.
     */
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
