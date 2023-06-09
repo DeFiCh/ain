@@ -154,7 +154,11 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 /// Returns the balance of the account as a `u64` on success.
 pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
     let account = H160::from(address);
-    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
+    let (_, latest_block_number) = RUNTIME
+        .handlers
+        .block
+        .get_latest_block_hash_and_number()
+        .unwrap_or_default();
     let mut balance = RUNTIME
         .handlers
         .evm
@@ -180,7 +184,11 @@ pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
 /// Returns the nonce of the account as a `u64` on success.
 pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
     let account = H160::from(address);
-    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
+    let (_, latest_block_number) = RUNTIME
+        .handlers
+        .block
+        .get_latest_block_hash_and_number()
+        .unwrap_or_default();
     let nonce = RUNTIME
         .handlers
         .evm
