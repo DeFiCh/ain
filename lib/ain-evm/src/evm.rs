@@ -137,7 +137,7 @@ impl EVMHandler {
         ))
     }
 
-    pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
+    pub fn validate_raw_tx(&self, tx: &str) -> Result<(SignedTx, u64), Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -175,7 +175,17 @@ impl EVMHandler {
             .into());
         }
 
-        Ok(signed_tx)
+        let TxResponse { used_gas, .. } = self.call(
+            Some(signed_tx.sender),
+            signed_tx.to(),
+            signed_tx.value(),
+            signed_tx.data(),
+            signed_tx.gas_limit().as_u64(),
+            signed_tx.access_list(),
+            block_number,
+        )?;
+
+        Ok((signed_tx, used_gas))
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {

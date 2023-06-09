@@ -40,6 +40,7 @@ pub mod ffi {
     pub struct ValidateTxResult {
         nonce: u64,
         sender: [u8; 20],
+        gas_used: u64,
     }
 
     pub struct RustRes {
@@ -307,11 +308,12 @@ pub fn evm_try_prevalidate_raw_tx(
     tx: &str,
 ) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok(signed_tx) => {
+        Ok((signed_tx, gas_used)) => {
             result.ok = true;
             Ok(ffi::ValidateTxResult {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
+                gas_used,
             })
         }
         Err(e) => {
