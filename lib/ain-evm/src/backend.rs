@@ -9,10 +9,10 @@ use sp_core::Blake2Hasher;
 use vsdb_trie_db::MptOnce;
 
 use crate::{
-    evm::TrieDBStore,
     storage::{traits::BlockStorage, Storage},
     traits::BridgeBackend,
     transaction::SignedTx,
+    trie::TrieDBStore,
 };
 
 type Hasher = Blake2Hasher;

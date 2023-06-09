@@ -78,6 +78,10 @@ rust::string getDatadir() {
     #endif
 }
 
+rust::string getNetwork() {
+    return Params().NetworkIDString();
+}
+
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash) {
     uint256 hash{};
     std::copy(blockHash.begin(), blockHash.end(), hash.begin());
@@ -192,4 +196,8 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
         }
     }
     return {};
+}
+
+rust::string getStateInputJSON() {
+    return gArgs.GetArg("-ethstartstate", "");
 }

@@ -517,6 +517,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-ethstartstate", strprintf("Initialise Ethereum state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1555,8 +1556,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 4b: application initialization
 
-    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH 
-     * RPC/gRPC server to bind to one address. By default, we will only take 
+    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
+     * RPC/gRPC server to bind to one address. By default, we will only take
      * the first address, if multiple addresses are specified.
     */
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
