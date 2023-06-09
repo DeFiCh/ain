@@ -12,6 +12,8 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
+use crate::ffi::RustRes;
+
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
 
@@ -34,8 +36,22 @@ pub mod ffi {
         miner_fee: u64,
     }
 
+    #[derive(Default)]
+    pub struct ValidateTxResult {
+        nonce: u64,
+        sender: [u8; 20],
+    }
+
+    pub struct RustRes {
+        ok: bool,
+        reason: String,
+    }
+
     extern "Rust" {
-        fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64>;
+        fn evm_get_balance(address: [u8; 20]) -> Result<u64>;
+        fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
+        fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
+
         fn evm_add_balance(
             context: u64,
             address: &str,
@@ -48,11 +64,18 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
-        fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool>;
+
+        fn evm_try_prevalidate_raw_tx(result: &mut RustRes, tx: &str) -> Result<ValidateTxResult>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64) -> Result<()>;
-        fn evm_queue_tx(context: u64, raw_tx: &str, native_tx_hash: [u8; 32]) -> Result<bool>;
+        fn evm_try_queue_tx(
+            result: &mut RustRes,
+            context: u64,
+            raw_tx: &str,
+            native_tx_hash: [u8; 32],
+        ) -> Result<bool>;
+
         fn evm_finalize(
             context: u64,
             update_state: bool,
@@ -116,12 +139,11 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
     Ok(signed.encode().into())
 }
 
-/// Retrieves the balance of an EVM account at a specific block number.
+/// Retrieves the balance of an EVM account at latest block height.
 ///
 /// # Arguments
 ///
 /// * `address` - The EVM address of the account.
-/// * `block_number` - The block number as a byte array.
 ///
 /// # Errors
 ///
@@ -130,16 +152,60 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_get_balance(address: &str, block_number: [u8; 32]) -> Result<u64, Box<dyn Error>> {
-    let account = address.parse()?;
+pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+    let account = H160::from(address);
+    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
     let mut balance = RUNTIME
         .handlers
         .evm
-        .get_balance(account, U256::from(block_number))
+        .get_balance(account, latest_block_number)
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     Ok(balance.as_u64())
+}
+
+/// Retrieves the nonce of an EVM account at latest block height.
+///
+/// # Arguments
+///
+/// * `address` - The EVM address of the account.
+///
+/// # Errors
+///
+/// Throws an Error if the address is not a valid EVM address.
+///
+/// # Returns
+///
+/// Returns the nonce of the account as a `u64` on success.
+pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+    let account = H160::from(address);
+    let (_, latest_block_number) = RUNTIME.handlers.block.get_latest_block_hash_and_number();
+    let nonce = RUNTIME
+        .handlers
+        .evm
+        .get_nonce(account, latest_block_number)
+        .unwrap_or_default();
+    Ok(nonce.as_u64())
+}
+
+/// Retrieves the next valid nonce of an EVM account in a specific context
+///
+/// # Arguments
+///
+/// * `context` - The context queue number.
+/// * `address` - The EVM address of the account.
+///
+/// # Returns
+///
+/// Returns the next valid nonce of the account in a specific context as a `u64`
+pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
+    let address = H160::from(address);
+    let nonce = RUNTIME
+        .handlers
+        .evm
+        .get_next_valid_nonce_in_context(context, address);
+    nonce.as_u64()
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -227,13 +293,25 @@ pub fn evm_sub_balance(
 ///
 /// # Returns
 ///
-/// Returns `true` if the transaction is valid, logs the error and returns `false` otherwise.
-pub fn evm_prevalidate_raw_tx(tx: &str) -> Result<bool, Box<dyn Error>> {
+/// Returns the transaction nonce and sender address if the transaction is valid, logs and throws the error otherwise.
+pub fn evm_try_prevalidate_raw_tx(
+    result: &mut RustRes,
+    tx: &str,
+) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok(_) => Ok(true),
+        Ok(signed_tx) => {
+            result.ok = true;
+            Ok(ffi::ValidateTxResult {
+                nonce: signed_tx.nonce().as_u64(),
+                sender: signed_tx.sender.to_fixed_bytes(),
+            })
+        }
         Err(e) => {
-            debug!("evm_prevalidate_raw_tx fails with error: {:?}", e);
-            Ok(false)
+            debug!("evm_try_prevalidate_raw_tx fails with error: {e}");
+            result.ok = false;
+            result.reason = e.to_string();
+
+            Ok(ffi::ValidateTxResult::default())
         }
     }
 }
@@ -283,15 +361,27 @@ fn evm_discard_context(context: u64) -> Result<(), Box<dyn Error>> {
 /// # Returns
 ///
 /// Returns `true` if the transaction is successfully queued, `false` otherwise.
-fn evm_queue_tx(context: u64, raw_tx: &str, hash: [u8; 32]) -> Result<bool, Box<dyn Error>> {
+fn evm_try_queue_tx(
+    result: &mut RustRes,
+    context: u64,
+    raw_tx: &str,
+    hash: [u8; 32],
+) -> Result<bool, Box<dyn Error>> {
     let signed_tx: SignedTx = raw_tx.try_into()?;
     match RUNTIME
         .handlers
         .evm
         .queue_tx(context, signed_tx.into(), hash)
     {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+        Ok(_) => {
+            result.ok = true;
+            Ok(true)
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+            Ok(false)
+        }
     }
 }
 

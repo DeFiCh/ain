@@ -602,8 +602,9 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     if (eth_lookup) {
         for (const auto keyID : pwallet->GetEthKeys()) {
-            const arith_uint256 height = targetHeight;
-            const auto evmAmount = evm_get_balance(HexStr(keyID.begin(), keyID.end()), ArithToUint256(height).ToArrayReversed());
+            std::array<uint8_t, 20> address{};
+            std::copy(keyID.begin(), keyID.end(), address.begin());
+            const auto evmAmount = evm_get_balance(address);
             totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
         }
     }

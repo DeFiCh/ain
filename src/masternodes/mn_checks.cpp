@@ -11,6 +11,7 @@
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
+#include <ffi/cxx.h>
 #include <index/txindex.h>
 #include <txmempool.h>
 #include <validation.h>
@@ -3855,11 +3856,19 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        if (!evm_prevalidate_raw_tx(HexStr(obj.evmTx)))
-            return Res::Err("evm tx failed to validate");
+        RustRes result;
+        evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
-            return Res::Err("evm tx failed to queue");
+        if (!result.ok) {
+            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
+        }
+
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        if (!result.ok) {
+            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
+        }
 
         return Res::Ok();
     }
