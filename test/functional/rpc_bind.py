@@ -97,33 +97,33 @@ class RPCBindTest(DefiTestFramework):
         if self.options.run_ipv4:
             # check only IPv4 localhost (explicit)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', ['127.0.0.1'],
-                               [('127.0.0.1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv4 localhost (explicit) with alternative port
             self.run_bind_test(['127.0.0.1'], '127.0.0.1:32171', ['127.0.0.1:32171'],
-                               [('127.0.0.1', 32171)])
+                               [('127.0.0.1', 32171), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv4 localhost (explicit) with multiple alternative ports on same host
             self.run_bind_test(['127.0.0.1'], '127.0.0.1:32171', ['127.0.0.1:32171', '127.0.0.1:32172'],
-                               [('127.0.0.1', 32171), ('127.0.0.1', 32172)])
+                               [('127.0.0.1', self.defaultport + 10000), ('127.0.0.1', 32171), ('127.0.0.1', 32172)])
         else:
             # check default without rpcallowip (IPv4 and IPv6 localhost)
             self.run_bind_test(None, '127.0.0.1', [],
-                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check default with rpcallowip (IPv4 and IPv6 localhost)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', [],
-                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv6 localhost (explicit)
             self.run_bind_test(['[::1]'], '[::1]', ['[::1]'],
-                               [('::1', self.defaultport)])
+                               [('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check both IPv4 and IPv6 localhost (explicit)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', ['127.0.0.1', '[::1]'],
-                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('127.0.0.1', self.defaultport + 10000), ('::1', self.defaultport)])
 
     def _run_nonloopback_tests(self):
         self.log.info("Using interface %s for testing" % self.non_loopback_ip)
 
         # check only non-loopback interface
         self.run_bind_test([self.non_loopback_ip], self.non_loopback_ip, [self.non_loopback_ip],
-                           [(self.non_loopback_ip, self.defaultport)])
+                           [('127.0.0.1', self.defaultport + 10000), (self.non_loopback_ip, self.defaultport)])
 
         # Check that with invalid rpcallowip, we are denied
         self.run_allowip_test([self.non_loopback_ip], self.non_loopback_ip, self.defaultport)

@@ -130,6 +130,37 @@ impl EVMBackend {
             ..self.vicinity
         };
     }
+
+    pub fn deduct_prepay_gas(&mut self, sender: H160, prepay_gas: U256) {
+        trace!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
+
+        let basic = self.basic(sender);
+        let balance = basic.balance.saturating_sub(prepay_gas);
+        let new_basic = Basic { balance, ..basic };
+        self.apply(sender, new_basic, None, Vec::new(), false)
+            .expect("Error deducting account balance");
+    }
+
+    pub fn refund_unused_gas(
+        &mut self,
+        sender: H160,
+        gas_limit: U256,
+        used_gas: U256,
+        gas_price: U256,
+    ) {
+        let refund_gas = gas_limit.saturating_sub(used_gas);
+        let refund_amount = refund_gas.saturating_mul(gas_price);
+
+        trace!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, sender);
+
+        let basic = self.basic(sender);
+        let new_basic = Basic {
+            balance: basic.balance.saturating_add(refund_amount),
+            ..basic
+        };
+        self.apply(sender, new_basic, None, Vec::new(), false)
+            .expect("Error refunding account balance");
+    }
 }
 
 impl EVMBackend {
@@ -284,7 +315,6 @@ impl BridgeBackend for EVMBackend {
         };
 
         self.apply(address, new_basic, None, Vec::new(), false)?;
-        self.state.commit();
         Ok(())
     }
 
@@ -306,7 +336,6 @@ impl BridgeBackend for EVMBackend {
             };
 
             self.apply(address, new_basic, None, Vec::new(), false)?;
-            self.state.commit();
             Ok(())
         }
     }

@@ -28,6 +28,7 @@ ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tok
 ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain,std::string const & tokenAmount);
 
 CScript DecodeScript(std::string const& str);
+void RejectEthAddress(const CScript &address);
 CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name);
 CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name);
 CAccounts DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo);

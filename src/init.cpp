@@ -1556,8 +1556,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 4b: application initialization
 
-    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH 
-     * RPC/gRPC server to bind to one address. By default, we will only take 
+    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
+     * RPC/gRPC server to bind to one address. By default, we will only take
      * the first address, if multiple addresses are specified.
     */
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());

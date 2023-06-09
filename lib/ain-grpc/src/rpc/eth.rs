@@ -1,4 +1,4 @@
-use crate::block::{BlockNumber, RpcBlock};
+use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
 use crate::bytes::Bytes;
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
@@ -192,6 +192,17 @@ pub trait MetachainRPC {
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
     fn gas_price(&self) -> RpcResult<U256>;
+
+    #[method(name = "feeHistory")]
+    fn fee_history(
+        &self,
+        block_count: U256,
+        first_block: U256,
+        priority_fee_percentile: Vec<usize>,
+    ) -> RpcResult<RpcFeeHistory>;
+
+    #[method(name = "maxPriorityFeePerGas")]
+    fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 }
 
 pub struct MetachainRPCModule {
@@ -214,21 +225,21 @@ impl MetachainRPCModule {
                     .storage
                     .get_block_by_hash(&hash)
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             BlockNumber::Num(n) => {
                 self.handler
                     .storage
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             },
             _ => {
                 self.handler
                     .storage
                     .get_latest_block()
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             // BlockNumber::Earliest => todo!(),
             // BlockNumber::Pending => todo!(),
@@ -340,9 +351,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_hash(&hash)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(
+                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
                     block,
                     full_transactions.unwrap_or_default(),
+                    self.handler.storage.get_base_fee(&hash).unwrap_or_default(),
                 )))
             })
     }
@@ -381,9 +393,14 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_number(&block_number)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(
+                let tx_hash = &block.header.hash();
+                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
                     block,
                     full_transactions.unwrap_or_default(),
+                    self.handler
+                        .storage
+                        .get_base_fee(tx_hash)
+                        .unwrap_or_default(),
                 )))
             })
     }
@@ -576,9 +593,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
                 } else {
-                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
+                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
                     Err(Error::Custom(format!(
-                        "Could not publish raw transaction: {tx} resaon: {res_string}"
+                        "Could not publish raw transaction: {tx} reason: {res_string}"
                     )))
                 }
             }
@@ -642,9 +659,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = ain_cpp_imports::get_min_relay_tx_fee().unwrap_or(10);
+        let gas_price = self.handler.block.get_legacy_fee();
         debug!(target:"rpc","gasPrice: {:#?}", gas_price);
-        Ok(U256::from(gas_price))
+        Ok(gas_price)
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
@@ -668,6 +685,23 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn eth_submithashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
         Ok(false)
+    }
+
+    fn fee_history(
+        &self,
+        block_count: U256,
+        first_block: U256,
+        priority_fee_percentile: Vec<usize>,
+    ) -> RpcResult<RpcFeeHistory> {
+        Ok(RpcFeeHistory::from(self.handler.block.fee_history(
+            block_count.as_usize(),
+            first_block,
+            priority_fee_percentile,
+        )))
+    }
+
+    fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+        Ok(self.handler.block.suggested_priority_fee())
     }
 }
 

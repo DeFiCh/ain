@@ -1,5 +1,6 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::executor::TxResponse;
+use crate::fee::calculate_prepay_gas;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -128,17 +129,14 @@ impl EVMHandler {
             vicinity,
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
-        Ok(AinExecutor::new(&mut backend).call(
-            ExecutorContext {
-                caller,
-                to,
-                value,
-                data,
-                gas_limit,
-                access_list,
-            },
-            false,
-        ))
+        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        }))
     }
 
     pub fn validate_raw_tx(&self, tx: &str) -> Result<SignedTx, Box<dyn Error>> {
@@ -170,7 +168,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if nonce != signed_tx.nonce() {
+        if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -179,10 +177,27 @@ impl EVMHandler {
             .into());
         }
 
-        // TODO validate balance to pay gas
-        // if account.balance < MIN_GAS {
-        //     return Err(anyhow!("Insufficiant balance to pay fees").into());
-        // }
+        const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
+        let balance = self
+            .get_balance(signed_tx.sender, block_number)
+            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+
+        debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
+
+        let prepay_gas = calculate_prepay_gas(&signed_tx);
+        if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+            debug!("[validate_raw_tx] Insufficiant balance to pay fees");
+            return Err(anyhow!("Insufficiant balance to pay fees").into());
+        }
+
+        let gas_limit = U256::from(signed_tx.gas_limit());
+
+        // TODO lift MAX_GAS_PER_BLOCK
+        const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
+        println!("MAX_GAS_PER_BLOCK : {:#x}", MAX_GAS_PER_BLOCK);
+        if gas_limit > MAX_GAS_PER_BLOCK {
+            return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
+        }
 
         Ok(signed_tx)
     }
@@ -247,6 +262,10 @@ impl EVMHandler {
     pub fn clear(&self, context: u64) -> Result<(), EVMError> {
         self.tx_queues.clear(context)?;
         Ok(())
+    }
+
+    pub fn remove(&self, context: u64) {
+        self.tx_queues.remove(context);
     }
 }
 
@@ -319,6 +338,47 @@ impl EVMHandler {
 
         debug!("Account {:x?} nonce {:x?}", address, nonce);
         Ok(nonce)
+    }
+
+    /// Retrieves the next valid nonce for the specified account within a particular context.
+    ///
+    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
+    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
+    /// the nonce is defaulted to zero.
+    ///
+    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
+    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context queue number.
+    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
+    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+        let nonce = self
+            .tx_queues
+            .get_next_valid_nonce(context, address)
+            .unwrap_or_else(|| {
+                let latest_block = self
+                    .storage
+                    .get_latest_block()
+                    .map(|b| b.header.number)
+                    .unwrap_or_else(|| U256::zero());
+
+                self.get_nonce(address, latest_block)
+                    .unwrap_or_else(|_| U256::zero())
+            });
+
+        debug!(
+            "Account {:x?} nonce {:x?} in context {context}",
+            address, nonce
+        );
+        nonce
     }
 }
 

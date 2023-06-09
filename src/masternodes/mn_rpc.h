@@ -96,5 +96,5 @@ CScript CreateScriptForHTLC(const JSONRPCRequest &request, uint32_t &blocks, std
 CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CScript> AmIFounder(CWallet *const pwallet);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
-std::string CTransferDomainTypeToString(const CTransferDomainType type);
+std::string CTransferDomainToString(const VMDomain domain);
 #endif  // DEFI_MASTERNODES_MN_RPC_H

@@ -393,6 +393,54 @@ public:
     static Res AccountsFuturesErase() {
         return Res::Err("Failed to erase futures");
     }
+
+    static Res TransferDomainNotEnoughBalance(const std::string address) {
+        return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", address);
+    }
+
+    static Res InvalidAuth() {
+        return Res::Err("tx must have at least one input from account owner");
+    }
+
+    static Res TransferDomainEVMNotEnabled() {
+        return Res::Err("Cannot create tx, EVM is not enabled");
+    }
+
+    static Res TransferDomainSameDomain() {
+        return Res::Err("Cannot transfer inside same domain");
+    }
+
+    static Res TransferDomainUnequalAmount() {
+        return Res::Err("Source amount must be equal to destination amount");
+    }
+
+    static Res TransferDomainIncorrectToken() {
+        return Res::Err("For transferdomain, only DFI token is currently supported");
+    }
+
+    static Res TransferDomainETHSourceAddress() {
+        return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+    }
+
+    static Res TransferDomainDFISourceAddress() {
+        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+    }
+
+    static Res TransferDomainInvalidSourceDomain() {
+        return Res::Err("Invalid domain set for \"src\" argument");
+    }
+
+    static Res TransferDomainETHDestinationAddress() {
+        return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+    }
+
+    static Res TransferDomainDVMDestinationAddress() {
+        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+    }
+
+    static Res TransferDomainInvalidDestinationDomain() {
+        return Res::Err("Invalid domain set for \"dst\" argument");
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H

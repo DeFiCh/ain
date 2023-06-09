@@ -15,6 +15,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <ffi/cxx.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -271,10 +272,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
+        evm_discard_context(evmContext);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{{uint256(blockHash), blockResult.miner_fee}};
+        xvm = XVM{{uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -635,6 +637,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     indexed_modified_transaction_set mapModifiedTx;
     // Keep track of entries that failed inclusion, to avoid duplicate work
     CTxMemPool::setEntries failedTx;
+    // Keep track of EVM entries that failed nonce check
+    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -655,7 +659,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty())
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -669,7 +673,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         bool fUsingModified = false;
 
         modtxscoreiter modit = mapModifiedTx.get<ancestor_score>().begin();
-        if (mi == mempool.mapTx.get<T>().end()) {
+        if (mi == mempool.mapTx.get<T>().end() && mapModifiedTx.empty()) {
+            const auto it = failedNonces.begin();
+            iter = it->second;
+            failedNonces.erase(it);
+        } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTx
             iter = modit->iter;
             fUsingModified = true;
@@ -772,10 +780,37 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             AddCoins(coins, tx, nHeight, false); // do not check
 
             std::vector<unsigned char> metadata;
-            CustomTxType txType = GuessCustomTxType(tx, metadata);
+            CustomTxType txType = GuessCustomTxType(tx, metadata, true);
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
+                if (txType == CustomTxType::EvmTx) {
+                    auto txMessage = customTypeToMessage(txType);
+                    if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
+                        customTxPassed = false;
+                        break;
+                    }
+
+                    const auto obj = std::get<CEvmTxMessage>(txMessage);
+
+                    RustRes result;
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+                    if (!result.ok) {
+                        customTxPassed = false;
+                        break;
+                    }
+
+                    const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
+                    if (nonce != txResult.nonce) {
+                        // Only add if not already in failed TXs to prevent adding on second attempt.
+                        if (!failedTx.count(iter)) {
+                            failedNonces.emplace(nonce, iter);
+                        }
+                        customTxPassed = false;
+                        break;
+                    }
+                }
+
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
 
                 // Not okay invalidate, undo and skip

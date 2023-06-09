@@ -85,6 +85,22 @@ impl BlockStorage for Storage {
         self.cache.put_latest_block(block);
         self.blockchain_data_handler.put_latest_block(block);
     }
+
+    fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
+        self.cache.get_base_fee(block_hash).or_else(|| {
+            let base_fee = self.blockchain_data_handler.get_base_fee(block_hash);
+            if let Some(base_fee) = base_fee {
+                self.cache.set_base_fee(*block_hash, base_fee);
+            }
+            base_fee
+        })
+    }
+
+    fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
+        self.cache.set_base_fee(block_hash, base_fee);
+        self.blockchain_data_handler
+            .set_base_fee(block_hash, base_fee);
+    }
 }
 
 impl TransactionStorage for Storage {
