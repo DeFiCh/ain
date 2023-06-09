@@ -519,9 +519,9 @@ pkg_install_rust() {
     _fold_end
 }
 
-pkg_install_solc() {
+pkg_install_web3_deps() {
     _fold_start "pkg-install-solc"
-    python3 -m pip install py-solc-x
+    python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
     _fold_end
 }
@@ -854,7 +854,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
     pkg_setup_rust
-    pkg_install_solc
+    pkg_install_web3_deps
 }
 
 ci_setup_deps_target() {
