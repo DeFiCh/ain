@@ -3823,7 +3823,7 @@ public:
                 arith_uint256 balanceIn = src.amount.nValue;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
-                    return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
+                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
             if (dst.domain == CTransferDomain::DVM) {
@@ -3889,7 +3889,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             }
         }
     }
-    return Res::Err("tx must have at least one input from account owner");
+    return DeFiErrors::InvalidAuth();
 }
 
 Res ValidateTransferDomain(const CTransaction &tx,
@@ -3903,22 +3903,22 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
     // Check if EVM feature is active
     if (!IsEVMEnabled(height, mnview)) {
-        return Res::Err("Cannot create tx, EVM is not enabled");
+        return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
         // Reject if transfer is within same domain
         if (src.domain == dst.domain)
-            return Res::Err("Cannot transfer inside same domain");
+            return DeFiErrors::TransferDomainSameDomain();
 
         // Check for amounts out equals amounts in
         if (src.amount.nValue != dst.amount.nValue)
-            return Res::Err("Source amount must be equal to destination amount");
+            return DeFiErrors::TransferDomainUnequalAmount();
 
         // Restrict only for use with DFI token for now
         if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-            return Res::Err("For transferdomain, only DFI token is currently supported");
+            return DeFiErrors::TransferDomainIncorrectToken();
 
         CTxDestination dest;
 
@@ -3928,7 +3928,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
             // Reject if source address is ETH address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
-                    return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+                    return DeFiErrors::TransferDomainETHSourceAddress();
                 }
             }
             // Check for authorization on source address
@@ -3939,7 +3939,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
             // Reject if source address is DFI address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
-                    return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+                    return DeFiErrors::TransferDomainDFISourceAddress();
                 }
             }
             // Check for authorization on source address
@@ -3947,7 +3947,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
             if (!res)
                 return res;
         } else
-            return Res::Err("Invalid domain set for \"src\" argument");
+            return DeFiErrors::TransferDomainInvalidSourceDomain();
 
         // Destination validation
         // Check domain type
@@ -3955,18 +3955,18 @@ Res ValidateTransferDomain(const CTransaction &tx,
             // Reject if source address is ETH address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
-                    return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             }
         } else if (dst.domain == CTransferDomain::EVM) {
             // Reject if source address is DFI address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
-                    return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
             }
         } else
-            return Res::Err("Invalid domain set for \"dst\" argument");
+            return DeFiErrors::TransferDomainInvalidDestinationDomain();
     }
 
     return res;
