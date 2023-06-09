@@ -40,7 +40,7 @@ pub mod ffi {
     pub struct ValidateTxResult {
         nonce: u64,
         sender: [u8; 20],
-        gas_used: u64,
+        used_gas: u64,
     }
 
     pub struct RustRes {
@@ -302,18 +302,19 @@ pub fn evm_sub_balance(
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce and sender address if the transaction is valid, logs and throws the error otherwise.
+/// Returns the transaction nonce, sender address and gas used if the transaction is valid.
+/// logs and throws the error otherwise.
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut RustRes,
     tx: &str,
 ) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
     match RUNTIME.handlers.evm.validate_raw_tx(tx) {
-        Ok((signed_tx, gas_used)) => {
+        Ok((signed_tx, used_gas)) => {
             result.ok = true;
             Ok(ffi::ValidateTxResult {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                gas_used,
+                used_gas,
             })
         }
         Err(e) => {
