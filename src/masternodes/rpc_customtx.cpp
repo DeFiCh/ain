@@ -553,18 +553,18 @@ public:
         UniValue dstJson{UniValue::VOBJ};
 
         for (const auto &[src, dst] : obj.transfers) {
-            std::array<std::pair<UniValue*, const CTransferDomainItem>, 
+            std::array<std::pair<UniValue&, const CTransferDomainItem>, 
             2> items {
-                std::make_pair(&srcJson, src),
-                std::make_pair(&dstJson, dst)
+                std::make_pair(std::ref(srcJson), src),
+                std::make_pair(std::ref(dstJson), dst)
             };
 
             for (auto &[j, o]: items) {
-                j->pushKV("address", ScriptToString(o.address));
-                j->pushKV("amount", o.amount.ToString());
-                j->pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(o.domain)));
+                j.pushKV("address", ScriptToString(o.address));
+                j.pushKV("amount", o.amount.ToString());
+                j.pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(o.domain)));
                 if (!o.data.empty()) {
-                    j->pushKV("data", std::string(o.data.begin(), o.data.end()));
+                    j.pushKV("data", std::string(o.data.begin(), o.data.end()));
                 }
             }
 
