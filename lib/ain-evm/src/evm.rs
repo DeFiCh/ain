@@ -239,6 +239,10 @@ impl EVMHandler {
         self.tx_queues.clear(context)?;
         Ok(())
     }
+
+    pub fn remove(&self, context: u64) {
+        self.tx_queues.remove(context);
+    }
 }
 
 impl EVMHandler {
