@@ -2039,7 +2039,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 const auto auth = GetScriptForDestination(PKHash(key.GetID()));
                 auths.insert(auth);
             } else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must be either 1 (DFI token to EVM) or 2 (EVM to DFI token)");
+                throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Invalid parameters, src argument \"domain\" must be either %d (DFI token to EVM) or %d (EVM to DFI token)", static_cast<uint8_t>(VMDomain::DVM), static_cast<uint8_t>(VMDomain::EVM)));
 
             if (!srcObj["data"].isNull())
                 src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());

@@ -41,7 +41,7 @@ class EVMTest(DefiTestFramework):
         key_pair = KeyPair.from_node(node)
         address = key_pair.address
 
-        node.transferdomain(1, {self.address: ["50@DFI"]}, {address: ["50@DFI"]})
+        node.transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 2}, "dst":{"address":address, "amount":"50@DFI", "domain": 3}}])
         node.generate(1)
 
         evm_contract = EVMContract.from_file("SimpleStorage.sol", "Test").compile()

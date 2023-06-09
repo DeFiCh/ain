@@ -77,7 +77,7 @@ class EVMTest(DefiTestFramework):
 
     def test_deploy_smart_contract(self):
         # deploy smart contract
-        self.nodes[0].evmrawtx(rawTx)
+        self.nodes[0].eth_sendRawTransaction(rawTx)
         self.nodes[0].generate(1)
 
         # get smart contract address
@@ -95,7 +95,7 @@ class EVMTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.smartContractAddress)
         assert_equal(balance, int_to_eth_u256(0))
 
-        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 1}, "dst":{"address":self.smartContractAddress, "amount":"50@DFI", "domain": 2}}])
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 2}, "dst":{"address":self.smartContractAddress, "amount":"50@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.smartContractAddress, "latest")
@@ -112,7 +112,7 @@ class EVMTest(DefiTestFramework):
 
         # Call smart contract
         callRawTx = "f8ca018502540be400832dc6c094e27a95f0d6fafa131927ac50861a4190f5a9c60b80b864131a06800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000000000000000000000000000002aa06e2e1dc55471cbd7ec4b0f38822152b2dfb1c31f9f7bb17f0581e81b7ab1d978a05fef62334fec720c614c138d11b78f855cd0f53ad44b2d86ff1ee68c04cfbb65"
-        self.nodes[0].evmrawtx(callRawTx)
+        self.nodes[0].eth_sendRawTransaction(callRawTx)
         self.nodes[0].generate(1)
 
         storage = self.nodes[0].eth_getStorageAt(self.smartContractAddress, "0x0", "latest")
@@ -124,7 +124,7 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 1}, "dst":{"address":self.creationAddress, "amount":"100@DFI", "domain": 2}}])
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.creationAddress, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         self.test_deploy_smart_contract()

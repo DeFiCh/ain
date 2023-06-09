@@ -73,7 +73,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
-        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 1}, "dst":{"address":self.ethAddress, "amount":"50@DFI", "domain": 2}}])
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 2}, "dst":{"address":self.ethAddress, "amount":"50@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
