@@ -303,6 +303,8 @@ UniValue createvault(const JSONRPCRequest& request) {
     CVaultMessage vault;
     vault.ownerAddress = DecodeScript(request.params[0].getValStr());
 
+    RejectEthAddress(vault.ownerAddress);
+
     if (request.params.size() > 1) {
         if (!request.params[1].isNull()) {
             vault.schemeId = request.params[1].get_str();
@@ -406,6 +408,8 @@ UniValue closevault(const JSONRPCRequest& request) {
     }
 
     msg.to = DecodeScript(request.params[1].getValStr());
+
+    RejectEthAddress(msg.to);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CloseVault)
@@ -713,6 +717,9 @@ UniValue updatevault(const JSONRPCRequest& request) {
         }
         msg.ownerAddress = DecodeScript(ownerAddress);
     }
+
+    RejectEthAddress(msg.ownerAddress);
+
     if(!params["loanSchemeId"].isNull()){
         auto loanschemeid = params["loanSchemeId"].getValStr();
         msg.schemeId = loanschemeid;
@@ -801,6 +808,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto from = DecodeScript(request.params[1].get_str());
+    RejectEthAddress(from);
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
     CDepositToVaultMessage msg{vaultId, from, amount};
@@ -887,6 +895,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto to = DecodeScript(request.params[1].get_str());
+    RejectEthAddress(to);
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
     CWithdrawFromVaultMessage msg{vaultId, to, amount};
@@ -1004,6 +1013,8 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
     } else {
         from = DecodeScript(fromStr);
     }
+
+    RejectEthAddress(from);
 
     CAuctionBidMessage msg{vaultId, index, from, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
