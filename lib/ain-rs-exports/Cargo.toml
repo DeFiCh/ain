@@ -1,0 +1,26 @@
+[package]
+name = "ain-rs-exports"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ain-evm = { path = "../ain-evm" }
+ain-grpc = { path = "../ain-grpc" }
+
+ethereum = "0.14.0"
+rlp = "0.5.2"
+primitive-types = "0.12.1"
+log = { version = "0.4" }
+
+# Build
+cxx = "1.0"
+
+[build-dependencies]
+cxx-gen = "0.7"
+proc-macro2 = "1.0"

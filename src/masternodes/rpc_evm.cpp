@@ -1,7 +1,8 @@
 #include <masternodes/mn_rpc.h>
 
-#include <masternodes/ffi_temp_stub.h>
+#include <ain_rs_exports.h>
 #include <key_io.h>
+#include <util/strencodings.h>
 
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
@@ -76,7 +77,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     }
 
     const arith_uint256 valueParam = AmountFromValue(request.params[5]);
-    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_WEI * WEI_IN_GWEI);
+    const auto value = ArithToUint256(valueParam * CAMOUNT_TO_GWEI * WEI_IN_GWEI);
 
     rust::Vec<uint8_t> input{};
     if (!request.params[6].isNull()) {
@@ -94,6 +95,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::copy(key.begin(), key.end(), privKey.begin());
 
     const auto signedTx = create_and_sign_tx(CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
+
     std::vector<uint8_t> evmTx(signedTx.size());
     std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
 
@@ -124,11 +126,10 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"evm",         "evmtx",                     &evmtx,                 {"rawEvmTx", "inputs"}},
+    {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }
-

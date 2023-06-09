@@ -71,7 +71,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
         {AttributeTypes::Poolpairs,  "poolpairs" },
         {AttributeTypes::Token,      "token"     },
         {AttributeTypes::Governance, "gov"       },
-        {AttributeTypes::Consortium, "consortium"}
+        {AttributeTypes::Consortium, "consortium"},
     };
     return types;
 }

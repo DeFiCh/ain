@@ -351,5 +351,5 @@ CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std
 }
 
 bool IsValidDestination(const CTxDestination& dest) {
-    return dest.index() != 0;
+    return dest.index() != NoDestType;
 }

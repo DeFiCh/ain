@@ -300,6 +300,14 @@ def rpc_port(n):
     return PORT_MIN + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
 
 
+def grpc_port(n):
+    return PORT_MIN + PORT_RANGE + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+
+
+def eth_rpc_port(n):
+    return PORT_MIN + PORT_RANGE + PORT_RANGE + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+
+
 def rpc_url(datadir, i, chain, rpchost):
     rpc_u, rpc_p = get_auth_cookie(datadir, chain)
     host = '127.0.0.1'
@@ -311,6 +319,34 @@ def rpc_url(datadir, i, chain, rpchost):
         else:
             host = rpchost
     return "http://%s:%s@%s:%d" % (rpc_u, rpc_p, host, int(port))
+
+
+def grpc_url(datadir, i, chain, grpchost):
+    grpc_u, grpc_p = get_auth_cookie(datadir, chain)
+    host = '127.0.0.1'
+    port = grpc_port(i*2)
+    if grpchost:
+        parts = grpchost.split(':')
+        if len(parts) == 2:
+            host, port = parts
+        else:
+            host = grpchost
+
+    return "http://%s:%s@%s:%d" % (grpc_u, grpc_p, host, int(port))
+
+
+def eth_rpc_url(datadir, i, chain, ethrpchost):
+    ethrpc_u, ethrpc_p = get_auth_cookie(datadir, chain)
+    host = '127.0.0.1'
+    port = eth_rpc_port(i)
+    if ethrpchost:
+        parts = ethrpchost.split(':')
+        if len(parts) == 2:
+            host, port = parts
+        else:
+            host = ethrpchost
+
+    return "http://%s:%s@%s:%d" % (ethrpc_u, ethrpc_p, host, int(port))
 
 
 # Node functions
@@ -325,6 +361,8 @@ def initialize_datadir(dirname, n, chain):
         f.write("[{}]\n".format(chain))
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")
+        f.write("grpcport=" + str(grpc_port(n * 2)) + "\n") # GRPC will use two ports
+        f.write("ethrpcport=" + str(eth_rpc_port(n)) + "\n")
         f.write("server=1\n")
         f.write("keypool=1\n")
         f.write("discover=0\n")
@@ -632,31 +670,6 @@ def find_spendable_utxo(node, min_value):
             return utxo
 
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
-
-
-def list_unspent_tx(node, address):
-    """
-    Return list of spendable utxos in an address.
-    """
-    result = []
-    vals = node.listunspent()
-    for i in range(0, len(vals)):
-        if vals[i]['address'] == address:
-            result.append(vals[i])
-    return result
-
-
-def unspent_amount(node, address):
-    """
-    Get the total spendable amount in an address.
-    """
-    result = 0
-    vals = node.listunspent()
-    for i in range(0, len(vals)):
-        if vals[i]['address'] == address:
-            result += vals[i]['amount']
-    return result
-
 
 def fund_tx(node, address, amount):
     """

@@ -101,6 +101,12 @@ if test -z "$DOXYGEN"; then
 fi
 AM_CONDITIONAL([HAVE_DOXYGEN], [test -n "$DOXYGEN"])
 
+dnl Rust toolchain checks
+AC_PATH_PROG([RUSTC], [rustc], [no])
+AS_IF([test "$RUSTC" = "no"], [AC_MSG_ERROR([Rust toolchain with rustc is required])])
+AC_PATH_PROG([CARGO], [cargo], [no])
+AS_IF([test "$CARGO" = "no"], [AC_MSG_ERROR([Rust toolchain with cargo is required])])
+
 AC_ARG_VAR(PYTHONPATH, Augments the default search path for python module files)
 
 AC_ARG_ENABLE([wallet],
@@ -247,6 +253,7 @@ if test "x$enable_debug" = xyes; then
   if test "x$CXXFLAGS_overridden" = xno; then
 	CXXFLAGS=""
   fi
+  AC_SUBST(ENABLE_DEBUG,[1])
 
   # Disable all optimizations
   AX_CHECK_COMPILE_FLAG([-O0], [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"]],,[[$CXXFLAG_WERROR]])
@@ -1316,8 +1323,11 @@ if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_bench$u
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
+AM_CONDITIONAL([TARGET_NOT_DARWIN], [test x$TARGET_OS != xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
+AM_CONDITIONAL([BUILD_NOT_DARWIN], [test x$BUILD_OS != xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([TARGET_NOT_WINDOWS], [test x$TARGET_OS != xwindows])
 AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet = xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$BUILD_TEST = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ],[test x$enable_fuzz = xyes])
@@ -1396,7 +1406,22 @@ AC_SUBST(HAVE_O_CLOEXEC)
 AC_SUBST(HAVE_BUILTIN_PREFETCH)
 AC_SUBST(HAVE_MM_PREFETCH)
 AC_SUBST(HAVE_STRONG_GETAUXVAL)
-AC_CONFIG_FILES([Makefile src/Makefile test/config.ini])
+AC_SUBST(PROTOC)
+AC_SUBST(PROTOC_INCLUDE_DIR)
+
+dnl If the host and build triplets are the same, we don't 
+dnl keep this empty
+if test x$host = x$build; then
+  RUST_TARGET=
+else
+  RUST_TARGET=`TARGET="$host" $ac_abs_confdir/make.sh get_rust_target`
+  if test x$RUST_TARGET = x; then
+    AC_MSG_ERROR("unsupported host target")
+  fi
+fi
+AC_SUBST(RUST_TARGET)
+
+AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
 AC_CONFIG_LINKS([contrib/filter-lcov.py:contrib/filter-lcov.py])
@@ -1482,4 +1507,7 @@ echo "  CXX           = $CXX"
 echo "  CXXFLAGS      = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS $NOWARN_CXXFLAGS $ERROR_CXXFLAGS $GPROF_CXXFLAGS $CXXFLAGS"
 echo "  LDFLAGS       = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
 echo "  ARFLAGS       = $ARFLAGS"
+echo "  CARGO         = $CARGO"
+echo "  ENABLE_DEBUG  = $ENABLE_DEBUG"
+echo "  RUST_TARGET   = $RUST_TARGET"
 echo

@@ -78,3 +78,6 @@ fi
 if test -n "@LDFLAGS@"; then
   LDFLAGS="@LDFLAGS@ $LDFLAGS"
 fi
+
+export PROTOC=${depends_prefix}/bin/protoc
+export PROTOC_INCLUDE_DIR=${depends_prefix}/include
