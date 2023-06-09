@@ -2049,7 +2049,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         if (spv::pspv && SPV_DB_VERSION != spv::pspv->GetDBVersion()) {
             SetupAnchorSPVDatabases(true, nCustomCacheSize);
             assert(spv::pspv->SetDBVersion() == SPV_DB_VERSION);
-            LogPrintf("Cleared anchor and SPV dasebase. SPV DB version set to %d\n", SPV_DB_VERSION);
+            LogPrintf("Cleared anchor and SPV database. SPV DB version set to %d\n", SPV_DB_VERSION);
         }
 
         if (spv::pspv) {
