@@ -23,11 +23,11 @@ pub struct Alloc {
 #[serde(rename_all = "camelCase")]
 pub struct GenesisData {
     // config: Config,
-    coinbase: String,
-    difficulty: String,
-    extra_data: String,
-    gas_limit: U256,
-    nonce: H64,
-    timestamp: U256,
+    pub coinbase: H160,
+    pub difficulty: U256,
+    pub extra_data: Vec<u8>,
+    pub gas_limit: U256,
+    pub nonce: H64,
+    pub timestamp: u64,
     pub alloc: HashMap<H160, Alloc>,
 }

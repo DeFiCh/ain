@@ -1,9 +1,12 @@
-use ethereum::BlockAny;
+use ethereum::{Block, BlockAny, PartialHeader};
 use keccak_hash::H256;
 use primitive_types::U256;
-use std::sync::Arc;
+use std::{fs, io::BufReader, path::PathBuf, sync::Arc};
 
-use crate::storage::{traits::BlockStorage, Storage};
+use crate::{
+    genesis::GenesisData,
+    storage::{traits::BlockStorage, Storage},
+};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
@@ -33,4 +36,30 @@ impl BlockHandler {
         self.storage.put_latest_block(Some(&block));
         self.storage.put_block(&block);
     }
+}
+
+pub fn new_block_from_json(path: PathBuf, state_root: H256) -> Result<BlockAny, std::io::Error> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let genesis: GenesisData = serde_json::from_reader(reader)?;
+
+    Ok(Block::new(
+        PartialHeader {
+            state_root,
+            beneficiary: genesis.coinbase,
+            timestamp: genesis.timestamp,
+            difficulty: genesis.difficulty,
+            extra_data: genesis.extra_data,
+            number: U256::zero(),
+            parent_hash: Default::default(),
+            receipts_root: Default::default(),
+            logs_bloom: Default::default(),
+            gas_limit: Default::default(),
+            gas_used: Default::default(),
+            mix_hash: Default::default(),
+            nonce: Default::default(),
+        },
+        Vec::new(),
+        Vec::new(),
+    ))
 }
