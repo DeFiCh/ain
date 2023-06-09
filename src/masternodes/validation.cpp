@@ -5,7 +5,6 @@
 #include <ain_rs_exports.h>
 #include <chain.h>
 #include <masternodes/accountshistory.h>
-#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
