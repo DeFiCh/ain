@@ -26,6 +26,14 @@ struct CreateTransactionContext {
     using IsRelocatable = ::std::true_type;
 };
 
+struct FinalizeBlockResult final {
+    ::std::array<::std::uint8_t, 32> block_hash;
+    ::rust::Vec<::rust::Str> failed_transactions;
+    ::std::uint64_t miner_fee;
+
+    using IsRelocatable = ::std::true_type;
+};
+
 inline ::rust::Vec<::std::uint8_t> create_and_sign_tx(::CreateTransactionContext ctx) {
     return {};
 }
@@ -34,13 +42,13 @@ inline uint64_t evm_get_context() {
     return {};
 }
 
-inline ::rust::Vec<::std::uint8_t> evm_finalize(::std::uint64_t context, bool update_state, ::std::uint32_t difficulty, ::std::array<::std::uint8_t, 20> miner_address) {
+inline FinalizeBlockResult evm_finalize(::std::uint64_t context, bool update_state, ::std::uint32_t difficulty, ::std::array<::std::uint8_t, 20> miner_address, ::std::uint64_t timestamp) {
     return {};
 }
 
 inline void evm_discard_context(::std::uint64_t context) {}
 
-inline uint64_t evm_get_balance(::rust::Str address) {
+inline uint64_t evm_get_balance(::rust::Str address, ::std::array<::std::uint8_t, 32> block_number) {
     return {};
 }
 
@@ -54,13 +62,19 @@ inline bool evm_validate_raw_tx(::rust::Str tx) {
     return {};
 }
 
-inline bool evm_queue_tx(::std::uint64_t context, ::rust::Str raw_tx) {
+inline bool evm_queue_tx(::std::uint64_t context, ::rust::Str raw_tx, ::std::array<::std::uint8_t, 32> native_tx_hash) {
     return {};
 }
 
-inline void init_runtime() {}
+inline bool evm_prevalidate_raw_tx(::rust::Str tx) {
+    return {};
+}
+
+inline void preinit() {}
+inline void init_evm_runtime() {}
 inline void start_servers(::rust::Str json_addr, ::rust::Str grpc_addr) {}
-inline void stop_runtime() {}
+inline void stop_evm_runtime() {}
+inline void evm_disconnect_latest_block() {};
 
 #endif  // DEFI_MASTERNODES_FFI_TEMP_STUB_H
 
