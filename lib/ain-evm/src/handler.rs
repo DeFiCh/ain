@@ -100,13 +100,15 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    let TxResponse {
-                        exit_reason,
-                        logs,
-                        used_gas,
+                    let (
+                        TxResponse {
+                            exit_reason,
+                            logs,
+                            used_gas,
+                            ..
+                        },
                         receipt,
-                        ..
-                    } = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -122,8 +124,6 @@ impl Handlers {
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
-
-                    executor.commit();
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -147,6 +147,8 @@ impl Handlers {
                     }
                 }
             }
+
+            executor.commit();
         }
 
         if update_state {

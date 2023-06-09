@@ -305,7 +305,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[4], tx4)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 6000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(ethAddress)[2:], 16), 5998236000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 4000000000000000000)
 
         # Check miner account balance after transfer
