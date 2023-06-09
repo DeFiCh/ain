@@ -720,6 +720,7 @@ public:
         // EVM chain id
         consensus.evmChainId = 1133; // changi chain ID
 
+        // Magic numbers
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0d;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x11;
