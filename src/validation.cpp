@@ -3292,7 +3292,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
-        evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+        if (IsEVMEnabled(pindexNew->nHeight, mnview)) {
+            evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+        }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();

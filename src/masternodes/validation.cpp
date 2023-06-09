@@ -2355,12 +2355,10 @@ static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& 
 
 static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
     // NOTE: Each domain's revert is handle by it's own domain module. This function reverts only the DVM aspect. EVM will handle it's own revert.
-    for (const auto &idx : obj.transfers) {
-        const auto &src = idx.first;
-        const auto &dst = idx.second;
-        if (src.domain == CTransferDomain::DVMDomain)
+    for (const auto &[src, dst] : obj.transfers) {
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM))
             mnview.AddBalance(src.address, src.amount);
-        if (dst.domain == CTransferDomain::DVMDomain)
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM))
             mnview.SubBalance(dst.address, dst.amount);
     }
 }

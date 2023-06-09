@@ -501,11 +501,15 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
     return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
-std::string CTransferDomainToString(const CTransferDomain domain) {
+std::string CTransferDomainToString(const VMDomain domain) {
     switch (domain) {
-        case CTransferDomain::DVMDomain:
+        case VMDomain::NONE:
+            return "NONE";
+        case VMDomain::UTXO:
+            return "UTXO";
+        case VMDomain::DVM:
             return "DVM";
-        case CTransferDomain::EVMDomain:
+        case VMDomain::EVM:
             return "EVM";
     }
     return "Unknown";

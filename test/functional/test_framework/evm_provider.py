@@ -39,7 +39,7 @@ class EVMProvider:
         tx = fn.build_transaction({
             'chainId': self.w3.eth.chain_id,
             'nonce': nonce,
-            'gasPrice': Web3.to_wei(5, "gwei")
+            'gasPrice': Web3.to_wei(gasprice, "gwei")
         })
 
         signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=signer.pkey)

@@ -3808,14 +3808,14 @@ public:
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
-            if (src.domain == CTransferDomain::DVMDomain) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from DFI address
                 CBalances balance;
                 balance.Add(src.amount);
-                res = SubBalanceDelShares(src.address, balance);
+                res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-            } else if (src.domain == CTransferDomain::EVMDomain) {
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
@@ -3823,17 +3823,17 @@ public:
                 arith_uint256 balanceIn = src.amount.nValue;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
-                    return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", EncodeDestination(dest));
+                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
-            if (dst.domain == CTransferDomain::DVMDomain) {
+            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Add balance to DFI address
                 CBalances balance;
                 balance.Add(dst.amount);
-                res = AddBalanceSetShares(dst.address, balance);
+                res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-            } else if (dst.domain == CTransferDomain::EVMDomain) {
+            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
@@ -3867,13 +3867,27 @@ public:
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth) {
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
-        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
-            return Res::Ok();
+        if (coin.IsSpent()) continue;
+        if (strategy == AuthStrategy::DirectPubKeyMatch) {
+            if (coin.out.scriptPubKey == auth) {
+                return Res::Ok();
+            }
+        } else if (strategy == AuthStrategy::EthKeyMatch) {
+            std::vector<TBytes> vRet;
+            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+            {
+                auto it = input.scriptSig.begin();
+                CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                if (script == auth)
+                    return Res::Ok();
+            }
+        }
     }
-    return Res::Err("tx must have at least one input from account owner");
+    return DeFiErrors::InvalidAuth();
 }
 
 Res ValidateTransferDomain(const CTransaction &tx,
@@ -3887,84 +3901,70 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
     // Check if EVM feature is active
     if (!IsEVMEnabled(height, mnview)) {
-        return Res::Err("Cannot create tx, EVM is not enabled");
+        return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
         // Reject if transfer is within same domain
         if (src.domain == dst.domain)
-            return Res::Err("Cannot transfer inside same domain");
+            return DeFiErrors::TransferDomainSameDomain();
 
         // Check for amounts out equals amounts in
         if (src.amount.nValue != dst.amount.nValue)
-            return Res::Err("Source amount must be equal to destination amount");
+            return DeFiErrors::TransferDomainUnequalAmount();
 
         // Restrict only for use with DFI token for now
         if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-            return Res::Err("For transferdomain, only DFI token is currently supported");
+            return DeFiErrors::TransferDomainIncorrectToken();
 
         CTxDestination dest;
 
         // Soruce validation
         // Check domain type
-        if (src.domain == CTransferDomain::DVMDomain) {
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
-                    return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+                    return DeFiErrors::TransferDomainETHSourceAddress();
                 }
             }
-
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address);
             if (!res)
                 return res;
-        } else if (src.domain == CTransferDomain::EVMDomain) {
+        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
-                    return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+                    return DeFiErrors::TransferDomainDFISourceAddress();
                 }
             }
-
             // Check for authorization on source address
-            bool foundAuth = false;
-            for (const auto &input : tx.vin) {
-                const Coin &coin = coins.AccessCoin(input.prevout);
-                std::vector<TBytes> vRet;
-                if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                {
-                    auto it = input.scriptSig.begin();
-                    CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == src.address)
-                        foundAuth = true;
-                }
-            }
-            if (!foundAuth)
-                return Res::Err("tx must have at least one input from account owner");
+            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+            if (!res)
+                return res;
         } else
-            return Res::Err("Invalid domain set for \"src\" argument");
+            return DeFiErrors::TransferDomainInvalidSourceDomain();
 
         // Destination validation
         // Check domain type
-        if (dst.domain == CTransferDomain::DVMDomain) {
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
-                    return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             }
-        } else if (dst.domain == CTransferDomain::EVMDomain) {
+        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
             if (ExtractDestination(dst.address, dest)) {
                 if (dest.index() != WitV16KeyEthHashType) {
-                    return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
             }
         } else
-            return Res::Err("Invalid domain set for \"dst\" argument");
+            return DeFiErrors::TransferDomainInvalidDestinationDomain();
     }
 
     return res;

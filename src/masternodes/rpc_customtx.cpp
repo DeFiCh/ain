@@ -548,27 +548,28 @@ public:
 
     void operator()(const CTransferDomainMessage &obj) const {
         UniValue array{UniValue::VARR};
-        for (const auto &idx : obj.transfers) {
-            const auto &src = idx.first;
-            const auto &dst = idx.second;
 
-            UniValue elem{UniValue::VOBJ}, srcInfo{UniValue::VOBJ}, dstInfo{UniValue::VOBJ};
+        for (const auto &[src, dst] : obj.transfers) {
+            UniValue srcJson{UniValue::VOBJ};
+            UniValue dstJson{UniValue::VOBJ};
+            std::array<std::pair<UniValue&, const CTransferDomainItem>,
+            2> items {
+                std::make_pair(std::ref(srcJson), src),
+                std::make_pair(std::ref(dstJson), dst)
+            };
 
-            srcInfo.pushKV("address", ScriptToString(src.address));
-            srcInfo.pushKV("amount", src.amount.ToString());
-            srcInfo.pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(src.domain)));
-            if (!src.data.empty())
-                srcInfo.pushKV("data", std::string(src.data.begin(), src.data.end()));
+            for (auto &[j, o]: items) {
+                j.pushKV("address", ScriptToString(o.address));
+                j.pushKV("amount", o.amount.ToString());
+                j.pushKV("domain", CTransferDomainToString(VMDomain(o.domain)));
+                if (!o.data.empty()) {
+                    j.pushKV("data", std::string(o.data.begin(), o.data.end()));
+                }
+            }
 
-            dstInfo.pushKV("address", ScriptToString(dst.address));
-            dstInfo.pushKV("amount", dst.amount.ToString());
-            dstInfo.pushKV("domain", CTransferDomainToString(static_cast<CTransferDomain>(dst.domain)));
-            if (!dst.data.empty())
-                dstInfo.pushKV("data", std::string(dst.data.begin(), dst.data.end()));
-
-            elem.pushKV("src", srcInfo);
-            elem.pushKV("dst", dstInfo);
-
+            UniValue elem{UniValue::VOBJ};
+            elem.pushKV("src", srcJson);
+            elem.pushKV("dst", dstJson);
             array.push_back(elem);
         }
 

@@ -208,16 +208,23 @@ struct CUtxosToAccountMessage {
     }
 };
 
-enum CTransferDomain : uint8_t {
-    DVMDomain      = 0x01,
-    EVMDomain      = 0x02,
+enum class VMDomain : uint8_t {
+    NONE     = 0x00,
+    // UTXO Reserved
+    UTXO     = 0x01,
+    DVM      = 0x02,
+    EVM      = 0x03,
 };
 
-struct CTransferDomainElement
+struct CTransferDomainItem
 {
     CScript address;
     CTokenAmount amount;
     uint8_t domain;
+
+    // Optional data that'll vary based on the domain.
+    // EVMData, UTXOData with inputs, etc.
+    // Currently, unused.
     std::vector<uint8_t> data;
 
     ADD_SERIALIZE_METHODS;
@@ -232,7 +239,7 @@ struct CTransferDomainElement
 };
 
 struct CTransferDomainMessage {
-    std::vector<std::pair<CTransferDomainElement, CTransferDomainElement>> transfers;
+    std::vector<std::pair<CTransferDomainItem, CTransferDomainItem>> transfers;
 
     ADD_SERIALIZE_METHODS;
 
