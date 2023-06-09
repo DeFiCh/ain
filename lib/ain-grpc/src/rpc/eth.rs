@@ -214,21 +214,21 @@ impl MetachainRPCModule {
                     .storage
                     .get_block_by_hash(&hash)
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             BlockNumber::Num(n) => {
                 self.handler
                     .storage
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             },
             _ => {
                 self.handler
                     .storage
                     .get_latest_block()
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             // BlockNumber::Earliest => todo!(),
             // BlockNumber::Pending => todo!(),
@@ -576,7 +576,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
                 } else {
-                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx}");
+                    debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
                     Err(Error::Custom(format!(
                         "Could not publish raw transaction: {tx} reason: {res_string}"
                     )))

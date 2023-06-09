@@ -122,67 +122,11 @@ UniValue evmtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
-UniValue evmrawtx(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
-
-    RPCHelpMan{"evmrawtx",
-                "Creates (and submits to local node and network) a tx to send DFI token to EVM address.\n" +
-                HelpRequiringPassphrase(pwallet) + "\n",
-                {
-                    {"rawtx", RPCArg::Type::STR, RPCArg::Optional::NO, "EVM raw tx"},
-                },
-                RPCResult{
-                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-                },
-                RPCExamples{
-                        HelpExampleCli("evmrawtx", R"('"<hex>"')")
-                        },
-    }.Check(request);
-
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
-    }
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
-
-    const auto signedTx = request.params[0].get_str();
-
-    std::vector<uint8_t> evmTx = ParseHex(signedTx);
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
-                << CEvmTxMessage{evmTx};
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-    const auto txVersion = GetTransactionVersion(targetHeight);
-    CMutableTransaction rawTx(txVersion);
-
-    rawTx.vin.resize(2);
-    rawTx.vin[0].scriptSig = CScript() << OP_0;
-    rawTx.vin[1].scriptSig = CScript() << OP_0;
-
-    rawTx.vout.emplace_back(0, scriptMeta);
-
-    // check execution
-    CTransactionRef optAuthTx;
-    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-
-    return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
-}
-
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm",         "evmrawtx",                  &evmrawtx,              {"rawtx"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {

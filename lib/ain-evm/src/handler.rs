@@ -57,7 +57,7 @@ impl Handlers {
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
-        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
+        let parent_data = self.block.get_latest_block_hash_and_number();
         let state_root = self
             .storage
             .get_latest_block()
@@ -65,11 +65,27 @@ impl Handlers {
                 block.header.state_root
             });
 
-        let vicinity = Vicinity {
-            beneficiary,
-            timestamp: U256::from(timestamp),
-            block_number: parent_number + 1,
-            ..Default::default()
+        let (vicinity, parent_hash, current_block_number) = match parent_data {
+            None => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: U256::from(0),
+                    ..Default::default()
+                },
+                H256::zero(),
+                U256::from(0),
+            ),
+            Some((hash, number)) => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: number + 1,
+                    ..Default::default()
+                },
+                hash,
+                number + 1,
+            ),
         };
 
         let mut backend = EVMBackend::from_root(
@@ -151,7 +167,7 @@ impl Handlers {
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
-                number: parent_number + 1,
+                number: current_block_number,
                 gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp,
