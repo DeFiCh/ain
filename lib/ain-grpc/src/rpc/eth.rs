@@ -214,21 +214,21 @@ impl MetachainRPCModule {
                     .storage
                     .get_block_by_hash(&hash)
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             BlockNumber::Num(n) => {
                 self.handler
                     .storage
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             },
             _ => {
                 self.handler
                     .storage
                     .get_latest_block()
                     .map(|block| block.header.number)
-                    .unwrap_or_default()
+                    .unwrap_or(U256::max_value())
             }
             // BlockNumber::Earliest => todo!(),
             // BlockNumber::Pending => todo!(),
