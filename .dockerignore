@@ -18,7 +18,7 @@ out/
 *.exe
 *.pdb
 
-# Univalue 
+# Univalue
 
 src/defi
 src/defid

@@ -10,6 +10,7 @@ mod impls;
 mod receipt;
 pub mod rpc;
 mod transaction;
+mod transaction_request;
 mod utils;
 
 use jsonrpsee::core::server::rpc_module::Methods;
@@ -18,7 +19,11 @@ use jsonrpsee::http_server::HttpServerBuilder;
 #[allow(unused)]
 use log::{debug, info};
 
-use crate::rpc::{MetachainRPCModule, MetachainRPCServer};
+use crate::rpc::{
+    debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
+    eth::{MetachainRPCModule, MetachainRPCServer},
+    net::{MetachainNetRPCModule, MetachainNetRPCServer},
+};
 
 use std::error::Error;
 use std::net::SocketAddr;
@@ -40,6 +45,8 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
     )?;
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
+    methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
+    methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
     Ok(())

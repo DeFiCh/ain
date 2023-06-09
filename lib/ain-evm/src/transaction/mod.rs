@@ -16,6 +16,7 @@ pub const LOWER_H256: H256 = H256([
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 ]);
 
+#[derive(Clone, Debug)]
 pub struct LegacyUnsignedTransaction {
     pub nonce: U256,
     pub gas_price: U256,
@@ -134,7 +135,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     action: tx.action,
                     value: tx.value,
                     input: tx.input.clone(),
-                    access_list: vec![],
+                    access_list: tx.access_list.clone(),
                 };
                 let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
                 let hash = H256::from(signing_message.serialize());
@@ -150,7 +151,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     action: tx.action,
                     value: tx.value,
                     input: tx.input.clone(),
-                    access_list: vec![],
+                    access_list: tx.access_list.clone(),
                 };
                 let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
                 let hash = H256::from(signing_message.serialize());
@@ -188,8 +189,7 @@ impl SignedTx {
     }
 
     pub fn to(&self) -> Option<H160> {
-        let action = self.action();
-        match action {
+        match self.action() {
             TransactionAction::Call(to) => Some(to),
             TransactionAction::Create => None,
         }

@@ -57,7 +57,7 @@ impl Handlers {
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
-        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
+        let parent_data = self.block.get_latest_block_hash_and_number();
         let state_root = self
             .storage
             .get_latest_block()
@@ -65,11 +65,27 @@ impl Handlers {
                 block.header.state_root
             });
 
-        let vicinity = Vicinity {
-            beneficiary,
-            timestamp: U256::from(timestamp),
-            block_number: parent_number + 1,
-            ..Default::default()
+        let (vicinity, parent_hash, current_block_number) = match parent_data {
+            None => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: U256::from(0),
+                    ..Default::default()
+                },
+                H256::zero(),
+                U256::from(0),
+            ),
+            Some((hash, number)) => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: number + 1,
+                    ..Default::default()
+                },
+                hash,
+                number + 1,
+            ),
         };
 
         let mut backend = EVMBackend::from_root(
@@ -81,7 +97,7 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.evm.tx_queues.drain_all(context) {
+        for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let TxResponse {
@@ -133,7 +149,9 @@ impl Handlers {
             }
         }
 
-        self.evm.tx_queues.remove(context);
+        if update_state {
+            self.evm.tx_queues.remove(context);
+        }
 
         let block = Block::new(
             PartialHeader {
@@ -147,7 +165,7 @@ impl Handlers {
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
-                number: parent_number + 1,
+                number: current_block_number,
                 gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp,
@@ -171,8 +189,8 @@ impl Handlers {
 
         if update_state {
             debug!(
-                "[finalize_block] Updating state with new state_root : {:#x}",
-                block.header.state_root
+                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+                block.header.number, block.header.state_root
             );
             self.block.connect_block(block.clone());
             self.receipt.put_receipts(receipts);

@@ -98,13 +98,17 @@ impl EVMHandler {
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
+        block_number: U256,
     ) -> Result<TxResponse, Box<dyn Error>> {
         let (state_root, block_number) = self
             .storage
-            .get_latest_block()
+            .get_block_by_number(&block_number)
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
-        println!("state_root : {:#?}", state_root);
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
 
         let vicinity = Vicinity {
             block_number,
@@ -162,7 +166,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if nonce != signed_tx.nonce() {
+        if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -171,25 +175,7 @@ impl EVMHandler {
             .into());
         }
 
-        // TODO validate balance to pay gas
-        // if account.balance < MIN_GAS {
-        //     return Err(anyhow!("Insufficiant balance to pay fees").into());
-        // }
-
-        match self.call(
-            Some(signed_tx.sender),
-            signed_tx.to(),
-            signed_tx.value(),
-            signed_tx.data(),
-            signed_tx.gas_limit().as_u64(),
-            signed_tx.access_list(),
-        ) {
-            Ok(TxResponse { exit_reason, .. }) if exit_reason.is_succeed() => Ok(signed_tx),
-            Ok(TxResponse { exit_reason, .. }) => {
-                Err(anyhow!("Error calling EVM {:?}", exit_reason).into())
-            }
-            Err(e) => Err(anyhow!("Error calling EVM {:?}", e).into()),
-        }
+        Ok(signed_tx)
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
@@ -324,6 +310,47 @@ impl EVMHandler {
 
         debug!("Account {:x?} nonce {:x?}", address, nonce);
         Ok(nonce)
+    }
+
+    /// Retrieves the next valid nonce for the specified account within a particular context.
+    ///
+    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
+    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
+    /// the nonce is defaulted to zero.
+    ///
+    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
+    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context queue number.
+    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
+    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+        let nonce = self
+            .tx_queues
+            .get_next_valid_nonce(context, address)
+            .unwrap_or_else(|| {
+                let latest_block = self
+                    .storage
+                    .get_latest_block()
+                    .map(|b| b.header.number)
+                    .unwrap_or_else(|| U256::zero());
+
+                self.get_nonce(address, latest_block)
+                    .unwrap_or_else(|_| U256::zero())
+            });
+
+        debug!(
+            "Account {:x?} nonce {:x?} in context {context}",
+            address, nonce
+        );
+        nonce
     }
 }
 

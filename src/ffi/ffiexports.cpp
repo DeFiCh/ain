@@ -12,7 +12,7 @@ bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
 
-bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
+rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -44,11 +44,15 @@ bool publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
         send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
-    } catch (...) {
-        return false;
+    } catch (std::runtime_error& e) {
+        return e.what();
+    } catch (const UniValue& objError) {
+        const auto obj = objError.get_obj();
+
+        return obj["message"].get_str();
     }
 
-    return true;
+    return {};
 }
 
 rust::vec<rust::string> getAccounts() {
@@ -178,9 +182,9 @@ uint64_t getMinRelayTxFee() {
 }
 
 std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
+    CKey ethPrivKey;
+    const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet : GetWallets()) {
-        const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
-        CKey ethPrivKey;
         if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
