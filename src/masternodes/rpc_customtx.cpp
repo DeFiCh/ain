@@ -547,9 +547,33 @@ public:
     }
 
     void operator()(const CTransferDomainMessage &obj) const {
-        rpcInfo.pushKV("type", CTransferDomainTypeToString(static_cast<CTransferDomainType>(obj.type)));
-        rpcInfo.pushKV("from", accountsInfo(obj.from));
-        rpcInfo.pushKV("to", accountsInfo(obj.to));
+        UniValue array{UniValue::VARR};
+
+        for (const auto &[src, dst] : obj.transfers) {
+            UniValue srcJson{UniValue::VOBJ};
+            UniValue dstJson{UniValue::VOBJ};
+            std::array<std::pair<UniValue&, const CTransferDomainItem>,
+            2> items {
+                std::make_pair(std::ref(srcJson), src),
+                std::make_pair(std::ref(dstJson), dst)
+            };
+
+            for (auto &[j, o]: items) {
+                j.pushKV("address", ScriptToString(o.address));
+                j.pushKV("amount", o.amount.ToString());
+                j.pushKV("domain", CTransferDomainToString(static_cast<VMDomain>(o.domain)));
+                if (!o.data.empty()) {
+                    j.pushKV("data", std::string(o.data.begin(), o.data.end()));
+                }
+            }
+
+            UniValue elem{UniValue::VOBJ};
+            elem.pushKV("src", srcJson);
+            elem.pushKV("dst", dstJson);
+            array.push_back(elem);
+        }
+
+        rpcInfo.pushKV("transfers", array);
     }
 
     void operator()(const CEvmTxMessage &obj) const {
