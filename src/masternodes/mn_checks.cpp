@@ -3872,9 +3872,11 @@ public:
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
+        if (coin.IsSpent()) continue;
         if (strategy == AuthStrategy::DirectPubKeyMatch) {
-            if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
-            return Res::Ok();
+            if (coin.out.scriptPubKey == auth) {
+                return Res::Ok();
+            }
         } else if (strategy == AuthStrategy::EthKeyMatch) {
             std::vector<TBytes> vRet;
             if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
