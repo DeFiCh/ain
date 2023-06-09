@@ -194,7 +194,7 @@ impl EVMHandler {
             return Err(anyhow!("Insufficiant balance to pay fees").into());
         }
 
-        let gas_limit = U256::from(signed_tx.gas_limit());
+        let gas_limit = signed_tx.gas_limit();
 
         // TODO lift MAX_GAS_PER_BLOCK
         const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
@@ -387,7 +387,7 @@ impl EVMHandler {
                     .storage
                     .get_latest_block()
                     .map(|b| b.header.number)
-                    .unwrap_or_else(|| U256::zero());
+                    .unwrap_or_else(U256::zero);
 
                 self.get_nonce(address, latest_block)
                     .unwrap_or_else(|_| U256::zero())

@@ -91,7 +91,7 @@ impl TrieDBStore {
             backend.commit();
         }
 
-        let state_root: H256 = backend.commit().into();
+        let state_root = backend.commit();
         debug!("Loaded genesis state_root : {:#x}", state_root);
         Ok(state_root)
     }

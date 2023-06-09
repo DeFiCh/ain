@@ -97,7 +97,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
             access_list: signed_tx.access_list(),
         };
 
-        let prepay_gas = calculate_prepay_gas(&signed_tx);
+        let prepay_gas = calculate_prepay_gas(signed_tx);
 
         self.backend.deduct_prepay_gas(signed_tx.sender, prepay_gas);
 

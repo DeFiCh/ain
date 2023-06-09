@@ -22,7 +22,7 @@ impl PersistentState for CodeHistory {}
 
 impl CodeHistory {
     pub fn insert(&mut self, block_number: U256, code_hash: H256, code: Vec<u8>) {
-        self.code_map.insert(code_hash, code.clone());
+        self.code_map.insert(code_hash, code);
         self.history
             .entry(block_number)
             .or_insert_with(Vec::new)

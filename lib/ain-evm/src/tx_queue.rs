@@ -126,7 +126,7 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&context_id)
-            .map_or(None, |queue| queue.get_next_valid_nonce(address))
+            .and_then(|queue| queue.get_next_valid_nonce(address))
     }
 }
 

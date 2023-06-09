@@ -49,9 +49,9 @@ impl BlockHandler {
 
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
         // constants
-        let initial_base_fee: U256 = U256::from(10_000_000_000 as u64); // wei
-        let base_fee_max_change_denominator: U256 = U256::from(8);
-        let elasticity_multiplier: U256 = U256::from(2);
+        let initial_base_fee = U256::from(10_000_000_000u64); // wei
+        let base_fee_max_change_denominator = U256::from(8);
+        let elasticity_multiplier = U256::from(2);
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
@@ -80,7 +80,7 @@ impl BlockHandler {
                     parent_base_fee * gas_used_delta
                         / parent_gas_target
                         / base_fee_max_change_denominator,
-                    U256::from(1),
+                    U256::one(),
                 );
 
                 max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
@@ -109,10 +109,10 @@ impl BlockHandler {
             blocks.push(
                 self.storage
                     .get_block_by_number(&block_number)
-                    .expect(&format!("Block {} out of range", block_number)),
+                    .unwrap_or_else(|| panic!("Block {} out of range", block_number)),
             );
 
-            block_number -= U256::from(1);
+            block_number -= U256::one();
         }
 
         let oldest_block = blocks.last().unwrap().header.hash();
@@ -124,7 +124,7 @@ impl BlockHandler {
                 let base_fee = self
                     .storage
                     .get_base_fee(&block.header.hash())
-                    .expect(&format!("No base fee for block {}", block.header.number));
+                    .unwrap_or_else(|| panic!("No base fee for block {}", block.header.number));
 
                 let gas_ratio = if block.header.gas_limit == U256::zero() {
                     f64::default() // empty block
@@ -132,11 +132,11 @@ impl BlockHandler {
                     block.header.gas_used.as_u64() as f64 / block.header.gas_limit.as_u64() as f64
                 };
 
-                return (base_fee, gas_ratio);
+                (base_fee, gas_ratio)
             })
             .unzip();
 
-        let reward = if priority_fee_percentile.len() == 0 {
+        let reward = if priority_fee_percentile.is_empty() {
             None
         } else {
             let mut eip_transactions = Vec::new();
