@@ -231,7 +231,7 @@ impl SignedTx {
         match &self.transaction {
             TransactionV2::Legacy(tx) => tx.gas_price,
             TransactionV2::EIP2930(tx) => tx.gas_price,
-            TransactionV2::EIP1559(tx) => tx.max_fee_per_gas.min(tx.max_priority_fee_per_gas), // TODO verify calculation
+            TransactionV2::EIP1559(tx) => tx.max_fee_per_gas,
         }
     }
 

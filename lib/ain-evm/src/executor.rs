@@ -98,6 +98,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
         };
 
         let prepay_gas = calculate_prepay_gas(&signed_tx);
+
         self.backend.deduct_prepay_gas(signed_tx.sender, prepay_gas);
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
@@ -135,8 +136,12 @@ impl<'backend> Executor for AinExecutor<'backend> {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
         }
 
-        self.backend
-            .refund_unused_gas(signed_tx.sender, prepay_gas, U256::from(used_gas));
+        self.backend.refund_unused_gas(
+            signed_tx.sender,
+            signed_tx.gas_limit(),
+            U256::from(used_gas),
+            signed_tx.gas_price(),
+        );
 
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
             logs_bloom: {

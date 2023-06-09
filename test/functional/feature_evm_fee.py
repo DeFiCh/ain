@@ -48,18 +48,68 @@ class EVMFeeTest(DefiTestFramework):
         self.nodes[0].eth_sendTransaction({
             'from': self.ethAddress,
             'to': self.toAddress,
-            'value': '0x56bc75e2d63100000', # 29_000
+            'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0x7a120',
+            'gasPrice': '0x1',
         })
         self.nodes[0].generate(1)
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest")
-
-        print("self.nodes[0].eth_getBlockByNumber(latest)", self.nodes[0].eth_getBlockByNumber("latest"))
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
-        # Deduct 50000. 29000 value + 21000 call fee
+        # Deduct 50000. 29000 value + min 21000 call fee
         assert_equal(int(balance[2:], 16), 99999999999999950000)
+
+        self.rollback_to(height)
+
+    def test_high_gas_price(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        self.nodes[0].eth_sendTransaction({
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x7a120',
+            'gasPrice': '0x3B9ACA00', # 1_000_000_000
+        })
+        self.nodes[0].generate(1)
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        # Deduct 21_000_000_029_000. 29_000 value + 21_000 * 1_000_000_000
+        assert_equal(int(balance[2:], 16), 99999978999999971000)
+
+        self.rollback_to(height)
+
+    def test_max_gas_price(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        assert_raises_rpc_error(-32001, "evm tx failed to validate Insufficiant balance to pay fees", self.nodes[0].eth_sendTransaction, {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x7a120',
+            'gasPrice': '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+        })
+
+        self.rollback_to(height)
+
+    def test_gas_limit_higher_than_block_limit(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        assert_raises_rpc_error(-32001, "evm tx failed to validate Gas limit higher than MAX_GAS_PER_BLOCK", self.nodes[0].eth_sendTransaction, {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x1C9C381', # 30_000_001
+            'gasPrice': '0x1',
+        })
 
         self.rollback_to(height)
 
@@ -70,12 +120,12 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
 
-        assert_raises_rpc_error(-32600, "gasPrice too low", self.nodes[0].eth_sendTransaction, {
+        assert_raises_rpc_error(-32001, "evm tx failed to validate Insufficiant balance to pay fees", self.nodes[0].eth_sendTransaction, {
             'from': emptyAddress,
             'to': self.toAddress,
-            'value': '0x56bc75e2d63100000', # 29_000
+            'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0x7a120',
+            'gasPrice': '0x1',
         })
 
         self.rollback_to(height)
@@ -91,7 +141,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': balance,
             'gas': '0x7a120',
-            'gasPrice': '0x7a120',
+            'gasPrice': '0x1',
         })
         self.nodes[0].generate(1)
 
@@ -106,16 +156,20 @@ class EVMFeeTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        self.nodes[0].transferdomain(1,{self.address:["100@DFI"]}, {self.ethAddress:["100@DFI"]})
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.ethAddress, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         self.test_fee_deduction()
 
+        self.test_high_gas_price()
+
+        self.test_max_gas_price()
+
+        self.test_gas_limit_higher_than_block_limit()
+
         self.test_fee_deduction_empty_balance()
 
         self.test_fee_deduction_send_full_balance()
-
-        assert_equal(True, False)
 
 if __name__ == '__main__':
     EVMFeeTest().main()
