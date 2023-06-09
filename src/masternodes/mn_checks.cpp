@@ -3860,7 +3860,7 @@ public:
             return Res::Err("evm tx size too large");
 
         RustRes result;
-        const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+        const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
         if (!result.ok) {
             LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);

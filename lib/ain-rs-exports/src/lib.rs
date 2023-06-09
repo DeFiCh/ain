@@ -66,7 +66,11 @@ pub mod ffi {
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
 
-        fn evm_try_prevalidate_raw_tx(result: &mut RustRes, tx: &str) -> Result<ValidateTxResult>;
+        fn evm_try_prevalidate_raw_tx(
+            result: &mut RustRes,
+            tx: &str,
+            with_gas_usage: bool,
+        ) -> Result<ValidateTxResult>;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
@@ -290,7 +294,9 @@ pub fn evm_sub_balance(
 ///
 /// # Arguments
 ///
+/// * `result` - Result object
 /// * `tx` - The raw transaction string.
+/// * `with_gas_usage` - Whether to calculate tx gas usage
 ///
 /// # Errors
 ///
@@ -303,12 +309,13 @@ pub fn evm_sub_balance(
 /// # Returns
 ///
 /// Returns the transaction nonce, sender address and gas used if the transaction is valid.
-/// logs and throws the error otherwise.
+/// logs and set the error reason to result object otherwise.
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut RustRes,
     tx: &str,
+    with_gas_usage: bool,
 ) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
-    match RUNTIME.handlers.evm.validate_raw_tx(tx) {
+    match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
             Ok(ffi::ValidateTxResult {
