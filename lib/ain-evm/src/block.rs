@@ -14,12 +14,10 @@ impl BlockHandler {
         Self { storage }
     }
 
-    pub fn get_latest_block_hash_and_number(&self) -> (H256, U256) {
+    pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
         self.storage
             .get_latest_block()
-            .map_or((H256::default(), U256::zero()), |latest_block| {
-                (latest_block.header.hash(), latest_block.header.number)
-            })
+            .map(|latest_block| (latest_block.header.hash(), latest_block.header.number))
     }
 
     pub fn get_latest_state_root(&self) -> H256 {
