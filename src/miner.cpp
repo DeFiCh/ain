@@ -39,6 +39,7 @@
 #include <random>
 
 struct EVM {
+    uint32_t version;
     uint256 blockHash;
     uint64_t minerFee;
 
@@ -46,18 +47,21 @@ struct EVM {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(version);
         READWRITE(blockHash);
         READWRITE(minerFee);
     }
 };
 
 struct XVM {
+    uint32_t version;
     EVM evm;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(version);
         READWRITE(evm);
     }
 };
@@ -276,7 +280,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{{uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
+        xvm = XVM{0,{0, uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
