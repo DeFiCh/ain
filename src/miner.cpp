@@ -38,9 +38,6 @@
 #include <utility>
 #include <random>
 
-static const uint32_t XVM_VERSION = 0;
-static const uint32_t EVM_VERSION = 0;
-
 struct EVM {
     uint32_t version;
     uint256 blockHash;
@@ -54,9 +51,6 @@ struct EVM {
         READWRITE(blockHash);
         READWRITE(minerFee);
     }
-
-    EVM() : version(EVM_VERSION) {};
-    EVM(uint256 blockHash, uint64_t minerFee) : version(EVM_VERSION), blockHash(blockHash), minerFee(minerFee) {};
 };
 
 struct XVM {
@@ -70,9 +64,6 @@ struct XVM {
         READWRITE(version);
         READWRITE(evm);
     }
-
-    XVM() : version(XVM_VERSION) {};
-    XVM(EVM evm) : version(XVM_VERSION), evm(evm) {};
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -289,7 +280,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{{uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
+        xvm = XVM{0,{0, uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {

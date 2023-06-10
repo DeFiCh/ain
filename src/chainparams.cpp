@@ -602,7 +602,7 @@ class CChangiParams : public CChainParams {
 public:
     CChangiParams() {
         strNetworkID = "changi";
-        consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for devnet
+        consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for testnet
         consensus.baseBlockSubsidy = 200 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
         consensus.emissionReductionPeriod = 32690; // Two weeks
@@ -997,6 +997,8 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
+        vSeeds.emplace_back("35.187.53.161");
+        vSeeds.emplace_back("34.89.47.54");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
@@ -1357,7 +1359,7 @@ void CMainParams::UpdateActivationParametersFromArgs() {
 void CChangiParams::UpdateActivationParametersFromArgs() {
     if (gArgs.IsArgSet("-changi-bootstrap")) {
         nDefaultPort = 18555;
-        vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("changi-seed.defichain.io");
         pchMessageStartPostAMK[0] = 0x0b;
         pchMessageStartPostAMK[1] = 0x11;
         pchMessageStartPostAMK[2] = 0x09;
