@@ -4994,7 +4994,9 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 }
 
 bool IsTestNetwork() {
-    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET
+    || Params().NetworkIDString() == CBaseChainParams::CHANGI
+    || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
 bool IsEVMEnabled(const int height, const CCustomCSView &view) {
