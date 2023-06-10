@@ -42,6 +42,7 @@ static void SetupCliArgs()
 
     const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
+    const auto changiBaseParams = CreateBaseChainParams(CBaseChainParams::CHANGI);
     const auto devnetBaseParams  = CreateBaseChainParams(CBaseChainParams::DEVNET);
     const auto regtestBaseParams = CreateBaseChainParams(CBaseChainParams::REGTEST);
 
@@ -55,7 +56,7 @@ static void SetupCliArgs()
     gArgs.AddArg("-rpcconnect=<ip>", strprintf("Send commands to node running on <ip> (default: %s)", DEFAULT_RPCCONNECT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpccookiefile=<loc>", "Location of the auth cookie. Relative paths will be prefixed by a net-specific datadir location. (default: data dir)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcpassword=<pw>", "Password for JSON-RPC connections", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-rpcport=<port>", strprintf("Connect to JSON-RPC on <port> (default: %u, testnet: %u, devnet: %u, regtest: %u)", defaultBaseParams->RPCPort(), testnetBaseParams->RPCPort(), devnetBaseParams->RPCPort(), regtestBaseParams->RPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-rpcport=<port>", strprintf("Connect to JSON-RPC on <port> (default: %u, testnet: %u,  changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->RPCPort(), testnetBaseParams->RPCPort(), changiBaseParams->RPCPort(), devnetBaseParams->RPCPort(), regtestBaseParams->RPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcuser=<user>", "Username for JSON-RPC connections", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcwait", "Wait for RPC server to start", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcwallet=<walletname>", "Send RPC for non-default wallet on RPC server (needs to exactly match corresponding -wallet option passed to defid). This changes the RPC endpoint used, e.g. http://127.0.0.1:8554/wallet/<walletname>", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -137,8 +138,8 @@ static int AppInitRPC(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     RPCMetadata::InitFromArgs(gArgs);
-    
-    // Check for -testnet or -regtest parameter (BaseParams() calls are only valid after this clause)
+
+    // Check for -testnet, -changi or -regtest parameter (BaseParams() calls are only valid after this clause)
     try {
         SelectBaseParams(gArgs.GetChainName());
     } catch (const std::exception& e) {
@@ -346,7 +347,7 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     evhttp_add_header(output_headers, "Host", host.c_str());
     evhttp_add_header(output_headers, "Connection", "close");
     evhttp_add_header(output_headers, "Authorization", (std::string("Basic ") + EncodeBase64(strRPCUserColonPass)).c_str());
-    
+
     const auto meta = RPCMetadata::CreateDefault();
     const auto writerFunc = [&](const std::string& key, const std::string& val) { evhttp_add_header(output_headers, key.c_str(), val.c_str()); };
     RPCMetadata::ToHTTPHeader(meta, writerFunc);
