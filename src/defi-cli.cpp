@@ -344,6 +344,7 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     struct evkeyvalq* output_headers = evhttp_request_get_output_headers(req.get());
     assert(output_headers);
     evhttp_add_header(output_headers, "Host", host.c_str());
+    evhttp_add_header(output_headers, "Content-Type", "application/json");
     evhttp_add_header(output_headers, "Connection", "close");
     evhttp_add_header(output_headers, "Authorization", (std::string("Basic ") + EncodeBase64(strRPCUserColonPass)).c_str());
     
@@ -352,7 +353,9 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     RPCMetadata::ToHTTPHeader(meta, writerFunc);
 
     // Attach request data
-    std::string strRequest = rh->PrepareRequest(strMethod, args).write() + "\n";
+    auto request = rh->PrepareRequest(strMethod, args);
+    request.pushKV("jsonrpc", "2.0");
+    std::string strRequest = request.write() + "\n";
     struct evbuffer* output_buffer = evhttp_request_get_output_buffer(req.get());
     assert(output_buffer);
     evbuffer_add(output_buffer, strRequest.data(), strRequest.size());
