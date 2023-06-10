@@ -5,6 +5,7 @@ pub enum Chain {
     #[default]
     Main,
     Testnet,
+    Changi,
     Devnet,
     Regtest,
 }
@@ -16,6 +17,7 @@ impl FromStr for Chain {
         match s {
             "main" => Ok(Chain::Main),
             "testnet" => Ok(Chain::Testnet),
+            "changi" => Ok(Chain::Changi),
             "devnet" => Ok(Chain::Devnet),
             "regtest" => Ok(Chain::Regtest),
             _ => Err(format!("Unknown chain: {s}")),
@@ -46,6 +48,23 @@ impl BaseChainParams {
                 grpc_port: 18550,
                 eth_rpc_port: 18551,
             },
+            Chain::Changi => {
+                if std::env::var("CHANGI_BOOTSTRAP").is_ok() {
+                    Self {
+                        data_dir: "changi".to_string(),
+                        rpc_port: 18554,
+                        grpc_port: 18550,
+                        eth_rpc_port: 18551,
+                    }
+                } else {
+                    Self {
+                        data_dir: "changi".to_string(),
+                        rpc_port: 20554,
+                        grpc_port: 20550,
+                        eth_rpc_port: 20551,
+                    }
+                }
+            }
             Chain::Devnet => {
                 if std::env::var("DEVNET_BOOTSTRAP").is_ok() {
                     Self {
@@ -57,9 +76,9 @@ impl BaseChainParams {
                 } else {
                     Self {
                         data_dir: "devnet".to_string(),
-                        rpc_port: 20554,
-                        grpc_port: 20550,
-                        eth_rpc_port: 20551,
+                        rpc_port: 21554,
+                        grpc_port: 21550,
+                        eth_rpc_port: 21551,
                     }
                 }
             }
