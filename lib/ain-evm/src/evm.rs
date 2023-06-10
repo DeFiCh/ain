@@ -198,7 +198,10 @@ impl EVMHandler {
 
         // TODO lift MAX_GAS_PER_BLOCK
         const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
-        println!("MAX_GAS_PER_BLOCK : {:#x}", MAX_GAS_PER_BLOCK);
+        debug!(
+            "[validate_raw_tx] MAX_GAS_PER_BLOCK: {:#x}",
+            MAX_GAS_PER_BLOCK
+        );
         if gas_limit > MAX_GAS_PER_BLOCK {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
