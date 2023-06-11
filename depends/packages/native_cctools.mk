@@ -6,12 +6,16 @@ $(package)_sha256_hash=4a1359b6a79738b375b39ae05852712a77ff24d7ef2a498e99d35de78
 $(package)_build_subdir=cctools
 $(package)_clang_version=15.0.6
 $(package)_clang_download_path=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_clang_version)
-
+$(package)_clang_file_name=clang-llvm-$($(package)_clang_version).tar.xz
+# x64 host
 $(package)_clang_download_file__x86_64=clang+llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
 $(package)_clang_sha256_hash__x86_64=38bc7f5563642e73e69ac5626724e206d6d539fbef653541b34cae0ba9c3f036
+# aarch64 host
 $(package)_clang_download_file__aarch64=clang+llvm-$($(package)_clang_version)-aarch64-linux-gnu.tar.xz
 $(package)_clang_sha256_hash__aarch64=8ca4d68cf103da8331ca3f35fe23d940c1b78fb7f0d4763c1c059e352f5d1bec
-$(package)_clang_file_name=clang-llvm-$($(package)_clang_version).tar.xz
+# We duplicate this with arm, since config.guess for darwin returns arm
+$(package)_clang_download_file__arm=clang+llvm-$($(package)_clang_version)-aarch64-linux-gnu.tar.xz
+$(package)_clang_sha256_hash__arm=8ca4d68cf103da8331ca3f35fe23d940c1b78fb7f0d4763c1c059e352f5d1bec
 
 $(package)_libtapi_version=b7b5bdbfda9e8062d405b48da3b811afad98ae76
 $(package)_libtapi_download_path=https://github.com/tpoechtrager/apple-libtapi/archive
