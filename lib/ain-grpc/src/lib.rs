@@ -25,9 +25,9 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
 };
 
-use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::{error::Error, path::PathBuf};
 
 use ain_evm::runtime::{Runtime, RUNTIME};
 
@@ -62,13 +62,20 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn preinit() {
+pub fn init_rust_logger() {
+    let log_path = ain_cpp_imports::get_log_path();
+    let path = PathBuf::from(&log_path);
+    let file = std::fs::File::options()
+        .append(true)
+        .open(path)
+        .unwrap_or_else(|_| panic!("Error opening log file {log_path}"));
+
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
     )
-    .target(env_logger::Target::Stdout)
+    .target(env_logger::Target::Pipe(Box::new(file)))
     .init();
-    info!("init");
+    info!("init logger to file {}", log_path);
 }
 
 pub fn init_evm_runtime() {

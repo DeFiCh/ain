@@ -25,6 +25,9 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getLogPath() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getNetwork() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -74,6 +77,10 @@ pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
 pub fn get_datadir() -> Result<String, Box<dyn Error>> {
     let datadir = ffi::getDatadir();
     Ok(datadir)
+}
+
+pub fn get_log_path() -> String {
+    ffi::getLogPath()
 }
 
 pub fn get_network() -> String {

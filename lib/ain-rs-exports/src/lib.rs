@@ -89,7 +89,7 @@ pub mod ffi {
             timestamp: u64,
         ) -> Result<FinalizeBlockResult>;
 
-        fn preinit();
+        fn init_rust_logger();
         fn init_evm_runtime();
         fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
         fn stop_evm_runtime();
@@ -434,8 +434,8 @@ fn evm_finalize(
     })
 }
 
-pub fn preinit() {
-    ain_grpc::preinit();
+pub fn init_rust_logger() {
+    ain_grpc::init_rust_logger();
 }
 
 fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {

@@ -58,7 +58,6 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
-    preinit();
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -109,6 +108,7 @@ static bool AppInit(int argc, char* argv[])
             return InitError(strprintf("%s\n", e.what()));
         }
 
+
         // Error out when loose non-argument tokens are encountered on command line
         for (int i = 1; i < argc; i++) {
             if (!IsSwitchChar(argv[i][0])) {
@@ -118,8 +118,11 @@ static bool AppInit(int argc, char* argv[])
 
         // -server defaults to true for defid but not for the GUI so do this here
         gArgs.SoftSetBoolArg("-server", true);
+
         // Set this early so that parameter interactions go to console
         InitLogging();
+        init_rust_logger();
+
         InitParameterInteraction();
         if (!AppInitBasicSetup())
         {

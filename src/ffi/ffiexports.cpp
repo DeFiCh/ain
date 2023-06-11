@@ -78,6 +78,10 @@ rust::string getDatadir() {
     #endif
 }
 
+rust::string getLogPath() {
+    return rust::String(LogInstance().m_file_path.c_str());
+}
+
 rust::string getNetwork() {
     return Params().NetworkIDString();
 }
