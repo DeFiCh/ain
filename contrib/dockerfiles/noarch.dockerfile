@@ -4,7 +4,7 @@
 ARG TARGET=unknown
 
 # -----------
-FROM --platform=linux/amd64 ubuntu:latest as builder
+FROM ubuntu:latest as builder
 ARG TARGET
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
