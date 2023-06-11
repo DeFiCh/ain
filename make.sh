@@ -3,7 +3,9 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-export LC_ALL=C.UTF-8
+# Note: Ideal to use POSIX C.UTF-8, however Apple systems don't have
+# this locale and throws a fit, so en-US.UTF-8 is reasonable middle ground.
+export LC_ALL=en_US.UTF-8
 set -Eeuo pipefail
 
 setup_vars() {
