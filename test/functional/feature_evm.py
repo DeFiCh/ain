@@ -341,7 +341,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_hash, eth_hash)
 
         # Check EVM miner fee
-        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
+        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
         opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
         eth_fee_sats = Decimal(int(eth_fee, 16)) / 1000000000
         assert_equal(opreturn_fee_sats, eth_fee_sats)
