@@ -49,6 +49,15 @@ mod ffi {
     pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn isSyncing() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getHighestBlock() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getCurrentHeight() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -117,6 +126,17 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
+}
+
+pub fn is_syncing() -> Result<bool, Box<dyn Error>> {
+    let syncing = ffi::isSyncing();
+    Ok(syncing)
+}
+
+pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
+    let current_block = ffi::getCurrentHeight();
+    let highest_block = ffi::getHighestBlock();
+    Ok((current_block, highest_block))
 }
 
 #[cfg(test)]

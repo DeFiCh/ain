@@ -9,6 +9,7 @@ use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
+use crate::sync::{SyncInfo, SyncState};
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -203,6 +204,9 @@ pub trait MetachainRPC {
 
     #[method(name = "maxPriorityFeePerGas")]
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
+
+    #[method(name = "syncing")]
+    fn syncing(&self) -> RpcResult<SyncState>;
 }
 
 pub struct MetachainRPCModule {
@@ -702,6 +706,34 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         Ok(self.handler.block.suggested_priority_fee())
+    }
+
+    fn syncing(&self) -> RpcResult<SyncState> {
+        let (current_native_height, highest_native_block) = ain_cpp_imports::get_sync_status()
+            .map_err(|e| {
+                Error::Custom(format!("ain_cpp_imports::get_sync_status error : {e:?}"))
+            })?;
+
+        match current_native_height != highest_native_block {
+            true => {
+                let current_block = self
+                    .handler
+                    .storage
+                    .get_latest_block()
+                    .map(|block| block.header.number)
+                    .expect("Unable to get current block");
+
+                let highest_block = current_block + (highest_native_block - current_native_height);
+                debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");
+
+                Ok(SyncState::Syncing(SyncInfo {
+                    starting_block: U256::zero(),
+                    current_block,
+                    highest_block,
+                }))
+            }
+            false => Ok(SyncState::Synced(false)),
+        }
     }
 }
 

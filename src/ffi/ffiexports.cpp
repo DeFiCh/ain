@@ -201,3 +201,11 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
 rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
+
+int getHighestBlock() {
+    return pindexBestHeader ? pindexBestHeader->nHeight : (int) ::ChainActive().Height(); // return current block count if no peers
+}
+
+int getCurrentHeight() {
+    return (int) ::ChainActive().Height();
+}

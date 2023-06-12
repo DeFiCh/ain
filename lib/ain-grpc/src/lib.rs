@@ -9,6 +9,7 @@ pub mod codegen;
 mod impls;
 mod receipt;
 pub mod rpc;
+mod sync;
 mod transaction;
 mod transaction_request;
 mod utils;
