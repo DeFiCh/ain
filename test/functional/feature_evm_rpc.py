@@ -123,18 +123,18 @@ class EVMTest(DefiTestFramework):
 
     def test_block(self):
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x3")
+        assert_equal(latest_block['number'], "0x2")
 
         # Test full transaction block
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x4")
+        assert_equal(latest_block['number'], "0x3")
         assert_equal(latest_block['transactions'][0], "0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
 
         latest_full_block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(latest_full_block['number'], "0x4")
+        assert_equal(latest_full_block['number'], "0x3")
         assert_equal(latest_full_block['transactions'][0]['blockHash'], latest_full_block["hash"])
         assert_equal(latest_full_block['transactions'][0]['blockNumber'], latest_full_block["number"])
         assert_equal(latest_full_block['transactions'][0]['from'], self.ethAddress)
