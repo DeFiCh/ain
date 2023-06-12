@@ -16,7 +16,7 @@ Res CEvmDvmView::EraseBlockHash(uint8_t type, uint256 blockHashKey)
 ResVal<uint256> CEvmDvmView::GetBlockHash(uint8_t type, uint256 blockHashKey) const
 {
     uint256 blockHash;
-    ReadBy<BlockHash>(std::pair(type, blockHashKey), blockHash) ? ResVal<uint256>(blockHash, Res::Ok()) : DeFiErrors::FetchBlockFailed(blockHashKey.GetHex());
+    return ReadBy<BlockHash>(std::pair(type, blockHashKey), blockHash) ? ResVal<uint256>(blockHash, Res::Ok()) : DeFiErrors::FetchBlockFailed(blockHashKey.GetHex());
 }
 
 Res CEvmDvmView::SetTxHash(uint8_t type, uint256 txHashKey, uint256 txHash)
