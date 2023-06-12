@@ -422,9 +422,9 @@ git_version() {
 pkg_update_base() {
     _fold_start "pkg-update-base"
 
-    apt update
-    apt install -y apt-transport-https
-    apt dist-upgrade -y
+    apt-get update
+    apt-get install -y apt-transport-https
+    apt-get upgrade -y
     
     _fold_end
 }
@@ -435,7 +435,7 @@ pkg_install_deps() {
     # gcc-multilib: for cross compilations
     # locales: for using en-US.UTF-8 (see head of this file).
 
-    apt install -y \
+    apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
@@ -449,7 +449,7 @@ pkg_install_deps() {
 pkg_install_deps_mingw_x86_64() {
     _fold_start "pkg-install-deps-mingw-x86_64"
     
-    apt install -y \
+    apt-get install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
 
     _fold_end
@@ -463,7 +463,7 @@ pkg_setup_mingw_x86_64() {
 pkg_install_deps_armhf() {
     _fold_start "pkg-install-deps-armhf"
 
-    apt install -y \
+    apt-get install -y \
         g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross
 
     _fold_end
@@ -472,7 +472,7 @@ pkg_install_deps_armhf() {
 pkg_install_deps_arm64() {
     _fold_start "pkg-install-deps-arm64"
 
-    apt install -y \
+    apt-get install -y \
         g++-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
 
     _fold_end
@@ -481,7 +481,7 @@ pkg_install_deps_arm64() {
 pkg_install_deps_osx_tools() {
     _fold_start "pkg-install-deps-mac-tools"
 
-    apt install -y \
+    apt-get install -y \
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
     _fold_end
