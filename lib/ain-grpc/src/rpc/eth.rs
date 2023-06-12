@@ -258,6 +258,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             gas,
             value,
             data,
+            input,
             ..
         } = input;
         let TxResponse { data, .. } = self
@@ -267,7 +268,9 @@ impl MetachainRPCServer for MetachainRPCModule {
                 from,
                 to,
                 value.unwrap_or_default(),
-                &data.map(|d| d.0).unwrap_or_default(),
+                &data
+                    .map(|d| d.0)
+                    .unwrap_or(input.map(|d| d.0).unwrap_or_default()),
                 gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
                 self.block_number_to_u256(block_number),
