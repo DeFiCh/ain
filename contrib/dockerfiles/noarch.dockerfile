@@ -20,8 +20,8 @@ RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
 
 COPY . .
-RUN ./make.sh ./make.sh build-deps
-RUN ./make.sh ./make.sh build-conf
+RUN ./make.sh build-deps
+RUN ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
