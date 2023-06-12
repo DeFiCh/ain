@@ -9,6 +9,7 @@ use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
+use crate::transaction_log::LogResult;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -203,6 +204,14 @@ pub trait MetachainRPC {
 
     #[method(name = "maxPriorityFeePerGas")]
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
+
+    #[method(name = "getLogs")]
+    fn get_logs(
+        &self,
+        address: H160,
+        topics: Vec<H256>,
+        block_number: U256,
+    ) -> RpcResult<Vec<LogResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -702,6 +711,21 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         Ok(self.handler.block.suggested_priority_fee())
+    }
+
+    fn get_logs(
+        &self,
+        address: H160,
+        topics: Vec<H256>,
+        block_number: U256,
+    ) -> RpcResult<Vec<LogResult>> {
+        Ok(self
+            .handler
+            .logs
+            .get_logs(&address, topics, block_number)
+            .into_iter()
+            .map(LogResult::from)
+            .collect())
     }
 }
 

@@ -3,9 +3,11 @@ use ethereum::BlockAny;
 use ethereum::TransactionV2;
 use keccak_hash::H256;
 use log::debug;
-use primitive_types::U256;
+use primitive_types::{H160, U256};
+use std::collections::HashMap;
 use std::fs::File;
 
+use crate::log::LogIndex;
 use std::fmt;
 use std::io;
 use std::io::Write;
@@ -42,6 +44,11 @@ pub trait TransactionStorage {
 pub trait ReceiptStorage {
     fn get_receipt(&self, tx: &H256) -> Option<Receipt>;
     fn put_receipts(&self, receipts: Vec<Receipt>);
+}
+
+pub trait LogStorage {
+    fn get_logs(&self, address: &H160) -> Option<HashMap<U256, Vec<LogIndex>>>;
+    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256);
 }
 
 pub trait FlushableStorage {

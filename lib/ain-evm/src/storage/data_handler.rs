@@ -1,10 +1,12 @@
 use std::{collections::HashMap, sync::RwLock};
 
+use crate::log::LogIndex;
 use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H256, U256};
+use primitive_types::{H160, H256, U256};
 use std::borrow::ToOwned;
 
 use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
 
 use super::{
     code::CodeHistory,
@@ -21,6 +23,8 @@ pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 pub static CODE_MAP_PATH: &str = "code_map.bin";
 pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
 pub static BASE_FEE_MAP_PATH: &str = "base_fee_map.bin";
+pub static LOGS_MAP_PATH: &str = "logs_map.bin";
+pub static ADDRESS_LOGS_MAP_PATH: &str = "address_logs_map.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
 type Blocks = HashMap<U256, BlockAny>;
@@ -28,12 +32,14 @@ type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
 type BlockHashtoBaseFee = HashMap<H256, U256>;
+type AddressToLogs = HashMap<H160, HashMap<U256, Vec<LogIndex>>>;
 
 impl PersistentState for BlockHashtoBlock {}
 impl PersistentState for Blocks {}
 impl PersistentState for LatestBlockNumber {}
 impl PersistentState for TransactionHashToReceipt {}
 impl PersistentState for TxHashToTx {}
+impl PersistentState for AddressToLogs {}
 
 #[derive(Debug, Default)]
 pub struct BlockchainDataHandler {
@@ -48,6 +54,8 @@ pub struct BlockchainDataHandler {
     base_fee_map: RwLock<BlockHashtoBaseFee>,
 
     code_map: RwLock<CodeHistory>,
+
+    address_logs_map: RwLock<AddressToLogs>,
 }
 
 impl BlockchainDataHandler {
@@ -75,6 +83,9 @@ impl BlockchainDataHandler {
                 BlockHashtoBaseFee::load_from_disk(BASE_FEE_MAP_PATH).unwrap_or_default(),
             ),
             code_map: RwLock::new(CodeHistory::load_from_disk(CODE_MAP_PATH).unwrap_or_default()),
+            address_logs_map: RwLock::new(
+                AddressToLogs::load_from_disk(ADDRESS_LOGS_MAP_PATH).unwrap_or_default(),
+            ),
         }
     }
 }
@@ -203,6 +214,23 @@ impl ReceiptStorage for BlockchainDataHandler {
     }
 }
 
+impl LogStorage for BlockchainDataHandler {
+    fn get_logs(&self, address: &H160) -> Option<HashMap<U256, Vec<LogIndex>>> {
+        self.address_logs_map
+            .read()
+            .unwrap()
+            .get(address)
+            .map(ToOwned::to_owned)
+    }
+
+    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
+        let mut address_logs_map = self.address_logs_map.write().unwrap();
+
+        let address_map = address_logs_map.entry(address).or_insert(HashMap::new());
+        address_map.insert(block_number, logs);
+    }
+}
+
 impl FlushableStorage for BlockchainDataHandler {
     fn flush(&self) -> Result<(), PersistentStateError> {
         self.block_map
@@ -227,7 +255,11 @@ impl FlushableStorage for BlockchainDataHandler {
         self.base_fee_map
             .write()
             .unwrap()
-            .save_to_disk(BASE_FEE_MAP_PATH)
+            .save_to_disk(BASE_FEE_MAP_PATH)?;
+        self.address_logs_map
+            .write()
+            .unwrap()
+            .save_to_disk(ADDRESS_LOGS_MAP_PATH)
     }
 }
 
