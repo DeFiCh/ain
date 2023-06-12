@@ -14,6 +14,11 @@ enum class EvmMapType {
     EVM_BLOCK_TO_DVM
 };
 
+enum class EvmLogType {
+    BLOCK,
+    TX
+};
+
 static int NumEvmMapType = 7;
 
 UniValue evmtx(const JSONRPCRequest& request) {
@@ -260,12 +265,60 @@ UniValue xvmmap(const JSONRPCRequest& request) {
     }
 }
 
+UniValue logxvmindexes(const JSONRPCRequest& request) {
+    RPCHelpMan{
+            "logxvmindexes",
+            "\nLogs all block or tx indexes for debugging.\n",
+            {
+                    {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of log: 0 - Blocks, 1 - Txs"}
+                },
+            RPCResult{
+                    "{...} (array) Json object with account balances if rpcresult is enabled."
+                    "This is for debugging purposes only.\n"},
+            RPCExamples{
+                    HelpExampleCli("logxvmindexes", R"('"<hex>"' 1)")},
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    size_t count{};
+    UniValue result{UniValue::VOBJ};
+    UniValue indexesJson{UniValue::VOBJ};
+    const auto type = static_cast<EvmLogType>(request.params[0].get_int());
+    switch (type) {
+        case EvmLogType::BLOCK: {
+            pcustomcsview->ForEachBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
+                if (index.first == CEvmDvmMapType::DvmEvm) {
+                    indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                    ++count;
+                }
+                return true;
+            });
+        }
+        case EvmLogType::TX: {
+            pcustomcsview->ForEachTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
+                if (index.first == CEvmDvmMapType::DvmEvm) {
+                    indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                    ++count;
+                }
+                return true;
+            });
+        }
+    }
+
+    result.pushKV("indexes", indexesJson);
+    result.pushKV("count", static_cast<uint64_t>(count));
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm",      "xvmmap",                    &xvmmap,               {"hash", "type"}},
+    {"evm",         "xvmmap",                    &xvmmap,                {"hash", "type"}},
+    {"evm",         "logxvmindexes",             &logxvmindexes,         {"type"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {
