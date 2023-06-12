@@ -269,7 +269,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 // https://github.com/ethereum/go-ethereum/blob/281e8cd5abaac86ed3f37f98250ff147b3c9fe62/internal/ethapi/transaction_args.go#L67
-                /// We accept "data" and "input" for backwards-compatibility reasons.
+                // We accept "data" and "input" for backwards-compatibility reasons.
                 //  "input" is the newer name and should be preferred by clients.
                 // 	Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
                 &input
