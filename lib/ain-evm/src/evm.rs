@@ -57,7 +57,11 @@ impl EVMHandler {
         }
     }
 
-    pub fn new_from_json(storage: Arc<Storage>, sender: UnboundedSender<Notification>, path: PathBuf) -> Self {
+    pub fn new_from_json(
+        storage: Arc<Storage>,
+        sender: UnboundedSender<Notification>,
+        path: PathBuf,
+    ) -> Self {
         debug!("Loading genesis state from {}", path.display());
         init_vsdb();
 
@@ -65,7 +69,7 @@ impl EVMHandler {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
-            sender
+            sender,
         };
         let state_root =
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)

@@ -65,7 +65,11 @@ impl Handlers {
             }
             let storage = Arc::new(Storage::new());
             Ok(Self {
-                evm: EVMHandler::new_from_json(Arc::clone(&storage), sender.clone(), PathBuf::from(path)),
+                evm: EVMHandler::new_from_json(
+                    Arc::clone(&storage),
+                    sender.clone(),
+                    PathBuf::from(path),
+                ),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 storage,
@@ -80,8 +84,8 @@ impl Handlers {
                 storage,
                 channel: (sender, RwLock::new(channel.1)),
             })
+        }
     }
-}
 
     pub fn finalize_block(
         &self,
