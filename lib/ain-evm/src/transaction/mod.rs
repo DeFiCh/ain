@@ -109,20 +109,21 @@ impl TryFrom<TransactionV2> for SignedTx {
     fn try_from(src: TransactionV2) -> Result<Self, Self::Error> {
         let pubkey = match &src {
             TransactionV2::Legacy(tx) => {
-                let t = LegacyUnsignedTransaction {
+                let msg = ethereum::LegacyTransactionMessage {
                     nonce: tx.nonce,
                     gas_price: tx.gas_price,
                     gas_limit: tx.gas_limit,
                     action: tx.action,
                     value: tx.value,
                     input: tx.input.clone(),
-                    sig: tx.signature.clone(),
+                    chain_id: tx.signature.chain_id(),
                 };
-
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
+                let hash = H256::from(signing_message.serialize());
                 recover_public_key(
-                    &t.signing_hash(t.sig.chain_id().unwrap()),
-                    tx.signature.r(),
-                    tx.signature.s(),
+                    &hash,
+                    &tx.signature.r(),
+                    &tx.signature.s(),
                     tx.signature.standard_v(),
                 )
             }
@@ -137,7 +138,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     input: tx.input.clone(),
                     access_list: tx.access_list.clone(),
                 };
-                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
                 let hash = H256::from(signing_message.serialize());
                 recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }
@@ -153,7 +154,7 @@ impl TryFrom<TransactionV2> for SignedTx {
                     input: tx.input.clone(),
                     access_list: tx.access_list.clone(),
                 };
-                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..]).unwrap();
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
                 let hash = H256::from(signing_message.serialize());
                 recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }

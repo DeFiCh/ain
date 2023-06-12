@@ -2002,7 +2002,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                         {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
-                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 1 - DVM, 2 - EVM"},
+                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
                                             {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     },
@@ -2010,7 +2010,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                         {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
-                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 1 - DVM, 2 - EVM"},
+                                            {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
                                             {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     }
@@ -2023,8 +2023,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 1}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 2}}]')") +
-                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 1}}]')")
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
+                        HelpExampleCli("transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')")
                         },
     }.Check(request);
 
