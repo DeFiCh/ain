@@ -3,6 +3,7 @@ ARG TARGET=aarch64-linux-gnu
 # -----------
 FROM --platform=linux/amd64 ubuntu:latest as builder
 ARG TARGET
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 

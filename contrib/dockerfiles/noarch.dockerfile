@@ -6,6 +6,7 @@ ARG TARGET=unknown
 # -----------
 FROM ubuntu:latest as builder
 ARG TARGET
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 

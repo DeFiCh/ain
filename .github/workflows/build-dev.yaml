@@ -14,6 +14,7 @@ on:
 env:
   BUILD_VERSION: latest # Computed
   DOCKER_HUB_USER: defi
+  MAKE_DEBUG: 0
 
 jobs:
   linux-x64:
@@ -25,7 +26,7 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" MAKE_DEBUG=0 ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
     - name: Publish artifact - x86_64-pc-linux-gnu
       uses: actions/upload-artifact@v3
@@ -54,7 +55,7 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
     
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" MAKE_DEBUG=0 ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
 
     - name: Publish artifact - x86_64-w64-mingw32
       uses: actions/upload-artifact@v3
@@ -71,7 +72,7 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" MAKE_DEBUG=0 ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release
 
     - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3
