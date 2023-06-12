@@ -22,7 +22,7 @@ metachain-cli -c devnet <SUBCOMMAND>
 
 For detailed information on a specific subcommand, run `metachain-cli <SUBCOMMAND> --help`
 
-## Available subcommands :
+## Available subcommands
 
 | Subcommand                                 | Description                                                               |
 |--------------------------------------------|---------------------------------------------------------------------------|

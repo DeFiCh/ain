@@ -4,8 +4,9 @@
 ARG TARGET=unknown
 
 # -----------
-FROM --platform=linux/amd64 ubuntu:latest as builder
+FROM ubuntu:latest as builder
 ARG TARGET
+ARG DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
@@ -19,8 +20,8 @@ RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
 
 COPY . .
-RUN ./make.sh clean-depends && ./make.sh build-deps
-RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-deps
+RUN MAKE_DEBUG=${DEBUG} ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
