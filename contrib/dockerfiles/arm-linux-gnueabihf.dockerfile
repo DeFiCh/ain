@@ -1,7 +1,8 @@
 ARG TARGET=arm-linux-gnueabihf
 
 # -----------
-FROM --platform=linux/amd64 ubuntu:latest as builder
+# https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
+FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
 ARG DEBUG
 LABEL org.defichain.name="defichain-builder"
