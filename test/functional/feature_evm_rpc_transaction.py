@@ -169,7 +169,7 @@ class EVMTest(DefiTestFramework):
 
         tx1559 = {
             'value': '0x0',
-            'data': contractBytecode,
+            'input': contractBytecode,
             'gas': '0x18e70', # 102_000
             'maxPriorityFeePerGas': '0x2363e7f000', # 152_000_000_000
             'maxFeePerGas': '0x22ecb25c00', # 150_000_000_000

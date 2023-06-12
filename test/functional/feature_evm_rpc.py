@@ -90,6 +90,16 @@ class EVMTest(DefiTestFramework):
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': "0x0",
+            'data': "0x",
+        })
+        assert_equal(estimate_gas, "0x5208")
+
+        # test both data and input field
+        estimate_gas = self.nodes[0].eth_estimateGas({
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': "0x0",
+            'input': "0x",
         })
         assert_equal(estimate_gas, "0x5208")
 
