@@ -258,6 +258,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             gas,
             value,
             data,
+            input,
             ..
         } = input;
         let TxResponse { data, .. } = self
@@ -267,7 +268,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 from,
                 to,
                 value.unwrap_or_default(),
-                &data.map(|d| d.0).unwrap_or_default(),
+                // https://github.com/ethereum/go-ethereum/blob/281e8cd5abaac86ed3f37f98250ff147b3c9fe62/internal/ethapi/transaction_args.go#L67
+                // We accept "data" and "input" for backwards-compatibility reasons.
+                //  "input" is the newer name and should be preferred by clients.
+                // 	Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
+                &input
+                    .map(|d| d.0)
+                    .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
                 gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
                 vec![],
                 self.block_number_to_u256(block_number),
