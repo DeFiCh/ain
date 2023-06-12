@@ -50,6 +50,7 @@ setup_vars() {
     MAKE_CONF_ARGS="$(_get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
+        echo "here"
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
 
