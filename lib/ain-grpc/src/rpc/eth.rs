@@ -5,6 +5,7 @@ use crate::codegen::types::EthTransactionInfo;
 
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
+use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
@@ -421,9 +422,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_transaction_by_hash(&hash)
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx
+                let mut transaction_info: EthTransactionInfo = tx
                     .try_into()
                     .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
+
+                // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
+                // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
+                if let Some(receipt) = self.handler.storage.get_receipt(&hash) {
+                    transaction_info.block_hash = Some(format_h256(receipt.block_hash));
+                    transaction_info.block_number = Some(format_u256(receipt.block_number));
+                    transaction_info.transaction_index =
+                        Some(format_u256(U256::from(receipt.tx_index)));
+                }
+
                 Ok(Some(transaction_info))
             })
     }
