@@ -21,7 +21,7 @@ ResVal<uint256> CEvmDvmView::GetBlockHash(uint8_t type, uint256 blockHashKey) co
 
 Res CEvmDvmView::SetTxHash(uint8_t type, uint256 txHashKey, uint256 txHash)
 {
-    WriteBy<TxHash>(std::pair(type, txHashKey), txHash) ? Res::Ok() : DeFiErrors::StoreTxFailed(txHashKey.GetHex());
+    return WriteBy<TxHash>(std::pair(type, txHashKey), txHash) ? Res::Ok() : DeFiErrors::StoreTxFailed(txHashKey.GetHex());
 }
 
 Res CEvmDvmView::EraseTxHash(uint8_t type, uint256 txHashKey)
