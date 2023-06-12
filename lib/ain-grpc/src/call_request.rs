@@ -24,9 +24,8 @@ pub struct CallRequest {
     /// Value
     pub value: Option<U256>,
     /// Data
+    #[serde(alias = "input")]
     pub data: Option<Bytes>,
-    /// Input
-    pub input: Option<Bytes>,
     /// Nonce
     pub nonce: Option<U256>,
     /// AccessList
