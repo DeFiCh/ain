@@ -23,7 +23,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        set -e; ./make.sh ci-export-vars
+        set -e;
         sudo ./make.sh ci-setup-deps
         sudo ./make.sh ci-setup-deps-target
 
