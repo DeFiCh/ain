@@ -538,7 +538,6 @@ pkg_setup_rust() {
     local target=${TARGET}
     local rust_target
     rust_target=$(get_rust_target)
-    sudo find / -type d -name ".cargo"
     rustup target add "${rust_target}"
 }
 
@@ -854,7 +853,7 @@ ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
+        echo "PATH=/root/.cargo/bin:$PATH" >> "$GITHUB_ENV"
     fi
 }
 
