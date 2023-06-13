@@ -41,7 +41,7 @@ impl Runtime {
                 });
             }))),
             jrpc_handle: Mutex::new(None),
-            handlers: Arc::new(Handlers::new()),
+            handlers: Arc::new(Handlers::new().expect("Error initializating handlers")),
         }
     }
 

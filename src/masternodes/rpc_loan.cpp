@@ -1075,6 +1075,8 @@ UniValue takeloan(const JSONRPCRequest& request) {
     if (!metaObj["to"].isNull())
         takeLoan.to = DecodeScript(metaObj["to"].getValStr());
 
+    RejectEthAddress(takeLoan.to);
+
     if (!metaObj["amounts"].isNull())
         takeLoan.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
     else
@@ -1264,6 +1266,8 @@ UniValue paybackloan(const JSONRPCRequest& request) {
                     "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
     } else
         from = DecodeScript(metaObj["from"].getValStr());
+
+    RejectEthAddress(from);
 
     if (!::IsMine(*pwallet, from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,

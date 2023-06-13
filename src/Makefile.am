@@ -397,7 +397,6 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/evm.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \

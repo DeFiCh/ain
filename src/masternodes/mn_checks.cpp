@@ -11,6 +11,7 @@
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
+#include <ffi/cxx.h>
 #include <index/txindex.h>
 #include <txmempool.h>
 #include <validation.h>
@@ -767,6 +768,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmContext;
+    uint64_t &gasUsed;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -776,12 +778,14 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmContext)
+                          const uint64_t evmContext,
+                          uint64_t &gasUsed)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
-          evmContext(evmContext) {}
+          evmContext(evmContext),
+          gasUsed(gasUsed) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3855,11 +3859,21 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        if (!evm_prevalidate_raw_tx(HexStr(obj.evmTx)))
-            return Res::Err("evm tx failed to validate");
+        RustRes result;
+        const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed()))
-            return Res::Err("evm tx failed to queue");
+        if (!result.ok) {
+            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
+        }
+
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        if (!result.ok) {
+            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
+        }
+
+        gasUsed = hashAndGas.used_gas;
 
         std::vector<unsigned char> result;
         sha3(obj.evmTx, result);
@@ -3924,7 +3938,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
         CTxDestination dest;
 
-        // Soruce validation
+        // Source validation
         // Check domain type
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
@@ -4049,6 +4063,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
+                  uint64_t &gasUsed,
                   uint32_t txn,
                   const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
@@ -4057,7 +4072,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     auto context = evmContext;
     if (context == 0) context = evm_get_context();
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, gasUsed), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4140,6 +4155,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
+                  uint64_t &gasUsed,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
@@ -4167,7 +4183,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, gasUsed, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -4963,7 +4979,9 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 }
 
 bool IsTestNetwork() {
-    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET
+    || Params().NetworkIDString() == CBaseChainParams::CHANGI
+    || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
 bool IsEVMEnabled(const int height, const CCustomCSView &view) {

@@ -17,6 +17,8 @@ static const unsigned int MAX_BLOCK_WEIGHT = 4000000 * 16;
 static const int64_t MAX_BLOCK_SIGOPS_COST = 80000 * 16;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int COINBASE_MATURITY = 100;
+/** Maximum gas limit per block **/
+static constexpr uint32_t MAX_BLOCK_GAS_LIMIT{30000000};
 
 static const int WITNESS_SCALE_FACTOR = 4;
 

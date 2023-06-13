@@ -7,17 +7,17 @@ use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
+use anyhow::anyhow;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
-
-const GENESIS_STATE_ROOT: &str =
-    "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
 
 pub struct Handlers {
     pub evm: EVMHandler,
@@ -26,20 +26,44 @@ pub struct Handlers {
     pub storage: Arc<Storage>,
 }
 
-impl Default for Handlers {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Handlers {
-    pub fn new() -> Self {
-        let storage = Arc::new(Storage::new());
-        Self {
-            evm: EVMHandler::new(Arc::clone(&storage)),
-            block: BlockHandler::new(Arc::clone(&storage)),
-            receipt: ReceiptHandler::new(Arc::clone(&storage)),
-            storage,
+    /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
+    /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
+    /// This JSON-based initialization is exclusively reserved for regtest environments.
+    ///
+    /// # Warning
+    ///
+    /// Loading state from JSON will overwrite previous stored state
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if an attempt is made to load a genesis state from a JSON file outside of a regtest environment.
+    ///
+    /// # Return
+    ///
+    /// Returns an instance of the struct, either restored from storage or created from a JSON file.
+    pub fn new() -> Result<Self, anyhow::Error> {
+        if let Some(path) = ain_cpp_imports::get_state_input_json() {
+            if ain_cpp_imports::get_network() != "regtest" {
+                return Err(anyhow!(
+                    "Loading a genesis from JSON file is restricted to regtest network"
+                ));
+            }
+            let storage = Arc::new(Storage::new());
+            Ok(Self {
+                evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
+                block: BlockHandler::new(Arc::clone(&storage)),
+                receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                storage,
+            })
+        } else {
+            let storage = Arc::new(Storage::restore());
+            Ok(Self {
+                evm: EVMHandler::restore(Arc::clone(&storage)),
+                block: BlockHandler::new(Arc::clone(&storage)),
+                receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                storage,
+            })
         }
     }
 
@@ -57,7 +81,7 @@ impl Handlers {
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
-        let (parent_hash, parent_number) = self.block.get_latest_block_hash_and_number();
+        let parent_data = self.block.get_latest_block_hash_and_number();
         let state_root = self
             .storage
             .get_latest_block()
@@ -65,11 +89,27 @@ impl Handlers {
                 block.header.state_root
             });
 
-        let vicinity = Vicinity {
-            beneficiary,
-            timestamp: U256::from(timestamp),
-            block_number: parent_number + 1,
-            ..Default::default()
+        let (vicinity, parent_hash, current_block_number) = match parent_data {
+            None => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: U256::from(0),
+                    ..Default::default()
+                },
+                H256::zero(),
+                U256::from(0),
+            ),
+            Some((hash, number)) => (
+                Vicinity {
+                    beneficiary,
+                    timestamp: U256::from(timestamp),
+                    block_number: number + 1,
+                    ..Default::default()
+                },
+                hash,
+                number + 1,
+            ),
         };
 
         let mut backend = EVMBackend::from_root(
@@ -84,13 +124,15 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    let TxResponse {
-                        exit_reason,
-                        logs,
-                        used_gas,
+                    let (
+                        TxResponse {
+                            exit_reason,
+                            logs,
+                            used_gas,
+                            ..
+                        },
                         receipt,
-                        ..
-                    } = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -101,13 +143,10 @@ impl Handlers {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx);
-
+                    all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
-
-                    executor.commit();
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -131,6 +170,8 @@ impl Handlers {
                     }
                 }
             }
+
+            executor.commit();
         }
 
         if update_state {
@@ -149,7 +190,7 @@ impl Handlers {
                 receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
-                number: parent_number + 1,
+                number: current_block_number,
                 gas_limit: U256::from(30_000_000),
                 gas_used: U256::from(gas_used),
                 timestamp,
@@ -176,7 +217,10 @@ impl Handlers {
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
-            self.block.connect_block(block.clone());
+            // calculate base fee
+            let base_fee = self.block.calculate_base_fee(parent_hash);
+
+            self.block.connect_block(block.clone(), base_fee);
             self.receipt.put_receipts(receipts);
         }
 

@@ -22,6 +22,8 @@ keccak-hash = "0.10.0"
 serde = { version = "1.0", features = ["derive"] }
 ethbloom = "0.13.0"
 ethereum-types = "0.14.1"
+serde_json = "1.0.96"
+statrs = "0.16.0"
 
 # Trie dependencies
 hash-db = "0.16.0"

@@ -540,38 +540,40 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
-    for (const CTxIn &txin : tx.vin)
-    {
-        const CTransaction* ptxConflicting = pool.GetConflictTx(txin.prevout);
-        if (ptxConflicting) {
-            if (!setConflicts.count(ptxConflicting->GetHash()))
-            {
-                // Allow opt-out of transaction replacement by setting
-                // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
-                //
-                // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
-                // non-replaceable transactions. All inputs rather than just one
-                // is for the sake of multi-party protocols, where we don't
-                // want a single party to be able to disable replacement.
-                //
-                // The opt-out ignores descendants as anyone relying on
-                // first-seen mempool behavior should be checking all
-                // unconfirmed ancestors anyway; doing otherwise is hopelessly
-                // insecure.
-                bool fReplacementOptOut = true;
-                for (const CTxIn &_txin : ptxConflicting->vin)
+    if (!IsEVMTx(tx)) {
+        for (const CTxIn &txin : tx.vin)
+        {
+            const CTransaction* ptxConflicting = pool.GetConflictTx(txin.prevout);
+            if (ptxConflicting) {
+                if (!setConflicts.count(ptxConflicting->GetHash()))
                 {
-                    if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
+                    // Allow opt-out of transaction replacement by setting
+                    // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
+                    //
+                    // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
+                    // non-replaceable transactions. All inputs rather than just one
+                    // is for the sake of multi-party protocols, where we don't
+                    // want a single party to be able to disable replacement.
+                    //
+                    // The opt-out ignores descendants as anyone relying on
+                    // first-seen mempool behavior should be checking all
+                    // unconfirmed ancestors anyway; doing otherwise is hopelessly
+                    // insecure.
+                    bool fReplacementOptOut = true;
+                    for (const CTxIn &_txin : ptxConflicting->vin)
                     {
-                        fReplacementOptOut = false;
-                        break;
+                        if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
+                        {
+                            fReplacementOptOut = false;
+                            break;
+                        }
                     }
-                }
-                if (fReplacementOptOut) {
-                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_DUPLICATE, "txn-mempool-conflict");
-                }
+                    if (fReplacementOptOut) {
+                        return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_DUPLICATE, "txn-mempool-conflict");
+                    }
 
-                setConflicts.insert(ptxConflicting->GetHash());
+                    setConflicts.insert(ptxConflicting->GetHash());
+                }
             }
         }
     }
@@ -641,7 +643,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, gasUsed, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2359,7 +2362,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2565,6 +2569,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
+
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2635,7 +2642,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
+            uint64_t gasUsed{};
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmContext);
+
+            totalGas += gasUsed;
+            if (totalGas > MAX_BLOCK_GAS_LIMIT) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                     error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, MAX_BLOCK_GAS_LIMIT, totalGas),
+                                     REJECT_CUSTOMTX, "over-gas-limit");
+            }
+
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {

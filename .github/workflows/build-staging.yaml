@@ -8,6 +8,9 @@ on:
 env:
   MAKE_DEBUG: 0
 
+env:
+  MAKE_DEBUG: 0
+
 jobs:
   linux-x64:
     runs-on: ubuntu-latest

@@ -2427,23 +2427,18 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
             minerAddress = GetScriptForDestination(dest);
         }
 
-        const auto evmBlockResult = evm_finalize(evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
-        auto evmBlockHash = std::vector<uint8_t>(evmBlockResult.block_hash.begin(), evmBlockResult.block_hash.end());
-        std::reverse(evmBlockHash.begin(), evmBlockHash.end());
+        const auto blockResult = evm_finalize(evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
 
-        pcustomcsview->SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
-        pcustomcsview->SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
-
-        if (!evmBlockResult.failed_transactions.empty()) {
+        if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
-            for (const auto& rust_string : evmBlockResult.failed_transactions) {
+            for (const auto& rust_string : blockResult.failed_transactions) {
                 failedTransactions.emplace_back(rust_string.data(), rust_string.length());
             }
 
             RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
         }
 
-        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(evmBlockResult.miner_fee / CAMOUNT_TO_GWEI)});
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
     }
 }
 
