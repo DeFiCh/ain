@@ -422,6 +422,16 @@ git_version() {
     fi
 }
 
+# ------------ pkg --------------------
+# Conventions:
+# - pkg_*
+# - pkg_install_*: for installing packages (system level)
+# - pkg_update_*: distro update only
+# - pkg_local_*: for pulling packages into the local dir
+#   - clean_pkg_local*: Make sure to have the opp. 
+# - pkg_setup*: setup of existing (or installed) pkgs // but not installing now
+
+
 pkg_update_base() {
     _fold_start "pkg-update-base"
 
@@ -538,26 +548,6 @@ pkg_setup_rust() {
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
-}
-
-pkg_setup_deps_target() {
-    local target=${TARGET}
-    case $target in
-        # Nothing to do on host
-        x86_64-pc-linux-gnu) ;;
-        aarch64-linux-gnu) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
-        arm-linux-gnueabihf) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
-        x86_64-apple-darwin|aarch64-apple-darwin) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
-        x86_64-w64-mingw32)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
-            pkg_setup_mingw_x86_64;;
-        *)
-            echo "error: unsupported target: ${target}"
-            exit 1;;
-    esac
 }
 
 clean_pkg_local_osx_sysroot() {
@@ -884,9 +874,29 @@ ci_setup_deps() {
     pkg_install_web3_deps
 }
 
+_ci_setup_deps_target() {
+    local target=${TARGET}
+    case $target in
+        # Nothing to do on host
+        x86_64-pc-linux-gnu) ;;
+        aarch64-linux-gnu) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
+        arm-linux-gnueabihf) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
+        x86_64-apple-darwin|aarch64-apple-darwin) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
+        x86_64-w64-mingw32)
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
+            pkg_setup_mingw_x86_64;;
+        *)
+            echo "error: unsupported target: ${target}"
+            exit 1;;
+    esac
+}
+
 ci_setup_deps_target() {
+    _ci_setup_deps_target
     pkg_setup_rust
-    pkg_setup_deps_target
 }
 
 get_rust_target() {
