@@ -217,36 +217,39 @@ impl MetachainRPCModule {
     }
 
     fn block_number_to_u256(&self, block_number: Option<BlockNumber>) -> U256 {
-        match block_number.unwrap_or_default() {
-            BlockNumber::Hash {
-                hash,
-                ..
-            } => {
-                self.handler
-                    .storage
-                    .get_block_by_hash(&hash)
-                    .map(|block| block.header.number)
-                    .unwrap_or(U256::max_value())
-            }
-            BlockNumber::Num(n) => {
-                self.handler
-                    .storage
-                    .get_block_by_number(&U256::from(n))
-                    .map(|block| block.header.number)
-                    .unwrap_or(U256::max_value())
-            },
-            _ => {
-                self.handler
-                    .storage
-                    .get_latest_block()
-                    .map(|block| block.header.number)
-                    .unwrap_or(U256::max_value())
-            }
-            // BlockNumber::Earliest => todo!(),
-            // BlockNumber::Pending => todo!(),
-            // BlockNumber::Safe => todo!(),
-            // BlockNumber::Finalized => todo!(),
+        match block_number.unwrap_or(BlockNumber::Latest) {
+            BlockNumber::Hash { hash, .. } => self
+                .handler
+                .storage
+                .get_block_by_hash(&hash)
+                .map(|block| block.header.number),
+            BlockNumber::Num(n) => self
+                .handler
+                .storage
+                .get_block_by_number(&U256::from(n))
+                .map(|block| block.header.number),
+            BlockNumber::Earliest => self
+                .handler
+                .storage
+                .get_block_by_number(&U256::zero())
+                .map(|block| block.header.number),
+            BlockNumber::Safe | BlockNumber::Finalized => self
+                .handler
+                .storage
+                .get_latest_block()
+                .map(|block| block.header.number - 1),
+            BlockNumber::Latest => self
+                .handler
+                .storage
+                .get_latest_block()
+                .map(|block| block.header.number),
+            BlockNumber::Pending => self
+                .handler
+                .storage
+                .get_latest_block()
+                .map(|block| block.header.number + 1),
         }
+        .unwrap_or(U256::MAX)
     }
 }
 
