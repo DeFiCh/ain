@@ -31,11 +31,11 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Install dependencies
-      run: sudo ./make.sh ci-setup-deps
-      
     - name: Debug
       run: echo $PATH
+      
+    - name: Install dependencies
+      run: sudo ./make.sh ci-setup-deps
     
     - name: Tests
       run: ./ci/test/main.sh

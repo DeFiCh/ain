@@ -23,9 +23,6 @@ jobs:
 
     - name: Install dependencies
       run: sudo ./make.sh ci-setup-deps
-      
-    - name: Debug
-      run: echo $PATH
 
     - name: Build binaries
       run: ./make.sh build
