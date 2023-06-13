@@ -3,7 +3,9 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-export LC_ALL=C.UTF-8
+# Note: Ideal to use POSIX C.UTF-8, however Apple systems don't have
+# this locale and throws a fit, so en-US.UTF-8 is reasonable middle ground.
+export LC_ALL=en_US.UTF-8
 set -Eeuo pipefail
 
 setup_vars() {
@@ -259,7 +261,7 @@ docker_build() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" --build-arg TARGET="${target}" -t "${img}" "${docker_context}"
+    docker build -f "${docker_file}" --build-arg TARGET="${target}" --build-arg DEBUG="${MAKE_DEBUG}" -t "${img}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -430,13 +432,16 @@ pkg_update_base() {
 pkg_install_deps() {
     _fold_start "pkg-install-deps"
 
+    # gcc-multilib: for cross compilations
+    # locales: for using en-US.UTF-8 (see head of this file).
+
     apt install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip libc6-dev
+        curl cmake unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
 }
