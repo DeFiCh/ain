@@ -535,7 +535,6 @@ pkg_install_web3_deps() {
 }
 
 pkg_setup_rust() {
-    local target=${TARGET}
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
@@ -853,7 +852,7 @@ ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-        echo "PATH=/root/.cargo/bin:$PATH" >> "$GITHUB_ENV"
+        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
     fi
 }
 
@@ -862,7 +861,6 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    # pkg_setup_rust
     pkg_install_web3_deps
 }
 
@@ -884,6 +882,9 @@ ci_setup_deps_target() {
             echo "error: unsupported target: ${target}"
             exit 1;;
     esac
+
+    # setup rust target
+    pkg_setup_rust
 }
 
 get_rust_target() {

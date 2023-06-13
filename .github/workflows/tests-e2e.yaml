@@ -33,9 +33,9 @@ jobs:
 
     - name: Install dependencies
       run: sudo ./make.sh ci-setup-deps
-
-    - name: Setup rust
-      run: ./make.sh pkg_setup_rust
+    
+    - name: Setup target
+      run: sudo ./make.sh ci-setup-deps-target
     
     - name: Tests
       run: ./ci/test/main.sh
