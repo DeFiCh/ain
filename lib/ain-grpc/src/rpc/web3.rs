@@ -1,11 +1,9 @@
 use crate::bytes::Bytes;
-use ain_evm::handler::Handlers;
 
 use digest::Digest;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use primitive_types::H256;
-use std::sync::Arc;
 
 #[rpc(server, client, namespace = "web3")]
 pub trait MetachainWeb3RPC {
@@ -17,16 +15,8 @@ pub trait MetachainWeb3RPC {
     fn sha3(&self, input: Bytes) -> RpcResult<H256>;
 }
 
-pub struct MetachainWeb3RPCModule {
-    _handler: Arc<Handlers>,
-}
-
-impl MetachainWeb3RPCModule {
-    #[must_use]
-    pub fn new(_handler: Arc<Handlers>) -> Self {
-        Self { _handler }
-    }
-}
+#[derive(Default)]
+pub struct MetachainWeb3RPCModule {}
 
 impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
     fn client_version(&self) -> RpcResult<String> {

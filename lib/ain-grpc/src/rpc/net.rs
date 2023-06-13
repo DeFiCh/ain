@@ -1,7 +1,5 @@
-use ain_evm::handler::Handlers;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
-use std::sync::Arc;
 
 #[rpc(server, client, namespace = "net")]
 pub trait MetachainNetRPC {
@@ -10,16 +8,8 @@ pub trait MetachainNetRPC {
     fn net_version(&self) -> RpcResult<String>;
 }
 
-pub struct MetachainNetRPCModule {
-    _handler: Arc<Handlers>,
-}
-
-impl MetachainNetRPCModule {
-    #[must_use]
-    pub fn new(_handler: Arc<Handlers>) -> Self {
-        Self { _handler }
-    }
-}
+#[derive(Default)]
+pub struct MetachainNetRPCModule {}
 
 impl MetachainNetRPCServer for MetachainNetRPCModule {
     fn net_version(&self) -> RpcResult<String> {
