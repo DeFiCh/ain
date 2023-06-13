@@ -261,7 +261,10 @@ docker_build() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" --build-arg TARGET="${target}" --build-arg MAKE_DEBUG="${MAKE_DEBUG}" -t "${img}" "${docker_context}"
+    docker build -f "${docker_file}" \
+        --build-arg TARGET="${target}" \
+        --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_deploy() {
