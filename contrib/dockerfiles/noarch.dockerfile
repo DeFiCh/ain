@@ -19,7 +19,7 @@ RUN ./make.sh ci-setup-deps-target
 
 COPY . .
 RUN ./make.sh build-deps
-RUN MAKE_DEBUG=${MAKE_DEBUG} ./make.sh build-conf
+RUN ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
