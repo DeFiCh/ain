@@ -16,7 +16,9 @@ Res CEvmDvmView::EraseBlockHash(uint8_t type, uint256 blockHashKey)
 ResVal<uint256> CEvmDvmView::GetBlockHash(uint8_t type, uint256 blockHashKey) const
 {
     uint256 blockHash;
-    return ReadBy<BlockHash>(std::pair(type, blockHashKey), blockHash) ? ResVal<uint256>(blockHash, Res::Ok()) : DeFiErrors::FetchBlockFailed(blockHashKey.GetHex());
+    if (ReadBy<BlockHash>(std::pair(type, blockHashKey), blockHash))
+        return ResVal<uint256>(blockHash, Res::Ok());
+    return DeFiErrors::FetchBlockFailed(blockHashKey.GetHex());
 }
 
 Res CEvmDvmView::SetTxHash(uint8_t type, uint256 txHashKey, uint256 txHash)
@@ -32,7 +34,9 @@ Res CEvmDvmView::EraseTxHash(uint8_t type, uint256 txHashKey)
 ResVal<uint256> CEvmDvmView::GetTxHash(uint8_t type, uint256 txHashKey) const
 {
     uint256 txHash;
-    return ReadBy<TxHash>(std::pair(type, txHashKey), txHash) ? ResVal<uint256>(txHash, Res::Ok()) : DeFiErrors::FetchTxFailed(txHashKey.GetHex());
+    if (ReadBy<TxHash>(std::pair(type, txHashKey), txHash))
+        return ResVal<uint256>(txHash, Res::Ok());
+    return DeFiErrors::FetchTxFailed(txHashKey.GetHex());
 }
 
 void CEvmDvmView::ForEachBlockIndexes(std::function<bool(const std::pair<uint8_t, uint256> &, const uint256 &)> callback) {
