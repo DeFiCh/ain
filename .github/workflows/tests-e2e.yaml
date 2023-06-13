@@ -35,7 +35,7 @@ jobs:
       run: sudo ./make.sh ci-setup-deps
     
     - name: Setup target
-      run: sudo ./make.sh ci-setup-deps-target
+      run: ./make.sh ci-setup-deps-target
     
     - name: Tests
       run: ./ci/test/main.sh

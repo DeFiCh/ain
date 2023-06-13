@@ -25,7 +25,7 @@ jobs:
       run: sudo ./make.sh ci-setup-deps
 
     - name: Setup target
-      run: sudo ./make.sh ci-setup-deps-target
+      run: ./make.sh ci-setup-deps-target
 
     - name: Build binaries
       run: ./make.sh build
