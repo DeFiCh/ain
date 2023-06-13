@@ -29,10 +29,10 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Install dependencies
+    - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
-    - name: Setup target
+    - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
       # TODO: Switch this to a docker build later and this builds on the native
