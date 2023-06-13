@@ -32,7 +32,10 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Install dependencies
-      run: sudo ./make.sh ci-setup-deps && echo $PATH
+      run: sudo ./make.sh ci-setup-deps
+      
+    - name: Debug
+      run: echo $PATH
     
     - name: Tests
       run: ./ci/test/main.sh
