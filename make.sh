@@ -540,6 +540,26 @@ pkg_setup_rust() {
     rustup target add "${rust_target}"
 }
 
+pkg_setup_deps_target() {
+    local target=${TARGET}
+    case $target in
+        # Nothing to do on host
+        x86_64-pc-linux-gnu) ;;
+        aarch64-linux-gnu) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
+        arm-linux-gnueabihf) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
+        x86_64-apple-darwin|aarch64-apple-darwin) 
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
+        x86_64-w64-mingw32)
+            DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
+            pkg_setup_mingw_x86_64;;
+        *)
+            echo "error: unsupported target: ${target}"
+            exit 1;;
+    esac
+}
+
 clean_pkg_local_osx_sysroot() {
     local build_depends_dir="${BUILD_DEPENDS_DIR}"
     _safe_rm_rf "$build_depends_dir/SDKs"
@@ -865,26 +885,8 @@ ci_setup_deps() {
 }
 
 ci_setup_deps_target() {
-    local target=${TARGET}
-    case $target in
-        # Nothing to do on host
-        x86_64-pc-linux-gnu) ;;
-        aarch64-linux-gnu) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
-        arm-linux-gnueabihf) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
-        x86_64-apple-darwin|aarch64-apple-darwin) 
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
-        x86_64-w64-mingw32)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
-            pkg_setup_mingw_x86_64;;
-        *)
-            echo "error: unsupported target: ${target}"
-            exit 1;;
-    esac
-
-    # setup rust target
     pkg_setup_rust
+    pkg_setup_deps_target
 }
 
 get_rust_target() {
