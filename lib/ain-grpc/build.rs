@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::fs::{DirEntry, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::rc::Rc;
 use std::{env, fs, io};
 
@@ -45,6 +46,14 @@ fn main() -> Result<()> {
     if git_head_path.exists() {
         println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
     }
+
+    // Set GIT_HASH
+    let output = Command::new("git")
+        .args(&["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
+    let git_hash = String::from_utf8(output.stdout).unwrap();
+    env::set_var("GIT_HASH", git_hash.trim());
 
     Ok(())
 }

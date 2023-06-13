@@ -23,6 +23,7 @@ use crate::rpc::{
     debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
     eth::{MetachainRPCModule, MetachainRPCServer},
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
+    web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
 };
 
 use std::error::Error;
@@ -47,6 +48,7 @@ pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn 
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
     methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
     methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
+    methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
 
     *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
     Ok(())
