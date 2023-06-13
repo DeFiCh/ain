@@ -4,7 +4,7 @@ ARG TARGET=x86_64-pc-linux-gnu
 # https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
 FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
-ARG DEBUG
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
@@ -17,7 +17,7 @@ RUN ./make.sh ci-setup-deps-target
 
 COPY . .
 RUN ./make.sh build-deps
-RUN MAKE_DEBUG=${DEBUG} ./make.sh build-conf
+RUN MAKE_DEBUG=${MAKE_DEBUG} ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
