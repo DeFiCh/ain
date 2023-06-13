@@ -1,15 +1,13 @@
-name: Tests - EVM
+name: Tests - DeFiCh/go-ethlibs
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - feature/evm
   push:
     branches:
-      - feature/evm
-    tags:
-      - evm
+      - master
+  pull_request:
+    branches:
+      - master
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
@@ -20,11 +18,17 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
     - name: Install dependencies
-      run: sudo ./make.sh pkg-install-deps && sudo ./make.sh pkg-install-llvm
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup target
+      run: ./make.sh ci-setup-deps-target
 
     - name: Build binaries
-      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
+      run: ./make.sh build
       
     - name: Upload binaries
       uses: actions/upload-artifact@v3
@@ -33,7 +37,7 @@ jobs:
         path: |
           build/src/defid
           build/src/defi-cli
-          .github/scripts/fixtures.sh
+          ci/test/ethlibs-fixtures.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
@@ -46,7 +50,7 @@ jobs:
         
     - name: Chores
       run: |
-        chmod uog+x build/src/defid build/src/defi-cli .github/scripts/fixtures.sh
+        chmod uog+x build/src/defid build/src/defi-cli ci/test/ethlibs-fixtures.sh
 
     - name: Run defid node
       run: |
@@ -55,7 +59,7 @@ jobs:
     - name: Push fixtures
       run: |
         sleep 5
-        ./.github/scripts/fixtures.sh
+        ./ci/test/ethlibs-fixtures.sh
       
     - name: Set up Go
       uses: actions/setup-go@v3

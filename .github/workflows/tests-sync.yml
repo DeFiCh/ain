@@ -32,9 +32,12 @@ jobs:
     - name: Install dependencies
       run: sudo ./make.sh ci-setup-deps
 
-    - name: Build node
+    - name: Setup target
+      run: ./make.sh ci-setup-deps-target
+
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
+    - name: Build binaries
       run: ./make.sh build
 
     - name: Upload binaries

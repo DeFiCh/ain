@@ -1,4 +1,4 @@
-name: Tests - Jellyfish
+name: Tests - JellyfishSDK
 
 on:
   workflow_dispatch:

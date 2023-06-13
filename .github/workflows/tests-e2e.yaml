@@ -27,6 +27,15 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+    
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
 
+    - name: Install dependencies
+      run: sudo ./make.sh ci-setup-deps
+    
+    - name: Setup target
+      run: ./make.sh ci-setup-deps-target
+    
     - name: Tests
       run: ./ci/test/main.sh
