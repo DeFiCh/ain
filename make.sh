@@ -862,7 +862,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    pkg_setup_rust
+    # pkg_setup_rust
     pkg_install_web3_deps
 }
 
