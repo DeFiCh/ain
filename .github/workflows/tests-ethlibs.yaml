@@ -22,7 +22,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Install dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: sudo ./make.sh ci-setup-deps && echo $PATH
 
     - name: Build binaries
       run: ./make.sh build
