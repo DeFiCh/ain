@@ -3875,10 +3875,10 @@ public:
 
         gasUsed = hashAndGas.used_gas;
 
-        std::vector<unsigned char> result;
-        sha3(obj.evmTx, result);
-        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, tx.GetHash(), uint256(result));
-        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, uint256(result), tx.GetHash());
+        std::vector<unsigned char> evmTx;
+        sha3(obj.evmTx, evmTx);
+        pcustomcsview->SetTxHash(CEvmDvmMapType::DvmEvm, tx.GetHash(), uint256(evmTx));
+        pcustomcsview->SetTxHash(CEvmDvmMapType::EvmDvm, uint256(evmTx), tx.GetHash());
         return Res::Ok();
     }
 
