@@ -516,6 +516,8 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
+bool IsMainNetwork();
+bool IsICXEnabled(const int height, const CCustomCSView &view);
 bool IsEVMEnabled(const int height, const CCustomCSView &view);
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
 Res ValidateTransferDomain(const CTransaction &tx,

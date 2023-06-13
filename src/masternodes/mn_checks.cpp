@@ -2057,6 +2057,9 @@ public:
     }
 
     Res operator()(const CICXCreateOrderMessage &obj) const {
+        if (!IsICXEnabled(height, mnview))
+            return Res::Err("Cannot create tx, ICX is not enabled");
+
         Require(CheckCustomTx());
 
         CICXOrderImplemetation order;
@@ -2082,6 +2085,9 @@ public:
     }
 
     Res operator()(const CICXMakeOfferMessage &obj) const {
+        if (!IsICXEnabled(height, mnview))
+            return Res::Err("Cannot create tx, ICX is not enabled");
+
         Require(CheckCustomTx());
 
         CICXMakeOfferImplemetation makeoffer;
@@ -2122,6 +2128,9 @@ public:
     }
 
     Res operator()(const CICXSubmitDFCHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview))
+            return Res::Err("Cannot create tx, ICX is not enabled");
+
         Require(CheckCustomTx());
 
         CICXSubmitDFCHTLCImplemetation submitdfchtlc;
@@ -2235,6 +2244,9 @@ public:
     }
 
     Res operator()(const CICXSubmitEXTHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview))
+            return Res::Err("Cannot create tx, ICX is not enabled");
+
         Require(CheckCustomTx());
 
         CICXSubmitEXTHTLCImplemetation submitexthtlc;
@@ -2333,6 +2345,9 @@ public:
     }
 
     Res operator()(const CICXClaimDFCHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview))
+            return Res::Err("Cannot create tx, ICX is not enabled");
+
         Require(CheckCustomTx());
 
         CICXClaimDFCHTLCImplemetation claimdfchtlc;
@@ -2385,7 +2400,8 @@ public:
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
             if ((IsTestNetwork() && height >= 1250000) ||
-                Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+                Params().NetworkIDString() == CBaseChainParams::REGTEST ||
+                (IsMainNetwork() && height >= Params().GetConsensus().NextNetworkUpgradeHeight)) {
                 Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
             } else {
                 Require(TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
@@ -4019,31 +4035,35 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
         }
     }
 
-    // ICXCreateOrder      = '1',
-    // ICXMakeOffer        = '2',
-    // ICXSubmitDFCHTLC    = '3',
-    // ICXSubmitEXTHTLC    = '4',
-    // ICXClaimDFCHTLC     = '5',
-    // ICXCloseOrder       = '6',
-    // ICXCloseOffer       = '7',
+    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+        // ICXCreateOrder      = '1',
+        // ICXMakeOffer        = '2',
+        // ICXSubmitDFCHTLC    = '3',
+        // ICXSubmitEXTHTLC    = '4',
+        // ICXClaimDFCHTLC     = '5',
+        // ICXCloseOrder       = '6',
+        // ICXCloseOffer       = '7',
 
-    // disable ICX orders for all networks other than testnet
-    if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
-        return false;
-    }
-
-    // Leaving close orders, as withdrawal of existing should be ok
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
+        // disable ICX orders for all networks other than testnet
+        if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
+            (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
             return false;
+        }
+
+        // Leaving close orders, as withdrawal of existing should be ok
+        switch (type) {
+            case CustomTxType::ICXCreateOrder:
+            case CustomTxType::ICXMakeOffer:
+            case CustomTxType::ICXSubmitDFCHTLC:
+            case CustomTxType::ICXSubmitEXTHTLC:
+            case CustomTxType::ICXClaimDFCHTLC:
+                return true;
+            default:
+                return false;
+        }
     }
+
+    return false;
 }
 
 bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Params &consensus) {
@@ -4978,6 +4998,21 @@ bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET
     || Params().NetworkIDString() == CBaseChainParams::CHANGI
     || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+}
+
+bool IsMainNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::MAIN;
+}
+
+bool IsICXEnabled(const int height, const CCustomCSView &view) {
+    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+        return true;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
 }
 
 bool IsEVMEnabled(const int height, const CCustomCSView &view) {
