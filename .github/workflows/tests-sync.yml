@@ -27,7 +27,7 @@ jobs:
         fetch-depth: 0
 
       - name: Build node
-      run: TARGET="x86_64-pc-linux-gnu" ./make.sh ci_setup_deps_target
+      run: ./make.sh ci_setup_deps
 
     - name: Build node
       # TODO: Switch this to a docker build later and this builds on the native
