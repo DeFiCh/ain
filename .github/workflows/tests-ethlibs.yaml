@@ -1,4 +1,4 @@
-name: Tests - EVM
+name: Tests - DeFiCh/go-ethlibs
 
 on:
   workflow_dispatch:
@@ -18,8 +18,14 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Populate environment
+      run: GIT_VERSION=1 ./make.sh ci-export-vars
+
     - name: Install dependencies
-      run: sudo ./make.sh ci-setup-deps && sudo ./make.sh ci-setup-deps-target
+      run: |
+        set -e; ./make.sh ci-export-vars
+        sudo ./make.sh ci-setup-deps
+        sudo ./make.sh ci-setup-deps-target
 
     - name: Build binaries
       run: ./make.sh build

@@ -13,8 +13,6 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work
 COPY ./make.sh .
 
-# Temporary workaround until https://github.com/DeFiCh/ain/pull/1946 lands
-# with specific ci-* methods
 ENV PATH=/root/.cargo/bin:$PATH
 RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
