@@ -538,6 +538,7 @@ pkg_setup_rust() {
     local target=${TARGET}
     local rust_target
     rust_target=$(get_rust_target)
+    find / -type d -name ".cargo"
     rustup target add "${rust_target}"
 }
 
