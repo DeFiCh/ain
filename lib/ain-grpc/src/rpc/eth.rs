@@ -751,8 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     self.handler
                         .storage
                         .get_block_by_hash(&block_hash)
-                        .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))
-                        .unwrap()
+                        .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))?
                         .header
                         .number,
                 ]
