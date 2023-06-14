@@ -75,8 +75,7 @@ setup_fixtures() {
 
     DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
     DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-
-    DEFI_CLI_BIN -regtest transferdomain 1 '{"'"$OWNERAUTHADDR"'":["2000@DFI"]}' '{"'"$ALICE"'":["2000@DFI"]}'
+    DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"2000@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"2000@DFI", "domain":3}}]'
     DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
     curl http://localhost:19551 \
