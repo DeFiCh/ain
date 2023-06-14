@@ -57,9 +57,9 @@ impl LogHandler {
             }
         }
 
-        for (address, logs) in logs_map.into_iter() {
-            self.storage.put_logs(address, logs, block_number)
-        }
+        logs_map
+            .into_iter()
+            .for_each(|(address, logs)| self.storage.put_logs(address, logs, block_number));
     }
 
     // get logs at a block height and filter for topics

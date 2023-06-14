@@ -748,14 +748,9 @@ impl MetachainRPCServer for MetachainRPCModule {
                     )));
                 }
 
-                loop {
+                while block_number <= to_block_number {
                     block_numbers.push(block_number);
-
-                    if block_number == to_block_number {
-                        break;
-                    } else {
-                        block_number += U256::one();
-                    }
+                    block_number += U256::one();
                 }
 
                 block_numbers
