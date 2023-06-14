@@ -1,3 +1,4 @@
+use crate::block::BlockNumber;
 use crate::bytes::Bytes;
 use ain_evm::log::LogIndex;
 use primitive_types::{H160, H256, U256};
@@ -28,4 +29,16 @@ impl From<LogIndex> for LogResult {
             topics: log.topics,
         }
     }
+}
+
+/// Call request
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct GetLogsRequest {
+    pub address: Option<Vec<H160>>,
+    pub block_hash: Option<H256>,
+    pub from_block: Option<BlockNumber>,
+    pub to_block: Option<BlockNumber>,
+    pub topics: Option<Vec<H256>>,
 }

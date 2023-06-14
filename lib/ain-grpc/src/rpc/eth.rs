@@ -10,7 +10,7 @@ use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
-use crate::transaction_log::LogResult;
+use crate::transaction_log::{GetLogsRequest, LogResult};
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -207,12 +207,7 @@ pub trait MetachainRPC {
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 
     #[method(name = "getLogs")]
-    fn get_logs(
-        &self,
-        address: H160,
-        topics: Vec<H256>,
-        block_number: U256,
-    ) -> RpcResult<Vec<LogResult>>;
+    fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -731,18 +726,49 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(self.handler.block.suggested_priority_fee())
     }
 
-    fn get_logs(
-        &self,
-        address: H160,
-        topics: Vec<H256>,
-        block_number: U256,
-    ) -> RpcResult<Vec<LogResult>> {
-        Ok(self
-            .handler
-            .logs
-            .get_logs(&address, topics, block_number)
+    fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
+        if input.block_hash.is_some() && (input.to_block.is_some() || input.from_block.is_some()) {
+            return Err(Error::Custom(String::from(
+                "cannot specify both blockHash and fromBlock/toBlock, choose one or the other",
+            )));
+        }
+
+        let block_numbers = match input.block_hash {
+            None => {
+                // use fromBlock-toBlock
+                let from_block_number = self.block_number_to_u256(input.from_block).as_u128();
+                let to_block_number = self.block_number_to_u256(input.from_block).as_u128();
+                let mut block_numbers = Vec::new();
+
+                for block_number in from_block_number..=to_block_number {
+                    block_numbers.push(U256::from(block_number))
+                }
+
+                block_numbers
+            }
+            Some(block_hash) => {
+                vec![
+                    self.handler
+                        .storage
+                        .get_block_by_hash(&block_hash)
+                        .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))
+                        .unwrap()
+                        .header
+                        .number,
+                ]
+            }
+        };
+
+        Ok(block_numbers
             .into_iter()
-            .map(LogResult::from)
+            .map(|block_number| {
+                self.handler
+                    .logs
+                    .get_logs(input.clone().address, input.clone().topics, block_number)
+                    .into_iter()
+                    .map(LogResult::from)
+            })
+            .flatten()
             .collect())
     }
 }

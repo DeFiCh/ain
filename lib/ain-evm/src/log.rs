@@ -62,25 +62,37 @@ impl LogHandler {
     }
 
     // get logs at a block height and filter for topics
-    pub fn get_logs(&self, address: &H160, topics: Vec<H256>, block_number: U256) -> Vec<LogIndex> {
-        let logs = self
-            .storage
-            .get_logs(&block_number)
-            .unwrap()
-            .get(&address)
-            .map(ToOwned::to_owned)
-            .unwrap();
+    pub fn get_logs(
+        &self,
+        address: Option<Vec<H160>>,
+        topics: Option<Vec<H256>>,
+        block_number: U256,
+    ) -> Vec<LogIndex> {
+        let logs = self.storage.get_logs(&block_number).unwrap(); // TODO: should be handled gracefully
 
-        if topics.is_empty() {
-            logs
-        } else {
-            // filter logs with topics
-            logs.into_iter()
-                .filter(|log| {
-                    let set: HashSet<_> = log.topics.iter().copied().collect();
-                    topics.iter().all(|item| set.contains(item)) // TODO: multiple vector topics not working
-                })
-                .collect()
+        let logs = match address {
+            None => logs.into_iter().map(|(_, log)| log).flatten().collect(),
+            Some(addresses) => {
+                // filter by addresses
+                logs.into_iter()
+                    .filter(|(address, _)| addresses.contains(address))
+                    .into_iter()
+                    .map(|(_, log)| log)
+                    .flatten()
+                    .collect()
+            }
+        };
+
+        match topics {
+            None => logs,
+            Some(topics) => {
+                logs.into_iter()
+                    .filter(|log| {
+                        let set: HashSet<_> = log.topics.iter().copied().collect();
+                        topics.iter().all(|item| set.contains(item)) // TODO: multiple vector topics not working
+                    })
+                    .collect()
+            }
         }
     }
 }
