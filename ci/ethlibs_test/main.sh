@@ -116,6 +116,7 @@ setup_fixtures() {
 }
 
 main() {
+    setup_vars
     start_node
     init_node
     setup_fixtures
