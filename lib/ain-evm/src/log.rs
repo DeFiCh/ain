@@ -86,14 +86,13 @@ impl LogHandler {
 
         match topics {
             None => logs,
-            Some(topics) => {
-                logs.into_iter()
-                    .filter(|log| {
-                        let set: HashSet<_> = log.topics.iter().copied().collect();
-                        topics.iter().all(|item| set.contains(item)) // TODO: multiple vector topics not working
-                    })
-                    .collect()
-            }
+            Some(topics) => logs
+                .into_iter()
+                .filter(|log| {
+                    let set: HashSet<_> = log.topics.iter().copied().collect();
+                    topics.iter().any(|item| set.contains(item))
+                })
+                .collect(),
         }
     }
 }
