@@ -16,16 +16,14 @@ jobs:
   ethlibs-test:
     runs-on: ubuntu-latest
     env:
-      BUILD_DIR: ${HOME}/build/src/
-      DEFID_BIN: ${HOME}/build/src/defid
-      DEFI_CLI_BIN: ${HOME}/build/src/defi_cli
-      FIXTURE_SCRIPT: ${HOME}/ci/ethlibs_test/main.sh
+      WORK_DIR: ${HOME}/work/ain/ain
+      BUILD_DIR: ${WORK_DIR}/build/src
+      DEFID_BIN: ${BUILD_DIR}/defid
+      DEFI_CLI_BIN: ${BUILD_DIR}/defi_cli
+      FIXTURE_SCRIPT: ${WORK_DIR}/ci/ethlibs_test/main.sh
 
     steps:
     - uses: actions/checkout@v3
-
-    - name: Debug Login
-      run: pwd && echo $HOME
 
     - name: Populate environment
       run: ./make.sh ci-export-vars

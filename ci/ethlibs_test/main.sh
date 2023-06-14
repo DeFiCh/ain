@@ -4,7 +4,8 @@ export LC_ALL=C
 
 setup_vars() {
     # directories and binaries
-    BUILD_DIR=${BUILD_DIR:-"${HOME}/build/src/"}
+    WORK_DIR=${WORK_DIR:-"$(pwd)"}
+    BUILD_DIR=${BUILD_DIR:-"${WORK_DIR}/build/src"}
     DEFID_BIN=${DEFID_BIN:-"${BUILD_DIR}/defid"}
     DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${BUILD_DIR}/defi-cli"}
 
