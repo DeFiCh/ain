@@ -3,11 +3,8 @@
 export LC_ALL=C
 
 setup_vars() {
-    # directories and scripts
+    # directories and binaries
     BUILD_DIR=${BUILD_DIR:-"${HOME}/build/src/"}
-    FIXTURES_SCRIPT=${FIXTURES_SCRIPT:-"${HOME}/ci/ethlibs_test/main.sh"}
-    
-    # binaries
     DEFID_BIN=${DEFID_BIN:-"${BUILD_DIR}/defid"}
     DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${BUILD_DIR}/defi-cli"}
 

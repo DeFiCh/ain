@@ -13,10 +13,19 @@ env:
   NODE_URL: "http://127.0.0.1:19551/"
 
 jobs:
-  build-binaries:
+  ethlibs-test:
     runs-on: ubuntu-latest
+    env:
+      BUILD_DIR: ${HOME}/build/src/
+      DEFID_BIN: ${HOME}/build/src/defid
+      DEFI_CLI_BIN: ${HOME}/build/src/defi_cli
+      FIXTURE_SCRIPT: ${HOME}/ci/ethlibs_test/main.sh
+
     steps:
     - uses: actions/checkout@v3
+
+    - name: Debug Login
+      run: pwd && echo $HOME
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -32,30 +41,6 @@ jobs:
 
     - name: Build binaries
       run: ./make.sh build
-      
-    - name: Upload binaries
-      uses: actions/upload-artifact@v3
-      with:
-        name: defibins
-        path: |
-          build/src/defid
-          build/src/defi-cli
-          ci/ethlibs_test/main.sh
-
-  node-rpc-tests:
-    runs-on: ubuntu-latest
-    needs: build-binaries
-    env:
-      BUILD_DIR: ${HOME}/build/src/
-      DEFID_BIN: ${HOME}/build/src/defid
-      DEFI_CLI_BIN: ${HOME}/build/src/defi_cli
-      FIXTURE_SCRIPT: ${HOME}/ci/ethlibs_test/main.sh
-
-    steps:
-    - name: Download binaries
-      uses: actions/download-artifact@v3
-      with:
-        name: defibins
 
     - name: Setup permissions
       run: |
@@ -63,7 +48,7 @@ jobs:
         chmod 777 DEFI_CLI_BIN
         chmod 777 FIXTURE_SCRIPT
 
-    - name: Push fixtures
+    - name: Setup fixtures
       run: FIXTURES_SCRIPT
 
     - name: Setup Go
