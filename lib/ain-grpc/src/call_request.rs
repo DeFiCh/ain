@@ -25,6 +25,8 @@ pub struct CallRequest {
     pub value: Option<U256>,
     /// Data
     pub data: Option<Bytes>,
+    /// Input
+    pub input: Option<Bytes>,
     /// Nonce
     pub nonce: Option<U256>,
     /// AccessList

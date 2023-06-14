@@ -1,23 +1,23 @@
 ARG TARGET=aarch64-linux-gnu
 
 # -----------
-FROM --platform=linux/amd64 ubuntu:latest as builder
+# https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
+FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-# Temporary workaround until https://github.com/DeFiCh/ain/pull/1946 lands
-# with specific ci-* methods
 ENV PATH=/root/.cargo/bin:$PATH
 RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
 
 COPY . .
-RUN ./make.sh clean-depends && ./make.sh build-deps
-RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-deps
+RUN ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
