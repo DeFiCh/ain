@@ -56,7 +56,7 @@ jobs:
       run: chmod uog+x build/src/defid build/src/defi-cli build/src/defid build/src/defi-cli ci/ethlibs_test/main.sh
 
     - name: Setup test fixtures
-      run: find / -name defid && ./ci/ethlibs_test/main.sh
+      run: ./ci/ethlibs_test/main.sh
 
     - name: Setup Go
       uses: actions/setup-go@v3

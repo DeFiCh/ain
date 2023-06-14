@@ -22,17 +22,8 @@ setup_vars() {
     CONTRACT_COUNTERCALLER="0x608060405234801561001057600080fd5b5060405161025c38038061025c83398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610082565b600060208284031215610065578081fd5b81516001600160a01b038116811461007b578182fd5b9392505050565b6101cb806100916000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c806360598c0114610046578063a87d942c14610050578063c3da42b81461006b575b600080fd5b61004e610096565b005b6100586100f1565b6040519081526020015b60405180910390f35b60005461007e906001600160a01b031681565b6040516001600160a01b039091168152602001610062565b6000805460408051630467eef560e21b815290516001600160a01b039092169263119fbbd49260048084019382900301818387803b1580156100d757600080fd5b505af11580156100eb573d6000803e3d6000fd5b50505050565b60008060009054906101000a90046001600160a01b03166001600160a01b031663a87d942c6040518163ffffffff1660e01b815260040160206040518083038186803b15801561014057600080fd5b505afa158015610154573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610178919061017d565b905090565b60006020828403121561018e578081fd5b505191905056fea2646970667358221220220b50dea2907d54fd36279d0583e05fe9868a78b29df0e8d111fabac5ef1d9564736f6c63430008020033"
 }
 
-print_info() {
-    echo "
-    WORK_DIR: $WORK_DIR
-    BUILD_DIR: $BUILD_DIR
-    DEFID_BIN: $DEFID_BIN
-    DEFI_CLI_BIN: $DEFI_CLI_BIN
-    "
-}
-
 start_node() {
-    DEFID_BIN -regtest \
+    $DEFID_BIN -regtest \
         -daemon \
         -debug=rpc \
         -printtoconsole \
@@ -69,21 +60,21 @@ init_node() {
 
 setup_fixtures() {
     # foundation members
-    DEFI_CLI_BIN -regtest importprivkey "$OWNERAUTHPRIV" owner true
-    DEFI_CLI_BIN -regtest importprivkey "$OPERATORAUTHPRIV" operator true
+    $DEFI_CLI_BIN -regtest importprivkey "$OWNERAUTHPRIV" owner true
+    $DEFI_CLI_BIN -regtest importprivkey "$OPERATORAUTHPRIV" operator true
 
     # push fixtures
-    DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_ALICE"
-    DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_BOB"
-    DEFI_CLI_BIN -regtest generatetoaddress 100 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_ALICE"
+    $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_BOB"
+    $DEFI_CLI_BIN -regtest generatetoaddress 100 "$OWNERAUTHADDR"
 
-    DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"5000@DFI"}'
-    DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"5000@DFI"}'
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
-    DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
-    DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-    DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"2000@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"2000@DFI", "domain":3}}]'
-    DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"2000@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"2000@DFI", "domain":3}}]'
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
     curl http://localhost:19551 \
     -H 'content-type:application/json' \
@@ -100,7 +91,7 @@ setup_fixtures() {
         }]
     }'
 
-    DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     # contract address
     # 0x966aaec51a95a737d086d21f015a6991dd5559ae
 
@@ -119,7 +110,7 @@ setup_fixtures() {
         }]
     }'
 
-    DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     # contract address
     # 0x007138e9d5bdb3f0b7f3abf2d46ad4f9184ef99d
 }
