@@ -34,12 +34,10 @@ enum CEvmDvmMapType : uint8_t {
 class CEvmDvmView : public virtual CStorageView {
 public:
     Res SetBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash);
-    Res EraseBlockHash(uint8_t type, uint256 blockHashKey);
     ResVal<uint256> GetBlockHash(uint8_t type, uint256 blockHashKey) const;
     void ForEachBlockIndexes(std::function<bool(const std::pair<uint8_t, uint256> &, const uint256 &)> callback);
 
     Res SetTxHash(uint8_t type, uint256 txHashKey, uint256 txHash);
-    Res EraseTxHash(uint8_t type, uint256 txHashKey);
     ResVal<uint256> GetTxHash(uint8_t type, uint256 txHashKey) const;
     void ForEachTxIndexes(std::function<bool(const std::pair<uint8_t, uint256> &, const uint256 &)> callback);
 
