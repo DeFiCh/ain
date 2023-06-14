@@ -3308,7 +3308,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
-        if (IsEVMEnabled(pindexNew->nHeight, mnview)) {
+        if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
         }
         bool flushed = view.Flush() && mnview.Flush();
