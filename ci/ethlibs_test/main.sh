@@ -2,6 +2,8 @@
 
 export LC_ALL=C
 
+set -Eeuo pipefail
+
 setup_vars() {
     # directories and binaries
     WORK_DIR=${WORK_DIR:-"$(pwd)"}
