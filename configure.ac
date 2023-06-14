@@ -503,6 +503,9 @@ case $host in
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(libiphlpapi missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(libcrypt32 missing))
      AC_CHECK_LIB([bcrypt],      [main],, AC_MSG_ERROR(libbcrypt missing))
+     AC_CHECK_LIB([ncrypt],      [main],, AC_MSG_ERROR(libncrypt missing))
+     AC_CHECK_LIB([schannel],      [main],, AC_MSG_ERROR(libschannel missing))
+     AC_CHECK_LIB([ntdll],      [main],, AC_MSG_ERROR(libntdll missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.

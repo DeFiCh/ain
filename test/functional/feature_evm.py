@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
-
+from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -49,6 +49,29 @@ class EVMTest(DefiTestFramework):
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1']
         ]
+
+    def test_tx_without_chainid(self, node, keypair):
+        from web3 import Web3
+
+        web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
+        nonce = web3.eth.get_transaction_count(keypair.address)
+
+        node.transferdomain([{"src": {"address": node.get_genesis_keys().ownerAuthAddress, "amount": "50@DFI",
+                                      "domain": 2},
+                              "dst": {"address": keypair.address, "amount": "50@DFI", "domain": 3}}])
+        node.generate(1)
+
+        tx = {
+            'nonce': nonce,
+            'to': "0x0000000000000000000000000000000000000000",
+            'value': web3.to_wei(0.1, 'ether'),
+            'gas': 21000,
+            'gasPrice': web3.to_wei(1, 'gwei')
+        }
+
+        signed_tx = web3.eth.account.sign_transaction(tx, keypair.pkey)
+        web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        node.generate(1)
 
     def run_test(self):
 
@@ -337,15 +360,19 @@ class EVMTest(DefiTestFramework):
         eth_fee = eth_block['gasUsed'][2:]
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
-        block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][4:68]
+        block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][20:84]
         assert_equal(block_hash, eth_hash)
 
         # Check EVM miner fee
-        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][68:]
+        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
         opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
         eth_fee_sats = Decimal(int(eth_fee, 16)) / 1000000000
         assert_equal(opreturn_fee_sats, eth_fee_sats)
         assert_equal(opreturn_fee_sats, miner_fee)
+
+        # Test that node should not crash without chainId param
+        key_pair = KeyPair.from_node(self.nodes[0])
+        self.test_tx_without_chainid(self.nodes[0], key_pair)
 
         # Test rollback of EVM TX
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
