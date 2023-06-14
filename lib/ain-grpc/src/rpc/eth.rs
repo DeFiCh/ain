@@ -727,7 +727,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
-        if input.block_hash.is_some() && (input.to_block.is_some() || input.from_block.is_some()) {
+        if let (Some(_), Some(_)) = (input.block_hash, input.to_block.or(input.from_block)) {
             return Err(Error::Custom(String::from(
                 "cannot specify both blockHash and fromBlock/toBlock, choose one or the other",
             )));
