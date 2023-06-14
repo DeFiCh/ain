@@ -202,13 +202,13 @@ pub trait MetachainRPC {
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 
+    #[method(name = "maxPriorityFeePerGas")]
+    fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
+
     // ----------------------------------------
     // Uncle blocks
     // All methods return null or default values as we do not have uncle blocks
     // ----------------------------------------
-    #[method(name = "maxPriorityFeePerGas")]
-    fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
-
     #[method(name = "getUncleCountByBlockNumber")]
     fn get_uncle_count_by_block_number(&self) -> RpcResult<U256>;
     //
