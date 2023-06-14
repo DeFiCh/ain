@@ -25,7 +25,7 @@ class OCGVotingScenarionTest(DefiTestFramework):
             ['-jellyfish_regtest=1', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51',
              '-eunosheight=80', '-eunospayaheight=81', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
              '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
-             '-grandcentralheight=101', f'-nextnetworkupgradeheight={NEXT_NETWORK_UPGRADE_HEIGHT}',
+             '-grandcentralheight=101', f'-nextnetworkupgradeheight=2',
              '-rpc-governance-accept-neutral=1', '-simulatemainnet=1'],
         ]
 
@@ -159,48 +159,8 @@ class OCGVotingScenarionTest(DefiTestFramework):
         self.test_scenario_at_quorum(expectedStatus='Rejected')
         self.test_scenario_above_quorum(expectedStatus='Completed')
 
-        # Currently marked as Rejected as neutral votes are incorrectly counted as no
-        # Should assert that it's Completed once https://github.com/DeFiCh/ain/issues/1704 is fixed
-        self.test_scenario_high_neutral_vote(expectedStatus='Rejected')
-
-        # Currently marked as Rejected as neutral votes are incorrectly counted as no
-        # Should assert that it's Completed once https://github.com/DeFiCh/ain/issues/1704 is fixed
-        self.test_scenario_only_yes_and_neutral(expectedStatus='Rejected')
-
-        self.nodes[0].setgov({"ATTRIBUTES": {
-            'v0/gov/proposals/cfp_approval_threshold': '{}%'.format(66.6),
-        }})
-        self.nodes[0].generate(1)
-
-        self.test_scenario_66_6_percent_approval_full_yes_votes(expectedStatus="Completed")
-        self.test_scenario_66_6_percent_approval_full_no_votes(expectedStatus="Rejected")
-        self.test_scenario_66_6_percent_approval_full_neutral_votes(expectedStatus="Rejected")
-
-    def scenarios_neutral_votes_not_counted_test(self):
-        self.nodes[0].generate(NEXT_NETWORK_UPGRADE_HEIGHT - self.nodes[0].getblockcount())
-
-        self.nodes[0].setgov({"ATTRIBUTES": {
-            'v0/gov/proposals/cfp_approval_threshold': '{}%'.format(APPROVAL_THRESHOLD),
-        }})
-        self.nodes[0].generate(1)
-
-        self.test_scenario_below_approval_threshold(expectedStatus='Rejected')
-        self.test_scenario_at_approval_threshold(expectedStatus='Rejected')
-        self.test_scenario_above_approval_threshold(expectedStatus='Completed')
-
-        self.nodes[0].setgov({"ATTRIBUTES": {
-            'v0/gov/proposals/quorum': '{}%'.format(QUORUM),
-        }})
-        self.nodes[0].generate(1)
-
-        self.test_scenario_below_quorum(expectedStatus='Rejected')
-        self.test_scenario_at_quorum(expectedStatus='Rejected')
-        self.test_scenario_above_quorum(expectedStatus='Completed')
-
-        # Now it should be Completed after neutral votes fix
         self.test_scenario_high_neutral_vote(expectedStatus='Completed')
 
-        # Now it should be Completed after neutral votes fix
         self.test_scenario_only_yes_and_neutral(expectedStatus='Completed')
 
         self.nodes[0].setgov({"ATTRIBUTES": {
@@ -217,8 +177,6 @@ class OCGVotingScenarionTest(DefiTestFramework):
         self.setup()
 
         self.scenarios_test()
-
-        self.scenarios_neutral_votes_not_counted_test()
 
 
 if __name__ == '__main__':
