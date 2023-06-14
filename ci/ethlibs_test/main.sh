@@ -5,7 +5,7 @@ export LC_ALL=C
 setup_vars() {
     # directories and scripts
     BUILD_DIR=${BUILD_DIR:-"${HOME}/build/src/"}
-    FIXTURES_SCRIPT=${FIXTURES_SCRIPT:-"${HOME}/ci/test/ethlibs-fixtures.sh"}
+    FIXTURES_SCRIPT=${FIXTURES_SCRIPT:-"${HOME}/ci/ethlibs_test/main.sh"}
     
     # binaries
     DEFID_BIN=${DEFID_BIN:-"${BUILD_DIR}/defid"}

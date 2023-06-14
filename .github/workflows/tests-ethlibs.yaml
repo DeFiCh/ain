@@ -40,7 +40,7 @@ jobs:
         path: |
           build/src/defid
           build/src/defi-cli
-          ci/test/ethlibs-fixtures.sh
+          ci/ethlibs_test/main.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
@@ -49,7 +49,7 @@ jobs:
       BUILD_DIR: ${HOME}/build/src/
       DEFID_BIN: ${HOME}/build/src/defid
       DEFI_CLI_BIN: ${HOME}/build/src/defi_cli
-      FIXTURE_SCRIPT: ${HOME}/ci/test/ethlibs-fixtures.sh
+      FIXTURE_SCRIPT: ${HOME}/ci/ethlibs_test/main.sh
 
     steps:
     - name: Download binaries
