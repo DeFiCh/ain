@@ -736,12 +736,18 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_numbers = match input.block_hash {
             None => {
                 // use fromBlock-toBlock
-                let from_block_number = self.block_number_to_u256(input.from_block).as_u128();
-                let to_block_number = self.block_number_to_u256(input.to_block).as_u128();
+                let mut block_number = self.block_number_to_u256(input.from_block);
+                let to_block_number = self.block_number_to_u256(input.to_block);
                 let mut block_numbers = Vec::new();
 
-                for block_number in from_block_number..=to_block_number {
-                    block_numbers.push(U256::from(block_number))
+                loop {
+                    block_numbers.push(block_number);
+
+                    if block_number == to_block_number {
+                        break;
+                    } else {
+                        block_number += U256::one();
+                    }
                 }
 
                 block_numbers
