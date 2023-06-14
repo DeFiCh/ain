@@ -36,6 +36,9 @@ jobs:
     
     - name: Install dependencies for target
       run: ./make.sh ci-setup-deps-target
-    
+
+    - name: Install dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
     - name: Tests
       run: ./ci/test/main.sh
