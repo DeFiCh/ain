@@ -42,24 +42,26 @@ jobs:
   node-rpc-tests:
     runs-on: ubuntu-latest
     needs: build-binaries
+    env:
+      BUILD_DIR: ${HOME}/build/src/
+      DEFID_BIN: ${HOME}/build/src/defid
+      DEFI_CLI_BIN: ${HOME}/build/src/defi_cli
+      FIXTURE_SCRIPT: ${HOME}/ci/test/ethlibs-fixtures.sh
+
     steps:
     - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defibins
         
-    - name: Chores
+    - name: Setup permissions
       run: |
-        chmod uog+x build/src/defid build/src/defi-cli ci/test/ethlibs-fixtures.sh
-
-    - name: Run defid node
-      run: |
-        ./build/src/defid -regtest -daemon -debug=rpc -printtoconsole -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_owner=mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU -dummypos=0 -subsidytest=1 -txnotokens=0 -txindex=1 -amkheight=0 -bayfrontheight=1 -clarkequayheight=3 -dakotaheight=4 -dakotacrescentheight=5 -eunosheight=6 -eunospayaheight=7 -fortcanningheight=8 -fortcanningmuseumheight=9 -fortcanninghillheight=10 -fortcanningroadheight=11 -fortcanningcrunchheight=12 -fortcanningspringheight=13 -fortcanninggreatworldheight=14 -fortcanningepilogueheight=15 -grandcentralheight=16 -nextnetworkupgradeheight=17
+        chmod 777 DEFID_BIN
+        chmod 777 DEFI_CLI_BIN
+        chmod 777 FIXTURE_SCRIPT
 
     - name: Push fixtures
-      run: |
-        sleep 5
-        ./ci/test/ethlibs-fixtures.sh
+      run: FIXTURES_SCRIPT
       
     - name: Set up Go
       uses: actions/setup-go@v3
