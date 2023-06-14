@@ -45,12 +45,6 @@ jobs:
   node-rpc-tests:
     runs-on: ubuntu-latest
     needs: build-binaries
-    env:
-      WORK_DIR: $(pwd)
-      BUILD_DIR: ${WORK_DIR}/build/src
-      DEFID_BIN: ${BUILD_DIR}/defid
-      DEFI_CLI_BIN: ${BUILD_DIR}/defi_cli
-      FIXTURE_SCRIPT: ${WORK_DIR}/ci/ethlibs_test/main.sh
 
     steps:
     - name: Download binaries
@@ -58,17 +52,14 @@ jobs:
       with:
         name: defibins
 
-    - name: Debug log
-      run: pwd && echo $HOME
-
     - name: Setup permissions
       run: |
-        chmod 777 DEFID_BIN
-        chmod 777 DEFI_CLI_BIN
-        chmod 777 FIXTURE_SCRIPT
+        chmod 777 build/src/defid
+        chmod 777 build/src/defi-cli
+        chmod 777 ci/ethlibs_test/main.sh
 
-    - name: Push fixtures
-      run: FIXTURES_SCRIPT
+    - name: Setup test fixtures
+      run: ./ci/ethlibs_test/main.sh
 
     - name: Setup Go
       uses: actions/setup-go@v3
