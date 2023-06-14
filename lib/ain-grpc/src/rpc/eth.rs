@@ -225,7 +225,6 @@ pub trait MetachainRPC {
 
     #[method(name = "getLogs")]
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>>;
-
 }
 
 pub struct MetachainRPCModule {
