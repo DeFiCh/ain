@@ -740,6 +740,14 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let to_block_number = self.block_number_to_u256(input.to_block);
                 let mut block_numbers = Vec::new();
 
+                if block_number > to_block_number {
+                    return Err(Error::Custom(format!(
+                        "fromBlock ({}) > toBlock ({})",
+                        format_u256(block_number),
+                        format_u256(to_block_number)
+                    )));
+                }
+
                 loop {
                     block_numbers.push(block_number);
 
