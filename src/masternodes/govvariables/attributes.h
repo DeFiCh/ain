@@ -315,6 +315,9 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
+bool IsEVMEnabled(const int height, const CCustomCSView &view);
+Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+
 enum GovVarsFilter {
     All,
     NoAttributes,

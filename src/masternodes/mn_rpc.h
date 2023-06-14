@@ -8,6 +8,7 @@
 #include <core_io.h>
 #include <validation.h>
 
+#include <masternodes/consensus/xvm.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/coinselect.h>

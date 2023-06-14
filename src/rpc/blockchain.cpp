@@ -1906,7 +1906,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         CAmount tx_total_out = 0;
         if (loop_outputs) {
             auto mintingOutputsStart = ~0u;
-            if (auto accountToUtxos = GetAccountToUtxosMsg(*tx)) {
+            if (auto accountToUtxos = GetIf<CAccountToUtxosMessage>(*tx, CustomTxType::AccountToUtxos)) {
                 mintingOutputsStart = accountToUtxos->mintingOutputsStart;
             }
             for (size_t i = 0; i < tx->vout.size(); ++i) {

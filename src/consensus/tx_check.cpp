@@ -4,6 +4,7 @@
 
 #include <consensus/tx_check.h>
 
+#include <masternodes/customtx.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
 

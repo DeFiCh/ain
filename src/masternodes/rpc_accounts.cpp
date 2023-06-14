@@ -2,7 +2,6 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
-#include <masternodes/validation.h>
 #include <masternodes/threadpool.h>
 #include <boost/asio.hpp>
 

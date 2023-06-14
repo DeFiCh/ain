@@ -143,6 +143,46 @@ public:
     friend bool operator!=(const CMasternode &a, const CMasternode &b);
 };
 
+struct CCreateMasterNodeMessage {
+    char operatorType;
+    CKeyID operatorAuthAddress;
+    uint16_t timelock{0};
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+
+        // Only available after EunosPaya
+        if (!s.eof()) {
+            READWRITE(timelock);
+        }
+    }
+};
+
+struct CResignMasterNodeMessage : public uint256 {
+    using uint256::uint256;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITEAS(uint256, *this);
+    }
+};
+
+struct CUpdateMasterNodeMessage {
+    uint256 mnId;
+    std::vector<std::pair<uint8_t, std::pair<char, std::vector<unsigned char>>>> updates;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(mnId);
+        READWRITE(updates);
+    }
+};
+
 struct MNBlockTimeKey {
     uint256 masternodeID;
     uint32_t blockHeight;
