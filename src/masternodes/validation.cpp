@@ -2431,8 +2431,8 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         auto evmBlockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
         std::reverse(evmBlockHash.begin(), evmBlockHash.end());
 
-        pcustomcsview->SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
-        pcustomcsview->SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
+        cache.SetBlockHash(CEvmDvmMapType::DvmEvm, block.GetHash(), uint256(evmBlockHash));
+        cache.SetBlockHash(CEvmDvmMapType::EvmDvm, uint256(evmBlockHash), block.GetHash());
 
         if (!blockResult.failed_transactions.empty()) {
             std::vector<std::string> failedTransactions;
