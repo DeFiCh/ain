@@ -40,14 +40,8 @@ jobs:
     - name: Build binaries
       run: ./make.sh build
 
-    - name: Setup permissions
-      run: |
-        chmod 777 DEFID_BIN
-        chmod 777 DEFI_CLI_BIN
-        chmod 777 FIXTURE_SCRIPT
-
     - name: Setup fixtures
-      run: FIXTURES_SCRIPT
+      run: chmod 777 FIXTURE_SCRIPT && FIXTURES_SCRIPT
 
     - name: Setup Go
       uses: actions/setup-go@v3
