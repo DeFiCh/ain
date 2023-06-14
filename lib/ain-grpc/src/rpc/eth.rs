@@ -7,6 +7,7 @@ use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::evm::MAX_GAS_PER_BLOCK;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
@@ -276,7 +277,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 &input
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
-                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
+                gas.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)).as_u64(), // Default to MAX_BLOCK_GAS_LIMIT
                 vec![],
                 self.block_number_to_u256(block_number),
             )
@@ -666,7 +667,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
+                gas.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)).as_u64(), // Default to MAX_BLOCK_GAS_LIMIT
                 vec![],
                 block_number,
             )
