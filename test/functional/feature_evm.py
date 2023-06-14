@@ -370,14 +370,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(opreturn_fee_sats, eth_fee_sats)
         assert_equal(opreturn_fee_sats, miner_fee)
 
-        # Test that node should not crash without chainId param
-        key_pair = KeyPair.from_node(self.nodes[0])
-        self.test_tx_without_chainid(self.nodes[0], key_pair)
-
         # Test rollback of EVM TX
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
+
+        # Test that node should not crash without chainId param
+        key_pair = KeyPair.from_node(self.nodes[0])
+        self.test_tx_without_chainid(self.nodes[0], key_pair)
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))

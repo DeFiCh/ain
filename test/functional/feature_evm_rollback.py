@@ -103,7 +103,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.creationAddress, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.ethAddress, "amount":"100@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         self.test_rollback_block()
 

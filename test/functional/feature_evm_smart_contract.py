@@ -110,6 +110,11 @@ class EVMTest(DefiTestFramework):
         storage = self.nodes[0].eth_getStorageAt(self.smartContractAddress, "0x0", "latest")
         assert_equal(storage, "0x0000000000000000000000000000000000000000000000000000000000000000")
 
+        # Fund address
+        from_address = "0xE61a3a6EB316D773C773F4CE757a542F673023C6"
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"1@DFI", "domain": 2}, "dst":{"address":from_address, "amount":"1@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+
         # Call smart contract
         callRawTx = "f8ca018502540be400832dc6c094e27a95f0d6fafa131927ac50861a4190f5a9c60b80b864131a06800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20576f726c6421000000000000000000000000000000000000002aa06e2e1dc55471cbd7ec4b0f38822152b2dfb1c31f9f7bb17f0581e81b7ab1d978a05fef62334fec720c614c138d11b78f855cd0f53ad44b2d86ff1ee68c04cfbb65"
         self.nodes[0].eth_sendRawTransaction(callRawTx)
