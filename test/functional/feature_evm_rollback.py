@@ -44,7 +44,7 @@ class EVMRolllbackTest(DefiTestFramework):
         initialBlockHash = self.nodes[0].getbestblockhash()
         blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
         blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(blockNumberPreInvalidation)
-        assert_equal(blockNumberPreInvalidation, "0x2")
+        assert_equal(blockNumberPreInvalidation, "0x1")
         assert_equal(blockPreInvalidation['number'], blockNumberPreInvalidation)
 
         self.nodes[0].invalidateblock(initialBlockHash)
@@ -54,7 +54,7 @@ class EVMRolllbackTest(DefiTestFramework):
         blockByHash = self.nodes[0].eth_getBlockByHash(blockPreInvalidation['hash'])
         assert_equal(blockByHash, None)
         block = self.nodes[0].eth_getBlockByNumber('latest')
-        assert_equal(block['number'], '0x1')
+        assert_equal(block['number'], '0x0')
 
         self.nodes[0].reconsiderblock(initialBlockHash)
         blockNumber = self.nodes[0].eth_blockNumber()
@@ -76,7 +76,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
         blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(blockNumberPreInvalidation)
-        assert_equal(blockNumberPreInvalidation, "0x3")
+        assert_equal(blockNumberPreInvalidation, "0x2")
         assert_equal(blockPreInvalidation['number'], blockNumberPreInvalidation)
 
         txPreInvalidation = self.nodes[0].eth_getTransactionByHash(hash)
@@ -103,7 +103,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.creationAddress, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.ethAddress, "amount":"100@DFI", "domain": 3}}])
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
 
         self.test_rollback_block()
 
