@@ -1,6 +1,6 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
@@ -191,7 +191,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: U256::from(30_000_000),
+                gas_limit: U256::from(MAX_GAS_PER_BLOCK),
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),
