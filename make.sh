@@ -871,7 +871,6 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    pkg_install_web3_deps
 }
 
 _ci_setup_deps_target() {
@@ -897,6 +896,10 @@ _ci_setup_deps_target() {
 ci_setup_deps_target() {
     _ci_setup_deps_target
     pkg_setup_rust
+}
+
+ci_setup_deps_test() {
+    pkg_install_web3_deps
 }
 
 get_rust_target() {

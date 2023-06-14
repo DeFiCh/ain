@@ -14,6 +14,7 @@ COPY ./make.sh .
 ENV PATH=/root/.cargo/bin:$PATH
 RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
+RUN ./make.sh ci-setup-deps-test
 
 COPY . .
 RUN ./make.sh build-deps
