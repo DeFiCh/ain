@@ -53,13 +53,10 @@ jobs:
         name: defibins
 
     - name: Setup permissions
-      run: |
-        chmod 777 build/src/defid
-        chmod 777 build/src/defi-cli
-        chmod 777 ci/ethlibs_test/main.sh
+      run: chmod uog+x build/src/defid build/src/defi-cli build/src/defid build/src/defi-cli ci/ethlibs_test/main.sh
 
     - name: Setup test fixtures
-      run: ./ci/ethlibs_test/main.sh
+      run: find / -name defid && ./ci/ethlibs_test/main.sh
 
     - name: Setup Go
       uses: actions/setup-go@v3
