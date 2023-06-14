@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be 
-          formatted as multiple start block, such as "350000 50000 750000". 
+        description: 'Optionally restrict to specific block ranges. Should be
+          formatted as multiple start block, such as "350000 50000 750000".
           Defaults to all block ranges'
         required: false
       name:
@@ -34,6 +34,9 @@ jobs:
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: ./make.sh ci-setup-deps-test
 
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
@@ -127,6 +130,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: sync
+
+    - name: Rename Artifact
+      run: mv main.sh sync.sh
 
     - name: Set Permissions
       run: |
