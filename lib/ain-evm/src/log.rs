@@ -1,7 +1,7 @@
 use crate::receipt::Receipt;
 use crate::storage::traits::LogStorage;
 use crate::storage::Storage;
-use ethereum::{Log, ReceiptV3};
+use ethereum::ReceiptV3;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -21,15 +21,6 @@ pub struct LogIndex {
 
 pub struct LogHandler {
     storage: Arc<Storage>,
-}
-
-fn get_to_address(receipt: &Receipt) -> H160 {
-    match receipt.to {
-        Some(to) => to,
-        None => receipt
-            .contract_address
-            .expect("Unable to find a valid destination address"),
-    }
 }
 
 impl LogHandler {
@@ -74,9 +65,9 @@ impl LogHandler {
     pub fn get_logs(&self, address: &H160, topics: Vec<H256>, block_number: U256) -> Vec<LogIndex> {
         let logs = self
             .storage
-            .get_logs(&address)
+            .get_logs(&block_number)
             .unwrap()
-            .get(&block_number)
+            .get(&address)
             .map(ToOwned::to_owned)
             .unwrap();
 

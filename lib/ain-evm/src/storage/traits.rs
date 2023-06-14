@@ -47,7 +47,7 @@ pub trait ReceiptStorage {
 }
 
 pub trait LogStorage {
-    fn get_logs(&self, address: &H160) -> Option<HashMap<U256, Vec<LogIndex>>>;
+    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>>;
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256);
 }
 

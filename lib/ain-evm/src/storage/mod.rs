@@ -178,8 +178,8 @@ impl ReceiptStorage for Storage {
 }
 
 impl LogStorage for Storage {
-    fn get_logs(&self, address: &H160) -> Option<HashMap<U256, Vec<LogIndex>>> {
-        self.blockchain_data_handler.get_logs(address)
+    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>> {
+        self.blockchain_data_handler.get_logs(block_number)
     }
 
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {

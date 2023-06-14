@@ -1,6 +1,6 @@
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
-use ethereum::{EnvelopedEncodable, Log, ReceiptV3};
+use ethereum::{EnvelopedEncodable, ReceiptV3};
 use primitive_types::{H160, H256, U256};
 
 use ethereum::util::ordered_trie_root;

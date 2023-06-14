@@ -23,7 +23,6 @@ pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 pub static CODE_MAP_PATH: &str = "code_map.bin";
 pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
 pub static BASE_FEE_MAP_PATH: &str = "base_fee_map.bin";
-pub static LOGS_MAP_PATH: &str = "logs_map.bin";
 pub static ADDRESS_LOGS_MAP_PATH: &str = "address_logs_map.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
@@ -32,7 +31,7 @@ type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
 type BlockHashtoBaseFee = HashMap<H256, U256>;
-type AddressToLogs = HashMap<H160, HashMap<U256, Vec<LogIndex>>>;
+type AddressToLogs = HashMap<U256, HashMap<H160, Vec<LogIndex>>>;
 
 impl PersistentState for BlockHashtoBlock {}
 impl PersistentState for Blocks {}
@@ -215,19 +214,21 @@ impl ReceiptStorage for BlockchainDataHandler {
 }
 
 impl LogStorage for BlockchainDataHandler {
-    fn get_logs(&self, address: &H160) -> Option<HashMap<U256, Vec<LogIndex>>> {
+    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>> {
         self.address_logs_map
             .read()
             .unwrap()
-            .get(address)
+            .get(block_number)
             .map(ToOwned::to_owned)
     }
 
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
         let mut address_logs_map = self.address_logs_map.write().unwrap();
 
-        let address_map = address_logs_map.entry(address).or_insert(HashMap::new());
-        address_map.insert(block_number, logs);
+        let address_map = address_logs_map
+            .entry(block_number)
+            .or_insert(HashMap::new());
+        address_map.insert(address, logs);
     }
 }
 
