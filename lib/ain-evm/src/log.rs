@@ -73,14 +73,13 @@ impl LogHandler {
         let logs = self.storage.get_logs(&block_number).unwrap_or_default();
 
         let logs = match address {
-            None => logs.into_iter().map(|(_, log)| log).flatten().collect(),
+            None => logs.into_iter().flat_map(|(_, log)| log).collect(),
             Some(addresses) => {
                 // filter by addresses
                 logs.into_iter()
                     .filter(|(address, _)| addresses.contains(address))
                     .into_iter()
-                    .map(|(_, log)| log)
-                    .flatten()
+                    .flat_map(|(_, log)| log)
                     .collect()
             }
         };

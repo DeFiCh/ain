@@ -760,14 +760,13 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         Ok(block_numbers
             .into_iter()
-            .map(|block_number| {
+            .flat_map(|block_number| {
                 self.handler
                     .logs
                     .get_logs(input.clone().address, input.clone().topics, block_number)
                     .into_iter()
                     .map(LogResult::from)
             })
-            .flatten()
             .collect())
     }
 }
