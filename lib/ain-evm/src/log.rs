@@ -2,6 +2,7 @@ use crate::receipt::Receipt;
 use crate::storage::traits::LogStorage;
 use crate::storage::Storage;
 use ethereum::ReceiptV3;
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -68,7 +69,8 @@ impl LogHandler {
         topics: Option<Vec<H256>>,
         block_number: U256,
     ) -> Vec<LogIndex> {
-        let logs = self.storage.get_logs(&block_number).unwrap(); // TODO: should be handled gracefully
+        debug!("Getting logs for block {:#x?}", block_number);
+        let logs = self.storage.get_logs(&block_number).unwrap_or_default();
 
         let logs = match address {
             None => logs.into_iter().map(|(_, log)| log).flatten().collect(),
