@@ -202,8 +202,24 @@ pub trait MetachainRPC {
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 
+    // ----------------------------------------
+    // Uncle blocks
+    // All methods return null or default values as we do not have uncle blocks
+    // ----------------------------------------
     #[method(name = "maxPriorityFeePerGas")]
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
+
+    #[method(name = "getUncleCountByBlockNumber")]
+    fn get_uncle_count_by_block_number(&self) -> RpcResult<U256>;
+    //
+    #[method(name = "getUncleCountByBlockHash")]
+    fn get_uncle_count_by_block_hash(&self) -> RpcResult<U256>;
+
+    #[method(name = "getUncleByBlockNumberAndIndex")]
+    fn get_uncle_by_block_number(&self) -> RpcResult<Option<bool>>;
+
+    #[method(name = "getUncleByBlockHashAndIndex")]
+    fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>>;
 }
 
 pub struct MetachainRPCModule {
@@ -720,6 +736,22 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         Ok(self.handler.block.suggested_priority_fee())
+    }
+
+    fn get_uncle_count_by_block_number(&self) -> RpcResult<U256> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_count_by_block_hash(&self) -> RpcResult<U256> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_by_block_number(&self) -> RpcResult<Option<bool>> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>> {
+        Ok(Default::default())
     }
 }
 
