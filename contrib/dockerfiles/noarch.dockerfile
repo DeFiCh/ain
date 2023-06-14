@@ -6,22 +6,20 @@ ARG TARGET=unknown
 # -----------
 FROM ubuntu:latest as builder
 ARG TARGET
-ARG DEBUG
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-# Temporary workaround until https://github.com/DeFiCh/ain/pull/1946 lands
-# with specific ci-* methods
 ENV PATH=/root/.cargo/bin:$PATH
 RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
 
 COPY . .
 RUN ./make.sh build-deps
-RUN MAKE_DEBUG=${DEBUG} ./make.sh build-conf
+RUN ./make.sh build-conf
 RUN ./make.sh build-make
 
 RUN mkdir /app && cd build/ && \
