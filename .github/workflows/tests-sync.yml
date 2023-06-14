@@ -128,14 +128,18 @@ jobs:
       with:
         name: sync
 
+    - name: Rename Artifact
+      run: mv main.sh sync.sh
+
+
     - name: Set Permissions
       run: |
         chmod 777 defid
         chmod 777 defi-cli
-        chmod 777 sync/ci/sync/main.sh
+        chmod 777 sync.sh
 
     - name: Sync
-      run: ./sync/ci/sync/main.sh
+      run: ./sync.sh
 
     - name: Diff log
       run: diff debug-${{matrix.blocks.stop}}.log debug-tmp-${{matrix.blocks.stop}}.log
