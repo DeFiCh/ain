@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be 
-          formatted as multiple start block, such as "350000 50000 750000". 
+        description: 'Optionally restrict to specific block ranges. Should be
+          formatted as multiple start block, such as "350000 50000 750000".
           Defaults to all block ranges'
         required: false
       name:
@@ -132,10 +132,10 @@ jobs:
       run: |
         chmod 777 defid
         chmod 777 defi-cli
-        chmod 777 sync.sh
+        chmod 777 sync/ci/sync/main.sh
 
     - name: Sync
-      run: ./sync.sh
+      run: ./sync/ci/sync/main.sh
 
     - name: Diff log
       run: diff debug-${{matrix.blocks.stop}}.log debug-tmp-${{matrix.blocks.stop}}.log
