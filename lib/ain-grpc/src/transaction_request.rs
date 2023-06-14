@@ -56,8 +56,10 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 gas_price: req.gas_price.unwrap_or_default(),
                 gas_limit: req.gas.unwrap_or_default(),
                 value: req.value.unwrap_or_default(),
-                input: req.input.map(Bytes::into_vec)
-                .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                input: req
+                    .input
+                    .map(Bytes::into_vec)
+                    .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
                 action: match req.to {
                     Some(to) => ethereum::TransactionAction::Call(to),
                     None => ethereum::TransactionAction::Create,
@@ -70,8 +72,10 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 gas_price: req.gas_price.unwrap_or_default(),
                 gas_limit: req.gas.unwrap_or_default(),
                 value: req.value.unwrap_or_default(),
-                input: req.input.map(Bytes::into_vec)
-                .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                input: req
+                    .input
+                    .map(Bytes::into_vec)
+                    .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
                 action: match req.to {
                     Some(to) => ethereum::TransactionAction::Call(to),
                     None => ethereum::TransactionAction::Create,
@@ -88,8 +92,10 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                     max_priority_fee_per_gas: req.max_priority_fee_per_gas.unwrap_or_default(),
                     gas_limit: req.gas.unwrap_or_default(),
                     value: req.value.unwrap_or_default(),
-                    input: req.input.map(Bytes::into_vec)
-                    .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                    input: req
+                        .input
+                        .map(Bytes::into_vec)
+                        .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
                     action: match req.to {
                         Some(to) => ethereum::TransactionAction::Call(to),
                         None => ethereum::TransactionAction::Create,
