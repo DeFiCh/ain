@@ -737,7 +737,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             None => {
                 // use fromBlock-toBlock
                 let from_block_number = self.block_number_to_u256(input.from_block).as_u128();
-                let to_block_number = self.block_number_to_u256(input.from_block).as_u128();
+                let to_block_number = self.block_number_to_u256(input.to_block).as_u128();
                 let mut block_numbers = Vec::new();
 
                 for block_number in from_block_number..=to_block_number {
