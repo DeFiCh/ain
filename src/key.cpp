@@ -269,7 +269,7 @@ bool CKey::Load(const CPrivKey &privkey, const CPubKey &vchPubKey, bool fSkipChe
 
     return VerifyPubKey(vchPubKey);
 }
-#include <logging.h>
+
 bool CKey::Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, const bool ethAddress) const {
     assert(IsValid());
     assert(IsCompressed());

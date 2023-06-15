@@ -80,18 +80,9 @@ class DefiTestMetaClass(type):
 def get_default_config_path():
     current_file_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     default_config_paths = [
-        # default priority to be for build dir specific build
+        # standard dev envs, for the rest manual config is required
         current_file_path + "/../../../build/test/config.ini",
-        # tree-path specific for build explicitly built in tree
-        current_file_path + "/../../config.ini",
-        # priority host specific build selection for standard dev envs
-        current_file_path + "/../../../build/x86_64-pc-linux-gnu/test/config.ini",
-        current_file_path + "/../../../build/aarch64-apple-darwin/test/config.ini",
-        current_file_path + "/../../../build/x86_64-apple-darwin/test/config.ini",
-        current_file_path + "/../../../build/x86_64-w64-migw32/test/config.ini",
-        # aarch64 / arm builds are by default lower priority when selecting host specific build
-        current_file_path + "/../../../build/arm-linux-gnueabihf/test/config.ini",
-        current_file_path + "/../../../build/aarch64-linux-gnu/test/config.ini",
+        current_file_path + "/../../test/config.ini",
     ]
     for p in default_config_paths:
         if os.path.exists(p):
@@ -398,7 +389,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
     # Public helper methods. These can be accessed by the subclass test scripts.
 
-    def add_nodes(self, num_nodes, extra_args=None, *, rpchost=None, binary=None):
+    def add_nodes(self, num_nodes, extra_args=None, *, rpchost=None, evm_rpchost=None, binary=None):
         """Instantiate TestNode objects.
 
         Should only be called once after the nodes have been specified in
@@ -420,6 +411,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 get_datadir_path(self.options.tmpdir, i),
                 chain=self.chain,
                 rpchost=rpchost,
+                evm_rpchost=evm_rpchost,
                 timewait=self.rpc_timeout,
                 defid=binary[i],
                 defi_cli=self.options.deficli,
@@ -569,6 +561,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                     extra_conf=["bind=127.0.0.1"],
                     extra_args=[],
                     rpchost=None,
+                    evm_rpchost=None,
                     timewait=self.rpc_timeout,
                     defid=self.options.defid,
                     defi_cli=self.options.deficli,
@@ -615,7 +608,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
             for entry in os.listdir(cache_path()):
                 if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors',
-                                 'history']:  # Only keep chainstate and blocks folder
+                                 'history', 'evm']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):

@@ -24,6 +24,11 @@ Then install [Homebrew](https://brew.sh).
 brew install automake berkeley-db@4 libtool boost miniupnpc openssl pkg-config protobuf python libevent qrencode
 ```
 
+Rust toolchain is necessary for the build:
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
 See [dependencies.md](dependencies.md) for a complete overview.
 
 If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG:
@@ -101,6 +106,23 @@ take many hours, or even days on slower than average systems.
 You can monitor the download process by looking at the debug.log file:
 ```shell
 tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
+```
+
+## Installing the rust toolchain (MacOS M1)
+```shell
+# default installation
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+# custom installation
+curl https://sh.rustup.rs -sSf | sh
+PATH=$PATH:~/.cargo/bin/cargo
+rustup target add aarch64-apple-darwin
+```
+
+## Installing the protobuf compiler
+```shell
+brew install protobuf@3.20
+# ensure installation was successful by running
+protoc --version
 ```
 
 ## Other commands:

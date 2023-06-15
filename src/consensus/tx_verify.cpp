@@ -144,7 +144,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 {
     int64_t nSigOps = GetLegacySigOpCount(tx) * WITNESS_SCALE_FACTOR;
 
-    if (tx.IsCoinBase())
+    if (tx.IsCoinBase() || IsEVMTx(tx))
         return nSigOps;
 
     if (flags & SCRIPT_VERIFY_P2SH) {
@@ -163,6 +163,10 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
 bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CCustomCSView& mnview, int nSpendHeight, CAmount& txfee, const CChainParams& chainparams)
 {
+    if (IsEVMTx(tx)) {
+        return true;
+    }
+
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
         return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-inputs-missingorspent",
@@ -176,7 +180,8 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend);
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, gasUsed, 0, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

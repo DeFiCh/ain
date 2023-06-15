@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <limits.h>
+#include <limits>
 #include <time.h>
 #include <assert.h>
 #include <thread>

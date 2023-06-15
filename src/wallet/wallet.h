@@ -58,6 +58,7 @@ bool HasWallets();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
 std::shared_ptr<CWallet> GetWallet(const std::string& name);
 std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocation& location, std::string& error, std::string& warning);
+std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input);
 
 CKey GetWalletsKey(CKeyID const & keyid);
 
@@ -1004,7 +1005,7 @@ public:
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress = false) { return AddKeyPubKeyInner(key, pubkey, ethAddress); }
+    bool LoadKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress) { return AddKeyPubKeyInner(key, pubkey, ethAddress); }
     //! Load metadata (used by LoadWallet)
     void LoadKeyMetadata(const CKeyID& keyID, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LoadScriptMetadata(const CScriptID& script_id, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);

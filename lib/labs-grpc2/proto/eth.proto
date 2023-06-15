@@ -1,0 +1,418 @@
+syntax = "proto3";
+package eth;
+
+import "google/protobuf/empty.proto";
+
+service Api {
+  /// Returns eth_accounts list.
+  rpc EthAccounts(google.protobuf.Empty) returns (EthAccountsResponse);
+
+  /// Call contract, returning the output data. Does not create a transaction.
+  rpc EthCall(EthCallRequest) returns (EthCallResponse);
+
+  /// Returns the balance for the given address.
+  rpc EthGetBalance(EthGetBalanceRequest) returns (EthGetBalanceResponse);
+
+  /// Returns information about a block by hash.
+  rpc EthGetBlockByHash(EthGetBlockByHashRequest) returns (EthBlockInfo);
+
+  /// Returns the balance for the given address.
+  rpc EthSendTransaction(EthSendTransactionRequest) returns (EthSendTransactionResponse);
+
+  /// Returns the chain ID used for signing replay-protected transactions.
+  rpc EthChainId(google.protobuf.Empty) returns (EthChainIdResponse);
+
+  /// Returns the current network id.
+  rpc NetVersion(google.protobuf.Empty) returns (EthChainIdResponse);
+
+  /// Returns the number of most recent block.
+  rpc EthBlockNumber(google.protobuf.Empty) returns (EthBlockNumberResponse);
+
+  /// Returns information about a block by block number.
+  rpc EthGetBlockByNumber(EthGetBlockByNumberRequest) returns (EthBlockInfo);
+
+  /// Returns the information about a transaction from a transaction hash.
+  rpc EthGetTransactionByHash(EthGetTransactionByHashRequest) returns (EthTransactionInfo);
+
+  /// Returns information about a transaction given a blockhash and transaction index position.
+  rpc EthGetTransactionByBlockHashAndIndex(EthGetTransactionByBlockHashAndIndexRequest) returns (EthTransactionInfo);
+
+  /// Returns information about a transaction given a block number and transaction index position.
+  rpc EthGetTransactionByBlockNumberAndIndex(EthGetTransactionByBlockNumberAndIndexRequest) returns (EthTransactionInfo);
+
+  /// Returns true if client is actively mining new blocks.
+  rpc EthMining(google.protobuf.Empty) returns (EthMiningResponse);
+
+  /// Returns the number of transactions in a block from a block matching the given block hash.
+  rpc EthGetBlockTransactionCountByHash(EthGetBlockTransactionCountByHashRequest) returns (EthGetBlockTransactionCountByHashResponse);
+
+  /// Returns the number of transactions in a block matching the given block number.
+  rpc EthGetBlockTransactionCountByNumber(EthGetBlockTransactionCountByNumberRequest) returns (EthGetBlockTransactionCountByNumberResponse);
+
+  /// Returns code at a given address.
+  rpc EthGetCode(EthGetCodeRequest) returns (EthGetCodeResponse);
+
+  /// Returns the value from a storage position at a given address.
+  rpc EthGetStorageAt(EthGetStorageAtRequest) returns (EthGetStorageAtResponse);
+
+  /// Creates new message call transaction or a contract creation for signed transactions.
+  rpc EthSendRawTransaction(EthSendRawTransactionRequest) returns (EthSendRawTransactionResponse);
+}
+
+message EthAccountsResponse {
+    repeated string accounts = 1; // The list of accounts (Hex)
+}
+
+message EthTransactionInfo {
+    optional string from = 1; // The address from which the transaction is sent
+    optional string to = 2; // The address to which the transaction is addressed
+    optional uint64 gas = 3; // The integer of gas provided for the transaction execution
+    optional string price = 4; // The integer of gas price used for each paid gas encoded as hexadecimal
+    optional string value = 5; // The integer of value sent with this transaction encoded as hexadecimal
+    optional string data = 6; // The hash of the method signature and encoded parameters.
+    optional string nonce = 7; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
+}
+
+message EthChainIdResponse {
+    string id = 1; // Hexadecimal value as a string representing the integer of the current chain id.
+}
+
+message EthBlockInfo {
+    string block_number = 1; // The block number. null when its pending block.
+    string hash = 2; // Hash of the block. null when its pending block.
+    string parent_hash = 3; // Hash of the parent block.
+    string nonce = 4; // Hash of the generated proof-of-work. null when its pending block.
+    string sha3_uncles = 5; // SHA3 of the uncles data in the block.
+    string logs_bloom = 6; // The bloom filter for the logs of the block. null when its pending block.
+    string transactions_root = 7; // The root of the transaction trie of the block.
+    string state_root = 8; // The root of the final state trie of the block.
+    string receipt_root = 9; // The root of the receipts trie of the block.
+    string miner = 10; // The address of the beneficiary to whom the mining rewards were given.
+    string difficulty = 11; // Integer of the difficulty for this block.
+    string total_difficulty = 12; // Integer of the total difficulty of the chain until this block.
+    string extra_data = 13; // The "extra data" field of this block.
+    string size = 14; // Integer the size of this block in bytes.
+    string gas_limit = 15; // The maximum gas allowed in this block.
+    string gas_used = 16; // The total used gas by all transactions in this block.
+    string timestamps = 17; // The unix timestamp for when the block was collated.
+    repeated string transactions = 18; // Array of transaction objects, or 32 Bytes transaction hashes depending on the last given parameter.
+    repeated string uncles = 19; // Array of uncle hashes.
+}
+
+message EthTransactionReceipt {
+    string transaction_hash = 1; // Hash of the transaction.
+    string transaction_index = 2; // Integer of the transactions index position in the block.
+    string block_hash = 3; // Hash of the block where this transaction was in.
+    string block_number = 4; // Block number where this transaction was in.
+    string from = 5; // Address of the sender.
+    string to = 6; // Address of the receiver. null when its a contract creation transaction.
+    string cumulative_gas_used = 7; // The total amount of gas used when this transaction was executed in the block.
+    string effective_gas_price = 8; // The sum of the base fee and tip paid per unit of gas.
+    string gas_used = 9; // The amount of gas used by this specific transaction alone.
+    string contract_address = 10; // The contract address created, if the transaction was a contract creation, otherwise null.
+    repeated string logs = 11; // Array of log objects, which this transaction generated.
+    string logs_bloom = 12; // Bloom filter for light clients to quickly retrieve related logs.
+    string type = 13; // Integer of the transaction type, 0x00 for legacy transactions, 0x01 for access list types, 0x02 for dynamic fees. It also returns either :
+    optional string root = 14; // 32 bytes of post-transaction stateroot (pre Byzantium)
+    optional string status = 15; // Either 1 (success) or 0 (failure)
+}
+
+message EthCallRequest {
+    EthTransactionInfo transaction_info = 1; // The transaction call object
+    string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+}
+
+message EthCallResponse {
+    string data = 1; // The return value of the executed contract method
+}
+
+message EthSignRequest {
+    string address = 1; // Address you want to use to sign the message
+    string message = 2; // Hexadecimal value of the message that you want to sign
+}
+
+message EthSignResponse {
+    string signature = 1; // Hexadecimal value of the signed message
+}
+
+message EthGetBalanceRequest {
+    string address = 1; // Address you want to check the balance
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetBalanceResponse {
+    string balance = 1; // Integer of the current balance in wei (Hex)
+}
+
+message EthSendTransactionRequest {
+    EthTransactionInfo transaction_info = 1; // The transaction object
+}
+
+message EthSendTransactionResponse {
+    string hash = 1; // The transaction hash, or the zero hash if the transaction is not yet available
+}
+
+message EthCoinBaseResponse {
+    string address = 1; // The current coinbase address
+}
+
+message EthMiningResponse  {
+    bool isMining = 1; // True if the client is mining, otherwise False
+}
+
+message EthHashRateResponse {
+    string hash_rate = 1; // Number of hashes per second (Hex)
+}
+
+message EthGasPriceResponse {
+    string gas_price = 1; // Integer of the current gas price in wei (Hex)
+}
+
+message EthBlockNumberResponse {
+    string block_number = 1; // Integer of the current block number the client is on (Hex)
+}
+
+message EthGetTransactionCountRequest {
+    string address = 1;
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetTransactionCountResponse {
+    string number_transaction = 1; // Integer of the number of transactions send from this address (Hex)
+}
+
+message EthGetBlockTransactionCountByHashRequest {
+    string block_hash = 1; // Hash of a block (Hex)
+}
+
+message EthGetBlockTransactionCountByHashResponse {
+    string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
+}
+
+message EthGetBlockTransactionCountByNumberRequest {
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetBlockTransactionCountByNumberResponse {
+    string number_transaction = 1; // Integer of the number of transactions in this block (Hex)
+}
+
+message EthGetUncleCountByBlockHashRequest {
+    string block_hash = 1; // Hash of a block (Hex)
+}
+
+message EthGetUncleCountByBlockHashResponse {
+    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
+}
+
+message EthGetUncleCountByBlockNumberRequest {
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetUncleCountByBlockNumberResponse {
+    string number_uncles = 1; // Integer of the number of uncles in this block (Hex)
+}
+
+message EthGetCodeRequest {
+    string address = 1; // Address you wan to get the code from
+    string block_number = 2; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetCodeResponse {
+    string code = 1; // The code from the given address
+}
+
+message EthSignTransactionRequest {
+    EthTransactionInfo transaction_info = 1; // The transaction object to be signed
+}
+
+message EthSignTransactionResponse {
+    string transaction = 1; // The signed transaction object
+}
+
+message EthSendRawTransactionRequest {
+    string transaction = 1; // Hexadecimal encoded signed transaction
+}
+
+message EthSendRawTransactionResponse {
+    string hash = 1; // The transaction hash, or the zero hash if the transaction is not yet available.
+}
+
+message EthEstimateGasRequest {
+    EthTransactionInfo transaction_info = 1; // Transaction info
+    optional string block_number = 2; // Block number in hexadecimal format or the string latest, earliest, pending, safe or finalized
+}
+
+message EthEstimateGasResponse {
+    string gas_used = 1; // The amount of gas used (Hex)
+}
+
+message EthGetBlockByHashRequest {
+    string hash = 1; // Hash of a block (Hex)
+    bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
+}
+
+message EthGetBlockByHashResponse {
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
+}
+
+message EthGetBlockByNumberRequest {
+    string number = 1; // Block number (Hex)
+    bool full_transaction = 2; // If true it returns the full transaction objects, if false only the hashes of the transactions
+}
+
+message EthGetBlockByNumberResponse {
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
+}
+
+message EthGetTransactionByHashRequest {
+    string hash = 1; // Hash of the transaction
+}
+
+message EthGetTransactionByHashResponse {
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
+}
+
+message EthGetTransactionByBlockHashAndIndexRequest {
+    string block_hash = 1; // Hash of a block
+    string index = 2; // Integer of the transaction index position (Hex)
+}
+
+message EthGetTransactionByBlockHashAndIndexResponse {
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
+}
+
+message EthGetTransactionByBlockNumberAndIndexRequest {
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string index = 2; // Integer of the transaction index position (Hex)
+}
+
+message EthGetTransactionByBlockNumberAndIndexResponse {
+    EthTransactionInfo transaction = 1; // A transaction object, or null when no transaction was found
+}
+
+message EthGetUncleByBlockHashAndIndexRequest {
+    string block_hash = 1; // Hash of a block
+    string index = 2; // Integer of the transaction index position (Hex)
+}
+
+message EthGetUncleByBlockHashAndIndexResponse {
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
+}
+
+message EthGetUncleByBlockNumberAndIndexRequest {
+    string block_number = 1; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+    string index = 2; // Integer of the transaction index position (Hex)
+}
+
+message EthGetUncleByBlockNumberAndIndexResponse {
+    EthBlockInfo block_info = 1; // A block object, or null when no block was found
+}
+
+message EthGetCompilersResponse {
+    repeated string compilers = 1; // Array of available compilers
+}
+
+message EthCompileSolidityRequest {
+    string code = 1; // The source code
+}
+
+message EthCompileSolidityResponse {
+    string compiled_code = 1; // The compiled source code
+}
+
+message EthCompileLLLRequest {
+    string code = 1; // The source code
+}
+
+message EthCompileLLLResponse {
+    string compiled_code = 1; // The compiled source code
+}
+
+message EthCompileSerpentRequest {
+    string code = 1; // The source code
+}
+
+message EthCompileSerpentResponse {
+    string compiled_code = 1; // The compiled source code
+}
+
+message EthProtocolVersionResponse {
+    string protocol_version = 1; // The current DMC protocol version
+}
+
+message Web3Sha3Request {
+    string data = 1; // The data to convert into a SHA3 hash
+}
+
+message Web3Sha3Response {
+    string data = 1; // The SHA3 result of the given string.
+}
+
+message NetPeerCountResponse {
+    string number_peer = 1; // Integer of the number of connected peers (Hex)
+}
+
+message NetVersionResponse {
+    string network_version = 1; // The current network id
+}
+
+message Web3ClientVersionResponse {
+    string client_version = 1; // The current client version
+}
+
+message EthGetWorkResponse {
+    string currentblock = 1; // Current block header pow-hash
+    string seed_hash = 2; // The seed hash used for the DAG.
+    string target = 3; // The boundary condition ("target"), 2^256 / difficulty.
+}
+
+message EthSubmitWorkRequest {
+    string nounce = 1; // The nonce found (64 bits)
+    string pow_hash = 2; // The header's pow-hash (256 bits)
+    string mix_digest = 3; // The mix digest (256 bits)
+}
+
+message EthSubmitWorkResponse {
+    bool is_valid = 1; // Returns true if the provided solution is valid, otherwise false
+}
+
+message EthSubmitHashrateRequest {
+    string hash_rate = 1; // Hexadecimal string representation (32 bytes) of the hashrate
+    string id = 2; // A random hexadecimal(32 bytes) ID identifying the client
+}
+
+message EthSubmitHashrateResponse {
+    bool is_valid = 1; // Returns true if submitting went through successfully and false otherwise
+}
+
+message EthGetStorageAtRequest {
+    string address = 1; // Address of the storage
+    string position = 2; // integer of the position in the storage (Hex)
+    string block_number = 3; // Integer block number, or the string "latest", "earliest" or "pending" (Hex) if it's the block number
+}
+
+message EthGetStorageAtResponse {
+    string value = 1; // The value at this storage position.
+}
+
+message EthGetTransactionReceiptRequest {
+    string transaction_hash = 1; // Hash of a transaction
+}
+
+message EthGetTransactionReceiptResponse {
+    EthTransactionReceipt transaction_receipt = 1; // A transaction receipt object, or null when no receipt was found
+}
+
+message EthSyncingInfo {
+    string starting_block = 1; // The block at which the import started (will only be reset, after the sync reached his head)
+    string current_block = 2; // The current block, same as eth_blockNumber
+    string highest_block = 3; // The estimated highest block
+}
+
+message EthSyncingResponse {
+    oneof value { 
+        bool status = 1; // Return False when not syncing
+        EthSyncingInfo sync_info = 2; // An object with sync status data
+    }
+}

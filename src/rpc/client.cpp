@@ -324,6 +324,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+    { "transferdomain", 0, "array" },
     { "getanchorteams", 0, "blockHeight" },
     { "getactivemasternodecount", 0, "blockCount" },
     { "appointoracle", 1, "pricefeeds" },
@@ -360,6 +361,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listgovproposalvotes", 3, "pagination" },
     { "listgovproposals", 2, "cycle" },
     { "listgovproposals", 3, "pagination" },
+    { "evmtx", 1, "nonce" },
+    { "evmtx", 2, "gasPrice" },
+    { "evmtx", 3, "gasLimit" },
+    { "evmtx", 5, "value" },
 };
 // clang-format on
 

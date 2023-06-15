@@ -1,0 +1,55 @@
+syntax = "proto3";
+package types;
+
+message Transaction {
+    string hash = 1; // Transaction hash
+    RawTransaction raw = 2; // Raw transaction data
+}
+
+message RawTransaction {
+    bool in_active_chain = 1; // Whether specified block is in the active chain or not (only present with explicit "blockhash" argument)
+    string hex = 2; // The serialized, hex-encoded data for 'txid'
+    string txid = 3; // The transaction id (same as provided)
+    string hash = 4; // The transaction hash (differs from txid for witness transactions)
+    uint32 size = 5; // The serialized transaction size
+    uint32 vsize = 6; // The virtual transaction size (differs from size for witness transactions)
+    uint32 weight = 7; // The transaction's weight (between vsize*4-3 and vsize*4)
+    uint32 version = 8; // The transaction version
+    uint64 locktime = 9; // The lock time
+    repeated Vin vin = 10; // List of inputs
+    repeated Vout vout = 11; // List of outputs
+    string blockhash = 12; // The block hash
+    string confirmations = 13; // The confirmations
+    uint64 blocktime = 14; // The block time in seconds since UNIX epoch
+}
+
+message Vin {
+    string txid = 1; // The transaction id
+    uint32 vout = 2; // The output index
+    ScriptSig script_sig = 3; // The script signature
+    uint64 sequence = 4; // The script sequence number
+    repeated string txinwitness = 5; // Hex-encoded witness data
+
+    // DeFiChain fields
+    string coinbase = 51;
+}
+
+message ScriptSig {
+    string asm = 1;
+    string hex = 2;
+}
+
+message Vout {
+    double value = 1;
+    uint64 n = 2;
+    PubKey script_pub_key = 3;
+    uint64 token_id = 4;
+}
+
+message PubKey {
+    string asm = 1;
+    string hex = 2;
+    string type = 3;
+    int32 req_sigs = 4;
+    repeated string addresses = 5;
+}

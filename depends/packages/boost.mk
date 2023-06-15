@@ -27,7 +27,6 @@ $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
 $(package)_config_libraries=filesystem,system,test
-$(package)_cxxflags=-std=c++17 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
 
