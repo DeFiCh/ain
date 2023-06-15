@@ -446,7 +446,7 @@ class CCustomCSView : public CMasternodesView,
                       public CVaultView,
                       public CSettingsView,
                       public CProposalView,
-                      public CEvmDvmView {
+                      public CVMDomainMapView {
     // clang-format off
     void CheckPrefixes()
     {
@@ -479,7 +479,7 @@ class CCustomCSView : public CMasternodesView,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
             CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus,
-            CEvmDvmView             ::  BlockHash, TxHash
+            CVMDomainMapView             ::  VMDomainBlockHash, VMDomainTxHash
         >();
     }
     // clang-format on

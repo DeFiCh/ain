@@ -3877,8 +3877,8 @@ public:
 
         std::vector<unsigned char> evmTx;
         sha3(obj.evmTx, evmTx);
-        mnview.SetTxHash(CEvmDvmMapType::DvmEvm, tx.GetHash(), uint256(evmTx));
-        mnview.SetTxHash(CEvmDvmMapType::EvmDvm, uint256(evmTx), tx.GetHash());
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, tx.GetHash(), uint256(evmTx));
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256(evmTx), tx.GetHash());
         return Res::Ok();
     }
 

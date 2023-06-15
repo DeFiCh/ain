@@ -442,20 +442,8 @@ public:
         return Res::Err("Invalid domain set for \"dst\" argument");
     }
 
-    static Res StoreBlockFailed(const std::string blockHashKey) {
-      return Res::Err("Failed to store block hash %s to database", blockHashKey);
-    }
-
-    static Res FetchBlockFailed(const std::string blockHashKey) {
-      return Res::Err("Block hash key %s does not exist", blockHashKey);
-    }
-
-    static Res StoreTxFailed(const std::string txHashKey) {
-      return Res::Err("Failed to store tx hash %s to database", txHashKey);
-    }
-
-    static Res FetchTxFailed(const std::string txHashKey) {
-      return Res::Err("Tx hash key %s does not exist", txHashKey);
+    static Res DatabaseRWFailure(const std::string key) {
+      return Res::Err("DB r/w failure: %s", key);
     }
 };
 

@@ -4,22 +4,23 @@
 #include <key_io.h>
 #include <util/strencodings.h>
 
-enum class EvmMapType {
-    AUTO,
-    DVM_ADDRESS_TO_EVM,
-    EVM_ADDRESS_TO_DVM,
-    DVM_TX_TO_EVM,
-    EVM_TX_TO_DVM,
-    DVM_BLOCK_TO_EVM,
-    EVM_BLOCK_TO_DVM
+enum class VMDomainRPCMapType {
+    Auto,
+    AddressDVMToEVM,
+    AddressEVMToDVM,
+    TxHashDVMToEVM,
+    TxHashEVMToEVM,
+    BlockHashDVMToEVM,
+    BlockHashEVMToDVM
 };
 
-enum class EvmLogType {
-    BLOCK,
-    TX
+static int VMDomainRPCMapTypeCount = 7;
+
+enum class VMDomainIndexType {
+    BlockHash,
+    TxHash
 };
 
-static int NumEvmMapType = 7;
 
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
@@ -139,9 +140,13 @@ UniValue evmtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
-UniValue xvmmap(const JSONRPCRequest& request) {
+void test() {
+
+}
+
+UniValue vmmap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
-    RPCHelpMan{"xvmmap",
+    RPCHelpMan{"vmmap",
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
@@ -151,72 +156,63 @@ UniValue xvmmap(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("xvmmap", R"('"<hex>"' 1)")
+                       HelpExampleCli("vmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
-
     const std::string hash = request.params[0].get_str();
 
-    if (request.params[1].get_int() >= NumEvmMapType) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", NumEvmMapType));
+    if (request.params[1].get_int() >= VMDomainRPCMapTypeCount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", VMDomainRPCMapTypeCount));
     }
-    const auto type = static_cast<EvmMapType>(request.params[1].get_int());
+    const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
-        case EvmMapType::DVM_ADDRESS_TO_EVM: {
+        case VMDomainRPCMapType::AddressDVMToEVM: {
             const CPubKey key = AddrToPubKey(pwallet, hash);
             return EncodeDestination(WitnessV16EthHash(key.GetID()));
         }
-        case EvmMapType::EVM_ADDRESS_TO_DVM: {
+        case VMDomainRPCMapType::AddressEVMToDVM: {
             const CPubKey key = AddrToPubKey(pwallet, hash);
             return EncodeDestination(PKHash(key.GetID()));
-        }
-        case EvmMapType::DVM_TX_TO_EVM: {
-            LOCK(cs_main);
-            const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
-        }
-        case EvmMapType::EVM_TX_TO_DVM: {
-            LOCK(cs_main);
-            const auto res = pcustomcsview->GetTxHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
-        }
-        case EvmMapType::DVM_BLOCK_TO_EVM: {
-            LOCK(cs_main);
-            const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::DvmEvm, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
-        }
-        case EvmMapType::EVM_BLOCK_TO_DVM: {
-            LOCK(cs_main);
-            const auto res = pcustomcsview->GetBlockHash(CEvmDvmMapType::EvmDvm, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
-        }
-        case EvmMapType::AUTO: {
-            return "";
         }
         default:
             break;
     }
+
+    LOCK(cs_main);
+    ResVal<uint256> res = ResVal<uint256>::Ok();
+
+    switch (type) {
+        case VMDomainRPCMapType::TxHashDVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::TxHashEVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::BlockHashDVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::BlockHashEVMToDVM: {
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
+        }
+        default: {
+            res = ResVal<uint256>::Err("Unknown map type");
+            break;
+        }
+    }
+
+    if (!res)
+        throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+    
+    return res.val->ToString();
 }
 
-UniValue logxvmindexes(const JSONRPCRequest& request) {
+UniValue logvmmaps(const JSONRPCRequest& request) {
     RPCHelpMan{
-            "logxvmindexes",
+            "logvmmaps",
             "\nLogs all block or tx indexes for debugging.\n",
             {
                     {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of log: 0 - Blocks, 1 - Txs"}
@@ -225,7 +221,7 @@ UniValue logxvmindexes(const JSONRPCRequest& request) {
                     "{...} (array) Json object with account balances if rpcresult is enabled."
                     "This is for debugging purposes only.\n"},
             RPCExamples{
-                    HelpExampleCli("logxvmindexes", R"('"<hex>"' 1)")},
+                    HelpExampleCli("logvmmaps", R"('"<hex>"' 1)")},
     }.Check(request);
 
     LOCK(cs_main);
@@ -233,20 +229,21 @@ UniValue logxvmindexes(const JSONRPCRequest& request) {
     size_t count{};
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
-    const auto type = static_cast<EvmLogType>(request.params[0].get_int());
+    const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
+
     switch (type) {
-        case EvmLogType::BLOCK: {
-            pcustomcsview->ForEachBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
-                if (index.first == CEvmDvmMapType::DvmEvm) {
+        case VMDomainIndexType::BlockHash: {
+            pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
+                if (index.first == VMDomainMapType::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
                     ++count;
                 }
                 return true;
             });
         }
-        case EvmLogType::TX: {
-            pcustomcsview->ForEachTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
-                if (index.first == CEvmDvmMapType::DvmEvm) {
+        case VMDomainIndexType::TxHash: {
+            pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
+                if (index.first == VMDomainMapType::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
                     ++count;
                 }
@@ -265,9 +262,9 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm",         "xvmmap",                    &xvmmap,                {"hash", "type"}},
-    {"evm",         "logxvmindexes",             &logxvmindexes,         {"type"}},
+    {"evm",         "evmtx",                    &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",         "vmmap",                    &vmmap,                 {"hash", "type"}},
+    {"evm",         "logvmmaps",                &logvmmaps,             {"type"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {

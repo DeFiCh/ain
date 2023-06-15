@@ -153,22 +153,22 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
         assert_equal(block, latest_block)
 
-    def test_xvmmap(self):
+    def test_vmmap(self):
         # Check if xvmmap is working for addresses
         eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
-        address = self.nodes[0].xvmmap(eth_address, 2)
-        assert_equal(eth_address, self.nodes[0].xvmmap(address, 1))
+        address = self.nodes[0].vmmap(eth_address, 2)
+        assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
 
         #Check if xvmmap is working for Txs
-        list_tx = self.nodes[0].logxvmindexes(1)
+        list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
-        evm_tx = self.nodes[0].xvmmap(dvm_tx, 3)
+        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
         assert_equal(dvm_tx, self.nodes[0].xvmmap(evm_tx, 4))
 
         # Check if xvmmap is working for Blocks
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        dvm_block = self.nodes[0].xvmmap(latest_block['hash'], 6)
-        assert_equal(latest_block['hash'], "0x" + self.nodes[0].xvmmap(dvm_block, 5))
+        dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
+        assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
 
     def run_test(self):
         self.setup()
@@ -185,7 +185,7 @@ class EVMTest(DefiTestFramework):
         self.test_address_state(self.ethAddress) # TODO test smart contract
 
         self.test_block()
-        self.test_xvmmap()
+        self.test_vmmap()
 
 
 if __name__ == '__main__':
