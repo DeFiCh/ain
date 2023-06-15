@@ -71,24 +71,26 @@ impl TrieDBStore {
         let reader = BufReader::new(file);
         let genesis: GenesisData = serde_json::from_reader(reader)?;
 
-        for (address, data) in genesis.alloc {
-            debug!("Setting data {:#?} for address {:x?}", data, address);
-            let basic = backend.basic(address);
+        if let Some(alloc) = genesis.alloc {
+            for (address, data) in alloc {
+                debug!("Setting data {:#?} for address {:x?}", data, address);
+                let basic = backend.basic(address);
 
-            let new_basic = Basic {
-                balance: data.balance,
-                ..basic
-            };
-            backend
-                .apply(
-                    address,
-                    new_basic,
-                    data.code,
-                    data.storage.unwrap_or_default(),
-                    false,
-                )
-                .expect("Could not set account data");
-            backend.commit();
+                let new_basic = Basic {
+                    balance: data.balance,
+                    ..basic
+                };
+                backend
+                    .apply(
+                        address,
+                        new_basic,
+                        data.code,
+                        data.storage.unwrap_or_default(),
+                        false,
+                    )
+                    .expect("Could not set account data");
+                backend.commit();
+            }
         }
 
         let state_root = backend.commit();
