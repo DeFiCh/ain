@@ -226,6 +226,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
+        // EVM chain id
+        consensus.evmChainId = 1130; // ETH main chain ID
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -499,6 +502,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
+        // EVM chain id
+        consensus.evmChainId = 1131; // test chain ID
+
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
@@ -590,6 +596,222 @@ public:
 };
 
 /**
+ * Changi
+ */
+class CChangiParams : public CChainParams {
+public:
+    CChangiParams() {
+        strNetworkID = "changi";
+        consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for testnet
+        consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
+        consensus.BIP16Exception = uint256();
+        consensus.BIP34Height = 0;
+        consensus.BIP34Hash = uint256();
+        consensus.BIP65Height = 0;
+        consensus.BIP66Height = 0;
+        consensus.AMKHeight = 150;
+        consensus.BayfrontHeight = 3000;
+        consensus.BayfrontMarinaHeight = 90470;
+        consensus.BayfrontGardensHeight = 101342;
+        consensus.ClarkeQuayHeight = 155000;
+        consensus.DakotaHeight = 220680;
+        consensus.DakotaCrescentHeight = 287700;
+        consensus.EunosHeight = 354950;
+        consensus.EunosKampungHeight = consensus.EunosHeight;
+        consensus.EunosPayaHeight = 463300;
+        consensus.FortCanningHeight = 686200;
+        consensus.FortCanningMuseumHeight = 724000;
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
+        consensus.FortCanningRoadHeight = 893700;
+        consensus.FortCanningCrunchHeight = 1011600;
+        consensus.FortCanningSpringHeight = 1086000;
+        consensus.FortCanningGreatWorldHeight = 1223000;
+        consensus.FortCanningEpilogueHeight = 1244000;
+        consensus.GrandCentralHeight = 1366000;
+        consensus.GrandCentralEpilogueHeight = 1438200;
+        consensus.NextNetworkUpgradeHeight = 1586750;
+
+        consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
+        consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+        consensus.pos.nStakeMinAge = 0;
+        consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
+        consensus.pos.fAllowMinDifficultyBlocks = false;
+        consensus.pos.fNoRetargeting = false; // only for regtest
+
+        consensus.pos.allowMintingWithoutPeers = true;
+
+        consensus.CSVHeight = 1;
+        consensus.SegwitHeight = 0;
+        consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
+        consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
+
+        // The best chain should have at least this much work.
+        consensus.nMinimumChainWork = uint256S("0x00");
+
+        // By default assume that the signatures in ancestors of this block are valid.
+        consensus.defaultAssumeValid = uint256S("0x00");
+
+        // Masternodes' params
+        consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
+        consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
+        consensus.mn.creationFee = 10 * COIN;
+        consensus.mn.collateralAmount = 1000000 * COIN;
+        consensus.mn.collateralAmountDakota = 20000 * COIN;
+        consensus.mn.anchoringTeamSize = 5;
+        consensus.mn.anchoringFrequency = 15;
+
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
+        consensus.mn.anchoringTeamChange = 120; // Number of blocks
+
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
+
+        consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note changi matter
+        consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL"; /// @note changi matter
+        consensus.spv.anchorSubsidy = 0 * COIN;
+        consensus.spv.subsidyIncreasePeriod = 60;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
+        consensus.spv.minConfirmations = 1;
+
+        consensus.vaultCreationFee = 1 * COIN;
+
+        consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50%
+        consensus.props.voc.fee = 50 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67%
+        consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
+
+        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
+        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.loan = 2468; // 24.68%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+
+        // EVM chain id
+        consensus.evmChainId = 1133; // changi chain ID
+
+        // Magic numbers
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0d;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x11;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x09;
+
+        nDefaultPort = 20555; /// @note changi matter
+        nPruneAfterHeight = 1000;
+        m_assumed_blockchain_size = 30;
+        m_assumed_chain_state_size = 2;
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15); // '7' (111 ('m' or 'n') for bitcoin)
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,128); // 't' (196 ('2') for bitcoin)
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239); // (239 ('9' or 'c') for bitcoin)
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+
+        bech32_hrp = "tf";
+
+        // (!) after prefixes set
+        consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this));
+        consensus.foundationShare = 10; // old style - just percents
+        consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
+
+        consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(consensus.foundationShareScript);
+
+        consensus.accountDestruction.clear();
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("trnZD2qPU1c3WryBi8sWX16mEaq9WkGHeg", *this))); // cVUZfDj1B1o7eVhxuZr8FQLh626KceiGQhZ8G6YCUdeW3CAV49ti
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
+
+        // owner base58, operator base58
+        vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
+        vMasternodes.push_back({"7E8Cjn9cqEwnrc3E4zN6c5xKxDSGAyiVUM", "78MWNEcAAJxihddCw1UnZD8T7fMWmUuBro"});
+        vMasternodes.push_back({"7GxxMCh7sJsvRK4GXLX5Eyh9B9EteXzuum", "7MYdTGv3bv3z65ai6y5J1NFiARg8PYu4hK"});
+        vMasternodes.push_back({"7BQZ67KKYWSmVRukgv57m4HorjbGh7NWrQ", "7GULFtS6LuJfJEikByKKg8psscg84jnfHs"});
+
+        std::vector<CTxOut> initdist;
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("te7wgg1X9HDJvMbrP2S51uz2Gxm2LPW4Gr", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tmYVkwmcv73Hth7hhHz15mx5K8mzC1hSef", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tahuMwb9eX83eJhf2vXL6NPzABy3Ca8DHi", *this))));
+
+        consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
+        consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
+
+        // Destination for unused emission
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
+
+        genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        assert(consensus.hashGenesisBlock == uint256S("0x034ac8c88a1a9b846750768c1ad6f295bc4d0dc4b9b418aee5c0ebd609be8f90"));
+        assert(genesis.hashMerkleRoot == uint256S("0xb71cfd828e692ca1b27e9df3a859740851047a5b5a68f659a908e8815aa35f38"));
+
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        // nodes with support for servicebits filtering should be at the top
+        vSeeds.emplace_back("35.187.53.161");
+        vSeeds.emplace_back("34.89.47.54");
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_changi, pnSeed6_changi + ARRAYLEN(pnSeed6_changi));
+
+        fDefaultConsistencyChecks = false;
+        fRequireStandard = false;
+        m_is_test_chain = true;
+
+        checkpointData = {
+                {
+                        { 50000, uint256S("74a468206b59bfc2667aba1522471ca2f0a4b7cd807520c47355b040c7735ccc")},
+                        {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
+                        {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
+                        {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
+                        {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
+                }
+        };
+
+        chainTxData = ChainTxData{
+            /* nTime    */ 0,
+            /* nTxCount */ 0,
+            /* dTxRate  */ 0
+        };
+
+        UpdateActivationParametersFromArgs();
+    }
+    void UpdateActivationParametersFromArgs();
+};
+
+/**
  * Devnet
  */
 class CDevNetParams : public CChainParams {
@@ -627,7 +849,7 @@ public:
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
+        consensus.NextNetworkUpgradeHeight = 1586750;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -711,12 +933,15 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
+        // EVM chain id
+        consensus.evmChainId = 1132; // dev chain ID
+
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0c;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x10;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x10;
         pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x08;
 
-        nDefaultPort = 20555; /// @note devnet matter
+        nDefaultPort = 21555; /// @note devnet matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
         m_assumed_chain_state_size = 2;
@@ -773,6 +998,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("35.187.53.161");
+        vSeeds.emplace_back("34.89.47.54");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
@@ -925,6 +1151,9 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+
+        // EVM chain id
+        consensus.evmChainId = 1133; // regtest chain ID
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
@@ -1127,6 +1356,16 @@ void CMainParams::UpdateActivationParametersFromArgs() {
     }
 }
 
+void CChangiParams::UpdateActivationParametersFromArgs() {
+    if (gArgs.IsArgSet("-changi-bootstrap")) {
+        nDefaultPort = 18555;
+        vSeeds.emplace_back("changi-seed.defichain.io");
+        pchMessageStartPostAMK[0] = 0x0b;
+        pchMessageStartPostAMK[1] = 0x11;
+        pchMessageStartPostAMK[2] = 0x09;
+        pchMessageStartPostAMK[3] = 0x07;
+    }
+}
 
 void CDevNetParams::UpdateActivationParametersFromArgs() {
     if (gArgs.IsArgSet("-devnet-bootstrap")) {
@@ -1138,7 +1377,6 @@ void CDevNetParams::UpdateActivationParametersFromArgs() {
         pchMessageStartPostAMK[3] = 0x07;
     }
 }
-
 
 void CRegTestParams::UpdateActivationParametersFromArgs()
 {
@@ -1186,6 +1424,8 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CMainParams());
     else if (chain == CBaseChainParams::TESTNET)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
+    else if (chain == CBaseChainParams::CHANGI)
+        return std::unique_ptr<CChainParams>(new CChangiParams());
     else if (chain == CBaseChainParams::DEVNET)
         return std::unique_ptr<CChainParams>(new CDevNetParams());
     else if (chain == CBaseChainParams::REGTEST)

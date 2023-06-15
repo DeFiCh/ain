@@ -14,6 +14,10 @@ on:
 env:
   BUILD_VERSION: latest # Computed
   DOCKER_HUB_USER: defi
+  # Note: We use debug build on CI for dev as well, since debug builds take
+  # 5x the amount of space and run the GitHub CI workers out of space. make.sh
+  # still defaults to debug for local builds
+  MAKE_DEBUG: 0
 
 jobs:
   linux-x64:
@@ -25,7 +29,7 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
     - name: Publish artifact - x86_64-pc-linux-gnu
       uses: actions/upload-artifact@v3

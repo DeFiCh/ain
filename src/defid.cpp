@@ -20,9 +20,7 @@
 #include <util/system.h>
 #include <util/threadnames.h>
 #include <util/translation.h>
-
-#include <masternodes/ffi_temp_stub.h>
-
+#include <ain_rs_exports.h>
 #include <functional>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -60,6 +58,7 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
+    preinit();
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -103,7 +102,7 @@ static bool AppInit(int argc, char* argv[])
         if (!gArgs.ReadConfigFiles(error, true)) {
             return InitError(strprintf("Error reading configuration file: %s\n", error));
         }
-        // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+        // Check for -testnet, -changi or -regtest parameter (Params() calls are only valid after this clause)
         try {
             SelectParams(gArgs.GetChainName());
         } catch (const std::exception& e) {
@@ -163,6 +162,7 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
+        init_evm_runtime();
         fRet = AppInitMain(interfaces);
     }
     catch (const std::exception& e) {
@@ -178,8 +178,7 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
-
-    stop_runtime();
+    stop_evm_runtime();
 
     return fRet;
 }

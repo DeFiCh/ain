@@ -49,6 +49,9 @@ int GetMnResignDelay(int height) {
         return Params().GetConsensus().mn.resignDelay;
     }
 
+    // Note: Getting new owner address for EVM miner reward passes
+    // max int to this function. If this delay is changed this will
+    // need to be updated.
     return Params().GetConsensus().mn.newResignDelay;
 }
 
@@ -1064,7 +1067,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
     auto price            = priceFeed.val->priceRecord[priceRecordIndex];
-    
+
     if (price <= 0) {
         return DeFiErrors::OracleNegativePrice(tokenSymbol, currency);
     }

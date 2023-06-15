@@ -8,8 +8,6 @@ main() {
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR/../../"
     
-    sudo ./make.sh pkg-install-deps
-    sudo ./make.sh pkg-install-llvm
     ./make.sh build
     ./make.sh test
 }

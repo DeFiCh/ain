@@ -12,6 +12,7 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>
+#include <ain_rs_exports.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -845,6 +846,41 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[0].scriptPubKey = CScript() << OP_RETURN;
     t.vout[1].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(CTransaction(t), reason));
+}
+
+// Demonstrates usage of FFI call to create, sign and execute Eth TXs
+BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
+    // Private key 1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571
+    // Address 0xf829754bae400b679febefdcfc9944c323e1f94e
+
+    const uint64_t chainID{5}; // Goerli testnetwork
+
+    // Check address on explorer to calc nonce
+    const std::vector<uint8_t> nonceVec{ParseHex("0000000000000000000000000000000000000000000000000000000000000000")};
+    std::array<uint8_t, 32> nonce{};
+    std::copy(nonceVec.begin(), nonceVec.end(), nonce.begin()); // Not need with nonce 0 but useful later
+
+    const uint256 gasPrice{uint256S("689451EEE1")}; // 449.164996321 Gwei
+    const uint256 gasLimit{uint256S("5208")}; // 21,000
+
+    std::vector<uint8_t> toVec{ParseHex("34c1ca09a2dc717d89baef2f30ff6a6b2975e17e")};
+    std::array<uint8_t, 20> to{};
+    std::copy(toVec.begin(), toVec.end(), to.begin());
+
+    std::array<uint8_t, 32> value{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,ParseHex("23")[0],ParseHex("86")[0],ParseHex("F2")[0],ParseHex("6F")[0],ParseHex("C1")[0],0,0}; // 0.01 Eth
+
+    const std::vector<uint8_t> privKeyVec{ParseHex("1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571")};
+    std::array<uint8_t, 32> privKey{};
+    std::copy(privKeyVec.begin(), privKeyVec.end(), privKey.begin());
+
+    rust::Vec<uint8_t> input{};
+
+    const auto reply = create_and_sign_tx(CreateTransactionContext{chainID, nonce, gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value, input, privKey});
+    std::vector<uint8_t> replyVector(reply.size());
+    std::copy(reply.begin(), reply.end(), replyVector.begin());
+    std::string transaction(HexStr(replyVector.begin(), replyVector.end()));
+    const auto rawBytes = ParseHex(transaction);
+    BOOST_CHECK_EQUAL(transaction, "f86b8085689451eee18252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc10000802da0ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46a01d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

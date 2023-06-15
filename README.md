@@ -31,7 +31,7 @@ DeFiChain has done significant modifications from Bitcoin Core, for instance:
 - Community fund support
 - Bitcoin blockchain block anchoring
 - Increased decentralized financial transaction and opcode support, etc.
-- Configuration defaults (mainnet ports: `8555/4`, testnet ports: `18555/4`, regnet ports: `19555/4`, etc)
+- Configuration defaults (mainnet ports: `8555/4`, testnet ports: `18555/4`, changi ports: `20554/4`, devnet ports: `21554/4`, regnet ports: `19555/4` etc)
 
 Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of
 DeFiChain.

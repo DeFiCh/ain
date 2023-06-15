@@ -1,24 +1,27 @@
 ARG TARGET=arm-linux-gnueabihf
 
 # -----------
-FROM --platform=linux/amd64 ubuntu:latest as builder
+# https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
+FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
+ARG MAKE_DEBUG
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_update_base
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg_install_deps_armhf
+ENV PATH=/root/.cargo/bin:$PATH
+RUN ./make.sh ci-setup-deps
+RUN ./make.sh ci-setup-deps-target
+RUN ./make.sh ci-setup-deps-test
 
 COPY . .
-RUN ./make.sh clean-depends && ./make.sh build-deps
-RUN ./make.sh clean-conf && ./make.sh build-conf 
+RUN ./make.sh build-deps
+RUN ./make.sh build-conf
 RUN ./make.sh build-make
 
-RUN mkdir /app && cd build/${TARGET} && \
+RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
 # -----------

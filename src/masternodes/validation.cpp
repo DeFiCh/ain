@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <ain_rs_exports.h>
 #include <chain.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
@@ -2349,7 +2350,96 @@ static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& 
     cache.SetVariable(*attributes);
 }
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs) {
+static void RevertTransferDomain(const CTransferDomainMessage &obj, CCustomCSView &mnview) {
+    // NOTE: Each domain's revert is handle by it's own domain module. This function reverts only the DVM aspect. EVM will handle it's own revert.
+    for (const auto &[src, dst] : obj.transfers) {
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM))
+            mnview.AddBalance(src.address, src.amount);
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM))
+            mnview.SubBalance(dst.address, dst.amount);
+    }
+}
+
+static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failedTransactions, const CBlock& block, const Consensus::Params &consensus, const int height, CCustomCSView &mnview) {
+    std::set<uint256> potentialTxsToUndo;
+    for (const auto &txStr : failedTransactions) {
+        potentialTxsToUndo.insert(uint256S(txStr));
+    }
+
+    std::set<uint256> txsToUndo;
+    for (const auto &tx : block.vtx) {
+        if (tx && potentialTxsToUndo.count(tx->GetHash())) {
+            std::vector<unsigned char> metadata;
+            const auto txType = GuessCustomTxType(*tx, metadata, false);
+            if (txType == CustomTxType::TransferDomain) {
+                auto txMessage = customTypeToMessage(txType);
+                assert(CustomMetadataParse(height, consensus, metadata, txMessage));
+                auto obj = std::get<CTransferDomainMessage>(txMessage);
+                RevertTransferDomain(obj, mnview);
+            }
+        }
+    }
+}
+
+static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
+
+    if (IsEVMEnabled(pindex->nHeight, cache)) {
+        CKeyID minter;
+        assert(block.ExtractMinterKey(minter));
+        CScript minerAddress;
+
+        if (!fMockNetwork) {
+            const auto id = cache.GetMasternodeIdByOperator(minter);
+            assert(id);
+            const auto node = cache.GetMasternode(*id);
+            assert(node);
+
+            auto height = node->creationHeight;
+            auto mnID = *id;
+            if (!node->collateralTx.IsNull()) {
+                const auto idHeight = cache.GetNewCollateral(node->collateralTx);
+                assert(idHeight);
+                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+                mnID = node->collateralTx;
+            }
+
+            const auto blockindex = ::ChainActive()[height];
+            assert(blockindex);
+
+            CTransactionRef tx;
+            uint256 hash_block;
+            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+            assert(tx->vout.size() >= 2);
+
+            CTxDestination dest;
+            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
+
+            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
+            minerAddress = GetScriptForDestination(dest);
+        } else {
+            std::copy(minter.begin(), minter.end(), beneficiary.begin());
+            const auto dest = PKHash(minter);
+            minerAddress = GetScriptForDestination(dest);
+        }
+
+        const auto blockResult = evm_finalize(evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
+
+        if (!blockResult.failed_transactions.empty()) {
+            std::vector<std::string> failedTransactions;
+            for (const auto& rust_string : blockResult.failed_transactions) {
+                failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+            }
+
+            RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
+        }
+
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
+    }
+}
+
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2402,6 +2492,9 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
 
     // Migrate foundation members to attributes
     ProcessGrandCentralEvents(pindex, cache, chainparams);
+
+    // Execute EVM Queue
+    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
 
     // construct undo
     auto& flushable = cache.GetStorage();

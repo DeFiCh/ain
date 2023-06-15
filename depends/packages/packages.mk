@@ -1,12 +1,9 @@
-packages:=boost libevent
+packages := boost libevent protobuf
 
 rapidcheck_packages = rapidcheck
-
-wallet_packages=bdb
-
-zmq_packages=zeromq
-
-upnp_packages=miniupnpc
+wallet_packages = bdb
+zmq_packages = zeromq
+upnp_packages = miniupnpc
 
 darwin_native_packages = 
 ifneq ($(build_os),darwin)

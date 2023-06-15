@@ -3,6 +3,9 @@ name: Build - Staging
 on:
   workflow_dispatch:
 
+env:
+  MAKE_DEBUG: 0
+
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
 
     - name: Publish artifacts
       uses: actions/upload-artifact@v3
