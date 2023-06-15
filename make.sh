@@ -908,7 +908,9 @@ get_rust_target() {
     case $target in
         x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
         aarch64-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
+        aarch64-unknown-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
         arm-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
+        arm-unknown-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
         x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
         aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
         x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;
