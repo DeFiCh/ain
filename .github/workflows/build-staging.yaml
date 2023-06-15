@@ -2,11 +2,6 @@ name: Build - Staging
 
 on:
   workflow_dispatch:
-  release:
-    types: [created]
-
-env:
-  MAKE_DEBUG: 0
 
 env:
   MAKE_DEBUG: 0
