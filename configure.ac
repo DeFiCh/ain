@@ -1418,7 +1418,7 @@ if test x$host = x$build; then
   RUST_TARGET=
 else
   RUST_TARGET=`TARGET="$host" $ac_abs_confdir/make.sh get_rust_target`
-  if test $? = 0; then
+  if test $? != 0; then
     AC_MSG_ERROR("unsupported host target")
   fi
 fi
