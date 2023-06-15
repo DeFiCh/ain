@@ -79,8 +79,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(storage, "0x0000000000000000000000000000000000000000000000000000000000000000")
 
         # Fund address
-        from_address = "0xE61a3a6EB316D773C773F4CE757a542F673023C6"
-        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"1@DFI", "domain": 2}, "dst":{"address":from_address, "amount":"1@DFI", "domain": 3}}])
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"10@DFI", "domain": 2}, "dst":{"address":self.creationAddress, "amount":"10@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         # Call smart contract
