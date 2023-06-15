@@ -539,7 +539,7 @@ pkg_install_rust() {
 
 pkg_install_web3_deps() {
     _fold_start "pkg-install-solc"
-    python3 -m pip install py-solc-x web3
+    python3 -m pip install --user py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
     _fold_end
 }
