@@ -3875,10 +3875,12 @@ public:
 
         gasUsed = hashAndGas.used_gas;
 
-        std::vector<unsigned char> evmTx;
-        sha3(obj.evmTx, evmTx);
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, tx.GetHash(), uint256(evmTx));
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256(evmTx), tx.GetHash());
+        std::vector<unsigned char> evmTxHashBytes;
+        sha3(obj.evmTx, evmTxHashBytes);
+        auto txHash = tx.GetHash();
+        auto evmTxHash = uint256(evmTxHashBytes);
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 

@@ -140,9 +140,6 @@ UniValue evmtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
-void test() {
-
-}
 
 UniValue vmmap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
