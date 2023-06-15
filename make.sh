@@ -903,6 +903,11 @@ ci_setup_deps_test() {
 }
 
 get_rust_target() {
+    # Note: https://github.com/llvm/llvm-project/blob/dc895d023e63fd9276fe493eded776e101015c86/llvm/lib/TargetParser/Triple.cpp
+    # The function is called in 2 places:
+    # 1. When setting up Rust, which TARGET is passed from the environment
+    # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet. 
+    # Thus, we normalize across both to source the correct rust target.
     local target=${TARGET}
     local rust_target
     case $target in
