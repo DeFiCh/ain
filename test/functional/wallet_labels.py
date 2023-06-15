@@ -14,6 +14,7 @@ from collections import defaultdict
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+
 class WalletLabelsTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -35,8 +36,8 @@ class WalletLabelsTest(DefiTestFramework):
 
         # there should be 2 address groups
         # each with 1 address with a balance of 50 Defis
-        address_groups = node.listaddressgroupings() # TODO: may be remove genesis (or all) mn_creation txs from listaddressgroupings?
-        assert_equal(len(address_groups), 3) # +1 mn genesis
+        address_groups = node.listaddressgroupings()  # TODO: may be remove genesis (or all) mn_creation txs from listaddressgroupings?
+        assert_equal(len(address_groups), 3)  # +1 mn genesis
         # the addresses aren't linked now, but will be after we send to the
         # common address
         linked_addresses = set()
@@ -57,10 +58,10 @@ class WalletLabelsTest(DefiTestFramework):
         # there should be 1 address group, with the previously
         # unlinked addresses now linked (they both have 0 balance)
         address_groups = node.listaddressgroupings()
-        assert_equal(len(address_groups), 1+1)
-        assert_equal(len(address_groups[0+1]), 2)
-        assert_equal(set([a[0] for a in address_groups[0+1]]), linked_addresses)
-        assert_equal([a[1] for a in address_groups[0+1]], [0, 0])
+        assert_equal(len(address_groups), 1 + 1)
+        assert_equal(len(address_groups[0 + 1]), 2)
+        assert_equal(set([a[0] for a in address_groups[0 + 1]]), linked_addresses)
+        assert_equal([a[1] for a in address_groups[0 + 1]], [0, 0])
 
         node.generate(1)
 
@@ -131,6 +132,7 @@ class WalletLabelsTest(DefiTestFramework):
         # in the label. This is a no-op.
         change_label(node, labels[2].addresses[0], labels[2], labels[2])
 
+
 class Label:
     def __init__(self, name):
         # Label name
@@ -164,6 +166,7 @@ class Label:
             node.getaddressesbylabel(self.name),
             {address: {"purpose": self.purpose[address]} for address in self.addresses})
 
+
 def change_label(node, address, old_label, new_label):
     assert_equal(address in old_label.addresses, True)
     node.setlabel(address, new_label.name)
@@ -173,6 +176,7 @@ def change_label(node, address, old_label, new_label):
 
     old_label.verify(node)
     new_label.verify(node)
+
 
 if __name__ == '__main__':
     WalletLabelsTest().main()

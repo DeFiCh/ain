@@ -9,7 +9,9 @@
 #include <flushablestorage.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/evm.h>
 #include <masternodes/gv.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
 #include <masternodes/loan.h>
@@ -44,6 +46,10 @@ CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
+
+// Update owner rewards for MNs missing call to CalculateOwnerRewards after voter fee distributions.
+// Missing call fixed in: https://github.com/DeFiCh/ain/pull/1766
+void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet);
 
 enum class UpdateMasternodeType : uint8_t {
     None             = 0x00,
@@ -262,7 +268,7 @@ public:
                                                             uint8_t{},
                                                             std::numeric_limits<uint32_t>::max()});
 
-    uint16_t GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
+    std::optional<uint16_t> GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
 
     // tags
     struct ID {
@@ -373,18 +379,22 @@ class CSettingsView : public virtual CStorageView {
 public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
     const std::string DEX_STATS_ENABLED     = "DexStatsEnabled";
+    const std::string MN_REWARD_ADDRESSES   = "MNRewardAddresses";
 
     void SetDexStatsLastHeight(int32_t height);
     std::optional<int32_t> GetDexStatsLastHeight();
     void SetDexStatsEnabled(bool enabled);
     std::optional<bool> GetDexStatsEnabled();
 
+    std::optional<std::set<CScript>> SettingsGetRewardAddresses();
+    void SettingsSetRewardAddresses(const std::set<CScript> &addresses);
+
     struct KVSettings {
         static constexpr uint8_t prefix() { return '0'; }
     };
 };
 
-class CCollateralLoans {  // in USD
+class CVaultAssets {  // in USD
 
     double calcRatio(uint64_t maxRatio) const;
 
@@ -467,19 +477,19 @@ class CCustomCSView : public CMasternodesView,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
-            CProposalView              ::  ByType, ByCycle, ByMnVote, ByStatus
+            CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
     // clang-format on
 
 private:
-    Res PopulateLoansData(CCollateralLoans &result,
+    Res PopulateLoansData(CVaultAssets &result,
                           const CVaultId &vaultId,
                           uint32_t height,
                           int64_t blockTime,
                           bool useNextPrice,
                           bool requireLivePrice);
-    Res PopulateCollateralData(CCollateralLoans &result,
+    Res PopulateCollateralData(CVaultAssets &result,
                                const CVaultId &vaultId,
                                const CBalances &collaterals,
                                uint32_t height,
@@ -487,8 +497,8 @@ private:
                                bool useNextPrice,
                                bool requireLivePrice);
 
-    std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
-    std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
+protected:
+    CHistoryWriters writers;
 
 public:
     // Increase version when underlaying tables are changed
@@ -499,8 +509,12 @@ public:
 
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView &other);
+    CCustomCSView(CCustomCSView &other,
+                  CAccountHistoryStorage *historyView,
+                  CBurnHistoryStorage *burnView,
+                  CVaultHistoryStorage *vaultView);
 
-    ~CCustomCSView();
+    ~CCustomCSView() = default;
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, const uint256 &stakeModifier);
@@ -525,7 +539,7 @@ public:
                                         bool useNextPrice     = false,
                                         bool requireLivePrice = true);
 
-    ResVal<CCollateralLoans> GetLoanCollaterals(const CVaultId &vaultId,
+    ResVal<CVaultAssets> GetVaultAssets(const CVaultId &vaultId,
                                                 const CBalances &collaterals,
                                                 uint32_t height,
                                                 int64_t blockTime,
@@ -550,13 +564,11 @@ public:
 
     uint256 MerkleRoot();
 
+    //virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+    virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }
-
-    virtual CAccountHistoryStorage *GetAccountHistoryStore();
-    CVaultHistoryStorage *GetVaultHistoryStore();
-    void SetAccountHistoryStore();
-    void SetVaultHistoryStore();
 
     uint32_t GetVotingPeriodFromAttributes() const override;
     uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const override;

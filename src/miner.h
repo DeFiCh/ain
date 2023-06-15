@@ -30,6 +30,8 @@ static const bool DEFAULT_GENERATE = false;
 
 static const bool DEFAULT_PRINTPRIORITY = false;
 
+extern TxOrderings txOrdering;
+
 struct CBlockTemplate
 {
     CBlock block;
@@ -191,7 +193,7 @@ private:
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
     template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -212,6 +214,8 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    /** Remove failed EVM transactions from the block */
+    void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
 };
 
 /** Modify the extranonce in a block */
@@ -222,6 +226,9 @@ namespace pos {
 // The main staking routine.
 // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
 // Uses Args.getWallets() to receive and update wallets list.
+
+    extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
+
     class ThreadStaker {
     public:
 
@@ -256,7 +263,6 @@ namespace pos {
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
         static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;

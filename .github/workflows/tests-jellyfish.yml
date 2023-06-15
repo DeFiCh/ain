@@ -1,0 +1,39 @@
+name: Tests - JellyfishSDK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+env:
+  BUILD_VERSION: latest # Computed
+  
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: JellyfishSDK/jellyfish
+          ref: 'main'
+
+      - uses: actions/checkout@v3
+        with:
+          path: defichain
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Populate environment
+        run: cd defichain && GIT_VERSION=1 ./make.sh ci-export-vars
+
+      - name: Build and setup
+        run: "cd defichain && docker build -t test-build-container 
+          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
+
+      - name: Run tests
+        run: |
+          npm ci
+          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test

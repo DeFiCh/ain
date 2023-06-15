@@ -18,7 +18,9 @@ struct CBalances {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        Require(current.Add(amount.nValue));
+        if (auto res = current.Add(amount.nValue); !res) {
+            return res;
+        }
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
@@ -32,7 +34,9 @@ struct CBalances {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        Require(current.Sub(amount.nValue));
+        if (auto res = current.Sub(amount.nValue); !res) {
+            return res;
+        }
 
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
@@ -57,9 +61,11 @@ struct CBalances {
     }
 
     Res SubBalances(const TAmounts &other) {
-        for (const auto &[tokenId, amount] : other)
-            Require(Sub(CTokenAmount{tokenId, amount}));
-
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Sub(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
         return Res::Ok();
     }
 
@@ -75,9 +81,11 @@ struct CBalances {
     }
 
     Res AddBalances(const TAmounts &other) {
-        for (const auto &[tokenId, amount] : other)
-            Require(Add(CTokenAmount{tokenId, amount}));
-
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Add(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
         return Res::Ok();
     }
 
@@ -197,6 +205,47 @@ struct CUtxosToAccountMessage {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(to);
+    }
+};
+
+enum class VMDomain : uint8_t {
+    NONE     = 0x00,
+    // UTXO Reserved
+    UTXO     = 0x01,
+    DVM      = 0x02,
+    EVM      = 0x03,
+};
+
+struct CTransferDomainItem
+{
+    CScript address;
+    CTokenAmount amount;
+    uint8_t domain;
+
+    // Optional data that'll vary based on the domain.
+    // EVMData, UTXOData with inputs, etc.
+    // Currently, unused.
+    std::vector<uint8_t> data;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(address);
+        READWRITE(amount);
+        READWRITE(domain);
+        READWRITE(data);
+    }
+};
+
+struct CTransferDomainMessage {
+    std::vector<std::pair<CTransferDomainItem, CTransferDomainItem>> transfers;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(transfers);
     }
 };
 

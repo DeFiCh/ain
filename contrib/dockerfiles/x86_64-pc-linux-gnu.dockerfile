@@ -1,54 +1,48 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
 # -----------
-FROM ubuntu:18.04 as builder-base
+# https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
+FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
-LABEL org.defichain.name="defichain-builder-base"
+ARG MAKE_DEBUG
+LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 COPY ./make.sh .
 
-RUN apt update && apt install -y apt-transport-https
-RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
-
-# -----------
-FROM builder-base as depends-builder
-ARG TARGET
-LABEL org.defichain.name="defichain-depends-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
-COPY ./depends ./depends
-
-RUN ./make.sh clean-depends && ./make.sh build-deps
-
-# -----------
-FROM builder-base as builder
-ARG TARGET
-ARG BUILD_VERSION=
-
-LABEL org.defichain.name="defichain-builder"
-LABEL org.defichain.arch=${TARGET}
-
-WORKDIR /work
+ENV PATH=/root/.cargo/bin:$PATH
+RUN ./make.sh ci-setup-deps
+RUN ./make.sh ci-setup-deps-target
+RUN ./make.sh ci-setup-deps-test
 
 COPY . .
-RUN ./make.sh purge && rm -rf ./depends
-COPY --from=depends-builder /work/depends ./depends
+RUN ./make.sh build-deps
+RUN ./make.sh build-conf
+RUN ./make.sh build-make
 
-RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
-    ./make.sh build-conf && ./make.sh build-make
-
-RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
+RUN mkdir /app && cd build/ && \
+    make -s prefix=/ DESTDIR=/app install
 
 # -----------
 ### Actual image that contains defi binaries
-FROM ubuntu:18.04
+FROM --platform=linux/amd64 ubuntu:latest
 ARG TARGET
+ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-
 COPY --from=builder /app/. ./
+
+RUN useradd --create-home defi && \
+    mkdir -p /data && \
+    chown defi:defi /data && \
+    ln -s /data /home/defi/.defi
+
+VOLUME ["/data"]
+
+USER defi:defi
+CMD [ "/app/bin/defid" ]
+
+EXPOSE 8554 8550 8551 18554 18550 18551 19554 19550 19551 20554 20550 20551

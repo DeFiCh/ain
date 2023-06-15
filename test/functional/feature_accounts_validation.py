@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
+
 class AccountsValidatingTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -23,7 +24,7 @@ class AccountsValidatingTest(DefiTestFramework):
         node.generate(101)
         self.sync_blocks()
 
-        assert_equal(node.getblockcount(), 101) # eunos
+        assert_equal(node.getblockcount(), 101)  # eunos
 
         # Get addresses and set up account
         account = node.getnewaddress()
@@ -53,5 +54,6 @@ class AccountsValidatingTest(DefiTestFramework):
         # Check the blockchain has extended as expected
         assert_equal(node1.getblockcount(), blockcount + 1)
 
+
 if __name__ == '__main__':
-    AccountsValidatingTest().main ()
+    AccountsValidatingTest().main()

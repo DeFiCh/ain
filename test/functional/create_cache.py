@@ -11,6 +11,7 @@ tests are being run in parallel.
 
 from test_framework.test_framework import DefiTestFramework
 
+
 class CreateCache(DefiTestFramework):
     # Test network and test nodes are not required:
 
@@ -23,6 +24,7 @@ class CreateCache(DefiTestFramework):
 
     def run_test(self):
         pass
+
 
 if __name__ == '__main__':
     CreateCache().main()

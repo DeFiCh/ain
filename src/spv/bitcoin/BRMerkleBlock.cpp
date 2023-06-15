@@ -22,15 +22,16 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRMerkleBlock.h"
-#include "BRInt.h"
-#include "BRCrypto.h"
-#include "BRAddress.h"
 #include <stdlib.h>
 #include <inttypes.h>
-#include <limits.h>
+#include <limits>
 #include <string.h>
 #include <assert.h>
+
+#include <spv/bitcoin/BRMerkleBlock.h>
+#include <spv/support/BRInt.h>
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRAddress.h>
 
 #define MAX_PROOF_OF_WORK 0x1d00ffff    // highest value for difficulty target (higher values are less difficult)
 #define TARGET_TIMESPAN   (14*24*60*60) // the targeted timespan between difficulty target adjustments

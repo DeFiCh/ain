@@ -7,6 +7,7 @@
 
 #include <consensus/params.h>
 #include <consensus/tx_check.h>
+#include <masternodes/evm.h>
 #include <masternodes/masternodes.h>
 #include <cstring>
 #include <vector>
@@ -19,7 +20,6 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
-class CAccountsHistoryView;
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -60,8 +60,11 @@ protected:
     bool IsTokensMigratedToGovVar() const;
     Res IsOnChainGovernanceEnabled() const;
 };
-class CVaultHistoryView;
-class CHistoryWriters;
+
+enum AuthStrategy: uint32_t {
+    DirectPubKeyMatch = 0,
+    EthKeyMatch = 1,
+};
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
@@ -145,6 +148,9 @@ enum class CustomTxType : uint8_t {
     CreateVoc                 = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
+    // EVM
+    TransferDomain                  = '8',
+    EvmTx                     = '9',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -209,6 +215,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
+        case CustomTxType::TransferDomain:
+        case CustomTxType::EvmTx:
         case CustomTxType::None:
             return type;
     }
@@ -446,7 +454,9 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
                                       CCreateProposalMessage,
-                                      CProposalVoteMessage>;
+                                      CProposalVoteMessage,
+                                      CTransferDomainMessage,
+                                      CEvmTxMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
@@ -460,10 +470,11 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
+                  uint64_t &gasUsed,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  CHistoryWriters *writers = nullptr);
+                  const uint64_t evmContext = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -471,7 +482,9 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint32_t txn = 0);
+                  uint64_t &gasUsed,
+                  uint32_t txn = 0,
+                  const uint64_t evmContext = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,
                                     int height,
@@ -503,6 +516,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 bool IsTestNetwork();
+bool IsEVMEnabled(const int height, const CCustomCSView &view);
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
@@ -601,6 +622,7 @@ inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     }
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
+
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;

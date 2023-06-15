@@ -76,7 +76,10 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         creationHeight = int64_t(nodePtr->creationHeight);
 
         if (height >= params.EunosPayaHeight) {
-            timelock = mnView->GetTimelock(masternodeID, *nodePtr, height);
+             const auto optTimeLock = mnView->GetTimelock(masternodeID, *nodePtr, height);
+             if (!optTimeLock)
+                 return false;
+            timelock = *optTimeLock;
         }
 
         // Check against EunosPayaHeight here for regtest, does not hurt other networks.

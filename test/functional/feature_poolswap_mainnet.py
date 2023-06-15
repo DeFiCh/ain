@@ -10,18 +10,25 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    get_id_token,
+)
+
 from decimal import Decimal
 
-class PoolPairTest (DefiTestFramework):
+
+class PoolPairTest(DefiTestFramework):
     def set_test_params(self):
         self.FCH_HEIGHT = 170
         self.FCR_HEIGHT = 200
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FCH_HEIGHT), '-fortcanningroadheight='+str(self.FCR_HEIGHT),'-simulatemainnet', '-jellyfish_regtest=1']
-            ]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',
+             '-fortcanningheight=163', '-fortcanninghillheight=' + str(self.FCH_HEIGHT),
+             '-fortcanningroadheight=' + str(self.FCR_HEIGHT), '-simulatemainnet', '-jellyfish_regtest=1']
+        ]
 
     def create_tokens(self):
         self.symbolGOLD = "GOLD"
@@ -47,9 +54,9 @@ class PoolPairTest (DefiTestFramework):
             "collateralAddress": self.account0
         })
         self.nodes[0].generate(1)
-        self.symbol_key_GOLD = "GOLD#" + str(self.get_id_token(self.symbolGOLD))
-        self.symbol_key_SILVER = "SILVER#" + str(self.get_id_token(self.symbolSILVER))
-        self.symbol_key_DOGE = "DOGE#" + str(self.get_id_token(self.symbolDOGE))
+        self.symbol_key_GOLD = "GOLD#" + str(get_id_token(self.nodes[0], self.symbolGOLD))
+        self.symbol_key_SILVER = "SILVER#" + str(get_id_token(self.nodes[0], self.symbolSILVER))
+        self.symbol_key_DOGE = "DOGE#" + str(get_id_token(self.nodes[0], self.symbolDOGE))
 
     def mint_tokens(self, amount=1000):
 
@@ -90,14 +97,14 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def add_1satoshi_liquidity_empty_pool(self):
-        errorString='' # remove [pylint E0601]
+        errorString = ''  # remove [pylint E0601]
         try:
             self.nodes[0].addpoolliquidity({
                 self.account_gs: ["0.0000001@" + self.symbol_key_GOLD, "0.0000001@" + self.symbol_key_SILVER]
             }, self.account_gs, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('liquidity too low' in errorString)
+        assert ('liquidity too low' in errorString)
 
     def add_liquidity(self):
         self.nodes[0].addpoolliquidity({
@@ -109,15 +116,14 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def add_1satoshi_liquidity_non_empty_pool(self):
-        errorString='' # remove [pylint E0601]
+        errorString = ''  # remove [pylint E0601]
         try:
             self.nodes[0].addpoolliquidity({
                 self.account_gs: ["0.00000001@" + self.symbol_key_GOLD, "0.00000001@" + self.symbol_key_SILVER]
             }, self.account_gs, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('amounts too low, zero liquidity' in errorString)
-
+        assert ('amounts too low, zero liquidity' in errorString)
 
     def setup(self):
         self.nodes[0].generate(self.FCH_HEIGHT)
@@ -134,7 +140,7 @@ class PoolPairTest (DefiTestFramework):
         to_address = self.nodes[0].getnewaddress("")
         assert_equal(from_account[1], '45000000.00000000@GOLD#128')
         # try swap negative amount
-        errorString='' # remove [pylint E0601]
+        errorString = ''  # remove [pylint E0601]
         try:
             self.nodes[0].poolswap({
                 "from": self.account_gs,
@@ -142,12 +148,12 @@ class PoolPairTest (DefiTestFramework):
                 "amountFrom": Decimal('-0.00000001'),
                 "to": to_address,
                 "tokenTo": self.symbol_key_SILVER,
-            },[])
+            }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Amount out of range' in errorString)
+        assert ('Amount out of range' in errorString)
 
-        #try swap too small amount
+        # try swap too small amount
         try:
             self.nodes[0].poolswap({
                 "from": self.account_gs,
@@ -155,11 +161,10 @@ class PoolPairTest (DefiTestFramework):
                 "amountFrom": Decimal('0.000000001'),
                 "to": to_address,
                 "tokenTo": self.symbol_key_SILVER,
-            },[])
+            }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Invalid amount' in errorString)
-
+        assert ('Invalid amount' in errorString)
 
     def test_simple_swap_1Satoshi(self):
         from_address = self.account_gs
@@ -173,7 +178,7 @@ class PoolPairTest (DefiTestFramework):
             "amountFrom": 0.00000001,
             "to": to_address,
             "tokenTo": self.symbol_key_SILVER,
-        },[])
+        }, [])
         self.nodes[0].generate(1)
 
         from_account = self.nodes[0].getaccount(from_address)
@@ -199,7 +204,7 @@ class PoolPairTest (DefiTestFramework):
                 "amountFrom": 0.00000001,
                 "to": to_address,
                 "tokenTo": self.symbol_key_SILVER,
-            },[])
+            }, [])
         self.nodes[0].generate(1)
 
         from_account = self.nodes[0].getaccount(from_address)
@@ -218,7 +223,7 @@ class PoolPairTest (DefiTestFramework):
         to_address = self.nodes[0].getnewaddress("")
         assert_equal(from_account[1], '44999999.99999949@GOLD#128')
 
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
+        testPoolSwapRes = self.nodes[0].testpoolswap({
             "from": from_address,
             "tokenFrom": self.symbol_key_GOLD,
             "amountFrom": 0.00000001,
@@ -234,7 +239,7 @@ class PoolPairTest (DefiTestFramework):
             "amountFrom": 0.00000001,
             "to": to_address,
             "tokenTo": self.symbol_key_DOGE,
-        },[])
+        }, [])
         self.nodes[0].generate(1)
 
         from_account = self.nodes[0].getaccount(from_address)
@@ -275,7 +280,7 @@ class PoolPairTest (DefiTestFramework):
                 "amountFrom": 0.00000001,
                 "to": to_address,
                 "tokenTo": self.symbol_key_DOGE,
-            },[])
+            }, [])
 
         self.nodes[0].generate(1)
 
@@ -304,7 +309,7 @@ class PoolPairTest (DefiTestFramework):
         to_address = self.nodes[0].getnewaddress("")
         assert_equal(from_account[1], '44999999.99999898@GOLD#128')
 
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
+        testPoolSwapRes = self.nodes[0].testpoolswap({
             "from": from_address,
             "tokenFrom": self.symbol_key_GOLD,
             "amountFrom": Decimal('5000000.00000102'),
@@ -320,7 +325,7 @@ class PoolPairTest (DefiTestFramework):
             "amountFrom": Decimal('5000000.00000102'),
             "to": to_address,
             "tokenTo": self.symbol_key_SILVER,
-        },[])
+        }, [])
         self.nodes[0].generate(1)
 
         from_account = self.nodes[0].getaccount(from_address)
@@ -342,9 +347,10 @@ class PoolPairTest (DefiTestFramework):
         self.test_compositeswap_1Satoshi()
         self.test_50_compositeswaps_1Satoshi()
 
-        self.goto(self.FCR_HEIGHT) # Move to FCR
+        self.goto(self.FCR_HEIGHT)  # Move to FCR
 
         self.test_swap_full_amount_of_one_side_of_pool()
 
+
 if __name__ == '__main__':
-    PoolPairTest ().main ()
+    PoolPairTest().main()

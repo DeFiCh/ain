@@ -11,13 +11,16 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
+
 class CommissionFixTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.grand_central = 200
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', f'-grandcentralheight={self.grand_central}', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
+             '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1', f'-grandcentralheight={self.grand_central}', '-subsidytest=1']]
 
     def run_test(self):
         # Set up test tokens
@@ -108,7 +111,6 @@ class CommissionFixTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def setup_test_pool(self):
-
         # Create pool pair
         self.nodes[0].createpoolpair({
             "tokenA": self.symbolGOOGL,
@@ -124,7 +126,6 @@ class CommissionFixTest(DefiTestFramework):
         self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
 
     def setup_test_pool_fork(self):
-
         # Create pool pair
         self.nodes[0].createpoolpair({
             "tokenA": self.symbolTSLA,
@@ -140,7 +141,6 @@ class CommissionFixTest(DefiTestFramework):
         self.idTD = list(self.nodes[0].gettoken(self.symbolTD).keys())[0]
 
     def pool_commission(self):
-
         # Set up commission address
         commission_address = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].sendtoaddress(commission_address, 1)
@@ -176,7 +176,7 @@ class CommissionFixTest(DefiTestFramework):
 
         # Commission missing
         for result in self.nodes[0].listaccounthistory(commission_address):
-            assert(result['type'] != 'Commission')
+            assert (result['type'] != 'Commission')
 
         # Show Commission with low depth
         result = self.nodes[0].listaccounthistory(commission_address, {'depth': 1})
@@ -240,7 +240,6 @@ class CommissionFixTest(DefiTestFramework):
         assert_equal(result[0]['type'], 'Commission')
 
     def pool_commission_fork(self):
-
         # Set up commission address
         commission_address = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].sendtoaddress(commission_address, 1)
@@ -276,14 +275,15 @@ class CommissionFixTest(DefiTestFramework):
         assert_equal(result[0]['type'], 'Commission')
 
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}': f'{self.idTSLA}/2'}})
         self.nodes[0].generate(2)
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
 
         # Unlock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/locks/token/{self.idTSLA}': 'false'}})
         self.nodes[0].generate(1)
 
         # Execute pool swap
@@ -299,6 +299,7 @@ class CommissionFixTest(DefiTestFramework):
         # Show Commission
         result = self.nodes[0].listaccounthistory(commission_address)
         assert_equal(result[0]['type'], 'Commission')
+
 
 if __name__ == '__main__':
     CommissionFixTest().main()

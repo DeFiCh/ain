@@ -13,15 +13,28 @@ from test_framework.util import (
 
 from decimal import Decimal
 
+
 class ListGovProposalsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1', '-txindex=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1']
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1',
+             '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1',
+             '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1',
+             '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1',
+             '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1',
+             '-fortcanningcrunchheight=1', '-fortcanningspringheight=1', '-fortcanninggreatworldheight=1',
+             '-fortcanningepilogueheight=1', '-grandcentralheight=1', '-subsidytest=1']
         ]
 
     def setup(self):
@@ -52,7 +65,8 @@ class ListGovProposalsTest(DefiTestFramework):
 
     def create_proposal(self, title="default title", context="default", amount=100, cycles=1):
         payoutAddress = self.nodes[0].getnewaddress()
-        tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "cycles": cycles, "payoutAddress": payoutAddress})
+        tx = self.nodes[0].creategovcfp(
+            {"title": title, "context": context, "amount": amount, "cycles": cycles, "payoutAddress": payoutAddress})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -61,15 +75,15 @@ class ListGovProposalsTest(DefiTestFramework):
         return proposal
 
     def activate_onchain_gov_attributes(self):
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/gov/proposals/fee_redistribution': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/gov-payout': 'true'}})
         # VOC emergency Attributes
-        self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/params/feature/gov-payout':'true',
+        self.nodes[0].setgov({"ATTRIBUTES": {
+            'v0/params/feature/gov-payout': 'true',
             'v0/gov/proposals/voc_emergency_period': '25',
-            'v0/gov/proposals/voc_emergency_fee':'20.00000000',
-            'v0/gov/proposals/voc_approval_threshold':'50.00%'
+            'v0/gov/proposals/voc_emergency_fee': '20.00000000',
+            'v0/gov/proposals/voc_approval_threshold': '50.00%'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -124,6 +138,8 @@ class ListGovProposalsTest(DefiTestFramework):
             assert_equal(prop["cycleEndHeight"], tmp_end_cycle_height)
 
         prop_list = self.nodes[0].listgovproposals()
+        assert_equal(len(prop_list), 30)
+        prop_list = self.nodes[0].listgovproposals({})
         assert_equal(len(prop_list), 30)
         prop_list = self.nodes[0].listgovproposals("all", "all", 0)
         assert_equal(len(prop_list), 30)
@@ -193,7 +209,7 @@ class ListGovProposalsTest(DefiTestFramework):
         for prop in tmp_proposals:
             assert_equal(prop["cycleEndHeight"], tmp_end_cycle_height)
 
-        self.vote_on_proposals(tmp_proposals[0 : int(len(tmp_proposals)/2)], vote="yes")
+        self.vote_on_proposals(tmp_proposals[0: int(len(tmp_proposals) / 2)], vote="yes")
 
         prop_list = self.nodes[0].listgovproposals()
         assert_equal(len(prop_list), 40)
@@ -294,5 +310,6 @@ class ListGovProposalsTest(DefiTestFramework):
         self.create_10_proposals_go_to_end_cycle_2()
         self.create_10_proposals_and_aprove_half()
 
+
 if __name__ == '__main__':
-    ListGovProposalsTest().main ()
+    ListGovProposalsTest().main()

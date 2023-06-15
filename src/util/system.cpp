@@ -358,6 +358,7 @@ const std::list<SectionInfo> ArgsManager::GetUnrecognizedSections() const
     static const std::set<std::string> available_sections{
         CBaseChainParams::REGTEST,
         CBaseChainParams::TESTNET,
+        CBaseChainParams::CHANGI,
         CBaseChainParams::DEVNET,
         CBaseChainParams::MAIN
     };
@@ -510,12 +511,26 @@ int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault) const
     return nDefault;
 }
 
-bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
+double ArgsManager::GetDoubleArg(const std::string& strArg, double fDefault) const
+{
+    if (IsArgNegated(strArg)) return 0;
+    std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
+    if (found_res.first) return atof(found_res.second.c_str());
+    return fDefault;
+}
+
+std::optional<bool> ArgsManager::GetOptionalBoolArg(const std::string& strArg) const
 {
     if (IsArgNegated(strArg)) return false;
     std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
     if (found_res.first) return InterpretBool(found_res.second);
-    return fDefault;
+    return {};
+}
+
+bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
+{
+    auto res = ArgsManager::GetOptionalBoolArg(strArg);
+    return res ? *res : fDefault;
 }
 
 bool ArgsManager::SoftSetArg(const std::string& strArg, const std::string& strValue)
@@ -957,14 +972,17 @@ std::string ArgsManager::GetChainName() const
     LOCK(cs_args);
     int fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest") ? 1 : 0;
     int fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet") ? 1 : 0;
+    int fChangi = ArgsManagerHelper::GetNetBoolArg(*this, "-changi") || ArgsManagerHelper::GetNetBoolArg(*this, "-changi-bootstrap") ? 1 : 0;
     int fDevNet  = ArgsManagerHelper::GetNetBoolArg(*this, "-devnet") || ArgsManagerHelper::GetNetBoolArg(*this, "-devnet-bootstrap") ? 1 : 0;
 
-    if (fTestNet + fDevNet + fRegTest > 1)
+    if (fTestNet + fDevNet + fRegTest + fChangi > 1)
         throw std::runtime_error("Invalid combination of -regtest and -testnet."); // do not modify this message, it brakes unittests
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
+    if (fChangi)
+        return CBaseChainParams::CHANGI;
     if (fDevNet)
         return CBaseChainParams::DEVNET;
     return CBaseChainParams::MAIN;

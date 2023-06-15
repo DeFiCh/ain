@@ -10,6 +10,7 @@ from test_framework.netutil import all_interfaces, addr_to_hex, get_bind_addrs, 
 from test_framework.test_framework import DefiTestFramework, SkipTest
 from test_framework.util import assert_equal, assert_raises_rpc_error, get_rpc_proxy, rpc_port, rpc_url
 
+
 class RPCBindTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -22,7 +23,8 @@ class RPCBindTest(DefiTestFramework):
     def add_options(self, parser):
         parser.add_argument("--ipv4", action='store_true', dest="run_ipv4", help="Run ipv4 tests only", default=False)
         parser.add_argument("--ipv6", action='store_true', dest="run_ipv6", help="Run ipv6 tests only", default=False)
-        parser.add_argument("--nonloopback", action='store_true', dest="run_nonloopback", help="Run non-loopback tests only", default=False)
+        parser.add_argument("--nonloopback", action='store_true', dest="run_nonloopback",
+                            help="Run non-loopback tests only", default=False)
 
     def run_bind_test(self, allow_ips, connect_to, addresses, expected):
         '''
@@ -35,7 +37,7 @@ class RPCBindTest(DefiTestFramework):
         base_args = ['-disablewallet', '-nolisten']
         if allow_ips:
             base_args += ['-rpcallowip=' + x for x in allow_ips]
-        binds = ['-rpcbind='+addr for addr in addresses]
+        binds = ['-rpcbind=' + addr for addr in addresses]
         self.nodes[0].rpchost = connect_to
         self.start_node(0, base_args + binds)
         pid = self.nodes[0].process.pid
@@ -50,12 +52,14 @@ class RPCBindTest(DefiTestFramework):
         self.log.info("Allow IP test for %s:%d" % (rpchost, rpcport))
         node_args = \
             ['-disablewallet', '-nolisten'] + \
-            ['-rpcallowip='+x for x in allow_ips] + \
-            ['-rpcbind='+addr for addr in ['127.0.0.1', "%s:%d" % (rpchost, rpcport)]] # Bind to localhost as well so start_nodes doesn't hang
+            ['-rpcallowip=' + x for x in allow_ips] + \
+            ['-rpcbind=' + addr for addr in
+             ['127.0.0.1', "%s:%d" % (rpchost, rpcport)]]  # Bind to localhost as well so start_nodes doesn't hang
         self.nodes[0].rpchost = None
         self.start_nodes([node_args])
         # connect to node through non-loopback interface
-        node = get_rpc_proxy(rpc_url(self.nodes[0].datadir, 0, self.chain, "%s:%d" % (rpchost, rpcport)), 0, coveragedir=self.options.coveragedir)
+        node = get_rpc_proxy(rpc_url(self.nodes[0].datadir, 0, self.chain, "%s:%d" % (rpchost, rpcport)), 0,
+                             coveragedir=self.options.coveragedir)
         node.getnetworkinfo()
         self.stop_nodes()
 
@@ -75,7 +79,7 @@ class RPCBindTest(DefiTestFramework):
 
         self.log.info("Check for non-loopback interface")
         self.non_loopback_ip = None
-        for name,ip in all_interfaces():
+        for name, ip in all_interfaces():
             if ip != '127.0.0.1':
                 self.non_loopback_ip = ip
                 break
@@ -93,37 +97,39 @@ class RPCBindTest(DefiTestFramework):
         if self.options.run_ipv4:
             # check only IPv4 localhost (explicit)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', ['127.0.0.1'],
-                [('127.0.0.1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv4 localhost (explicit) with alternative port
             self.run_bind_test(['127.0.0.1'], '127.0.0.1:32171', ['127.0.0.1:32171'],
-                [('127.0.0.1', 32171)])
+                               [('127.0.0.1', 32171), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv4 localhost (explicit) with multiple alternative ports on same host
             self.run_bind_test(['127.0.0.1'], '127.0.0.1:32171', ['127.0.0.1:32171', '127.0.0.1:32172'],
-                [('127.0.0.1', 32171), ('127.0.0.1', 32172)])
+                               [('127.0.0.1', self.defaultport + 10000), ('127.0.0.1', 32171), ('127.0.0.1', 32172)])
         else:
             # check default without rpcallowip (IPv4 and IPv6 localhost)
             self.run_bind_test(None, '127.0.0.1', [],
-                [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check default with rpcallowip (IPv4 and IPv6 localhost)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', [],
-                [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check only IPv6 localhost (explicit)
             self.run_bind_test(['[::1]'], '[::1]', ['[::1]'],
-                [('::1', self.defaultport)])
+                               [('::1', self.defaultport), ('127.0.0.1', self.defaultport + 10000)])
             # check both IPv4 and IPv6 localhost (explicit)
             self.run_bind_test(['127.0.0.1'], '127.0.0.1', ['127.0.0.1', '[::1]'],
-                [('127.0.0.1', self.defaultport), ('::1', self.defaultport)])
+                               [('127.0.0.1', self.defaultport), ('127.0.0.1', self.defaultport + 10000), ('::1', self.defaultport)])
 
     def _run_nonloopback_tests(self):
         self.log.info("Using interface %s for testing" % self.non_loopback_ip)
 
         # check only non-loopback interface
         self.run_bind_test([self.non_loopback_ip], self.non_loopback_ip, [self.non_loopback_ip],
-            [(self.non_loopback_ip, self.defaultport)])
+                           [('127.0.0.1', self.defaultport + 10000), (self.non_loopback_ip, self.defaultport)])
 
         # Check that with invalid rpcallowip, we are denied
         self.run_allowip_test([self.non_loopback_ip], self.non_loopback_ip, self.defaultport)
-        assert_raises_rpc_error(-342, "non-JSON HTTP response with '403 Forbidden' from server", self.run_allowip_test, ['1.1.1.1'], self.non_loopback_ip, self.defaultport)
+        assert_raises_rpc_error(-342, "non-JSON HTTP response with '403 Forbidden' from server", self.run_allowip_test,
+                                ['1.1.1.1'], self.non_loopback_ip, self.defaultport)
+
 
 if __name__ == '__main__':
     RPCBindTest().main()

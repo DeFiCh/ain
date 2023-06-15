@@ -36,7 +36,7 @@ if test -z "@allow_host_packages@"; then
   export PKGCONFIG_LIBDIR=
 fi
 
-CPPFLAGS="-I$depends_prefix/include/ $CPPFLAGS"
+CPPFLAGS="-isystem $depends_prefix/include/ $CPPFLAGS"
 LDFLAGS="-L$depends_prefix/lib $LDFLAGS"
 
 if test -n "@CC@" -a -z "${CC}"; then
@@ -78,3 +78,6 @@ fi
 if test -n "@LDFLAGS@"; then
   LDFLAGS="@LDFLAGS@ $LDFLAGS"
 fi
+
+export PROTOC=${depends_prefix}/bin/protoc
+export PROTOC_INCLUDE_DIR=${depends_prefix}/include

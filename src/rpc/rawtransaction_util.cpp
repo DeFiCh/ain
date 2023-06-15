@@ -61,7 +61,7 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
     } catch (...) {
         // assuming it's token symbol, read DCT_ID from DB
         auto token = chain.existTokenGuessId(parsed.val->second, tokenId);
-        Require(token, "Invalid Defi token: %s", parsed.val->second);
+        Require(token, [=]{ return strprintf("Invalid Defi token: %s", parsed.val->second); });
         return {{tokenId, parsed.val->first}, Res::Ok()};
     }
 }
@@ -84,6 +84,13 @@ CScript DecodeScript(std::string const& str)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to any valid address");
     }
     return GetScriptForDestination(dest);
+}
+
+void RejectEthAddress(const CScript &address) {
+    CTxDestination dest;
+    if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Eth type addresses are not valid");
+    }
 }
 
 int DecodeScriptTxId(const std::string& str, CParserResults result)

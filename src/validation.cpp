@@ -19,8 +19,10 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <ain_rs_exports.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/params.h>
 #include <masternodes/validation.h>
@@ -516,7 +518,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     std::string reason;
-    if (fRequireStandard && !IsStandardTx(tx, reason))
+    const auto isStandard{IsStandardTx(tx, reason)};
+    if (reason == "eth-scriptpubkey" || (fRequireStandard && !isStandard))
         return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, reason);
 
     // Do not work on transactions that are too small.
@@ -538,38 +541,40 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
-    for (const CTxIn &txin : tx.vin)
-    {
-        const CTransaction* ptxConflicting = pool.GetConflictTx(txin.prevout);
-        if (ptxConflicting) {
-            if (!setConflicts.count(ptxConflicting->GetHash()))
-            {
-                // Allow opt-out of transaction replacement by setting
-                // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
-                //
-                // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
-                // non-replaceable transactions. All inputs rather than just one
-                // is for the sake of multi-party protocols, where we don't
-                // want a single party to be able to disable replacement.
-                //
-                // The opt-out ignores descendants as anyone relying on
-                // first-seen mempool behavior should be checking all
-                // unconfirmed ancestors anyway; doing otherwise is hopelessly
-                // insecure.
-                bool fReplacementOptOut = true;
-                for (const CTxIn &_txin : ptxConflicting->vin)
+    if (!IsEVMTx(tx)) {
+        for (const CTxIn &txin : tx.vin)
+        {
+            const CTransaction* ptxConflicting = pool.GetConflictTx(txin.prevout);
+            if (ptxConflicting) {
+                if (!setConflicts.count(ptxConflicting->GetHash()))
                 {
-                    if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
+                    // Allow opt-out of transaction replacement by setting
+                    // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
+                    //
+                    // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
+                    // non-replaceable transactions. All inputs rather than just one
+                    // is for the sake of multi-party protocols, where we don't
+                    // want a single party to be able to disable replacement.
+                    //
+                    // The opt-out ignores descendants as anyone relying on
+                    // first-seen mempool behavior should be checking all
+                    // unconfirmed ancestors anyway; doing otherwise is hopelessly
+                    // insecure.
+                    bool fReplacementOptOut = true;
+                    for (const CTxIn &_txin : ptxConflicting->vin)
                     {
-                        fReplacementOptOut = false;
-                        break;
+                        if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
+                        {
+                            fReplacementOptOut = false;
+                            break;
+                        }
                     }
-                }
-                if (fReplacementOptOut) {
-                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_DUPLICATE, "txn-mempool-conflict");
-                }
+                    if (fReplacementOptOut) {
+                        return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_DUPLICATE, "txn-mempool-conflict");
+                    }
 
-                setConflicts.insert(ptxConflicting->GetHash());
+                    setConflicts.insert(ptxConflicting->GetHash());
+                }
             }
         }
     }
@@ -585,33 +590,35 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.SetBackend(viewMemPool);
 
         // do all inputs exist?
-        for (const CTxIn& txin : tx.vin) {
-            if (!coins_cache.HaveCoinInCache(txin.prevout)) {
-                coins_to_uncache.push_back(txin.prevout);
-            }
+        if (!IsEVMTx(tx)) {
+            for (const CTxIn& txin : tx.vin) {
+                if (!coins_cache.HaveCoinInCache(txin.prevout)) {
+                    coins_to_uncache.push_back(txin.prevout);
+                }
 
-            // Note: this call may add txin.prevout to the coins cache
-            // (CoinsTip().cacheCoins) by way of FetchCoin(). It should be removed
-            // later (via coins_to_uncache) if this tx turns out to be invalid.
-            if (!view.HaveCoin(txin.prevout)) {
-                // Are inputs missing because we already have the tx?
-                for (size_t out = 0; out < tx.vout.size(); out++) {
-                    // Optimistically just do efficient check of cache for outputs
-                    if (coins_cache.HaveCoinInCache(COutPoint(hash, out))) {
-                        return state.Invalid(ValidationInvalidReason::TX_CONFLICT, false, REJECT_DUPLICATE, "txn-already-known");
+                // Note: this call may add txin.prevout to the coins cache
+                // (CoinsTip().cacheCoins) by way of FetchCoin(). It should be removed
+                // later (via coins_to_uncache) if this tx turns out to be invalid.
+                if (!view.HaveCoin(txin.prevout)) {
+                    // Are inputs missing because we already have the tx?
+                    for (size_t out = 0; out < tx.vout.size(); out++) {
+                        // Optimistically just do efficient check of cache for outputs
+                        if (coins_cache.HaveCoinInCache(COutPoint(hash, out))) {
+                            return state.Invalid(ValidationInvalidReason::TX_CONFLICT, false, REJECT_DUPLICATE, "txn-already-known");
+                        }
                     }
+                    // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
+                    if (pfMissingInputs) {
+                        *pfMissingInputs = true;
+                    }
+                    return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
                 }
-                // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
-                if (pfMissingInputs) {
-                    *pfMissingInputs = true;
-                }
-                return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
-            }
 
-            // Special check of collateral spending for _not_created_ mn or token (cheating?), those creation tx yet in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
-            if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash)) {
+                // Special check of collateral spending for _not_created_ mn or token (cheating?), those creation tx yet in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
+                if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "collateral-locked-in-mempool",
                                          strprintf("tried to spend collateral of non-created mn or token %s, cheater?", txin.prevout.hash.ToString()));
+                }
             }
         }
 
@@ -633,11 +640,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // let make sure we have needed coins
-        if (view.GetValueIn(tx) < nFees) {
+        if (!IsEVMTx(tx) && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, gasUsed, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -650,11 +658,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
-        if (!CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
+        if (!IsEVMTx(tx) && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !AreInputsStandard(tx, view))
+        if (fRequireStandard && !IsEVMTx(tx) && !AreInputsStandard(tx, view))
             return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
         // Check for non-standard witness in P2WSH
@@ -692,7 +700,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (!bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
+        if (!IsEVMTx(tx) && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
 
@@ -887,7 +895,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(::ChainActive().Tip(), chainparams.GetConsensus());
-        if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
+        if (!IsEVMTx(tx) && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
@@ -1371,6 +1379,9 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
+    if (IsEVMTx(tx)) {
+        return;
+    }
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
@@ -1455,7 +1466,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         return(state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBurnSpend: Trying to spend burnt outputs"), REJECT_INVALID, "burnt-output"));
     }
 
-    if (!tx.IsCoinBase())
+    if (!tx.IsCoinBase() && !IsEVMTx(tx))
     {
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
@@ -1696,37 +1707,22 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
     CBlockUndo blockUndo;
     if (!UndoReadFromDisk(blockUndo, pindex)) {
-        error("DisconnectBlock(): failure reading undo data");
+        error("%s: failure reading undo data", __func__);
         return DISCONNECT_FAILED;
     }
 
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size()) {
-        error("DisconnectBlock(): block and undo data inconsistent");
+        error("%s: block and undo data inconsistent", __func__);
         return DISCONNECT_FAILED;
     }
 
     if (mnview.GetLastHeight() != pindex->nHeight) {
-        error("DisconnectBlock(): mnview: wrong last processed block hash (view: %d, current: %d)", mnview.GetLastHeight(), pindex->nHeight);
+        error("%s: mnview: wrong last processed block hash (view: %d, current: %d)", __func__, mnview.GetLastHeight(), pindex->nHeight);
         return DISCONNECT_FAILED;
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
-
-    pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
-    if (paccountHistoryDB) {
-        paccountHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
-    }
-
-    if (pindex->nHeight >= Params().GetConsensus().FortCanningHeight) {
-        // erase auction fee history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->EraseVaultHistory(pindex->nHeight);
-        }
-    }
 
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
@@ -1817,10 +1813,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         TBytes dummy;
-        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
+        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy) && !IsEVMTx(tx)) { // not coinbases or EVM TX
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
-                error("DisconnectBlock(): transaction and undo data inconsistent");
+                error("%s: transaction and undo data inconsistent", __func__);
                 return DISCONNECT_FAILED;
             }
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
@@ -1852,42 +1848,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
     }
 
-    // Remove burn balance transfers
-    if (pindex->nHeight == Params().GetConsensus().EunosHeight)
-    {
-        // Make sure to initialize lastTxOut, otherwise it never finds the block and
-        // ends up looping through uninitialized garbage value.
-        uint32_t lastTxOut = 0;
-        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
-        {
-            if (key.owner != Params().GetConsensus().burnAddress) {
-                return false;
-            }
-
-            if (key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().EunosHeight)) {
-                return false;
-            }
-
-            lastTxOut = key.txn;
-
-            return false;
-        };
-
-        AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
-        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory,
-                                              Params().GetConsensus().burnAddress,
-                                              Params().GetConsensus().EunosHeight);
-
-        for (uint32_t i = block.vtx.size(); i <= lastTxOut; ++i) {
-            pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
-        }
-    }
-
-    // Erase any UTXO burns
-    for (const auto& entries : eraseBurnEntries)
-    {
-        pburnHistoryDB->EraseAccountHistory(entries);
-    }
+    mnview.GetHistoryWriters().EraseHistory(pindex->nHeight, eraseBurnEntries);
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
@@ -1900,6 +1861,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         }
     }
+
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
@@ -2121,7 +2083,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 else
                 {
@@ -2136,8 +2098,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             if (!attributes->GetValue(enabledKey, false))
                             {
                                 res = mnview.AddBalance(DeFiParams().GetConsensus().foundationShareScript, {DCT_ID{0}, subsidy});
-                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
-                                         tx.GetHash().ToString(), ScriptToString(DeFiParams().GetConsensus().foundationShareScript),
+                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
+                                         tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
                                          (CBalances{{{{0}, subsidy}}}.ToString()));
                                 nonUtxoTotal += subsidy;
 
@@ -2149,7 +2111,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             if (attributes->GetValue(enabledKey, false)) {
                                 res = mnview.AddBalance(DeFiParams().GetConsensus().unusedEmission, {DCT_ID{0}, subsidy});
                                 if (res) {
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
                                              tx.GetHash().ToString(), ScriptToString(DeFiParams().GetConsensus().unusedEmission),
                                              (CBalances{{{{0}, subsidy}}}.ToString()));
                                 }
@@ -2157,7 +2119,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                                 // Previous behaviour was for Options and Unallocated to go to Unallocated
                                 res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                                 if (res)
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                             }
 
                             nonUtxoTotal += subsidy;
@@ -2168,7 +2130,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
 
                 if (!res.ok)
@@ -2187,7 +2149,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 if (!res.ok) {
                     return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
                 } else {
-                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 nonUtxoTotal += subsidy;
             }
@@ -2333,7 +2295,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck, const int64_t evmContext)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2397,11 +2359,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
-            pcustomcsview->CreateDFIToken();
-            // init view|db with genesis here
+            mnview.CreateDFIToken();
+            // Do not track burns in genesis
+            mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2607,6 +2570,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
+
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2676,9 +2642,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            uint64_t gasUsed{};
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmContext);
+
+            totalGas += gasUsed;
+            if (totalGas > MAX_BLOCK_GAS_LIMIT) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                     error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, MAX_BLOCK_GAS_LIMIT, totalGas),
+                                     REJECT_CUSTOMTX, "over-gas-limit");
+            }
+
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2858,12 +2832,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary);
 
     // Write any UTXO burns
-    for (const auto& entries : writeBurnEntries)
+    for (const auto& [key, value] : writeBurnEntries)
     {
-        pburnHistoryDB->WriteAccountHistory(entries.first, entries.second);
+        mnview.GetHistoryWriters().WriteAccountHistory(key, value);
     }
 
     if (!fIsFakeNet) {
@@ -3171,36 +3145,18 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
         if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
-            // no usable history
-            if (paccountHistoryDB) {
-                paccountHistoryDB->Discard();
-            }
-            if (pburnHistoryDB) {
-                pburnHistoryDB->Discard();
-            }
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->Discard();
-            }
             m_disconnectTip = false;
+            mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
+        evm_disconnect_latest_block();
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
-
-        // flush history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->Flush();
-        }
-        if (pburnHistoryDB) {
-            pburnHistoryDB->Flush();
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->Flush();
-        }
+        mnview.GetHistoryWriters().FlushDB();
 
         if (!disconnectedConfirms.empty()) {
             for (auto const & confirm : disconnectedConfirms) {
@@ -3337,41 +3293,28 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview);
+        CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
+        std::array<uint8_t, 20> beneficiary{};
+        const auto evmContext = evm_get_context();
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmContext);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
+            evm_discard_context(evmContext);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }
-            // no usable history
-            if (paccountHistoryDB) {
-                paccountHistoryDB->Discard();
-            }
-            if (pburnHistoryDB) {
-                pburnHistoryDB->Discard();
-            }
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->Discard();
-            }
+            mnview.GetHistoryWriters().DiscardDB();
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), FormatStateMessage(state));
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
+        if (IsEVMEnabled(pindexNew->nHeight, mnview)) {
+            evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+        }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
-
-        // flush history
-        if (paccountHistoryDB) {
-            paccountHistoryDB->Flush();
-        }
-        if (pburnHistoryDB) {
-            pburnHistoryDB->Flush();
-        }
-        if (pvaultHistoryDB) {
-            pvaultHistoryDB->Flush();
-        }
+        mnview.GetHistoryWriters().FlushDB();
 
         // Delete all other confirms from memory
         if (rewardedAnchors) {
@@ -3490,7 +3433,9 @@ void CChainState::PruneBlockIndexCandidates() {
         setBlockIndexCandidates.erase(it++);
     }
     // Either the current tip or a successor of it we're working towards is left in setBlockIndexCandidates.
-    assert(!setBlockIndexCandidates.empty());
+    if (setBlockIndexCandidates.empty()) {
+        throw std::runtime_error("ERROR:: Data corruption detected. Please resync or use a snapshot");
+    }
 //    LogPrintf("TRACE PruneBlockIndexCandidates() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
 }
 
@@ -4883,6 +4828,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
     bool dummyRewardedAnchors{};
+    std::array<uint8_t, 20> dummyBeneficiary{};
     CCustomCSView mnview(*pcustomcsview);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
@@ -4898,7 +4844,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary, true))
         return false;
     assert(state.IsValid());
 
@@ -5281,7 +5227,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView mnview(*pcustomcsview);
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -5361,7 +5307,8 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             bool dummyRewardedAnchors{};
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
+            std::array<uint8_t, 20> dummyBeneficiary{};
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
@@ -5402,7 +5349,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     LOCK(cs_main);
 
     CCoinsViewCache cache(view);
-    CCustomCSView mncache(*mnview);
+    CCustomCSView mncache(*mnview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
 
     std::vector<uint256> hashHeads = view->GetHeadBlocks();
     if (hashHeads.empty()) return true; // We're already in a consistent state.
@@ -5443,6 +5390,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
             DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
+                mncache.GetHistoryWriters().DiscardDB();
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             // If DISCONNECT_UNCLEAN is returned, it means a non-existing UTXO was deleted, or an existing UTXO was
@@ -5459,12 +5407,16 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
         const CBlockIndex* pindex = pindexNew->GetAncestor(nHeight);
         LogPrintf("Rolling forward %s (%i)\n", pindex->GetBlockHash().ToString(), nHeight);
         uiInterface.ShowProgress(_("Replaying blocks...").translated, (int) ((nHeight - nForkHeight) * 100.0 / (pindexNew->nHeight - nForkHeight)) , false);
-        if (!RollforwardBlock(pindex, cache, mncache, params)) return false;
+        if (!RollforwardBlock(pindex, cache, mncache, params)) {
+            mncache.GetHistoryWriters().DiscardDB();
+            return false;
+        }
     }
 
     cache.SetBestBlock(pindexNew->GetBlockHash());
     cache.Flush();
     mncache.Flush();
+    mncache.GetHistoryWriters().FlushDB();
     uiInterface.ShowProgress("", 100, false);
     return true;
 }

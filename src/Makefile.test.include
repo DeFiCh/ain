@@ -29,7 +29,7 @@ FUZZ_TARGETS = \
 if ENABLE_FUZZ
 noinst_PROGRAMS += $(FUZZ_TARGETS:=)
 else
-bin_PROGRAMS += test/test_defi
+noinst_PROGRAMS += test/test_defi
 endif
 
 TEST_SRCDIR = test
@@ -66,13 +66,13 @@ FUZZ_SUITE_LD_COMMON = \
  $(LIBDEFI_COMMON) \
  $(LIBDEFI_UTIL) \
  $(LIBDEFI_CONSENSUS) \
- $(LIBDEFI_CRYPTO) \
- $(LIBUNIVALUE) \
  $(LIBDEFI_SPV) \
+ $(LIBDEFI_CRYPTO) \
  $(LIBLEVELDB) \
  $(BOOST_LIBS) \
  $(LIBMEMENV) \
  $(LIBSECP256K1) \
+ $(LIBUNIVALUE) \
  $(EVENT_LIBS) \
  $(EVENT_PTHREADS_LIBS)
 
@@ -186,17 +186,45 @@ endif
 
 test_test_defi_SOURCES = $(DEFI_TEST_SUITE) $(DEFI_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
 test_test_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(TESTDEFS) $(EVENT_CFLAGS)
+test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+
 test_test_defi_LDADD =
 if ENABLE_WALLET
 test_test_defi_LDADD += $(LIBDEFI_WALLET)
 endif
 
-test_test_defi_LDADD += $(LIBDEFI_SERVER) $(LIBDEFI_CLI) $(LIBDEFI_COMMON) $(LIBDEFI_UTIL) $(LIBDEFI_CONSENSUS) $(LIBDEFI_CRYPTO) $(LIBUNIVALUE) \
-  $(LIBDEFI_SPV) $(LIBLEVELDB) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
-test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_test_defi_LDADD += \
+  $(LIBDEFI_SERVER) \
+  $(LIBDEFI_CLI) \
+  $(LIBAIN_RS_LIB) \
+  $(LIBDEFI_SERVER) \
+  $(LIBDEFI_COMMON) \
+  $(LIBDEFI_UTIL) \
+  $(LIBDEFI_CONSENSUS) \
+  $(LIBDEFI_CRYPTO) \
+  $(LIBDEFI_SPV) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBSECP256K1) \
+  $(LIBUNIVALUE) \
+  $(EVENT_PTHREADS_LIBS) \
+  $(EVENT_LIBS)
 
-test_test_defi_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS)
-test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+test_test_defi_LDADD += $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS)
+
+if TARGET_DARWIN
+test_test_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
+endif
+if TARGET_NOT_DARWIN
+defid_LDFLAGS += -Wl,--allow-multiple-definition
+endif
+if TARGET_NOT_WINDOWS
+test_test_defi_LDADD += -ldl
+endif
+if TARGET_WINDOWS
+test_test_defi_LDADD += -luserenv -lbcrypt
+endif
 
 if ENABLE_ZMQ
 test_test_defi_LDADD += $(LIBDEFI_ZMQ) $(ZMQ_LIBS)
@@ -365,7 +393,7 @@ if TARGET_WINDOWS
 else
 if ENABLE_BENCH
 	@echo "Running bench/bench_defi -evals=1 -scaling=0..."
-	$(BENCH_BINARY) -evals=1 -scaling=0 > /dev/null
+	$(BENCH_BINARY) -evals=1 -scaling=0
 endif
 endif
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
@@ -374,8 +402,8 @@ if EMBEDDED_UNIVALUE
 endif
 
 %.cpp.test: %.cpp
-	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $<
-	$(AM_V_at)$(TEST_BINARY) -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" > $<.log 2>&1 || (cat $<.log && false)
+	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $@ $<
+	$(AM_V_at)$(TEST_BINARY) -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" > $@.log 2>&1 || (cat $@.log && false)
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)

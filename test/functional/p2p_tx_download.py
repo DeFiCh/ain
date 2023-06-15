@@ -122,7 +122,7 @@ class TxDownloadTest(DefiTestFramework):
         # * the first time it is re-requested from the outbound peer, plus
         # * 2 seconds to avoid races
         timeout = 2 + (MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY) + (
-            GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY)
+                GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY)
         self.log.info("Tx should be received at node 1 after {} seconds".format(timeout))
         self.sync_mempools(timeout=timeout)
 

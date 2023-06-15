@@ -5,7 +5,6 @@
 #include <base58.h>
 #include <bech32.h>
 #include <chainparams.h>
-#include <util/strencodings.h>
 
 #include <assert.h>
 #include <string.h>
@@ -60,6 +59,26 @@ public:
         return bech32::Encode(m_params.Bech32HRP(), data);
     }
 
+    std::string operator()(const WitnessV16EthHash& id) const
+    {
+        // Raw addr = ETH_ADDR_PREFIX + HexStr(id);
+        // Produce ETH checksum address: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
+        const auto address = HexStr(id);
+        std::vector<unsigned char> input(address.begin(), address.end());
+        std::vector<unsigned char> output;
+        sha3(input, output);
+        const auto hashedAddress = HexStr(output);
+        std::string result;
+        for (size_t i{}; i < address.size(); ++i) {
+            if (std::isdigit(address[i]) || hashedAddress[i] < '8') {
+                result += address[i];
+            } else {
+                result += std::toupper(address[i]);
+            }
+        }
+        return ETH_ADDR_PREFIX + result;
+    }
+
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 } // namespace
@@ -68,6 +87,14 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 {
     std::vector<unsigned char> data;
     uint160 hash;
+    if (str.size() == ETH_ADDR_LENGTH_INC_PREFIX && str.substr(0, 2) == ETH_ADDR_PREFIX) {
+        const auto hex = str.substr(2);
+        if (!IsHex(hex)) {
+            return CNoDestination();
+        }
+        data = ParseHex(hex);
+        return WitnessV16EthHash(uint160(data));
+    }
     if (DecodeBase58Check(str, data)) {
         // base58-encoded DFI addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).

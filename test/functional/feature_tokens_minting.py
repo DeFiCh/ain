@@ -13,22 +13,23 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
-class TokensMintingTest (DefiTestFramework):
+
+class TokensMintingTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=50'], ['-txnotokens=0', '-amkheight=50']]
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+        assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
         self.nodes[0].generate(100)
         self.sync_blocks()
 
-        self.nodes[0].generate(2) # for 2 matured utxos
+        self.nodes[0].generate(2)  # for 2 matured utxos
 
         # CREATION:
-        #========================
+        # ========================
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
         collateralCupper = self.nodes[0].getnewaddress("", "legacy")
@@ -65,7 +66,8 @@ class TokensMintingTest (DefiTestFramework):
         assert_equal(self.nodes[0].isappliedcustomtx(txid2, txid2_blockHeight), True)
         assert_equal(self.nodes[0].isappliedcustomtx(txid3, txid3_blockHeight), True)
         # Not apllied tx
-        assert_equal(self.nodes[0].isappliedcustomtx("b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235", txid2_blockHeight), False)
+        assert_equal(self.nodes[0].isappliedcustomtx("b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235",
+                                                     txid2_blockHeight), False)
 
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
@@ -83,12 +85,12 @@ class TokensMintingTest (DefiTestFramework):
         self.sync_blocks()
 
         # MINT:
-        #========================
+        # ========================
         # Funding auth addresses
 
-        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1, collateralCupper : 1 })
+        self.nodes[0].sendmany("", {collateralGold: 1, collateralSilver: 1, collateralCupper: 1})
         self.nodes[0].generate(1)
-        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1, collateralCupper : 1 })
+        self.nodes[0].sendmany("", {collateralGold: 1, collateralSilver: 1, collateralCupper: 1})
         self.nodes[0].generate(1)
 
         # print(self.nodes[0].listunspent())
@@ -112,13 +114,18 @@ class TokensMintingTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['collateralAddress'], collateralSilver)
 
         try:
-            self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])
-            self.nodes[0].accounttoutxos(collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver}, [])
+            self.nodes[0].accounttoutxos(collateralGold,
+                                         {self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold,
+                                          alienMintAddr: "200@" + symbolGold}, [])
+            self.nodes[0].accounttoutxos(collateralSilver,
+                                         {self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver,
+                                          alienMintAddr: "2000@" + symbolSilver}, [])
             self.nodes[0].generate(1)
             self.sync_blocks()
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("only available for DFI transactions" in errorString)
+        assert ("only available for DFI transactions" in errorString)
+
 
 if __name__ == '__main__':
-    TokensMintingTest ().main ()
+    TokensMintingTest().main()

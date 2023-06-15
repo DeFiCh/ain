@@ -305,7 +305,7 @@ public:
 
                 UniValue uniPair(UniValue::VOBJ);
                 uniPair.pushKV("currency", currency);
-                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimaleString(amount), token));
+                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimalString(amount), token));
                 tokenPrices.push_back(uniPair);
             }
         }
@@ -514,17 +514,21 @@ public:
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
-        auto proposalEndHeight = height;
+        int64_t proposalEndHeight{};
         if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
-            auto votingPeriod = prop->votingPeriod;
+            // TX still in mempool. For the most accurate guesstimate use
+            // votingPeriod as it would be set when TX is added to the chain.
+            const auto votingPeriod = obj.options & CProposalOption::Emergency ?
+                                mnview.GetEmergencyPeriodFromAttributes(type) :
+                                mnview.GetVotingPeriodFromAttributes();
             proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 proposalEndHeight += votingPeriod;
             }
         }
-        rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
+        rpcInfo.pushKV("proposalEndHeight", proposalEndHeight);
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);
@@ -540,6 +544,40 @@ public:
         rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
         auto vote = static_cast<CProposalVoteType>(obj.vote);
         rpcInfo.pushKV("vote", CProposalVoteToString(vote));
+    }
+
+    void operator()(const CTransferDomainMessage &obj) const {
+        UniValue array{UniValue::VARR};
+
+        for (const auto &[src, dst] : obj.transfers) {
+            UniValue srcJson{UniValue::VOBJ};
+            UniValue dstJson{UniValue::VOBJ};
+            std::array<std::pair<UniValue&, const CTransferDomainItem>,
+            2> items {
+                std::make_pair(std::ref(srcJson), src),
+                std::make_pair(std::ref(dstJson), dst)
+            };
+
+            for (auto &[j, o]: items) {
+                j.pushKV("address", ScriptToString(o.address));
+                j.pushKV("amount", o.amount.ToString());
+                j.pushKV("domain", CTransferDomainToString(VMDomain(o.domain)));
+                if (!o.data.empty()) {
+                    j.pushKV("data", std::string(o.data.begin(), o.data.end()));
+                }
+            }
+
+            UniValue elem{UniValue::VOBJ};
+            elem.pushKV("src", srcJson);
+            elem.pushKV("dst", dstJson);
+            array.push_back(elem);
+        }
+
+        rpcInfo.pushKV("transfers", array);
+    }
+
+    void operator()(const CEvmTxMessage &obj) const {
+        rpcInfo.pushKV("evmTx", HexStr(obj.evmTx.begin(),obj.evmTx.end()));
     }
 
     void operator()(const CCustomTxMessageNone &) const {}

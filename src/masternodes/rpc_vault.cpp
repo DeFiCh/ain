@@ -50,7 +50,7 @@ namespace {
             return false;
 
         bool useNextPrice = true, requireLivePrice = false;
-        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
+        auto vaultRate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
         if (!vaultRate)
             return false;
 
@@ -136,7 +136,7 @@ namespace {
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
 
-        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+        if (auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -228,7 +228,7 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+            if (auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
@@ -303,6 +303,8 @@ UniValue createvault(const JSONRPCRequest& request) {
     CVaultMessage vault;
     vault.ownerAddress = DecodeScript(request.params[0].getValStr());
 
+    RejectEthAddress(vault.ownerAddress);
+
     if (request.params.size() > 1) {
         if (!request.params[1].isNull()) {
             vault.schemeId = request.params[1].get_str();
@@ -327,7 +329,7 @@ UniValue createvault(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(Params().GetConsensus().vaultCreationFee, scriptMeta);
 
@@ -342,7 +344,7 @@ UniValue createvault(const JSONRPCRequest& request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -407,6 +409,8 @@ UniValue closevault(const JSONRPCRequest& request) {
 
     msg.to = DecodeScript(request.params[1].getValStr());
 
+    RejectEthAddress(msg.to);
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CloseVault)
              << msg;
@@ -419,7 +423,7 @@ UniValue closevault(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -432,7 +436,7 @@ UniValue closevault(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -713,6 +717,9 @@ UniValue updatevault(const JSONRPCRequest& request) {
         }
         msg.ownerAddress = DecodeScript(ownerAddress);
     }
+
+    RejectEthAddress(msg.ownerAddress);
+
     if(!params["loanSchemeId"].isNull()){
         auto loanschemeid = params["loanSchemeId"].getValStr();
         msg.schemeId = loanschemeid;
@@ -733,7 +740,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
     UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{vault.ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -746,7 +753,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
         }
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -801,6 +808,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto from = DecodeScript(request.params[1].get_str());
+    RejectEthAddress(from);
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
     CDepositToVaultMessage msg{vaultId, from, amount};
@@ -821,7 +829,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -832,7 +840,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -887,6 +895,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto to = DecodeScript(request.params[1].get_str());
+    RejectEthAddress(to);
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
     CWithdrawFromVaultMessage msg{vaultId, to, amount};
@@ -919,7 +928,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -930,7 +939,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1005,6 +1014,8 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
         from = DecodeScript(fromStr);
     }
 
+    RejectEthAddress(from);
+
     CAuctionBidMessage msg{vaultId, index, from, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AuctionBid)
@@ -1021,7 +1032,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[4]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[4], request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1032,7 +1043,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
         coinControl.destChange = dest;
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
 
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
@@ -1318,6 +1329,11 @@ UniValue historyToJSON(VaultHistoryKey const & key, VaultHistoryValue const & va
                        key.txn, value.txid.ToString(), value.diff);
 }
 
+UniValue collateralToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+    return vaultToJSON(key.vaultID, "vaultCollateral", key.blockHeight, ToString(CustomTxCodeToType(value.category)),
+                       key.txn, value.txid.ToString(), value.diff);
+}
+
 UniValue schemeToJSON(VaultSchemeKey const & key, const VaultGlobalSchemeValue& value) {
     auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, ToString(CustomTxCodeToType(value.category)), 0, value.txid.ToString(), {});
 
@@ -1469,7 +1485,12 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
         }
 
         auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(historyToJSON(key, value));
+
+        if (key.address.empty()) {
+            array.push_back(collateralToJSON(key, value));
+        } else {
+            array.push_back(historyToJSON(key, value));
+        }
 
         return --count != 0;
     };
@@ -1653,7 +1674,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
 
     auto height = ::ChainActive().Height();
     auto blockTime = ::ChainActive().Tip()->GetBlockTime();
-    auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, true);
+    auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, false, true);
     if (!rate.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
     }
@@ -1692,7 +1713,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
             totalSplit += split;
         }
         if (totalSplit != COIN)
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimalString(totalSplit), GetDecimalString(COIN)));
     }
     auto res = AmountsToJSON(loanBalances.balances);
     return GetRPCResultCache().Set(request, res);
@@ -1785,7 +1806,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         totalSplit += split;
     }
     if (totalSplit != COIN) {
-        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimalString(totalSplit), GetDecimalString(COIN)));
     }
 
     auto res = AmountsToJSON(collateralBalances.balances);
@@ -1827,7 +1848,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
     LOCK(cs_main);
     auto height = (uint32_t) ::ChainActive().Height();
 
-    CCollateralLoans result{};
+    CVaultAssets result{};
 
     for (const auto& collateral : collateralBalances.balances) {
         auto collateralToken = pcustomcsview->HasLoanCollateralToken({collateral.first, height});

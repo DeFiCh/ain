@@ -126,6 +126,9 @@ protected:
     friend Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName);
 };
 
+constexpr auto ETH_ADDR_PREFIX = "0x";
+constexpr auto ETH_ADDR_LENGTH_INC_PREFIX = 42;
+
 /**
  * Creates and returns a std::unique_ptr<CChainParams> of the chosen chain.
  * @returns a CChainParams* of the chosen chain.

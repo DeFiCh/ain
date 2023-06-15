@@ -21,7 +21,8 @@ from test_framework.util import (
     wait_until,
 )
 
-class ZapWalletTXesTest (DefiTestFramework):
+
+class ZapWalletTXesTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -78,6 +79,7 @@ class ZapWalletTXesTest (DefiTestFramework):
 
         # This will raise an exception because the unconfirmed transaction has been zapped
         assert_raises_rpc_error(-5, 'Invalid or non-wallet transaction id', self.nodes[0].gettransaction, txid2)
+
 
 if __name__ == '__main__':
     ZapWalletTXesTest().main()

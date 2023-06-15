@@ -69,7 +69,7 @@ FlatSigningProvider Merge(const FlatSigningProvider& a, const FlatSigningProvide
     return ret;
 }
 
-void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
+void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const bool ethAddress)
 {
     AssertLockHeld(cs_KeyStore);
     CKeyID key_id = pubkey.GetID();
@@ -84,7 +84,11 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
     // "Implicitly" refers to fact that scripts are derived automatically from
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
-    if (pubkey.IsCompressed()) {
+    if (ethAddress) {
+        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+        CScriptID id(script);
+        mapScripts[id] = std::move(script);
+    } else if (pubkey.IsCompressed()) {
         CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
@@ -102,11 +106,15 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     return true;
 }
 
-bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
+bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress)
 {
     LOCK(cs_KeyStore);
     mapKeys[pubkey.GetID()] = key;
-    ImplicitlyLearnRelatedKeyScripts(pubkey);
+    if (ethAddress) {
+        mapKeys[pubkey.GetEthID()] = key;
+        mapEthKeys[pubkey.GetEthID()] = key;
+    }
+    ImplicitlyLearnRelatedKeyScripts(pubkey, ethAddress);
     return true;
 }
 
@@ -126,11 +134,32 @@ std::set<CKeyID> FillableSigningProvider::GetKeys() const
     return set_address;
 }
 
+std::set<CKeyID> FillableSigningProvider::GetEthKeys() const
+{
+    LOCK(cs_KeyStore);
+    std::set<CKeyID> set_address;
+    for (const auto& mi : mapEthKeys) {
+        set_address.insert(mi.first);
+    }
+    return set_address;
+}
+
 bool FillableSigningProvider::GetKey(const CKeyID &address, CKey &keyOut) const
 {
     LOCK(cs_KeyStore);
     KeyMap::const_iterator mi = mapKeys.find(address);
     if (mi != mapKeys.end()) {
+        keyOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
+bool FillableSigningProvider::GetEthKey(const CKeyID &address, CKey &keyOut) const
+{
+    LOCK(cs_KeyStore);
+    auto mi = mapEthKeys.find(address);
+    if (mi != mapEthKeys.end()) {
         keyOut = mi->second;
         return true;
     }
@@ -183,6 +212,9 @@ CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& 
         return CKeyID(*id);
     }
     if (auto witness_id = std::get_if<WitnessV0KeyHash>(&dest)) {
+        return CKeyID(*witness_id);
+    }
+    if (auto witness_id = std::get_if<WitnessV16EthHash>(&dest)) {
         return CKeyID(*witness_id);
     }
     if (auto script_hash = std::get_if<ScriptHash>(&dest)) {

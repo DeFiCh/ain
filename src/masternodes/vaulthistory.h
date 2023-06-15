@@ -77,7 +77,7 @@ struct VaultStateKey {
 
 struct VaultStateValue {
     TAmounts collaterals;
-    CCollateralLoans collateralsValues;
+    CVaultAssets collateralsValues;
     std::vector<CAuctionBatch> auctionBatches;
     uint32_t ratio;
 
@@ -163,11 +163,11 @@ public:
     void EraseVaultHistory(const uint32_t height);
 
     void ForEachVaultHistory(std::function<bool(const VaultHistoryKey &, CLazySerialize<VaultHistoryValue>)> callback,
-                             const VaultHistoryKey &start = {});
+                             const VaultHistoryKey &start = {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max(), {}});
     void ForEachVaultScheme(std::function<bool(const VaultSchemeKey &, CLazySerialize<VaultSchemeValue>)> callback,
-                            const VaultSchemeKey &start = {});
+                            const VaultSchemeKey &start = {{}, std::numeric_limits<uint32_t>::max()});
     void ForEachVaultState(std::function<bool(const VaultStateKey &, CLazySerialize<VaultStateValue>)> callback,
-                           const VaultStateKey &start = {});
+                           const VaultStateKey &start = {{}, std::numeric_limits<uint32_t>::max()});
 
     // Loan Scheme storage
     void WriteGlobalScheme(const VaultGlobalSchemeKey &key, const VaultGlobalSchemeValue &value);

@@ -46,7 +46,7 @@ static bool WalletAppInit(int argc, char* argv[])
         std::string usage = strprintf("%s defi-wallet version", PACKAGE_NAME) + " " + FormatVersionAndSuffix() + "\n\n" +
                                       "wallet-tool is an offline tool for creating and interacting with the DeFi Blockchain wallet files.\n" +
                                       "By default wallet-tool will act on wallets in the default mainnet wallet directory in the datadir.\n" +
-                                      "To change the target wallet, use the -datadir, -wallet and -testnet/-regtest arguments.\n\n" +
+                                      "To change the target wallet, use the -datadir, -wallet and -testnet/-regtest/-changi arguments.\n\n" +
                                       "Usage:\n" +
                                      "  defi-wallet [options] <command>\n\n" +
                                      gArgs.GetHelpMessage();
@@ -62,7 +62,7 @@ static bool WalletAppInit(int argc, char* argv[])
         tfm::format(std::cerr, "Error: Specified data directory \"%s\" does not exist.\n", gArgs.GetArg("-datadir", "").c_str());
         return false;
     }
-    // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+    // Check for -testnet, -changi or -regtest parameter (Params() calls are only valid after this clause)
     SelectParams(gArgs.GetChainName());
     SelectDeFiParams(gArgs.GetChainName());
 

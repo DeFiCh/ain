@@ -46,12 +46,14 @@ def create_transactions(node, address, amt, fees):
 
     return txs
 
+
 class WalletTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-limitdescendantcount=3'],  # Limit mempool descendants as a hack to have wallet txs rejected from the mempool
+            ['-limitdescendantcount=3'],
+            # Limit mempool descendants as a hack to have wallet txs rejected from the mempool
             [],
         ]
 
@@ -105,7 +107,8 @@ class WalletTest(DefiTestFramework):
         self.sync_mempools()
 
         # First argument of getbalance must be set to "*"
-        assert_raises_rpc_error(-32, "dummy first argument must be excluded or set to \"*\"", self.nodes[1].getbalance, "")
+        assert_raises_rpc_error(-32, "dummy first argument must be excluded or set to \"*\"", self.nodes[1].getbalance,
+                                "")
 
         self.log.info("Test getbalance and getunconfirmedbalance with unconfirmed inputs")
 
@@ -125,7 +128,8 @@ class WalletTest(DefiTestFramework):
             assert_equal(self.nodes[0].getbalances()['mine']['untrusted_pending'], Decimal('60'))
             assert_equal(self.nodes[0].getwalletinfo()["unconfirmed_balance"], Decimal('60'))
 
-            assert_equal(self.nodes[1].getunconfirmedbalance(), Decimal('0'))  # Doesn't include output of node 0's send since it was spent
+            assert_equal(self.nodes[1].getunconfirmedbalance(),
+                         Decimal('0'))  # Doesn't include output of node 0's send since it was spent
             assert_equal(self.nodes[1].getbalances()['mine']['untrusted_pending'], Decimal('0'))
             assert_equal(self.nodes[1].getwalletinfo()["unconfirmed_balance"], Decimal('0'))
 
@@ -186,8 +190,8 @@ class WalletTest(DefiTestFramework):
         tx_orig = self.nodes[0].gettransaction(txid)['hex']
         # Increase fee by 1 coin
         tx_replace = tx_orig.replace(
-            struct.pack("<q", 99 * 10**8).hex(),
-            struct.pack("<q", 98 * 10**8).hex(),
+            struct.pack("<q", 99 * 10 ** 8).hex(),
+            struct.pack("<q", 98 * 10 ** 8).hex(),
         )
         tx_replace = self.nodes[0].signrawtransactionwithwallet(tx_replace)['hex']
         # Total balance is given by the sum of outputs of the tx

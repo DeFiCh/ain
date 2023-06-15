@@ -22,8 +22,8 @@ UniValue ORACLE_DEVIATION::Export() const {
 }
 
 Res ORACLE_DEVIATION::Validate(const CCustomCSView &view) const {
-    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, "Cannot be set before FortCanning");
-    Require(deviation >= COIN / 100, "Deviation cannot be less than 1 percent");
+    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
+    Require(deviation >= COIN / 100, []{ return "Deviation cannot be less than 1 percent"; });
 
     return Res::Ok();
 }

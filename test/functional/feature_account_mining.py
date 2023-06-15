@@ -13,6 +13,7 @@ from test_framework.util import (
 )
 from decimal import Decimal
 
+
 class AccountMiningTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -90,5 +91,6 @@ class AccountMiningTest(DefiTestFramework):
         # Check the blockchain has extended as expected
         assert_equal(node.getblockcount(), blockcount + 1)
 
+
 if __name__ == '__main__':
-    AccountMiningTest().main ()
+    AccountMiningTest().main()

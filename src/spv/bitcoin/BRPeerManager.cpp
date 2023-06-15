@@ -22,22 +22,23 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRPeerManager.h"
-#include "BRBloomFilter.h"
-#include "BRSet.h"
-#include "BRArray.h"
-#include "BRInt.h"
 #include <logging.h>
 #include <shutdown.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <limits.h>
+#include <limits>
 #include <time.h>
 #include <assert.h>
 #include <thread>
-
 #include <compat.h>
+
+#include <spv/support/BRSet.h>
+#include <spv/support/BRArray.h>
+#include <spv/support/BRInt.h>
+
+#include <spv/bitcoin/BRPeerManager.h>
+#include <spv/bitcoin/BRBloomFilter.h>
 
 //#include <pthread.h>
 //#include <errno.h>

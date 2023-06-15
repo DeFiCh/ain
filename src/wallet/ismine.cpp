@@ -25,9 +25,10 @@ namespace {
  */
 enum class IsMineSigVersion
 {
-    TOP = 0,        //!< scriptPubKey execution
-    P2SH = 1,       //!< P2SH redeemScript
-    WITNESS_V0 = 2, //!< P2WSH witness script execution
+    TOP = 0,         //!< scriptPubKey execution
+    P2SH = 1,        //!< P2SH redeemScript
+    WITNESS_V0 = 2,  //!< P2WSH witness script execution
+    WITNESS_V16 = 3, //!< Eth witness script execution
 };
 
 /**
@@ -138,6 +139,23 @@ IsMineResult IsMineInner(const CWallet& keystore, const CScript& scriptPubKey, I
         }
         break;
     }
+    case TX_WITNESS_V16_ETHHASH:
+    {
+        if (sigversion != IsMineSigVersion::TOP) {
+            // EthHash inside P2WSH or P2SH is invalid.
+            return IsMineResult::INVALID;
+        }
+        if (!keystore.HaveCScript(CScriptID(CScript() << OP_16 << vSolutions[0]))) {
+            break;
+        }
+
+        keyID = CKeyID(uint160(vSolutions[0]));
+
+        if (keystore.HaveKey(keyID)) {
+            ret = std::max(ret, IsMineResult::SPENDABLE);
+        }
+        break;
+    }
 
     case TX_MULTISIG:
     {
@@ -210,19 +228,19 @@ struct CCacheInfo
 
 isminetype IsMineCached(const CWallet& keystore, CScript const & script)
 {
-    static std::atomic_bool cs_cache(false);
+    static AtomicMutex cs_cache;
     static std::unordered_map<const CWallet*, CCacheInfo> cache;
     auto* wallet = &keystore;
-    CLockFreeGuard lock(cs_cache);
+    std::unique_lock lock(cs_cache);
     auto it = cache.find(wallet);
     if (it == cache.end()) {
         it = cache.emplace(wallet, CCacheInfo{{}, {
             wallet->NotifyOwnerChanged.connect([wallet](CScript const & owner) {
-                CLockFreeGuard lock(cs_cache);
+                std::unique_lock lock(cs_cache);
                 cache[wallet].mineData.erase(owner);
             }),
             wallet->NotifyUnload.connect([wallet]() {
-                CLockFreeGuard lock(cs_cache);
+                std::unique_lock lock(cs_cache);
                 cache.erase(wallet);
             }),
         }}).first;

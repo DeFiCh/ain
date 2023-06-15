@@ -16,7 +16,8 @@ from test_framework.util import assert_equal, \
 from decimal import Decimal
 import time
 
-class Dip1Test (DefiTestFramework):
+
+class Dip1Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         # node0: main
@@ -37,8 +38,8 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], 50)
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], 0)
         assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 0)
-        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['amk']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
-
+        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['amk']['active'],
+                     True)  # not active IRL, so getblockchaininfo works like "height+1"
 
         # BLOCK#2 - AMK activated
         self.nodes[0].generate(1)
@@ -50,7 +51,8 @@ class Dip1Test (DefiTestFramework):
 
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], 88)
         # import foundation address, so we can check foundation share (due to listunspent doesn't show immatured coinbases)
-        self.nodes[0].importprivkey('cMv1JaaZ9Mbb3M3oNmcFvko8p7EcHJ8XD7RCQjzNaMs7BWRVZTyR') # foundationAddress (2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS) privkey
+        self.nodes[0].importprivkey(
+            'cMv1JaaZ9Mbb3M3oNmcFvko8p7EcHJ8XD7RCQjzNaMs7BWRVZTyR')  # foundationAddress (2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS) privkey
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], Decimal('89.9'))
 
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.1'))
@@ -62,12 +64,11 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], 0)
         assert_equal(self.nodes[1].listcommunitybalances()['Burnt'], 0)
 
-
         # BLOCK#3 by node1 (rejected by node0)
         self.nodes[1].generate(1)
-        time.sleep(2) # can't sync here
+        time.sleep(2)  # can't sync here
         assert_equal(self.nodes[1].getblockcount(), 3)
-        assert_equal(self.nodes[0].getblockcount(), 2) # block rejected by "new" node!
+        assert_equal(self.nodes[0].getblockcount(), 2)  # block rejected by "new" node!
 
         # restart node1 with activated fork
         self.stop_node(1)
@@ -94,4 +95,4 @@ class Dip1Test (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    Dip1Test ().main ()
+    Dip1Test().main()

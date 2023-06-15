@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "ain-*",
+    "cli",
+    "labs-grpc2",
+]
+
+default-members = [
+    "ain-*",
+]
+
+[profile.release]
+lto = true
+
+[patch.crates-io]
+vsdb = { git = 'https://github.com/defich/vsdb.git' }
+vsdbsled = { git = 'https://github.com/defich/vsdbsled.git' }

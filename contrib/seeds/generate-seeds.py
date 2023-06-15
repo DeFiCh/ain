@@ -61,13 +61,13 @@ def name_to_ipv6(addr):
                 if i == 0 or i == (len(addr)-1): # skip empty component at beginning or end
                     continue
                 x += 1 # :: skips to suffix
-                assert(x < 2)
+                assert (x < 2)
             else: # two bytes per component
                 val = int(comp, 16)
                 sub[x].append(val >> 8)
                 sub[x].append(val & 0xff)
         nullbytes = 16 - len(sub[0]) - len(sub[1])
-        assert((x == 0 and nullbytes == 0) or (x == 1 and nullbytes > 0))
+        assert ((x == 0 and nullbytes == 0) or (x == 1 and nullbytes > 0))
         return bytearray(sub[0] + ([0] * nullbytes) + sub[1])
     elif addr.startswith('0x'): # IPv4-in-little-endian
         return pchIPv4 + bytearray(reversed(a2b_hex(addr[2:])))
@@ -75,7 +75,7 @@ def name_to_ipv6(addr):
         raise ValueError('Could not parse address %s' % addr)
 
 def parse_spec(s, defaultport):
-    match = re.match('\[([0-9a-fA-F:]+)\](?::([0-9]+))?$', s)
+    match = re.match(r'\[([0-9a-fA-F:]+)\](?::([0-9]+))?$', s)
     if match: # ipv6
         host = match.group(1)
         port = match.group(2)

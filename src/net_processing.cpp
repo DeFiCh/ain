@@ -10,6 +10,7 @@
 #include <arith_uint256.h>
 #include <blockencodings.h>
 #include <chainparams.h>
+#include <consensus/tx_check.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <validation.h>
@@ -34,6 +35,7 @@
 #include <util/validation.h>
 
 #include <memory>
+#include <random>
 
 #if defined(NDEBUG)
 # error "DeFi Blockchain cannot be compiled without assertions."
@@ -83,6 +85,9 @@ static_assert(INBOUND_PEER_TX_DELAY >= MAX_GETDATA_RANDOM_DELAY,
 "To preserve security, MAX_GETDATA_RANDOM_DELAY should not exceed INBOUND_PEER_DELAY");
 /** Limit to avoid sending big packets. Not used in processing incoming GETDATA for compatibility */
 static const unsigned int MAX_GETDATA_SZ = 1000;
+
+double maxAddrRatePerSecond;
+size_t maxAddrProcessingTokenBucket;
 
 
 struct COrphanTx {
@@ -2138,6 +2143,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             {
                 connman->PushMessage(pfrom, CNetMsgMaker(nSendVersion).Make(NetMsgType::GETADDR));
                 pfrom->fGetAddr = true;
+
+                // When requesting a getaddr, accept an additional MAX_ADDR_TO_SEND addresses in response
+                // (bypassing the MAX_ADDR_PROCESSING_TOKEN_BUCKET limit).
+                pfrom->nAddrTokenBucket += MAX_ADDR_TO_SEND;
             }
             connman->MarkAddressGood(pfrom->addr);
         }
@@ -2252,10 +2261,45 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         std::vector<CAddress> vAddrOk;
         int64_t nNow = GetAdjustedTime();
         int64_t nSince = nNow - 10 * 60;
+
+        // track rate limiting within this message
+        uint64_t nProcessedAddrs = 0;
+        uint64_t nRatelimitedAddrs = 0;
+
+        // Update/increment addr rate limiting bucket.
+        const uint64_t nCurrentTime = GetTimeMicros();
+        if (pfrom->nAddrTokenBucket < maxAddrProcessingTokenBucket) {
+            const uint64_t nTimeElapsed = std::max(nCurrentTime - pfrom->nAddrTokenTimestamp, uint64_t(0));
+            const double nIncrement = nTimeElapsed * maxAddrRatePerSecond / 1e6;
+            pfrom->nAddrTokenBucket = std::min<double>(pfrom->nAddrTokenBucket + nIncrement, maxAddrProcessingTokenBucket);
+        }
+        pfrom->nAddrTokenTimestamp = nCurrentTime;
+
+        // Randomize entries before processing, to prevent an attacker to
+        // determine which entries will make it through the rate limit
+        {
+            // Generate an fairly indeterministic seed out variables we already have
+            // from a peer point of view.
+            FastRandomContext insecure_rand;
+            auto seed = insecure_rand.randrange(nCurrentTime) * getpid();
+            std::shuffle(vAddr.begin(), vAddr.end(), std::default_random_engine{static_cast<unsigned int>(seed)});
+        }
+
         for (CAddress& addr : vAddr)
         {
             if (interruptMsgProc)
                 return true;
+
+            // Apply rate limiting
+            if (!pfrom->HasPermission(PF_NOBAN)) {
+                if (pfrom->nAddrTokenBucket < 1.0) {
+                    nRatelimitedAddrs++;
+                    continue;
+                }
+                pfrom->nAddrTokenBucket -= 1.0;
+            }
+
+            nProcessedAddrs++;
 
             // We only bother storing full nodes, though this may include
             // things which we would not make an outbound connection to, in
@@ -2277,6 +2321,12 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             if (fReachable)
                 vAddrOk.push_back(addr);
         }
+        pfrom->nProcessedAddrs += nProcessedAddrs;
+        pfrom->nRatelimitedAddrs += nRatelimitedAddrs;
+
+        LogPrint(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited) peer=%d\n",
+                 vAddr.size(), nProcessedAddrs, nRatelimitedAddrs, pfrom->GetId());
+
         connman->AddNewAddresses(vAddrOk, pfrom->addr, 2 * 60 * 60);
         if (vAddr.size() < 1000)
             pfrom->fGetAddr = false;
@@ -4107,7 +4157,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     if (!txinfo.tx) {
                         continue;
                     }
-                    if (filterrate && txinfo.feeRate.GetFeePerK() < filterrate) {
+                    if (!IsEVMTx(*txinfo.tx) && filterrate && txinfo.feeRate.GetFeePerK() < filterrate) {
                         continue;
                     }
                     if (pto->pfilter && !pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;

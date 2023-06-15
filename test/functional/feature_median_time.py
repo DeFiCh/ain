@@ -10,10 +10,11 @@ from test_framework.util import assert_equal
 import time
 from random import randint
 
+
 class MedianTimeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [ "-dummypos=1", '-amkheight=0', "-dakotaheight=1", "-fortcanningheight=100"],
+        self.extra_args = ["-dummypos=1", '-amkheight=0', "-dakotaheight=1", "-fortcanningheight=100"],
         self.setup_clean_chain = True
 
     def CalcMedianTime(self):
@@ -33,19 +34,24 @@ class MedianTimeTest(DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(11)
-        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'],
+                     self.CalcMedianTime())
 
         # Test some random block times pre-fork
         self.GenerateBlocks(11)
-        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'],
+                     self.CalcMedianTime())
 
         # Move to hard fork
         self.nodes[0].generate(100 - self.nodes[0].getblockcount())
-        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'],
+                     self.CalcMedianTime())
 
         # Test some random block times post-fork
         self.GenerateBlocks(5)
-        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'],
+                     self.CalcMedianTime())
+
 
 if __name__ == '__main__':
     MedianTimeTest().main()

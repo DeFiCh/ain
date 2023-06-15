@@ -22,13 +22,6 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRPeer.h"
-#include "BRAddress.h"
-#include "BRArray.h"
-#include "BRCrypto.h"
-#include "BRInt.h"
-#include "BRMerkleBlock.h"
-#include "BRSet.h"
 #include <netbase.h>
 #include <protocol.h>
 
@@ -37,10 +30,18 @@
 #include <inttypes.h>
 #include <string.h>
 #include <thread>
-
 #include <compat.h>
-
 #include <sys/time.h>
+
+#include <spv/support/BRAddress.h>
+#include <spv/support/BRArray.h>
+#include <spv/support/BRCrypto.h>
+#include <spv/support/BRInt.h>
+#include <spv/support/BRSet.h>
+
+#include <spv/bitcoin/BRPeer.h>
+#include <spv/bitcoin/BRMerkleBlock.h>
+
 
 #define HEADER_LENGTH      24
 #define MAX_MSG_LENGTH     0x02000000

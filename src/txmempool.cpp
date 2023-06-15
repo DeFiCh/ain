@@ -653,7 +653,6 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, CCustomCSView *mnview, co
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        unsigned int i = 0;
         checkTotal += it->GetTxSize();
         innerUsage += it->DynamicMemoryUsage();
         const CTransaction& tx = it->GetTx();
@@ -663,23 +662,24 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, CCustomCSView *mnview, co
         innerUsage += memusage::DynamicUsage(links.parents) + memusage::DynamicUsage(links.children);
         bool fDependsWait = false;
         setEntries setParentCheck;
-        for (const CTxIn &txin : tx.vin) {
-            // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
-            if (it2 != mapTx.end()) {
-                const CTransaction& tx2 = it2->GetTx();
-                assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
-                fDependsWait = true;
-                setParentCheck.insert(it2);
-            } else {
-                assert(pcoins->HaveCoin(txin.prevout));
+        if (!IsEVMTx(tx)) {
+            for (const CTxIn &txin : tx.vin) {
+                // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
+                indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+                if (it2 != mapTx.end()) {
+                    const CTransaction& tx2 = it2->GetTx();
+                    assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
+                    fDependsWait = true;
+                    setParentCheck.insert(it2);
+                } else {
+                    assert(pcoins->HaveCoin(txin.prevout));
+                }
+                // Check whether its inputs are marked in mapNextTx.
+                auto it3 = mapNextTx.find(txin.prevout);
+                assert(it3 != mapNextTx.end());
+                assert(it3->first == &txin.prevout);
+                assert(it3->second == &tx);
             }
-            // Check whether its inputs are marked in mapNextTx.
-            auto it3 = mapNextTx.find(txin.prevout);
-            assert(it3 != mapNextTx.end());
-            assert(it3->first == &txin.prevout);
-            assert(it3->second == &tx);
-            i++;
         }
         assert(setParentCheck == GetMemPoolParents(it));
         // Verify ancestor state is correct.
@@ -1114,7 +1114,8 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height, gasUsed);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

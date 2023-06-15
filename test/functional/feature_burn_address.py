@@ -12,6 +12,7 @@ from test_framework.util import assert_equal
 
 from decimal import Decimal
 
+
 class BurnAddressTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -33,7 +34,7 @@ class BurnAddressTest(DefiTestFramework):
 
         # Check create masternode burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'][4:14], "4466547843") # OP_RETURN data DfTxC
+        assert_equal(result[0]['owner'][4:14], "4466547843")  # OP_RETURN data DfTxC
         assert_equal(result[0]['txn'], 2)
         assert_equal(result[0]['type'], 'CreateMasternode')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
@@ -47,7 +48,7 @@ class BurnAddressTest(DefiTestFramework):
         # Create funded account address
         funded_address = self.nodes[0].getnewaddress()
         self.nodes[0].sendtoaddress(funded_address, 1)
-        self.nodes[0].utxostoaccount({funded_address:"3@0"})
+        self.nodes[0].utxostoaccount({funded_address: "3@0"})
         self.nodes[0].generate(1)
 
         # Test burn token
@@ -60,7 +61,8 @@ class BurnAddressTest(DefiTestFramework):
 
         # Check token burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'], "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003") # OP_RETURN data
+        assert_equal(result[0]['owner'],
+                     "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003")  # OP_RETURN data
         assert_equal(result[0]['txn'], 1)
         assert_equal(result[0]['type'], 'CreateToken')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
@@ -75,7 +77,7 @@ class BurnAddressTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Send tokens to burn address
-        self.nodes[0].accounttoaccount(funded_address, {burn_address:"100@128"})
+        self.nodes[0].accounttoaccount(funded_address, {burn_address: "100@128"})
         self.nodes[0].generate(1)
 
         # Check burn history
@@ -90,7 +92,7 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Track utxostoaccount burn
-        self.nodes[0].utxostoaccount({burn_address:"1@0"})
+        self.nodes[0].utxostoaccount({burn_address: "1@0"})
         self.nodes[0].generate(1)
 
         # Check burn history
@@ -107,13 +109,13 @@ class BurnAddressTest(DefiTestFramework):
 
         # Try and spend from burn address account
         try:
-            self.nodes[0].accounttoaccount(burn_address, {funded_address:"1@0"})
+            self.nodes[0].accounttoaccount(burn_address, {funded_address: "1@0"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("burnt-output" in errorString)
+        assert ("burnt-output" in errorString)
 
         # Send to burn address with accounttoaccount
-        self.nodes[0].accounttoaccount(funded_address, {burn_address:"1@0"})
+        self.nodes[0].accounttoaccount(funded_address, {burn_address: "1@0"})
         self.nodes[0].generate(1)
 
         # Check burn history
@@ -132,7 +134,7 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Send to burn address with accounttoutxos
-        self.nodes[0].accounttoutxos(funded_address, {burn_address:"2@0"})
+        self.nodes[0].accounttoutxos(funded_address, {burn_address: "2@0"})
         self.nodes[0].generate(1)
 
         result = self.nodes[0].listburnhistory()
@@ -168,7 +170,7 @@ class BurnAddressTest(DefiTestFramework):
             if outputs['scriptPubKey']['addresses'][0] == burn_address:
                 vout = outputs['n']
 
-        rawtx = self.nodes[0].createrawtransaction([{"txid":txid,"vout":vout}], [{burn_address:9.9999}])
+        rawtx = self.nodes[0].createrawtransaction([{"txid": txid, "vout": vout}], [{burn_address: 9.9999}])
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_equal(signed_rawtx['complete'], True)
 
@@ -177,7 +179,7 @@ class BurnAddressTest(DefiTestFramework):
             self.nodes[0].sendrawtransaction(signed_rawtx['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("burnt-output" in errorString)
+        assert ("burnt-output" in errorString)
 
         # Test output of getburninfo
         result = self.nodes[0].getburninfo()
@@ -187,30 +189,30 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Filter on tx type None
-        result = self.nodes[0].listburnhistory({"txtype":'0'})
+        result = self.nodes[0].listburnhistory({"txtype": '0'})
         assert_equal(len(result), 3)
         assert_equal(result[0]['type'], 'None')
         assert_equal(result[1]['type'], 'None')
         assert_equal(result[2]['type'], 'None')
 
         # Filter on tx type UtxosToAccount
-        result = self.nodes[0].listburnhistory({"txtype":'U'})
+        result = self.nodes[0].listburnhistory({"txtype": 'U'})
         assert_equal(len(result), 1)
         assert_equal(result[0]['type'], 'UtxosToAccount')
 
         # Filter on tx type AccountToAccount
-        result = self.nodes[0].listburnhistory({"txtype":'B'})
+        result = self.nodes[0].listburnhistory({"txtype": 'B'})
         assert_equal(len(result), 2)
         assert_equal(result[0]['type'], 'AccountToAccount')
         assert_equal(result[1]['type'], 'AccountToAccount')
 
         # Filter on tx type CreateMasternode
-        result = self.nodes[0].listburnhistory({"txtype":'C'})
+        result = self.nodes[0].listburnhistory({"txtype": 'C'})
         assert_equal(len(result), 1)
         assert_equal(result[0]['type'], 'CreateMasternode')
 
         # Filter on tx type CreateToken
-        result = self.nodes[0].listburnhistory({"txtype":'T'})
+        result = self.nodes[0].listburnhistory({"txtype": 'T'})
         assert_equal(len(result), 1)
         assert_equal(result[0]['type'], 'CreateToken')
 
@@ -233,6 +235,7 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result['amount'], Decimal('0'))
         assert_equal(result['feeburn'], Decimal('0'))
         assert_equal(result['tokens'], [])
+
 
 if __name__ == '__main__':
     BurnAddressTest().main()

@@ -136,14 +136,14 @@ In the background, `defi-cli` read the information automatically from `/data/reg
 
 #### Using rpcauth for remote authentication
 
-Before setting up remote authentication, you will need to generate the `rpcauth` line that will hold the credentials for the DeFi Blockchain daemon. You can either do this yourself by constructing the line with the format `<user>:<salt>$<hash>` or use the official [`rpcauth.py`](https://github.com/DeFiCh/ain/blob/master/share/rpcauth/rpcauth.py)  script to generate this line for you, including a random password that is printed to the console.
+Before setting up remote authentication, you will need to generate the `rpcauth` line that will hold the credentials for the DeFi Blockchain daemon. You can either do this yourself by constructing the line with the format `<user>:<salt>$<hash>` or use the official [`rpcauth.py`](https://github.com/DeFiCh/ain/blob/master/contrib/rpcauth/rpcauth.py)  script to generate this line for you, including a random password that is printed to the console.
 
 _Note: This is a Python 3 script. use `[...] | python3 - <username>` when executing on macOS._
 
 Example:
 
 ```sh
-❯ curl -sSL https://raw.githubusercontent.com/DeFiCh/ain/master/share/rpcauth/rpcauth.py | python - <username>
+❯ curl -sSL https://raw.githubusercontent.com/DeFiCh/ain/master/contrib/rpcauth/rpcauth.py | python - <username>
 
 String to be appended to defi.conf:
 rpcauth=foo:7d9ba5ae63c3d4dc30583ff4fe65a67e$9e3634e81c11659e3de036d0bf88f89cd169c1039e6e09607562d54765c649cc

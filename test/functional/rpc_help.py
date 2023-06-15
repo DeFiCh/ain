@@ -33,7 +33,9 @@ class HelpRpcTest(DefiTestFramework):
         # command titles
         titles = [line[3:-3] for line in node.help().splitlines() if line.startswith('==')]
 
-        components = ['Accounts', 'Blockchain', 'Control', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes', 'Mining', 'Network', 'Oracles', 'Poolpair', 'Proposals', 'Rawtransactions', 'Spv', 'Stats', 'Tokens', 'Util', 'Vault']
+        components = ['Accounts', 'Blockchain', 'Control', 'Evm', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes',
+                      'Mining', 'Network', 'Oracles', 'Poolpair', 'Proposals', 'Rawtransactions', 'Spv', 'Stats',
+                      'Tokens', 'Util', 'Vault']
 
         if self.is_wallet_compiled():
             components.append('Wallet')
@@ -46,7 +48,8 @@ class HelpRpcTest(DefiTestFramework):
     def dump_help(self):
         dump_dir = os.path.join(self.options.tmpdir, 'rpc_help_dump')
         os.mkdir(dump_dir)
-        calls = [line.split(' ', 1)[0] for line in self.nodes[0].help().splitlines() if line and not line.startswith('==')]
+        calls = [line.split(' ', 1)[0] for line in self.nodes[0].help().splitlines() if
+                 line and not line.startswith('==')]
         for call in calls:
             with open(os.path.join(dump_dir, call), 'w', encoding='utf-8') as f:
                 # Make sure the node can generate the help at runtime without crashing

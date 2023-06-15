@@ -94,6 +94,7 @@ struct Params {
     int FortCanningEpilogueHeight;
     int GrandCentralHeight;
     int GrandCentralEpilogueHeight;
+    int NextNetworkUpgradeHeight;
 
     /** Trackable burn address */
     CScript burnAddress;
@@ -125,6 +126,7 @@ struct Params {
         CAmount feeBurnPct;
     };
     CProposalParams props;
+    uint64_t evmChainId;
 };
 } // namespace Consensus
 

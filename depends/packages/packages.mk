@@ -1,15 +1,11 @@
-packages:=boost libevent
+packages := boost libevent protobuf
 
 rapidcheck_packages = rapidcheck
+wallet_packages = bdb
+zmq_packages = zeromq
+upnp_packages = miniupnpc
 
-wallet_packages=bdb
-
-zmq_packages=zeromq
-
-upnp_packages=miniupnpc
-
-darwin_native_packages = native_biplist native_ds_store native_mac_alias
-
+darwin_native_packages = 
 ifneq ($(build_os),darwin)
-darwin_native_packages += native_cctools native_cdrkit native_libdmg-hfsplus
+darwin_native_packages += native_cctools
 endif

@@ -8,9 +8,11 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_rpc_proxy, wait_until
 from threading import Thread
 
+
 def test_long_call(node):
     block = node.waitfornewblock()
     assert_equal(block['height'], 0)
+
 
 class ShutdownTest(DefiTestFramework):
 
@@ -29,6 +31,7 @@ class ShutdownTest(DefiTestFramework):
         # finishes. This is to ensure event loop waits for current connections
         # to close.
         self.stop_node(0, wait=1000)
+
 
 if __name__ == '__main__':
     ShutdownTest().main()

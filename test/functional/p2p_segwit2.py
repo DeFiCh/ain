@@ -60,16 +60,21 @@ MAX_SIGOP_COST = 80000 * 16
 
 SEGWIT_HEIGHT = 120
 
+
 class UTXO():
     """Used to keep track of anyone-can-spend outputs that we can use in the tests."""
+
     def __init__(self, sha256, n, value):
         self.sha256 = sha256
         self.n = n
         self.nValue = value
 
+
 def get_p2pkh_script(pubkeyhash):
     """Get the script associated with a P2PKH."""
-    return CScript([CScriptOp(OP_DUP), CScriptOp(OP_HASH160), pubkeyhash, CScriptOp(OP_EQUALVERIFY), CScriptOp(OP_CHECKSIG)])
+    return CScript(
+        [CScriptOp(OP_DUP), CScriptOp(OP_HASH160), pubkeyhash, CScriptOp(OP_EQUALVERIFY), CScriptOp(OP_CHECKSIG)])
+
 
 def sign_p2pk_witness_input(script, tx_to, in_idx, hashtype, value, key):
     """Add signature for a P2PK witness program."""
@@ -77,6 +82,7 @@ def sign_p2pk_witness_input(script, tx_to, in_idx, hashtype, value, key):
     signature = key.sign_ecdsa(tx_hash) + chr(hashtype).encode('latin-1')
     tx_to.wit.vtxinwit[in_idx].scriptWitness.stack = [signature, script]
     tx_to.rehash()
+
 
 def get_virtual_size(witness_block):
     """Calculate the virtual size of a witness block.
@@ -88,6 +94,7 @@ def get_virtual_size(witness_block):
     vsize = int((3 * base_size + total_size + 3) / 4)
     return vsize
 
+
 def test_transaction_acceptance(node, p2p, tx, with_witness, accepted, reason=None):
     """Send a transaction to the node and check that it's accepted to the mempool
 
@@ -98,6 +105,7 @@ def test_transaction_acceptance(node, p2p, tx, with_witness, accepted, reason=No
         p2p.send_message(msg_witness_tx(tx) if with_witness else msg_tx(tx))
         p2p.sync_with_ping()
         assert_equal(tx.hash in node.getrawmempool(), accepted)
+
 
 def test_witness_block(node, p2p, block, accepted, with_witness=True, reason=None):
     """Send a block to the node and check that it's accepted
@@ -150,6 +158,7 @@ class TestP2PConn(P2PInterface):
         self.send_message(msg_getdata(inv=[CInv(inv_type, blockhash)]))
         self.wait_for_block(blockhash, timeout)
         return self.last_message["block"].block
+
 
 class SegWitTest2(DefiTestFramework):
     def set_test_params(self):
@@ -214,6 +223,7 @@ class SegWitTest2(DefiTestFramework):
 
     def subtest(func):  # noqa: N805
         """Wraps the subtests for logging and state assertions."""
+
         def func_wrapper(self, *args, **kwargs):
             self.log.info("Subtest: {} (Segwit active = {})".format(func.__name__, self.segwit_active))
             func(self, *args, **kwargs)
@@ -313,7 +323,8 @@ class SegWitTest2(DefiTestFramework):
         while additional_bytes > 0:
             # Add some more bytes to each input until we hit MAX_BLOCK_BASE_SIZE+1
             extra_bytes = min(additional_bytes + 1, 55)
-            block.vtx[-1].wit.vtxinwit[int(i / (2 * NUM_DROPS))].scriptWitness.stack[i % (2 * NUM_DROPS)] = b'a' * (filler_size + extra_bytes)
+            block.vtx[-1].wit.vtxinwit[int(i / (2 * NUM_DROPS))].scriptWitness.stack[i % (2 * NUM_DROPS)] = b'a' * (
+                        filler_size + extra_bytes)
             additional_bytes -= extra_bytes
             i += 1
 

@@ -15,6 +15,7 @@ import binascii
 import decimal
 import itertools
 
+
 class RpcCreateMultiSigTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -75,11 +76,13 @@ class RpcCreateMultiSigTest(DefiTestFramework):
     def check_addmultisigaddress_errors(self):
         self.log.info('Check that addmultisigaddress fails when the private keys are missing')
         addresses = [self.nodes[1].getnewaddress(address_type='legacy') for _ in range(2)]
-        assert_raises_rpc_error(-5, 'no full public key for address', lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
+        assert_raises_rpc_error(-5, 'no full public key for address',
+                                lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
         for a in addresses:
             # Importing all addresses should not change the result
             self.nodes[0].importaddress(a)
-        assert_raises_rpc_error(-5, 'no full public key for address', lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
+        assert_raises_rpc_error(-5, 'no full public key for address',
+                                lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
 
     def checkbalances(self):
         node0, node1, node2 = self.nodes
@@ -132,7 +135,8 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         prevtx_err = dict(prevtxs[0])
         del prevtx_err["redeemScript"]
 
-        assert_raises_rpc_error(-8, "Missing redeemScript/witnessScript", node2.signrawtransactionwithkey, rawtx, self.priv[0:self.nsigs-1], [prevtx_err])
+        assert_raises_rpc_error(-8, "Missing redeemScript/witnessScript", node2.signrawtransactionwithkey, rawtx,
+                                self.priv[0:self.nsigs - 1], [prevtx_err])
 
         rawtx2 = node2.signrawtransactionwithkey(rawtx, self.priv[0:self.nsigs - 1], prevtxs)
         rawtx3 = node2.signrawtransactionwithkey(rawtx2["hex"], [self.priv[-1]], prevtxs)
@@ -143,7 +147,8 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)
-        self.log.info("n/m=%d/%d %s size=%d vsize=%d weight=%d" % (self.nsigs, self.nkeys, self.output_type, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
+        self.log.info("n/m=%d/%d %s size=%d vsize=%d weight=%d" % (
+        self.nsigs, self.nkeys, self.output_type, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
 
 
 if __name__ == '__main__':

@@ -25,9 +25,10 @@
 #ifndef BRKey_h
 #define BRKey_h
 
-#include "BRInt.h"
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <spv/support/BRInt.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -212,6 +212,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "gettokenbalances", 0, "pagination" },
     { "gettokenbalances", 1, "indexed_amounts" },
     { "gettokenbalances", 2, "symbol_lookup" },
+    { "gettokenbalances", 3, "include_eth" },
     { "accounttoaccount", 1, "to" },
     { "accounttoaccount", 2, "inputs" },
     { "accounttoutxos", 1, "to" },
@@ -323,6 +324,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+    { "transferdomain", 0, "array" },
     { "getanchorteams", 0, "blockHeight" },
     { "getactivemasternodecount", 0, "blockCount" },
     { "appointoracle", 1, "pricefeeds" },
@@ -356,7 +358,13 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "creategovvoc", 0, "data" },
     { "creategovvoc", 1, "inputs" },
     { "listgovproposalvotes", 2, "cycle" },
-    { "listgovproposals", 0, "type" },
+    { "listgovproposalvotes", 3, "pagination" },
+    { "listgovproposals", 2, "cycle" },
+    { "listgovproposals", 3, "pagination" },
+    { "evmtx", 1, "nonce" },
+    { "evmtx", 2, "gasPrice" },
+    { "evmtx", 3, "gasLimit" },
+    { "evmtx", 5, "value" },
 };
 // clang-format on
 

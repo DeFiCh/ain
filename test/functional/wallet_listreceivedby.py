@@ -26,7 +26,8 @@ class ReceivedByTest(DefiTestFramework):
         self.sync_blocks()
 
         # save the number of coinbase reward addresses so far
-        num_cb_reward_addresses = len(self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True))
+        num_cb_reward_addresses = len(
+            self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True))
 
         self.log.info("listreceivedbyaddress Test")
 
@@ -45,11 +46,13 @@ class ReceivedByTest(DefiTestFramework):
         self.sync_blocks()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10,
+                             "txids": [txid, ]})
         # With min confidence < 10
         assert_array_result(self.nodes[1].listreceivedbyaddress(5),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10,
+                             "txids": [txid, ]})
         # With min confidence > 10, should not find Tx
         assert_array_result(self.nodes[1].listreceivedbyaddress(11), {"address": addr}, {}, True)
 
@@ -62,7 +65,8 @@ class ReceivedByTest(DefiTestFramework):
         # Test Address filtering
         # Only on addr
         expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]}
-        res = self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True, address_filter=addr)
+        res = self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True,
+                                                  address_filter=addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Test for regression on CLI calls with address string (#14173)
@@ -70,7 +74,8 @@ class ReceivedByTest(DefiTestFramework):
         assert_array_result(cli_res, {"address": addr}, expected)
         assert_equal(len(cli_res), 1)
         # Error on invalid address
-        assert_raises_rpc_error(-4, "address_filter parameter was invalid", self.nodes[1].listreceivedbyaddress, minconf=0, include_empty=True, include_watchonly=True, address_filter="bamboozling")
+        assert_raises_rpc_error(-4, "address_filter parameter was invalid", self.nodes[1].listreceivedbyaddress,
+                                minconf=0, include_empty=True, include_watchonly=True, address_filter="bamboozling")
         # Another address receive money
         res = self.nodes[1].listreceivedbyaddress(0, True, True)
         assert_equal(len(res), 2 + num_cb_reward_addresses)  # Right now 2 entries
@@ -84,7 +89,8 @@ class ReceivedByTest(DefiTestFramework):
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Same test as above but with other_addr should still pass
-        expected = {"address": other_addr, "label": "", "amount": Decimal("0.1"), "confirmations": 1, "txids": [txid2, ]}
+        expected = {"address": other_addr, "label": "", "amount": Decimal("0.1"), "confirmations": 1,
+                    "txids": [txid2, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, other_addr)
         assert_array_result(res, {"address": other_addr}, expected)
         assert_equal(len(res), 1)
@@ -147,7 +153,8 @@ class ReceivedByTest(DefiTestFramework):
         # listreceivedbylabel should return updated received list
         assert_array_result(self.nodes[1].listreceivedbylabel(),
                             {"label": label},
-                            {"label": received_by_label_json["label"], "amount": (received_by_label_json["amount"] + Decimal("0.1"))})
+                            {"label": received_by_label_json["label"],
+                             "amount": (received_by_label_json["amount"] + Decimal("0.1"))})
 
         # getreceivedbylabel should return updated receive total
         balance = self.nodes[1].getreceivedbylabel(label)
@@ -156,7 +163,8 @@ class ReceivedByTest(DefiTestFramework):
         # Create a new label named "mynewlabel" that has a 0 balance
         address = self.nodes[1].getnewaddress()
         self.nodes[1].setlabel(address, "mynewlabel")
-        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(0, True) if r["label"] == "mynewlabel"][0]
+        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(0, True) if r["label"] == "mynewlabel"][
+            0]
 
         # Test includeempty of listreceivedbylabel
         assert_equal(received_by_label_json["amount"], Decimal("0.0"))
@@ -164,6 +172,7 @@ class ReceivedByTest(DefiTestFramework):
         # Test getreceivedbylabel for 0 amount labels
         balance = self.nodes[1].getreceivedbylabel("mynewlabel")
         assert_equal(balance, Decimal("0.0"))
+
 
 if __name__ == '__main__':
     ReceivedByTest().main()

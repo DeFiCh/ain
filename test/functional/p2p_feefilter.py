@@ -15,6 +15,7 @@ from test_framework.test_framework import DefiTestFramework
 def hashToHex(hash):
     return format(hash, '064x')
 
+
 # Wait up to 60 secs to see if the testnode has received all the expected invs
 def allInvsMatch(invsExpected, testnode):
     for x in range(60):
@@ -23,6 +24,7 @@ def allInvsMatch(invsExpected, testnode):
                 return True
         time.sleep(1)
     return False
+
 
 class TestP2PConn(P2PInterface):
     def __init__(self):
@@ -37,6 +39,7 @@ class TestP2PConn(P2PInterface):
     def clear_invs(self):
         with mininode_lock:
             self.txinvs = []
+
 
 class FeeFilterTest(DefiTestFramework):
     def set_test_params(self):
@@ -71,7 +74,7 @@ class FeeFilterTest(DefiTestFramework):
         # Change tx fee rate to 10 sat/byte and test they are no longer received
         node1.settxfee(Decimal("0.00010000"))
         [node1.sendtoaddress(node1.getnewaddress(), 1) for x in range(3)]
-        self.sync_mempools() # must be sure node 0 has received all txs
+        self.sync_mempools()  # must be sure node 0 has received all txs
 
         # Send one transaction from node0 that should be received, so that we
         # we can sync the test on receipt (if node1's txs were relayed, they'd
@@ -90,6 +93,7 @@ class FeeFilterTest(DefiTestFramework):
         txids = [node1.sendtoaddress(node1.getnewaddress(), 1) for x in range(3)]
         assert allInvsMatch(txids, self.nodes[0].p2p)
         self.nodes[0].p2p.clear_invs()
+
 
 if __name__ == '__main__':
     FeeFilterTest().main()

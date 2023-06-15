@@ -53,6 +53,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 from data import invalid_txs
 
+
 #  Use this class for tests that require behavior other than normal "mininode" behavior.
 #  For now, it is used to serialize a bloated varint (b64).
 class CBrokenBlock(CBlock):
@@ -236,7 +237,8 @@ class FullBlockTest(DefiTestFramework):
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
         #                                          \-> b12 (3) -> b13 (4) -> b14 (5)
         #                      \-> b3 (1) -> b4 (2)
-        self.log.info("Reject a chain where the miner creates too much coinbase reward, even if the chain is longer (on a forked chain)")
+        self.log.info(
+            "Reject a chain where the miner creates too much coinbase reward, even if the chain is longer (on a forked chain)")
         self.move_tip(5)
         b12 = self.next_block(12, spend=out[3])
         self.save_spendable_output()
@@ -487,7 +489,7 @@ class FullBlockTest(DefiTestFramework):
         tx_new = None
         tx_last = tx
         total_size = len(b39.serialize())
-        while(total_size < MAX_BLOCK_BASE_SIZE):
+        while (total_size < MAX_BLOCK_BASE_SIZE):
             tx_new = self.create_tx(tx_last, 1, 1, p2sh_script)
             tx_new.vout.append(CTxOut(tx_last.vout[1].nValue - 1, CScript([OP_TRUE])))
             tx_new.rehash()
@@ -754,7 +756,8 @@ class FullBlockTest(DefiTestFramework):
         b57p2 = self.update_block("57p2", [tx, tx1, tx2, tx3, tx4])
 
         # b56p2 - copy b57p2, duplicate two non-consecutive tx's
-        self.log.info("Reject a block with two duplicate transactions in the Merkle Tree (but with a valid Merkle Root)")
+        self.log.info(
+            "Reject a block with two duplicate transactions in the Merkle Tree (but with a valid Merkle Root)")
         self.move_tip(55)
         b56p2 = copy.deepcopy(b57p2)
         self.blocks["b56p2"] = b56p2
@@ -1016,14 +1019,15 @@ class FullBlockTest(DefiTestFramework):
         #
         # b72 is a good block.
         # b71 is a copy of 72, but re-adds one of its transactions.  However, it has the same hash as b72.
-        self.log.info("Reject a block containing a duplicate transaction but with the same Merkle root (Merkle tree malleability")
+        self.log.info(
+            "Reject a block containing a duplicate transaction but with the same Merkle root (Merkle tree malleability")
         self.move_tip(69)
         b72 = self.next_block(72)
         tx1 = self.create_and_sign_transaction(out[21], 2)
         tx2 = self.create_and_sign_transaction(tx1, 1)
         b72 = self.update_block(72, [tx1, tx2])  # now tip is 72
         b71 = copy.deepcopy(b72)
-        b71.vtx.append(tx2)   # add duplicate tx2
+        b71.vtx.append(tx2)  # add duplicate tx2
         self.block_heights[b71.sha256] = self.block_heights[b69.sha256] + 1  # b71 builds off b69
         self.blocks[71] = b71
 
@@ -1250,7 +1254,7 @@ class FullBlockTest(DefiTestFramework):
         self.move_tip(88)
         LARGE_REORG_SIZE = 1088
         blocks = []
-        BLOCK_SIZE = 1000000 # old value was MAX_BLOCK_BASE_SIZE, changed due to EXTREMELY big chain and slow operation
+        BLOCK_SIZE = 1000000  # old value was MAX_BLOCK_BASE_SIZE, changed due to EXTREMELY big chain and slow operation
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend, version=4)
@@ -1288,7 +1292,8 @@ class FullBlockTest(DefiTestFramework):
 
         self.log.info("Reject a block with an invalid block header version")
         b_v1 = self.next_block('b_v1', version=1)
-        self.send_blocks([b_v1], success=False, force_send=True, reject_reason='bad-version(0x00000001)', reconnect=True)
+        self.send_blocks([b_v1], success=False, force_send=True, reject_reason='bad-version(0x00000001)',
+                         reconnect=True)
 
         self.move_tip(chain1_tip + 2)
         b_cb34 = self.next_block('b_cb34', version=4)
@@ -1325,7 +1330,8 @@ class FullBlockTest(DefiTestFramework):
         tx.rehash()
         return tx
 
-    def next_block(self, number, spend=None, additional_coinbase_value=0, script=CScript([OP_TRUE]), solve=True, *, version=1):
+    def next_block(self, number, spend=None, additional_coinbase_value=0, script=CScript([OP_TRUE]), solve=True, *,
+                   version=1):
         if self.tip is None:
             base_block_hash = self.genesis_hash
             block_time = int(time.time()) + 1
@@ -1409,7 +1415,8 @@ class FullBlockTest(DefiTestFramework):
         """Sends blocks to test node. Syncs and verifies that tip has advanced to most recent block.
 
         Call with success = False if the tip shouldn't advance to the most recent block."""
-        self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_reason=reject_reason, force_send=force_send, timeout=timeout, expect_disconnect=reconnect)
+        self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_reason=reject_reason,
+                                               force_send=force_send, timeout=timeout, expect_disconnect=reconnect)
 
         if reconnect:
             self.reconnect_p2p(timeout=timeout)

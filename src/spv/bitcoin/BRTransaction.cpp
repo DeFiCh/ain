@@ -22,15 +22,16 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#include "BRTransaction.h"
-#include "BRKey.h"
-#include "BRArray.h"
 #include <stdlib.h>
 #include <inttypes.h>
-#include <limits.h>
+#include <limits>
 #include <time.h>
 
 #include <util/strencodings.h>
+
+#include <spv/support/BRKey.h>
+#include <spv/support/BRArray.h>
+#include <spv/bitcoin/BRTransaction.h>
 
 #define TX_LOCKTIME          0x00000000
 #define SIGHASH_ALL          0x01 // default, sign all of the outputs

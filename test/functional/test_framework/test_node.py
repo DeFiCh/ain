@@ -27,9 +27,11 @@ from .util import (
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
+    eth_rpc_url,
     wait_until,
     p2p_port,
 )
+from .evm_provider import EVMProvider
 
 DEFID_PROC_WAIT_TIMEOUT = 60
 
@@ -58,7 +60,8 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, *, chain, rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False):
+    def __init__(self, i, datadir, *, chain, rpchost, evm_rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None,
+                 extra_args=None, use_cli=False, start_perf=False, use_valgrind=False):
         """
         Kwargs:
             start_perf (bool): If True, begin profiling the node with `perf` as soon as
@@ -72,6 +75,7 @@ class TestNode():
         self.stderr_dir = os.path.join(self.datadir, "stderr")
         self.chain = chain
         self.rpchost = rpchost
+        self.evm_rpchost = evm_rpchost
         self.rpc_timeout = timewait
         self.binary = defid
         self.coverage_dir = coverage_dir
@@ -95,7 +99,7 @@ class TestNode():
             "-debugexclude=leveldb",
             "-debugexclude=accountchange",
             "-uacomment=testnode%d" % i,
-            "-masternode_operator="+self.get_genesis_keys().operatorAuthAddress,
+            "-masternode_operator=" + self.get_genesis_keys().operatorAuthAddress,
             "-dummypos=1",
             "-txnotokens=1",
         ]
@@ -117,28 +121,100 @@ class TestNode():
         self.process = None
         self.rpc_connected = False
         self.rpc = None
+        self.evm_rpc = None
         self.url = None
+        self.evm_url = None
         self.log = logging.getLogger('TestFramework.node%d' % i)
-        self.cleanup_on_exit = True # Whether to kill the node when this object goes away
+        self.cleanup_on_exit = True  # Whether to kill the node when this object goes away
         # Cache perf subprocesses here by their data output filename.
         self.perf_subprocesses = {}
 
         self.p2ps = []
 
-    MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
-    PRIV_KEYS = [ # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
+        self.evm = None
+
+    MnKeys = collections.namedtuple('MnKeys',
+                                    ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
+    PRIV_KEYS = [
+        # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
         # legacy:
-        MnKeys("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",           "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy",           "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"),
-        MnKeys("msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7",           "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ",           "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV"),
-        MnKeys("myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS",           "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9", "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4",           "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD"),
-        MnKeys("mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz",           "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY", "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t",           "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL"),
-        MnKeys("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu",           "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u", "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg",           "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy"),
-        MnKeys("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c",           "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb", "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN",           "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe"),
+        MnKeys("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz",
+               "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy", "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"),
+        MnKeys("msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W",
+               "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ", "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV"),
+        MnKeys("myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS", "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9",
+               "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4", "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD"),
+        MnKeys("mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz", "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY",
+               "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t", "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL"),
+        MnKeys("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u",
+               "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg", "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy"),
+        MnKeys("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb",
+               "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN", "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe"),
         # bech32:
-        MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
-        MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
+        MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj",
+               "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
+        MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp",
+               "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
     ]
     Mocktime = None
+
+    EVM_CALLS = {
+        # block
+        "eth_getBlockByHash",
+        "eth_getBlockByNumber",
+        "eth_getBlockTransactionCountByHash",
+        "eth_getBlockTransactionCountByNumber",
+        "eth_getUncleCountByBlockHash",
+        "eth_getUncleCountByBlockNumber",
+        # client
+        "eth_chainId",
+        "eth_syncing",
+        "eth_coinbase",
+        "eth_accounts",
+        "eth_blockNumber",
+        # execute
+        "eth_call",
+        "eth_estimateGas",
+        "eth_createAccessList",
+        # free market
+        "eth_gasPrice",
+        "eth_maxPriorityFeePerGas",
+        "eth_feeHistory",
+        # filter
+        "eth_newFilter",
+        "eth_newBlockFilter",
+        "eth_newPendingTransactionFilter",
+        "eth_uninstallFilter",
+        "eth_getFilterChanges",
+        "eth_getFilterLogs",
+        "eth_getLogs",
+        # mining
+        "eth_mining",
+        "eth_hashrate",
+        "eth_getWork",
+        "eth_submitWork",
+        "eth_submitHashrate",
+        # sign
+        "eth_sign",
+        "eth_signTransaction",
+        # state
+        "eth_getBalance",
+        "eth_getStorageAt",
+        "eth_getTransactionCount",
+        "eth_getCode",
+        "eth_getProof",
+        # submit
+        "eth_sendTransaction",
+        "eth_sendRawTransaction",
+        # transaction
+        "eth_getTransactionByHash",
+        "eth_getTransactionByBlockHashAndIndex",
+        "eth_getTransactionByBlockNumberAndIndex",
+        "eth_getTransactionReceipt",
+        "eth_pendingTransactions",
+        # net
+        "net_version"
+    }
 
     def get_genesis_keys(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
@@ -171,7 +247,8 @@ class TestNode():
                 minted += 1
                 self.pullup_mocktime()
                 # mintedHashes.append(self.getblockhash(height+minted))
-                mintedHashes.append(self.getblockhash(self.getblockcount())) # always "tip" due to chain switching (possibly wrong)
+                mintedHashes.append(
+                    self.getblockhash(self.getblockcount()))  # always "tip" due to chain switching (possibly wrong)
         return mintedHashes
 
     def _node_msg(self, msg: str) -> str:
@@ -197,8 +274,13 @@ class TestNode():
         if self.use_cli:
             return getattr(self.cli, name)
         else:
-            assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
-            return getattr(self.rpc, name)
+            assert self.rpc_connected, self._node_msg("Error: no RPC connection")
+            if name in self.EVM_CALLS:
+                assert self.evm_rpc is not None, self._node_msg("Error: no EVM-RPC connection")
+                return getattr(self.evm_rpc, name)
+            else:
+                assert self.rpc is not None, self._node_msg("Error: no RPC connection")
+                return getattr(self.rpc, name)
 
     def start(self, extra_args=None, *, cwd=None, stdout=None, stderr=None, **kwargs):
         """Start the node."""
@@ -224,7 +306,8 @@ class TestNode():
         # add environment variable LIBC_FATAL_STDERR_=1 so that libc errors are written to stderr and not the terminal
         subp_env = dict(os.environ, LIBC_FATAL_STDERR_="1")
 
-        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
+        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd,
+                                        **kwargs)
 
         self.running = True
         self.log.debug("defid started, waiting for RPC to come up")
@@ -241,15 +324,26 @@ class TestNode():
                 raise FailedToStartError(self._node_msg(
                     'defid exited with status {} during initialization'.format(self.process.returncode)))
             try:
-                rpc = get_rpc_proxy(rpc_url(self.datadir, self.index, self.chain, self.rpchost), self.index, timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
+                rpc = get_rpc_proxy(rpc_url(self.datadir, self.index, self.chain, self.rpchost), self.index,
+                                    timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
                 rpc.getblockcount()
                 # If the call to getblockcount() succeeds then the RPC connection is up
                 self.log.debug("RPC successfully started")
+
+                evm_rpc = get_rpc_proxy(eth_rpc_url(self.datadir, self.index, self.chain, self.evm_rpchost), self.index,
+                                     timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
+                evm_rpc.eth_blockNumber()
+                # If the call to eth_blockNumber() succeeds then the evm-RPC connection is up
+                self.log.debug("EVM-RPC successfully started")
+
                 if self.use_cli:
                     return
                 self.rpc = rpc
+                self.evm_rpc = evm_rpc
                 self.rpc_connected = True
                 self.url = self.rpc.url
+                self.evm_url = self.evm_rpc.url
+                self.evm = EVMProvider(self.evm_url, self.generate)
                 return
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
@@ -317,11 +411,15 @@ class TestNode():
         self.process = None
         self.rpc_connected = False
         self.rpc = None
+        self.evm_rpc = None
         self.log.debug("Node stopped")
         return True
 
     def wait_until_stopped(self, timeout=DEFID_PROC_WAIT_TIMEOUT):
         wait_until(self.is_node_stopped, timeout=timeout)
+
+    def get_evm_rpc(self) -> str:
+        return self.evm_url
 
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs, timeout=2):
@@ -347,7 +445,8 @@ class TestNode():
                 if time.time() >= time_end:
                     break
                 time.sleep(0.05)
-            self._raise_assertion_error('Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(str(expected_msgs), print_log))
+            self._raise_assertion_error(
+                'Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(str(expected_msgs), print_log))
 
     @contextlib.contextmanager
     def profile_with_perf(self, profile_name):
@@ -399,9 +498,9 @@ class TestNode():
 
         cmd = [
             'perf', 'record',
-            '-g',                     # Record the callgraph.
+            '-g',  # Record the callgraph.
             '--call-graph', 'dwarf',  # Compatibility for gcc's --fomit-frame-pointer.
-            '-F', '101',              # Sampling frequency in Hz.
+            '-F', '101',  # Sampling frequency in Hz.
             '-p', str(self.process.pid),
             '-o', output_path,
         ]
@@ -427,7 +526,8 @@ class TestNode():
             report_cmd = "perf report -i {}".format(output_path)
             self.log.info("See perf output by running '{}'".format(report_cmd))
 
-    def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args, **kwargs):
+    def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args,
+                                       **kwargs):
         """Attempt to start the node and expect it to raise an error.
 
         extra_args: extra arguments to pass through to defid
@@ -436,7 +536,7 @@ class TestNode():
         Will throw if defid starts without an error.
         Will throw if an expected_msg is provided and it does not match defid's stdout."""
         with tempfile.NamedTemporaryFile(dir=self.stderr_dir, delete=False) as log_stderr, \
-             tempfile.NamedTemporaryFile(dir=self.stdout_dir, delete=False) as log_stdout:
+                tempfile.NamedTemporaryFile(dir=self.stdout_dir, delete=False) as log_stdout:
             try:
                 self.start(extra_args, stdout=log_stdout, stderr=log_stderr, *args, **kwargs)
                 self.wait_for_rpc_connection()
@@ -453,7 +553,8 @@ class TestNode():
                     if match == ErrorMatch.PARTIAL_REGEX:
                         if re.search(expected_msg, stderr, flags=re.MULTILINE) is None:
                             self._raise_assertion_error(
-                                'Expected message "{}" does not partially match stderr:\n"{}"'.format(expected_msg, stderr))
+                                'Expected message "{}" does not partially match stderr:\n"{}"'.format(expected_msg,
+                                                                                                      stderr))
                     elif match == ErrorMatch.FULL_REGEX:
                         if re.fullmatch(expected_msg, stderr) is None:
                             self._raise_assertion_error(
@@ -501,6 +602,7 @@ class TestNode():
             p.peer_disconnect()
         del self.p2ps[:]
 
+
 class TestNodeCLIAttr:
     def __init__(self, cli, command):
         self.cli = cli
@@ -512,6 +614,7 @@ class TestNodeCLIAttr:
     def get_request(self, *args, **kwargs):
         return lambda: self(*args, **kwargs)
 
+
 def arg_to_cli(arg):
     if isinstance(arg, bool):
         return str(arg).lower()
@@ -519,6 +622,7 @@ def arg_to_cli(arg):
         return json.dumps(arg)
     else:
         return str(arg)
+
 
 class TestNodeCLI():
     """Interface to defi-cli for an individual node"""
@@ -553,7 +657,8 @@ class TestNodeCLI():
         """Run defi-cli command. Deserializes returned string as python object."""
         pos_args = [arg_to_cli(arg) for arg in args]
         named_args = [str(key) + "=" + arg_to_cli(value) for (key, value) in kwargs.items()]
-        assert not (pos_args and named_args), "Cannot use positional arguments and named arguments in the same defi-cli call"
+        assert not (
+                    pos_args and named_args), "Cannot use positional arguments and named arguments in the same defi-cli call"
         p_args = [self.binary, "-datadir=" + self.datadir] + self.options
         if named_args:
             p_args += ["-named"]
@@ -561,7 +666,8 @@ class TestNodeCLI():
             p_args += [command]
         p_args += pos_args + named_args
         self.log.debug("Running defi-cli command: %s" % command)
-        process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   universal_newlines=True)
         cli_stdout, cli_stderr = process.communicate(input=self.input)
         returncode = process.poll()
         if returncode:
