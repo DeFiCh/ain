@@ -2,6 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
 use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
+use crate::filters::FilterHandler;
 use crate::log::LogHandler;
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
@@ -25,6 +26,7 @@ pub struct Handlers {
     pub block: BlockHandler,
     pub receipt: ReceiptHandler,
     pub logs: LogHandler,
+    pub filters: FilterHandler,
     pub storage: Arc<Storage>,
 }
 
@@ -57,6 +59,7 @@ impl Handlers {
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 logs: LogHandler::new(Arc::clone(&storage)),
+                filters: FilterHandler::new(),
                 storage,
             })
         } else {
@@ -66,6 +69,7 @@ impl Handlers {
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 logs: LogHandler::new(Arc::clone(&storage)),
+                filters: FilterHandler::new(),
                 storage,
             })
         }

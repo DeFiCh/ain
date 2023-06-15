@@ -6,6 +6,7 @@ pub mod block;
 mod bytes;
 pub mod call_request;
 pub mod codegen;
+mod filters;
 mod impls;
 mod receipt;
 pub mod rpc;
