@@ -176,35 +176,24 @@ UniValue vmmap(const JSONRPCRequest& request) {
     }
 
     LOCK(cs_main);
-    ResVal<uint256> res = ResVal<uint256>::Ok();
 
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
-            break;
+            return pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash)).val->ToString();
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
-            break;
+            return pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash)).val->ToString();
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
-            break;
+            return pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash)).val->ToString();
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
-            break;
+            return pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash))->ToString();
         }
         default: {
-            res = ResVal<uint256>::Err("Unknown map type");
-            break;
+            return "Unknown map type";
         }
     }
-
-    if (!res)
-        throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-    
-    return res.val->ToString();
 }
 
 UniValue logvmmaps(const JSONRPCRequest& request) {

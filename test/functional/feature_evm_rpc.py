@@ -163,7 +163,7 @@ class EVMTest(DefiTestFramework):
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
         evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        assert_equal(dvm_tx, self.nodes[0].xvmmap(evm_tx, 4))
+        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
 
         # Check if xvmmap is working for Blocks
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
