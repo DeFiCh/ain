@@ -161,6 +161,7 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         tx2930 = {
+            'from': self.ethAddress,
             'value': '0x00',
             'data': contractBytecode,
             'gas': '0x7a120', # 500_000
@@ -181,6 +182,7 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         tx1559 = {
+            'from': self.ethAddress,
             'value': '0x0',
             'data': contractBytecode,
             'gas': '0x18e70', # 102_000
