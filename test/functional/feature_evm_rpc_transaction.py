@@ -98,6 +98,7 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         # EIP2930_TX = {
+        #     nonce: 1, // take note on your own nonce value if sending raw tx
         #     value: 0,
         #     data: contractBytecode,
         #     gasLimit: 500_000,
@@ -118,10 +119,10 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         # EIP1559_TX = {
-        #     nonce: 1, // take note on your own nonce value if sending raw tx
+        #     nonce: 2, // take note on your own nonce value if sending raw tx
         #     value: 0,
         #     data: contractBytecode,
-        #     gasLimit: 3_000_000_000_000_000,
+        #     gasLimit: 3_000,
         #     maxPriorityFeePerGas: 152_000_000_000, # 152 gwei
         #     maxFeePerGas: 150_000_000_000, type: 2,
         # }
@@ -129,7 +130,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"1@DFI", "domain": 2}, "dst":{"address":from_address, "amount":"1@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
-        rawtx = '0x02f9015c8002852363e7f0008522ecb25c00870aa87bee5380008080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033c080a0b7daa015da07790e7d9cc4b30e318ac089937ac05e9064d2b62e4e7cca39a87ca02427d68dee6196152e4e696438bf8a8a6b577248c17afabcb0e3970c817d6b26'
+        rawtx = '0x02f901578002852363e7f0008522ecb25c00820bb88080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033c001a02ebd742fc608015537fee72bfcdf4c761aff1a20a138a877149d318a91ef5f85a078df87ec5ef653e54be47f153ff924a50ff34cbdb1e110e4b430ad46ef577d89'
         hash = self.nodes[0].eth_sendRawTransaction(rawtx)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
