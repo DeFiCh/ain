@@ -81,6 +81,8 @@ class EVMTest(DefiTestFramework):
 
     def test_send_raw_transaction(self):
         # LEGACY_TX = {
+        #     nonce: 0,
+        #     from: "0x9b8a4af42140d8a4c153a822f02571a1dd037e89",
         #     value: 0, // must be set else error https://github.com/rust-blockchain/evm/blob/a14b6b02452ebf8e8a039b92ab1191041f806794/src/executor/stack/memory.rs#L356
         #     data: contractBytecode,
         #     gasLimit: 500_000,
@@ -98,7 +100,7 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         # EIP2930_TX = {
-        #     nonce: 1, // take note on your own nonce value if sending raw tx
+        #     nonce: 1,
         #     value: 0,
         #     data: contractBytecode,
         #     gasLimit: 500_000,
@@ -119,7 +121,8 @@ class EVMTest(DefiTestFramework):
         assert_is_hex_string(receipt['contractAddress'])
 
         # EIP1559_TX = {
-        #     nonce: 2, // take note on your own nonce value if sending raw tx
+        #     nonce: 2,
+        #     from: "0x9b8a4af42140d8a4c153a822f02571a1dd037e89",
         #     value: 0,
         #     data: contractBytecode,
         #     gasLimit: 3_000,
@@ -146,6 +149,7 @@ class EVMTest(DefiTestFramework):
         contractBytecode = '0x608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033'
 
         txLegacy = {
+            'from': self.ethAddress,
             'value': '0x00',
             'data': contractBytecode,
             'gas': '0x7a120', # 500_000
