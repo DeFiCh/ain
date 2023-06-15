@@ -66,7 +66,7 @@ impl LogHandler {
     pub fn get_logs(
         &self,
         address: Option<Vec<H160>>,
-        topics: Option<Vec<H256>>,
+        topics: Option<Vec<Option<H256>>>,
         block_number: U256,
     ) -> Vec<LogIndex> {
         debug!("Getting logs for block {:#x?}", block_number);
@@ -89,8 +89,13 @@ impl LogHandler {
             Some(topics) => logs
                 .into_iter()
                 .filter(|log| {
-                    let set: HashSet<_> = log.topics.iter().copied().collect();
-                    topics.iter().any(|item| set.contains(item))
+                    topics
+                        .iter() // for all topic filters
+                        .zip(&log.topics) // construct tuple with corresponding log topics
+                        .all(|(filter_item, log_item)| {
+                            // check if topic filter at index matches log topic
+                            filter_item.as_ref().map_or(true, |item| item == log_item)
+                        })
                 })
                 .collect(),
         }
