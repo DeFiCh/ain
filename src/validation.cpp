@@ -2099,7 +2099,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                             {
                                 res = mnview.AddBalance(DeFiParams().GetConsensus().foundationShareScript, {DCT_ID{0}, subsidy});
                                 LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
-                                         tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
+                                         tx.GetHash().ToString(), ScriptToString(DeFiParams().GetConsensus().foundationShareScript),
                                          (CBalances{{{{0}, subsidy}}}.ToString()));
                                 nonUtxoTotal += subsidy;
 
