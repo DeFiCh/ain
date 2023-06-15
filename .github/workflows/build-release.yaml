@@ -123,7 +123,6 @@ jobs:
   create-release:
     needs:
       - linux-x64
-      # - linux-armhf
       - linux-aarch64
       - win-x64
       - osx-x64
