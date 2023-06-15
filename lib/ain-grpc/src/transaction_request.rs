@@ -58,8 +58,9 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 value: req.value.unwrap_or_default(),
                 input: req
                     .input
+                    .or_else(|| req.data)
                     .map(Bytes::into_vec)
-                    .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                    .unwrap_or_default(),
                 action: match req.to {
                     Some(to) => ethereum::TransactionAction::Call(to),
                     None => ethereum::TransactionAction::Create,
@@ -74,8 +75,9 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 value: req.value.unwrap_or_default(),
                 input: req
                     .input
+                    .or_else(|| req.data)
                     .map(Bytes::into_vec)
-                    .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                    .unwrap_or_default(),
                 action: match req.to {
                     Some(to) => ethereum::TransactionAction::Call(to),
                     None => ethereum::TransactionAction::Create,
@@ -94,8 +96,9 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                     value: req.value.unwrap_or_default(),
                     input: req
                         .input
+                        .or_else(|| req.data)
                         .map(Bytes::into_vec)
-                        .unwrap_or(req.data.map(Bytes::into_vec).unwrap_or_default()),
+                        .unwrap_or_default(),
                     action: match req.to {
                         Some(to) => ethereum::TransactionAction::Call(to),
                         None => ethereum::TransactionAction::Create,
