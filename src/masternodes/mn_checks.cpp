@@ -3905,7 +3905,7 @@ public:
         std::vector<unsigned char> evmTxHashBytes;
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
-        auto evmTxHash = uint256(evmTxHashBytes);
+        auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
         mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, txHash, evmTxHash);
         mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();

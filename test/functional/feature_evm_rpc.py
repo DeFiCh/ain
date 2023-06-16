@@ -8,41 +8,10 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    int_to_eth_u256
 )
 
-# Utility function to assert value of U256 output
-def int_to_eth_u256(value):
-    """
-    Convert a non-negative integer to an Ethereum U256-compatible format.
-
-    The input value is multiplied by a fixed factor of 10^18 (1 ether in wei)
-    and represented as a hexadecimal string. This function validates that the
-    input is a non-negative integer and checks if the converted value is within
-    the range of U256 values (0 to 2^256 - 1). If the input is valid and within
-    range, it returns the corresponding U256-compatible hexadecimal representation.
-
-    Args:
-        value (int): The non-negative integer to convert.
-
-    Returns:
-        str: The U256-compatible hexadecimal representation of the input value.
-
-    Raises:
-        ValueError: If the input is not a non-negative integer or if the
-                    converted value is outside the U256 range.
-    """
-    if not isinstance(value, int) or value < 0:
-        raise ValueError("Value must be a non-negative integer")
-
-    max_u256_value = 2**256 - 1
-    factor = 10**18
-
-    converted_value = value * factor
-    if converted_value > max_u256_value:
-        raise ValueError(f"Value must be less than or equal to {max_u256_value}")
-
-    return hex(converted_value)
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -123,18 +92,18 @@ class EVMTest(DefiTestFramework):
 
     def test_block(self):
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x3")
+        assert_equal(latest_block['number'], "0x2")
 
         # Test full transaction block
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block['number'], "0x4")
+        assert_equal(latest_block['number'], "0x3")
         assert_equal(latest_block['transactions'][0], "0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
 
         latest_full_block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(latest_full_block['number'], "0x4")
+        assert_equal(latest_full_block['number'], "0x3")
         assert_equal(latest_full_block['transactions'][0]['blockHash'], latest_full_block["hash"])
         assert_equal(latest_full_block['transactions'][0]['blockNumber'], latest_full_block["number"])
         assert_equal(latest_full_block['transactions'][0]['from'], self.ethAddress)
@@ -167,11 +136,12 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
 
-        #Check if xvmmap is working for Txs
+        # Check if xvmmap is working for Txs
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
         evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
         assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
+        assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
 
         # Check vmmap fail on wrong tx
         evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
