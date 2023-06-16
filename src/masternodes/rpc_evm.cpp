@@ -177,42 +177,32 @@ UniValue vmmap(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
+    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            const auto res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            const auto res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            const auto res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            const auto res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
-            if (!res) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-            } else {
-                return res.val->ToString();
-            }
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
         }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
+    }
+    if (!res) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+    } else {
+        return res.val->ToString();
     }
 }
 
