@@ -47,15 +47,6 @@ BOOST_AUTO_TEST_CASE(reverselock_errors)
     std::unique_lock<std::mutex> lock2(mutex2);
     std::unique_lock<std::mutex> lock(mutex);
 
-#ifdef DEBUG_LOCKORDER
-        // Make sure trying to reverse lock a previous lock fails
-    try {
-        reverse_lock<std::unique_lock<std::mutex>> rlock2(lock2);
-        BOOST_CHECK(false); // REVERSE_LOCK(lock2) succeeded
-    } catch(...) { }
-    BOOST_CHECK(lock2.owns_lock());
-#endif
-
     // Make sure trying to reverse lock an unlocked lock fails
     lock.unlock();
 

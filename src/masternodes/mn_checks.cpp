@@ -3,14 +3,15 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/ffi_temp_stub.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
+#include <ain_rs_exports.h>
 #include <core_io.h>
+#include <ffi/cxx.h>
 #include <index/txindex.h>
 #include <txmempool.h>
 #include <validation.h>
@@ -144,8 +145,8 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
-        case CustomTxType::TransferBalance:
-            return "TransferBalance";
+        case CustomTxType::TransferDomain:
+            return "TransferDomain";
         case CustomTxType::EvmTx:
             return "EvmTx";
         case CustomTxType::None:
@@ -307,8 +308,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
-        case CustomTxType::TransferBalance:
-            return CTransferBalanceMessage{};
+        case CustomTxType::TransferDomain:
+            return CTransferDomainMessage{};
         case CustomTxType::EvmTx:
             return CEvmTxMessage{};
         case CustomTxType::None:
@@ -337,7 +338,7 @@ class CCustomMetadataParseVisitor {
     const Consensus::Params &consensus;
     const std::vector<unsigned char> &metadata;
 
-    Res IsHardforkEnabled(int startHeight) const {
+    Res IsHardforkEnabled(const uint32_t startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
                 { consensus.AMKHeight,                    "called before AMK height" },
                 { consensus.BayfrontHeight,               "called before Bayfront height" },
@@ -351,7 +352,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.GrandCentralHeight,           "called before GrandCentral height" },
                 { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
         };
-        if (startHeight && int(height) < startHeight) {
+        if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
             assert(it != hardforks.end());
             return Res::Err(it->second);
@@ -439,7 +440,7 @@ public:
                 CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
         else if constexpr (IsOneOf<T,
-                CTransferBalanceMessage,
+                CTransferDomainMessage,
                 CEvmTxMessage>())
             return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
         else if constexpr (IsOneOf<T,
@@ -492,12 +493,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
-    for (const auto &input : tx.vin) {
-        const Coin &coin = coins.AccessCoin(input.prevout);
-        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
-            return Res::Ok();
-    }
-    return Res::Err("tx must have at least one input from account owner");
+    return ::HasAuth(tx, coins, auth);
 }
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
@@ -777,6 +773,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmContext;
+    uint64_t &gasUsed;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -786,12 +783,14 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmContext)
+                          const uint64_t evmContext,
+                          uint64_t &gasUsed)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
-          evmContext(evmContext) {}
+          evmContext(evmContext),
+          gasUsed(gasUsed) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3563,7 +3562,7 @@ public:
                 const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
                 if (!loanAmounts) return DeFiErrors::LoanInvalidVault(obj.vaultId);
 
-                if (!loanAmounts->balances.count(loanTokenId)) 
+                if (!loanAmounts->balances.count(loanTokenId))
                     return DeFiErrors::LoanInvalidTokenForSymbol(loanToken->symbol);
 
                 const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
@@ -3911,102 +3910,48 @@ public:
         return mnview.AddProposalVote(obj.propId, obj.masternodeId, vote);
     }
 
-    Res operator()(const CTransferBalanceMessage &obj) const {
-        if (!IsEVMEnabled(height, mnview)) {
-            return Res::Err("Cannot create tx, EVM is not enabled");
+    Res operator()(const CTransferDomainMessage &obj) const {
+        auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj);
+        if (!res) {
+            return res;
         }
 
-        // owner auth
-        auto res = Res::Ok();
-        if (obj.type != CTransferBalanceType::EvmOut)
-            for (const auto &kv : obj.from) {
-                res = HasAuth(kv.first);
+        // Iterate over array of transfers
+        for (const auto &[src, dst] : obj.transfers) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                // Subtract balance from DFI address
+                CBalances balance;
+                balance.Add(src.amount);
+                res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-            }
-
-        // compare
-        const auto sumFrom = SumAllTransfers(obj.from);
-        const auto sumTo   = SumAllTransfers(obj.to);
-
-        if (sumFrom != sumTo)
-            return Res::Err("sum of inputs (from) != sum of outputs (to)");
-
-        if (obj.type == CTransferBalanceType::AccountToAccount) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
-        } else if (obj.type == CTransferBalanceType::EvmIn) {
-            res = SubBalancesDelShares(obj.from);
-            if (!res)
-                return res;
-
-            for (const auto& [addr, balances] : obj.to) {
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                // Subtract balance from ETH address
                 CTxDestination dest;
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("To address must be an ETH address in case of \"evmin\" transfertype");
-                    }
-                }
-
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM in transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed());
-                }
-            }
-        } else if (obj.type == CTransferBalanceType::EvmOut) {
-
-            for (const auto& [addr, balances] : obj.from) {
-                CTxDestination dest;
-                if (ExtractDestination(addr, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return Res::Err("From address must be an ETH address in case of \"evmout\" transfertype");
-                    }
-                }
-                bool foundAuth = false;
-                for (const auto &input : tx.vin) {
-                    const Coin &coin = coins.AccessCoin(input.prevout);
-                    std::vector<TBytes> vRet;
-                    if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-                    {
-                        auto it = input.scriptSig.begin();
-                        CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                        if (script == addr)
-                            foundAuth = true;
-                    }
-                }
-                if (!foundAuth)
-                    return Res::Err("authorization not found for %s in the tx", ScriptToString(addr));
-
+                ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                for (const auto& [id, amount] : balances.balances) {
-                    if (id != DCT_ID{0}) {
-                        return Res::Err("For EVM out transfers, only DFI token is currently supported");
-                    }
-
-                    arith_uint256 balanceIn = amount;
-                    balanceIn *= CAMOUNT_TO_WEI * WEI_IN_GWEI;
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed())) {
-                        return Res::Err("Not enough balance in %s to cover EVM out", EncodeDestination(dest));
-                    }
+                arith_uint256 balanceIn = src.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
-
-            res = AddBalancesSetShares(obj.to);
-            if (!res)
-                return res;
+            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                // Add balance to DFI address
+                CBalances balance;
+                balance.Add(dst.amount);
+                res = mnview.AddBalances(dst.address, balance);
+                if (!res)
+                    return res;
+            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                // Add balance to ETH address
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+            }
         }
 
         return res;
@@ -4020,19 +3965,130 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        if (!evm_validate_raw_tx(HexStr(obj.evmTx))) {
-            return Res::Err("evm tx failed to validate");
+        RustRes result;
+        const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
+
+        if (!result.ok) {
+            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
         }
 
-        if (!evm_queue_tx(evmContext, HexStr(obj.evmTx))) {
-            return Res::Err("evm tx failed to queue");
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        if (!result.ok) {
+            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
         }
+
+        gasUsed = hashAndGas.used_gas;
 
         return Res::Ok();
     }
 
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
+
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        if (coin.IsSpent()) continue;
+        if (strategy == AuthStrategy::DirectPubKeyMatch) {
+            if (coin.out.scriptPubKey == auth) {
+                return Res::Ok();
+            }
+        } else if (strategy == AuthStrategy::EthKeyMatch) {
+            std::vector<TBytes> vRet;
+            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+            {
+                auto it = input.scriptSig.begin();
+                CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                if (script == auth)
+                    return Res::Ok();
+            }
+        }
+    }
+    return DeFiErrors::InvalidAuth();
+}
+
+Res ValidateTransferDomain(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   CCustomCSView &mnview,
+                                   const Consensus::Params &consensus,
+                                   const CTransferDomainMessage &obj)
+{
+    auto res = Res::Ok();
+
+    // Check if EVM feature is active
+    if (!IsEVMEnabled(height, mnview)) {
+        return DeFiErrors::TransferDomainEVMNotEnabled();
+    }
+
+    // Iterate over array of transfers
+    for (const auto &[src, dst] : obj.transfers) {
+        // Reject if transfer is within same domain
+        if (src.domain == dst.domain)
+            return DeFiErrors::TransferDomainSameDomain();
+
+        // Check for amounts out equals amounts in
+        if (src.amount.nValue != dst.amount.nValue)
+            return DeFiErrors::TransferDomainUnequalAmount();
+
+        // Restrict only for use with DFI token for now
+        if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+            return DeFiErrors::TransferDomainIncorrectToken();
+
+        CTxDestination dest;
+
+        // Source validation
+        // Check domain type
+        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainETHSourceAddress();
+                }
+            }
+            // Check for authorization on source address
+            res = HasAuth(tx, coins, src.address);
+            if (!res)
+                return res;
+        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(src.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainDFISourceAddress();
+                }
+            }
+            // Check for authorization on source address
+            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+            if (!res)
+                return res;
+        } else
+            return DeFiErrors::TransferDomainInvalidSourceDomain();
+
+        // Destination validation
+        // Check domain type
+        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            // Reject if source address is ETH address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() == WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
+                }
+            }
+        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            // Reject if source address is DFI address
+            if (ExtractDestination(dst.address, dest)) {
+                if (dest.index() != WitV16KeyEthHashType) {
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
+                }
+            }
+        } else
+            return DeFiErrors::TransferDomainInvalidDestinationDomain();
+    }
+
+    return res;
+}
 
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,
@@ -4109,6 +4165,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
+                  uint64_t &gasUsed,
                   uint32_t txn,
                   const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
@@ -4117,7 +4174,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     auto context = evmContext;
     if (context == 0) context = evm_get_context();
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, gasUsed), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4200,6 +4257,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
+                  uint64_t &gasUsed,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
@@ -4227,7 +4285,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, gasUsed, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -5023,7 +5081,9 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
 }
 
 bool IsTestNetwork() {
-    return Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET
+    || Params().NetworkIDString() == CBaseChainParams::CHANGI
+    || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
 bool IsEVMEnabled(const int height, const CCustomCSView &view) {

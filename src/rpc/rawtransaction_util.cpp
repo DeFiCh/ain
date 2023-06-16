@@ -86,6 +86,13 @@ CScript DecodeScript(std::string const& str)
     return GetScriptForDestination(dest);
 }
 
+void RejectEthAddress(const CScript &address) {
+    CTxDestination dest;
+    if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Eth type addresses are not valid");
+    }
+}
+
 int DecodeScriptTxId(const std::string& str, CParserResults result)
 {
     if (IsHex(str)) {

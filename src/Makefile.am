@@ -2,6 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+SUBDIRS = ../lib
 DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
@@ -25,11 +26,22 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bitcoin \
 	-I$(srcdir)/spv/bcash
 
-DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
+LIBAIN_DIR = $(abs_top_builddir)/lib/target
+LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
+LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
+LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
+LIBAIN_RS_H = $(LIBAIN_DIR)/include/ain_rs_exports.h
 
+$(LIBAIN_RS_SRC):
+$(LIBAIN_RS_H):
+$(LIBAIN_RS_LIB): FORCE
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_builddir)/lib
+
+DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
 DEFI_INCLUDES += $(LIBDEFI_SPV_INCLUDES)
+DEFI_INCLUDES += $(LIBAIN_RS_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -76,8 +88,8 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_ZMQ)
 
-lib_LIBRARIES = 
-lib_LTLIBRARIES = 
+lib_LIBRARIES =
+lib_LTLIBRARIES =
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -143,16 +155,17 @@ DEFI_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  ffi/ffiexports.h \
   masternodes/accounts.h \
   masternodes/accountshistory.h \
   masternodes/anchors.h \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
+  masternodes/coinselect.h \
   masternodes/communityaccounttypes.h \
   masternodes/errors.h \
   masternodes/evm.h \
   masternodes/factory.h \
-  masternodes/ffi_temp_stub.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
@@ -281,8 +294,8 @@ DEFI_CORE_H = \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h \
-  zmq/zmqrpc.h
-
+  zmq/zmqrpc.h \
+  $(LIBAIN_RS_H)
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -296,7 +309,7 @@ libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive \
   -I$(srcdir)/secp256k1 \
   -I$(srcdir)/secp256k1/src \
   -Wno-format-extra-args
-  
+
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
   spv/support/BRAddress.cpp \
@@ -379,11 +392,11 @@ libdefi_server_a_SOURCES = \
   interfaces/chain.cpp \
   init.cpp \
   dbwrapper.cpp \
+  ffi/ffiexports.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/oracles.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -401,6 +414,9 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/oracles.cpp \
+  masternodes/poolpairs.cpp \
+  masternodes/proposals.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_evm.cpp \
@@ -412,11 +428,9 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
+  masternodes/skipped_txs.cpp \
   masternodes/tokens.cpp \
   masternodes/threadpool.cpp \
-  masternodes/poolpairs.cpp \
-  masternodes/proposals.cpp \
-  masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
   masternodes/validation.cpp \
   masternodes/vault.cpp \
@@ -455,6 +469,7 @@ libdefi_server_a_SOURCES = \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \
+  $(LIBAIN_RS_SRC) \
   $(DEFI_CORE_H)
 
 if ENABLE_WALLET
@@ -678,21 +693,19 @@ libdefi_cli_a_SOURCES = \
 nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# defid binary #
-defid_SOURCES = defid.cpp
+# defid binary
+defid_SOURCES = $(LIBAIN_RS_SRC) $(LIBAIN_RS_H) defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
-
-if TARGET_WINDOWS
-defid_SOURCES += defid-res.rc
-endif
 
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
+  $(LIBAIN_RS_LIB) \
+  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CONSENSUS) \
@@ -705,6 +718,19 @@ defid_LDADD = \
   $(LIBSECP256K1)
 
 defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+
+if TARGET_DARWIN
+defid_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
+endif
+if TARGET_NOT_DARWIN
+defid_LDFLAGS += -Wl,--allow-multiple-definition
+endif
+if TARGET_NOT_WINDOWS
+defid_LDADD += -ldl
+endif
+if TARGET_WINDOWS
+defid_LDADD += -luserenv -lbcrypt
+endif
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
@@ -783,6 +809,7 @@ $(top_srcdir)/$(subdir)/config/defi-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
+	-$(MAKE) -C rust clean
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__

@@ -82,6 +82,7 @@ public:
     virtual std::set<CKeyID> GetKeys() const;
     virtual std::set<CKeyID> GetEthKeys() const;
     virtual bool GetKey(const CKeyID &address, CKey &keyOut) const override;
+    bool GetEthKey(const CKeyID &address, CKey &keyOut) const;
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const override;
     virtual std::set<CScriptID> GetCScripts() const;
