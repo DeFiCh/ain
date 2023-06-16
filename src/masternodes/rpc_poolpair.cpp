@@ -179,15 +179,13 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest &request, CPoolSwapMessage
         if (!token2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
 
+        CAmount maxPrice = std::numeric_limits<CAmount>::max();
         if (!metadataObj["maxPrice"].isNull()) {
-            CAmount maxPrice              = AmountFromValue(metadataObj["maxPrice"]);
-            poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
-            poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
-        } else {
-            // There is no maxPrice calculation anymore
-            poolSwapMsg.maxPrice.integer  = std::numeric_limits<CAmount>::max();
-            poolSwapMsg.maxPrice.fraction = std::numeric_limits<CAmount>::max();
+            CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
         }
+
+        poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
+        poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
     }
 }
 
