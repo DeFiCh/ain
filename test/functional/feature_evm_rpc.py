@@ -154,6 +154,9 @@ class EVMTest(DefiTestFramework):
         assert_equal(block, latest_block)
 
     def test_vmmap(self):
+        # TODO: This PR isn't ready just yet without proper tests. Current tests are very basic. Need to add 
+        # proper tests. Merging for now, for faster feedback loop. But this is a key to-do.
+        
         # Check if xvmmap is working for addresses
         eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
         address = self.nodes[0].vmmap(eth_address, 2)
