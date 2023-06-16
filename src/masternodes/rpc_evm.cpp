@@ -179,16 +179,36 @@ UniValue vmmap(const JSONRPCRequest& request) {
 
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            return pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash)).val->ToString();
+            const auto res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            return pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash)).val->ToString();
+            const auto res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            return pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash)).val->ToString();
+            const auto res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            return pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash))->ToString();
+            const auto res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+            } else {
+                return res.val->ToString();
+            }
         }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
