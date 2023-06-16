@@ -226,9 +226,9 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
     const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
-// TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
-// But there's no need to iterate the whole list, we can start at where we need to and
-// return false, once we hit the limit and stop the iter.
+    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
+    // But there's no need to iterate the whole list, we can start at where we need to and
+    // return false, once we hit the limit and stop the iter.
     switch (type) {
         case VMDomainIndexType::BlockHash: {
             pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
