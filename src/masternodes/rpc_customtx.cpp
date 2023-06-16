@@ -235,11 +235,15 @@ public:
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         
-        CAmount maxPrice = std::numeric_limits<CAmount>::max();
         if (!checkMaxPoolPrice(obj.maxPrice)) {
-            maxPrice = (obj.maxPrice.integer * COIN) + obj.maxPrice.fraction;
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
         }
-        rpcInfo.pushKV("maxPrice", ValueFromAmount(maxPrice));
+        else {
+            // get max pool price
+            PoolPrice price;
+            setMaxPoolPrice(price);
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
+        }
     }
 
     void operator()(const CPoolSwapMessageV2 &obj) const {
