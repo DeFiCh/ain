@@ -749,7 +749,7 @@ bool checkMaxPoolPrice(const PoolPrice &price) {
     // Calculate max integer and fraction value of pool price from largest possible amount (in satoshis)
     const int64_t maxInteger = MAX_MONEY / COIN;
     const int64_t maxFraction = MAX_MONEY % COIN;
-    return (price.integer >= maxInteger && price.fraction >= maxFraction);
+    return ((price.integer > maxInteger) || (price.integer == maxInteger && price.fraction >= maxFraction));
 }
 
 bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee) {
