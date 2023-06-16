@@ -167,11 +167,12 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
 
-        #Check if xvmmap is working for Txs
+        # Check if xvmmap is working for Txs
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
         evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
         assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
+        assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
 
         # Check vmmap fail on wrong tx
         evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
