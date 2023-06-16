@@ -4,6 +4,7 @@
 
 #include <chain.h>
 #include <chainparams.h>
+#include <masternodes/params.h>
 #include <pos.h>
 #include <util/system.h>
 #include <test/setup_common.h>
@@ -59,7 +60,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
     pindexLast.nHeight = 46367;
     pindexLast.nTime = 1269211443;  // Block #46367
     pindexLast.nBits = 0x1c387f6f;
-    BOOST_CHECK_EQUAL(pos::CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, chainParams->GetConsensus().pos), 0x1d00e1fdU);
+    BOOST_CHECK_EQUAL(pos::CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, DeFiParams().GetConsensus().pos), 0x1d00e1fdU);
 }
 
 BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
@@ -69,7 +70,7 @@ BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
     for (int i = 0; i < 10000; i++) {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
         blocks[i].nHeight = i;
-        blocks[i].nTime = 1269211443 + i * chainParams->GetConsensus().pos.nTargetSpacing;
+        blocks[i].nTime = 1269211443 + i * DeFiParams().GetConsensus().pos.nTargetSpacing;
         blocks[i].nBits = 0x207fffff; /* target 0x7fffff000... */
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }

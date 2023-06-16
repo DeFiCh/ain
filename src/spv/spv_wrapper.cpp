@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <core_io.h>
 #include <masternodes/anchors.h>
+#include <masternodes/params.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <sync.h>
@@ -216,7 +217,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 void CSpvWrapper::Load()
 {
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
-    mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
+    mpk = BRBIP32ParseMasterPubKey(DeFiParams().GetConsensus().spv.wallet_xpub.c_str());
 
     std::vector<char> xpub_buf(BRBIP32SerializeMasterPubKey(NULL, 0, mpk));
     BRBIP32SerializeMasterPubKey(xpub_buf.data(), xpub_buf.size(), mpk);
@@ -1391,7 +1392,7 @@ uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
 
     std::vector<TxOutput> outputs;
 
-    TBytes dummyScript(CreateScriptForAddress(consensus.spv.anchors_address.c_str()));
+    TBytes dummyScript(CreateScriptForAddress(DeFiParams().GetConsensus().spv.anchors_address.c_str()));
 
     // output[0] - anchor address with creation fee
     outputs.push_back({ P2PKH_DUST, dummyScript });
@@ -1454,7 +1455,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
 //    BRWallet * wallet = pspv->GetWallet();
 //    auto anchorAddr = BRWalletLegacyAddress(wallet);
     BRAddress anchorAddr = BR_ADDRESS_NONE;
-    consensus.spv.anchors_address.copy(anchorAddr.s, consensus.spv.anchors_address.size());
+    DeFiParams().GetConsensus().spv.anchors_address.copy(anchorAddr.s, DeFiParams().GetConsensus().spv.anchors_address.size());
 
     TBytes anchorScript(CreateScriptForAddress(anchorAddr.s));
 
@@ -1658,7 +1659,7 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
         return false;
 
     /// @todo check amounts here if it will be some additional anchoring fee
-    if (tx->outCount < 2 || strcmp(tx->outputs[0].address, Params().GetConsensus().spv.anchors_address.c_str()) != 0) {
+    if (tx->outCount < 2 || strcmp(tx->outputs[0].address, DeFiParams().GetConsensus().spv.anchors_address.c_str()) != 0) {
         return false;
     }
 

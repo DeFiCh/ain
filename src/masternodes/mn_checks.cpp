@@ -6,6 +6,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/historywriter.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 
@@ -498,7 +499,7 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
 }
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
-    auto members          = consensus.foundationMembers;
+    auto members          = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
@@ -1096,7 +1097,7 @@ public:
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
         }
         bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
-                                                        : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+                                                        : DeFiParams().GetConsensus().foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         if (isFoundersToken)
             Require(HasFoundationAuth());
@@ -1203,7 +1204,7 @@ public:
                 AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
 
-            const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+            const auto dailyInterval = height / DeFiParams().GetConsensus().blocksPerDay() * DeFiParams().GetConsensus().blocksPerDay();
 
             for (const auto &[key, member] : members) {
                 if (HasAuth(member.ownerAddress)) {
@@ -1621,7 +1622,8 @@ public:
 
         const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
 
-        Require(mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI}));
+        assert(DeFiParams().GetConsensus().smartContracts.count(SMART_CONTRACT_DFIP_2201));
+        Require(mnview.SubBalance(DeFiParams().GetConsensus().smartContracts.at(SMART_CONTRACT_DFIP_2201), {{0}, totalDFI}));
 
         Require(mnview.AddBalance(script, {{0}, totalDFI}));
 
@@ -1630,7 +1632,7 @@ public:
 
     Res operator()(const CSmartContractMessage &obj) const {
         Require(!obj.accounts.empty(), "Contract account parameters missing");
-        auto contracts = Params().GetConsensus().smartContracts;
+        auto contracts = DeFiParams().GetConsensus().smartContracts;
 
         auto contract = contracts.find(obj.name);
         Require(contract != contracts.end(), "Specified smart contract not found");

@@ -2,6 +2,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/params.h>
 #include <masternodes/validation.h>
 #include <masternodes/threadpool.h>
 #include <boost/asio.hpp>
@@ -1830,7 +1831,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CAmount burnt{0};
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+    for (const auto& kv : DeFiParams().GetConsensus().newNonUTXOSubsidies)
     {
         // Skip these as any unused balance will be burnt.
         if (kv.first == CommunityAccountType::Options) {
@@ -2214,7 +2215,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
 
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+    for (const auto& kv : DeFiParams().GetConsensus().newNonUTXOSubsidies) {
         if (kv.first == CommunityAccountType::Unallocated ||
             kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
@@ -2398,7 +2399,7 @@ UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsU
     // change
     CCoinControl coinControl;
     CTxDestination dest;
-    ExtractDestination(Params().GetConsensus().foundationShareScript, dest);
+    ExtractDestination(DeFiParams().GetConsensus().foundationShareScript, dest);
     coinControl.destChange = dest;
 
     // Only use inputs from dest
@@ -2460,7 +2461,7 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
 }
 
 UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet) {
-    auto contracts = Params().GetConsensus().smartContracts;
+    auto contracts = DeFiParams().GetConsensus().smartContracts;
     const auto& contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
     assert(contractPair != contracts.end());
 

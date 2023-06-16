@@ -10,6 +10,7 @@
 #include <masternodes/historywriter.h>    /// CHiistoryWriter
 #include <masternodes/masternodes.h>      /// CCustomCSView
 #include <masternodes/mn_checks.h>        /// GetAggregatePrice / CustomTxType
+#include <masternodes/params.h>           /// DeFiParams
 #include <validation.h>                   /// GetNextAccPosition
 
 #include <amount.h>   /// GetDecimaleString
@@ -629,7 +630,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
 ResVal<CScript> GetFutureSwapContractAddress(const std::string &contract) {
     CScript contractAddress;
     try {
-        contractAddress = Params().GetConsensus().smartContracts.at(contract);
+        contractAddress = DeFiParams().GetConsensus().smartContracts.at(contract);
     } catch (const std::out_of_range &) {
         return Res::Err("Failed to get smart contract address from chainparams");
     }
@@ -1777,7 +1778,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     return DeFiErrors::GovVarApplyAutoNoToken(split);
                 }
 
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                const auto startHeight = attrV0->key - DeFiParams().GetConsensus().blocksPerDay() / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
                     if (!var) {

@@ -4,7 +4,7 @@ index 1ad8d066d..01b13b8aa 100644
 +++ b/src/pos.cpp
 @@ -140,6 +140,11 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
  
-     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
+     unsigned int nProofOfWorkLimit = UintToArith256(DeFiParams().GetConsensus().pos.diffLimit).GetCompact();
  
 +    // Lower difficulty fork for mock network testing
 +    if (fMockNetwork) {

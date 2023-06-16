@@ -5,6 +5,7 @@
 #include <validation.h>
 
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 
 extern CAmount GetMnCollateralAmount(int); // from masternodes.h
 
@@ -26,10 +27,10 @@ namespace pos {
     arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t stakersBlockTime)
     {
         // Calculate max age and limit to max allowed if above it.
-        int64_t nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
+        int64_t nTimeTx = std::min(coinstakeTime - stakersBlockTime, DeFiParams().GetConsensus().pos.nStakeMaxAge);
 
         // Raise time to min age if below it.
-        nTimeTx = std::max(nTimeTx, params.pos.nStakeMinAge);
+        nTimeTx = std::max(nTimeTx, DeFiParams().GetConsensus().pos.nStakeMinAge);
 
         // Calculate coinDayWeight, at min this is 1 with no impact on difficulty.
         static const constexpr uint32_t period = 6 * 60 * 60; // 6 hours

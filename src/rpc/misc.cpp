@@ -6,6 +6,7 @@
 #include <chainparams.h>
 #include <crypto/ripemd160.h>
 #include <httpserver.h>
+#include <masternodes/params.h>
 #include <outputtype.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
@@ -350,7 +351,7 @@ static UniValue setmocktime(const JSONRPCRequest& request)
                 RPCExamples{""},
             }.Check(request);
 
-    if (!Params().MineBlocksOnDemand())
+    if (!DeFiParams().MineBlocksOnDemand())
         throw std::runtime_error("setmocktime for regression testing (-regtest mode) only");
 
     // For now, don't change mocktime if we're in the middle of validation, as
@@ -378,7 +379,7 @@ static UniValue setmockcheckpoint(const JSONRPCRequest& request)
                 RPCExamples{""},
             }.Check(request);
 
-    if (!Params().MineBlocksOnDemand())
+    if (!DeFiParams().MineBlocksOnDemand())
         throw std::runtime_error("setmockcheckpoint for regression testing (-regtest mode) only");
 
 

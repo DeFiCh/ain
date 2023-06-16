@@ -1,5 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
+#include <masternodes/params.h>
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
@@ -76,7 +77,7 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
 
 CAmount EstimateMnCreationFee(int targetHeight) {
     // Current height + (1 day blocks) to avoid rejection;
-    targetHeight += (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
+    targetHeight += (60 * 60 / DeFiParams().GetConsensus().pos.nTargetSpacing);
     return GetMnCreationFee(targetHeight);
 }
 

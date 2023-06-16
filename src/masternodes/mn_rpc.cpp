@@ -7,6 +7,7 @@
 #include <base58.h>
 #include <policy/settings.h>
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/params.h>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
@@ -276,7 +277,7 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
 }
 
 std::optional<CScript> AmIFounder(CWallet* const pwallet) {
-    auto members = Params().GetConsensus().foundationMembers;
+    auto members = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
@@ -364,7 +365,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet,
 }
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
-    auto members = Params().GetConsensus().foundationMembers;
+    auto members = DeFiParams().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
@@ -1068,7 +1069,7 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue arr(UniValue::VARR);
-    for (const auto& item : Params().GetConsensus().smartContracts) {
+    for (const auto& item : DeFiParams().GetConsensus().smartContracts) {
         UniValue obj(UniValue::VOBJ);
         CTxDestination dest;
         ExtractDestination(item.second, dest);

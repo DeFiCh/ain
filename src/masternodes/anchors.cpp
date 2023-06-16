@@ -9,6 +9,7 @@
 #include <key.h>
 #include <logging.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/params.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
 #include <streams.h>
@@ -240,8 +241,8 @@ CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus
     }
 
     int period = anchorHeight - prevAnchorHeight;
-    return consensusParams.spv.anchorSubsidy +
-           (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
+    return DeFiParams().GetConsensus().spv.anchorSubsidy +
+           (period / DeFiParams().GetConsensus().spv.subsidyIncreasePeriod) * DeFiParams().GetConsensus().spv.subsidyIncreaseValue;
 }
 
 /*
@@ -254,7 +255,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(const CTxDestination &rewardDest) con
     const KList &list = auths.get<Auth::ByKey>();
 
     const auto topAnchor = panchors->GetActiveAnchor();
-    uint32_t quorum      = 1 + (Params().GetConsensus().mn.anchoringTeamSize * 2) / 3;
+    uint32_t quorum      = 1 + (DeFiParams().GetConsensus().mn.anchoringTeamSize * 2) / 3;
     const auto topHeight = topAnchor ? topAnchor->anchor.height : 0;
     LogPrint(BCLog::ANCHORING, "auths size: %d quorum: %d\n", list.size(), quorum);
 
@@ -307,7 +308,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(const CTxDestination &rewardDest) con
                 // Fix to avoid "Anchor too new" error until F hard fork
                 auto anchorIndex = ::ChainActive()[it0->height];
                 if (!anchorIndex ||
-                    anchorIndex->nTime + Params().GetConsensus().mn.anchoringTimeDepth > GetAdjustedTime()) {
+                    anchorIndex->nTime + DeFiParams().GetConsensus().mn.anchoringTimeDepth > GetAdjustedTime()) {
                     continue;
                 }
 
@@ -452,7 +453,7 @@ CAnchorData::CTeam CAnchorIndex::GetNextTeam(const uint256 &btcPrevTx) const {
     AssertLockHeld(cs_main);
 
     if (btcPrevTx.IsNull())
-        return Params().GetGenesisTeam();
+        return DeFiParams().GetGenesisTeam();
 
     const AnchorRec *prev = GetAnchorByTx(btcPrevTx);
     if (!prev) {
@@ -542,7 +543,7 @@ void CAnchorIndex::CheckPendingAnchors() {
         }
 
         // Here we can check new rule that Bitcoin blocktime is three hours more than DeFi anchored block
-        if (anchorBlock.nTime > timestamp - Params().GetConsensus().mn.anchoringTimeDepth) {
+        if (anchorBlock.nTime > timestamp - DeFiParams().GetConsensus().mn.anchoringTimeDepth) {
             LogPrint(BCLog::ANCHORING,
                      "Anchor too new. DeFi: %d Bitcoin: %d Anchor: %s\n",
                      anchorBlock.nTime,
@@ -638,7 +639,7 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced) {
 
     possibleReActivation = false;
 
-    const int minConfirmations{Params().GetConsensus().spv.minConfirmations};
+    const int minConfirmations{DeFiParams().GetConsensus().spv.minConfirmations};
     auto oldTop = top;
     // rollback if necessary. this should not happen in prod (w/o anchor tx deletion), but possible in test when
     // manually reduce height in btc chain
@@ -750,7 +751,7 @@ bool ValidateAnchor(const CAnchor &anchor) {
         return error("%s: Incorrect anchor team size. Found: %d", __func__, anchor.nextTeam.size());
     }
 
-    if (anchor.sigs.size() <= static_cast<size_t>(Params().GetConsensus().mn.anchoringTeamSize)) {
+    if (anchor.sigs.size() <= static_cast<size_t>(DeFiParams().GetConsensus().mn.anchoringTeamSize)) {
         // Team entry
         const CKeyID &teamData = *anchor.nextTeam.begin();
 
@@ -833,11 +834,11 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
     }
 
     // Only anchor by specified frequency
-    if (anchorCreationHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
+    if (anchorCreationHeight % DeFiParams().GetConsensus().mn.anchoringFrequency != 0) {
         return error("%s: Anchor height does not meet frequency rule. Height %ld, frequency %d",
                      __func__,
                      anchorCreationHeight,
-                     Params().GetConsensus().mn.anchoringFrequency);
+                     DeFiParams().GetConsensus().mn.anchoringFrequency);
     }
 
     // Make sure height exist
@@ -867,24 +868,24 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
     }
 
     // Get start anchor height
-    int anchorHeight = static_cast<int>(anchorCreationHeight) - Params().GetConsensus().mn.anchoringFrequency;
+    int anchorHeight = static_cast<int>(anchorCreationHeight) - DeFiParams().GetConsensus().mn.anchoringFrequency;
 
     // Recreate the creation height of the anchor
-    int64_t timeDepth = Params().GetConsensus().mn.anchoringTimeDepth;
+    int64_t timeDepth = DeFiParams().GetConsensus().mn.anchoringTimeDepth;
     while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
         --anchorHeight;
     }
 
     // Recreate deeper anchor depth
     if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().FortCanningHeight)) {
-        timeDepth += Params().GetConsensus().mn.anchoringAdditionalTimeDepth;
+        timeDepth += DeFiParams().GetConsensus().mn.anchoringAdditionalTimeDepth;
         while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
             --anchorHeight;
         }
     }
 
     // Wind back further by anchoring frequency
-    while (anchorHeight > 0 && anchorHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
+    while (anchorHeight > 0 && anchorHeight % DeFiParams().GetConsensus().mn.anchoringFrequency != 0) {
         --anchorHeight;
     }
 
