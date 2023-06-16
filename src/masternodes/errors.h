@@ -445,6 +445,10 @@ public:
     static Res TransferDomainInvalidDestinationDomain() {
         return Res::Err("Invalid domain set for \"dst\" argument");
     }
+
+    static Res DatabaseRWFailure(const std::string key) {
+      return Res::Err("DB r/w failure: %s", key);
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H

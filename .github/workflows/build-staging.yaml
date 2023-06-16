@@ -25,25 +25,6 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
-    
-  linux-armhf:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: GIT_VERSION=1 TARGET="arm-linux-gnueabihf" ./make.sh docker-release
-
-    - name: Publish artifact - arm-linux-gnueabihf
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-arm-linux-gnueabihf.tar.gz
 
   linux-aarch64:
     runs-on: ubuntu-latest

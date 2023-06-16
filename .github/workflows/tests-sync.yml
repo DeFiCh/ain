@@ -36,7 +36,7 @@ jobs:
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: ./make.sh ci-setup-deps-test
+      run: sudo ./make.sh ci-setup-deps-test
 
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
