@@ -411,6 +411,7 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
+  masternodes/evm.cpp  \
   masternodes/consensus/accounts.cpp \
   masternodes/consensus/governance.cpp \
   masternodes/consensus/icxorders.cpp \

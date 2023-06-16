@@ -903,12 +903,17 @@ ci_setup_deps_test() {
 }
 
 get_rust_target() {
+    # Note: https://github.com/llvm/llvm-project/blob/dc895d023e63fd9276fe493eded776e101015c86/llvm/lib/TargetParser/Triple.cpp
+    # The function is called in 2 places:
+    # 1. When setting up Rust, which TARGET is passed from the environment
+    # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet
+    # Thus, we normalize across both to source the correct rust target.
     local target=${TARGET}
     local rust_target
     case $target in
         x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
-        aarch64-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
-        arm-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
+        aarch64-linux-gnu|aarch64-unknown-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
+        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
         x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
         aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
         x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;
