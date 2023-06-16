@@ -191,7 +191,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
             return pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash))->ToString();
         }
         default: {
-            return "Unknown map type";
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
     }
 }
