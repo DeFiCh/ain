@@ -45,9 +45,6 @@ struct PoolPrice {
     bool operator!=(const PoolPrice &rhs) const { return integer != rhs.integer || fraction != rhs.fraction; }
 };
 
-static constexpr auto POOLPRICE_MAX =
-    PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
-
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
@@ -361,6 +358,8 @@ struct CRemoveLiquidityMessage {
     }
 };
 
+void setMaxPoolPrice(PoolPrice &price);
+bool checkMaxPoolPrice(const PoolPrice &price);
 bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 bool poolOutFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 
