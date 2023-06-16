@@ -987,7 +987,8 @@ public:
                 }
                 rewardType = true;
 
-                if (height < static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+                // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
+                if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
                     if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                         return Res::Err("Reward address must be P2PKH or P2WPKH type");
                     }
