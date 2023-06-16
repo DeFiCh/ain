@@ -241,7 +241,7 @@ public:
             userMaxPrice = (obj.maxPrice.integer * COIN) + obj.maxPrice.fraction;
         }
 
-        rpcInfo.pushKV("maxPrice", ValueFromAmount(userMaxPrice);
+        rpcInfo.pushKV("maxPrice", ValueFromAmount(userMaxPrice));
     }
 
     void operator()(const CPoolSwapMessageV2 &obj) const {
