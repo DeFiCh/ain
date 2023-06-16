@@ -181,7 +181,7 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest &request, CPoolSwapMessage
 
         CAmount maxPrice = std::numeric_limits<CAmount>::max();
         if (!metadataObj["maxPrice"].isNull()) {
-            CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
+            maxPrice = AmountFromValue(metadataObj["maxPrice"]);
         }
 
         poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
