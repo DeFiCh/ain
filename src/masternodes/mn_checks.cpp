@@ -2403,7 +2403,7 @@ public:
             auto ICXBugPath = [&](uint32_t height) {
                 if ((IsTestNetwork() && height >= 1250000) ||
                     IsRegtestNetwork() ||
-                    (IsMainNetwork() && height >= consensus.NextNetworkUpgradeHeight))
+                    (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)))
                         return false;
                 return true;
             };
@@ -4034,7 +4034,6 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
     // All the heights that are involved in disabled Txs
     auto fortCanningParkHeight = static_cast<uint32_t>(consensus.FortCanningParkHeight);
     auto fortCanningHillHeight = static_cast<uint32_t>(consensus.FortCanningHillHeight);
-    auto nextNetworkUpgradeHeight = static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight);
 
     if (height < fortCanningParkHeight)
         return false;
@@ -5008,9 +5007,9 @@ bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::
     // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
     else if (height < consensus.FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
         return true;
-    // ICX transactions disabled
-    else if (height >= consensus.FortCanningParkHeight && height < consensus.NextNetworkUpgradeHeight)
-        return false;
+
+    // ICX transactions disabled in all other cases
+    return false;
 }
 
 bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
