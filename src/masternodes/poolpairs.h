@@ -45,6 +45,10 @@ struct PoolPrice {
     bool operator!=(const PoolPrice &rhs) const { return integer != rhs.integer || fraction != rhs.fraction; }
 };
 
+// Legacy constant. setMaxPoolPrice function is preferred when evaluating maximum PoolPrice
+static constexpr auto POOLPRICE_MAX =
+    PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
+
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
