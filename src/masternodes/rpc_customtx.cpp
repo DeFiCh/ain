@@ -7,6 +7,7 @@
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <univalue.h>
+#include <arith_uint256.h>
 
 extern std::string ScriptToString(const CScript &script);
 
@@ -234,7 +235,13 @@ public:
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
-        rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+
+        CAmount userMaxPrice = std::numeric_limits<CAmount>::max();
+        if ((arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction) < userMaxPrice) {
+            userMaxPrice = (obj.maxPrice.integer * COIN) + obj.maxPrice.fraction;
+        }
+
+        rpcInfo.pushKV("maxPrice", ValueFromAmount(userMaxPrice);
     }
 
     void operator()(const CPoolSwapMessageV2 &obj) const {
