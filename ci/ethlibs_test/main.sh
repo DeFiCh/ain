@@ -118,7 +118,6 @@ setup_fixtures() {
 
 main() {
     setup_vars
-    # print_info
     start_node
     init_node
     setup_fixtures
