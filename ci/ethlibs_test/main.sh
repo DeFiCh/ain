@@ -56,25 +56,36 @@ start_node() {
 }
 
 init_node() {
-    sleep 10
+    sleep 15
 }
 
 setup_fixtures() {
     # foundation members
+    echo "here"
     $DEFI_CLI_BIN -regtest importprivkey "$OWNERAUTHPRIV" owner true
+    echo "here1"
     $DEFI_CLI_BIN -regtest importprivkey "$OPERATORAUTHPRIV" operator true
 
     # push fixtures
+    echo "here2"
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_ALICE"
+    echo "here3"
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_BOB"
+    echo "here4"
     $DEFI_CLI_BIN -regtest generatetoaddress 100 "$OWNERAUTHADDR"
+    echo "here5"
 
     $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"5000@DFI"}'
+    echo "here6"
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
+    echo "here7"
     $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
+    echo "here8"
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    echo "here9"
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"2000@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"2000@DFI", "domain":3}}]'
+    echo "here10"
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
     curl http://localhost:19551 \
