@@ -151,7 +151,7 @@ impl FilterHandler {
     pub fn get_blocks_from_filter(&self, filter_id: usize) -> Result<Vec<H256>, &str> {
         let mut filters = self.filters.write().unwrap();
 
-        let mut filter = match filters.get_mut(&filter_id) {
+        let filter = match filters.get_mut(&filter_id) {
             Some(filter) => Ok(filter),
             None => Err("Unable to find filter"),
         };
