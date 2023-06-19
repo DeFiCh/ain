@@ -1,4 +1,5 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
+use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
@@ -77,7 +78,7 @@ impl EVMHandler {
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
                 difficulty: Default::default(),
-                gas_limit: Default::default(),
+                gas_limit: U256::from(MAX_GAS_PER_BLOCK),
                 gas_used: Default::default(),
                 timestamp: Default::default(),
                 extra_data: Default::default(),
@@ -87,8 +88,10 @@ impl EVMHandler {
             Vec::new(),
             Vec::new(),
         );
+
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
+        storage.set_base_fee(block.header.hash(), INITIAL_BASE_FEE);
 
         handler
     }
