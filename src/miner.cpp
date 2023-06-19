@@ -800,7 +800,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
-                    RustRes result;
+                    CrossBoundaryResult result;
                     const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
                     if (!result.ok) {
                         customTxPassed = false;

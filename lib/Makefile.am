@@ -1,4 +1,7 @@
 CARGO := $(if $(CARGO),$(CARGO),cargo)
+CARGO_EXTRA_ARGS ?= --all-targets
+
+export CARGO_BUILD_JOBS := $(if $(CARGO_BUILD_JOBS),$(CARGO_BUILD_JOBS),-1)
 
 # ENABLE_DEBUG is set from configure. We respect DEBUG too if set
 DEBUG ?= $(ENABLE_DEBUG)
@@ -33,28 +36,31 @@ unexport DESTDIR
 .PHONY:
 all: build
 
-.PHONY:
-build: 
-	$(CARGO) build $(CARGO_MANIFEST_ARG) $(CARGO_BUILD_TYPE_ARG) && \
+.PHONY: build
+build:
+	$(CARGO) build $(CARGO_MANIFEST_ARG) $(CARGO_BUILD_TYPE_ARG) $(CARGO_EXTRA_ARGS) && \
 	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(CARGO_TARGET_DIR)/lib/
 
-.PHONY:
+.PHONY: check
 check:
-	$(CARGO) test $(CARGO_MANIFEST_ARG)
+	$(CARGO) check $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
 
-.PHONY:
+.PHONY: test
+test:
+	$(CARGO) test $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
+
+.PHONY: clippy
 clippy:
-	$(CARGO) clippy $(CARGO_MANIFEST_ARG)
+	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
 
-.PHONY:
+.PHONY: fmt-check
 fmt-check:
 	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check
 
-.PHONY:
+.PHONY: fmt
 fmt:
 	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all
 
-.PHONY:
 clean-local:
 	$(CARGO) clean $(CARGO_MANIFEST_ARG) && \
 	rm -rf $(CARGO_TARGET_DIR)/{include,lib,src}

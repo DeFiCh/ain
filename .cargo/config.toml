@@ -2,7 +2,7 @@
 # We set this so that Makefile based
 # builds and ad-hoc cargo invocations all
 # result in the consistent compilation
-target-dir = "../build/lib/target"
+target-dir = "./build/lib/target"
 
 # We temporarily ignore linkages until
 # we fix cpp links 
