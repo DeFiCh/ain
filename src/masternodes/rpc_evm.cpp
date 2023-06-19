@@ -4,6 +4,24 @@
 #include <key_io.h>
 #include <util/strencodings.h>
 
+enum class VMDomainRPCMapType {
+    Auto,
+    AddressDVMToEVM,
+    AddressEVMToDVM,
+    TxHashDVMToEVM,
+    TxHashEVMToEVM,
+    BlockHashDVMToEVM,
+    BlockHashEVMToDVM
+};
+
+static int VMDomainRPCMapTypeCount = 7;
+
+enum class VMDomainIndexType {
+    BlockHash,
+    TxHash
+};
+
+
 UniValue evmtx(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -122,11 +140,129 @@ UniValue evmtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
+
+UniValue vmmap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+    RPCHelpMan{"vmmap",
+               "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
+               {
+                       {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("vmmap", R"('"<hex>"' 1)")
+               },
+    }.Check(request);
+    const std::string hash = request.params[0].get_str();
+
+    if (request.params[1].get_int() >= VMDomainRPCMapTypeCount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", VMDomainRPCMapTypeCount));
+    }
+    const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
+    switch (type) {
+        case VMDomainRPCMapType::AddressDVMToEVM: {
+            const CPubKey key = AddrToPubKey(pwallet, hash);
+            return EncodeDestination(WitnessV16EthHash(key.GetID()));
+        }
+        case VMDomainRPCMapType::AddressEVMToDVM: {
+            const CPubKey key = AddrToPubKey(pwallet, hash);
+            return EncodeDestination(PKHash(key.GetID()));
+        }
+        default:
+            break;
+    }
+
+    LOCK(cs_main);
+
+    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
+    switch (type) {
+        case VMDomainRPCMapType::TxHashDVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::TxHashEVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::BlockHashDVMToEVM: {
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            break;
+        }
+        case VMDomainRPCMapType::BlockHashEVMToDVM: {
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            break;
+        }
+        default: {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
+        }
+    }
+    if (!res) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+    } else {
+        return res.val->ToString();
+    }
+}
+
+UniValue logvmmaps(const JSONRPCRequest& request) {
+    RPCHelpMan{
+            "logvmmaps",
+            "\nLogs all block or tx indexes for debugging.\n",
+            {
+                    {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of log: 0 - Blocks, 1 - Txs"}
+                },
+            RPCResult{
+                    "{...} (array) Json object with account balances if rpcresult is enabled."
+                    "This is for debugging purposes only.\n"},
+            RPCExamples{
+                    HelpExampleCli("logvmmaps", R"('"<hex>"' 1)")},
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    size_t count{};
+    UniValue result{UniValue::VOBJ};
+    UniValue indexesJson{UniValue::VOBJ};
+    const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
+    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
+    // But there's no need to iterate the whole list, we can start at where we need to and
+    // return false, once we hit the limit and stop the iter.
+    switch (type) {
+        case VMDomainIndexType::BlockHash: {
+            pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
+                if (index.first == VMDomainMapType::DVMToEVM) {
+                    indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                    ++count;
+                }
+                return true;
+            });
+        }
+        case VMDomainIndexType::TxHash: {
+            pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
+                if (index.first == VMDomainMapType::DVMToEVM) {
+                    indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                    ++count;
+                }
+                return true;
+            });
+        }
+    }
+
+    result.pushKV("indexes", indexesJson);
+    result.pushKV("count", static_cast<uint64_t>(count));
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"evm",         "evmtx",                     &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",         "evmtx",                    &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",         "vmmap",                    &vmmap,                 {"hash", "type"}},
+    {"evm",         "logvmmaps",                &logvmmaps,             {"type"}},
 };
 
 void RegisterEVMRPCCommands(CRPCTable& tableRPC) {

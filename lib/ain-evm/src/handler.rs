@@ -102,11 +102,11 @@ impl Handlers {
                 Vicinity {
                     beneficiary,
                     timestamp: U256::from(timestamp),
-                    block_number: U256::from(0),
+                    block_number: U256::zero(),
                     ..Default::default()
                 },
                 H256::zero(),
-                U256::from(0),
+                U256::zero(),
             ),
             Some((hash, number)) => (
                 Vicinity {
