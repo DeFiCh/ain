@@ -23,6 +23,10 @@ public:
         return Res::Err("Masternode %s is not in 'ENABLED' state", nodeRefString);
     }
 
+    static Res ICXDisabled() {
+        return Res::Err("Cannot create tx, ICX is not enabled");
+    }
+
     static Res ICXBTCBelowMinSwap(const CAmount amount, const CAmount minSwap) {
         // TODO: Change error in later version to include amount. Retaining old msg for compatibility
         return Res::Err("Below minimum swapable amount, must be at least %s BTC", GetDecimalString(minSwap));
