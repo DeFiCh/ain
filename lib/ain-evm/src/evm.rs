@@ -1,4 +1,5 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
+use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
@@ -87,11 +88,11 @@ impl EVMHandler {
             Vec::new(),
             Vec::new(),
         );
-        // NOTE(canonbrother): set an initial base fee for genesis block
-        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
-        storage.set_base_fee(block.header.hash(), U256::from(10_000_000_000u64));
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
+        // NOTE(canonbrother): set an initial base fee for genesis block
+        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
+        storage.set_base_fee(block.header.hash(), INITIAL_BASE_FEE);
 
         handler
     }

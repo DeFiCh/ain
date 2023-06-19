@@ -20,6 +20,8 @@ pub struct FeeHistoryData {
     pub reward: Option<Vec<Vec<U256>>>,
 }
 
+pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
+
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
         Self { storage }
@@ -46,13 +48,12 @@ impl BlockHandler {
 
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
         // constants
-        let initial_base_fee = U256::from(10_000_000_000u64); // wei
         let base_fee_max_change_denominator = U256::from(8);
         let elasticity_multiplier = U256::from(2);
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
-            return initial_base_fee;
+            return INITIAL_BASE_FEE;
         }
 
         // get parent gas usage,
@@ -80,7 +81,7 @@ impl BlockHandler {
                     U256::one(),
                 );
 
-                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+                max(parent_base_fee + base_fee_per_gas_delta, INITIAL_BASE_FEE)
             }
             Ordering::Greater => {
                 let gas_used_delta = parent_gas_target - parent_gas_used;
@@ -88,7 +89,7 @@ impl BlockHandler {
                     / parent_gas_target
                     / base_fee_max_change_denominator;
 
-                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                max(parent_base_fee - base_fee_per_gas_delta, INITIAL_BASE_FEE)
             }
         }
     }
