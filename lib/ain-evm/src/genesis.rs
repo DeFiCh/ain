@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use ethereum_types::{H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -25,7 +26,7 @@ pub struct GenesisData {
     // config: Config,
     pub coinbase: Option<H160>,
     pub difficulty: Option<U256>,
-    pub extra_data: Option<Vec<u8>>,
+    pub extra_data: Option<Bytes>,
     pub gas_limit: Option<U256>,
     pub nonce: Option<H64>,
     pub timestamp: Option<U256>,
