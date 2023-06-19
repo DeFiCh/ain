@@ -446,7 +446,6 @@ pkg_install_deps() {
 
     # gcc-multilib: for cross compilations
     # locales: for using en-US.UTF-8 (see head of this file).
-
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
@@ -454,6 +453,7 @@ pkg_install_deps() {
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake unzip libc6-dev gcc-multilib locales locales-all
+    locale-gen "en_US.UTF-8"
 
     _fold_end
 }
