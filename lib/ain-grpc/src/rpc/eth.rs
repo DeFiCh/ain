@@ -243,6 +243,9 @@ pub trait MetachainRPC {
 
     #[method(name = "uninstallFilter")]
     fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
+
+    #[method(name = "getFilterLogs")]
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -908,6 +911,48 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
         Ok(self.handler.filters.delete_filter(filter_id.as_usize()))
+    }
+
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
+        let filter = self
+            .handler
+            .filters
+            .get_filter(filter_id.as_usize())
+            .map_err(|e| Error::Custom(String::from(e)))?;
+
+        match filter {
+            Filter::Logs(filter) => {
+                // use fromBlock-toBlock
+                let mut block_number = filter.from_block;
+                let to_block_number = filter.to_block;
+                let mut block_numbers = Vec::new();
+
+                if block_number > to_block_number {
+                    return Err(Error::Custom(format!(
+                        "fromBlock ({}) > toBlock ({})",
+                        format_u256(block_number),
+                        format_u256(to_block_number)
+                    )));
+                }
+
+                while block_number <= to_block_number {
+                    block_numbers.push(block_number);
+                    block_number += U256::one();
+                }
+
+                Ok(block_numbers
+                    .into_iter()
+                    .flat_map(|block_number| {
+                        self.handler
+                            .logs
+                            .get_logs(filter.clone().address, filter.clone().topics, block_number)
+                            .into_iter()
+                            .map(LogResult::from)
+                    })
+                    .collect())
+            }
+            _ => return Err(Error::Custom(String::from("Filter is not a log filter"))),
+        }
     }
 }
 
