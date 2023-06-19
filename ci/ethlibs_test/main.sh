@@ -67,9 +67,9 @@ setup_fixtures() {
     # push fixtures
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_ALICE"
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_BOB"
-    $DEFI_CLI_BIN -regtest generatetoaddress 105 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest generatetoaddress 120 "$OWNERAUTHADDR"
 
-    $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"5000@DFI"}'
+    $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"500@DFI"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
     $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
