@@ -7,9 +7,8 @@ set -Eeuo pipefail
 setup_vars() {
     # directories and binaries
     WORK_DIR=${WORK_DIR:-"$(pwd)"}
-    BUILD_DIR=${BUILD_DIR:-"${WORK_DIR}/build/src"}
-    DEFID_BIN=${DEFID_BIN:-"${BUILD_DIR}/defid"}
-    DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${BUILD_DIR}/defi-cli"}
+    DEFID_BIN=${DEFID_BIN:-"${WORK_DIR}/defid"}
+    DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${WORK_DIR}/defi-cli"}
 
     # fixture
     OWNERAUTHADDR="mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU"
