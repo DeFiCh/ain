@@ -246,6 +246,9 @@ pub trait MetachainRPC {
 
     #[method(name = "getFilterLogs")]
     fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>>;
+
+    #[method(name = "newPendingTransactionFilter")]
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256>;
 }
 
 pub struct MetachainRPCModule {
@@ -651,6 +654,10 @@ impl MetachainRPCServer for MetachainRPCModule {
                         signed_tx.transaction.hash()
                     );
 
+                    self.handler
+                        .filters
+                        .add_tx_to_filters(signed_tx.transaction.hash());
+
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
                 } else {
                     debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
@@ -898,12 +905,15 @@ impl MetachainRPCServer for MetachainRPCModule {
             Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
                 self.handler
                     .filters
-                    .get_blocks_from_filter(filter_id.as_usize())
+                    .get_entries_from_filter(filter_id.as_usize())
                     .map_err(|e| Error::Custom(String::from(e)))?,
             ),
-            Filter::NewPendingTransactions(_) => {
-                GetFilterChangesResult::NewPendingTransactions(Vec::new())
-            }
+            Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
+                self.handler
+                    .filters
+                    .get_entries_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
         };
 
         Ok(res)
@@ -953,6 +963,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
             _ => return Err(Error::Custom(String::from("Filter is not a log filter"))),
         }
+    }
+
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_transaction_filter().into())
     }
 }
 

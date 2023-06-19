@@ -116,6 +116,21 @@ impl FilterHandler {
         return *filter_id;
     }
 
+    pub fn create_transaction_filter(&self) -> usize {
+        let mut filters = self.filters.write().unwrap();
+        let mut filter_id = self.filter_id.write().unwrap();
+        *filter_id += 1;
+
+        let filter = Filter::NewPendingTransactions(PendingTransactionFilter {
+            id: *filter_id,
+            transaction_hashes: vec![],
+        });
+
+        filters.insert(*filter_id, filter);
+
+        return *filter_id;
+    }
+
     pub fn get_filter(&self, filter_id: usize) -> Result<Filter, &str> {
         let filters = self.filters.read().unwrap();
 
@@ -144,7 +159,7 @@ impl FilterHandler {
             let filter = item.1;
             match filter {
                 Filter::NewBlock(filter) => {
-                    debug!("Added bhash to {:#?}", filter.clone());
+                    debug!("Added block hash to {:#?}", filter.clone());
                     filter.block_hashes.push(block_hash);
                 }
                 _ => {}
@@ -152,14 +167,31 @@ impl FilterHandler {
         }
     }
 
-    pub fn get_blocks_from_filter(&self, filter_id: usize) -> Result<Vec<H256>, &str> {
+    pub fn add_tx_to_filters(&self, tx_hash: H256) {
+        let mut filters = self.filters.write().unwrap();
+        debug!("Adding {:#x} to filters", tx_hash);
+
+        for item in filters.iter_mut() {
+            let filter = item.1;
+            match filter {
+                Filter::NewPendingTransactions(filter) => {
+                    debug!("Added tx hash to {:#?}", filter.clone());
+                    filter.transaction_hashes.push(tx_hash);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn get_entries_from_filter(&self, filter_id: usize) -> Result<Vec<H256>, &str> {
         let mut filters = self.filters.write().unwrap();
 
         let filter = filters.get_mut(&filter_id).unwrap();
 
         match filter {
             Filter::NewBlock(filter) => Ok(filter.get_entries()),
-            _ => Err("Filter is not a block filter"),
+            Filter::NewPendingTransactions(filter) => Ok(filter.get_entries()),
+            _ => Err("Filter is a log filter, must be transaction or block filter."),
         }
     }
 
