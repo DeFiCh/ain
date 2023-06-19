@@ -130,6 +130,7 @@ main() {
     _ensure_script_dir
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
+    echo "$RUST_LOG"
 
     setup_vars
     print_info
