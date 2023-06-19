@@ -4,7 +4,7 @@
 
 # Editors.
 *.sw*
-.vscode
+.vscode/settings.json
 .clangd
 
 # Misc

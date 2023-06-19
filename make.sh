@@ -792,6 +792,7 @@ lib() {
     local jobs="$MAKE_JOBS"
     
     check_enter_build_rs_dir
+    # shellcheck disable=SC2086
     make CARGO_BUILD_JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
         echo "Error: Please resolve all checks"; 
         exit 1;
