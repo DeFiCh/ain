@@ -96,14 +96,11 @@ impl FilterHandler {
         return filter_id;
     }
 
-    pub fn get_logs_filter(&self, filter_id: usize) -> Result<LogsFilter, &str> {
+    pub fn get_filter(&self, filter_id: usize) -> Result<Filter, &str> {
         let filters = self.filters.read().unwrap();
 
         match filters.get(&filter_id) {
-            Some(filter) => {
-                let logs_filter = filter.clone().try_into();
-                logs_filter
-            }
+            Some(filter) => Ok(filter.clone()),
             None => Err("Unable to find filter"),
         }
     }

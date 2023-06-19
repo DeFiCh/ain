@@ -11,8 +11,9 @@ use ain_evm::evm::MAX_GAS_PER_BLOCK;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
-use crate::filters::NewFilterRequest;
+use crate::filters::{GetFilterChangesResult, NewFilterRequest};
 use crate::transaction_log::{GetLogsRequest, LogResult};
+use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -235,7 +236,7 @@ pub trait MetachainRPC {
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256>;
 
     #[method(name = "getFilterChanges")]
-    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<Vec<LogResult>>;
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult>;
 }
 
 pub struct MetachainRPCModule {
@@ -853,31 +854,41 @@ impl MetachainRPCServer for MetachainRPCModule {
             .into())
     }
 
-    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter = self
             .handler
             .filters
-            .get_logs_filter(filter_id.as_usize())
+            .get_filter(filter_id.as_usize())
             .map_err(|e| Error::Custom(String::from(e)))?;
 
-        let current_block_height = match self.handler.storage.get_latest_block() {
-            None => return Err(Error::Custom(String::from("Latest block unavailable"))),
-            Some(block) => block.header.number,
+        let res = match filter {
+            Filter::Logs(filter) => {
+                let current_block_height = match self.handler.storage.get_latest_block() {
+                    None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+                    Some(block) => block.header.number,
+                };
+
+                let logs = self
+                    .handler
+                    .logs
+                    .get_logs_from_filter(filter)
+                    .into_iter()
+                    .map(LogResult::from)
+                    .collect();
+
+                self.handler
+                    .filters
+                    .update_last_block(filter_id.as_usize(), current_block_height);
+
+                GetFilterChangesResult::Logs(logs)
+            }
+            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(Vec::new()),
+            Filter::NewPendingTransactions(_) => {
+                GetFilterChangesResult::NewPendingTransactions(Vec::new())
+            }
         };
 
-        let logs = self
-            .handler
-            .logs
-            .get_logs_from_filter(filter)
-            .into_iter()
-            .map(LogResult::from)
-            .collect();
-
-        self.handler
-            .filters
-            .update_last_block(filter_id.as_usize(), current_block_height);
-
-        Ok(logs)
+        Ok(res)
     }
 }
 
