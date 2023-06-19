@@ -64,7 +64,7 @@ impl EVMHandler {
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
         };
-        let state_root =
+        let (state_root, genesis) =
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
                 .expect("Error getting genesis state root from json");
 
@@ -72,21 +72,24 @@ impl EVMHandler {
             PartialHeader {
                 state_root,
                 number: U256::zero(),
-                parent_hash: Default::default(),
                 beneficiary: Default::default(),
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
-                difficulty: Default::default(),
-                gas_limit: Default::default(),
                 gas_used: Default::default(),
-                timestamp: Default::default(),
-                extra_data: Default::default(),
-                mix_hash: Default::default(),
-                nonce: Default::default(),
+                gas_limit: genesis.gas_limit.unwrap(),
+                extra_data: genesis.extra_data.unwrap().into(),
+                parent_hash: genesis.parent_hash.unwrap(),
+                mix_hash: genesis.mix_hash.unwrap(),
+                nonce: genesis.nonce.unwrap(),
+                timestamp: genesis.timestamp.unwrap().as_u64(),
+                difficulty: genesis.difficulty.unwrap(),
             },
             Vec::new(),
             Vec::new(),
         );
+        // NOTE(canonbrother): set an initial base fee for genesis block
+        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
+        storage.set_base_fee(block.header.hash(), U256::from(10_000_000_000u64));
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
 

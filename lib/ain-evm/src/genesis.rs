@@ -13,14 +13,14 @@ struct Config {
     eip158_block: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Alloc {
     pub balance: U256,
     pub code: Option<Vec<u8>>,
     pub storage: Option<HashMap<H256, H256>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisData {
     // config: Config,

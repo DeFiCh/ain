@@ -1,7 +1,7 @@
 use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
-use ain_evm::bytes::Bytes;
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
+use ain_evm::bytes::Bytes;
 
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
