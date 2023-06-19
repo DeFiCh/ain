@@ -87,7 +87,8 @@ enum DFIPKeys : uint8_t {
     EmissionUnusedFund   = 's',
     MintTokens           = 't',
     EVMEnabled           = 'u',
-    AllowDUSDLoops       = 'v',
+    ICXEnabled           = 'v',
+    AllowDUSDLoops       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
