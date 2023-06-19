@@ -3,10 +3,13 @@ mod code;
 mod data_handler;
 pub mod traits;
 
+use crate::log::LogIndex;
 use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H256, U256};
+use primitive_types::{H160, H256, U256};
+use std::collections::HashMap;
 
 use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
 
 use self::{
     cache::Cache,
@@ -171,6 +174,17 @@ impl ReceiptStorage for Storage {
 
     fn put_receipts(&self, receipts: Vec<Receipt>) {
         self.blockchain_data_handler.put_receipts(receipts)
+    }
+}
+
+impl LogStorage for Storage {
+    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>> {
+        self.blockchain_data_handler.get_logs(block_number)
+    }
+
+    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
+        self.blockchain_data_handler
+            .put_logs(address, logs, block_number)
     }
 }
 
