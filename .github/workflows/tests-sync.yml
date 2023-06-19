@@ -99,7 +99,6 @@ jobs:
     needs: [build-binaries, generate-matrix]
 
     strategy:
-      max-parallel: 1
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
     continue-on-error: true
