@@ -1,7 +1,6 @@
 #!/bin/bash
 
 export LC_ALL=C.UTF-8
-export RUST_LOG=debug
 set -Eeuo pipefail
 
 setup_vars() {
@@ -117,6 +116,9 @@ create_pre_sync_rollback_log() {
     rollback_and_log > "$PRE_ROLLBACK_LOG"
 
     $DEFI_CLI_CMD stop
+
+    # allow node to shutdown
+    sleep 10
 }
 
 # Start defid
@@ -130,7 +132,6 @@ main() {
     _ensure_script_dir
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
-    echo "$RUST_LOG"
 
     setup_vars
     print_info
