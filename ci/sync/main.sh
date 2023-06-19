@@ -1,6 +1,7 @@
 #!/bin/bash
 
 export LC_ALL=C.UTF-8
+export RUST_LOG=debug
 set -Eeuo pipefail
 
 setup_vars() {
