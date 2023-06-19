@@ -636,7 +636,7 @@ public:
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
         consensus.NextNetworkUpgradeHeight = 1586750;
-        consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight = 1716500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
