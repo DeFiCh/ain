@@ -236,14 +236,14 @@ public:
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         
-        if (!checkMaxPoolPrice(obj.maxPrice)) {
-            rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
-        }
-        else {
+        if (checkMaxPoolPrice(obj.maxPrice)) {
             // get max pool price
             PoolPrice price;
             setMaxPoolPrice(price);
             rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
+        }
+        else {
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
         }
     }
 
