@@ -149,7 +149,7 @@ main() {
                 exit 1
             fi
         fi
-        CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
+        CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo "$BLOCK")
         if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
             ATTEMPTS=$((ATTEMPTS + 1))
 
