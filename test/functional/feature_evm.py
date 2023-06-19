@@ -8,38 +8,12 @@ from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    int_to_eth_u256
 )
 
 from decimal import Decimal
 
-def int_to_eth_u256(value):
-    """
-    Convert a non-negative integer to an Ethereum U256-compatible format.
-    The input value is multiplied by a fixed factor of 10^18 (1 ether in wei)
-    and represented as a hexadecimal string. This function validates that the
-    input is a non-negative integer and checks if the converted value is within
-    the range of U256 values (0 to 2^256 - 1). If the input is valid and within
-    range, it returns the corresponding U256-compatible hexadecimal representation.
-    Args:
-        value (int): The non-negative integer to convert.
-    Returns:
-        str: The U256-compatible hexadecimal representation of the input value.
-    Raises:
-        ValueError: If the input is not a non-negative integer or if the
-                    converted value is outside the U256 range.
-    """
-    if not isinstance(value, int) or value < 0:
-        raise ValueError("Value must be a non-negative integer")
-
-    max_u256_value = 2**256 - 1
-    factor = 10**18
-
-    converted_value = value * factor
-    if converted_value > max_u256_value:
-        raise ValueError(f"Value must be less than or equal to {max_u256_value}")
-
-    return hex(converted_value)
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -117,7 +91,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].getbalance()
 
         # Fund DFI address
-        self.nodes[0].utxostoaccount({address: "101@DFI"})
+        txid = self.nodes[0].utxostoaccount({address: "101@DFI"})
         self.nodes[0].generate(1)
 
         # transferdomain tests
@@ -130,15 +104,19 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
 
         # Check for invalid parameters in transferdomain rpc
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].accounttoaccount, address, {eth_address: "1@DFI"})
-        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"address\" must not be null", self.nodes[0].transferdomain, [{"src": {"amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"amount\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"domain\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI"}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-8, "JSON value is not an integer as expected", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": "dvm"}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-8, "JSON value is not an integer as expected", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": "evm"}}])
-        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"domain\" must be either 2 (DFI token to EVM) or 3 (EVM to DFI token)", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 0}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 2}}])
-        assert_raises_rpc_error(-32600, "Invalid domain set for \"dst\" argument", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 4}}])
-        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, [{"src": {"address":"blablabla", "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].createrawtransaction, [{'txid': txid, 'vout': 1}], [{ethAddress: 1}])
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendmany, "", {ethAddress: 1})
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendmany, "", {ethAddress: 1})
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendtoaddress, ethAddress, 1)
+        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].accounttoaccount, address, {ethAddress: "1@DFI"})
+        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"address\" must not be null", self.nodes[0].transferdomain, [{"src": {"amount":"100@DFI", "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"amount\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"domain\" must not be null", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI"}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-8, "JSON value is not an integer as expected", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": "dvm"}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-8, "JSON value is not an integer as expected", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": "evm"}}])
+        assert_raises_rpc_error(-8, "Invalid parameters, src argument \"domain\" must be either 2 (DFI token to EVM) or 3 (EVM to DFI token)", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 0}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, "Invalid domain set for \"dst\" argument", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 4}}])
+        assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, [{"src": {"address":"blablabla", "amount":"100@DFI", "domain": 2}, "dst":{"address":ethAddress, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-5, "recipient (blablabla) does not refer to any valid address", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":"blablabla", "amount":"100@DFI", "domain": 3}}])
 
         # Check for valid values DVM->EVM in transferdomain rpc
