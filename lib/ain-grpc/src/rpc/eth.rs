@@ -235,6 +235,9 @@ pub trait MetachainRPC {
     #[method(name = "newFilter")]
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256>;
 
+    #[method(name = "newBlockFilter")]
+    fn new_block_filter(&self) -> RpcResult<U256>;
+
     #[method(name = "getFilterChanges")]
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult>;
 }
@@ -854,6 +857,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             .into())
     }
 
+    fn new_block_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_block_filter().into())
+    }
+
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter = self
             .handler
@@ -882,7 +889,12 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 GetFilterChangesResult::Logs(logs)
             }
-            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(Vec::new()),
+            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
+                self.handler
+                    .filters
+                    .get_blocks_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
             Filter::NewPendingTransactions(_) => {
                 GetFilterChangesResult::NewPendingTransactions(Vec::new())
             }

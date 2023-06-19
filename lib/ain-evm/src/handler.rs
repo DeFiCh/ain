@@ -232,6 +232,7 @@ impl Handlers {
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
+            self.filters.add_block_to_filters(block.header.hash());
         }
 
         Ok((

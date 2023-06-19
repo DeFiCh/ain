@@ -1,3 +1,4 @@
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -46,6 +47,7 @@ impl BlockFilter {
         self.block_hashes.drain(..).collect()
     }
 }
+
 #[derive(Clone, Debug)]
 pub struct PendingTransactionFilter {
     pub id: usize,
@@ -96,6 +98,20 @@ impl FilterHandler {
         return filter_id;
     }
 
+    pub fn create_block_filter(&self) -> usize {
+        let mut filters = self.filters.write().unwrap();
+        let filter_id = filters.len();
+
+        let filter = Filter::NewBlock(BlockFilter {
+            id: filter_id,
+            block_hashes: vec![],
+        });
+
+        filters.insert(filter_id, filter);
+
+        return filter_id;
+    }
+
     pub fn get_filter(&self, filter_id: usize) -> Result<Filter, &str> {
         let filters = self.filters.read().unwrap();
 
@@ -113,6 +129,36 @@ impl FilterHandler {
         match filter {
             Filter::Logs(f) => f.last_block_height = block_height,
             _ => {}
+        }
+    }
+
+    pub fn add_block_to_filters(&self, block_hash: H256) {
+        let mut filters = self.filters.write().unwrap();
+        debug!("Adding {:#x} to filters", block_hash);
+
+        for item in filters.iter_mut() {
+            let filter = item.1;
+            match filter {
+                Filter::NewBlock(filter) => {
+                    debug!("Added bhash to {:#?}", filter.clone());
+                    filter.block_hashes.push(block_hash);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn get_blocks_from_filter(&self, filter_id: usize) -> Result<Vec<H256>, &str> {
+        let mut filters = self.filters.write().unwrap();
+
+        let mut filter = match filters.get_mut(&filter_id) {
+            Some(filter) => Ok(filter),
+            None => Err("Unable to find filter"),
+        };
+
+        match filter {
+            Ok(Filter::NewBlock(filter)) => Ok(filter.get_entries()),
+            _ => Err("Filter is not a block filter"),
         }
     }
 }
