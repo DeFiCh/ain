@@ -68,6 +68,8 @@ enum AuthStrategy: uint32_t {
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
+constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
+
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
     //    NotCustomTx  = 1,
