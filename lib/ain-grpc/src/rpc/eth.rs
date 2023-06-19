@@ -226,7 +226,7 @@ pub trait MetachainRPC {
     fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>>;
 
     // ----------------------------------------
-    // Logs
+    // Logs and filters
     // ----------------------------------------
 
     #[method(name = "getLogs")]
