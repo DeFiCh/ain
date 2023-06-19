@@ -27,6 +27,8 @@ CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
 
 # Export compiler flags
 export CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS AR NM RANLIB
+# Export compiler support
+export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
 # Export protoc vars
 export PROTOC PROTOC_INCLUDE_DIR
 
