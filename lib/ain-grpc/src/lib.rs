@@ -11,12 +11,13 @@ mod receipt;
 pub mod rpc;
 mod subscription;
 mod transaction;
+mod transaction_log;
 mod transaction_request;
 mod utils;
 
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
-use jsonrpsee::ws_server::{WsServerBuilder, WsServerHandle};
+use jsonrpsee::ws_server::{WsServerBuilder};
 
 #[allow(unused)]
 use log::{debug, info};

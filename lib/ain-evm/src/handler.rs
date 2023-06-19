@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
+use crate::log::LogHandler;
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
@@ -30,6 +31,7 @@ pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
     pub receipt: ReceiptHandler,
+    pub logs: LogHandler,
     pub storage: Arc<Storage>,
     pub channel: (
         UnboundedSender<Notification>,
@@ -68,6 +70,7 @@ impl Handlers {
                 evm: EVMHandler::new_from_json(Arc::clone(&storage), sender.clone(), PathBuf::from(path)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                logs: LogHandler::new(Arc::clone(&storage)),
                 storage,
                 channel: (sender, RwLock::new(channel.1)),
             })
@@ -77,6 +80,7 @@ impl Handlers {
                 evm: EVMHandler::restore(Arc::clone(&storage), sender.clone()),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                logs: LogHandler::new(Arc::clone(&storage)),
                 storage,
                 channel: (sender, RwLock::new(channel.1)),
             })
@@ -110,11 +114,11 @@ impl Handlers {
                 Vicinity {
                     beneficiary,
                     timestamp: U256::from(timestamp),
-                    block_number: U256::from(0),
+                    block_number: U256::zero(),
                     ..Default::default()
                 },
                 H256::zero(),
-                U256::from(0),
+                U256::zero(),
             ),
             Some((hash, number)) => (
                 Vicinity {
@@ -207,7 +211,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: U256::from(30_000_000),
+                gas_limit: U256::from(MAX_GAS_PER_BLOCK),
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),
@@ -237,6 +241,8 @@ impl Handlers {
             let base_fee = self.block.calculate_base_fee(parent_hash);
 
             self.block.connect_block(block.clone(), base_fee);
+            self.logs
+                .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
 
             let _ = self

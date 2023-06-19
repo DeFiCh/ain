@@ -968,7 +968,7 @@ public:
                 }
                 operatorType = true;
 
-                if (addressType != 1 && addressType != 4) {
+                if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
@@ -987,8 +987,15 @@ public:
                 }
                 rewardType = true;
 
-                if (addressType != 1 && addressType != 4) {
-                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
+                if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                    if (addressType != PKHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                    }
+                } else {
+                    if (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2SH, P2PKH or P2WPKH type");
+                    }
                 }
 
                 const auto keyID = CKeyID(uint160(rawAddress));
@@ -3875,6 +3882,12 @@ public:
 
         gasUsed = hashAndGas.used_gas;
 
+        std::vector<unsigned char> evmTxHashBytes;
+        sha3(obj.evmTx, evmTxHashBytes);
+        auto txHash = tx.GetHash();
+        auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 

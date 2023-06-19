@@ -9,11 +9,17 @@ OSX_SDK=$(SDK_PATH)/Xcode-$(XCODE_VERSION)-$(XCODE_BUILD_ID)-extracted-SDK-with-
 SILENCED_WARNINGS=-Wno-unused-command-line-argument -Wno-deprecated-non-prototype -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable
 DARWIN_SHAREDCC_FLAGS=-target $(host) -mmacosx-version-min=$(OSX_MIN_VERSION) --sysroot $(OSX_SDK) -mlinker-version=$(LD64_VERSION) $(SILENCED_WARNINGS)
 
+# There are some blockers to cleanly using just the flags and not 
+# overriding the CC/CXX with flags above, due to how depends system
+# has been built on Bitoin. For now, we follow the BTC way
+# until we can resolve the specific blockers, however we also
+# add them to the flags, so downstream nested compilations can 
+# use them properly.
 darwin_CC=clang $(DARWIN_SHAREDCC_FLAGS)
-darwin_CXX=clang++ -stdlib=libc++ $(DARWIN_SHAREDCC_FLAGS)
+darwin_CXX=clang++ -stdlib=libc++ -std=c++17 $(DARWIN_SHAREDCC_FLAGS)
 
-darwin_CFLAGS=-pipe
-darwin_CXXFLAGS=$(darwin_CFLAGS)
+darwin_CFLAGS=-pipe $(DARWIN_SHAREDCC_FLAGS)
+darwin_CXXFLAGS=$(darwin_CFLAGS) -stdlib=libc++ -std=c++17
 
 darwin_release_CFLAGS=-O2
 darwin_release_CXXFLAGS=$(darwin_release_CFLAGS)

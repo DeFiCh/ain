@@ -7,7 +7,7 @@ use ain_evm::{
 use ethereum::Header;
 use ethereum_types::H256;
 use log::debug;
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{from_value, Value};
 
 /// Subscription result.

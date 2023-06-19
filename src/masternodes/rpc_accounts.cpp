@@ -1989,7 +1989,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 UniValue transferdomain(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
-
+    // TODO: Add support for non-JSON parameteric input that's human friendly and intuitive
     RPCHelpMan{"transferdomain",
                 "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",

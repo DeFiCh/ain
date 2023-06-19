@@ -26,6 +26,8 @@ use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
+pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
+
 pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
@@ -177,6 +179,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
+
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -194,15 +197,15 @@ impl EVMHandler {
         debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
 
         let prepay_gas = calculate_prepay_gas(&signed_tx);
+        debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
+
         if balance < MIN_GAS_PER_TX || balance < prepay_gas {
-            debug!("[validate_raw_tx] Insufficiant balance to pay fees");
-            return Err(anyhow!("Insufficiant balance to pay fees").into());
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(anyhow!("insufficient balance to pay fees").into());
         }
 
         let gas_limit = signed_tx.gas_limit();
 
-        // TODO lift MAX_GAS_PER_BLOCK
-        const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
         debug!(
             "[validate_raw_tx] MAX_GAS_PER_BLOCK: {:#x}",
             MAX_GAS_PER_BLOCK
