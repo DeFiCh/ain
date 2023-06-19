@@ -98,7 +98,7 @@ impl LogHandler {
     }
 
     pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Vec<LogIndex> {
-        if filter.last_block_height > filter.to_block {
+        if filter.last_block_height >= filter.to_block {
             // not possible to have any new entries
             return Vec::new();
         }
