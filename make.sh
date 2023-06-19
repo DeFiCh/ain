@@ -725,7 +725,8 @@ _get_default_conf_args() {
 }
 
 _get_default_jobs() {
-    local total=$(_nproc)
+    local total
+    total=$(_nproc)
     # Use a num closer to 80% of the cores by default
     local jobs=$(( total * 4/5 ))
     if (( jobs > 1 )); then
