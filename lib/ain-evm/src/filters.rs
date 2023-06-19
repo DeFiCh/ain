@@ -63,12 +63,14 @@ impl PendingTransactionFilter {
 
 pub struct FilterHandler {
     pub filters: RwLock<HashMap<usize, Filter>>,
+    pub filter_id: RwLock<usize>,
 }
 
 impl FilterHandler {
     pub fn new() -> Self {
         Self {
             filters: RwLock::new(HashMap::new()),
+            filter_id: RwLock::new(0),
         }
     }
 
@@ -81,13 +83,14 @@ impl FilterHandler {
         current_block_height: U256,
     ) -> usize {
         let mut filters = self.filters.write().unwrap();
-        let filter_id = filters.len();
+        let mut filter_id = self.filter_id.write().unwrap();
+        *filter_id += 1;
 
         filters.insert(
-            filter_id,
+            *filter_id,
             Filter::Logs(LogsFilter {
                 address,
-                id: filter_id,
+                id: *filter_id,
                 topics,
                 from_block,
                 to_block,
@@ -95,21 +98,22 @@ impl FilterHandler {
             }),
         );
 
-        return filter_id;
+        return *filter_id;
     }
 
     pub fn create_block_filter(&self) -> usize {
         let mut filters = self.filters.write().unwrap();
-        let filter_id = filters.len();
+        let mut filter_id = self.filter_id.write().unwrap();
+        *filter_id += 1;
 
         let filter = Filter::NewBlock(BlockFilter {
-            id: filter_id,
+            id: *filter_id,
             block_hashes: vec![],
         });
 
-        filters.insert(filter_id, filter);
+        filters.insert(*filter_id, filter);
 
-        return filter_id;
+        return *filter_id;
     }
 
     pub fn get_filter(&self, filter_id: usize) -> Result<Filter, &str> {
@@ -159,6 +163,15 @@ impl FilterHandler {
         match filter {
             Ok(Filter::NewBlock(filter)) => Ok(filter.get_entries()),
             _ => Err("Filter is not a block filter"),
+        }
+    }
+
+    pub fn delete_filter(&self, filter_id: usize) -> bool {
+        let mut filters = self.filters.write().unwrap();
+
+        match filters.remove(&filter_id) {
+            Some(_) => true,
+            None => false,
         }
     }
 }

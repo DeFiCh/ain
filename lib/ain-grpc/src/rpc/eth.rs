@@ -240,6 +240,9 @@ pub trait MetachainRPC {
 
     #[method(name = "getFilterChanges")]
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult>;
+
+    #[method(name = "uninstallFilter")]
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
 }
 
 pub struct MetachainRPCModule {
@@ -901,6 +904,10 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
 
         Ok(res)
+    }
+
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
+        Ok(self.handler.filters.delete_filter(filter_id.as_usize()))
     }
 }
 
