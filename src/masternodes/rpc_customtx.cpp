@@ -7,6 +7,7 @@
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <univalue.h>
+#include <arith_uint256.h>
 
 extern std::string ScriptToString(const CScript &script);
 
