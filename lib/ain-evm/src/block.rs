@@ -1,16 +1,13 @@
-use ethereum::{Block, BlockAny, PartialHeader, TransactionAny};
+use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
-use std::{fs, io::BufReader, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
-use crate::{
-    genesis::GenesisData,
-    storage::{traits::BlockStorage, Storage},
-};
+use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
@@ -262,30 +259,4 @@ impl BlockHandler {
 
         base_fee + priority_fee
     }
-}
-
-pub fn new_block_from_json(path: PathBuf, state_root: H256) -> Result<BlockAny, std::io::Error> {
-    let file = fs::File::open(path)?;
-    let reader = BufReader::new(file);
-    let genesis: GenesisData = serde_json::from_reader(reader)?;
-
-    Ok(Block::new(
-        PartialHeader {
-            state_root,
-            number: U256::zero(),
-            timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
-            beneficiary: genesis.coinbase.unwrap_or_default(),
-            difficulty: genesis.difficulty.unwrap_or_default(),
-            extra_data: genesis.extra_data.unwrap_or_default().into(),
-            parent_hash: genesis.parent_hash.unwrap_or_default(),
-            gas_limit: genesis.gas_limit.unwrap_or_default(),
-            mix_hash: genesis.mix_hash.unwrap_or_default(),
-            nonce: genesis.nonce.unwrap_or_default(),
-            receipts_root: Default::default(),
-            logs_bloom: Default::default(),
-            gas_used: Default::default(),
-        },
-        Vec::new(),
-        Vec::new(),
-    ))
 }
