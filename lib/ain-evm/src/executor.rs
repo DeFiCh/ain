@@ -132,8 +132,10 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let used_gas = executor.used_gas();
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
+
         if exit_reason.is_succeed() {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
+            self.backend.commit();
         }
 
         self.backend.refund_unused_gas(
