@@ -708,7 +708,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
                     SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
-                                    chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                                    chainparams.GetConsensus().burnAddress, pindex->nHeight, chainparams.GetConsensus());
                 }
 
                 view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
@@ -725,7 +725,7 @@ static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, c
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
 
-                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight, chainparams.GetConsensus());
                     auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
@@ -2383,7 +2383,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 
 static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
 
-    if (IsEVMEnabled(pindex->nHeight, cache)) {
+    if (IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) {
         CKeyID minter;
         assert(block.ExtractMinterKey(minter));
         CScript minerAddress;
