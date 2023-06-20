@@ -174,7 +174,7 @@ build_make() {
     _fold_start "build_make"
 
     # shellcheck disable=SC2086
-    make DESTDIR="${build_target_dir}" -j${make_jobs} CARGO_BUILD_JOBS=${make_jobs} ${make_args}
+    make DESTDIR="${build_target_dir}" -j${make_jobs} JOBS=${make_jobs} ${make_args}
 
     _fold_end
     _exit_dir
@@ -381,7 +381,7 @@ exec() {
     _fold_start "exec:: ${*-(default)}"
 
     # shellcheck disable=SC2086,SC2068
-    make -j$make_jobs CARGO_BUILD_JOBS=${make_jobs} $make_args $@
+    make -j$make_jobs JOBS=${make_jobs} $make_args $@
 
     _fold_end
     _exit_dir
@@ -793,7 +793,7 @@ lib() {
     
     check_enter_build_rs_dir
     # shellcheck disable=SC2086
-    make CARGO_BUILD_JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
         echo "Error: Please resolve all checks"; 
         exit 1;
         fi; }

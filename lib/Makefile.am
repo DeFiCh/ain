@@ -1,12 +1,9 @@
 CARGO := $(if $(CARGO),$(CARGO),cargo)
-CARGO_EXTRA_ARGS ?= --all-targets
-
-export CARGO_BUILD_JOBS := $(if $(CARGO_BUILD_JOBS),$(CARGO_BUILD_JOBS),-1)
 
 # ENABLE_DEBUG is set from configure. We respect DEBUG too if set
 DEBUG ?= $(ENABLE_DEBUG)
 
-# CARGO_BUILD_TARGET and HAVE_CARGO_BUILD_TARGET is set from configure. 
+# RUST_TARGET and HAVE_RUST_TARGET is set from configure. 
 # Can be empty. If empty, we skip export it. Otherwise we do. 
 #  
 # We do this to emulate cargo's default behavior (--target=<triplet>) where
@@ -14,16 +11,23 @@ DEBUG ?= $(ENABLE_DEBUG)
 # There's no way to force cargo to a stick to one behavior at the moment.
 # 
 # Note: We use HAVE checks due to automake ifeq/ifneq not working outside rules
-if HAVE_CARGO_BUILD_TARGET
-export CARGO_BUILD_TARGET := $(CARGO_BUILD_TARGET)
+if HAVE_RUST_TARGET
+export CARGO_BUILD_TARGET = $(RUST_TARGET)
 endif
+TARGET = $(RUST_TARGET)
 
 export CARGO_TARGET_DIR ?= $(abs_builddir)/target
+export CARGO_BUILD_JOBS ?= $(if $(JOBS),$(JOBS),-1)
+
 CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
-SPECIFIC_TARGET_DIR = $(CARGO_TARGET_DIR)/$(CARGO_BUILD_TARGET)/$(if $(DEBUG),debug,release)
+SPECIFIC_TARGET_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 
 CARGO_MANIFEST_ARG = --manifest-path "$(CARGO_MANIFEST_PATH)"
 CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
+
+# If $build == $host, we add --all-targets otherwise we skip
+# since compiling with `--test` fails on cross compilation
+CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
 
 # Export compiler flags
 export CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS AR NM RANLIB

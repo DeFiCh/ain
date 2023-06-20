@@ -1371,15 +1371,15 @@ AC_SUBST(PROTOC_INCLUDE_DIR)
 
 dnl If the host and build triplets are the same, we keep this empty
 if test x$host = x$build; then
-  CARGO_BUILD_TARGET=
+  RUST_TARGET=
 else
-  CARGO_BUILD_TARGET=`TARGET="$host" $ac_abs_confdir/make.sh get_rust_target`
+  RUST_TARGET=`TARGET="$host" $ac_abs_confdir/make.sh get_rust_target`
   if test $? != 0; then
     AC_MSG_ERROR("unsupported host target")
   fi
 fi
-AC_SUBST(CARGO_BUILD_TARGET)
-AM_CONDITIONAL([HAVE_CARGO_BUILD_TARGET], [test x$CARGO_BUILD_TARGET != x])
+AC_SUBST(RUST_TARGET)
+AM_CONDITIONAL([HAVE_RUST_TARGET], [test x$RUST_TARGET != x])
 
 AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
@@ -1468,6 +1468,6 @@ echo "  CXXFLAGS            = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS 
 echo "  LDFLAGS             = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
 echo "  ARFLAGS             = $ARFLAGS"
 echo "  CARGO               = $CARGO"
-echo "  CARGO_BUILD_TARGET  = $CARGO_BUILD_TARGET"
+echo "  RUST_TARGET         = $RUST_TARGET"
 echo "  ENABLE_DEBUG        = $ENABLE_DEBUG"
 echo
