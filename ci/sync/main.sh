@@ -119,11 +119,11 @@ create_pre_sync_rollback_log() {
 }
 
 start_node_and_wait() {
-    local ATTEMPTS=0
-
     echo "Syncing to block height: ${STOP_BLOCK}"
-    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1)) &
-    PID=$!
+    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
+
+    # get PID
+    PID=$(head -1 "${DATADIR}/defid.pid")
     sleep 30
 }
 
