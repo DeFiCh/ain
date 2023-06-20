@@ -3905,9 +3905,12 @@ public:
         CrossBoundaryResult result;
         const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
-        if (!result.ok) {
-            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-            return Res::Err("evm tx failed to validate %s", result.reason);
+        // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
+            }
         }
 
         evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
