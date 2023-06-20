@@ -83,6 +83,7 @@ def get_default_config_path():
         # standard dev envs, for the rest manual config is required
         current_file_path + "/../../../build/test/config.ini",
         current_file_path + "/../../test/config.ini",
+        current_file_path + "/../../config.ini",
     ]
     for p in default_config_paths:
         if os.path.exists(p):
