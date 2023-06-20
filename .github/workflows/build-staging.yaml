@@ -9,7 +9,6 @@ env:
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - uses: actions/checkout@v3
@@ -28,7 +27,6 @@ jobs:
 
   linux-aarch64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - uses: actions/checkout@v3
@@ -47,7 +45,6 @@ jobs:
 
   win-x64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - uses: actions/checkout@v3
@@ -66,7 +63,6 @@ jobs:
 
   osx-x64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - uses: actions/checkout@v3
@@ -85,7 +81,6 @@ jobs:
 
   osx-aarch64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - uses: actions/checkout@v3

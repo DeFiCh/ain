@@ -35,7 +35,7 @@ setup_vars() {
     NODE_RESTARTS=0
 }
 
-_ensure_script_dir() {
+_setup_dir_env() {
     _WORKING_DIR="$(pwd)"
     local dir
     dir="$(dirname "${BASH_SOURCE[0]}")"
@@ -126,7 +126,7 @@ start_node() {
 }
 
 main() {
-    _ensure_script_dir
+    _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
 
