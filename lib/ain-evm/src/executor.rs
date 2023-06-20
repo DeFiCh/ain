@@ -38,6 +38,13 @@ impl<'backend> AinExecutor<'backend> {
     pub fn commit(&mut self) -> H256 {
         self.backend.commit()
     }
+
+    pub fn get_nonce(&mut self, address: H160) -> Result<U256, EVMBackendError> {
+        self.backend
+            .get_account(address)
+            .ok_or(EVMBackendError::NoSuchAccount(address))
+            .map_or(Ok(U256::zero()), |account| Ok(account.nonce))
+    }
 }
 
 impl<'backend> Executor for AinExecutor<'backend> {

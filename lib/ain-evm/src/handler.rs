@@ -128,6 +128,12 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
+                    // validate nonce
+                    if signed_tx.nonce() != executor.get_nonce(signed_tx.sender) {
+                        // if invalid nonce, do not process
+                        continue;
+                    }
+
                     let (
                         TxResponse {
                             exit_reason,
