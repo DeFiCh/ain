@@ -85,6 +85,7 @@ setup_fixtures() {
         "id":"fixture",
         "method":"eth_sendTransaction",
         "params":[{
+        "from":"'"$ALICE"'",
         "data":"'"$CONTRACT_COUNTER"'",
         "value":"0x00",
         "gas":"0x7a120",
@@ -104,6 +105,7 @@ setup_fixtures() {
         "id":"fixture",
         "method":"eth_sendTransaction",
         "params":[{
+        "from":"'"$ALICE"'",
         "data":"'"$CONTRACT_COUNTERCALLER"'",
         "value":"0x00",
         "gas":"0x7a120",
