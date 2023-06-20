@@ -128,8 +128,8 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    // validate nonce
-                    if signed_tx.nonce() != executor.get_nonce(signed_tx.sender) {
+                    // validate transaction
+                    if !executor.validate_tx(signed_tx) {
                         // if invalid nonce, do not process and remove from block
                         evicted_transactions.push(hex::encode(hash))
                     }

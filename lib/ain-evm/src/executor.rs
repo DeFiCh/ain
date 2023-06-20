@@ -39,11 +39,16 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.commit()
     }
 
-    pub fn get_nonce(&mut self, address: H160) -> Result<U256, EVMBackendError> {
-        self.backend
+    pub fn validate_tx(&mut self, signed_tx: Box<SignedTx>) -> Result<bool, EVMBackendError> {
+        let address = signed_tx.sender;
+        // validate nonce
+        let account_nonce = self
+            .backend
             .get_account(address)
             .ok_or(EVMBackendError::NoSuchAccount(address))
-            .map_or(Ok(U256::zero()), |account| Ok(account.nonce))
+            .map_or(U256::zero(), |account| account.nonce);
+
+        Ok(account_nonce == signed_tx.nonce())
     }
 }
 
