@@ -33,6 +33,7 @@ setup_vars() {
     MAX_ATTEMPTS=10
     MAX_NODE_RESTARTS=5
     NODE_RESTARTS=0
+    PID=""
 }
 
 _ensure_script_dir() {
@@ -117,35 +118,22 @@ create_pre_sync_rollback_log() {
     stop_node
 }
 
-start_node() {
-    local pid=""
+start_node_and_wait() {
     local ATTEMPTS=0
 
     echo "Syncing to block height: ${STOP_BLOCK}"
-    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
-    pid=$(pgrep defid)
-    
-    # monitor defid for 30 seconds to ensure it does not crash
-    while  [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ]; do
-        if ps -p "$pid" > /dev/null; then
-            ATTEMPTS=$((ATTEMPTS + 1))
-            sleep 3
-        else
-            echo "Failed to start node, exiting"
-            exit 1
-        fi
-    done
+    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1)) &
+    PID=$!
+    sleep 30
 }
 
 stop_node() {
-    local pid=""
     local ATTEMPTS=0
-    pid=$(pgrep defid)
 
     # check to ensure defid process stops (50s timeout threshold)
-    if [ -n "$pid" ]; then
+    if [ -n "$PID" ]; then
         $DEFI_CLI_CMD stop
-        while  ps -p "$pid" > /dev/null; do
+        while  ps -p "$PID" > /dev/null; do
             if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
                 echo "Failed to stop node, exiting"
                 exit 1
@@ -165,7 +153,7 @@ main() {
     setup_vars
     print_info
     create_pre_sync_rollback_log
-    start_node
+    start_node_and_wait
 
     # Sync to target block height
     while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
@@ -173,7 +161,7 @@ main() {
             if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
                 echo "Node Stuck After ${ATTEMPTS} attempts, restarting node"
                 stop_node
-                start_node
+                start_node_and_wait
                 NODE_RESTARTS=$((NODE_RESTARTS + 1))
                 ATTEMPTS=0
             else
