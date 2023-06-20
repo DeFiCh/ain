@@ -22,7 +22,7 @@ setup_vars() {
     REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${REF_LOG_DIR}/${REF_LOG}"
 
     # Commands
-    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -spv -checkpoints=0"
+    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
     DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR}"
     FETCH="aria2c -x16 -s16"
     GREP="grep"
@@ -111,24 +111,32 @@ create_pre_sync_rollback_log() {
 
     cp -r "$DATADIR" "$DATADIR_ROLLBACK"
     rm -f "$DEBUG_FILE"
-    $DEFID_CMD
-    sleep 90
-
+    start_node_and_wait DATADIR_ROLLBACK
     rollback_and_log > "$PRE_ROLLBACK_LOG"
     stop_node
 }
 
 start_node_and_wait() {
+    local data_dir=${1:-${DATADIR}}
     echo "Syncing to block height: ${STOP_BLOCK}"
-    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
+
+    $DEFID_CMD
 
     # get PID
-    PID=$(head -1 "${DATADIR}/defid.pid")
-    sleep 30
+    PID=$(head -1 "${data_dir}/defid.pid")
+    sleep 90
+
+    # debugging log (to remove)
+    echo "Start node dir: ${data_dir}"
+    echo "Start node command: ${DEFID_CMD}"
 }
 
 stop_node() {
     local ATTEMPTS=0
+
+    #debugging log (to remove)
+    echo "Stop node PID: ${PID}"
+    echo "Stop node command: ${DEFI_CLI_CMD}"
 
     # check to ensure defid process stops (50s timeout threshold)
     if [ -n "$PID" ]; then
