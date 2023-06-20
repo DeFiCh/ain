@@ -238,10 +238,6 @@ impl EVMHandler {
 }
 
 impl EVMHandler {
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
-        self.tx_queues.queue_tx(context, tx, hash)?;
-        Ok(())
-    }
     pub fn add_balance(
         &self,
         context: u64,

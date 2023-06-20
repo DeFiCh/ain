@@ -654,10 +654,6 @@ impl MetachainRPCServer for MetachainRPCModule {
                         signed_tx.transaction.hash()
                     );
 
-                    self.handler
-                        .filters
-                        .add_tx_to_filters(signed_tx.transaction.hash());
-
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
                 } else {
                     debug!(target:"rpc","[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");

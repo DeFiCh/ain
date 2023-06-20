@@ -378,11 +378,7 @@ fn evm_try_queue_tx(
     hash: [u8; 32],
 ) -> Result<bool, Box<dyn Error>> {
     let signed_tx: SignedTx = raw_tx.try_into()?;
-    match RUNTIME
-        .handlers
-        .evm
-        .queue_tx(context, signed_tx.into(), hash)
-    {
+    match RUNTIME.handlers.queue_tx(context, signed_tx.into(), hash) {
         Ok(_) => {
             result.ok = true;
             Ok(true)

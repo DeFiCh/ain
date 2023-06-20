@@ -1,6 +1,6 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
+use crate::evm::{EVMError, EVMHandler, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::filters::FilterHandler;
 use crate::log::LogHandler;
@@ -240,5 +240,17 @@ impl Handlers {
             failed_transactions,
             gas_used,
         ))
+    }
+
+    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
+        self.evm.tx_queues.queue_tx(context, tx.clone(), hash)?;
+
+        match tx {
+            QueueTx::SignedTx(signed_tx) => {
+                self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+            }
+            _ => {}
+        };
+        Ok(())
     }
 }
