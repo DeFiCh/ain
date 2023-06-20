@@ -453,9 +453,14 @@ pkg_install_deps() {
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake unzip libc6-dev gcc-multilib locales locales-all
-    locale-gen "en_US.UTF-8"
 
     _fold_end
+}
+
+pkg_setup_locale() {
+    # Not a hard requirement. We use en_US.UTF-8 to maintain coherence across
+    # different platforms. C.UTF-8 is not available on all platforms.
+    locale-gen "en_US.UTF-8"
 }
 
 pkg_install_deps_mingw_x86_64() {
@@ -899,6 +904,7 @@ ci_export_vars() {
 ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_update_base
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
+    DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
 }
