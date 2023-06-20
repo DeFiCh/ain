@@ -12,7 +12,7 @@ on:
       - master
 
 jobs:
-  cpp_tests:
+  cpp-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     env:
@@ -43,7 +43,7 @@ jobs:
     - name: Tests
       run: ./ci/test/main.sh
 
-  rust_tests:
+  rust-tests:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     steps:
