@@ -80,7 +80,7 @@ impl Handlers {
         timestamp: u64,
     ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
-        let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut evicted_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
@@ -130,8 +130,8 @@ impl Handlers {
                 QueueTx::SignedTx(signed_tx) => {
                     // validate nonce
                     if signed_tx.nonce() != executor.get_nonce(signed_tx.sender) {
-                        // if invalid nonce, do not process
-                        continue;
+                        // if invalid nonce, do not process and remove from block
+                        evicted_transactions.push(hex::encode(hash))
                     }
 
                     let (
@@ -149,10 +149,6 @@ impl Handlers {
                         signed_tx.transaction.hash()
                     );
 
-                    if !exit_reason.is_succeed() {
-                        failed_transactions.push(hex::encode(hash));
-                    }
-
                     all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
                     EVMHandler::logs_bloom(logs, &mut logs_bloom);
@@ -165,7 +161,7 @@ impl Handlers {
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[finalize_block] EvmIn failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        evicted_transactions.push(hex::encode(hash));
                     }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
@@ -176,7 +172,7 @@ impl Handlers {
 
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        evicted_transactions.push(hex::encode(hash));
                     }
                 }
             }
@@ -238,7 +234,7 @@ impl Handlers {
 
         Ok((
             *block.header.hash().as_fixed_bytes(),
-            failed_transactions,
+            evicted_transactions,
             gas_used,
         ))
     }
