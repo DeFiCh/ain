@@ -53,7 +53,7 @@ class EVMTest(DefiTestFramework):
             ethblock0["parentHash"],
             "0x0000000000000000000000000000000000000000000000000000000000000000",
         )
-        # q(canonbrother): why is the mixHash required in genesis?
+        # NOTE(canonbrother): overwritten by block.header.hash
         # assert_equal(ethblock0['mixHash'], '0x0000000000000000000000000000000000000000000000000000000000000000')
         assert_equal(ethblock0["nonce"], "0x123123123123123f")
         assert_equal(ethblock0["timestamp"], "0x539")
