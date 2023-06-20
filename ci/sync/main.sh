@@ -29,7 +29,6 @@ setup_vars() {
 
     ROLLBACK_BLOCK="${START_BLOCK}"
     BLOCK=0
-    ATTEMPTS=0
     MAX_ATTEMPTS=10
     MAX_NODE_RESTARTS=5
     NODE_RESTARTS=0
@@ -117,15 +116,31 @@ create_pre_sync_rollback_log() {
     stop_node
 }
 
-# Start defid
 start_node() {
-    echo "Syncing to block height: ${STOP_BLOCK}"
+    local pid=""
+    local ATTEMPTS=0
     $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
-    sleep 30
+    pid=$(pgrep defid)
+    
+    # monitor defid for 30 seconds to ensure it does not crash
+    while  [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ]; do
+        if [ "$ATTEMPTS" -eq 0 ]; then
+            echo "Syncing to block height: ${STOP_BLOCK}"
+        fi
+
+        if ps -p "$pid" > /dev/null; then
+            ATTEMPTS=$((ATTEMPTS + 1))
+            sleep 3
+        else
+            echo "Failed to start node, exiting"
+            exit 1
+        fi
+    done
 }
 
 stop_node() {
     local pid=""
+    local ATTEMPTS=0
     pid=$(pgrep defid)
 
     if [ -n "$pid" ]; then
@@ -139,8 +154,6 @@ stop_node() {
                 sleep 2
             fi
         done
-
-        ATTEMPTS=0
     fi
 }
 
