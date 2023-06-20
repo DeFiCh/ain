@@ -142,6 +142,7 @@ stop_node() {
     local ATTEMPTS=0
     pid=$(pgrep defid)
 
+    # check to ensure defid process stops (30 seconds timeout threshold)
     if [ -n "$pid" ]; then
         $DEFI_CLI_CMD stop
         while  ps -p "$pid" > /dev/null; do
@@ -150,7 +151,7 @@ stop_node() {
                 exit 1
             else
                 ATTEMPTS=$((ATTEMPTS + 1))
-                sleep 2
+                sleep 3
             fi
         done
     fi
