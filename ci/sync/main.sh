@@ -122,7 +122,7 @@ start_node_and_wait() {
     $DEFID_CMD
 
     # get PID
-    PID=$(head -1 "${data_dir}/defid.pid")
+    PID=$(head -1 "./${data_dir}/defid.pid")
     sleep 90
 
     # debugging log (to remove)
