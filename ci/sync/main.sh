@@ -119,7 +119,6 @@ create_pre_sync_rollback_log() {
 start_node_and_wait() {
     local data_dir=${1:-${DATADIR}}
     echo "Syncing to block height: ${STOP_BLOCK}"
-
     $DEFID_CMD
 
     # get PID
