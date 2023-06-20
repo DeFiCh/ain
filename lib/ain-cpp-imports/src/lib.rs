@@ -1,12 +1,12 @@
 use std::error::Error;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 mod bridge;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 use bridge::ffi;
 
-#[cfg(any(test, bench, example, doc))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
