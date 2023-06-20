@@ -120,10 +120,10 @@ start_node_and_wait() {
     local data_dir=${1:-${DATADIR}}
     echo "Syncing to block height: ${STOP_BLOCK}"
     $DEFID_CMD
+    sleep 90
 
     # get PID
     PID=$(head -1 "./${data_dir}/defid.pid")
-    sleep 90
 
     # debugging log (to remove)
     echo "Start node dir: ${data_dir}"
