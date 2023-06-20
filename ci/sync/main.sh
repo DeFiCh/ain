@@ -111,7 +111,7 @@ create_pre_sync_rollback_log() {
 
     cp -r "$DATADIR" "$DATADIR_ROLLBACK"
     rm -f "$DEBUG_FILE"
-    start_node_and_wait DATADIR_ROLLBACK
+    start_node_and_wait "$DATADIR_ROLLBACK"
     rollback_and_log > "$PRE_ROLLBACK_LOG"
     stop_node
 }
