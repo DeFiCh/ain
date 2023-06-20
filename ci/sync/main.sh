@@ -114,11 +114,7 @@ create_pre_sync_rollback_log() {
     sleep 90
 
     rollback_and_log > "$PRE_ROLLBACK_LOG"
-
-    $DEFI_CLI_CMD stop
-
-    # allow node to shutdown
-    sleep 10
+    stop_node
 }
 
 # Start defid
@@ -126,6 +122,26 @@ start_node() {
     echo "Syncing to block height: ${STOP_BLOCK}"
     $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
     sleep 30
+}
+
+stop_node() {
+    local pid=""
+    pid=$(pgrep defid)
+
+    if [ -n "$pid" ]; then
+        $DEFI_CLI_CMD stop
+        while  ps -p "$pid" > /dev/null; do
+            if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
+                echo "Failed to stop node, exiting"
+                exit 1
+            else
+                ATTEMPTS=$((ATTEMPTS + 1))
+                sleep 2
+            fi
+        done
+
+        ATTEMPTS=0
+    fi
 }
 
 main() {
@@ -143,8 +159,7 @@ main() {
         if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
             if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
                 echo "Node Stuck After ${ATTEMPTS} attempts, restarting node"
-                $DEFI_CLI_CMD stop
-                sleep 20
+                stop_node
                 start_node
                 NODE_RESTARTS=$((NODE_RESTARTS + 1))
                 ATTEMPTS=0
@@ -175,8 +190,7 @@ main() {
 
     # Create rollback log after sync
     rollback_and_log > "$POST_ROLLBACK_LOG"
-
-    $DEFI_CLI_CMD stop
+    stop_node
 }
 
 main "$@"
