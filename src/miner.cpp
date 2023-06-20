@@ -282,12 +282,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         xvm = XVM{0,{0, uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
 
-        std::vector<std::string> failedTransactions;
-        for (const auto& rust_string : blockResult.failed_transactions) {
-            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        std::vector<std::string> evictedTransactions;
+        for (const auto& rust_string : blockResult.evicted_transactions) {
+            evictedTransactions.emplace_back(rust_string.data(), rust_string.length());
         }
 
-        RemoveFailedTransactions(failedTransactions, txFees);
+        RemoveFailedTransactions(evictedTransactions, txFees);
     }
 
     // TXs for the creationTx field in new tokens created via token split

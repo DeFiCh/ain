@@ -78,8 +78,9 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<([u8; 32], Vec<String>, Vec<String>, u64), Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut evicted_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut gas_used = 0u64;
@@ -129,9 +130,10 @@ impl Handlers {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     // validate transaction
-                    if !executor.validate_tx(signed_tx) {
+                    if let Err(e) = executor.validate_tx(signed_tx.clone()) {
                         // if invalid nonce, do not process and remove from block
-                        evicted_transactions.push(hex::encode(hash))
+                        evicted_transactions.push(hex::encode(hash));
+                        debug!("[finalize_block] SignedTx validation failed with {e}");
                     }
 
                     let (
@@ -148,6 +150,10 @@ impl Handlers {
                         receipt,
                         signed_tx.transaction.hash()
                     );
+
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(hex::encode(hash));
+                    }
 
                     all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
@@ -234,6 +240,7 @@ impl Handlers {
 
         Ok((
             *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
             evicted_transactions,
             gas_used,
         ))

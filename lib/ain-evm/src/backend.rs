@@ -360,6 +360,7 @@ pub enum EVMBackendError {
     TrieCreationFailed(String),
     TrieRestoreFailed(String),
     TrieError(String),
+    InvalidNonce(U256, U256),
     NoSuchAccount(H160),
     InsufficientBalance(InsufficientBalance),
 }
@@ -374,6 +375,9 @@ impl fmt::Display for EVMBackendError {
                 write!(f, "EVMBackendError: Failed to restore trie {e}")
             }
             EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {e}"),
+            EVMBackendError::InvalidNonce(tx_nonce, account_nonce) => {
+                write!(f, "EVMBackendError: Invalid nonce. Account nonce {account_nonce:#x}, tx nonce {tx_nonce:#x}")
+            }
             EVMBackendError::NoSuchAccount(address) => {
                 write!(
                     f,

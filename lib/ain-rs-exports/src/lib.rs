@@ -33,6 +33,7 @@ pub mod ffi {
     pub struct FinalizeBlockResult {
         block_hash: [u8; 32],
         failed_transactions: Vec<String>,
+        evicted_transactions: Vec<String>,
         miner_fee: u64,
     }
 
@@ -420,7 +421,7 @@ fn evm_finalize(
     timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block_hash, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
+    let (block_hash, failed_txs, evicted_txs, gas_used) = RUNTIME.handlers.finalize_block(
         context,
         update_state,
         difficulty,
@@ -430,6 +431,7 @@ fn evm_finalize(
     Ok(ffi::FinalizeBlockResult {
         block_hash,
         failed_transactions: failed_txs,
+        evicted_transactions: evicted_txs,
         miner_fee: gas_used,
     })
 }

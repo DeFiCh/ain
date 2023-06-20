@@ -14,6 +14,7 @@ use evm::{
 };
 use log::trace;
 use primitive_types::{H160, H256};
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 pub struct AinExecutor<'backend> {
@@ -39,7 +40,7 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.commit()
     }
 
-    pub fn validate_tx(&mut self, signed_tx: Box<SignedTx>) -> Result<bool, EVMBackendError> {
+    pub fn validate_tx(&mut self, signed_tx: Box<SignedTx>) -> Result<(), EVMBackendError> {
         let address = signed_tx.sender;
         // validate nonce
         let account_nonce = self
@@ -48,7 +49,13 @@ impl<'backend> AinExecutor<'backend> {
             .ok_or(EVMBackendError::NoSuchAccount(address))
             .map_or(U256::zero(), |account| account.nonce);
 
-        Ok(account_nonce == signed_tx.nonce())
+        match account_nonce.cmp(&signed_tx.nonce()) {
+            Ordering::Equal => Ok(()),
+            _ => Err(EVMBackendError::InvalidNonce(
+                account_nonce,
+                signed_tx.nonce(),
+            )),
+        }
     }
 }
 
