@@ -119,15 +119,13 @@ create_pre_sync_rollback_log() {
 start_node() {
     local pid=""
     local ATTEMPTS=0
+
+    echo "Syncing to block height: ${STOP_BLOCK}"
     $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
     pid=$(pgrep defid)
     
     # monitor defid for 30 seconds to ensure it does not crash
     while  [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ]; do
-        if [ "$ATTEMPTS" -eq 0 ]; then
-            echo "Syncing to block height: ${STOP_BLOCK}"
-        fi
-
         if ps -p "$pid" > /dev/null; then
             ATTEMPTS=$((ATTEMPTS + 1))
             sleep 3
