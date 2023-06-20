@@ -3902,7 +3902,7 @@ public:
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        RustRes result;
+        CrossBoundaryResult result;
         const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
         if (!result.ok) {

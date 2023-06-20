@@ -83,15 +83,11 @@ dnl Check/return PATH for base programs.
 AC_PATH_TOOL(AR, ar)
 AC_PATH_TOOL(RANLIB, ranlib)
 AC_PATH_TOOL(STRIP, strip)
-AC_PATH_TOOL(GCOV, gcov)
-AC_PATH_PROG(LCOV, lcov)
 dnl Python 3.5 is specified in .python-version and should be used if available, see doc/dependencies.md
 AC_PATH_PROGS([PYTHON], [python3.5 python3.6 python3.7 python3.8 python3 python])
-AC_PATH_PROG(GENHTML, genhtml)
 AC_PATH_PROG([GIT], [git])
 AC_PATH_PROG(CCACHE,ccache)
-AC_PATH_PROG(XGETTEXT,xgettext)
-AC_PATH_PROG(HEXDUMP,hexdump)
+AC_PATH_PROG(HEXDUMP, hexdump)
 AC_PATH_TOOL(READELF, readelf)
 AC_PATH_TOOL(CPPFILT, c++filt)
 AC_PATH_TOOL(OBJCOPY, objcopy)
@@ -144,7 +140,7 @@ AC_ARG_ENABLE(bench,
     [use_bench=yes])
 
 AC_ARG_ENABLE([extended-functional-tests],
-    AS_HELP_STRING([--enable-extended-functional-tests],[enable expensive functional tests when using lcov (default no)]),
+    AS_HELP_STRING([--enable-extended-functional-tests],[enable expensive functional tests]),
     [use_extended_functional_tests=$enableval],
     [use_extended_functional_tests=no])
 
@@ -171,18 +167,6 @@ AC_ARG_ENABLE([ccache],
   [do not use ccache for building (default is to use if found)])],
   [use_ccache=$enableval],
   [use_ccache=auto])
-
-AC_ARG_ENABLE([lcov],
-  [AS_HELP_STRING([--enable-lcov],
-  [enable lcov testing (default is no)])],
-  [use_lcov=$enableval],
-  [use_lcov=no])
-
-AC_ARG_ENABLE([lcov-branch-coverage],
-  [AS_HELP_STRING([--enable-lcov-branch-coverage],
-  [enable lcov testing branch coverage (default is no)])],
-  [use_lcov_branch=yes],
-  [use_lcov_branch=no])
 
 AC_ARG_ENABLE([glibc-back-compat],
   [AS_HELP_STRING([--enable-glibc-back-compat],
@@ -608,32 +592,6 @@ fi
 
 if test x$use_extended_functional_tests != xno; then
   AC_SUBST(EXTENDED_FUNCTIONAL_TESTS, --extended)
-fi
-
-if test x$use_lcov = xyes; then
-  if test x$LCOV = x; then
-    AC_MSG_ERROR("lcov testing requested but lcov not found")
-  fi
-  if test x$GCOV = x; then
-    AC_MSG_ERROR("lcov testing requested but gcov not found")
-  fi
-  if test x$PYTHON = x; then
-    AC_MSG_ERROR("lcov testing requested but python not found")
-  fi
-  if test x$GENHTML = x; then
-    AC_MSG_ERROR("lcov testing requested but genhtml not found")
-  fi
-  LCOV="$LCOV --gcov-tool=$GCOV"
-  AX_CHECK_LINK_FLAG([[--coverage]], [LDFLAGS="$LDFLAGS --coverage"],
-    [AC_MSG_ERROR("lcov testing requested but --coverage linker flag does not work")])
-  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage"],
-    [AC_MSG_ERROR("lcov testing requested but --coverage flag does not work")])
-  AC_DEFINE(USE_COVERAGE, 1, [Define this symbol if coverage is enabled])
-  CXXFLAGS="$CXXFLAGS -Og"
-fi
-
-if test x$use_lcov_branch != xno; then
-  AC_SUBST(LCOV_OPTS, "$LCOV_OPTS --rc lcov_branch_coverage=1")
 fi
 
 dnl Check for endianness
@@ -1335,7 +1293,6 @@ AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet = xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$BUILD_TEST = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ],[test x$enable_fuzz = xyes])
 AM_CONDITIONAL([ENABLE_BENCH],[test x$use_bench = xno])
-AM_CONDITIONAL([USE_LCOV],[test x$use_lcov = xyes])
 AM_CONDITIONAL([GLIBC_BACK_COMPAT],[test x$use_glibc_compat = xyes])
 AM_CONDITIONAL([HARDEN],[test x$use_hardening = xyes])
 AM_CONDITIONAL([ENABLE_SSE42],[test x$enable_sse42 = xyes])
@@ -1412,8 +1369,7 @@ AC_SUBST(HAVE_STRONG_GETAUXVAL)
 AC_SUBST(PROTOC)
 AC_SUBST(PROTOC_INCLUDE_DIR)
 
-dnl If the host and build triplets are the same, we don't 
-dnl keep this empty
+dnl If the host and build triplets are the same, we keep this empty
 if test x$host = x$build; then
   RUST_TARGET=
 else
@@ -1423,6 +1379,7 @@ else
   fi
 fi
 AC_SUBST(RUST_TARGET)
+AM_CONDITIONAL([HAVE_RUST_TARGET], [test x$RUST_TARGET != x])
 
 AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
@@ -1485,32 +1442,32 @@ esac
 
 echo
 echo "Options used to compile and link:"
-echo "  with wallet   = $enable_wallet"
-echo "  with zmq      = $use_zmq"
-echo "  with test     = $use_tests"
+echo "  with wallet         = $enable_wallet"
+echo "  with zmq            = $use_zmq"
+echo "  with test           = $use_tests"
 if test x$use_tests != xno; then
-    echo "    with prop   = $enable_property_tests"
-    echo "    with fuzz   = $enable_fuzz"
+    echo "    with prop         = $enable_property_tests"
+    echo "    with fuzz         = $enable_fuzz"
 fi
-echo "  with bench    = $use_bench"
-echo "  with upnp     = $use_upnp"
-echo "  use asm       = $use_asm"
-echo "  sanitizers    = $use_sanitizers"
-echo "  debug enabled = $enable_debug"
-echo "  gprof enabled = $enable_gprof"
-echo "  werror        = $enable_werror"
+echo "  with bench          = $use_bench"
+echo "  with upnp           = $use_upnp"
+echo "  use asm             = $use_asm"
+echo "  sanitizers          = $use_sanitizers"
+echo "  debug enabled       = $enable_debug"
+echo "  gprof enabled       = $enable_gprof"
+echo "  werror              = $enable_werror"
 echo
-echo "  target os     = $TARGET_OS"
-echo "  build os      = $BUILD_OS"
+echo "  target os           = $TARGET_OS"
+echo "  build os            = $BUILD_OS"
 echo
-echo "  CC            = $CC"
-echo "  CFLAGS        = $CFLAGS"
-echo "  CPPFLAGS      = $DEBUG_CPPFLAGS $HARDENED_CPPFLAGS $CPPFLAGS"
-echo "  CXX           = $CXX"
-echo "  CXXFLAGS      = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS $NOWARN_CXXFLAGS $ERROR_CXXFLAGS $GPROF_CXXFLAGS $CXXFLAGS"
-echo "  LDFLAGS       = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
-echo "  ARFLAGS       = $ARFLAGS"
-echo "  CARGO         = $CARGO"
-echo "  ENABLE_DEBUG  = $ENABLE_DEBUG"
-echo "  RUST_TARGET   = $RUST_TARGET"
+echo "  CC                  = $CC"
+echo "  CFLAGS              = $CFLAGS"
+echo "  CPPFLAGS            = $DEBUG_CPPFLAGS $HARDENED_CPPFLAGS $CPPFLAGS"
+echo "  CXX                 = $CXX"
+echo "  CXXFLAGS            = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS $NOWARN_CXXFLAGS $ERROR_CXXFLAGS $GPROF_CXXFLAGS $CXXFLAGS"
+echo "  LDFLAGS             = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
+echo "  ARFLAGS             = $ARFLAGS"
+echo "  CARGO               = $CARGO"
+echo "  RUST_TARGET         = $RUST_TARGET"
+echo "  ENABLE_DEBUG        = $ENABLE_DEBUG"
 echo
