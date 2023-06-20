@@ -17,5 +17,6 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
 std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID);
 rust::string getStateInputJSON();
+bool isPostChangiIntermediateFork();
 
 #endif // DEFI_FFI_FFIEXPORTS_H

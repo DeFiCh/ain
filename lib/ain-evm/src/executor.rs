@@ -135,7 +135,9 @@ impl<'backend> Executor for AinExecutor<'backend> {
 
         if exit_reason.is_succeed() {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
-            self.backend.commit();
+            if ain_cpp_imports::is_post_changi_intermediate_fork() {
+                self.backend.commit();
+            }
         }
 
         self.backend.refund_unused_gas(

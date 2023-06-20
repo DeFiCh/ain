@@ -140,7 +140,9 @@ impl EVMBackend {
 
         self.apply(sender, new_basic, None, Vec::new(), false)
             .expect("Error deducting account balance");
-        self.commit();
+        if ain_cpp_imports::is_post_changi_intermediate_fork() {
+            self.commit();
+        }
     }
 
     pub fn refund_unused_gas(
@@ -163,7 +165,9 @@ impl EVMBackend {
 
         self.apply(sender, new_basic, None, Vec::new(), false)
             .expect("Error refunding account balance");
-        self.commit();
+        if ain_cpp_imports::is_post_changi_intermediate_fork() {
+            self.commit();
+        }
     }
 }
 
