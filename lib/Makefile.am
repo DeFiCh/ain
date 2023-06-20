@@ -20,7 +20,7 @@ export CARGO_TARGET_DIR ?= $(abs_builddir)/target
 export CARGO_BUILD_JOBS ?= $(if $(JOBS),$(JOBS),-1)
 
 CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
-SPECIFIC_TARGET_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
+BUILD_ARTIFACTS_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 
 CARGO_MANIFEST_ARG = --manifest-path "$(CARGO_MANIFEST_PATH)"
 CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
@@ -45,7 +45,7 @@ all: build
 .PHONY: build
 build:
 	$(CARGO) build $(CARGO_MANIFEST_ARG) $(CARGO_BUILD_TYPE_ARG) $(CARGO_EXTRA_ARGS) && \
-	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(CARGO_TARGET_DIR)/lib/
+	cp $(BUILD_ARTIFACTS_DIR)/libain_rs_exports.a $(CARGO_TARGET_DIR)/lib/
 
 .PHONY: check
 check:
