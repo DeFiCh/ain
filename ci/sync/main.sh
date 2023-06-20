@@ -124,18 +124,10 @@ start_node_and_wait() {
 
     # get PID
     PID=$(head -1 "./${data_dir}/defid.pid")
-
-    # debugging log (to remove)
-    echo "Start node dir: ${data_dir}"
-    echo "Start node command: ${DEFID_CMD}"
 }
 
 stop_node() {
     local ATTEMPTS=0
-
-    #debugging log (to remove)
-    echo "Stop node PID: ${PID}"
-    echo "Stop node command: ${DEFI_CLI_CMD}"
 
     # check to ensure defid process stops (50s timeout threshold)
     if [ -n "$PID" ]; then
