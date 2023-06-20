@@ -49,9 +49,6 @@ mod ffi {
     pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn isPostChangiIntermediateFork() -> bool {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -120,10 +117,6 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
-}
-
-pub fn is_post_changi_intermediate_fork() -> bool {
-    ffi::isPostChangiIntermediateFork()
 }
 
 #[cfg(test)]
