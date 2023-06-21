@@ -32,8 +32,7 @@ jobs:
   rust:
     name: Rust Lints
     runs-on: ubuntu-latest
-    container:
-      image: defi/ain-builder:latest
+    container: defi/ain-builder:latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
