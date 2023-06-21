@@ -96,7 +96,7 @@ jobs:
 
   sync:
     runs-on: [self-hosted, linux, x64]
-    needs: [build-binaries, generate-matrix]
+    needs: [build, generate-matrix]
 
     strategy:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
