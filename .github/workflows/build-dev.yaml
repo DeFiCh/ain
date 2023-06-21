@@ -13,34 +13,27 @@ on:
 
 env:
   BUILD_VERSION: latest # Computed
-  # Note: We use debug build on CI for dev as well, since debug builds take
-  # 5x the amount of space and run the GitHub CI workers out of space. make.sh
-  # still defaults to debug for local builds
+  DOCKER_HUB_USER: defi
+  # Note: We do not use debug build on CI for dev as well, since debug builds 
+  # take 5x the amount of space and run the GitHub CI workers out of space. 
+  # make.sh still defaults to debug for local builds
   MAKE_DEBUG: 0
+  GIT_VERSION: 1
 
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
     env:
       TARGET: x86_64-pc-linux-gnu
+
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-
-    - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
-
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
-
-    - name: Install dependencies for test
-      run: ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 ./make.sh release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - x86_64-pc-linux-gnu
       uses: actions/upload-artifact@v3
@@ -48,28 +41,31 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
 
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Push to Docker Hub
+      run: |
+        set -e; ver=${{ env.BUILD_VERSION }}
+        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker push defi/defichain:${ver}
+
   win-x64:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
     env:
       TARGET: x86_64-w64-mingw32
+
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
-    - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
-
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
-
-    - name: Install dependencies for test
-      run: ./make.sh ci-setup-deps-test
-    
     - name: Build and package
-      run: GIT_VERSION=1 ./make.sh release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - x86_64-w64-mingw32
       uses: actions/upload-artifact@v3
@@ -79,26 +75,17 @@ jobs:
 
   osx-x64:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
     env:
       TARGET: x86_64-apple-darwin
+
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
-
-    - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
-
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
-
-    - name: Install dependencies for test
-      run: ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 ./make.sh release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3
