@@ -80,6 +80,38 @@ impl BlockHandler {
         }
     }
 
+    pub fn post_changi_intermediate_2_base_fee_calculation(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
+        match parent_gas_used.cmp(&parent_gas_target) {
+            Ordering::Equal => parent_base_fee,
+            Ordering::Greater => {
+                let gas_used_delta = parent_gas_used - parent_gas_target;
+                let base_fee_per_gas_delta = max(
+                    parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator,
+                    U256::one(),
+                );
+
+                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+            }
+            Ordering::Less => {
+                let gas_used_delta = parent_gas_target - parent_gas_used;
+                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
+                    / parent_gas_target
+                    / base_fee_max_change_denominator;
+
+                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+            }
+        }
+    }
+
     pub fn get_base_fee(
         &self,
         parent_gas_used: u64,
@@ -91,28 +123,13 @@ impl BlockHandler {
         match ain_cpp_imports::past_changi_intermediate_height_2_height()
             .expect("Unable to get Changi intermediate height 2")
         {
-            true => match parent_gas_used.cmp(&parent_gas_target) {
-                Ordering::Equal => parent_base_fee,
-                Ordering::Greater => {
-                    let gas_used_delta = parent_gas_used - parent_gas_target;
-                    let base_fee_per_gas_delta = max(
-                        parent_base_fee * gas_used_delta
-                            / parent_gas_target
-                            / base_fee_max_change_denominator,
-                        U256::one(),
-                    );
-
-                    max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
-                }
-                Ordering::Less => {
-                    let gas_used_delta = parent_gas_target - parent_gas_used;
-                    let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator;
-
-                    max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
-                }
-            },
+            true => self.post_changi_intermediate_2_base_fee_calculation(
+                parent_gas_used,
+                parent_gas_target,
+                parent_base_fee,
+                base_fee_max_change_denominator,
+                initial_base_fee,
+            ),
             false => self.pre_changi_intermediate_2_base_fee_calculation(
                 parent_gas_used,
                 parent_gas_target,
@@ -349,4 +366,84 @@ pub fn new_block_from_json(path: PathBuf, state_root: H256) -> Result<BlockAny, 
         Vec::new(),
         Vec::new(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_base_fee_equal() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(20_000_000_000u64),
+            block.post_changi_intermediate_2_base_fee_calculation(
+                15_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_max_increase() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(22_500_000_000u64), // should increase by 12.5%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                30_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_increase() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(20_833_333_333u64), // should increase by ~4.15%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                20_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_max_decrease() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(17_500_000_000u64), // should decrease by 12.5%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                0,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_decrease() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(19_166_666_667u64), // should increase by ~4.15%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                10_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
 }
