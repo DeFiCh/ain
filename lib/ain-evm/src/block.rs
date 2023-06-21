@@ -14,6 +14,7 @@ use crate::{
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
+    first_block_number: U256,
 }
 
 pub struct FeeHistoryData {
@@ -25,7 +26,17 @@ pub struct FeeHistoryData {
 
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
-        Self { storage }
+        let mut block_handler = Self { storage, first_block_number: U256::zero() };
+        let (_, block_number) = block_handler.get_latest_block_hash_and_number().unwrap_or_default();
+
+        block_handler.first_block_number = block_number;
+        debug!("Current block number is {:#?}", block_number);
+
+        block_handler
+    }
+
+    pub fn get_first_block_number(&self) -> U256 {
+        self.first_block_number
     }
 
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
