@@ -52,6 +52,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
