@@ -65,7 +65,7 @@ jobs:
       run: ./make.sh ci-setup-deps-test
 
     - name: Build deps and configure
-      run: ./make.sh build-deps && build-conf
+      run: ./make.sh build-deps && ./make.sh build-conf
       
     - name: Rust tests
       run: ./make.sh lib test
