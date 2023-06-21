@@ -1,4 +1,4 @@
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 use ethereum::{
     AccessListItem, EIP1559TransactionMessage, EIP2930TransactionMessage, LegacyTransactionMessage,
 };

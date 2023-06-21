@@ -7,9 +7,8 @@ set -Eeuo pipefail
 setup_vars() {
     # directories and binaries
     WORK_DIR=${WORK_DIR:-"$(pwd)"}
-    BUILD_DIR=${BUILD_DIR:-"${WORK_DIR}/build/src"}
-    DEFID_BIN=${DEFID_BIN:-"${BUILD_DIR}/defid"}
-    DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${BUILD_DIR}/defi-cli"}
+    DEFID_BIN=${DEFID_BIN:-"${WORK_DIR}/defid"}
+    DEFI_CLI_BIN=${DEFI_CLI_BIN:-"${WORK_DIR}/defi-cli"}
 
     # fixture
     OWNERAUTHADDR="mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU"
@@ -68,16 +67,16 @@ setup_fixtures() {
     # push fixtures
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_ALICE"
     $DEFI_CLI_BIN -regtest importprivkey "$PRIVKEY_BOB"
-    $DEFI_CLI_BIN -regtest generatetoaddress 100 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest generatetoaddress 120 "$OWNERAUTHADDR"
 
-    $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"5000@DFI"}'
+    $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"500@DFI"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
     $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES":{"v0/params/feature/evm":"true"}}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-    $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"2000@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"2000@DFI", "domain":3}}]'
+    $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-
+    
     curl http://localhost:19551 \
     -H 'content-type:application/json' \
     --data-binary \
@@ -86,6 +85,7 @@ setup_fixtures() {
         "id":"fixture",
         "method":"eth_sendTransaction",
         "params":[{
+        "from":"'"$ALICE"'",
         "data":"'"$CONTRACT_COUNTER"'",
         "value":"0x00",
         "gas":"0x7a120",
@@ -105,6 +105,7 @@ setup_fixtures() {
         "id":"fixture",
         "method":"eth_sendTransaction",
         "params":[{
+        "from":"'"$ALICE"'",
         "data":"'"$CONTRACT_COUNTERCALLER"'",
         "value":"0x00",
         "gas":"0x7a120",
@@ -119,7 +120,6 @@ setup_fixtures() {
 
 main() {
     setup_vars
-    print_info
     start_node
     init_node
     setup_fixtures
