@@ -223,9 +223,7 @@ impl Precompile for Modexp {
 mod tests {
     use super::*;
     extern crate hex;
-    use crate::precompiles::test_vector_support::{
-        test_precompile_test_vectors, MockHandle,
-    };
+    use crate::precompiles::test_vector_support::{test_precompile_test_vectors, MockHandle};
     use evm::Context;
 
     #[test]
