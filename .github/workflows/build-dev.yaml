@@ -30,13 +30,13 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-setup-deps-test
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh release
@@ -69,13 +69,13 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-setup-deps-test
     
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh release
@@ -96,13 +96,13 @@ jobs:
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-setup-deps-test
 
     - name: Build and package
       run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh release
