@@ -142,6 +142,8 @@ public:
         consensus.GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
         consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -418,6 +420,8 @@ public:
         consensus.GrandCentralEpilogueHeight = 1438200;
         consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -638,6 +642,7 @@ public:
         consensus.NextNetworkUpgradeHeight = 1586750;
         consensus.ChangiIntermediateHeight = 1717800;
         consensus.ChangiIntermediateHeight2 = 1717493;
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -855,6 +860,8 @@ public:
         consensus.GrandCentralEpilogueHeight = 1438200;
         consensus.NextNetworkUpgradeHeight = 1586750;
         consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1075,6 +1082,8 @@ public:
         consensus.GrandCentralEpilogueHeight = 10000000;
         consensus.NextNetworkUpgradeHeight = 10000000;
         consensus.ChangiIntermediateHeight = 10000000;
+        consensus.ChangiIntermediateHeight2 = 10000000;
+        consensus.ChangiIntermediateHeight3 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1322,6 +1331,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
     UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight);
     UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight);
+    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

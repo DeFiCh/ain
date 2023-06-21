@@ -3036,7 +3036,7 @@ public:
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
         auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
-        auto isPostNext =  static_cast<int>(height) >= consensus.NextNetworkUpgradeHeight;
+        auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight3; // Change to NextNetworkUpgradeHeight on mainnet release
 
         if(isPostNext) {
             const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AllowDUSDLoops};

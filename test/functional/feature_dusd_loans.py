@@ -27,13 +27,13 @@ class DUSDLoanTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.fortcanninghillheight = 1000
-        self.fortcanningroadheight = 2000
-        self.fortcanninggreatworldheight = 3000
-        self.fortcanningepilogueheight = 4000
-        self.grandcentralheight = 4500
-        self.grandcentralepilogueheight = 5000
-        self.nextnetworkupgradeheight = 6000
+        self.fortcanninghillheight = 200
+        self.fortcanningroadheight = 300
+        self.fortcanninggreatworldheight = 400
+        self.fortcanningepilogueheight = 500
+        self.grandcentralheight = 600
+        self.grandcentralepilogueheight = 700
+        self.nextnetworkupgradeheight = 800
 
         self.extra_args = [
             ['-txnotokens=0',
@@ -50,6 +50,7 @@ class DUSDLoanTests(DefiTestFramework):
              f'-grandcentralheight={self.grandcentralheight}',
              f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
              f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
+             f'-changiintermediate3height={self.nextnetworkupgradeheight}', # Remove this line on mainnet release
 
              '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
@@ -152,13 +153,13 @@ class DUSDLoanTests(DefiTestFramework):
             'token': self.idDFI,
             'factor': 1,
             'fixedIntervalPriceId': "DFI/USD"})
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
             'token': self.symbolBTC,
             'factor': 1,
             'fixedIntervalPriceId': "BTC/USD"})
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(1)
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
 
         self.nodes[0].setloantoken({
@@ -167,14 +168,14 @@ class DUSDLoanTests(DefiTestFramework):
             'fixedIntervalPriceId': "DUSD/USD",
             'mintable': True,
             'interest': 0})
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(1)
         self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
 
         self.nodes[0].setcollateraltoken({
             'token': self.iddUSD,
             'factor': 0.99,
             'fixedIntervalPriceId': "DUSD/USD"})
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(1)
 
         self.nodes[0].setloantoken({
             'symbol': self.symbolTSLA,
@@ -221,18 +222,16 @@ class DUSDLoanTests(DefiTestFramework):
         # feed oracle
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracle_id2, timestamp, oracle_prices)
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(11)
 
-    def update_oracle_price(self, add_time=3000):
+    def update_oracle_price(self):
         oracle_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
                          {"currency": "USD", "tokenAmount": "1@DUSD"},
                          {"currency": "USD", "tokenAmount": "1@BTC"},
                          {"currency": "USD", "tokenAmount": "10@DFI"}]
 
-        mock_time = int(time.time() + add_time)
-        self.nodes[0].setmocktime(mock_time)
-        self.nodes[0].setoracledata(self.oracle_id1, mock_time, oracle_prices)
-        self.nodes[0].generate(120)
+        self.nodes[0].setoracledata(self.oracle_id1, int(time.time()), oracle_prices)
+        self.nodes[0].generate(10)
 
     def create_pool_pairs(self):
         self.nodes[0].createpoolpair({
@@ -558,7 +557,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # not sure why this is needed like this. but it works
-        self.update_oracle_price(13000)
+        self.update_oracle_price()
         #also fails with other crypto in
         self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
         self.nodes[0].generate(1)
