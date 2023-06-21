@@ -1,16 +1,13 @@
-use ethereum::{Block, BlockAny, PartialHeader, TransactionAny};
+use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
-use std::{fs, io::BufReader, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
-use crate::{
-    genesis::GenesisData,
-    storage::{traits::BlockStorage, Storage},
-};
+use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
@@ -22,6 +19,8 @@ pub struct FeeHistoryData {
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,
 }
+
+pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
@@ -142,13 +141,12 @@ impl BlockHandler {
 
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
         // constants
-        let initial_base_fee = U256::from(10_000_000_000u64); // wei
         let base_fee_max_change_denominator = U256::from(8);
         let elasticity_multiplier = U256::from(2);
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
-            return initial_base_fee;
+            return INITIAL_BASE_FEE;
         }
 
         // get parent gas usage,
@@ -170,7 +168,7 @@ impl BlockHandler {
             parent_gas_target,
             parent_base_fee,
             base_fee_max_change_denominator,
-            initial_base_fee,
+            INITIAL_BASE_FEE,
         )
     }
 
@@ -340,32 +338,6 @@ impl BlockHandler {
 
         base_fee + priority_fee
     }
-}
-
-pub fn new_block_from_json(path: PathBuf, state_root: H256) -> Result<BlockAny, std::io::Error> {
-    let file = fs::File::open(path)?;
-    let reader = BufReader::new(file);
-    let genesis: GenesisData = serde_json::from_reader(reader)?;
-
-    Ok(Block::new(
-        PartialHeader {
-            state_root,
-            number: U256::zero(),
-            timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
-            beneficiary: genesis.coinbase.unwrap_or_default(),
-            difficulty: genesis.difficulty.unwrap_or_default(),
-            extra_data: genesis.extra_data.unwrap_or_default(),
-            parent_hash: genesis.parent_hash.unwrap_or_default(),
-            gas_limit: genesis.gas_limit.unwrap_or_default(),
-            mix_hash: genesis.mix_hash.unwrap_or_default(),
-            nonce: genesis.nonce.unwrap_or_default(),
-            receipts_root: Default::default(),
-            logs_bloom: Default::default(),
-            gas_used: Default::default(),
-        },
-        Vec::new(),
-        Vec::new(),
-    ))
 }
 
 #[cfg(test)]
