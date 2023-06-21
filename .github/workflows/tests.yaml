@@ -32,7 +32,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Install dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
     
     - name: Install dependencies for target
       run: ./make.sh ci-setup-deps-target
@@ -54,13 +54,13 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-setup-deps-test
 
     - name: Build deps and configure
       run: ./make.sh build-deps && build-conf
