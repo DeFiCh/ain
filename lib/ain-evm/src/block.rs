@@ -47,6 +47,39 @@ impl BlockHandler {
         self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 
+    fn pre_changi_intermediate_2_base_fee_calculation(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
+        match parent_gas_used.cmp(&parent_gas_target) {
+            // TODO: incorrect calculation, remove before mainnet launch
+            Ordering::Less => parent_base_fee,
+            Ordering::Equal => {
+                let gas_used_delta = parent_gas_used - parent_gas_target;
+                let base_fee_per_gas_delta = max(
+                    parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator,
+                    U256::one(),
+                );
+
+                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+            }
+            Ordering::Greater => {
+                let gas_used_delta = parent_gas_target - parent_gas_used;
+                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
+                    / parent_gas_target
+                    / base_fee_max_change_denominator;
+
+                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+            }
+        }
+    }
+
     pub fn get_base_fee(
         &self,
         parent_gas_used: u64,
@@ -80,29 +113,13 @@ impl BlockHandler {
                     max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
                 }
             },
-            false => match parent_gas_used.cmp(&parent_gas_target) {
-                // TODO: incorrect calculation, remove before mainnet launch
-                Ordering::Less => parent_base_fee,
-                Ordering::Equal => {
-                    let gas_used_delta = parent_gas_used - parent_gas_target;
-                    let base_fee_per_gas_delta = max(
-                        parent_base_fee * gas_used_delta
-                            / parent_gas_target
-                            / base_fee_max_change_denominator,
-                        U256::one(),
-                    );
-
-                    max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
-                }
-                Ordering::Greater => {
-                    let gas_used_delta = parent_gas_target - parent_gas_used;
-                    let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator;
-
-                    max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
-                }
-            },
+            false => self.pre_changi_intermediate_2_base_fee_calculation(
+                parent_gas_used,
+                parent_gas_target,
+                parent_base_fee,
+                base_fee_max_change_denominator,
+                initial_base_fee,
+            ),
         }
     }
 
