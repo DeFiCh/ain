@@ -12,7 +12,6 @@ on:
       - master
 jobs:
   e2e-tests:
-    name: Unit Tests
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     env:
