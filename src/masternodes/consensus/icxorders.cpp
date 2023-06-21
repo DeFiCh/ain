@@ -3,8 +3,25 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/consensus/icxorders.h>
+#include <masternodes/errors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+
+bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height >= consensus.NextNetworkUpgradeHeight) {
+        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
+        auto attributes = view.GetAttributes();
+        assert(attributes);
+        return attributes->GetValue(enabledKey, false);
+    }
+        // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
+    else if (height < consensus.FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
+        return true;
+
+    // ICX transactions disabled in all other cases
+    return false;
+}
 
 static CAmount GetDFIperBTC(const CPoolPair &BTCDFIPoolPair) {
     if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
@@ -37,6 +54,9 @@ DCT_ID CICXOrdersConsensus::FindTokenByPartialSymbolName(const std::string &symb
 }
 
 Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
+    if (!IsICXEnabled(height, mnview, consensus))
+        return DeFiErrors::ICXDisabled();
+
     Require(CheckCustomTx());
 
     CICXOrderImplemetation order;
@@ -62,6 +82,9 @@ Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
+    if (!IsICXEnabled(height, mnview, consensus))
+        return DeFiErrors::ICXDisabled();
+
     Require(CheckCustomTx());
 
     CICXMakeOfferImplemetation makeoffer;
@@ -102,6 +125,9 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
+    if (!IsICXEnabled(height, mnview, consensus))
+        return DeFiErrors::ICXDisabled();
+
     Require(CheckCustomTx());
 
     CICXSubmitDFCHTLCImplemetation submitdfchtlc;
@@ -215,6 +241,9 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
+    if (!IsICXEnabled(height, mnview, consensus))
+        return DeFiErrors::ICXDisabled();
+
     Require(CheckCustomTx());
 
     CICXSubmitEXTHTLCImplemetation submitexthtlc;
@@ -313,6 +342,9 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
+    if (!IsICXEnabled(height, mnview, consensus))
+        return DeFiErrors::ICXDisabled();
+
     Require(CheckCustomTx());
 
     CICXClaimDFCHTLCImplemetation claimdfchtlc;
@@ -364,14 +396,26 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     // maker bonus only on fair dBTC/BTC (1:1) trades for now
     DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
     if (order->idToken == BTC && order->orderPrice == COIN) {
-        if ((IsTestNetwork() && height >= 1250000) ||
-            Params().NetworkIDString() == CBaseChainParams::REGTEST) {
-            Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
-        } else {
+
+        // Check if ICX should work with bug for makerBonus to maintain complatibility with past netwrok behavior
+        auto ICXBugPath = [&](uint32_t height) {
+            if ((IsTestNetwork() && height >= 1250000) ||
+                IsRegtestNetwork() ||
+                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)))
+                return false;
+            return true;
+        };
+
+        if (ICXBugPath(height)) {
+            // Proceed with bug behavoir
             Require(TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
+        } else {
+            // Bug fixed
+            Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
         }
     }
 
+    // Reduce amount to fill in order
     if (order->orderType == CICXOrder::TYPE_INTERNAL)
         order->amountToFill -= dfchtlc->amount;
     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)

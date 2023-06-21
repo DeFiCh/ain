@@ -10,6 +10,10 @@
 #include <masternodes/gv.h>
 #include <masternodes/oracles.h>
 
+namespace Consensus {
+    struct Params;
+}
+
 enum VersionTypes : uint8_t {
     v0 = 0,
 };
@@ -316,7 +320,7 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view);
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {

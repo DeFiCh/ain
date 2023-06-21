@@ -68,7 +68,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
 
     const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
 
-    Require(mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI}));
+    Require(mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI}));
 
     Require(mnview.AddBalance(script, {{0}, totalDFI}));
 
@@ -77,7 +77,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
 
 Res CSmartContractsConsensus::operator()(const CSmartContractMessage &obj) const {
     Require(!obj.accounts.empty(), "Contract account parameters missing");
-    auto contracts = Params().GetConsensus().smartContracts;
+    auto contracts = consensus.smartContracts;
 
     auto contract = contracts.find(obj.name);
     Require(contract != contracts.end(), "Specified smart contract not found");

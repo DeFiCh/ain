@@ -107,7 +107,7 @@ Res CLoansConsensus::PaybackWithCollateral(const CVaultData &vault,
     }
 
     if (burnAmount > 0) {
-        res = mnview.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
+        res = mnview.AddBalance(consensus.burnAddress, {dUsdToken->first, burnAmount});
         if (!res)
             return res;
     } else {
@@ -838,7 +838,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              loanToken->symbol,
                              subInterest,
                              height);
-                    res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
+                    res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height, consensus);
                     if (!res)
                         return res;
                 }
@@ -919,6 +919,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                                           obj.from,
                                           consensus.burnAddress,
                                           height,
+                                          consensus,
                                           !directLoanBurn);
                     if (!res)
                         return res;

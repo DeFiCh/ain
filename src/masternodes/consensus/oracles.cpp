@@ -52,7 +52,7 @@ Res COraclesConsensus::operator()(const CSetOracleDataMessage &obj) const {
     if (!HasAuth(oracle.val->oracleAddress)) {
         return Res::Err("tx must have at least one input from account owner");
     }
-    if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
+    if (height >= uint32_t(consensus.FortCanningHeight)) {
         for (const auto &tokenPrice : obj.tokenPrices) {
             for (const auto &price : tokenPrice.second) {
                 if (price.second <= 0) {

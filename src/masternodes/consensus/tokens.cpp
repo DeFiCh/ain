@@ -7,6 +7,7 @@
 #include <masternodes/consensus/tokens.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 
 
 Res CTokensConsensus::CheckTokenCreationTx() const {
@@ -171,7 +172,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
-    const auto isRegTest                = Params().NetworkIDString() == CBaseChainParams::REGTEST;
     const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
     const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
     const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
@@ -195,7 +195,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
         if (!token)
             return Res::Err("token %s does not exist!", tokenId.ToString());
 
-        bool anybodyCanMint = isRegTest && !isRegTestSimulateMainnet;
+        bool anybodyCanMint = IsRegtestNetwork() && !isRegTestSimulateMainnet;
         auto mintable       = MintableToken(tokenId, *token, anybodyCanMint);
 
         auto mintTokensInternal = [&](DCT_ID tokenId, CAmount amount) {

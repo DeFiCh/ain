@@ -686,8 +686,8 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     mnview.SetVariable(*attributes);
 }
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view) {
-    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
         return false;
     }
 

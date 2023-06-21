@@ -1219,8 +1219,14 @@ bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     return found;
 }
 
+bool IsRegtestNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::REGTEST;
+}
 bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET
     || Params().NetworkIDString() == CBaseChainParams::CHANGI
     || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+}
+bool IsMainNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::MAIN;
 }

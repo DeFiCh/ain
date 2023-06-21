@@ -26,7 +26,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     Require(HasFoundationAuth());
     Require(obj.commission >= 0 && obj.commission <= COIN, "wrong commission");
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
         Require(obj.pairSymbol.find('/') == std::string::npos, "token symbol should not contain '/'");
     }
 
@@ -95,14 +95,14 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessage &obj) const {
     // check auth
     Require(HasAuth(obj.from));
 
-    return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
+    return CPoolSwap(obj, height).ExecuteSwap(mnview, {}, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
     // check auth
     Require(HasAuth(obj.swapInfo.from));
 
-    return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
+    return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {

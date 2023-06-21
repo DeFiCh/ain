@@ -22,8 +22,6 @@ class CCustomCSView;
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
-constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
-
 struct CCustomTxMessageNone {};
 
 using CCustomTxMessage = std::variant<CCustomTxMessageNone,
@@ -133,7 +131,9 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     uint32_t height,
                     const Consensus::Params &consensus,
                     bool forceLoanSwap = false);
+bool IsRegtestNetwork();
 bool IsTestNetwork();
+bool IsMainNetwork();
 bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed);
 
 class CPoolSwap {

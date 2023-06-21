@@ -12,12 +12,14 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 
+constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
+
 Res CXVMConsensus::ValidateTransferDomain(const CTransferDomainMessage &obj) const
 {
     auto res = Res::Ok();
 
     // Check if EVM feature is active
-    if (!IsEVMEnabled(height, mnview)) {
+    if (!IsEVMEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
@@ -145,14 +147,14 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
-    if (!IsEVMEnabled(height, mnview)) {
+    if (!IsEVMEnabled(height, mnview, consensus)) {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
 
     if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
         return Res::Err("evm tx size too large");
 
-    RustRes result;
+    CrossBoundaryResult result;
     const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
     if (!result.ok) {

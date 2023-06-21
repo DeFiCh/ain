@@ -172,7 +172,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
         }
 
         // After GW exclude TokenSplit if split will have already been performed by startHeight
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
             if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
                 const auto attrMap = attrVar->GetAttributesMap();
                 std::vector<CDataStructureV0> keysToErase;
