@@ -18,7 +18,7 @@ on:
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
-  build-binaries:
+  build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
     steps:

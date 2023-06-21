@@ -22,14 +22,24 @@ env:
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
+
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh release
 
     - name: Publish artifact - x86_64-pc-linux-gnu
       uses: actions/upload-artifact@v3
@@ -51,14 +61,24 @@ jobs:
 
   win-x64:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
       run: GIT_VERSION=1 ./make.sh ci-export-vars
+
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
     
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh release
 
     - name: Publish artifact - x86_64-w64-mingw32
       uses: actions/upload-artifact@v3
@@ -68,14 +88,24 @@ jobs:
 
   osx-x64:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
       run: GIT_VERSION=1 ./make.sh ci-export-vars
 
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
+
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release
+      run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh release
 
     - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3

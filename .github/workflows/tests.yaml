@@ -1,4 +1,4 @@
-name: Tests - E2E
+name: Tests
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ on:
   pull_request:
     branches:
       - master
-
 jobs:
-  cpp-tests:
+  e2e-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
     steps:
@@ -40,8 +40,11 @@ jobs:
     - name: Install dependencies for test
       run: ./make.sh ci-setup-deps-test
 
-    - name: Tests
-      run: ./ci/test/main.sh
+    - name: Build deps and configure
+      run: ./make.sh build
+      
+    - name: E2E tests
+      run: ./make.sh test
 
   rust-tests:
     runs-on: ubuntu-latest
@@ -49,6 +52,18 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
+
+    - name: Build deps and configure
+      run: ./make.sh build-deps && build-conf
       
-    - name: Tests
+    - name: Rust tests
       run: ./make.sh lib test

@@ -158,7 +158,7 @@ jobs:
     - name: Generate SHA256 checksum
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        (cd ./defichain-${ver}-x86_64-pc-linux-gnu;
+        (cd ./defichain-${ver}-x86_64-pc-linux-gnu
         sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256)
         (cd ./defichain-${ver}-aarch64-linux-gnu
         sha256sum ./defichain-${ver}-aarch64-linux-gnu.tar.gz > ./defichain-${ver}-aarch64-linux-gnu.tar.gz.SHA256)
