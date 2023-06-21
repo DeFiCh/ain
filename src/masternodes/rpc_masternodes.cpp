@@ -19,9 +19,7 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
                                       CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
-            obj.pushKV("rewardAddress", EncodeDestination(
-                node.rewardAddressType == 1 ? CTxDestination(PKHash(node.rewardAddress)) : CTxDestination(
-                        WitnessV0KeyHash(node.rewardAddress))));
+            obj.pushKV("rewardAddress", EncodeDestination(node.GetRewardAddressDestination()));
         }
         else {
             obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
@@ -367,16 +365,10 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     UniValue metaObj = request.params[1].get_obj();
     if (!metaObj["ownerAddress"].isNull()) {
         newOwnerDest = DecodeDestination(metaObj["ownerAddress"].getValStr());
-        if (newOwnerDest.index() != PKHashType && newOwnerDest.index() != WitV0KeyHashType) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "ownerAddress (" + metaObj["ownerAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
-        }
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
         operatorDest = DecodeDestination(metaObj["operatorAddress"].getValStr());
-        if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + metaObj["operatorAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
-        }
     }
 
     std::string rewardAddress;
@@ -384,9 +376,6 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         rewardAddress = metaObj["rewardAddress"].getValStr();
         if (!rewardAddress.empty()) {
             rewardDest = DecodeDestination(rewardAddress);
-            if (rewardDest.index() != PKHashType && rewardDest.index() != WitV0KeyHashType) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
-            }
         }
     }
 
@@ -418,7 +407,18 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         if (rewardAddress.empty()) {
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress), std::pair<char, std::vector<unsigned char>>());
         } else {
-            const CKeyID keyID = rewardDest.index() == PKHashType ? CKeyID(std::get<PKHash>(rewardDest)) : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
+            CKeyID keyID;
+            switch (rewardDest.index()) {
+                case PKHashType:
+                    keyID = CKeyID(std::get<PKHash>(rewardDest));
+                    break;
+                case WitV0KeyHashType:
+                    keyID = CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
+                    break;
+                case ScriptHashType:
+                    keyID = CKeyID(std::get<ScriptHash>(rewardDest));
+                    break;
+            }
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress), std::make_pair(static_cast<char>(rewardDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
         }
     }

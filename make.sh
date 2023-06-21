@@ -3,7 +3,9 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-export LC_ALL=C.UTF-8
+# Note: Ideal to use POSIX C.UTF-8, however Apple systems don't have
+# this locale and throws a fit, so en-US.UTF-8 is reasonable middle ground.
+export LC_ALL=en_US.UTF-8
 set -Eeuo pipefail
 
 setup_vars() {
@@ -33,7 +35,7 @@ setup_vars() {
     BUILD_DEPENDS_DIR="$(_canonicalize "$BUILD_DEPENDS_DIR")"
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
-    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.69.0"}
+    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
 
@@ -43,7 +45,7 @@ setup_vars() {
         default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
 
-    MAKE_JOBS=${MAKE_JOBS:-"$(_nproc)"}
+    MAKE_JOBS=${MAKE_JOBS:-"$(_get_default_jobs)"}
 
     MAKE_CONF_ARGS="$(_get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
@@ -172,8 +174,7 @@ build_make() {
     _fold_start "build_make"
 
     # shellcheck disable=SC2086
-    make DESTDIR="${build_target_dir}" -j${make_jobs} ${make_args}
-
+    make DESTDIR="${build_target_dir}" -j${make_jobs} JOBS=${make_jobs} ${make_args}
 
     _fold_end
     _exit_dir
@@ -259,7 +260,10 @@ docker_build() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker build: ${img}"
-    docker build -f "${docker_file}" --build-arg TARGET="${target}" -t "${img}" "${docker_context}"
+    docker build -f "${docker_file}" \
+        --build-arg TARGET="${target}" \
+        --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -377,7 +381,7 @@ exec() {
     _fold_start "exec:: ${*-(default)}"
 
     # shellcheck disable=SC2086,SC2068
-    make -j$make_jobs $make_args $@
+    make -j$make_jobs JOBS=${make_jobs} $make_args $@
 
     _fold_end
     _exit_dir
@@ -417,12 +421,22 @@ git_version() {
     fi
 }
 
+# ------------ pkg --------------------
+# Conventions:
+# - pkg_*
+# - pkg_install_*: for installing packages (system level)
+# - pkg_update_*: distro update only
+# - pkg_local_*: for pulling packages into the local dir
+#   - clean_pkg_local*: Make sure to have the opp. 
+# - pkg_setup*: setup of existing (or installed) pkgs // but not installing now
+
+
 pkg_update_base() {
     _fold_start "pkg-update-base"
 
-    apt update
-    apt install -y apt-transport-https
-    apt dist-upgrade -y
+    apt-get update
+    apt-get install -y apt-transport-https
+    apt-get upgrade -y
     
     _fold_end
 }
@@ -430,21 +444,29 @@ pkg_update_base() {
 pkg_install_deps() {
     _fold_start "pkg-install-deps"
 
-    apt install -y \
+    # gcc-multilib: for cross compilations
+    # locales: for using en-US.UTF-8 (see head of this file).
+    apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip libc6-dev
+        curl cmake unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
+}
+
+pkg_setup_locale() {
+    # Not a hard requirement. We use en_US.UTF-8 to maintain coherence across
+    # different platforms. C.UTF-8 is not available on all platforms.
+    locale-gen "en_US.UTF-8"
 }
 
 pkg_install_deps_mingw_x86_64() {
     _fold_start "pkg-install-deps-mingw-x86_64"
     
-    apt install -y \
+    apt-get install -y \
         g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
 
     _fold_end
@@ -458,7 +480,7 @@ pkg_setup_mingw_x86_64() {
 pkg_install_deps_armhf() {
     _fold_start "pkg-install-deps-armhf"
 
-    apt install -y \
+    apt-get install -y \
         g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross
 
     _fold_end
@@ -467,7 +489,7 @@ pkg_install_deps_armhf() {
 pkg_install_deps_arm64() {
     _fold_start "pkg-install-deps-arm64"
 
-    apt install -y \
+    apt-get install -y \
         g++-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
 
     _fold_end
@@ -476,7 +498,7 @@ pkg_install_deps_arm64() {
 pkg_install_deps_osx_tools() {
     _fold_start "pkg-install-deps-mac-tools"
 
-    apt install -y \
+    apt-get install -y \
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
     _fold_end
@@ -527,7 +549,6 @@ pkg_install_web3_deps() {
 }
 
 pkg_setup_rust() {
-    local target=${TARGET}
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
@@ -708,6 +729,17 @@ _get_default_conf_args() {
     echo "$conf_args"
 }
 
+_get_default_jobs() {
+    local total
+    total=$(_nproc)
+    # Use a num closer to 80% of the cores by default
+    local jobs=$(( total * 4/5 ))
+    if (( jobs > 1 )); then
+        echo $jobs
+    else
+        echo 1
+    fi
+}
 
 # Dev tools
 # ---
@@ -746,9 +778,9 @@ check_git_dirty() {
 
 check_rs() {
     check_enter_build_rs_dir
-    lint_cargo_check
-    lint_cargo_clippy
-    lint_cargo_fmt
+    lib check 1
+    lib clippy 1
+    lib fmt-check 1
     _exit_dir
 }
 
@@ -759,30 +791,31 @@ check_enter_build_rs_dir() {
         exit 1; }
 }
 
-lint_cargo_check() {
+lib() {
+    local cmd="${1-}"
+    local exit_on_err="${2:-0}"
+    local jobs="$MAKE_JOBS"
+    
     check_enter_build_rs_dir
-    make check || { 
-        echo "Error: Please resolve compiler checks before commit"; 
-        exit 1; }
+    # shellcheck disable=SC2086
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
+        echo "Error: Please resolve all checks"; 
+        exit 1;
+        fi; }
     _exit_dir
 }
 
-lint_cargo_clippy() {
-    check_enter_build_rs_dir 
-    make clippy || { 
-        echo "Error: Please resolve compiler lints before commit"; 
-        exit 1; }
-    _exit_dir
+rust_analyzer_check() {
+    lib "check CARGO_EXTRA_ARGS=--all-targets --workspace --message-format=json"
 }
 
-lint_cargo_fmt() {
-    check_enter_build_rs_dir
-    make fmt-check  || {
-        echo "Error: Please format code before commit"; 
-        exit 1; }
-    _exit_dir
+compiledb() {
+    _platform_init_intercept_build
+    clean 2> /dev/null || true
+    build_deps
+    build_conf
+    _intercept_build ./make.sh build_make
 }
-
 
 # Platform specifics
 # ---
@@ -830,6 +863,25 @@ _platform_pkg_tip() {
     echo "tip: osx: brew install ${brew_pkg}"
 }
 
+_platform_init_intercept_build() {
+    _INTERCEPT_BUILD_CMD=""
+    local intercept_build_cmds=("intercept-build-15" "intercept-build")
+    local x
+    for x in "${intercept_build_cmds[@]}"; do
+        if command -v "$x" >/dev/null ; then
+            _INTERCEPT_BUILD_CMD="$x"
+            _intercept_build() {
+                "$_INTERCEPT_BUILD_CMD" "$@"
+            }
+            return
+        fi
+    done
+
+    echo "error: intercept-build-15/intercept-build required"
+    _platform_pkg_tip clang-tools
+    exit 1
+}
+
 _nproc() {
     if [[ "${OSTYPE}" == "darwin"* ]]; then
         sysctl -n hw.logicalcpu
@@ -845,19 +897,19 @@ ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
+        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
     fi
 }
 
 ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_update_base
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
+    DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    pkg_setup_rust
-    pkg_install_web3_deps
 }
 
-ci_setup_deps_target() {
+_ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
         # Nothing to do on host
@@ -877,13 +929,27 @@ ci_setup_deps_target() {
     esac
 }
 
+ci_setup_deps_target() {
+    _ci_setup_deps_target
+    pkg_setup_rust
+}
+
+ci_setup_deps_test() {
+    pkg_install_web3_deps
+}
+
 get_rust_target() {
+    # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
+    # The function is called in 2 places:
+    # 1. When setting up Rust, which TARGET is passed from the environment
+    # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet
+    # Thus, we normalize across both to source the correct rust target.
     local target=${TARGET}
     local rust_target
     case $target in
         x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
-        aarch64-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
-        arm-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
+        aarch64-linux-gnu|aarch64-unknown-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
+        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
         x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
         aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
         x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;

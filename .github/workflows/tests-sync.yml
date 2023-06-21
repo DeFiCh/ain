@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be 
-          formatted as multiple start block, such as "350000 50000 750000". 
+        description: 'Optionally restrict to specific block ranges. Should be
+          formatted as multiple start block, such as "350000 50000 750000".
           Defaults to all block ranges'
         required: false
       name:
@@ -26,18 +26,30 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Build node
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
+
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
-      run: TARGET="x86_64-pc-linux-gnu" ./make.sh build
+    - name: Build binaries
+      run: ./make.sh build
 
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-         build/x86_64-pc-linux-gnu/src/defid
-         build/x86_64-pc-linux-gnu/src/defi-cli
+         build/src/defid
+         build/src/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3
@@ -118,6 +130,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: sync
+
+    - name: Rename Artifact
+      run: mv main.sh sync.sh
 
     - name: Set Permissions
       run: |

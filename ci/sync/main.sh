@@ -10,29 +10,30 @@ setup_vars() {
 
     # Files and directories
     DATADIR=${DATADIR:-".defi"}
-    DEBUG_FILE="$DATADIR/debug.log"
-    CONF_FILE="$DATADIR/defi.conf"
-    TMP_LOG=debug-tmp-$STOP_BLOCK.log
+    DEBUG_FILE="${DATADIR}/debug.log"
+    CONF_FILE="${DATADIR}/defi.conf"
+    TMP_LOG="debug-tmp-${STOP_BLOCK}.log"
     PRE_ROLLBACK_LOG="debug-pre-rollback.log"
     POST_ROLLBACK_LOG="debug-post-rollback.log"
     BASE_REF=${BASE_REF:-"master"}
-    BASE_PATH=https://storage.googleapis.com
-    BUCKET=team-drop
-    REF_LOG=debug-$STOP_BLOCK.log
-    REF_LOG_PATH=$BASE_PATH/$BUCKET/$REF_LOG_DIR/$REF_LOG
+    BASE_PATH="https://storage.googleapis.com"
+    BUCKET="team-drop"
+    REF_LOG="debug-${STOP_BLOCK}.log"
+    REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${REF_LOG_DIR}/${REF_LOG}"
 
     # Commands
-    DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange -spv -checkpoints=0"
-    DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
+    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
+    DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR}"
     FETCH="aria2c -x16 -s16"
     GREP="grep"
 
+    ROLLBACK_BLOCK="${START_BLOCK}"
     BLOCK=0
-    ROLLBACK_BLOCK=$START_BLOCK
     ATTEMPTS=0
     MAX_ATTEMPTS=10
     MAX_NODE_RESTARTS=5
     NODE_RESTARTS=0
+    PID=""
 }
 
 _ensure_script_dir() {
@@ -48,28 +49,28 @@ _cleanup() {
 
 print_info() {
     echo "======== Sync Test Info ==========
-  - Block range: $START_BLOCK - $STOP_BLOCK
+  - Block range: ${START_BLOCK} - ${STOP_BLOCK}
 
   - Reference log:
-    $REF_LOG_PATH
+    ${REF_LOG_PATH}
 
   - snapshot:
-    https://storage.googleapis.com/team-drop/$BASE_REF-datadir/datadir-$START_BLOCK.tar.gz
+    https://storage.googleapis.com/team-drop/${BASE_REF}-datadir/datadir-${START_BLOCK}.tar.gz
 
   - defid:
-    $DEFID_CMD
+    ${DEFID_CMD}
 
   - defi-cli:
-    $DEFI_CLI_CMD
+    ${DEFI_CLI_CMD}
 
   - Create log commands:
-    $GREP \"AccountChange:\" \"$DEBUG_FILE\" | cut -d\" \" -f2-
-    $DEFI_CLI_CMD logaccountbalances
-    $DEFI_CLI_CMD spv_listanchors
-    $DEFI_CLI_CMD logstoredinterests
-    $DEFI_CLI_CMD listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
-    $DEFI_CLI_CMD listtokens '{\"limit\":1000000}'
-    $DEFI_CLI_CMD getburninfo
+    ${GREP} \"AccountChange:\" \"${DEBUG_FILE}\" | cut -d\" \" -f2-
+    ${DEFI_CLI_CMD} logaccountbalances
+    ${DEFI_CLI_CMD} spv_listanchors
+    ${DEFI_CLI_CMD} logstoredinterests
+    ${DEFI_CLI_CMD} listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
+    ${DEFI_CLI_CMD} listtokens '{\"limit\":1000000}'
+    ${DEFI_CLI_CMD} getburninfo
 
   - defi.conf:
     $(cat "$CONF_FILE")
@@ -93,9 +94,9 @@ get_full_log() {
 }
 
 rollback_and_log() {
-    echo "ROLLBACK_BLOCK : $ROLLBACK_BLOCK"
+    echo "ROLLBACK_BLOCK : ${ROLLBACK_BLOCK}"
     ROLLBACK_HASH=$($DEFI_CLI_CMD getblockhash $((ROLLBACK_BLOCK)))
-    echo "ROLLBACK_HASH : $ROLLBACK_HASH"
+    echo "ROLLBACK_HASH : ${ROLLBACK_HASH}"
     $DEFI_CLI_CMD invalidateblock "$ROLLBACK_HASH"
     echo "Rolled back to block : $($DEFI_CLI_CMD getblockcount)"
 
@@ -103,26 +104,44 @@ rollback_and_log() {
 }
 
 create_pre_sync_rollback_log() {
-    local DATADIR_ROLLBACK="$DATADIR-rollback"
-    local DEFID_CMD="$DEFID_BIN -datadir=$DATADIR_ROLLBACK -daemon -debug=accountchange -spv -rpcport=9999 -port=9998 -connect=0 -checkpoints=0 -interrupt-block=$((START_BLOCK + 1))"
-    local DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR_ROLLBACK -rpcport=9999"
-    local DEBUG_FILE="$DATADIR_ROLLBACK/debug.log"
+    local DATADIR_ROLLBACK="${DATADIR}-rollback"
+    local DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR_ROLLBACK} -daemon -debug=accountchange -spv -rpcport=9999 -port=9998 -connect=0 -checkpoints=0 -interrupt-block=$((START_BLOCK + 1))"
+    local DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR_ROLLBACK} -rpcport=9999"
+    local DEBUG_FILE="${DATADIR_ROLLBACK}/debug.log"
 
     cp -r "$DATADIR" "$DATADIR_ROLLBACK"
     rm -f "$DEBUG_FILE"
+    start_node_and_wait "$DATADIR_ROLLBACK"
+    rollback_and_log > "$PRE_ROLLBACK_LOG"
+    stop_node
+}
+
+start_node_and_wait() {
+    local data_dir=${1:-${DATADIR}}
+    echo "Syncing to block height: ${STOP_BLOCK}"
     $DEFID_CMD
     sleep 90
 
-    rollback_and_log >"$PRE_ROLLBACK_LOG"
-
-    $DEFI_CLI_CMD stop
+    # get PID
+    PID=$(head -1 "./${data_dir}/defid.pid")
 }
 
-# Start defid
-start_node() {
-    echo "Syncing to block height: $STOP_BLOCK"
-    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
-    sleep 30
+stop_node() {
+    local ATTEMPTS=0
+
+    # check to ensure defid process stops (50s timeout threshold)
+    if [ -n "$PID" ]; then
+        $DEFI_CLI_CMD stop
+        while  ps -p "$PID" > /dev/null; do
+            if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
+                echo "Failed to stop node, exiting"
+                exit 1
+            else
+                ATTEMPTS=$((ATTEMPTS + 1))
+                sleep 5
+            fi
+        done
+    fi
 }
 
 main() {
@@ -133,23 +152,22 @@ main() {
     setup_vars
     print_info
     create_pre_sync_rollback_log
-    start_node
+    start_node_and_wait
 
     # Sync to target block height
     while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
         if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
             if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
-                echo "Node Stuck After $ATTEMPTS attempts, restarting node"
-                $DEFI_CLI_CMD stop
-                sleep 20
-                start_node
+                echo "Node Stuck After ${ATTEMPTS} attempts, restarting node"
+                stop_node
+                start_node_and_wait
                 NODE_RESTARTS=$((NODE_RESTARTS + 1))
                 ATTEMPTS=0
             else
                 exit 1
             fi
         fi
-        CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
+        CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo "$BLOCK")
         if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
             ATTEMPTS=$((ATTEMPTS + 1))
 
@@ -158,22 +176,21 @@ main() {
         else
             ATTEMPTS=0
         fi
-        BLOCK=${CUR_BLOCK:-$BLOCK}
-        echo "Current block: $BLOCK"
+        BLOCK=${CUR_BLOCK:-${BLOCK}}
+        echo "Current block: ${BLOCK}"
         sleep 20
     done
 
     # Create temporary log file
-    get_full_log >>"$TMP_LOG"
+    get_full_log >> "$TMP_LOG"
 
     # Download reference log file
-    echo "Downloading reference log file : $REF_LOG_PATH"
+    echo "Downloading reference log file : ${REF_LOG_PATH}"
     $FETCH "$REF_LOG_PATH"
 
     # Create rollback log after sync
-    rollback_and_log >"$POST_ROLLBACK_LOG"
-
-    $DEFI_CLI_CMD stop
+    rollback_and_log > "$POST_ROLLBACK_LOG"
+    stop_node
 }
 
 main "$@"

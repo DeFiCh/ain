@@ -52,11 +52,6 @@ DIST_SHARE = \
 BIN_CHECKS=$(top_srcdir)/contrib/devtools/symbol-check.py \
            $(top_srcdir)/contrib/devtools/security-check.py
 
-COVERAGE_INFO = baseline.info \
-  test_defi_filtered.info total_coverage.info \
-  baseline_filtered.info functional_test.info functional_test_filtered.info \
-  test_defi_coverage.info test_defi.info
-
 dist-hook:
 	-$(GIT) archive --format=tar HEAD -- src/clientversion.cpp | $(AMTAR) -C $(top_distdir) -xf -
 
@@ -69,51 +64,6 @@ $(DEFI_CLI_BIN): FORCE
 $(DEFI_TX_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-if USE_LCOV
-LCOV_FILTER_PATTERN=-p "/usr/include/" -p "/usr/lib/" -p "src/leveldb/" -p "src/bench/" -p "src/univalue" -p "src/crypto/ctaes" -p "src/secp256k1"
-
-baseline.info:
-	$(LCOV) -c -i -d $(abs_builddir)/src -o $@
-
-baseline_filtered.info: baseline.info
-	$(abs_builddir)/contrib/filter-lcov.py $(LCOV_FILTER_PATTERN) $< $@
-	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
-
-test_defi.info: baseline_filtered.info
-	$(MAKE) -C src/ check
-	$(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src -t test_defi -o $@
-	$(LCOV) -z $(LCOV_OPTS) -d $(abs_builddir)/src
-
-test_defi_filtered.info: test_defi.info
-	$(abs_builddir)/contrib/filter-lcov.py $(LCOV_FILTER_PATTERN) $< $@
-	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
-
-functional_test.info: test_defi_filtered.info
-	@TIMEOUT=15 test/functional/test_runner.py $(EXTENDED_FUNCTIONAL_TESTS)
-	$(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src --t functional-tests -o $@
-	$(LCOV) -z $(LCOV_OPTS) -d $(abs_builddir)/src
-
-functional_test_filtered.info: functional_test.info
-	$(abs_builddir)/contrib/filter-lcov.py $(LCOV_FILTER_PATTERN) $< $@
-	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
-
-test_defi_coverage.info: baseline_filtered.info test_defi_filtered.info
-	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -o $@
-
-total_coverage.info: test_defi_filtered.info functional_test_filtered.info
-	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -a functional_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
-
-test_defi.coverage/.dirstamp:  test_defi_coverage.info
-	$(GENHTML) -s $(LCOV_OPTS) $< -o $(@D)
-	@touch $@
-
-total.coverage/.dirstamp: total_coverage.info
-	$(GENHTML) -s $(LCOV_OPTS) $< -o $(@D)
-	@touch $@
-
-cov: test_defi.coverage/.dirstamp total.coverage/.dirstamp
-
-endif
 
 dist_noinst_SCRIPTS = autogen.sh
 
@@ -125,61 +75,12 @@ EXTRA_DIST += \
 
 EXTRA_DIST += \
     test/util/defi-util-test.py \
-    test/util/data/defi-util-test.json \
-    test/util/data/blanktxv1.hex \
-    test/util/data/blanktxv1.json \
-    test/util/data/blanktxv2.hex \
-    test/util/data/blanktxv2.json \
-    test/util/data/tt-delin1-out.hex \
-    test/util/data/tt-delin1-out.json \
-    test/util/data/tt-delout1-out.hex \
-    test/util/data/tt-delout1-out.json \
-    test/util/data/tt-locktime317000-out.hex \
-    test/util/data/tt-locktime317000-out.json \
-    test/util/data/tx394b54bb.hex \
-    test/util/data/txcreate1.hex \
-    test/util/data/txcreate1.json \
-    test/util/data/txcreate2.hex \
-    test/util/data/txcreate2.json \
-    test/util/data/txcreatedata1.hex \
-    test/util/data/txcreatedata1.json \
-    test/util/data/txcreatedata2.hex \
-    test/util/data/txcreatedata2.json \
-    test/util/data/txcreatedata_seq0.hex \
-    test/util/data/txcreatedata_seq0.json \
-    test/util/data/txcreatedata_seq1.hex \
-    test/util/data/txcreatedata_seq1.json \
-    test/util/data/txcreatemultisig1.hex \
-    test/util/data/txcreatemultisig1.json \
-    test/util/data/txcreatemultisig2.hex \
-    test/util/data/txcreatemultisig2.json \
-    test/util/data/txcreatemultisig3.hex \
-    test/util/data/txcreatemultisig3.json \
-    test/util/data/txcreatemultisig4.hex \
-    test/util/data/txcreatemultisig4.json \
-    test/util/data/txcreatemultisig5.json \
-    test/util/data/txcreateoutpubkey1.hex \
-    test/util/data/txcreateoutpubkey1.json \
-    test/util/data/txcreateoutpubkey2.hex \
-    test/util/data/txcreateoutpubkey2.json \
-    test/util/data/txcreateoutpubkey3.hex \
-    test/util/data/txcreateoutpubkey3.json \
-    test/util/data/txcreatescript1.hex \
-    test/util/data/txcreatescript1.json \
-    test/util/data/txcreatescript2.hex \
-    test/util/data/txcreatescript2.json \
-    test/util/data/txcreatescript3.hex \
-    test/util/data/txcreatescript3.json \
-    test/util/data/txcreatescript4.hex \
-    test/util/data/txcreatescript4.json \
-    test/util/data/txcreatesignv1.hex \
-    test/util/data/txcreatesignv1.json \
-    test/util/data/txcreatesignv2.hex \
-    test/util/rpcauth-test.py
+    test/util/rpcauth-test.py \
+    $(wildcard test/util/data/*)
 
 CLEANFILES = 
 
-.INTERMEDIATE: $(COVERAGE_INFO)
+.INTERMEDIATE: 
 
 DISTCHECK_CONFIGURE_FLAGS = 
 

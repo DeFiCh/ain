@@ -1,12 +1,12 @@
 use std::error::Error;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 mod bridge;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 use bridge::ffi;
 
-#[cfg(any(test, bench, example, doc))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -53,6 +53,9 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getCurrentHeight() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn pastChangiIntermediateHeight2() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -129,6 +132,11 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     let current_block = ffi::getCurrentHeight();
     let highest_block = ffi::getHighestBlock();
     Ok((current_block, highest_block))
+}
+
+pub fn past_changi_intermediate_height_2_height() -> Result<bool, Box<dyn Error>> {
+    let height = ffi::pastChangiIntermediateHeight2();
+    Ok(height)
 }
 
 #[cfg(test)]

@@ -12,8 +12,8 @@ bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
 
-rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
-    std::vector<uint8_t> evmTx(rawTransaction.size());
+rust::string publishEthTransaction(rust::Vec <uint8_t> rawTransaction) {
+    std::vector <uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
@@ -55,10 +55,10 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     return {};
 }
 
-rust::vec<rust::string> getAccounts() {
-    rust::vec<rust::string> addresses;
-    std::vector<std::shared_ptr<CWallet>> const wallets = GetWallets();
-    for (const std::shared_ptr<CWallet> &wallet: wallets) {
+rust::vec <rust::string> getAccounts() {
+    rust::vec <rust::string> addresses;
+    std::vector <std::shared_ptr<CWallet>> const wallets = GetWallets();
+    for (const std::shared_ptr <CWallet> &wallet: wallets) {
         for (auto &it: wallet->mapAddressBook)
             if (std::holds_alternative<WitnessV16EthHash>(it.first)) {
                 addresses.push_back(EncodeDestination(it.first));
@@ -123,8 +123,8 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
     return chainWork;
 }
 
-rust::vec<rust::string> getPoolTransactions() {
-    rust::vec<rust::string> poolTransactions;
+rust::vec <rust::string> getPoolTransactions() {
+    rust::vec <rust::string> poolTransactions;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
@@ -152,8 +152,8 @@ rust::vec<rust::string> getPoolTransactions() {
     return poolTransactions;
 }
 
-uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
-    std::vector<uint8_t> evmTx(rawTransaction.size());
+uint64_t getNativeTxSize(rust::Vec <uint8_t> rawTransaction) {
+    std::vector <uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
@@ -210,4 +210,8 @@ int getHighestBlock() {
 
 int getCurrentHeight() {
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
+}
+
+bool pastChangiIntermediateHeight2() {
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight2;
 }

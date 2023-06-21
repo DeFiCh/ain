@@ -262,6 +262,8 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             }
             CScript scriptPubKey = GetScriptForDestination(destination);
 
+            RejectEthAddress(scriptPubKey);
+
             auto amounts = DecodeAmounts(chain, outputs[name_], name_);
             for (auto const & kv : amounts.balances) {
                 CTxOut out(kv.second, scriptPubKey, kv.first);

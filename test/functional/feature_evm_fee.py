@@ -16,7 +16,7 @@ class EVMFeeTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):
@@ -87,7 +87,7 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
-        assert_raises_rpc_error(-32001, "evm tx failed to validate Insufficiant balance to pay fees", self.nodes[0].eth_sendTransaction, {
+        assert_raises_rpc_error(-32001, "evm tx failed to validate insufficient balance to pay fees", self.nodes[0].eth_sendTransaction, {
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000
@@ -120,7 +120,7 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
 
-        assert_raises_rpc_error(-32001, "evm tx failed to validate Insufficiant balance to pay fees", self.nodes[0].eth_sendTransaction, {
+        assert_raises_rpc_error(-32001, "evm tx failed to validate insufficient balance to pay fees", self.nodes[0].eth_sendTransaction, {
             'from': emptyAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000

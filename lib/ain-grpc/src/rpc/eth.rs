@@ -1,15 +1,18 @@
 use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
-use crate::bytes::Bytes;
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
+use ain_evm::bytes::Bytes;
 
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
+use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::evm::MAX_GAS_PER_BLOCK;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
 use crate::sync::{SyncInfo, SyncState};
+use crate::transaction_log::{GetLogsRequest, LogResult};
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -41,6 +44,9 @@ pub trait MetachainRPC {
     /// Returns the current chain ID as a hexadecimal string.
     #[method(name = "chainId")]
     fn chain_id(&self) -> RpcResult<String>;
+
+    #[method(name = "syncing")]
+    fn syncing(&self) -> RpcResult<SyncState>;
 
     // ----------------------------------------
     // Block
@@ -205,8 +211,24 @@ pub trait MetachainRPC {
     #[method(name = "maxPriorityFeePerGas")]
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 
-    #[method(name = "syncing")]
-    fn syncing(&self) -> RpcResult<SyncState>;
+    // ----------------------------------------
+    // Uncle blocks
+    // All methods return null or default values as we do not have uncle blocks
+    // ----------------------------------------
+    #[method(name = "getUncleCountByBlockNumber")]
+    fn get_uncle_count_by_block_number(&self) -> RpcResult<U256>;
+    //
+    #[method(name = "getUncleCountByBlockHash")]
+    fn get_uncle_count_by_block_hash(&self) -> RpcResult<U256>;
+
+    #[method(name = "getUncleByBlockNumberAndIndex")]
+    fn get_uncle_by_block_number(&self) -> RpcResult<Option<bool>>;
+
+    #[method(name = "getUncleByBlockHashAndIndex")]
+    fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>>;
+
+    #[method(name = "getLogs")]
+    fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>>;
 }
 
 pub struct MetachainRPCModule {
@@ -237,7 +259,7 @@ impl MetachainRPCModule {
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
                     .unwrap_or(U256::max_value())
-            },
+            }
             _ => {
                 self.handler
                     .storage
@@ -262,6 +284,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             gas,
             value,
             data,
+            input,
             ..
         } = input;
         let TxResponse { data, .. } = self
@@ -271,8 +294,14 @@ impl MetachainRPCServer for MetachainRPCModule {
                 from,
                 to,
                 value.unwrap_or_default(),
-                &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
+                // https://github.com/ethereum/go-ethereum/blob/281e8cd5abaac86ed3f37f98250ff147b3c9fe62/internal/ethapi/transaction_args.go#L67
+                // We accept "data" and "input" for backwards-compatibility reasons.
+                //  "input" is the newer name and should be preferred by clients.
+                // 	Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
+                &input
+                    .map(|d| d.0)
+                    .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
+                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
                 vec![],
                 self.block_number_to_u256(block_number),
             )
@@ -418,9 +447,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_transaction_by_hash(&hash)
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx
+                let mut transaction_info: EthTransactionInfo = tx
                     .try_into()
                     .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
+
+                // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
+                // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
+                if let Some(receipt) = self.handler.storage.get_receipt(&hash) {
+                    transaction_info.block_hash = Some(format_h256(receipt.block_hash));
+                    transaction_info.block_number = Some(format_u256(receipt.block_number));
+                    transaction_info.transaction_index =
+                        Some(format_u256(U256::from(receipt.tx_index)));
+                }
+
                 Ok(Some(transaction_info))
             })
     }
@@ -555,7 +594,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             _ => {
                 return Err(Error::Custom(String::from(
                     "invalid transaction parameters",
-                )))
+                )));
             }
         };
 
@@ -652,7 +691,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or(U256::from(u64::MAX)).as_u64(),
+                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
                 vec![],
                 block_number,
             )
@@ -740,6 +779,74 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
             false => Ok(SyncState::Synced(false)),
         }
+    }
+    fn get_uncle_count_by_block_number(&self) -> RpcResult<U256> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_count_by_block_hash(&self) -> RpcResult<U256> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_by_block_number(&self) -> RpcResult<Option<bool>> {
+        Ok(Default::default())
+    }
+
+    fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>> {
+        Ok(Default::default())
+    }
+
+    fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
+        if let (Some(_), Some(_)) = (input.block_hash, input.to_block.or(input.from_block)) {
+            return Err(Error::Custom(String::from(
+                "cannot specify both blockHash and fromBlock/toBlock, choose one or the other",
+            )));
+        }
+
+        let block_numbers = match input.block_hash {
+            None => {
+                // use fromBlock-toBlock
+                let mut block_number = self.block_number_to_u256(input.from_block);
+                let to_block_number = self.block_number_to_u256(input.to_block);
+                let mut block_numbers = Vec::new();
+
+                if block_number > to_block_number {
+                    return Err(Error::Custom(format!(
+                        "fromBlock ({}) > toBlock ({})",
+                        format_u256(block_number),
+                        format_u256(to_block_number)
+                    )));
+                }
+
+                while block_number <= to_block_number {
+                    block_numbers.push(block_number);
+                    block_number += U256::one();
+                }
+
+                block_numbers
+            }
+            Some(block_hash) => {
+                vec![
+                    self.handler
+                        .storage
+                        .get_block_by_hash(&block_hash)
+                        .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))?
+                        .header
+                        .number,
+                ]
+            }
+        };
+
+        Ok(block_numbers
+            .into_iter()
+            .flat_map(|block_number| {
+                self.handler
+                    .logs
+                    .get_logs(input.clone().address, input.clone().topics, block_number)
+                    .into_iter()
+                    .map(LogResult::from)
+            })
+            .collect())
     }
 }
 
