@@ -45,7 +45,7 @@ jobs:
 
   node-rpc-tests:
     runs-on: ubuntu-latest
-    needs: build-binaries
+    needs: build
 
     steps:
     - name: Download binaries
