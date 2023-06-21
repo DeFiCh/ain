@@ -13,7 +13,7 @@ env:
   NODE_URL: "http://127.0.0.1:19551/"
 
 jobs:
-  build-binaries:
+  build:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     steps:
