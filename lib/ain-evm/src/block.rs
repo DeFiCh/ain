@@ -25,8 +25,13 @@ pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
-        let mut block_handler = Self { storage, first_block_number: U256::zero() };
-        let (_, block_number) = block_handler.get_latest_block_hash_and_number().unwrap_or_default();
+        let mut block_handler = Self {
+            storage,
+            first_block_number: U256::zero(),
+        };
+        let (_, block_number) = block_handler
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
 
         block_handler.first_block_number = block_number;
         debug!("Current block number is {:#?}", block_number);
