@@ -47,7 +47,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/consensus/poolpairs -> masternodes/mn_checks -> masternodes/consensus/poolpairs"
     "masternodes/consensus/proposals -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/proposals"
     "masternodes/consensus/smartcontracts -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/smartcontracts"
-    "masternodes/consensus/tokens -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/tokens"
+    "masternodes/consensus/tokens -> masternodes/mn_checks -> masternodes/consensus/tokens"
     "masternodes/consensus/vaults -> masternodes/mn_checks -> masternodes/consensus/vaults"
     "masternodes/consensus/xvm -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/xvm"
     "masternodes/consensus/xvm -> masternodes/govvariables/attributes -> masternodes/mn_rpc -> masternodes/consensus/xvm"
