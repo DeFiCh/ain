@@ -129,6 +129,15 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             arith_uint256 balanceIn = dst.amount.nValue;
             balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
             evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+
+            // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
+            // then just remove this fork guard and comment as CTransferDomainMessage is already
+            // protected by NextNetworkUpgradeHeight.
+            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                    return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+                }
+            }
         }
     }
 
