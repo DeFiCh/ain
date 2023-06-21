@@ -1,82 +1,72 @@
 CARGO := $(if $(CARGO),$(CARGO),cargo)
 
-# RUST_TARGET is set from configure. Can be empty. If it is we skip
-# setting target. This is done to emulate cargo's default behavior where
-# it puts things into `target/` directly where no `--target <triplet>`
-# is set. If set, it uses `target/<triplet>` and there's no way to force
-# cargo to always just stick to one.
-# 
-# If it's empty, this collapses dir for SPECIFIC_TARGET_DIR to retain
-# cargo's behavior
-TARGET = $(if $(RUST_TARGET),$(RUST_TARGET),)
-
-# This is set from configure
-ENABLE_DEBUG ?= 
-# We use DEBUG as well, since that's the more conventional
-# setup. Either of them set will result in debug builds
+# ENABLE_DEBUG is set from configure. We respect DEBUG too if set
 DEBUG ?= $(ENABLE_DEBUG)
 
-TARGET_DIR ?= $(abs_builddir)/target
-SPECIFIC_TARGET_DIR = $(TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
-CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
+# RUST_TARGET and HAVE_RUST_TARGET is set from configure. 
+# Can be empty. If empty, we skip export it. Otherwise we do. 
+#  
+# We do this to emulate cargo's default behavior (--target=<triplet>) where
+# it puts things into `target/` directly when not given or `target/<triplet>`.
+# There's no way to force cargo to a stick to one behavior at the moment.
+# 
+# Note: We use HAVE checks due to automake ifeq/ifneq not working outside rules
+if HAVE_RUST_TARGET
+export CARGO_BUILD_TARGET = $(RUST_TARGET)
+endif
+TARGET = $(RUST_TARGET)
 
-# We're resetting DESTDIR so that nested autotools based builds
-# don't end up in unexpected places (Currently protobuf-src is affected)
+export CARGO_TARGET_DIR ?= $(abs_builddir)/target
+export CARGO_BUILD_JOBS ?= $(if $(JOBS),$(JOBS),-1)
+
+CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
+BUILD_ARTIFACTS_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
+
+CARGO_MANIFEST_ARG = --manifest-path "$(CARGO_MANIFEST_PATH)"
+CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
+
+# If $build == $host, we add --all-targets otherwise we skip
+# since compiling with `--test` fails on cross compilation
+CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
+
+# Export compiler flags
+export CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS AR NM RANLIB
+# Export compiler support
+export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
+# Export protoc vars
+export PROTOC PROTOC_INCLUDE_DIR
+
+# Ensure nested autotools calls by cargo don't end up in unexpected places 
+unexport DESTDIR
 
 .PHONY:
 all: build
 
-.PHONY:
-build: 
-	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
-	CC="$(CC)" CXX="$(CXX)" \
-	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
-	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
-	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
-	$(CARGO) build \
-		--manifest-path "$(CARGO_MANIFEST_PATH)" \
-		--target-dir "$(TARGET_DIR)" \
-		$(if $(DEBUG),,--release) \
-		$(if $(TARGET),--target $(TARGET),) && \
-	cp $(SPECIFIC_TARGET_DIR)/libain_rs_exports.a $(TARGET_DIR)/lib/
+.PHONY: build
+build:
+	$(CARGO) build $(CARGO_MANIFEST_ARG) $(CARGO_BUILD_TYPE_ARG) $(CARGO_EXTRA_ARGS) && \
+	cp $(BUILD_ARTIFACTS_DIR)/libain_rs_exports.a $(CARGO_TARGET_DIR)/lib/
 
-.PHONY:
+.PHONY: check
 check:
-	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
-	CC="$(CC)" CXX="$(CXX)" \
-	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
-	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
-	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
-	$(CARGO) test \
-		--manifest-path "$(CARGO_MANIFEST_PATH)" \
-		--target-dir "$(TARGET_DIR)" \
-		$(if $(TARGET),--target $(TARGET),)
+	$(CARGO) check $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
 
-.PHONY:
+.PHONY: test
+test:
+	$(CARGO) test $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
+
+.PHONY: clippy
 clippy:
-	DESTDIR= TARGET_DIR="$(TARGET_DIR)" \
-	CC="$(CC)" CXX="$(CXX)" \
-	CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" CPPFLAGS="$(CPPFLAGS)" \
-	LDFLAGS="$(LDFLAGS)" AR="$(AR)" NM="$(NM)" RANLIB="$(RANLIB)" \
-	PROTOC="$(PROTOC)" PROTOC_INCLUDE_DIR="$(PROTOC_INCLUDE_DIR)" \
-	$(CARGO) clippy \
-		--manifest-path "$(CARGO_MANIFEST_PATH)" \
-		--target-dir "$(TARGET_DIR)" \
-		$(if $(TARGET),--target $(TARGET),)
+	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
 
-.PHONY:
+.PHONY: fmt-check
 fmt-check:
-	$(CARGO) fmt --all --check \
-		--manifest-path "$(CARGO_MANIFEST_PATH)"
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check
 
-.PHONY:
+.PHONY: fmt
 fmt:
-	$(CARGO) fmt --all \
-		--manifest-path "$(CARGO_MANIFEST_PATH)"
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all
 
-.PHONY:
 clean-local:
-	$(CARGO) clean \
-		--manifest-path "$(CARGO_MANIFEST_PATH)" \
-		--target-dir "$(TARGET_DIR)" && \
-	rm -rf $(TARGET_DIR)/{include,lib,src}
+	$(CARGO) clean $(CARGO_MANIFEST_ARG) && \
+	rm -rf $(CARGO_TARGET_DIR)/{include,lib,src}

@@ -2363,9 +2363,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
                     CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
+                    rewardDest = nodePtr->GetRewardAddressDestination();
                 }
             }
 

@@ -31,6 +31,10 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningroadheight = 2000
         self.fortcanninggreatworldheight = 3000
         self.fortcanningepilogueheight = 4000
+        self.grandcentralheight = 4500
+        self.grandcentralepilogueheight = 5000
+        self.nextnetworkupgradeheight = 6000
+
         self.extra_args = [
             ['-txnotokens=0',
              '-amkheight=1',
@@ -43,6 +47,10 @@ class DUSDLoanTests(DefiTestFramework):
              f'-fortcanningroadheight={self.fortcanningroadheight}',
              f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
              f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
+             f'-grandcentralheight={self.grandcentralheight}',
+             f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
+             f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
+
              '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
@@ -109,6 +117,20 @@ class DUSDLoanTests(DefiTestFramework):
             self.nodes[0].generate((self.fortcanningepilogueheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], True)
+
+    def goto_gce_height(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.grandcentralepilogueheight > blockHeight:
+            self.nodes[0].generate((self.grandcentralepilogueheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["grandcentralepilogue"]["active"], True)
+
+    def goto_next_height(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.nextnetworkupgradeheight > blockHeight:
+            self.nodes[0].generate((self.nextnetworkupgradeheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["nextnetworkupgrade"]["active"], True)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -504,6 +526,70 @@ class DUSDLoanTests(DefiTestFramework):
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
 
+    def check_looped_dusd(self):
+        block_height = self.nodes[0].getblockcount()
+
+        vault_id = self.new_vault('LOAN1', ["100.00000000@DUSD"])
+
+        self.goto_gce_height()
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'true'}})
+        self.nodes[0].generate(1)
+
+        #still not allowed before hardfork
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+        self.goto_next_height()
+
+        # min coll ratio still applies
+        assert_raises_rpc_error(-32600,
+                                "Vault does not have enough collateralization ratio defined by loan scheme - 148 < 150",
+                                self.takeloan_withdraw, vault_id, "67.00000000@DUSD", 'takeloan')
+
+
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'withdraw')
+        self.nodes[0].generate(1)
+
+        # not sure why this is needed like this. but it works
+        self.update_oracle_price(13000)
+        #also fails with other crypto in
+        self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "5.00000000@BTC", 'withdraw')
+
+        # full withdrawal (go to 100% DUSD) should work
+        self.takeloan_withdraw(vault_id, "100.00000000@BTC", 'withdraw')
+        self.nodes[0].generate(1)
+
+
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'false'}})
+        self.nodes[0].generate(1)
+
+        #not allowed if attribute false
+
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'withdraw')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id])
+
     def run_test(self):
         # Initial set up
         self.setup()
@@ -519,6 +605,9 @@ class DUSDLoanTests(DefiTestFramework):
         self.post_FCR_DFI_minimum_check_withdraw()
         self.update_oracle_price()
         self.post_FCE_DFI_minimum_check_takeloan()
+
+        self.update_oracle_price()
+        self.check_looped_dusd()
 
         # self.post_FCE_DFI_minimum_check_withdraw()
 

@@ -293,6 +293,7 @@ BASE_SCRIPTS = [
     'feature_loan.py',
     'feature_evm_contracts.py',
     'feature_evm_fee.py',
+    'feature_evm_genesis.py',
     'feature_evm_rollback.py',
     'feature_evm_rpc_transaction.py',
     'feature_evm_rpc.py',

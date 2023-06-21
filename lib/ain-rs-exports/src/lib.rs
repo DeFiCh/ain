@@ -12,7 +12,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::ffi::RustRes;
+use crate::ffi::CrossBoundaryResult;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
@@ -43,9 +43,9 @@ pub mod ffi {
         used_gas: u64,
     }
 
-    pub struct RustRes {
-        ok: bool,
-        reason: String,
+    pub struct CrossBoundaryResult {
+        pub ok: bool,
+        pub reason: String,
     }
 
     extern "Rust" {
@@ -67,7 +67,7 @@ pub mod ffi {
         ) -> Result<bool>;
 
         fn evm_try_prevalidate_raw_tx(
-            result: &mut RustRes,
+            result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
         ) -> Result<ValidateTxResult>;
@@ -75,7 +75,7 @@ pub mod ffi {
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
         fn evm_try_queue_tx(
-            result: &mut RustRes,
+            result: &mut CrossBoundaryResult,
             context: u64,
             raw_tx: &str,
             native_tx_hash: [u8; 32],
@@ -311,7 +311,7 @@ pub fn evm_sub_balance(
 /// Returns the transaction nonce, sender address and gas used if the transaction is valid.
 /// logs and set the error reason to result object otherwise.
 pub fn evm_try_prevalidate_raw_tx(
-    result: &mut RustRes,
+    result: &mut CrossBoundaryResult,
     tx: &str,
     with_gas_usage: bool,
 ) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
@@ -325,10 +325,9 @@ pub fn evm_try_prevalidate_raw_tx(
             })
         }
         Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx fails with error: {e}");
+            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
-
             Ok(ffi::ValidateTxResult::default())
         }
     }
@@ -372,7 +371,7 @@ fn evm_discard_context(context: u64) {
 ///
 /// Returns `true` if the transaction is successfully queued, `false` otherwise.
 fn evm_try_queue_tx(
-    result: &mut RustRes,
+    result: &mut CrossBoundaryResult,
     context: u64,
     raw_tx: &str,
     hash: [u8; 32],
