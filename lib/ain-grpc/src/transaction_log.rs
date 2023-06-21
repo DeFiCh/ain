@@ -1,5 +1,5 @@
 use crate::block::BlockNumber;
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 use ain_evm::log::LogIndex;
 use primitive_types::{H160, H256, U256};
 

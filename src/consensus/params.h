@@ -103,6 +103,7 @@ struct Params {
     int GrandCentralEpilogueHeight;
     int NextNetworkUpgradeHeight;
     int ChangiIntermediateHeight; // To be changed to NextNetworkUpgradeHeight on mainnet release
+    int ChangiIntermediateHeight2; // To be changed to NextNetworkUpgradeHeight on mainnet release
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;

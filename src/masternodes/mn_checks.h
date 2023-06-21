@@ -68,6 +68,8 @@ enum AuthStrategy: uint32_t {
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
+constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
+
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
     //    NotCustomTx  = 1,
@@ -513,10 +515,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     const CScript &from,
                     const CScript &to,
                     uint32_t height,
+                    const Consensus::Params &consensus,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+bool IsRegtestNetwork();
 bool IsTestNetwork();
-bool IsEVMEnabled(const int height, const CCustomCSView &view);
+bool IsMainNetwork();
+bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
@@ -637,8 +643,8 @@ public:
         : obj(obj),
           height(height) {}
 
-    std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, bool testOnly = false);
-    Res ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly = false);
+    Res ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly = false);
     std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView &view);
     CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };

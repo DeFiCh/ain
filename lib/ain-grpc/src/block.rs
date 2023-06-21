@@ -1,4 +1,4 @@
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::H64;
 use primitive_types::{H160, H256, U256};
