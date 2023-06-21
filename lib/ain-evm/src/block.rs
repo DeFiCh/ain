@@ -47,6 +47,65 @@ impl BlockHandler {
         self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 
+    pub fn get_base_fee(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
+        match ain_cpp_imports::past_changi_intermediate_height_2_height()
+            .expect("Unable to get Changi intermediate height 2")
+        {
+            true => match parent_gas_used.cmp(&parent_gas_target) {
+                Ordering::Equal => parent_base_fee,
+                Ordering::Greater => {
+                    let gas_used_delta = parent_gas_used - parent_gas_target;
+                    let base_fee_per_gas_delta = max(
+                        parent_base_fee * gas_used_delta
+                            / parent_gas_target
+                            / base_fee_max_change_denominator,
+                        U256::one(),
+                    );
+
+                    max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+                }
+                Ordering::Less => {
+                    let gas_used_delta = parent_gas_target - parent_gas_used;
+                    let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator;
+
+                    max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                }
+            },
+            false => match parent_gas_used.cmp(&parent_gas_target) {
+                // TODO: incorrect calculation, remove before mainnet launch
+                Ordering::Less => parent_base_fee,
+                Ordering::Equal => {
+                    let gas_used_delta = parent_gas_used - parent_gas_target;
+                    let base_fee_per_gas_delta = max(
+                        parent_base_fee * gas_used_delta
+                            / parent_gas_target
+                            / base_fee_max_change_denominator,
+                        U256::one(),
+                    );
+
+                    max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+                }
+                Ordering::Greater => {
+                    let gas_used_delta = parent_gas_target - parent_gas_used;
+                    let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator;
+
+                    max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                }
+            },
+        }
+    }
+
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
         // constants
         let initial_base_fee = U256::from(10_000_000_000u64); // wei
@@ -72,28 +131,13 @@ impl BlockHandler {
         let parent_gas_target =
             parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
 
-        match parent_gas_used.cmp(&parent_gas_target) {
-            Ordering::Less => parent_base_fee,
-            Ordering::Equal => {
-                let gas_used_delta = parent_gas_used - parent_gas_target;
-                let base_fee_per_gas_delta = max(
-                    parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator,
-                    U256::one(),
-                );
-
-                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
-            }
-            Ordering::Greater => {
-                let gas_used_delta = parent_gas_target - parent_gas_used;
-                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                    / parent_gas_target
-                    / base_fee_max_change_denominator;
-
-                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
-            }
-        }
+        self.get_base_fee(
+            parent_gas_used,
+            parent_gas_target,
+            parent_base_fee,
+            base_fee_max_change_denominator,
+            initial_base_fee,
+        )
     }
 
     pub fn fee_history(

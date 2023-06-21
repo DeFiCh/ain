@@ -201,3 +201,7 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
 rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
+
+bool pastChangiIntermediateHeight2() {
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight2;
+}
