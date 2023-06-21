@@ -637,6 +637,7 @@ public:
         consensus.GrandCentralEpilogueHeight = 1438200;
         consensus.NextNetworkUpgradeHeight = 1586750;
         consensus.ChangiIntermediateHeight = 1717800;
+        consensus.ChangiIntermediateHeight2 = 1717493;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
