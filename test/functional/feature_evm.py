@@ -349,6 +349,7 @@ class EVMTest(DefiTestFramework):
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
         assert_equal(self.nodes[0].getblockcount(), 100)
+        assert_equal(True, False)
 
 if __name__ == '__main__':
     EVMTest().main()
