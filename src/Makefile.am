@@ -27,15 +27,17 @@ LIBDEFI_SPV_INCLUDES = \
 	-I$(srcdir)/spv/bcash
 
 LIBAIN_DIR = $(abs_top_builddir)/lib/target
-LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
-LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
 LIBAIN_RS_SRC = $(LIBAIN_DIR)/src/ain_rs_exports.cpp
 LIBAIN_RS_H = $(LIBAIN_DIR)/include/ain_rs_exports.h
+LIBAIN_RS_LIB = -L$(LIBAIN_DIR)/lib -lain_rs_exports
+LIBAIN_RS_LIB_PATH = $(LIBAIN_DIR)/lib/libain_rs_exports.a
+LIBAIN_RS_INCLUDES = -I$(LIBAIN_DIR)/include
 
 $(LIBAIN_RS_SRC):
 $(LIBAIN_RS_H):
-$(LIBAIN_RS_LIB): FORCE
+$(LIBAIN_RS_LIB_PATH): FORCE
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(abs_top_builddir)/lib
+
 
 DEFI_INCLUDES = -I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
@@ -723,7 +725,7 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # defid binary
-defid_SOURCES = $(LIBAIN_RS_SRC) $(LIBAIN_RS_H) defid.cpp
+defid_SOURCES = defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -760,6 +762,8 @@ endif
 if TARGET_WINDOWS
 defid_LDADD += -luserenv -lbcrypt
 endif
+
+EXTRA_defid_DEPENDENCIES: $(LIBAIN_RS_LIB_PATH)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
@@ -838,7 +842,6 @@ $(top_srcdir)/$(subdir)/config/defi-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
-	-$(MAKE) -C rust clean
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__

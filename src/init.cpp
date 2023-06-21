@@ -511,7 +511,8 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralepilogueheight", "Grand Central Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-nextnetworkupgradeheight", "Next NEtwork Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-nextnetworkupgradeheight", "Next Network Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changiintermediateheight", "Changi Intermediate fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -2362,9 +2363,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
                     CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
+                    rewardDest = nodePtr->GetRewardAddressDestination();
                 }
             }
 

@@ -422,31 +422,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
         }
     }
 
-    // ICXCreateOrder      = '1',
-    // ICXMakeOffer        = '2',
-    // ICXSubmitDFCHTLC    = '3',
-    // ICXSubmitEXTHTLC    = '4',
-    // ICXClaimDFCHTLC     = '5',
-    // ICXCloseOrder       = '6',
-    // ICXCloseOffer       = '7',
-
-    // disable ICX orders for all networks other than testnet
-    if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
-        return false;
-    }
-
-    // Leaving close orders, as withdrawal of existing should be ok
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
-            return false;
-    }
+    return false;
 }
 
 bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Params &consensus) {
@@ -813,7 +789,7 @@ bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
     return false;
 }
 
-std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, bool testOnly) {
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly) {
     std::vector<std::vector<DCT_ID> > poolPaths = CalculatePoolPaths(view);
 
     // Record best pair
@@ -825,7 +801,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, bool testOnly
         CCustomCSView dummy(view);
 
         // Execute pool path
-        auto res = ExecuteSwap(dummy, path, testOnly);
+        auto res = ExecuteSwap(dummy, path, consensus, testOnly);
 
         // Add error for RPC user feedback
         if (!res) {
@@ -927,16 +903,16 @@ std::vector<std::vector<DCT_ID> > CPoolSwap::CalculatePoolPaths(CCustomCSView &v
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
 // testOnly is only meant for one-off tests per well defined view.
-Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, bool testOnly) {
+Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly) {
     Res poolResult = Res::Ok();
     // No composite swap allowed before Fort Canning
-    if (height < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && !poolIDs.empty()) {
+    if (height < static_cast<uint32_t>(consensus.FortCanningHeight) && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
     Require(obj.amountFrom > 0, "Input amount should be positive");
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) &&
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) &&
         poolIDs.size() > MAX_POOL_SWAPS) {
         return Res::Err(
             strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
@@ -991,7 +967,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
         const auto swapAmount = swapAmountResult;
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
+        if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) && lastSwap) {
             Require(obj.idTokenTo != swapAmount.nTokenId,
                     "Final swap should have idTokenTo as destination, not source");
 
@@ -1062,7 +1038,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
                 intermediateView.Flush();
 
                 auto &addView = lastSwap ? view : intermediateView;
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
                     res = addView.AddBalance(lastSwap ? (obj.to.empty() ? obj.from : obj.to) : obj.from,
                                              swapAmountResult);
                 } else {
@@ -1077,7 +1053,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
                 // burn the dex in amount
                 if (dexfeeInAmount.nValue > 0) {
-                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                    res = view.AddBalance(consensus.burnAddress, dexfeeInAmount);
                     if (!res) {
                         return res;
                     }
@@ -1086,7 +1062,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
                 // burn the dex out amount
                 if (dexfeeOutAmount.nValue > 0) {
-                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                    res = view.AddBalance(consensus.burnAddress, dexfeeOutAmount);
                     if (!res) {
                         return res;
                     }
@@ -1096,7 +1072,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
                 totalTokenA.swaps += (reserveAmount - initReserveAmount);
                 totalTokenA.commissions += (blockCommission - initBlockCommission);
 
-                if (lastSwap && obj.to == Params().GetConsensus().burnAddress) {
+                if (lastSwap && obj.to == consensus.burnAddress) {
                     totalTokenB.feeburn += swapAmountResult.nValue;
                 }
 
@@ -1109,14 +1085,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
         if (swapAmountResult.nTokenId != obj.idTokenTo) {
             return Res::Err("Final swap output is not same as idTokenTo");
         }
     }
 
     // Reject if price paid post-swap above max price provided
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
         if (swapAmountResult.nValue != 0) {
             const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
             if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
@@ -1141,6 +1117,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     const CScript &from,
                     const CScript &to,
                     uint32_t height,
+                    const Consensus::Params &consensus,
                     bool forceLoanSwap) {
     CPoolSwapMessage obj;
 
@@ -1165,7 +1142,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {
-        if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+        if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
             // direct burn dUSD
             CTokenAmount dUSD{dUsdToken->first, amount};
 
@@ -1174,7 +1151,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
             return mnview.AddBalance(to, dUSD);
         } else
             // swap dUSD -> DFI and burn DFI
-            return poolSwap.ExecuteSwap(mnview, {});
+            return poolSwap.ExecuteSwap(mnview, {}, consensus);
     }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
@@ -1183,14 +1160,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     auto poolTokendUSD = mnview.GetPoolPair(tokenId, dUsdToken->first);
     Require(poolTokendUSD, "Cannot find pool pair %s-DUSD!", token->symbol);
 
-    if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+    if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
         obj.idTokenTo = dUsdToken->first;
 
         // swap tokenID -> dUSD and burn dUSD
-        return poolSwap.ExecuteSwap(mnview, {});
+        return poolSwap.ExecuteSwap(mnview, {}, consensus);
     } else
         // swap tokenID -> dUSD -> DFI and burn DFI
-        return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
+        return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first}, consensus);
 }
 
 bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t height) {

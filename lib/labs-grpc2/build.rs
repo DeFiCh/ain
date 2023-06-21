@@ -2,8 +2,9 @@ use anyhow::{format_err, Result};
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
-    std::env::set_var("PROTOC", protobuf_src::protoc());
-    let proto_include = protobuf_src::include();
+    let proto_include = std::env::var("PROTOC_INCLUDE_DIR")
+        .map(PathBuf::from)
+        .map(|f| String::from(f.to_str().unwrap()));
 
     // let manifest_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     // let gen_path = manifest_path.join("gen");
@@ -27,12 +28,7 @@ fn main() -> Result<()> {
         .type_attribute(".", default_attrs)
         .compile(
             &["proto/services.proto"],
-            &[
-                "proto",
-                proto_include
-                    .to_str()
-                    .ok_or(format_err!("proto include path err"))?,
-            ],
+            &["proto", proto_include.unwrap_or(".".to_string()).as_str()],
         )?;
     Ok(())
 }
