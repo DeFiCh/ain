@@ -22,8 +22,8 @@ setup_vars() {
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
-    TARGET=${TARGET:-"$(_get_default_target)"}
-    DOCKERFILE=${DOCKERFILE:-"$(_get_default_docker_file)"}
+    TARGET=${TARGET:-"$(get_default_target)"}
+    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -45,9 +45,9 @@ setup_vars() {
         default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
 
-    MAKE_JOBS=${MAKE_JOBS:-"$(_get_default_jobs)"}
+    MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
 
-    MAKE_CONF_ARGS="$(_get_default_conf_args) ${MAKE_CONF_ARGS:-}"
+    MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
@@ -63,7 +63,7 @@ setup_vars() {
 }
 
 main() {
-    _ensure_script_dir
+    _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
     _platform_init
@@ -91,7 +91,7 @@ main() {
     return 1
 }
 
-_ensure_script_dir() {
+_setup_dir_env() {
     _WORKING_DIR="$(pwd)"
     local dir
     dir="$(dirname "${BASH_SOURCE[0]}")"
@@ -660,7 +660,7 @@ clean() {
 # Defaults
 # ---
 
-_get_default_target() {
+get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
         local macos_arch=""
@@ -694,7 +694,7 @@ _get_default_target() {
     echo "$default_target"
 }
 
-_get_default_docker_file() {
+get_default_docker_file() {
     local target="${TARGET}"
     local dockerfiles_dir="${DOCKERFILES_DIR}"
 
@@ -715,7 +715,7 @@ _get_default_docker_file() {
     # non docker cmds
 }
 
-_get_default_conf_args() {
+get_default_conf_args() {
     local conf_args=""
     if [[ "$TARGET" =~ .*linux.* ]]; then
         conf_args="${conf_args} --enable-glibc-back-compat";
@@ -729,7 +729,7 @@ _get_default_conf_args() {
     echo "$conf_args"
 }
 
-_get_default_jobs() {
+get_default_jobs() {
     local total
     total=$(_nproc)
     # Use a num closer to 80% of the cores by default
