@@ -7,7 +7,10 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error
+)
 
 from decimal import Decimal
 
@@ -17,11 +20,9 @@ class ICXOrderbookTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50',
-             '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50',
-             '-txindex=1']]
-
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=3505', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-eunospayaheight=50', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=3505', '-txindex=1']
+        ]
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
 
@@ -1207,6 +1208,160 @@ class ICXOrderbookTest(DefiTestFramework):
             "0.01125"))  # 0.045 lock refund + 0.25 * 0.045 taker fee refund
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1)  # no refunds for taker
 
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        assert_raises_rpc_error(-32600, "Cannot create tx, ICX is not enabled", self.nodes[0].icx_createorder, {
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})
+
+        assert_raises_rpc_error(-32600, "Cannot create tx, ICX is not enabled", self.nodes[1].icx_makeoffer, {
+            'orderTx': orderTx,
+            'amount': 0.10,
+            'ownerAddress': accountBTC})
+
+        # Activate ICX
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/icx': 'true'}})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # DFI/BTC
+        orderTx = self.nodes[0].icx_createorder({
+            'tokenFrom': idDFI,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 15,
+            'orderPrice': 0.01})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        beforeFee = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        beforeFee1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+
+        offerTx = self.nodes[1].icx_makeoffer({
+            'orderTx': orderTx,
+            'amount': 0.10,
+            'ownerAddress': accountBTC})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # Check fee burn
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeFee1 - Decimal('0.01'))
+
+        dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
+            'offerTx': offerTx,
+            'amount': 10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Check fee burn
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeFee - Decimal('0.01'))
+
+        exthtlcTx = self.nodes[1].icx_submitexthtlc({
+            'offerTx': offerTx,
+            'amount': 0.10,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        beforeClaim0DFI = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        beforeClaim0BTC = self.nodes[0].getaccount(accountDFI, {}, True)[idBTC]
+        beforeClaim1DFI = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+        beforeClaim1BTC = self.nodes[1].getaccount(accountBTC, {}, True)[idBTC]
+
+        claimTx = self.nodes[1].icx_claimdfchtlc({
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # makerIncentive + makerDeposit
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0DFI + Decimal('0.0125'))
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idBTC], beforeClaim0BTC)
+        # claimed DFI on taker address
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1DFI + Decimal('10.00000000'))
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idBTC], beforeClaim1BTC)
+
+        # dBTC/BTC
+        orderTx = self.nodes[0].icx_createorder({
+            'tokenFrom': idBTC,
+            'chainTo': "BTC",
+            'ownerAddress': accountDFI,
+            'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+            'amountFrom': 1,
+            'orderPrice': 1})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        beforeFee = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        beforeFee1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+
+        offerTx = self.nodes[1].icx_makeoffer({
+            'orderTx': orderTx,
+            'amount': 1,
+            'ownerAddress': accountBTC})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+
+        dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
+            'offerTx': offerTx,
+            'amount': 1,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        exthtlcTx = self.nodes[1].icx_submitexthtlc({
+            'offerTx': offerTx,
+            'amount': 1,
+            'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+            'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+            'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+            'timeout': 24})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # Check fee burn
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeFee1 - Decimal('0.1'))
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeFee - Decimal('0.1'))
+
+        beforeClaim0DFI = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        self.nodes[0].getaccount(accountDFI, {}, True)[idDFIBTC]
+        assert_equal(len(self.nodes[0].getaccount(accountDFI, {}, True)), 2)
+        beforeClaim1DFI = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+        beforeClaim1BTC = self.nodes[1].getaccount(accountBTC, {}, True)[idBTC]
+
+        claimTx = self.nodes[1].icx_claimdfchtlc({
+            'dfchtlcTx': dfchtlcTx,
+            'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # makerIncentive + makerBonus + makerDeposit
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim0DFI + Decimal('0.175'))
+        assert_equal(len(self.nodes[0].getaccount(accountDFI, {}, True)), 2)
+        # claimed DFI on taker address
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim1DFI)
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idBTC], beforeClaim1BTC + Decimal('1.00000000'))
 
 if __name__ == '__main__':
     ICXOrderbookTest().main()

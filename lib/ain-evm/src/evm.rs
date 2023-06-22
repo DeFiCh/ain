@@ -1,4 +1,5 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
+use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
@@ -64,7 +65,7 @@ impl EVMHandler {
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
         };
-        let state_root =
+        let (state_root, genesis) =
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
                 .expect("Error getting genesis state root from json");
 
@@ -72,23 +73,26 @@ impl EVMHandler {
             PartialHeader {
                 state_root,
                 number: U256::zero(),
-                parent_hash: Default::default(),
                 beneficiary: Default::default(),
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
-                difficulty: Default::default(),
-                gas_limit: Default::default(),
                 gas_used: Default::default(),
-                timestamp: Default::default(),
-                extra_data: Default::default(),
-                mix_hash: Default::default(),
-                nonce: Default::default(),
+                gas_limit: genesis.gas_limit.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)),
+                extra_data: genesis.extra_data.unwrap_or_default().into(),
+                parent_hash: genesis.parent_hash.unwrap_or_default(),
+                mix_hash: genesis.mix_hash.unwrap_or_default(),
+                nonce: genesis.nonce.unwrap_or_default(),
+                timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
+                difficulty: genesis.difficulty.unwrap_or_default(),
             },
             Vec::new(),
             Vec::new(),
         );
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
+        // NOTE(canonbrother): set an initial base fee for genesis block
+        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
+        storage.set_base_fee(block.header.hash(), INITIAL_BASE_FEE);
 
         handler
     }
@@ -174,6 +178,7 @@ impl EVMHandler {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
+
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -191,9 +196,11 @@ impl EVMHandler {
         debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
 
         let prepay_gas = calculate_prepay_gas(&signed_tx);
+        debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
+
         if balance < MIN_GAS_PER_TX || balance < prepay_gas {
-            debug!("[validate_raw_tx] Insufficiant balance to pay fees");
-            return Err(anyhow!("Insufficiant balance to pay fees").into());
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(anyhow!("insufficient balance to pay fees").into());
         }
 
         let gas_limit = signed_tx.gas_limit();

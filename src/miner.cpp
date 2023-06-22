@@ -272,7 +272,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     XVM xvm{};
-    if (IsEVMEnabled(nHeight, mnview)) {
+    if (IsEVMEnabled(nHeight, mnview, consensus)) {
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
@@ -364,7 +364,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !xvm.evm.blockHash.IsNull()) {
+        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
@@ -800,7 +800,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
-                    RustRes result;
+                    CrossBoundaryResult result;
                     const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
                     if (!result.ok) {
                         customTxPassed = false;
@@ -943,12 +943,9 @@ namespace pos {
             }
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
-                // this is safe cause MN was found
+                // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
                 }
                 else {
                     scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
