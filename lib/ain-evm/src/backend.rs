@@ -90,6 +90,7 @@ impl EVMBackend {
         };
 
         storage.into_iter().for_each(|(k, v)| {
+            debug!("Apply::Modify storage, key: {:x} value: {:x}", k, v);
             let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
         });
 
@@ -291,7 +292,11 @@ impl ApplyBackend for EVMBackend {
                     storage,
                     reset_storage,
                 } => {
-                    debug!("Apply::Modify, address {:#x}, basic {:#?}", address, basic);
+                    debug!(
+                        "Apply::Modify address {:x}, basic {:?}, code {:?}",
+                        address, basic, code,
+                    );
+
                     let new_account = self
                         .apply(address, basic, code, storage, reset_storage)
                         .expect("Error applying state");

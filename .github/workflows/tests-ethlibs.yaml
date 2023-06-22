@@ -13,8 +13,9 @@ env:
   NODE_URL: "http://127.0.0.1:19551/"
 
 jobs:
-  build-binaries:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
@@ -22,7 +23,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
@@ -49,7 +50,7 @@ jobs:
 
   node-rpc-tests:
     runs-on: ubuntu-latest
-    needs: build-binaries
+    needs: build
 
     steps:
     - name: Download binaries
