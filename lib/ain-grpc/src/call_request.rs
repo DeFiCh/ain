@@ -2,7 +2,7 @@ use ethereum::AccessListItem;
 use primitive_types::{H160, U256};
 use serde::Deserialize;
 
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 
 /// Call request
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]

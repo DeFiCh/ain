@@ -13,8 +13,9 @@ env:
   NODE_URL: "http://127.0.0.1:19551/"
 
 jobs:
-  build-binaries:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
@@ -22,14 +23,17 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
+    - name: Install dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
     - name: Build binaries
       run: ./make.sh build
-      
+
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
@@ -37,36 +41,40 @@ jobs:
         path: |
           build/src/defid
           build/src/defi-cli
-          ci/test/ethlibs-fixtures.sh
+
+    - name: Upload shell commands
+      uses: actions/upload-artifact@v3
+      with:
+        name: sync
+        path: ci/ethlibs_test/main.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
-    needs: build-binaries
+    needs: build
+
     steps:
     - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defibins
-        
-    - name: Chores
-      run: |
-        chmod uog+x build/src/defid build/src/defi-cli ci/test/ethlibs-fixtures.sh
 
-    - name: Run defid node
-      run: |
-        ./build/src/defid -regtest -daemon -debug=rpc -printtoconsole -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -masternode_operator=mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy -masternode_owner=mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU -dummypos=0 -subsidytest=1 -txnotokens=0 -txindex=1 -amkheight=0 -bayfrontheight=1 -clarkequayheight=3 -dakotaheight=4 -dakotacrescentheight=5 -eunosheight=6 -eunospayaheight=7 -fortcanningheight=8 -fortcanningmuseumheight=9 -fortcanninghillheight=10 -fortcanningroadheight=11 -fortcanningcrunchheight=12 -fortcanningspringheight=13 -fortcanninggreatworldheight=14 -fortcanningepilogueheight=15 -grandcentralheight=16 -nextnetworkupgradeheight=17
+    - name: Download shell commands
+      uses: actions/download-artifact@v3
+      with:
+        name: sync
 
-    - name: Push fixtures
-      run: |
-        sleep 5
-        ./ci/test/ethlibs-fixtures.sh
-      
-    - name: Set up Go
+    - name: Setup permissions
+      run: chmod uog+x ./defid ./defi-cli  ./main.sh
+
+    - name: Setup test fixtures
+      run: ./main.sh
+
+    - name: Setup Go
       uses: actions/setup-go@v3
       with:
         go-version: '^1.17.0'
 
-    - name: Set up go eth test suites library
+    - name: Setup go-ethlibs test suites
       uses: actions/checkout@v3
       with:
         repository: 'DeFiCh/go-ethlibs'

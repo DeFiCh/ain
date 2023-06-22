@@ -1,0 +1,71 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "!v*"
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
+    env:
+      GITHUB_PULL_REQUEST: ${{ github.event.number }}
+    steps:
+    - name: Checkout base branch and/or merge
+      if: github.event_name != 'pull_request'
+      uses: actions/checkout@v2
+
+    - name: Checkout pull request head commit
+      if: github.event_name == 'pull_request'
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Install dependencies
+      run: ./make.sh ci-setup-deps
+    
+    - name: Install dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
+    - name: Build deps and configure
+      run: ./make.sh build
+      
+    - name: E2E tests
+      run: ./make.sh test
+
+  rust-tests:
+    runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Install dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
+    - name: Build deps and configure
+      run: ./make.sh build-deps && ./make.sh build-conf
+      
+    - name: Rust tests
+      run: ./make.sh lib test

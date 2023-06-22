@@ -56,7 +56,7 @@ impl TrieDBStore {
         trie_store: &Arc<TrieDBStore>,
         storage: &Arc<Storage>,
         json_file: PathBuf,
-    ) -> Result<H256, std::io::Error> {
+    ) -> Result<(H256, GenesisData), std::io::Error> {
         let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
 
         let mut backend = EVMBackend::from_root(
@@ -71,29 +71,31 @@ impl TrieDBStore {
         let reader = BufReader::new(file);
         let genesis: GenesisData = serde_json::from_reader(reader)?;
 
-        for (address, data) in genesis.alloc {
-            debug!("Setting data {:#?} for address {:x?}", data, address);
-            let basic = backend.basic(address);
+        if let Some(alloc) = genesis.clone().alloc {
+            for (address, data) in alloc {
+                debug!("Setting data {:#?} for address {:x?}", data, address);
+                let basic = backend.basic(address);
 
-            let new_basic = Basic {
-                balance: data.balance,
-                ..basic
-            };
-            backend
-                .apply(
-                    address,
-                    new_basic,
-                    data.code,
-                    data.storage.unwrap_or_default(),
-                    false,
-                )
-                .expect("Could not set account data");
-            backend.commit();
+                let new_basic = Basic {
+                    balance: data.balance,
+                    ..basic
+                };
+                backend
+                    .apply(
+                        address,
+                        new_basic,
+                        data.code,
+                        data.storage.unwrap_or_default(),
+                        false,
+                    )
+                    .expect("Could not set account data");
+                backend.commit();
+            }
         }
 
         let state_root = backend.commit();
         debug!("Loaded genesis state_root : {:#x}", state_root);
-        Ok(state_root)
+        Ok((state_root, genesis))
     }
 
     pub fn flush(&self) -> Result<(), PersistentStateError> {

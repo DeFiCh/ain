@@ -25,7 +25,6 @@ ethereum-types = "0.14.1"
 hex = "0.4.3"
 async-trait = "0.1.68"
 rlp = "0.5.2"
-rustc-hex = "2.1.0"
 sha3 = "0.10.6"
 digest = { version = "0.10.3", default-features = false }
 
