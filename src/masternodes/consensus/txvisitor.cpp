@@ -205,6 +205,10 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
     CAmount factorDUSD           = 0;
     CAmount factorDFI            = 0;
 
+
+    auto hasDUSDColl = false;
+    auto hasOtherColl = false;
+
     for (auto &col : vaultAssets.collaterals) {
         auto token = mnview.GetCollateralTokenFromAttributes(col.nTokenId);
 
@@ -216,6 +220,9 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
         if (tokenDUSD && col.nTokenId == tokenDUSD->first) {
             totalCollateralsDUSD += col.nValue;
             factorDUSD = token->factor;
+            hasDUSDColl= true;
+        } else {
+            hasOtherColl = true;
         }
     }
 
@@ -225,6 +232,18 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
     auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
     auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
     auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
+    auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
+
+    if(isPostNext) {
+        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AllowDUSDLoops};
+        auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        auto DUSDLoopsAllowed= attributes->GetValue(enabledKey, false);
+        if(DUSDLoopsAllowed && hasDUSDColl && !hasOtherColl) {
+            return Res::Ok(); //every loan ok when DUSD loops allowed and 100% DUSD collateral
+        }
+    }
+
 
     if (isPostGC) {
         totalCollateralsDUSD = MultiplyAmounts(totalCollateralsDUSD, factorDUSD);
