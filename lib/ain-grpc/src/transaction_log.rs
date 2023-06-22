@@ -40,5 +40,5 @@ pub struct GetLogsRequest {
     pub block_hash: Option<H256>,
     pub from_block: Option<BlockNumber>,
     pub to_block: Option<BlockNumber>,
-    pub topics: Option<Vec<H256>>,
+    pub topics: Option<Vec<Option<H256>>>,
 }
