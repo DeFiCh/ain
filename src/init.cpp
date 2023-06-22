@@ -399,9 +399,7 @@ void SetupServerArgs()
         "-dbcrashratio", "-forcecompactdb",
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
         "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
-        "-checkpoints-file",
-        // GUI args. These will be overwritten by SetupUIArgs for the GUI
-        "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
+        "-checkpoints-file", "-regtestmocknet", "-all-forks"};
 
     gArgs.AddArg("-version", "Print version and exit", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #if HAVE_SYSTEM
@@ -2263,29 +2261,54 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Owner/Operator Address: df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc
     // Owner/Operator Privkey: L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6
 
-    if (fMockNetwork && HasWallets()) {
+    if (HasWallets()) {
+        if (fMockNetwork) {
 
-        // Import privkey
-        const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
-        const auto keyID = key.GetPubKey().GetID();
-        const auto dest = WitnessV0KeyHash(PKHash{keyID});
-        const auto time{std::time(nullptr)};
+            // Import privkey
+            const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
+            const auto keyID = key.GetPubKey().GetID();
+            const auto dest = WitnessV0KeyHash(PKHash{keyID});
+            const auto time{std::time(nullptr)};
 
-        auto pwallet = GetWallets()[0];
-        pwallet->SetAddressBook(dest, "", "receive");
-        pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
+            auto pwallet = GetWallets()[0];
+            pwallet->SetAddressBook(dest, "", "receive");
+            pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
 
-        // Create masternode
-        CMasternode node;
-        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
-        node.ownerType = WitV0KeyHashType;
-        node.ownerAuthAddress = keyID;
-        node.operatorType = WitV0KeyHashType;
-        node.operatorAuthAddress = keyID;
-        node.version = CMasternode::VERSION0;
-        pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
-        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
-            pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+            // Create masternode
+            CMasternode node;
+            node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+            node.ownerType = WitV0KeyHashType;
+            node.ownerAuthAddress = keyID;
+            node.operatorType = WitV0KeyHashType;
+            node.operatorAuthAddress = keyID;
+            node.version = CMasternode::VERSION0;
+            pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
+            for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+                pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+            }
+        } else if (fRegtestMockNetwork) {
+            // Import privkey
+            const auto key = DecodeSecret("cNMXrTjbf8uqS8uoc8JKY4kWDunhhNrjaRoL9v7MFn59Ga5fYjKS");
+            const auto keyID = key.GetPubKey().GetID();
+            const auto dest = WitnessV0KeyHash(PKHash{keyID});
+            const auto time{std::time(nullptr)};
+
+            auto pwallet = GetWallets()[0];
+            pwallet->SetAddressBook(dest, "", "receive");
+            pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
+
+            // Create masternode
+            CMasternode node;
+            node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay; // Negative creation height from genesis!
+            node.ownerType = WitV0KeyHashType;
+            node.ownerAuthAddress = keyID;
+            node.operatorType = WitV0KeyHashType;
+            node.operatorAuthAddress = keyID;
+            node.version = CMasternode::VERSION0;
+            pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
+            for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+                pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+            }
         }
     }
 
@@ -2312,6 +2335,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         if (fMockNetwork) {
             auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
             operators.push_back(mocknet_operator);
+        } else if (fRegtestMockNetwork) {
+            const auto mocknet_operator = "bcrt1qf7euayrhj902lekgxc4yx79k50xd5wnjvn92wc";
+            gArgs.ForceSetArg("-masternode_operator", mocknet_operator);
+            operators.emplace_back(mocknet_operator);
         }
 
         std::vector<pos::ThreadStaker::Args> stakersParams;

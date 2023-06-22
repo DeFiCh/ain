@@ -18,6 +18,7 @@
 
 /** Used for mocking network with low difficulty for testing */
 extern bool fMockNetwork;
+extern bool fRegtestMockNetwork;
 
 struct SeedSpec6 {
     uint8_t addr[16];
