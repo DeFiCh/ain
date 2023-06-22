@@ -1,3 +1,4 @@
+use rustc_hex::{FromHex, ToHex};
 use serde::{
     de::{Error, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,

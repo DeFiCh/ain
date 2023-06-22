@@ -1,5 +1,4 @@
-use crate::bytes::Bytes;
-
+use ain_evm::bytes::Bytes;
 use digest::Digest;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
