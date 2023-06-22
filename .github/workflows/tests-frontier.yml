@@ -1,4 +1,4 @@
-name: Tests - Frontier Suite
+name: Tests - DeFiCh/metachain-ts-suite
 
 on:
   workflow_dispatch:
