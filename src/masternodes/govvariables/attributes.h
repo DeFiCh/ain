@@ -92,6 +92,7 @@ enum DFIPKeys : uint8_t {
     MintTokens           = 't',
     EVMEnabled           = 'u',
     ICXEnabled           = 'v',
+    AllowDUSDLoops       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
