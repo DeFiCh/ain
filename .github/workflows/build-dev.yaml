@@ -21,10 +21,14 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  linux-x64:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
-      TARGET: x86_64-pc-linux-gnu
+      TARGET: ${{matrix.target}}
 
     steps:
     - uses: actions/checkout@v3
@@ -32,14 +36,72 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Build and package
-      run: ./make.sh docker-release
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
 
-    - name: Publish artifact - x86_64-pc-linux-gnu
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Setup dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
+    - name: Restore cached depends build
+      id: cache-build-deps-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-depends
+
+    - name: Build depends
+      run: ./make.sh build-deps && ./make.sh build-conf
+
+    - name: Cache depends build
+      id: cache-build-deps-save
+      uses: actions/cache/save@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-depends
+
+    - name: Restore cached rust build
+      id: cache-build-rust-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/lib
+        key: ${{ env.TARGET }}-rust
+
+    - name: Restore cached cpp build
+      id: cache-build-cpp-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-cpp
+
+    - name: Build
+      run: ./make.sh build-make
+
+    - name: Cache rust build
+      id: cache-build-rust-save
+      uses: actions/cache/save@v3
+      with:
+        path: ./build/lib
+        key: ${{ env.TARGET }}-rust
+
+    - name: Cache cpp build
+      id: cache-build-cpp-save
+      uses: actions/cache/save@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-cpp
+
+    - name: Publish artifact - ${{ env.TARGET }}
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+
+    - name: Docker build and package
+      if: env.TARGET == "x86_64-pc-linux-gnu"
+      run: rm .dockerignore && ./make.sh docker-release
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -52,43 +114,3 @@ jobs:
         set -e; ver=${{ env.BUILD_VERSION }}
         docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
         docker push defi/defichain:${ver}
-
-  win-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-w64-mingw32
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-w64-mingw32
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-
-  osx-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-apple-darwin
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-apple-darwin
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
