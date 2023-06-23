@@ -421,6 +421,8 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
+    RejectEthAddress(GetScriptForDestination(dest));
+
     // Amount
     CTokenAmount const tokenAmount = DecodeAmount(pwallet->chain(), request.params[1], request.params[0].get_str()); // don't support multiple tokens due to "SendMoney()" compatibility
 
@@ -921,6 +923,8 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::vector<CRecipient> vecSend;
 
     for (auto const & scriptBalances : recip) {
+
+        RejectEthAddress(scriptBalances.first);
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {

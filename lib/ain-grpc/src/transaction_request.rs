@@ -1,4 +1,4 @@
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 use ethereum::{
     AccessListItem, EIP1559TransactionMessage, EIP2930TransactionMessage, LegacyTransactionMessage,
 };
@@ -58,7 +58,7 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 value: req.value.unwrap_or_default(),
                 input: req
                     .input
-                    .or_else(|| req.data)
+                    .or(req.data)
                     .map(Bytes::into_vec)
                     .unwrap_or_default(),
                 action: match req.to {
@@ -75,7 +75,7 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 value: req.value.unwrap_or_default(),
                 input: req
                     .input
-                    .or_else(|| req.data)
+                    .or(req.data)
                     .map(Bytes::into_vec)
                     .unwrap_or_default(),
                 action: match req.to {
@@ -96,7 +96,7 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                     value: req.value.unwrap_or_default(),
                     input: req
                         .input
-                        .or_else(|| req.data)
+                        .or(req.data)
                         .map(Bytes::into_vec)
                         .unwrap_or_default(),
                     action: match req.to {

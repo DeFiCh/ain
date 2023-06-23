@@ -1,7 +1,7 @@
 use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
-use crate::bytes::Bytes;
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
+use ain_evm::bytes::Bytes;
 
 use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
@@ -297,7 +297,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 &input
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
-                gas.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)).as_u64(),
+                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
                 vec![],
                 self.block_number_to_u256(block_number),
             )
@@ -687,7 +687,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value.unwrap_or_default(),
                 &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)).as_u64(),
+                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
                 vec![],
                 block_number,
             )

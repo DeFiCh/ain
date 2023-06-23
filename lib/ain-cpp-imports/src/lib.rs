@@ -1,12 +1,12 @@
 use std::error::Error;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 mod bridge;
 
-#[cfg(not(any(test, bench, example, doc)))]
+#[cfg(not(test))]
 use bridge::ffi;
 
-#[cfg(any(test, bench, example, doc))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -47,6 +47,9 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getStateInputJSON() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn pastChangiIntermediateHeight2() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -117,6 +120,11 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
+}
+
+pub fn past_changi_intermediate_height_2_height() -> Result<bool, Box<dyn Error>> {
+    let height = ffi::pastChangiIntermediateHeight2();
+    Ok(height)
 }
 
 #[cfg(test)]

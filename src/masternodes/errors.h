@@ -11,16 +11,20 @@
 
 class DeFiErrors {
 public:
-    static Res MNInvalid(const std::string &nodeRefString) { 
+    static Res MNInvalid(const std::string &nodeRefString) {
         return Res::Err("node %s does not exists", nodeRefString);
     }
 
-    static Res MNInvalidAltMsg(const std::string &nodeRefString) { 
+    static Res MNInvalidAltMsg(const std::string &nodeRefString) {
         return Res::Err("masternode %s does not exist", nodeRefString);
     }
 
-    static Res MNStateNotEnabled(const std::string &nodeRefString) { 
+    static Res MNStateNotEnabled(const std::string &nodeRefString) {
         return Res::Err("Masternode %s is not in 'ENABLED' state", nodeRefString);
+    }
+
+    static Res ICXDisabled() {
+        return Res::Err("Cannot create tx, ICX is not enabled");
     }
 
     static Res ICXBTCBelowMinSwap(const CAmount amount, const CAmount minSwap) {
@@ -178,8 +182,8 @@ public:
         return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
     }
 
-    static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) { 
-        return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price)); 
+    static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) {
+        return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price));
     }
 
     static Res GovVarVerifyInt() {
@@ -396,6 +400,10 @@ public:
 
     static Res TransferDomainNotEnoughBalance(const std::string address) {
         return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", address);
+    }
+
+    static Res TransferDomainInvalidDataSize(const uint32_t max_data) {
+        return Res::Err("Excess data set, maximum allow is %d", max_data);
     }
 
     static Res InvalidAuth() {

@@ -1,5 +1,5 @@
 use crate::block::BlockNumber;
-use crate::bytes::Bytes;
+use ain_evm::bytes::Bytes;
 use ain_evm::log::LogIndex;
 use primitive_types::{H160, H256, U256};
 
@@ -40,5 +40,5 @@ pub struct GetLogsRequest {
     pub block_hash: Option<H256>,
     pub from_block: Option<BlockNumber>,
     pub to_block: Option<BlockNumber>,
-    pub topics: Option<Vec<H256>>,
+    pub topics: Option<Vec<Option<H256>>>,
 }
