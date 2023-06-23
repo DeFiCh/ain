@@ -1,5 +1,5 @@
 use ain_evm::bytes::Bytes;
-use digest::Digest;
+use sha3::Digest;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use primitive_types::H256;

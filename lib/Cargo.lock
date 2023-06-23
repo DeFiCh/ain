@@ -120,7 +120,6 @@ dependencies = [
  "async-trait",
  "cxx",
  "cxx-gen",
- "digest 0.10.6",
  "env_logger",
  "ethereum",
  "ethereum-types",
