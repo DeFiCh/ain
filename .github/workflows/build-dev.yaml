@@ -77,7 +77,7 @@ jobs:
         key: ${{ env.TARGET }}-cpp
 
     - name: Build
-      run: ./make.sh build-make
+      run: ./make.sh release
 
     - name: Cache rust build
       id: cache-build-rust-save
@@ -93,13 +93,14 @@ jobs:
         path: ./build/src
         key: ${{ env.TARGET }}-cpp
 
-    - name: Publish artifact - ${{ env.TARGET }}
+    - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
 
     - name: Docker build and package
+      if: ${{ env.TARGET }} == "x86_64-pc-linux-gnu"
       run: rm .dockerignore && ./make.sh docker-release
 
     - name: Login to Docker Hub
