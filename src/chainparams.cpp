@@ -23,6 +23,7 @@
 
 bool fMockNetwork = false;
 bool fRegtestMockNetwork = false;
+std::string regtestMocknetOperator = "bcrt1qf7euayrhj902lekgxc4yx79k50xd5wnjvn92wc";
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {

@@ -2336,9 +2336,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
             operators.push_back(mocknet_operator);
         } else if (fRegtestMockNetwork) {
-            const auto mocknet_operator = "bcrt1qf7euayrhj902lekgxc4yx79k50xd5wnjvn92wc";
-            gArgs.ForceSetArg("-masternode_operator", mocknet_operator);
-            operators.emplace_back(mocknet_operator);
+            operators.emplace_back(regtestMocknetOperator);
         }
 
         std::vector<pos::ThreadStaker::Args> stakersParams;
