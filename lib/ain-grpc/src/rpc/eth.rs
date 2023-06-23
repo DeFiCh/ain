@@ -167,18 +167,27 @@ pub trait MetachainRPC {
     ) -> RpcResult<U256>;
 
     // ----------------------------------------
-    // Send
+    // Sign
     // ----------------------------------------
 
-    /// Sends a signed transaction.
-    /// Returns the transaction hash as a hexadecimal string.
-    #[method(name = "sendRawTransaction")]
-    fn send_raw_transaction(&self, tx: &str) -> RpcResult<String>;
+    /// Signs a transaction.
+    /// Retuns a raw transaction as a hexademical string.
+    #[method(name = "signTransaction")]
+    fn sign_transaction(&self, req: TransactionRequest) -> RpcResult<String>;
+
+    // ----------------------------------------
+    // Send
+    // ----------------------------------------
 
     /// Sends a transaction.
     /// Returns the transaction hash as a hexadecimal string.
     #[method(name = "sendTransaction")]
     fn send_transaction(&self, req: TransactionRequest) -> RpcResult<String>;
+
+    /// Sends a signed transaction.
+    /// Returns the transaction hash as a hexadecimal string.
+    #[method(name = "sendRawTransaction")]
+    fn send_raw_transaction(&self, tx: &str) -> RpcResult<String>;
 
     // ----------------------------------------
     // Gas
@@ -518,8 +527,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
-    fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
-        debug!(target:"rpc","[send_transaction] Sending transaction: {:?}", request);
+    fn sign_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
+        debug!(target:"rpc","[sign_transaction] signing transaction: {:?}", request);
 
         let from = match request.from {
             Some(from) => from,
@@ -594,12 +603,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let transaction = sign(from, message).unwrap();
+        let signed = sign(from, message).unwrap();
 
-        let encoded_bytes = transaction.encode();
-        let encoded_string = hex::encode(encoded_bytes);
-        let encoded = encoded_string.as_str();
-        let hash = self.send_raw_transaction(encoded)?;
+        let encoded = hex::encode(signed.encode());
+
+        Ok(encoded)
+    }
+
+    fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
+        debug!(target:"rpc","[send_transaction] Sending transaction: {:?}", request);
+
+        let signed = self.sign_transaction(request)?;
+
+        let hash = self.send_raw_transaction(signed.as_str())?;
         debug!(target:"rpc","[send_transaction] signed: {:?}", hash);
 
         Ok(hash)
