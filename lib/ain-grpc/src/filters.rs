@@ -2,11 +2,14 @@ use crate::block::BlockNumber;
 use crate::transaction_log::LogResult;
 use primitive_types::{H160, H256};
 use serde::{Serialize, Serializer};
+use serde_with::{serde_as, OneOrMany};
 
+#[serde_as]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct NewFilterRequest {
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub address: Option<Vec<H160>>,
     pub from_block: Option<BlockNumber>,
     pub to_block: Option<BlockNumber>,
