@@ -13,7 +13,6 @@ on:
 
 env:
   BUILD_VERSION: latest # Computed
-  DOCKER_HUB_USER: defi
   # Note: We do not use debug build on CI for dev as well, since debug builds 
   # take 5x the amount of space and run the GitHub CI workers out of space. 
   # make.sh still defaults to debug for local builds
@@ -45,53 +44,53 @@ jobs:
     - name: Setup dependencies for test
       run: ./make.sh ci-setup-deps-test
 
-    - name: Restore cached depends build
-      id: cache-build-deps-restore
-      uses: actions/cache/restore@v3
-      with:
-        path: ./build/depends
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+    # - name: Restore cached depends build
+    #   id: cache-build-deps-restore
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: ./build/depends
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
     - name: Build depends
       run: ./make.sh build-deps && ./make.sh build-conf
 
-    - name: Cache depends build
-      id: cache-build-deps-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/depends
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+    # - name: Cache depends build
+    #   id: cache-build-deps-save
+    #   uses: actions/cache/save@v3
+    #   with:
+    #     path: ./build/depends
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
-    - name: Restore cached rust build
-      id: cache-build-rust-restore
-      uses: actions/cache/restore@v3
-      with:
-        path: ./build/lib
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+    # - name: Restore cached rust build
+    #   id: cache-build-rust-restore
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: ./build/lib
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Restore cached cpp build
-      id: cache-build-cpp-restore
-      uses: actions/cache/restore@v3
-      with:
-        path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+    # - name: Restore cached cpp build
+    #   id: cache-build-cpp-restore
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: ./build/src
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Build
       run: ./make.sh release
 
-    - name: Cache rust build
-      id: cache-build-rust-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/lib
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+    # - name: Cache rust build
+    #   id: cache-build-rust-save
+    #   uses: actions/cache/save@v3
+    #   with:
+    #     path: ./build/lib
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Cache cpp build
-      id: cache-build-cpp-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+    # - name: Cache cpp build
+    #   id: cache-build-cpp-save
+    #   uses: actions/cache/save@v3
+    #   with:
+    #     path: ./build/src
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
@@ -99,20 +98,53 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
 
-    - name: Docker build and package
-      if: ${{ env.TARGET }} == "x86_64-pc-linux-gnu"
-      run: rm .dockerignore && ./make.sh docker-release
+  # Docker-build:
+  #   runs-on: ubuntu-latest
+  #   needs: Build
+  #   env:
+  #     TARGET: x86_64-pc-linux-gnu
+  #     DOCKER_HUB_USER: defi
+  #   steps:
+  #   - uses: actions/checkout@v3
 
-    - name: Login to Docker Hub
-      if: ${{ env.TARGET }} == "x86_64-pc-linux-gnu"
-      uses: docker/login-action@v2
-      with:
-        username: ${{ env.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+  #   - name: Populate environment
+  #     run: ./make.sh ci-export-vars
 
-    - name: Push to Docker Hub
-      if: ${{ env.TARGET }} == "x86_64-pc-linux-gnu"
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
-        docker push defi/defichain:${ver}
+  #   - name: Cache depends build
+  #     id: cache-build-deps
+  #     uses: actions/cache@v3
+  #     with:
+  #       path: ./build/depends
+  #       key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
+  #   - name: Cache rust build
+  #     id: cache-build-rust
+  #     uses: actions/cache@v3
+  #     with:
+  #       path: ./build/lib
+  #       key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+
+  #   - name: Cache cpp build
+  #     id: cache-build-cpp
+  #     uses: actions/cache@v3
+  #     with:
+  #       path: ./build/src
+  #       key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+  #   - name: Build and package
+  #     run: ./make.sh docker-release
+
+  #   - name: Docker build and package
+  #     run: rm .dockerignore && ./make.sh docker-release
+
+  #   - name: Login to Docker Hub
+  #     uses: docker/login-action@v2
+  #     with:
+  #       username: ${{ env.DOCKER_HUB_USER }}
+  #       password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+  #   - name: Push to Docker Hub
+  #     run: |
+  #       set -e; ver=${{ env.BUILD_VERSION }}
+  #       docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+  #       docker push defi/defichain:${ver}
