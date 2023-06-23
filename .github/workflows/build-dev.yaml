@@ -50,7 +50,7 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: ./build/depends
-        key: ${{ env.TARGET }}-depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
     - name: Build depends
       run: ./make.sh build-deps && ./make.sh build-conf
@@ -60,21 +60,21 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: ./build/depends
-        key: ${{ env.TARGET }}-depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
     - name: Restore cached rust build
       id: cache-build-rust-restore
       uses: actions/cache/restore@v3
       with:
         path: ./build/lib
-        key: ${{ env.TARGET }}-rust
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
     - name: Restore cached cpp build
       id: cache-build-cpp-restore
       uses: actions/cache/restore@v3
       with:
         path: ./build/src
-        key: ${{ env.TARGET }}-cpp
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Build
       run: ./make.sh release
@@ -84,14 +84,14 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: ./build/lib
-        key: ${{ env.TARGET }}-rust
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
     - name: Cache cpp build
       id: cache-build-cpp-save
       uses: actions/cache/save@v3
       with:
         path: ./build/src
-        key: ${{ env.TARGET }}-cpp
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
