@@ -140,6 +140,7 @@ dependencies = [
  "rlp",
  "serde",
  "serde_json",
+ "sha3",
  "syn 2.0.15",
  "tokio",
  "tonic",
