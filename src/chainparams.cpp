@@ -1394,9 +1394,13 @@ void CDevNetParams::UpdateActivationParametersFromArgs() {
 
 void CRegTestParams::UpdateActivationParametersFromArgs()
 {
-    SetupCommonArgActivationParams(consensus, gArgs.IsArgSet("-all-forks"));
+    fRegtestMockNetwork = gArgs.IsArgSet("-regtest-dev");
 
-    fRegtestMockNetwork = gArgs.IsArgSet("-regtestmocknet");
+    if (fRegtestMockNetwork) {
+        gArgs.ForceSetArg("-regtest", "1");
+    }
+
+    SetupCommonArgActivationParams(consensus, fRegtestMockNetwork);
 
     if (!gArgs.IsArgSet("-vbparams")) return;
 

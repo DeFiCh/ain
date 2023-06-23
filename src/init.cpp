@@ -399,7 +399,7 @@ void SetupServerArgs()
         "-dbcrashratio", "-forcecompactdb",
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
         "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
-        "-checkpoints-file", "-regtestmocknet", "-all-forks"};
+        "-checkpoints-file", "-regtest-dev"};
 
     gArgs.AddArg("-version", "Print version and exit", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #if HAVE_SYSTEM

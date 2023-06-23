@@ -36,10 +36,9 @@ SET_DOC_OPTIONAL = set([
     '-mocknet',
     '-mocknet-key',
     '-mocknet-blocktime',
-    '-regtestmocknet',
+    '-regtest-dev',
     '-checkpoints-file',
     '-negativeinterest',
-    '-all-forks',
 ])
 
 
