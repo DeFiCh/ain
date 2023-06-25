@@ -89,23 +89,23 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Cache depends build
+    - name: Restore cached depends build
       id: cache-build-deps
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v3
       with:
         path: ./build/depends
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
-    - name: Cache rust build
+    - name: Restore cached rust build
       id: cache-build-rust
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v3
       with:
         path: ./build/lib
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Cache cpp build
+    - name: Restore cached cpp build
       id: cache-build-cpp
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v3
       with:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
