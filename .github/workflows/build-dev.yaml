@@ -44,9 +44,9 @@ jobs:
     - name: Setup dependencies for test
       run: ./make.sh ci-setup-deps-test
 
-    - name: Restore cached depends build
-      id: cache-build-deps-restore
-      uses: actions/cache/restore@v3
+    - name: Cache depends build
+      id: cache-build-deps
+      uses: actions/cache@v3
       with:
         path: ./build/depends
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
@@ -54,43 +54,22 @@ jobs:
     - name: Build depends
       run: ./make.sh build-deps && ./make.sh build-conf
 
-    - name: Cache depends build
-      id: cache-build-deps-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/depends
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
-
-    - name: Restore cached rust build
-      id: cache-build-rust-restore
-      uses: actions/cache/restore@v3
+    - name: Cache rust build
+      id: cache-build-rust
+      uses: actions/cache@v3
       with:
         path: ./build/lib
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Restore cached cpp build
-      id: cache-build-cpp-restore
-      uses: actions/cache/restore@v3
+    - name: Cache cpp build
+      id: cache-build-cpp
+      uses: actions/cache@v3
       with:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Build
       run: ./make.sh release
-
-    - name: Cache rust build
-      id: cache-build-rust-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/lib
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
-
-    - name: Cache cpp build
-      id: cache-build-cpp-save
-      uses: actions/cache/save@v3
-      with:
-        path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
