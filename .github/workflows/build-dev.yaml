@@ -31,6 +31,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - run: git config --system --add safe.directory .
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
