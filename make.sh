@@ -36,13 +36,19 @@ setup_vars() {
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
+
+    . /etc/os-release
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
 
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
-        default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
+        if [[ "${ID}" =~ ^(fedora|arch)$ ]]; then
+          default_compiler_flags="CC=clang CXX=clang++"
+        else
+          default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
+        fi
     fi
 
     MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
