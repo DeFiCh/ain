@@ -145,6 +145,7 @@ public:
         consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -642,6 +643,7 @@ public:
         consensus.NextNetworkUpgradeHeight = 1586750;
         consensus.ChangiIntermediateHeight = 1717800;
         consensus.ChangiIntermediateHeight2 = 1717493;
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -860,6 +862,7 @@ public:
         consensus.NextNetworkUpgradeHeight = 1586750;
         consensus.ChangiIntermediateHeight = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1081,6 +1084,7 @@ public:
         consensus.NextNetworkUpgradeHeight = 10000000;
         consensus.ChangiIntermediateHeight = 10000000;
         consensus.ChangiIntermediateHeight2 = 10000000;
+        consensus.ChangiIntermediateHeight3 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1313,6 +1317,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus, const bool imm
     if (eunosHeight.has_value()){
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
+  
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight, immediateActivation);
     UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight, immediateActivation);
     UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight, immediateActivation);
@@ -1329,6 +1334,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus, const bool imm
     UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight, immediateActivation);
     UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight, immediateActivation);
     UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
