@@ -19,6 +19,7 @@ jobs:
     container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
