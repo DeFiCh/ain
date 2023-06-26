@@ -297,6 +297,15 @@ docker_deploy() {
     fi
 }
 
+docker_release() {
+    local target=${1:-${TARGET}}
+
+    docker_build "$target"
+    docker_deploy "$target"
+    package "$target"
+    _sign "$target"
+}
+
 docker_deploy_build() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
@@ -325,15 +334,6 @@ docker_deploy_build() {
     else
         echo "> failed: please ensure package is built first"
     fi
-}
-
-docker_release() {
-    local target=${1:-${TARGET}}
-
-    docker_build "$target"
-    docker_deploy "$target"
-    package "$target"
-    _sign "$target"
 }
 
 docker_clean_builds() {
@@ -729,9 +729,9 @@ get_default_docker_file() {
     local dockerfiles_dir="${DOCKERFILES_DIR}"
 
     local try_files=(\
+        "${dockerfiles_dir}/noarch.dockerfile" \
         "${dockerfiles_dir}/${target}.dockerfile" \
         "${dockerfiles_dir}/${target}" \
-        "${dockerfiles_dir}/noarch.dockerfile" \
         )
 
     for file in "${try_files[@]}"; do
