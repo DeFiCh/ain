@@ -33,6 +33,7 @@ LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
+RUN mv --from=builder /work/build/ /work/build/
 COPY --from=builder /app/. ./
 
 RUN useradd --create-home defi && \

@@ -259,7 +259,6 @@ release() {
 
 docker_build() {
     local target=${1:-${TARGET}}
-    local package="${PACKAGE}"
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
@@ -273,7 +272,6 @@ docker_build() {
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
-        --build-arg PACKAGE="${package}" \
         -t "${img}" "${docker_context}"
 }
 
@@ -333,7 +331,7 @@ docker_deploy_build() {
     if [[ "$e" == "1" ]]; then
         echo "> deployed into: ${build_dir}"
     else
-        echo "> failed: please ensure package is built first"
+        echo "> failed: please ensure defi is built first"
     fi
 }
 
