@@ -58,6 +58,9 @@ mod ffi {
     pub fn pastChangiIntermediateHeight2() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn pastChangiIntermediateHeight3() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -136,6 +139,11 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
 
 pub fn past_changi_intermediate_height_2_height() -> Result<bool, Box<dyn Error>> {
     let height = ffi::pastChangiIntermediateHeight2();
+    Ok(height)
+}
+
+pub fn past_changi_intermediate_height_3_height() -> Result<bool, Box<dyn Error>> {
+    let height = ffi::pastChangiIntermediateHeight3();
     Ok(height)
 }
 
