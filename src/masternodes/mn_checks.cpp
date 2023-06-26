@@ -4034,12 +4034,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
             if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
                 if (ExtractDestination(src.address, dest)) {
                     if (dest.index() == WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainETHSourceAddress();
+                        return DeFiErrors::TransferDomainDFISourceAddress();
                     }
                 }
             } else {
                 if (!DomainTransferAllowedAddress(src.address, DomainTransferType::DVM)) {
-                    return DeFiErrors::TransferDomainETHSourceAddress();
+                    return DeFiErrors::TransferDomainDFISourceAddress();
                 }
             }
             // Check for authorization on source address
@@ -4051,12 +4051,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
             if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
                 if (ExtractDestination(src.address, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainDFISourceAddress();
+                        return DeFiErrors::TransferDomainETHSourceAddress();
                     }
                 }
             } else {
                 if (!DomainTransferAllowedAddress(src.address, DomainTransferType::EVM)) {
-                    return DeFiErrors::TransferDomainDFISourceAddress();
+                    return DeFiErrors::TransferDomainETHSourceAddress();
                 }
             }
             // Check for authorization on source address
@@ -4073,12 +4073,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
             if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
                 if (ExtractDestination(dst.address, dest)) {
                     if (dest.index() == WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainETHDestinationAddress();
+                        return DeFiErrors::TransferDomainDVMDestinationAddress();
                     }
                 }
             } else {
                 if (!DomainTransferAllowedAddress(dst.address, DomainTransferType::DVM)) {
-                    return DeFiErrors::TransferDomainETHDestinationAddress();
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
             }
         } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
@@ -4086,12 +4086,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
             if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
                 if (ExtractDestination(dst.address, dest)) {
                     if (dest.index() != WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainDVMDestinationAddress();
+                        return DeFiErrors::TransferDomainETHDestinationAddress();
                     }
                 }
             } else {
                 if (!DomainTransferAllowedAddress(dst.address, DomainTransferType::EVM)) {
-                    return DeFiErrors::TransferDomainDVMDestinationAddress();
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             }
         } else
