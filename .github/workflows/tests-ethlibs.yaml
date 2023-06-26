@@ -47,12 +47,12 @@ jobs:
         path: ./build/lib
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Restore cached cpp build
-      id: cache-build-cpp
-      uses: actions/cache/restore@v3
-      with:
-        path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+    # - name: Restore cached cpp build
+    #   id: cache-build-cpp
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: ./build/src
+    #     key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Build binaries
       run: ./make.sh build
