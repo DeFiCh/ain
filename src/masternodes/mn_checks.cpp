@@ -3962,7 +3962,8 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             }
         } else if (strategy == AuthStrategy::EthKeyMatch) {
             std::vector<TBytes> vRet;
-            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
+            txnouttype type = Solver(coin.out.scriptPubKey, vRet);
+            if (type == txnouttype::TX_PUBKEYHASH || type == txnouttype::TX_WITNESS_V0_SCRIPTHASH)
             {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
