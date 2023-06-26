@@ -299,6 +299,14 @@ docker_deploy() {
     fi
 }
 
+docker_package() {
+    local target=${1:-${TARGET}}
+
+    docker_deploy "$target"
+    package "$target"
+    _sign "$target"
+}
+
 docker_release() {
     local target=${1:-${TARGET}}
 

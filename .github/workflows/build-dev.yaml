@@ -23,7 +23,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
     strategy:
       matrix:
         target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
@@ -31,19 +30,9 @@ jobs:
       TARGET: ${{matrix.target}}
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
-
-    - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
-    
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
-
-    - name: Setup dependencies for test
-      run: ./make.sh ci-setup-deps-test
 
     - name: Cache depends build
       id: cache-build-deps
@@ -66,51 +55,25 @@ jobs:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
-    - name: Build and package
-      run: ./make.sh release
+    - name: Build builder
+      run: DOCKER_TARGET_STAGE="builder" ./make.sh docker-build
+
+    - name: Build defi
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      run: |
+        set -e; ver=${{ env.BUILD_VERSION }}
+        docker tag defichain-${{ env.TARGET }}:${ver} defichain-builder-${{ env.TARGET }}:${ver}
+        DOCKER_TARGET_STAGE="defi" ./make.sh docker-build
+        echo "IMAGE_PREFIX=defichain_builder" >> "$GITHUB_ENV"
+
+    - name: Package
+      run: ./make.sh docker-package
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-
-  docker-build:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-pc-linux-gnu
-      DOCKER_TARGET_STAGE: builder
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Cache depends build
-      id: docker-cache-build-deps
-      uses: actions/cache@v3
-      with:
-        path: ./build/depends
-        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
-
-    - name: Cache rust build
-      id: docker-cache-build-rust
-      uses: actions/cache@v3
-      with:
-        path: ./build/lib
-        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
-
-    - name: Cache cpp build
-      id: docker-cache-build-cpp
-      uses: actions/cache@v3
-      with:
-        path: ./build/src
-        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
-
-    - name: Docker build and package
-      run: |
-        mv .dockerignore .dockerignore_tmp
-        ./make.sh docker-release
 
     - name: Save builds
       if: |
@@ -118,18 +81,6 @@ jobs:
         ${{ steps.docker-cache-build-rust.outputs.cache-hit != 'true' }} ||
         ${{ steps.docker-cache-build-cpp.outputs.cache-hit != 'true' }}
       run: ./make.sh docker-deploy-build
-
-    - name: Publish artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-
-    - name: Build defi image
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: |
-        mv .dockerignore_tmp .dockerignore
-        DOCKER_TARGET_STAGE="defi" ./make.sh docker-build
 
     - name: Login to Docker Hub
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
