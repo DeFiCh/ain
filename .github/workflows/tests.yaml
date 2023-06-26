@@ -12,6 +12,7 @@ on:
       - master
 
 env:
+  TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
 
 jobs:
