@@ -4013,6 +4013,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 if (dest.index() == WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainETHSourceAddress();
                 }
+            } else {
+                return DeFiErrors::TransferDomainETHSourceAddress();
             }
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address);
@@ -4024,6 +4026,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 if (dest.index() != WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainDFISourceAddress();
                 }
+            } else {
+                return DeFiErrors::TransferDomainDFISourceAddress();
             }
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
@@ -4040,6 +4044,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 if (dest.index() == WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
+            } else {
+                return DeFiErrors::TransferDomainETHDestinationAddress();
             }
         } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
@@ -4047,6 +4053,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 if (dest.index() != WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
+            } else {
+                return DeFiErrors::TransferDomainDVMDestinationAddress();
             }
         } else
             return DeFiErrors::TransferDomainInvalidDestinationDomain();
