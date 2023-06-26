@@ -9,6 +9,9 @@ on:
     branches:
       - master
 
+env:
+  MAKE_DEBUG: 0
+
 jobs:
   build:
     runs-on: ubuntu-latest

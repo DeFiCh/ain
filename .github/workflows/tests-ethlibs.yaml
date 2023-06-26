@@ -11,6 +11,7 @@ on:
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
+  MAKE_DEBUG: 0
 
 jobs:
   build:

@@ -15,6 +15,9 @@ on:
       - master
     types: [labeled, opened, reopened, synchronize]
 
+env:
+  MAKE_DEBUG: 0
+
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
