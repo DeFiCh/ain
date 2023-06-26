@@ -16,6 +16,7 @@ on:
     types: [labeled, opened, reopened, synchronize]
 
 env:
+  TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}

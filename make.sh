@@ -330,7 +330,7 @@ docker_deploy_build() {
     docker rm "${cid}"
 
     if [[ "$e" == "1" ]]; then
-        echo "> deployed into: ${versioned_build_dir}"
+        echo "> deployed into: ${build_dir}"
     else
         echo "> failed: please ensure package is built first"
     fi
