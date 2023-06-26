@@ -11,6 +11,7 @@ use ain_evm::evm::MAX_GAS_PER_BLOCK;
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
+use crate::sync::{SyncInfo, SyncState};
 use crate::transaction_log::{GetLogsRequest, LogResult};
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
@@ -43,6 +44,9 @@ pub trait MetachainRPC {
     /// Returns the current chain ID as a hexadecimal string.
     #[method(name = "chainId")]
     fn chain_id(&self) -> RpcResult<String>;
+
+    #[method(name = "syncing")]
+    fn syncing(&self) -> RpcResult<SyncState>;
 
     // ----------------------------------------
     // Block
@@ -264,7 +268,7 @@ impl MetachainRPCModule {
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
                     .unwrap_or(U256::max_value())
-            },
+            }
             _ => {
                 self.handler
                     .storage
@@ -599,7 +603,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             _ => {
                 return Err(Error::Custom(String::from(
                     "invalid transaction parameters",
-                )))
+                )));
             }
         };
 
@@ -759,6 +763,39 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(self.handler.block.suggested_priority_fee())
     }
 
+    fn syncing(&self) -> RpcResult<SyncState> {
+        let (current_native_height, highest_native_block) = ain_cpp_imports::get_sync_status()
+            .map_err(|e| {
+                Error::Custom(format!("ain_cpp_imports::get_sync_status error : {e:?}"))
+            })?;
+
+        if current_native_height == -1 {
+            return Err(Error::Custom(format!("Block index not available")));
+        }
+
+        match current_native_height != highest_native_block {
+            true => {
+                let current_block = self
+                    .handler
+                    .storage
+                    .get_latest_block()
+                    .map(|block| block.header.number)
+                    .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
+
+                let starting_block = self.handler.block.get_first_block_number();
+
+                let highest_block = current_block + (highest_native_block - current_native_height);
+                debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");
+
+                Ok(SyncState::Syncing(SyncInfo {
+                    starting_block,
+                    current_block,
+                    highest_block,
+                }))
+            }
+            false => Ok(SyncState::Synced(false)),
+        }
+    }
     fn get_uncle_count_by_block_number(&self) -> RpcResult<U256> {
         Ok(Default::default())
     }
