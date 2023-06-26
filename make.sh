@@ -323,6 +323,7 @@ docker_deploy_build() {
     cid=$(docker create "${img}")
     local e=0
 
+    # TODO: grab build directories from builder image instead of defi image
     { docker cp "${cid}:/work/build/depends" "${build_dir}/depends" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/lib" "${build_dir}/lib" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/src" "${build_dir}/src" 2>/dev/null && e=1; } || true
