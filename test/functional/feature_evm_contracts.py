@@ -34,6 +34,29 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
+    def failed_tx_should_increment_nonce(self, key_pair, node):
+        from web3 import Web3
+        web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
+
+        evm_contract = EVMContract.from_file("Reverter.sol", "Reverter").compile()
+        contract = node.evm.deploy_compiled_contract(key_pair, evm_contract)
+
+        # for successful TX
+        before_tx_count = web3.eth.get_transaction_count(key_pair.address)
+
+        node.evm.sign_and_send(contract.functions.trySuccess(), key_pair)
+        after_tx_count = web3.eth.get_transaction_count(key_pair.address)
+
+        assert_equal(before_tx_count + 1, after_tx_count)
+
+        # for failed TX
+        before_tx_count = web3.eth.get_transaction_count(key_pair.address)
+
+        node.evm.sign_and_send(contract.functions.tryRevert(), key_pair)
+        after_tx_count = web3.eth.get_transaction_count(key_pair.address)
+
+        assert_equal(before_tx_count + 1, after_tx_count)
+
     def run_test(self):
         node = self.nodes[0]
         self.setup()
@@ -52,6 +75,8 @@ class EVMTest(DefiTestFramework):
 
         # get variable
         assert_equal(contract.functions.retrieve().call(), 10)
+
+        self.failed_tx_should_increment_nonce(key_pair, node)
 
 
 if __name__ == '__main__':
