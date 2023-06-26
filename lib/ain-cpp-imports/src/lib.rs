@@ -49,6 +49,12 @@ mod ffi {
     pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getHighestBlock() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getCurrentHeight() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn pastChangiIntermediateHeight2() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -120,6 +126,12 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
+}
+
+pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
+    let current_block = ffi::getCurrentHeight();
+    let highest_block = ffi::getHighestBlock();
+    Ok((current_block, highest_block))
 }
 
 pub fn past_changi_intermediate_height_2_height() -> Result<bool, Box<dyn Error>> {
