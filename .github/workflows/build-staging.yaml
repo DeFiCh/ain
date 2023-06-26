@@ -38,26 +38,3 @@ jobs:
         path: |
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
-
- # We keep the flow as similar as close to release flow as possible
- # to validate change before it gets into release, even though
- # these don't create end artifacts to use
-  build-release-defi:
-    needs: create-release
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-pc-linux-gnu
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Get artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-
-    - name: Build defi image
-      run: DOCKERFILE="./contrib/dockerfiles/defi.dockerfile" ./make.sh docker-build
