@@ -133,7 +133,8 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 
-        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height().expect("Unable to get Changi intermediate3 height");
+        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height()
+            .expect("Unable to get Changi intermediate3 height");
 
         if (!past_changi_intermediate3 && exit_reason.is_succeed()) || (past_changi_intermediate3) {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
