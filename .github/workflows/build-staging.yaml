@@ -11,7 +11,7 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  build-release:
+  create-release:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -43,7 +43,7 @@ jobs:
  # to validate change before it gets into release, even though
  # these don't create end artifacts to use
   build-release-defi:
-    needs: build-release
+    needs: create-release
     runs-on: ubuntu-latest
     env:
       TARGET: x86_64-pc-linux-gnu

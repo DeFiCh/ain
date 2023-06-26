@@ -12,7 +12,7 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  build-release:
+  create-release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
@@ -41,8 +41,34 @@ jobs:
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
 
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.3.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload release asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+        asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload checksum
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
+        asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
+        asset_content_type: text/plain
+
   build-release-defi:
-    needs: build-release
+    needs: create-release
     runs-on: ubuntu-latest
     env:
       TARGET: x86_64-pc-linux-gnu
@@ -74,126 +100,3 @@ jobs:
           docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${tag}
         done
         docker push defi/defichain:${ver}
-
-  create-release:
-    needs: build-release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Cleanup work dir
-      run: rm -rf *
-
-    - name: Get artifacts
-      uses: actions/download-artifact@v3
-
-    - name: Get release
-      id: get_release
-      uses: bruceadams/get-release@v1.3.2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload release asset - linux-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload checksum - linux-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
-        asset_content_type: text/plain
-
-    - name: Upload release asset - linux-aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu/defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz
-        asset_content_type: application/gzip
-    
-    - name: Upload checksum - linux-aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu/defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-aarch64-linux-gnu.tar.gz.SHA256
-        asset_content_type: text/plain
-
-    - name: Upload release asset - win-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload checksum asset - win-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz.SHA256
-        asset_content_type: text/plain
-
-    - name: Upload release asset - osx-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload checksum asset - osx-x64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz.SHA256
-        asset_content_type: text/plain
-    
-    - name: Upload release asset - osx-aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload checksum asset - osx-aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin/defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-aarch64-apple-darwin.tar.gz.SHA256
-        asset_content_type: text/plain
