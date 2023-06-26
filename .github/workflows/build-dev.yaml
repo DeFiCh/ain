@@ -20,7 +20,7 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  Build:
+  build:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     strategy:

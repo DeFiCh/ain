@@ -35,6 +35,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
 
     - name: Login to Docker Hub
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       uses: docker/login-action@v2
       with:
         username: ${{ env.DOCKER_HUB_USER }}
@@ -54,6 +55,11 @@ jobs:
   stage-release:
     needs: build-release
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-linux-gnu, aarch64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin, aarch64-apple-darwin]
+    env:
+      TARGET: ${{matrix.target}}
 
     steps:
     - uses: actions/checkout@v3
@@ -66,24 +72,19 @@ jobs:
 
     - name: Get artifacts
       uses: actions/download-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
 
     - name: zip package for win-x64
+      if: ${{ env.TARGET == 'x86_64-w64-mingw32' }}
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        cd defichain-${ver}-x86_64-w64-mingw32
-        tar xzf defichain-${ver}-x86_64-w64-mingw32.tar.gz
-        zip -r "defichain-${ver}-x86_64-w64-mingw32.zip" defichain-${ver}/
+        cd defichain-${ver}-${{ env.TARGET }}
+        tar xzf defichain-${ver}-${{ env.TARGET }}.tar.gz
+        zip -r "defichain-${ver}-${{ env.TARGET }}.zip" defichain-${ver}/
 
     - name: Generate SHA256 checksum
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        (cd ./defichain-${ver}-x86_64-pc-linux-gnu
-        sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256)
-        (cd ./defichain-${ver}-aarch64-linux-gnu
-        sha256sum ./defichain-${ver}-aarch64-linux-gnu.tar.gz > ./defichain-${ver}-aarch64-linux-gnu.tar.gz.SHA256)
-        (cd ./defichain-${ver}-x86_64-w64-mingw32
-        sha256sum ./defichain-${ver}-x86_64-w64-mingw32.zip > ./defichain-${ver}-x86_64-w64-mingw32.zip.SHA256)
-        (cd ./defichain-${ver}-x86_64-apple-darwin
-        sha256sum ./defichain-${ver}-x86_64-apple-darwin.tar.gz > ././defichain-${ver}-x86_64-apple-darwin.tar.gz.SHA256)
-        (cd ./defichain-${ver}-aarch64-apple-darwin
-        sha256sum ./defichain-${ver}-aarch64-apple-darwin.tar.gz > ././defichain-${ver}-aarch64-apple-darwin.tar.gz.SHA256)
+        (cd ./defichain-${ver}-${{ env.BUILD_VERSION }}
+        sha256sum ./defichain-${ver}-${{ env.BUILD_VERSION }}.tar.gz > ./defichain-${ver}-${{ env.BUILD_VERSION }}.tar.gz.SHA256)
