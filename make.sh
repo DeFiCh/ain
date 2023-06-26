@@ -23,7 +23,7 @@ setup_vars() {
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
-    PACKAGE=${PACKAGE:""}
+    PACKAGE=${PACKAGE:-""}
     DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
