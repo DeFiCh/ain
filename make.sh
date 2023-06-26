@@ -19,12 +19,12 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"builder"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
     DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
+    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"$(get_default_docker_target)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -753,6 +753,17 @@ get_default_docker_file() {
     # If none of these were found, assumes empty val
     # Empty will fail if docker cmd requires it, or continue for 
     # non docker cmds
+}
+
+get_default_docker_target() {
+    local target="${TARGET}"
+    local docker_target="builder"
+
+    if [[ "$target" == x86_64-pc-linux-gnu ]]; then
+        docker_target="defi"
+    fi
+
+    echo "$docker_target"
 }
 
 get_default_conf_args() {
