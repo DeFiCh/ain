@@ -427,7 +427,7 @@ public:
     }
 
     static Res TransferDomainETHSourceAddress() {
-        return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+        return Res::Err("Src address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
     static Res TransferDomainDFISourceAddress() {
@@ -439,11 +439,11 @@ public:
     }
 
     static Res TransferDomainETHDestinationAddress() {
-        return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+        return Res::Err("Dst address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
     static Res TransferDomainDVMDestinationAddress() {
-        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Dst address must be a legacy or Bech32 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainInvalidDestinationDomain() {

@@ -3975,6 +3975,28 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+enum class DomainTransferType : uint8_t {
+    DVM,
+    EVM,
+};
+
+static bool DomainTransferAllowedAddress(const CScript &address, DomainTransferType type) {
+    CTxDestination dest;
+    if (ExtractDestination(address, dest)) {
+        if (type == DomainTransferType::DVM) {
+            if (dest.index() == PKHashType || dest.index() == WitV0KeyHashType) {
+                return true;
+            }
+        } else if (type == DomainTransferType::EVM) {
+            if (dest.index() == WitV16KeyEthHashType) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
@@ -4009,13 +4031,14 @@ Res ValidateTransferDomain(const CTransaction &tx,
         // Check domain type
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHSourceAddress();
+            if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (ExtractDestination(src.address, dest)) {
+                    if (dest.index() == WitV16KeyEthHashType) {
+                        return DeFiErrors::TransferDomainETHSourceAddress();
+                    }
                 }
             } else {
-                // Remove guard on mainnet release
-                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (!DomainTransferAllowedAddress(src.address, DomainTransferType::DVM)) {
                     return DeFiErrors::TransferDomainETHSourceAddress();
                 }
             }
@@ -4025,13 +4048,14 @@ Res ValidateTransferDomain(const CTransaction &tx,
                 return res;
         } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDFISourceAddress();
+            if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (ExtractDestination(src.address, dest)) {
+                    if (dest.index() != WitV16KeyEthHashType) {
+                        return DeFiErrors::TransferDomainDFISourceAddress();
+                    }
                 }
             } else {
-                // Remove guard on mainnet release
-                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (!DomainTransferAllowedAddress(src.address, DomainTransferType::EVM)) {
                     return DeFiErrors::TransferDomainDFISourceAddress();
                 }
             }
@@ -4046,25 +4070,27 @@ Res ValidateTransferDomain(const CTransaction &tx,
         // Check domain type
         if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             // Reject if source address is ETH address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHDestinationAddress();
+            if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (ExtractDestination(dst.address, dest)) {
+                    if (dest.index() == WitV16KeyEthHashType) {
+                        return DeFiErrors::TransferDomainETHDestinationAddress();
+                    }
                 }
             } else {
-                // Remove guard on mainnet release
-                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (!DomainTransferAllowedAddress(dst.address, DomainTransferType::DVM)) {
                     return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             }
         } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDVMDestinationAddress();
+            if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (ExtractDestination(dst.address, dest)) {
+                    if (dest.index() != WitV16KeyEthHashType) {
+                        return DeFiErrors::TransferDomainDVMDestinationAddress();
+                    }
                 }
             } else {
-                // Remove guard on mainnet release
-                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                if (!DomainTransferAllowedAddress(dst.address, DomainTransferType::EVM)) {
                     return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
             }
