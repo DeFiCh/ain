@@ -66,7 +66,7 @@ jobs:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
-    - name: Build deps and configure
+    - name: Build binaries
       run: ./make.sh build
       
     - name: E2E tests
