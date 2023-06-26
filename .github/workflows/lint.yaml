@@ -11,6 +11,10 @@ on:
     branches:
       - master
 
+env:
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
+
 jobs:
   generic:
     name: Lint
@@ -36,8 +40,43 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    
     - run: git config --global --add safe.directory '*'
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Setup dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
+    - name: Restore cached depends build
+      id: cache-build-deps
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
+    - name: Restore cached rust build
+      id: cache-build-rust
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/lib
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+
+    - name: Restore cached cpp build
+      id: cache-build-cpp
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Build depends and configure
+      run: ./make.sh build-deps && ./make.sh build-conf
 
     - name: Format checks
       run: ./make.sh lib fmt-check
