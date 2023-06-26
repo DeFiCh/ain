@@ -1,9 +1,6 @@
-use crate::codegen::types::EthTransactionInfo;
 use crate::transaction::{TraceLogs, TraceTransactionResult};
-use ain_evm::evm::ExecutionStep;
-use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
-use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
+use ain_evm::storage::traits::{ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::SignedTx;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;

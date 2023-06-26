@@ -18,24 +18,18 @@ use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput};
 use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
 use evm::Capture::Exit;
-use evm::{Capture, Config, Context, ExitReason, Opcode, Trap};
-use sp_core::crypto::UncheckedInto;
+use evm::{Capture, Config, Context};
 
-use crate::opcode::OpCode;
 use evm::gasometer;
-use evm::ExitError;
 use hex::FromHex;
 use log::debug;
 use primitive_types::{H160, H256, U256};
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fmt::format;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
-use vsdb_trie_db::MptStore;
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 
@@ -154,7 +148,7 @@ impl EVMHandler {
             ..Default::default()
         };
 
-        let mut backend = EVMBackend::from_root(
+        let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),

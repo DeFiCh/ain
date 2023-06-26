@@ -1,9 +1,8 @@
-use std::hash::Hash;
+use ain_evm::evm::ExecutionStep;
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::EnvelopedEncodable;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H256, U256};
-use ain_evm::evm::ExecutionStep;
 
 use crate::{
     codegen::types::EthTransactionInfo,
@@ -99,7 +98,7 @@ pub struct TraceLogs {
     pub gas: u64,
     pub gas_cost: u64,
     pub stack: Vec<String>,
-    pub memory: String
+    pub memory: String,
 }
 
 impl From<ExecutionStep> for TraceLogs {
@@ -121,5 +120,5 @@ pub struct TraceTransactionResult {
     pub gas: U256,
     pub failed: bool,
     pub return_value: String,
-    pub struct_logs: Vec<TraceLogs>
+    pub struct_logs: Vec<TraceLogs>,
 }
