@@ -16,6 +16,7 @@ on:
     types: [labeled, opened, reopened, synchronize]
 
 env:
+  BUILD_VERSION: latest # Computed
   TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
 
@@ -33,15 +34,6 @@ jobs:
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
-
-    - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
-
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
-
-    - name: Setup dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
 
     - name: Restore cached depends build
       id: cache-build-deps
@@ -64,18 +56,16 @@ jobs:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
-      # TODO: Switch this to a docker build later and this builds on the native
-      # VM toolchain and loses disparity with the CI release builds
-    - name: Build binaries
-      run: ./make.sh build
+    - name: Build and package
+      run: rm .dockerignore && ./make.sh docker-release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-         build/src/defid
-         build/src/defi-cli
+         ./build/defichain-${{ env.BUILD_VERSION }}/bin/defid
+         ./build/defichain-${{ env.BUILD_VERSION }}/bin/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3
