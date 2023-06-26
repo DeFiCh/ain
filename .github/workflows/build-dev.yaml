@@ -52,9 +52,6 @@ jobs:
         path: ./build/depends
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
-    - name: Build depends
-      run: ./make.sh build-deps && ./make.sh build-conf
-
     - name: Cache rust build
       id: cache-build-rust
       uses: actions/cache@v3

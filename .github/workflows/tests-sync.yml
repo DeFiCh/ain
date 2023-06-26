@@ -21,6 +21,7 @@ jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
       with:
@@ -35,8 +36,29 @@ jobs:
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
-    - name: Install dependencies for test
+    - name: Setup dependencies for test
       run: sudo ./make.sh ci-setup-deps-test
+
+    - name: Restore cached depends build
+      id: cache-build-deps
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
+    - name: Restore cached rust build
+      id: cache-build-rust
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/lib
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+
+    - name: Restore cached cpp build
+      id: cache-build-cpp
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds

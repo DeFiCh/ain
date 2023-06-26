@@ -7,6 +7,8 @@ on:
       - master
 env:
   BUILD_VERSION: latest # Computed
+  MAKE_DEBUG: 0
+  GIT_VERSION: 1
   
 jobs:
   test:
@@ -30,8 +32,9 @@ jobs:
         run: cd defichain && GIT_VERSION=1 ./make.sh ci-export-vars
 
       - name: Build and setup
-        run: "cd defichain && docker build -t test-build-container 
-          -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
+        run: |
+          ./make.sh docker-build
+          docker tag defichain-${{ env.TARGET }}:${{ env.BUILD_VERSION }} defichain-test-build-container
 
       - name: Run tests
         run: |
