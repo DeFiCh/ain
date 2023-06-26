@@ -110,7 +110,7 @@ jobs:
     - name: Docker build and package
       run: rm .dockerignore && ./make.sh docker-release
 
-    - name: Save build depends
+    - name: Save builds
       if: |
         ${{ steps.docker-cache-build-deps.outputs.cache-hit != 'true' }} ||
         ${{ steps.docker-cache-build-rust.outputs.cache-hit != 'true' }} ||
