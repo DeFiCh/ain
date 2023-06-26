@@ -307,6 +307,36 @@ docker_deploy() {
     fi
 }
 
+docker_deploy_build() {
+    local target=${1:-${TARGET}}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local build_dir="${BUILD_DIR}"
+
+    echo "> docker-deploy-build";
+
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> deploy from: ${img}"
+
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local versioned_name="${img_prefix}-${img_version}"
+
+    local cid
+    cid=$(docker create "${img}")
+    local e=0
+
+    { docker cp "${cid}:/work/build/depends" "${build_dir}/depends" 2>/dev/null && e=1; } || true
+    { docker cp "${cid}:/work/build/lib" "${build_dir}/lib" 2>/dev/null && e=1; } || true
+    { docker cp "${cid}:/work/build/src" "${build_dir}/src" 2>/dev/null && e=1; } || true
+    docker rm "${cid}"
+
+    if [[ "$e" == "1" ]]; then
+        echo "> deployed into: ${build_dir}"
+    else
+        echo "> failed: please ensure package is built first"
+    fi
+}
+
 docker_release() {
     local target=${1:-${TARGET}}
 
