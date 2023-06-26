@@ -136,7 +136,7 @@ impl EVMHandler {
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
+            caller: caller.unwrap_or_default(),
             to,
             value,
             data,
