@@ -7,7 +7,6 @@ on:
       - master
 
 env:
-  DOCKER_HUB_USER: defi
   MAKE_DEBUG: 0
   GIT_VERSION: 1
 
@@ -34,20 +33,6 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-
-    - name: Login to Docker Hub
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      uses: docker/login-action@v2
-      with:
-        username: ${{ env.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-    - name: Push to Docker Hub
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
-        docker push defi/defichain:${ver}
 
  # We keep the flow as similar as close to release flow as possible
  # to validate change before it gets into release, even though
