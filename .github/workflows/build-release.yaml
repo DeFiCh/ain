@@ -74,8 +74,6 @@ jobs:
 
     - name: Get artifacts
       uses: actions/download-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
 
     - name: Get release
       id: get_release
@@ -127,8 +125,6 @@ jobs:
 
     - name: Get artifacts
       uses: actions/download-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
 
     - name: zip package for win-x64
       run: |
