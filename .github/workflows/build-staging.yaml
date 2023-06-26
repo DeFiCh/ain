@@ -37,7 +37,6 @@ jobs:
  # We keep the flow as similar as close to release flow as possible
  # to validate change before it gets into release, even though
  # these don't create end artifacts to use
- 
   stage-release:
     needs: build-release
     runs-on: ubuntu-latest
@@ -83,8 +82,6 @@ jobs:
 
     - name: Get artifacts
       uses: actions/download-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
 
     - name: zip package for win-x64
       run: |
