@@ -14,7 +14,6 @@ on:
 env:
   TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
-  GIT_VERSION: 1
 
 jobs:
   e2e-tests:
