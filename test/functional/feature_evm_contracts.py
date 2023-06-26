@@ -20,7 +20,7 @@ class EVMTest(DefiTestFramework):
              '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
              '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
              '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
-             '-subsidytest=1', '-txindex=1'],
+             '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):
@@ -64,7 +64,8 @@ class EVMTest(DefiTestFramework):
         key_pair = KeyPair.from_node(node)
         address = key_pair.address
 
-        node.transferdomain([{"src": {"address":self.address, "amount":"50@DFI", "domain": 2}, "dst":{"address":address, "amount":"50@DFI", "domain": 3}}])
+        node.transferdomain([{"src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                              "dst": {"address": address, "amount": "50@DFI", "domain": 3}}])
         node.generate(1)
 
         evm_contract = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
