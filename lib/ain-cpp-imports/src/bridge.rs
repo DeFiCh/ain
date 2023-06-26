@@ -19,5 +19,6 @@ pub mod ffi {
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
         fn pastChangiIntermediateHeight2() -> bool;
+        fn pastChangiIntermediateHeight3() -> bool;
     }
 }
