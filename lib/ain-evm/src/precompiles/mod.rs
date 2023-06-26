@@ -105,6 +105,11 @@ impl MetachainPrecompiles {
 
 impl PrecompileSet for MetachainPrecompiles {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
+        // TODO remove fork guard
+        if !ain_cpp_imports::past_changi_intermediate_height_3_height() {
+            return None;
+        }
+
         match handle.code_address() {
             a if a == hash(1) => Some(<ECRecover as Precompile>::execute(handle)),
             a if a == hash(2) => Some(<Sha256 as Precompile>::execute(handle)),
@@ -120,9 +125,17 @@ impl PrecompileSet for MetachainPrecompiles {
     }
 
     fn is_precompile(&self, address: H160, _gas: u64) -> IsPrecompileResult {
-        IsPrecompileResult::Answer {
-            is_precompile: Self::used_addresses().contains(&address),
-            extra_cost: 0,
+        // TODO remove fork guard
+        if ain_cpp_imports::past_changi_intermediate_height_3_height() {
+            IsPrecompileResult::Answer {
+                is_precompile: Self::used_addresses().contains(&address),
+                extra_cost: 0,
+            }
+        } else {
+            IsPrecompileResult::Answer {
+                is_precompile: false,
+                extra_cost: 0,
+            }
         }
     }
 }
