@@ -108,7 +108,9 @@ jobs:
         key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Docker build and package
-      run: rm .dockerignore && ./make.sh docker-release
+      run: |
+        mv .dockerignore .dockerignore_tmp
+        ./make.sh docker-release
 
     - name: Save builds
       if: |
@@ -126,6 +128,7 @@ jobs:
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       run: |
+        mv .dockerignore_tmp .dockerignore
         DOCKER_TARGET_STAGE="defi" ./make.sh docker-build
 
     - name: Login to Docker Hub
