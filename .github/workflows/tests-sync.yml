@@ -57,7 +57,7 @@ jobs:
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Build and package
-      run: rm .dockerignore && ./make.sh docker-release
+      run: rm .dockerignore && sudo ./make.sh docker-release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v3
