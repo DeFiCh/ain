@@ -33,7 +33,7 @@ jobs:
 
       - name: Build and setup
         run: |
-          ./make.sh docker-build
+          cd defichain && ./make.sh docker-build
           docker tag defichain-${{ env.TARGET }}:${{ env.BUILD_VERSION }} defichain-test-build-container
 
       - name: Run tests

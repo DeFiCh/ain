@@ -31,13 +31,13 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
 
     - name: Setup dependencies for test
-      run: sudo ./make.sh ci-setup-deps-test
+      run: ./make.sh ci-setup-deps-test
 
     - name: Restore cached depends build
       id: cache-build-deps
