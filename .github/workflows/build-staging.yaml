@@ -28,11 +28,16 @@ jobs:
     - name: Build and package
       run: ./make.sh docker-release
 
+    - name: Sign package
+      run: ./make.sh sign
+
     - name: Publish artifacts
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+        path: |
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
 
  # We keep the flow as similar as close to release flow as possible
  # to validate change before it gets into release, even though

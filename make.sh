@@ -23,7 +23,7 @@ setup_vars() {
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
-    PACKAGE=${PACKAGE:-""}
+    PACKAGE=${PACKAGE:-"$(get_default_package)"}
     DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
@@ -213,8 +213,7 @@ package() {
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local build_dir="${BUILD_DIR}"
-
-    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local pkg_name="${PACKAGE}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
@@ -238,13 +237,22 @@ package() {
     echo "> package: ${pkg_path}"
 }
 
+sign() {
+    local pkg_name="${PACKAGE}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
+
+    local pkg_path
+    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    sha256sum "$pkg_path" > "$pkg_sign_file_name"
+}
+
 release() {
     local target=${1:-${TARGET}}
 
     build "${target}"
     deploy "${target}"
     package "${target}"
-    _sign "${target}"
 }
 
 # -------------- Docker ---------------
@@ -280,7 +288,6 @@ docker_deploy() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
 
-    local pkg_name="${img_prefix}-${img_version}-${target}"
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
 
@@ -306,7 +313,6 @@ docker_release() {
     docker_build "$target"
     docker_deploy "$target"
     package "$target"
-    _sign "$target"
 }
 
 docker_clean_builds() {
@@ -697,6 +703,14 @@ get_default_target() {
     echo "$default_target"
 }
 
+get_default_package() {
+    local target="${TARGET}"
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    echo "$pkg_name"
+}
+
 get_default_docker_file() {
     local target="${TARGET}"
     local dockerfiles_dir="${DOCKERFILES_DIR}"
@@ -965,11 +979,6 @@ get_rust_target() {
         *) echo "error: unsupported target: ${target}"; exit 1;;
     esac
     echo "$rust_target"
-}
-
-_sign() {
-    # TODO: generate sha sums and sign
-    :
 }
 
 _safe_rm_rf() {
