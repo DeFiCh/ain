@@ -28,6 +28,7 @@ jobs:
         target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
       TARGET: ${{matrix.target}}
+      DOCKER_TARGET_STAGE: builder
 
     steps:
     - uses: actions/checkout@v3
@@ -72,37 +73,21 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
 
-  # docker-deploy:
-    # needs: build
-    # runs-on: ubuntu-latest
-    # env:
-    #   TARGET: x86_64-pc-linux-gnu
+    - name: Build defi image
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      run: |
+        DOCKER_TARGET_STAGE="defi" ./make.sh docker-build
 
-    # steps:
-    # - uses: actions/checkout@v3
+    - name: Login to Docker Hub
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-    # - name: Populate environment
-    #   run: ./make.sh ci-export-vars
-    
-    # - name: Get artifacts
-    #   uses: actions/download-artifact@v3
-    #   with:
-    #     name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-
-    # - name: Build defi image
-    #   run: |
-    #     mv defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-    #     DOCKERFILE="defi.dockerfile" ./make.sh docker-build
-
-    # - name: Login to Docker Hub
-    #   uses: docker/login-action@v2
-    #   with:
-    #     username: ${{ env.DOCKER_HUB_USER }}
-    #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-    # - name: Push to Docker Hub
-    #   if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-    #   run: |
-    #     set -e; ver=${{ env.BUILD_VERSION }}
-    #     docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
-    #     docker push defi/defichain:${ver}
+    - name: Push to Docker Hub
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      run: |
+        set -e; ver=${{ env.BUILD_VERSION }}
+        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
+        docker push defi/defichain:${ver}

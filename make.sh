@@ -19,6 +19,7 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"builder"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -250,6 +251,7 @@ release() {
 
 docker_build() {
     local target=${1:-${TARGET}}
+    local stage="${DOCKER_TARGET_STAGE}"
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
@@ -263,7 +265,7 @@ docker_build() {
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
-        -t "${img}" "${docker_context}"
+        -t "${img}" --target "${stage}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -729,9 +731,9 @@ get_default_docker_file() {
     local dockerfiles_dir="${DOCKERFILES_DIR}"
 
     local try_files=(\
-        "${dockerfiles_dir}/noarch.dockerfile" \
         "${dockerfiles_dir}/${target}.dockerfile" \
         "${dockerfiles_dir}/${target}" \
+        "${dockerfiles_dir}/noarch.dockerfile" \
         )
 
     for file in "${try_files[@]}"; do

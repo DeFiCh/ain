@@ -26,7 +26,7 @@ RUN mkdir /app && cd build/ && \
 
 # -----------
 ### Actual image that contains defi binaries
-FROM --platform=linux/amd64 ubuntu:latest
+FROM --platform=linux/amd64 ubuntu:latest as defi
 ARG TARGET
 ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
