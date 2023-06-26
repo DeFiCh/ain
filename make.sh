@@ -23,8 +23,8 @@ setup_vars() {
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
+    PACKAGE=${PACKAGE:""}
     DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
-    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"$(get_default_docker_target)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -251,7 +251,7 @@ release() {
 
 docker_build() {
     local target=${1:-${TARGET}}
-    local stage="${DOCKER_TARGET_STAGE}"
+    local package="${PACKAGE}"
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
@@ -265,7 +265,8 @@ docker_build() {
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
-        -t "${img}" --target "${stage}" "${docker_context}"
+        --build-arg PACKAGE="${package}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_deploy() {
@@ -299,14 +300,6 @@ docker_deploy() {
     fi
 }
 
-docker_package() {
-    local target=${1:-${TARGET}}
-
-    docker_deploy "$target"
-    package "$target"
-    _sign "$target"
-}
-
 docker_release() {
     local target=${1:-${TARGET}}
 
@@ -314,36 +307,6 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
-}
-
-docker_deploy_build() {
-    local target=${1:-${TARGET}}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local build_dir="${BUILD_DIR}"
-
-    echo "> docker-deploy-build";
-
-    local img="${img_prefix}-${target}:${img_version}"
-    echo "> deploy from: ${img}"
-
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local versioned_name="${img_prefix}-${img_version}"
-
-    local cid
-    cid=$(docker create "${img}")
-    local e=0
-
-    { docker cp "${cid}:/work/build/depends" "${build_dir}/depends" 2>/dev/null && e=1; } || true
-    { docker cp "${cid}:/work/build/lib" "${build_dir}/lib" 2>/dev/null && e=1; } || true
-    { docker cp "${cid}:/work/build/src" "${build_dir}/src" 2>/dev/null && e=1; } || true
-    docker rm "${cid}"
-
-    if [[ "$e" == "1" ]]; then
-        echo "> deployed into: ${build_dir}"
-    else
-        echo "> failed: please ensure package is built first"
-    fi
 }
 
 docker_clean_builds() {
@@ -753,17 +716,6 @@ get_default_docker_file() {
     # If none of these were found, assumes empty val
     # Empty will fail if docker cmd requires it, or continue for 
     # non docker cmds
-}
-
-get_default_docker_target() {
-    local target="${TARGET}"
-    local docker_target="builder"
-
-    if [[ "$target" == x86_64-pc-linux-gnu ]]; then
-        docker_target="defi"
-    fi
-
-    echo "$docker_target"
 }
 
 get_default_conf_args() {
