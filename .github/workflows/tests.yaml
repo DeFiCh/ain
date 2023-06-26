@@ -36,7 +36,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
+      run: sudo ./make.sh ci-setup-deps
     
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
