@@ -42,9 +42,11 @@ jobs:
  # We keep the flow as similar as close to release flow as possible
  # to validate change before it gets into release, even though
  # these don't create end artifacts to use
-  stage-release:
+  build-release-defi:
     needs: build-release
     runs-on: ubuntu-latest
+    env:
+      TARGET: x86_64-pc-linux-gnu
 
     steps:
     - uses: actions/checkout@v3
@@ -52,29 +54,10 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Cleanup work dir
-      run: rm -rf *
-
     - name: Get artifacts
       uses: actions/download-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
 
-    - name: zip package for win-x64
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        cd defichain-${ver}-x86_64-w64-mingw32
-        tar xzf defichain-${ver}-x86_64-w64-mingw32.tar.gz
-        zip -r "defichain-${ver}-x86_64-w64-mingw32.zip" defichain-${ver}/
-
-    - name: Generate SHA256 checksum
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        (cd ./defichain-${ver}-x86_64-pc-linux-gnu
-        sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256)
-        (cd ./defichain-${ver}-aarch64-linux-gnu
-        sha256sum ./defichain-${ver}-aarch64-linux-gnu.tar.gz > ./defichain-${ver}-aarch64-linux-gnu.tar.gz.SHA256)
-        (cd ./defichain-${ver}-x86_64-w64-mingw32
-        sha256sum ./defichain-${ver}-x86_64-w64-mingw32.zip > ./defichain-${ver}-x86_64-w64-mingw32.zip.SHA256)
-        (cd ./defichain-${ver}-x86_64-apple-darwin
-        sha256sum ./defichain-${ver}-x86_64-apple-darwin.tar.gz > ././defichain-${ver}-x86_64-apple-darwin.tar.gz.SHA256)
-        (cd ./defichain-${ver}-aarch64-apple-darwin
-        sha256sum ./defichain-${ver}-aarch64-apple-darwin.tar.gz > ././defichain-${ver}-aarch64-apple-darwin.tar.gz.SHA256)
+    - name: Build defi image
+      run: DOCKERFILE="./contrib/dockerfiles/defi.dockerfile" ./make.sh docker-build
