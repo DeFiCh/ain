@@ -4014,7 +4014,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return DeFiErrors::TransferDomainETHSourceAddress();
                 }
             } else {
-                return DeFiErrors::TransferDomainETHSourceAddress();
+                // Remove guard on mainnet release
+                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                    return DeFiErrors::TransferDomainETHSourceAddress();
+                }
             }
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address);
@@ -4027,7 +4030,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return DeFiErrors::TransferDomainDFISourceAddress();
                 }
             } else {
-                return DeFiErrors::TransferDomainDFISourceAddress();
+                // Remove guard on mainnet release
+                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                    return DeFiErrors::TransferDomainDFISourceAddress();
+                }
             }
             // Check for authorization on source address
             res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
@@ -4045,7 +4051,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return DeFiErrors::TransferDomainETHDestinationAddress();
                 }
             } else {
-                return DeFiErrors::TransferDomainETHDestinationAddress();
+                // Remove guard on mainnet release
+                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                    return DeFiErrors::TransferDomainETHDestinationAddress();
+                }
             }
         } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Reject if source address is DFI address
@@ -4054,7 +4063,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                     return DeFiErrors::TransferDomainDVMDestinationAddress();
                 }
             } else {
-                return DeFiErrors::TransferDomainDVMDestinationAddress();
+                // Remove guard on mainnet release
+                if (height > static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+                    return DeFiErrors::TransferDomainDVMDestinationAddress();
+                }
             }
         } else
             return DeFiErrors::TransferDomainInvalidDestinationDomain();
