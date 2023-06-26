@@ -463,6 +463,17 @@ pkg_install_deps() {
     _fold_end
 }
 
+pkg_install_deps_fedora() {
+    _fold_start "pkg-install-deps-fedora"
+
+    # gcc-multilib: for cross compilations
+    # locales: for using en-US.UTF-8 (see head of this file).
+    dnf install -y \
+      sudo dnf install gcc-c++ libtool make autoconf automake python3 libstdc++-static patch clang
+
+    _fold_end
+}
+
 pkg_setup_locale() {
     # Not a hard requirement. We use en_US.UTF-8 to maintain coherence across
     # different platforms. C.UTF-8 is not available on all platforms.
