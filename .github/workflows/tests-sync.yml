@@ -25,12 +25,11 @@ jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
-    container: defi/ain-builder:latest
+
     steps:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
