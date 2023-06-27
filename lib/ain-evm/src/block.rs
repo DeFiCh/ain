@@ -11,6 +11,7 @@ use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
+    first_block_number: U256,
 }
 
 pub struct FeeHistoryData {
@@ -24,7 +25,22 @@ pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
-        Self { storage }
+        let mut block_handler = Self {
+            storage,
+            first_block_number: U256::zero(),
+        };
+        let (_, block_number) = block_handler
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
+
+        block_handler.first_block_number = block_number;
+        debug!("Current block number is {:#?}", block_number);
+
+        block_handler
+    }
+
+    pub fn get_first_block_number(&self) -> U256 {
+        self.first_block_number
     }
 
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
@@ -119,9 +135,7 @@ impl BlockHandler {
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
     ) -> U256 {
-        match ain_cpp_imports::past_changi_intermediate_height_2_height()
-            .expect("Unable to get Changi intermediate height 2")
-        {
+        match ain_cpp_imports::past_changi_intermediate_height_2_height() {
             true => self.post_changi_intermediate_2_base_fee_calculation(
                 parent_gas_used,
                 parent_gas_target,
