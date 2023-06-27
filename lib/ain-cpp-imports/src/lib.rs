@@ -137,14 +137,12 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block, highest_block))
 }
 
-pub fn past_changi_intermediate_height_2_height() -> Result<bool, Box<dyn Error>> {
-    let height = ffi::pastChangiIntermediateHeight2();
-    Ok(height)
+pub fn past_changi_intermediate_height_2_height() -> bool {
+    ffi::pastChangiIntermediateHeight2()
 }
 
-pub fn past_changi_intermediate_height_3_height() -> Result<bool, Box<dyn Error>> {
-    let height = ffi::pastChangiIntermediateHeight3();
-    Ok(height)
+pub fn past_changi_intermediate_height_3_height() -> bool {
+    ffi::pastChangiIntermediateHeight3()
 }
 
 #[cfg(test)]

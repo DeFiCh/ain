@@ -7,7 +7,7 @@ use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::evm::MAX_GAS_PER_BLOCK;
+use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
@@ -288,21 +288,21 @@ impl MetachainRPCServer for MetachainRPCModule {
         let TxResponse { data, .. } = self
             .handler
             .evm
-            .call(
-                from,
+            .call(EthCallArgs {
+                caller: from,
                 to,
-                value.unwrap_or_default(),
+                value: value.unwrap_or_default(),
                 // https://github.com/ethereum/go-ethereum/blob/281e8cd5abaac86ed3f37f98250ff147b3c9fe62/internal/ethapi/transaction_args.go#L67
                 // We accept "data" and "input" for backwards-compatibility reasons.
                 //  "input" is the newer name and should be preferred by clients.
                 // 	Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
-                &input
+                data: &input
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
-                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
-                vec![],
-                self.block_number_to_u256(block_number)?,
-            )
+                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                access_list: vec![],
+                block_number: self.block_number_to_u256(block_number),
+            })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
         Ok(Bytes(data))
     }
@@ -683,15 +683,15 @@ impl MetachainRPCServer for MetachainRPCModule {
         let TxResponse { used_gas, .. } = self
             .handler
             .evm
-            .call(
-                from,
+            .call(EthCallArgs {
+                caller: from,
                 to,
-                value.unwrap_or_default(),
-                &data.map(|d| d.0).unwrap_or_default(),
-                gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
-                vec![],
+                value: value.unwrap_or_default(),
+                data: &data.map(|d| d.0).unwrap_or_default(),
+                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                access_list: vec![],
                 block_number,
-            )
+            })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
         debug!(target:"rpc",  "estimateGas: {:#?} at block {:#x}", used_gas, block_number);
@@ -751,7 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             })?;
 
         if current_native_height == -1 {
-            return Err(Error::Custom(format!("Block index not available")));
+            return Err(Error::Custom(String::from("Block index not available")));
         }
 
         match current_native_height != highest_native_block {

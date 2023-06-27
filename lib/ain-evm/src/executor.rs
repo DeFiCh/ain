@@ -1,3 +1,5 @@
+use crate::precompiles::MetachainPrecompiles;
+
 use crate::{
     backend::{EVMBackend, EVMBackendError},
     evm::EVMHandler,
@@ -8,13 +10,12 @@ use crate::{
 use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, U256};
 use evm::{
-    backend::ApplyBackend,
+    backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    Config, ExitReason,
+    Config, CreateScheme, ExitReason,
 };
 use log::trace;
 use primitive_types::{H160, H256};
-use std::collections::BTreeMap;
 
 pub struct AinExecutor<'backend> {
     backend: &'backend mut EVMBackend,
@@ -47,7 +48,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
     fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let precompiles = MetachainPrecompiles::new();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -57,20 +58,26 @@ impl<'backend> Executor for AinExecutor<'backend> {
 
         let (exit_reason, data) = match ctx.to {
             Some(address) => executor.transact_call(
-                ctx.caller.unwrap_or_default(),
+                ctx.caller,
                 address,
                 ctx.value,
                 ctx.data.to_vec(),
                 ctx.gas_limit,
                 access_list,
             ),
-            None => executor.transact_create(
-                ctx.caller.unwrap_or_default(),
-                ctx.value,
-                ctx.data.to_vec(),
-                ctx.gas_limit,
-                access_list,
-            ),
+            None => {
+                let contract_address =
+                    executor.create_address(CreateScheme::Legacy { caller: ctx.caller });
+                let (exit_reason, _) = executor.transact_create(
+                    ctx.caller,
+                    ctx.value,
+                    ctx.data.to_vec(),
+                    ctx.gas_limit,
+                    access_list,
+                );
+                let code = executor.state().code(contract_address);
+                (exit_reason, code)
+            }
         };
 
         TxResponse {
@@ -89,7 +96,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
             self.backend.vicinity
         );
         let ctx = ExecutorContext {
-            caller: Some(signed_tx.sender),
+            caller: signed_tx.sender,
             to: signed_tx.to(),
             value: signed_tx.value(),
             data: signed_tx.data(),
@@ -103,7 +110,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let precompiles = MetachainPrecompiles::new();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -113,7 +120,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
 
         let (exit_reason, data) = match ctx.to {
             Some(address) => executor.transact_call(
-                ctx.caller.unwrap_or_default(),
+                ctx.caller,
                 address,
                 ctx.value,
                 ctx.data.to_vec(),
@@ -121,7 +128,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
                 access_list,
             ),
             None => executor.transact_create(
-                ctx.caller.unwrap_or_default(),
+                ctx.caller,
                 ctx.value,
                 ctx.data.to_vec(),
                 ctx.gas_limit,
@@ -133,9 +140,9 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 
-        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height().expect("Unable to get Changi intermediate3 height");
+        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height();
 
-        if (!past_changi_intermediate3 && exit_reason.is_succeed()) || (past_changi_intermediate3) {
+        if exit_reason.is_succeed() || past_changi_intermediate3 {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
             self.backend.commit();
         }
