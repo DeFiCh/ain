@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
+#include <masternodes/changiintermediates.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -3952,67 +3953,6 @@ public:
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
 
-// A class that has all the old things that will be removed.
-// TODO: Refactor into a different file to accumulate all things in here so it's
-// easier and bug-free to remove. 
-
-// The goal of this entire class is to be removed. And it's a collection of the 
-// accumulated bugs in early releases. 
-class ChangiBuggyIntermediates {
-public:
-    static Res ValidateTransferDomainAspect2(const CTransaction &tx,
-                                    uint32_t height,
-                                    const CCoinsViewCache &coins,
-                                    const Consensus::Params &consensus,
-                                    CTransferDomainItem src, CTransferDomainItem dst) {
-
-            auto res = Res::Ok();
-
-            if (src.domain == dst.domain)
-                return DeFiErrors::TransferDomainSameDomain();
-
-            if (src.amount.nValue != dst.amount.nValue)
-                return DeFiErrors::TransferDomainUnequalAmount();
-
-            // Restrict only for use with DFI token for now. Will be enabled later.
-            if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-                return DeFiErrors::TransferDomainIncorrectToken();
-
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                CTxDestination dest;
-                // Reject if source address is ETH address
-                if (ExtractDestination(src.address, dest)) {
-                    if (dest.index() == WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainDVMSourceAddress();
-                    }
-                }
-                if (ExtractDestination(dst.address, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainETHDestAddress();
-                    }
-                }
-                // Check for authorization on source address
-                return HasAuth(tx, coins, src.address);
-
-            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                CTxDestination dest;
-                // Reject if source address is DFI address
-                if (ExtractDestination(src.address, dest)) {
-                    if (dest.index() != WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainETHSourceAddress();
-                    }
-                }
-                if (ExtractDestination(dst.address, dest)) {
-                    if (dest.index() == WitV16KeyEthHashType) {
-                        return DeFiErrors::TransferDomainDVMDestAddress();
-                    }
-                }
-                return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
-            }
-            return res;
-        }
-};
-
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
@@ -4087,14 +4027,17 @@ Res ValidateTransferDomainAspect(const CTransaction &tx,
     if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
         return DeFiErrors::TransferDomainIncorrectToken();
 
-    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+    auto dDVM = static_cast<uint8_t>(VMDomain::DVM);
+    auto dEVM = static_cast<uint8_t>(VMDomain::EVM);
+
+    if (src.domain == dDVM && dst.domain == dEVM) {
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::DVMToEVM);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
 
-    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+    } else if (src.domain == dEVM && dst.domain == dDVM) {
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::EVMToDVM);
         if (!res) return res;
