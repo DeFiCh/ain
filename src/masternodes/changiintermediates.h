@@ -1,3 +1,6 @@
+#ifndef DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
+#define DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
+
 #include <consensus/params.h>
 #include <consensus/tx_check.h>
 #include <masternodes/evm.h>
@@ -15,3 +18,6 @@ public:
                                     const Consensus::Params &consensus,
                                     CTransferDomainItem src, CTransferDomainItem dst);
 };
+
+ #endif // DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
+ 
