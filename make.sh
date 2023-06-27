@@ -37,6 +37,7 @@ setup_vars() {
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
 
+    # shellcheck source=/etc/os-release
     . /etc/os-release
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
