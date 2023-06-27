@@ -340,15 +340,10 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     sortedOrder[0] = tx2.GetHash().ToString(); // 20000
     sortedOrder[1] = tx4.GetHash().ToString(); // 15000
     // tx1 and tx5 are both 10000
-    // Ties are broken by hash, not timestamp, so determine which
-    // hash comes first.
-    if (tx1.GetHash() < tx5.GetHash()) {
-        sortedOrder[2] = tx1.GetHash().ToString();
-        sortedOrder[3] = tx5.GetHash().ToString();
-    } else {
-        sortedOrder[2] = tx5.GetHash().ToString();
-        sortedOrder[3] = tx1.GetHash().ToString();
-    }
+    // Ties are broken by  timestamp, so determine which
+    sortedOrder[2] = tx1.GetHash().ToString();
+    sortedOrder[3] = tx5.GetHash().ToString();
+    
     sortedOrder[4] = tx3.GetHash().ToString(); // 0
 
     CheckSort<ancestor_score>(pool, sortedOrder);
@@ -363,12 +358,9 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
 
     pool.addUnchecked(entry.Fee(0LL).FromTx(tx6));
     BOOST_CHECK_EQUAL(pool.size(), 6U);
-    // Ties are broken by hash
-    if (tx3.GetHash() < tx6.GetHash())
-        sortedOrder.push_back(tx6.GetHash().ToString());
-    else
-        sortedOrder.insert(sortedOrder.end()-1,tx6.GetHash().ToString());
-
+    // Ties are broken by tstamp
+    sortedOrder.push_back(tx6.GetHash().ToString());
+    
     CheckSort<ancestor_score>(pool, sortedOrder);
 
     CMutableTransaction tx7 = CMutableTransaction();
@@ -394,11 +386,8 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     pool.removeForBlock(vtx, 1);
 
     sortedOrder.erase(sortedOrder.begin()+1);
-    // Ties are broken by hash
-    if (tx3.GetHash() < tx6.GetHash())
-        sortedOrder.pop_back();
-    else
-        sortedOrder.erase(sortedOrder.end()-2);
+    // Ties are broken by tstamp
+    sortedOrder.pop_back();
     sortedOrder.insert(sortedOrder.begin(), tx7.GetHash().ToString());
     CheckSort<ancestor_score>(pool, sortedOrder);
 

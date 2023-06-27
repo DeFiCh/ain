@@ -33,6 +33,15 @@ pub struct EVMHandler {
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
+pub struct EthCallArgs<'a> {
+    pub caller: Option<H160>,
+    pub to: Option<H160>,
+    pub value: U256,
+    pub data: &'a [u8],
+    pub gas_limit: u64,
+    pub access_list: AccessList,
+    pub block_number: U256,
+}
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
@@ -78,7 +87,7 @@ impl EVMHandler {
                 receipts_root: ReceiptHandler::get_receipts_root(&Vec::new()),
                 logs_bloom: Default::default(),
                 gas_used: Default::default(),
-                gas_limit: genesis.gas_limit.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)),
+                gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
@@ -102,16 +111,17 @@ impl EVMHandler {
         self.trie_store.flush()
     }
 
-    pub fn call(
-        &self,
-        caller: Option<H160>,
-        to: Option<H160>,
-        value: U256,
-        data: &[u8],
-        gas_limit: u64,
-        access_list: AccessList,
-        block_number: U256,
-    ) -> Result<TxResponse, Box<dyn Error>> {
+    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse, Box<dyn Error>> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+            block_number,
+        } = arguments;
+
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -137,7 +147,7 @@ impl EVMHandler {
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
+            caller: caller.unwrap_or_default(),
             to,
             value,
             data,
@@ -215,15 +225,15 @@ impl EVMHandler {
         }
 
         let used_gas = if with_gas_usage {
-            let TxResponse { used_gas, .. } = self.call(
-                Some(signed_tx.sender),
-                signed_tx.to(),
-                signed_tx.value(),
-                signed_tx.data(),
-                signed_tx.gas_limit().as_u64(),
-                signed_tx.access_list(),
+            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
+                caller: Some(signed_tx.sender),
+                to: signed_tx.to(),
+                value: signed_tx.value(),
+                data: signed_tx.data(),
+                gas_limit: signed_tx.gas_limit().as_u64(),
+                access_list: signed_tx.access_list(),
                 block_number,
-            )?;
+            })?;
             used_gas
         } else {
             u64::default()
@@ -242,6 +252,7 @@ impl EVMHandler {
     }
 }
 
+// Transaction queue methods
 impl EVMHandler {
     pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
         self.tx_queues.queue_tx(context, tx, hash)?;
@@ -297,8 +308,50 @@ impl EVMHandler {
     pub fn remove(&self, context: u64) {
         self.tx_queues.remove(context);
     }
+
+    /// Retrieves the next valid nonce for the specified account within a particular context.
+    ///
+    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
+    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
+    /// the nonce is defaulted to zero.
+    ///
+    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
+    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context queue number.
+    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
+    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+        let nonce = self
+            .tx_queues
+            .get_next_valid_nonce(context, address)
+            .unwrap_or_else(|| {
+                let latest_block = self
+                    .storage
+                    .get_latest_block()
+                    .map(|b| b.header.number)
+                    .unwrap_or_else(U256::zero);
+
+                self.get_nonce(address, latest_block)
+                    .unwrap_or_else(|_| U256::zero())
+            });
+
+        debug!(
+            "Account {:x?} nonce {:x?} in context {context}",
+            address, nonce
+        );
+        nonce
+    }
 }
 
+// State methods
 impl EVMHandler {
     pub fn get_account(
         &self,
@@ -370,49 +423,28 @@ impl EVMHandler {
         Ok(nonce)
     }
 
-    /// Retrieves the next valid nonce for the specified account within a particular context.
-    ///
-    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
-    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
-    /// the nonce is defaulted to zero.
-    ///
-    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
-    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - The context queue number.
-    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
-    ///
-    /// # Returns
-    ///
-    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
-        let nonce = self
-            .tx_queues
-            .get_next_valid_nonce(context, address)
-            .unwrap_or_else(|| {
-                let latest_block = self
-                    .storage
-                    .get_latest_block()
-                    .map(|b| b.header.number)
-                    .unwrap_or_else(U256::zero);
-
-                self.get_nonce(address, latest_block)
-                    .unwrap_or_else(|_| U256::zero())
-            });
+    pub fn get_latest_block_backend(&self) -> Result<EVMBackend, EVMBackendError> {
+        let (state_root, block_number) = self
+            .storage
+            .get_latest_block()
+            .map(|block| (block.header.state_root, block.header.number))
+            .unwrap_or_default();
 
         debug!(
-            "Account {:x?} nonce {:x?} in context {context}",
-            address, nonce
+            "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
         );
-        nonce
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Default::default(),
+        )
     }
 }
 
 use std::fmt;
+
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),
