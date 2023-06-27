@@ -1568,10 +1568,8 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 }
 
 void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
-    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
-        * RPC/gRPC server to bind to one address. By default, we will only take
-        * the first address, if multiple addresses are specified.
-    */
+    // Current API only allows for one ETH RPC/gRPC server to bind to one address. 
+    // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
 
@@ -1974,7 +1972,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             std::vector<std::pair<std::string, uint16_t>> g_endpoints;
             SetupRPCPorts(eth_endpoints, g_endpoints);
 
-            // Default to using the first address passed to bind to ETH RPC server and gRPC server
+            // Start the ETH RPC and gRPC servers
             start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
 
             try {
