@@ -32,6 +32,15 @@ pub struct EVMHandler {
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
+pub struct CallArguments<'a> {
+    pub caller: Option<H160>,
+    pub to: Option<H160>,
+    pub value: U256,
+    pub data: &'a [u8],
+    pub gas_limit: u64,
+    pub access_list: AccessList,
+    pub block_number: U256,
+}
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
@@ -101,16 +110,17 @@ impl EVMHandler {
         self.trie_store.flush()
     }
 
-    pub fn call(
-        &self,
-        caller: Option<H160>,
-        to: Option<H160>,
-        value: U256,
-        data: &[u8],
-        gas_limit: u64,
-        access_list: AccessList,
-        block_number: U256,
-    ) -> Result<TxResponse, Box<dyn Error>> {
+    pub fn call(&self, arguments: CallArguments) -> Result<TxResponse, Box<dyn Error>> {
+        let CallArguments {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+            block_number,
+        } = arguments;
+
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -214,15 +224,15 @@ impl EVMHandler {
         }
 
         let used_gas = if with_gas_usage {
-            let TxResponse { used_gas, .. } = self.call(
-                Some(signed_tx.sender),
-                signed_tx.to(),
-                signed_tx.value(),
-                signed_tx.data(),
-                signed_tx.gas_limit().as_u64(),
-                signed_tx.access_list(),
+            let TxResponse { used_gas, .. } = self.call(CallArguments {
+                caller: Some(signed_tx.sender),
+                to: signed_tx.to(),
+                value: signed_tx.value(),
+                data: signed_tx.data(),
+                gas_limit: signed_tx.gas_limit().as_u64(),
+                access_list: signed_tx.access_list(),
                 block_number,
-            )?;
+            })?;
             used_gas
         } else {
             u64::default()
@@ -412,6 +422,7 @@ impl EVMHandler {
 }
 
 use std::fmt;
+
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),
