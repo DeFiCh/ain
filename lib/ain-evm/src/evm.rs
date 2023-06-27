@@ -2,6 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity}
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
+use crate::receipt::ReceiptHandler;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -31,6 +32,15 @@ pub struct EVMHandler {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
+}
+pub struct EthCallArgs<'a> {
+    pub caller: Option<H160>,
+    pub to: Option<H160>,
+    pub value: U256,
+    pub data: &'a [u8],
+    pub gas_limit: u64,
+    pub access_list: AccessList,
+    pub block_number: U256,
 }
 
 fn init_vsdb() {
@@ -74,10 +84,10 @@ impl EVMHandler {
                 state_root,
                 number: U256::zero(),
                 beneficiary: Default::default(),
-                receipts_root: Default::default(),
+                receipts_root: ReceiptHandler::get_receipts_root(&Vec::new()),
                 logs_bloom: Default::default(),
                 gas_used: Default::default(),
-                gas_limit: genesis.gas_limit.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)),
+                gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
@@ -101,16 +111,17 @@ impl EVMHandler {
         self.trie_store.flush()
     }
 
-    pub fn call(
-        &self,
-        caller: Option<H160>,
-        to: Option<H160>,
-        value: U256,
-        data: &[u8],
-        gas_limit: u64,
-        access_list: AccessList,
-        block_number: U256,
-    ) -> Result<TxResponse, Box<dyn Error>> {
+    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse, Box<dyn Error>> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+            block_number,
+        } = arguments;
+
         let (state_root, block_number) = self
             .storage
             .get_block_by_number(&block_number)
@@ -136,7 +147,7 @@ impl EVMHandler {
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
+            caller: caller.unwrap_or_default(),
             to,
             value,
             data,
@@ -214,15 +225,15 @@ impl EVMHandler {
         }
 
         let used_gas = if with_gas_usage {
-            let TxResponse { used_gas, .. } = self.call(
-                Some(signed_tx.sender),
-                signed_tx.to(),
-                signed_tx.value(),
-                signed_tx.data(),
-                signed_tx.gas_limit().as_u64(),
-                signed_tx.access_list(),
+            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
+                caller: Some(signed_tx.sender),
+                to: signed_tx.to(),
+                value: signed_tx.value(),
+                data: signed_tx.data(),
+                gas_limit: signed_tx.gas_limit().as_u64(),
+                access_list: signed_tx.access_list(),
                 block_number,
-            )?;
+            })?;
             used_gas
         } else {
             u64::default()
@@ -433,6 +444,7 @@ impl EVMHandler {
 }
 
 use std::fmt;
+
 #[derive(Debug)]
 pub enum EVMError {
     BackendError(EVMBackendError),

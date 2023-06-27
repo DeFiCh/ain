@@ -63,7 +63,7 @@ void DeleteLock(void* cs);
  */
 extern bool g_debug_lockorder_abort;
 #else
-#define DeleteLock(cs)
+void static inline DeleteLock(void* cs) {}
 #endif
 
 /**
@@ -338,7 +338,7 @@ private:
     int64_t yields;
 
 public:
-    AtomicMutex(int64_t spins = 10, int64_t yields = 16): 
+    AtomicMutex(int64_t spins = 10, int64_t yields = 16):
         spins(spins), yields(yields) {}
 
     void lock() {
@@ -358,13 +358,13 @@ public:
                    std::memory_order_seq_cst,
                    std::memory_order_relaxed) == false) {
             // Could have been a spurious failure or another thread could have taken the
-            // lock in-between since we're now out of the atomic ops. 
+            // lock in-between since we're now out of the atomic ops.
             // Reset expected to start from scratch again, since we only want
             // a singular atomic false -> true transition.
             expected = false;
             if (i > spins) {
                 if (i > spins + yields) {
-                    // Use larger sleep, in line with the largest quantum, which is 
+                    // Use larger sleep, in line with the largest quantum, which is
                     // Windows with 16ms
                     std::this_thread::sleep_for(std::chrono::milliseconds(16));
                 } else {
@@ -381,7 +381,7 @@ public:
 
     bool try_lock() noexcept {
         // We locked it if and only if it was a false -> true transition.
-        // Otherwise, we just re-wrote an already existing value as true which is harmless 
+        // Otherwise, we just re-wrote an already existing value as true which is harmless
         // We could theoritically use CAS here to prevent the additional write, but
         // but requires loop on weak, or using strong. Simpler to just use an exchange for
         // for now, since all ops are seq_cst anyway.
