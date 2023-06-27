@@ -122,8 +122,8 @@ impl TryFrom<TransactionV2> for SignedTx {
                 let hash = H256::from(signing_message.serialize());
                 recover_public_key(
                     &hash,
-                    &tx.signature.r(),
-                    &tx.signature.s(),
+                    tx.signature.r(),
+                    tx.signature.s(),
                     tx.signature.standard_v(),
                 )
             }
