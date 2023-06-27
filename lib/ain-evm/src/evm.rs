@@ -32,7 +32,7 @@ pub struct EVMHandler {
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
-pub struct CallArguments<'a> {
+pub struct EthCallArguments<'a> {
     pub caller: Option<H160>,
     pub to: Option<H160>,
     pub value: U256,
@@ -110,8 +110,8 @@ impl EVMHandler {
         self.trie_store.flush()
     }
 
-    pub fn call(&self, arguments: CallArguments) -> Result<TxResponse, Box<dyn Error>> {
-        let CallArguments {
+    pub fn call(&self, arguments: EthCallArguments) -> Result<TxResponse, Box<dyn Error>> {
+        let EthCallArguments {
             caller,
             to,
             value,
@@ -224,7 +224,7 @@ impl EVMHandler {
         }
 
         let used_gas = if with_gas_usage {
-            let TxResponse { used_gas, .. } = self.call(CallArguments {
+            let TxResponse { used_gas, .. } = self.call(EthCallArguments {
                 caller: Some(signed_tx.sender),
                 to: signed_tx.to(),
                 value: signed_tx.value(),

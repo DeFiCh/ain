@@ -7,7 +7,7 @@ use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::evm::{CallArguments, MAX_GAS_PER_BLOCK};
+use ain_evm::evm::{EthCallArguments, MAX_GAS_PER_BLOCK};
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
@@ -290,7 +290,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let TxResponse { data, .. } = self
             .handler
             .evm
-            .call(CallArguments {
+            .call(EthCallArguments {
                 caller: from,
                 to,
                 value: value.unwrap_or_default(),
@@ -686,7 +686,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let TxResponse { used_gas, .. } = self
             .handler
             .evm
-            .call(CallArguments {
+            .call(EthCallArguments {
                 caller: from,
                 to,
                 value: value.unwrap_or_default(),
