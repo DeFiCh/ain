@@ -1,6 +1,10 @@
 #include <masternodes/changiintermediates.h>
 #include <masternodes/errors.h>
 
+/// The file and class that has all the old things that will be removed.
+/// The goal of this entire class and file is to be removed. It's a collection of the 
+/// accumulated bugs in early releases. 
+
 Res ChangiBuggyIntermediates::ValidateTransferDomainAspect2(const CTransaction &tx,
                                 uint32_t height,
                                 const CCoinsViewCache &coins,
