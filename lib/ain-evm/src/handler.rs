@@ -28,6 +28,8 @@ pub struct Handlers {
     pub storage: Arc<Storage>,
 }
 
+pub type FinalizeBlockResult = ([u8; 32], Vec<String>, u64);
+
 impl Handlers {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -78,7 +80,7 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<FinalizeBlockResult, Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
