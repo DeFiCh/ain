@@ -430,7 +430,7 @@ public:
         return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
     }
 
-    static Res TransferDomainDFISourceAddress() {
+    static Res TransferDomainDVMSourceAddress() {
         return Res::Err("Src address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
@@ -438,16 +438,24 @@ public:
         return Res::Err("Invalid domain set for \"src\" argument");
     }
 
-    static Res TransferDomainETHDestinationAddress() {
+    static Res TransferDomainETHDestAddress() {
         return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
     }
 
-    static Res TransferDomainDVMDestinationAddress() {
+    static Res TransferDomainDVMDestAddress() {
         return Res::Err("Dst address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
     static Res TransferDomainInvalidDestinationDomain() {
         return Res::Err("Invalid domain set for \"dst\" argument");
+    }
+
+    static Res TransferDomainUnknownAspect() {
+        return Res::Err("Unknown transfer domain aspect");
+    }
+
+    static Res ScriptUnexpected(const CScript &script) {
+        return Res::Err("Unexpected Script: %s", script.GetHex());
     }
 
     static Res DatabaseRWFailure(const std::string key) {
