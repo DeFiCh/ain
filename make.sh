@@ -245,7 +245,8 @@ sign() {
 
     local pkg_path
     pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
-    sha256sum "$pkg_path" > "$pkg_sign_file_name"
+    pkg_sign_path="$(_canonicalize "${build_dir}/${pkg_sign_file_name}")"
+    sha256sum "$pkg_path" > "$pkg_sign_path"
 }
 
 release() {
