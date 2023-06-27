@@ -231,7 +231,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     // return false, once we hit the limit and stop the iter.
     switch (type) {
         case VMDomainIndexType::BlockHash: {
-            pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
+            pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<VMDomainEdge, uint256> &index, uint256 blockHash) {
                 if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
                     ++count;
@@ -240,7 +240,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
             });
         }
         case VMDomainIndexType::TxHash: {
-            pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
+            pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<VMDomainEdge, uint256> &index, uint256 txHash) {
                 if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
                     ++count;
