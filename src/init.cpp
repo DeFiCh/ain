@@ -1451,7 +1451,7 @@ static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
-    // ********************************************************* Step 4a: application initialization
+    // ********************************************************* Step 5: application initialization
     if (!CreatePidFile()) {
         // Detailed error printed inside CreatePidFile().
         return false;
@@ -1559,14 +1559,14 @@ bool AppInitMain(InitInterfaces& interfaces)
             return InitError(_("Unable to start HTTP server. See debug log for details.").translated);
     }
 
-    // ********************************************************* Step 5: verify wallet database integrity
+    // ********************************************************* Step 6: verify wallet database integrity
     for (const auto& client : interfaces.chain_clients) {
         if (!client->verify()) {
             return false;
         }
     }
 
-    // ********************************************************* Step 6: network initialization
+    // ********************************************************* Step 7: network initialization
     // Note that we absolutely cannot open any actual connections
     // until the very end ("start node") as the UTXO/block state
     // is not yet setup and may end up being set up twice if we
@@ -1683,7 +1683,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Setup interrupts
     SetupInterrupts();
 
-    // ********************************************************* Step 7: load block chain
+    // ********************************************************* Step 8: load block chain
 
     fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
@@ -2017,7 +2017,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         ::feeEstimator.Read(est_filein);
     fFeeEstimatesInitialized = true;
 
-    // ********************************************************* Step 8: start indexers
+    // ********************************************************* Step 9: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
         g_txindex = std::make_unique<TxIndex>(nTxIndexCache, false, fReindex);
         g_txindex->Start();
@@ -2028,14 +2028,14 @@ bool AppInitMain(InitInterfaces& interfaces)
         GetBlockFilterIndex(filter_type)->Start();
     }
 
-    // ********************************************************* Step 9.a: load wallet
+    // ********************************************************* Step 10.a: load wallet
     for (const auto& client : interfaces.chain_clients) {
         if (!client->load()) {
             return false;
         }
     }
 
-    // ********************************************************* Step 9.b: load anchors / SPV wallet
+    // ********************************************************* Step 10.b: load anchors / SPV wallet
 
     try {
         LOCK(cs_main);
@@ -2063,7 +2063,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         return InitError("Error opening SPV database");
     }
 
-    // ********************************************************* Step 10: data directory maintenance
+    // ********************************************************* Step 11: data directory maintenance
 
     // if pruning, unset the service bit and perform the initial blockstore prune
     // after any wallet rescanning has taken place.
@@ -2121,7 +2121,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         pcustomcsview->Flush();
     }
 
-    // ********************************************************* Step 11: import blocks
+    // ********************************************************* Step 12: import blocks
 
     if (!CheckDiskSpace(GetDataDir())) {
         InitError(strprintf(_("Error: Disk space is low for %s").translated, GetDataDir()));
@@ -2169,7 +2169,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         return false;
     }
 
-    // ********************************************************* Step 12: start node
+    // ********************************************************* Step 13: start node
 
     int chain_active_height;
 
@@ -2244,7 +2244,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         return false;
     }
 
-    // ********************************************************* Step 13: finished
+    // ********************************************************* Step 14: finished
 
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading").translated);
@@ -2294,7 +2294,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         spv::pspv->Connect();
     }
 
-    // ********************************************************* Step 14: start minter thread
+    // ********************************************************* Step 15: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
