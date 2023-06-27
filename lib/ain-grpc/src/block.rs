@@ -7,6 +7,7 @@ use serde::{
     de::{Error, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use sha3::Digest;
 use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -81,7 +82,9 @@ impl RpcBlock {
             uncles: vec![],
             nonce: block.header.nonce,
             extra_data: Bytes::from(block.header.extra_data),
-            sha3_uncles: H256::default(),
+            sha3_uncles: H256::from_slice(&sha3::Keccak256::digest(
+                &rlp::RlpStream::new_list(0).out(),
+            )),
             logs_bloom: format!("{:#x}", block.header.logs_bloom),
             size: format!("{header_size:#x}"),
             base_fee_per_gas: base_fee,

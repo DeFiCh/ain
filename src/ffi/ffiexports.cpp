@@ -44,9 +44,9 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     try {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
         send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
-    } catch (std::runtime_error& e) {
+    } catch (std::runtime_error &e) {
         return e.what();
-    } catch (const UniValue& objError) {
+    } catch (const UniValue &objError) {
         const auto obj = objError.get_obj();
 
         return obj["message"].get_str();
@@ -58,8 +58,8 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
 rust::vec<rust::string> getAccounts() {
     rust::vec<rust::string> addresses;
     std::vector<std::shared_ptr<CWallet>> const wallets = GetWallets();
-    for (const std::shared_ptr<CWallet>& wallet : wallets) {
-        for (auto & it : wallet->mapAddressBook)
+    for (const std::shared_ptr<CWallet> &wallet: wallets) {
+        for (auto &it: wallet->mapAddressBook)
             if (std::holds_alternative<WitnessV16EthHash>(it.first)) {
                 addresses.push_back(EncodeDestination(it.first));
             }
@@ -68,14 +68,14 @@ rust::vec<rust::string> getAccounts() {
 }
 
 rust::string getDatadir() {
-    #ifdef WIN32
+#ifdef WIN32
     // https://learn.microsoft.com/en-us/cpp/cpp/char-wchar-t-char16-t-char32-t?view=msvc-170
     // We're sidestepping this for now unsafely making an assumption. Can crash on Windows
     // if odd paths are used. Require testing.
     return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
-    #else
+#else
     return rust::String(GetDataDir().c_str());
-    #endif
+#endif
 }
 
 rust::string getNetwork() {
@@ -86,7 +86,7 @@ uint32_t getDifficulty(std::array<uint8_t, 32> blockHash) {
     uint256 hash{};
     std::copy(blockHash.begin(), blockHash.end(), hash.begin());
 
-    const CBlockIndex* pblockindex;
+    const CBlockIndex *pblockindex;
     uint32_t difficulty{};
     {
         LOCK(cs_main);
@@ -106,7 +106,7 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
     uint256 hash{};
     std::copy(blockHash.begin(), blockHash.end(), hash.begin());
 
-    const CBlockIndex* pblockindex;
+    const CBlockIndex *pblockindex;
     std::array<uint8_t, 32> chainWork{};
     {
         LOCK(cs_main);
@@ -139,7 +139,8 @@ rust::vec<rust::string> getPoolTransactions() {
         }
 
         CCustomTxMessage txMessage{CEvmTxMessage{}};
-        const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
+        const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
+                                             txMessage);
         if (!res) {
             continue;
         }
@@ -188,7 +189,7 @@ uint64_t getMinRelayTxFee() {
 std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
     CKey ethPrivKey;
     const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
-    for (const auto &wallet : GetWallets()) {
+    for (const auto &wallet: GetWallets()) {
         if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
@@ -202,6 +203,22 @@ rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
 
+int getHighestBlock() {
+    return pindexBestHeader ? pindexBestHeader->nHeight
+                            : (int) ::ChainActive().Height(); // return current block count if no peers
+}
+
+int getCurrentHeight() {
+    LOCK(cs_main);
+    return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
+}
+
 bool pastChangiIntermediateHeight2() {
+    LOCK(cs_main);
     return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight2;
+}
+
+bool pastChangiIntermediateHeight3() {
+    LOCK(cs_main);
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight3;
 }
