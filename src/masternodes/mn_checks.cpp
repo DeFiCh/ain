@@ -4060,6 +4060,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
+    if (obj.transfers.size() < 1) {
+        return DeFiErrors::TransferDomainInvalid();
+    }
+
     for (const auto &[src, dst] : obj.transfers) {
         auto res = ValidateTransferDomainAspect(tx, height, coins, consensus, src, dst);
         if (!res) return res;

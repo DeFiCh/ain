@@ -454,6 +454,10 @@ public:
         return Res::Err("Unknown transfer domain aspect");
     }
 
+    static Res TransferDomainInvalid() {
+        return Res::Err("Invalid transfer domain TX");
+    }
+
     static Res ScriptUnexpected(const CScript &script) {
         return Res::Err("Unexpected Script: %s", script.GetHex());
     }
