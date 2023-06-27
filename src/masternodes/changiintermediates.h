@@ -1,11 +1,10 @@
 #ifndef DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
 #define DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
 
+#include <coins.h>
+#include <primitives/transaction.h>
 #include <consensus/params.h>
-#include <consensus/tx_check.h>
-#include <masternodes/evm.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <masternodes/balances.h>
 
 /// The file and class that has all the old things that will be removed.
 /// The goal of this entire class and file is to be removed. It's a collection of the 

@@ -1,4 +1,5 @@
 #include <masternodes/changiintermediates.h>
+#include <masternodes/mn_checks.h>
 #include <masternodes/errors.h>
 
 /// The file and class that has all the old things that will be removed.
