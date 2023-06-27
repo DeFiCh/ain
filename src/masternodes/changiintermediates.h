@@ -1,10 +1,16 @@
 #ifndef DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
 #define DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
 
-#include <coins.h>
-#include <primitives/transaction.h>
-#include <consensus/params.h>
-#include <masternodes/balances.h>
+#include <cstdint>
+
+class CCoinsViewCache;
+class CTransaction;
+struct CTransferDomainItem;
+struct Res;
+
+namespace Consensus {
+    struct Params;
+};
 
 /// The file and class that has all the old things that will be removed.
 /// The goal of this entire class and file is to be removed. It's a collection of the 
