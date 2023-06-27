@@ -754,7 +754,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             })?;
 
         if current_native_height == -1 {
-            return Err(Error::Custom(format!("Block index not available")));
+            return Err(Error::Custom(String::from("Block index not available")));
         }
 
         match current_native_height != highest_native_block {

@@ -77,7 +77,7 @@ impl EVMHandler {
                 receipts_root: Default::default(),
                 logs_bloom: Default::default(),
                 gas_used: Default::default(),
-                gas_limit: genesis.gas_limit.unwrap_or(U256::from(MAX_GAS_PER_BLOCK)),
+                gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),

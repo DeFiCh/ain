@@ -195,7 +195,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: U256::from(MAX_GAS_PER_BLOCK),
+                gas_limit: MAX_GAS_PER_BLOCK,
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),
