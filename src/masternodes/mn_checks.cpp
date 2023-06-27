@@ -3979,10 +3979,10 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainAspect aspect) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
-    if (!res) DeFiErrors::ScriptUnexpected(srcScript);
+    if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
 
     res = ExtractDestination(destScript, dest);
-    if (!res) DeFiErrors::ScriptUnexpected(destScript);
+    if (!res) return DeFiErrors::ScriptUnexpected(destScript);
 
     auto isValidDVMAddrForEVM = [](const CTxDestination &a) { 
         return a.index() == PKHashType || a.index() == WitV0KeyHashType; };
