@@ -466,8 +466,7 @@ pkg_install_deps() {
 pkg_install_deps_fedora() {
     _fold_start "pkg-install-deps-fedora"
 
-    # gcc-multilib: for cross compilations
-    # locales: for using en-US.UTF-8 (see head of this file).
+    # install dependencies for local development
     dnf install -y \
       sudo dnf install gcc-c++ libtool make autoconf automake python3 libstdc++-static patch clang
 
