@@ -4036,7 +4036,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
-static Res ValidateTransferDomainAddress(const CScript &srcScript, const CScript &destScript, VMDomainAspect aspect) {
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainAspect aspect) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) DeFiErrors::ScriptUnexpected(srcScript);
@@ -4045,7 +4045,7 @@ static Res ValidateTransferDomainAddress(const CScript &srcScript, const CScript
     if (!res) DeFiErrors::ScriptUnexpected(destScript);
 
     if (aspect == VMDomainAspect::DVMToEVM) {
-        if (!(src.index() == PKHashType && src.index() == WitV0KeyHashType)) {
+        if (!(src.index() == PKHashType || src.index() == WitV0KeyHashType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
         if (!(dest.index() == WitV16KeyEthHashType)) {
@@ -4057,7 +4057,7 @@ static Res ValidateTransferDomainAddress(const CScript &srcScript, const CScript
         if (!(src.index() == WitV16KeyEthHashType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!(dest.index() == PKHashType && dest.index() == WitV0KeyHashType)) {
+        if (!(dest.index() == PKHashType || dest.index() == WitV0KeyHashType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();
@@ -4089,14 +4089,14 @@ Res ValidateTransferDomainAspect(const CTransaction &tx,
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         // DVM to EVM
-        auto res = ValidateTransferDomainAddress(src.address, dst.address, VMDomainAspect::DVMToEVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::DVMToEVM);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
         // EVM to DVM
-        auto res = ValidateTransferDomainAddress(src.address, dst.address, VMDomainAspect::EVMToDVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::EVMToDVM);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
