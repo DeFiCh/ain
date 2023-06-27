@@ -4633,7 +4633,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
     }
 
     // Single swap if no pool IDs provided
-    auto poolPrice = PoolPrice::getMaxLimit();
+    auto poolPrice = PoolPrice::getMaxValid();
     std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
@@ -4840,7 +4840,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     obj.idTokenFrom = tokenId;
     obj.idTokenTo   = DCT_ID{0};
     obj.amountFrom  = amount;
-    obj.maxPrice    = PoolPrice::getMaxLimit();
+    obj.maxPrice    = PoolPrice::getMaxValid();
 
     auto poolSwap = CPoolSwap(obj, height);
     auto token    = mnview.GetToken(tokenId);

@@ -377,8 +377,6 @@ struct CRemoveLiquidityMessage {
     }
 };
 
-void setMaxPoolPrice(PoolPrice &price);
-bool checkMaxPoolPrice(const PoolPrice &price);
 bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 bool poolOutFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 
