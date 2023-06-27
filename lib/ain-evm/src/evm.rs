@@ -2,6 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity}
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
+use crate::receipt::ReceiptHandler;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -83,7 +84,7 @@ impl EVMHandler {
                 state_root,
                 number: U256::zero(),
                 beneficiary: Default::default(),
-                receipts_root: Default::default(),
+                receipts_root: ReceiptHandler::get_receipts_root(&Vec::new()),
                 logs_bloom: Default::default(),
                 gas_used: Default::default(),
                 gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
@@ -146,7 +147,7 @@ impl EVMHandler {
         )
         .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
+            caller: caller.unwrap_or_default(),
             to,
             value,
             data,
