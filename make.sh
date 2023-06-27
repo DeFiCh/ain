@@ -187,6 +187,8 @@ build() {
     build_make "$@"
 }
 
+# ----------- Deployment ---------------
+
 deploy() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
@@ -214,10 +216,6 @@ package() {
     local img_version="${IMAGE_VERSION}"
     local build_dir="${BUILD_DIR}"
     local pkg_name="${PACKAGE}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-
-    local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -230,21 +228,39 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    _ensure_enter_dir "${versioned_build_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
-    _exit_dir
+    local pkg_path
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        local pkg_zip_file_name="${pkg_name}.zip"
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_zip_file_name}")"
+
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_zip_file_name}" "${versioned_name}/"
+        _exit_dir
+    else
+        local pkg_tar_file_name="${pkg_name}.tar.gz"
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+
+        _ensure_enter_dir "${versioned_build_dir}"
+        _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+        _exit_dir
+    fi
 
     echo "> package: ${pkg_path}"
 }
 
 sign() {
     local pkg_name="${PACKAGE}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_file_name="${pkg_name}.tar.gz"
     local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
     local build_dir="${BUILD_DIR}"
 
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_file_name="${pkg_name}.zip"
+        pkg_sign_file_name="${pkg_name}.zip.SHA256"
+    fi
+
     local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    pkg_path="$(_canonicalize "${build_dir}/${pkg_file_name}")"
     pkg_sign_path="$(_canonicalize "${build_dir}/${pkg_sign_file_name}")"
     sha256sum "$pkg_path" > "$pkg_sign_path"
 }
