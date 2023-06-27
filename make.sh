@@ -241,6 +241,7 @@ sign() {
     local pkg_name="${PACKAGE}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
     local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
+    local build_dir="${BUILD_DIR}"
 
     local pkg_path
     pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
