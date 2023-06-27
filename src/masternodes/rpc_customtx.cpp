@@ -236,10 +236,8 @@ public:
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         
-        if (checkMaxPoolPrice(obj.maxPrice)) {
-            // get max pool price
-            PoolPrice price;
-            setMaxPoolPrice(price);
+        if (obj.maxPrice.isAboveValid()) {
+            auto price = PoolPrice::getMaxValid();
             rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
         }
         else {

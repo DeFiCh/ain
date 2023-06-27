@@ -43,6 +43,25 @@ struct PoolPrice {
     }
 
     bool operator!=(const PoolPrice &rhs) const { return integer != rhs.integer || fraction != rhs.fraction; }
+
+    static constexpr PoolPrice getMaxLimit() {
+        CAmount maxPrice = std::numeric_limits<CAmount>::max();
+        const int64_t integer = maxPrice / COIN;
+        const int64_t fraction = maxPrice % COIN;
+        return { integer, fraction };
+    }
+
+    static constexpr PoolPrice getMaxValid() {
+        CAmount maxPrice = MAX_MONEY;
+        const int64_t integer = maxPrice / COIN;
+        const int64_t fraction = maxPrice % COIN;
+        return { integer, fraction };
+    }
+
+    bool isAboveValid() const {
+        const auto maxPrice = PoolPrice::getMaxValid();
+        return ((integer > maxPrice.integer) || (integer == maxPrice.integer && fraction >= maxPrice.fraction));
+    }
 };
 
 struct CPoolSwapMessage {
