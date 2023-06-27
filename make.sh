@@ -971,6 +971,23 @@ ci_export_vars() {
     fi
 }
 
+ci_export_package() {
+    local pkg_name="${PACKAGE}"
+    local pkg_file_name="${pkg_name}.tar.gz"
+    local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
+
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_file_name="${pkg_name}.zip"
+        pkg_sign_file_name="${pkg_name}.zip.SHA256"
+    fi
+
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        # GitHub Actions
+        echo "PACKAGE_NAME=${pkg_file_name}" >> "$GITHUB_ENV"
+        echo "PACKAGE_SIGN_NAME=${pkg_sign_file_name}" >> "$GITHUB_ENV"
+    fi
+}
+
 ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_update_base
     DEBIAN_FRONTEND=noninteractive pkg_install_deps

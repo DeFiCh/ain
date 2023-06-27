@@ -33,13 +33,16 @@ jobs:
     - name: Sign package
       run: ./make.sh sign
 
+    - name: Get artifacts
+      run: ./make.sh ci-export-package
+
     - name: Publish artifacts
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: |
-          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
+          ./build/${{ env.PACKAGE_NAME }}
+          ./build/${{ env.PACKAGE_SIGN_NAME }}
 
     - name: Get release
       id: get_release
@@ -53,8 +56,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-        asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+        asset_path: ./build/${{ env.PACKAGE_NAME }}
+        asset_name: ${{ env.PACKAGE_NAME }}
         asset_content_type: application/gzip
 
     - name: Upload checksum
@@ -63,8 +66,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
-        asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
+        asset_path: ./build/${{ env.PACKAGE_SIGN_NAME }}
+        asset_name: ${{ env.PACKAGE_SIGN_NAME }}
         asset_content_type: text/plain
 
     - name: Login to Docker Hub
