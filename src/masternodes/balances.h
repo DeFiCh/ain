@@ -216,7 +216,7 @@ enum class VMDomain : uint8_t {
     EVM      = 0x03,
 };
 
-enum class VMDomainAspect : uint8_t {
+enum class VMDomainEdge : uint8_t {
     DVMToEVM            = 0x01,
     EVMToDVM            = 0x02,
 };

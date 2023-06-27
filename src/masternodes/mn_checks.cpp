@@ -3945,8 +3945,8 @@ public:
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, txHash, evmTxHash);
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, evmTxHash, txHash);
+        mnview.SetVMDomainMapTxHash(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainMapTxHash(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 
@@ -3976,7 +3976,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainAspect aspect) {
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -3989,7 +3989,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     auto isValidEVMAddr = [](const CTxDestination &a) { 
         return a.index() == WitV16KeyEthHashType; };
 
-    if (aspect == VMDomainAspect::DVMToEVM) {
+    if (aspect == VMDomainEdge::DVMToEVM) {
         if (!isValidDVMAddrForEVM(src)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
@@ -3998,7 +3998,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
         }
         return Res::Ok();
         
-    } else if (aspect == VMDomainAspect::EVMToDVM) {
+    } else if (aspect == VMDomainEdge::EVMToDVM) {
         if (!isValidEVMAddr(src)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
@@ -4008,10 +4008,10 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
         return Res::Ok();
     }
 
-    return DeFiErrors::TransferDomainUnknownAspect();
+    return DeFiErrors::TransferDomainUnknownEdge();
 }
 
-Res ValidateTransferDomainAspect(const CTransaction &tx,
+Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
@@ -4019,7 +4019,7 @@ Res ValidateTransferDomainAspect(const CTransaction &tx,
     
     // TODO: Remove code branch on stable. 
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
-        return ChangiBuggyIntermediates::ValidateTransferDomainAspect2(tx, height, coins, consensus, src, dst);
+        return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
     }
 
     if (src.domain == dst.domain)
@@ -4034,20 +4034,20 @@ Res ValidateTransferDomainAspect(const CTransaction &tx,
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::DVMToEVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainAspect::EVMToDVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
     }
 
-    return DeFiErrors::TransferDomainUnknownAspect();
+    return DeFiErrors::TransferDomainUnknownEdge();
 }
 
 
@@ -4067,7 +4067,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
     }
 
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainAspect(tx, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 

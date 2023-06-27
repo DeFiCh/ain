@@ -26,11 +26,6 @@ struct CEvmTxMessage {
     }
 };
 
-enum VMDomainMapType : uint8_t {
-    DVMToEVM            = 0x01,
-    EVMToDVM            = 0x02,
-};
-
 class CVMDomainMapView : public virtual CStorageView {
 public:
     Res SetVMDomainMapBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash);

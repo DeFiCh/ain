@@ -450,7 +450,7 @@ public:
         return Res::Err("Invalid domain set for \"dst\" argument");
     }
 
-    static Res TransferDomainUnknownAspect() {
+    static Res TransferDomainUnknownEdge() {
         return Res::Err("Unknown transfer domain aspect");
     }
 

@@ -180,19 +180,19 @@ UniValue vmmap(const JSONRPCRequest& request) {
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainEdge::DVMToEVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainEdge::EVMToDVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainEdge::DVMToEVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainMapType::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainEdge::EVMToDVM, uint256S(hash));
             break;
         }
         default: {
@@ -232,7 +232,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     switch (type) {
         case VMDomainIndexType::BlockHash: {
             pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 blockHash) {
-                if (index.first == VMDomainMapType::DVMToEVM) {
+                if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
                     ++count;
                 }
@@ -241,7 +241,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
         }
         case VMDomainIndexType::TxHash: {
             pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<uint8_t, uint256> &index, uint256 txHash) {
-                if (index.first == VMDomainMapType::DVMToEVM) {
+                if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
                     ++count;
                 }

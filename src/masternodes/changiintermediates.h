@@ -12,7 +12,7 @@
 /// accumulated bugs in early releases. 
 class ChangiBuggyIntermediates {
 public:
-    static Res ValidateTransferDomainAspect2(const CTransaction &tx,
+    static Res ValidateTransferDomainEdge2(const CTransaction &tx,
                                     uint32_t height,
                                     const CCoinsViewCache &coins,
                                     const Consensus::Params &consensus,
@@ -20,4 +20,3 @@ public:
 };
 
  #endif // DEFI_MASTERNODES_CHANGIINTERMEDIATES_H
- 
