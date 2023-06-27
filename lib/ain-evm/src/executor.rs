@@ -1,3 +1,5 @@
+use crate::precompiles::MetachainPrecompiles;
+
 use crate::{
     backend::{EVMBackend, EVMBackendError},
     evm::EVMHandler,
@@ -14,7 +16,6 @@ use evm::{
 };
 use log::trace;
 use primitive_types::{H160, H256};
-use std::collections::BTreeMap;
 
 pub struct AinExecutor<'backend> {
     backend: &'backend mut EVMBackend,
@@ -47,7 +48,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
     fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let precompiles = MetachainPrecompiles::new();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -109,7 +110,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let precompiles = MetachainPrecompiles::new();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -139,8 +140,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 
-        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height()
-            .expect("Unable to get Changi intermediate3 height");
+        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height();
 
         if (!past_changi_intermediate3 && exit_reason.is_succeed()) || (past_changi_intermediate3) {
             ApplyBackend::apply(self.backend, values, logs.clone(), true);
