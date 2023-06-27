@@ -8,6 +8,7 @@ mod fee;
 mod genesis;
 pub mod handler;
 pub mod log;
+mod precompiles;
 pub mod receipt;
 pub mod runtime;
 pub mod storage;
