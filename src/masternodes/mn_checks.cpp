@@ -3945,8 +3945,8 @@ public:
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
-        mnview.SetVMDomainMapTxHash(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
-        mnview.SetVMDomainMapTxHash(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+        mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 

@@ -180,19 +180,19 @@ UniValue vmmap(const JSONRPCRequest& request) {
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainEdge::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapTxHash(VMDomainEdge::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainEdge::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(hash));
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainMapBlockHash(VMDomainEdge::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(hash));
             break;
         }
         default: {
@@ -231,7 +231,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     // return false, once we hit the limit and stop the iter.
     switch (type) {
         case VMDomainIndexType::BlockHash: {
-            pcustomcsview->ForEachVMDomainMapBlockIndexes([&](const std::pair<VMDomainEdge, uint256> &index, uint256 blockHash) {
+            pcustomcsview->ForEachVMDomainBlockEdges([&](const std::pair<VMDomainEdge, uint256> &index, uint256 blockHash) {
                 if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
                     ++count;
@@ -240,7 +240,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
             });
         }
         case VMDomainIndexType::TxHash: {
-            pcustomcsview->ForEachVMDomainMapTxIndexes([&](const std::pair<VMDomainEdge, uint256> &index, uint256 txHash) {
+            pcustomcsview->ForEachVMDomainTxEdges([&](const std::pair<VMDomainEdge, uint256> &index, uint256 txHash) {
                 if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
                     ++count;
