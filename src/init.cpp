@@ -1567,19 +1567,17 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 }
 
-void SetupEVMServers() {
+void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
     /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
-    * RPC/gRPC server to bind to one address. By default, we will only take
-    * the first address, if multiple addresses are specified.
+        * RPC/gRPC server to bind to one address. By default, we will only take
+        * the first address, if multiple addresses are specified.
     */
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
-    std::vector<std::pair<std::string, uint16_t> > eth_endpoints;
-    std::vector<std::pair<std::string, uint16_t> > g_endpoints;
 
     // Determine which addresses to bind to ETH RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-        eth_endpoints.emplace_back("127.0.0.1", eth_rpc_port);
+        ethEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
         }
@@ -1591,13 +1589,13 @@ void SetupEVMServers() {
             int port = eth_rpc_port;
             std::string host;
             SplitHostPort(strETHRPCBind, port, host);
-            eth_endpoints.emplace_back(host, port);
+            ethEndpoints.emplace_back(host, port);
         }
     }
 
     // Determine which addresses to bind to gRPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
-        g_endpoints.emplace_back("127.0.0.1", grpc_port);
+        gEndpoints.emplace_back("127.0.0.1", grpc_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
         }
@@ -1609,12 +1607,9 @@ void SetupEVMServers() {
             int port = grpc_port;
             std::string host;
             SplitHostPort(strGRPCBind, port, host);
-            g_endpoints.emplace_back(host, port);
+            gEndpoints.emplace_back(host, port);
         }
     }
-
-    // Default to using the first address passed to bind to ETH RPC server and gRPC server
-    start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
 }
 
 void SetupAnchorSPVDatabases(bool resync, int64_t customCache) {
@@ -1975,7 +1970,12 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
             }
 
-            SetupEVMServers();
+            std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
+            std::vector<std::pair<std::string, uint16_t>> g_endpoints;
+            SetupRPCPorts(eth_endpoints, g_endpoints);
+
+            // Default to using the first address passed to bind to ETH RPC server and gRPC server
+            start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
 
             try {
                 LOCK(cs_main);
