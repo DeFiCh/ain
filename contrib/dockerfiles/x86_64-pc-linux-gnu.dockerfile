@@ -25,8 +25,6 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
-RUN ls -lah build
-
 # -----------
 ### Actual image that contains defi binaries
 FROM --platform=linux/amd64 ubuntu:latest as defi
