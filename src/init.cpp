@@ -514,6 +514,7 @@ void SetupServerArgs()
     gArgs.AddArg("-nextnetworkupgradeheight", "Next Network Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediateheight", "Changi Intermediate fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediate2height", "Changi Intermediate2 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changiintermediate3height", "Changi Intermediate3 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -1558,56 +1559,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             return InitError(_("Unable to start HTTP server. See debug log for details.").translated);
     }
 
-    // ********************************************************* Step 4b: application initialization
-
-    /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
-     * RPC/gRPC server to bind to one address. By default, we will only take
-     * the first address, if multiple addresses are specified.
-    */
-    int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
-    int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
-    std::vector<std::pair<std::string, uint16_t> > eth_endpoints;
-    std::vector<std::pair<std::string, uint16_t> > g_endpoints;
-
-    // Determine which addresses to bind to ETH RPC server
-    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-        eth_endpoints.push_back(std::make_pair("127.0.0.1", eth_rpc_port));
-        if (gArgs.IsArgSet("-rpcallowip")) {
-            LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
-        }
-        if (gArgs.IsArgSet("-ethrpcbind")) {
-            LogPrintf("WARNING: option -ethrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
-        }
-    } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
-        for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
-            int port = eth_rpc_port;
-            std::string host;
-            SplitHostPort(strETHRPCBind, port, host);
-            eth_endpoints.push_back(std::make_pair(host, port));
-        }
-    }
-
-    // Determine which addresses to bind to gRPC server
-    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
-        g_endpoints.push_back(std::make_pair("127.0.0.1", grpc_port));
-        if (gArgs.IsArgSet("-rpcallowip")) {
-            LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
-        }
-        if (gArgs.IsArgSet("-grpcbind")) {
-            LogPrintf("WARNING: option -grpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
-        }
-    } else if (gArgs.IsArgSet("-grpcbind")) { // Specific bind address
-        for (const std::string& strGRPCBind : gArgs.GetArgs("-grpcbind")) {
-            int port = grpc_port;
-            std::string host;
-            SplitHostPort(strGRPCBind, port, host);
-            g_endpoints.push_back(std::make_pair(host, port));
-        }
-    }
-
-    // Default to using the first address passed to bind to ETH RPC server and gRPC server
-    start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
-
     // ********************************************************* Step 5: verify wallet database integrity
     for (const auto& client : interfaces.chain_clients) {
         if (!client->verify()) {
@@ -1948,6 +1899,54 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
             }
+
+            /* Start the ETH RPC and gRPC servers. Current API only allows for one ETH
+             * RPC/gRPC server to bind to one address. By default, we will only take
+             * the first address, if multiple addresses are specified.
+            */
+            int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
+            int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+            std::vector<std::pair<std::string, uint16_t> > eth_endpoints;
+            std::vector<std::pair<std::string, uint16_t> > g_endpoints;
+
+            // Determine which addresses to bind to ETH RPC server
+            if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
+                eth_endpoints.emplace_back("127.0.0.1", eth_rpc_port);
+                if (gArgs.IsArgSet("-rpcallowip")) {
+                    LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
+                }
+                if (gArgs.IsArgSet("-ethrpcbind")) {
+                    LogPrintf("WARNING: option -ethrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+                }
+            } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
+                for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
+                    int port = eth_rpc_port;
+                    std::string host;
+                    SplitHostPort(strETHRPCBind, port, host);
+                    eth_endpoints.emplace_back(host, port);
+                }
+            }
+
+            // Determine which addresses to bind to gRPC server
+            if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
+                g_endpoints.emplace_back("127.0.0.1", grpc_port);
+                if (gArgs.IsArgSet("-rpcallowip")) {
+                    LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
+                }
+                if (gArgs.IsArgSet("-grpcbind")) {
+                    LogPrintf("WARNING: option -grpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+                }
+            } else if (gArgs.IsArgSet("-grpcbind")) { // Specific bind address
+                for (const std::string& strGRPCBind : gArgs.GetArgs("-grpcbind")) {
+                    int port = grpc_port;
+                    std::string host;
+                    SplitHostPort(strGRPCBind, port, host);
+                    g_endpoints.emplace_back(host, port);
+                }
+            }
+
+            // Default to using the first address passed to bind to ETH RPC server and gRPC server
+            start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
 
             try {
                 LOCK(cs_main);

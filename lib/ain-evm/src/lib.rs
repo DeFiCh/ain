@@ -9,6 +9,7 @@ pub mod filters;
 mod genesis;
 pub mod handler;
 pub mod log;
+mod precompiles;
 pub mod receipt;
 pub mod runtime;
 pub mod storage;

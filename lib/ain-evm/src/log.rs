@@ -79,7 +79,6 @@ impl LogHandler {
                 // filter by addresses
                 logs.into_iter()
                     .filter(|(address, _)| addresses.contains(address))
-                    .into_iter()
                     .flat_map(|(_, log)| log)
                     .collect()
             }

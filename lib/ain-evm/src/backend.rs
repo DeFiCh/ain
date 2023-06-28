@@ -6,7 +6,7 @@ use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
-use vsdb_trie_db::MptOnce;
+use vsdb_trie_db::{MptOnce, MptRo};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
@@ -130,6 +130,12 @@ impl EVMBackend {
             gas_limit: tx.gas_limit(),
             ..self.vicinity
         };
+    }
+
+    // Read-only handle
+    pub fn ro_handle(&self) -> MptRo {
+        let root = self.state.root();
+        self.state.ro_handle(root)
     }
 
     pub fn deduct_prepay_gas(&mut self, sender: H160, prepay_gas: U256) {

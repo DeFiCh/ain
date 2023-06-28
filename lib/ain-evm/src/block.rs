@@ -135,9 +135,7 @@ impl BlockHandler {
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
     ) -> U256 {
-        match ain_cpp_imports::past_changi_intermediate_height_2_height()
-            .expect("Unable to get Changi intermediate height 2")
-        {
+        match ain_cpp_imports::past_changi_intermediate_height_2_height() {
             true => self.post_changi_intermediate_2_base_fee_calculation(
                 parent_gas_used,
                 parent_gas_target,
