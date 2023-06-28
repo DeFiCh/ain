@@ -7,7 +7,7 @@ ARG TARGET=unknown
 FROM ubuntu:latest as builder
 ARG TARGET
 ARG MAKE_DEBUG
-ARG CCACHE_DIR
+ARG CCACHE_DIR="/work/.ccache"
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 

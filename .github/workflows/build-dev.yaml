@@ -60,7 +60,7 @@ jobs:
       id: cache-ccache
       uses: actions/cache@v3
       with:
-        path: ./.ccache
+        path: ./build/.ccache
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
     - name: Build and package
