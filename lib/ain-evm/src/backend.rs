@@ -6,7 +6,7 @@ use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
-use vsdb_trie_db::MptOnce;
+use vsdb_trie_db::{MptOnce, MptRo};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
@@ -90,6 +90,7 @@ impl EVMBackend {
         };
 
         storage.into_iter().for_each(|(k, v)| {
+            debug!("Apply::Modify storage, key: {:x} value: {:x}", k, v);
             let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
         });
 
@@ -131,14 +132,22 @@ impl EVMBackend {
         };
     }
 
+    // Read-only handle
+    pub fn ro_handle(&self) -> MptRo {
+        let root = self.state.root();
+        self.state.ro_handle(root)
+    }
+
     pub fn deduct_prepay_gas(&mut self, sender: H160, prepay_gas: U256) {
-        trace!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
+        debug!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
 
         let basic = self.basic(sender);
         let balance = basic.balance.saturating_sub(prepay_gas);
         let new_basic = Basic { balance, ..basic };
+
         self.apply(sender, new_basic, None, Vec::new(), false)
             .expect("Error deducting account balance");
+        self.commit();
     }
 
     pub fn refund_unused_gas(
@@ -151,15 +160,17 @@ impl EVMBackend {
         let refund_gas = gas_limit.saturating_sub(used_gas);
         let refund_amount = refund_gas.saturating_mul(gas_price);
 
-        trace!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, sender);
+        debug!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, sender);
 
         let basic = self.basic(sender);
         let new_basic = Basic {
             balance: basic.balance.saturating_add(refund_amount),
             ..basic
         };
+
         self.apply(sender, new_basic, None, Vec::new(), false)
             .expect("Error refunding account balance");
+        self.commit();
     }
 }
 
@@ -281,6 +292,11 @@ impl ApplyBackend for EVMBackend {
                     storage,
                     reset_storage,
                 } => {
+                    debug!(
+                        "Apply::Modify address {:x}, basic {:?}, code {:?}",
+                        address, basic, code,
+                    );
+
                     let new_account = self
                         .apply(address, basic, code, storage, reset_storage)
                         .expect("Error applying state");

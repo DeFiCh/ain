@@ -11,16 +11,20 @@
 
 class DeFiErrors {
 public:
-    static Res MNInvalid(const std::string &nodeRefString) { 
+    static Res MNInvalid(const std::string &nodeRefString) {
         return Res::Err("node %s does not exists", nodeRefString);
     }
 
-    static Res MNInvalidAltMsg(const std::string &nodeRefString) { 
+    static Res MNInvalidAltMsg(const std::string &nodeRefString) {
         return Res::Err("masternode %s does not exist", nodeRefString);
     }
 
-    static Res MNStateNotEnabled(const std::string &nodeRefString) { 
+    static Res MNStateNotEnabled(const std::string &nodeRefString) {
         return Res::Err("Masternode %s is not in 'ENABLED' state", nodeRefString);
+    }
+
+    static Res ICXDisabled() {
+        return Res::Err("Cannot create tx, ICX is not enabled");
     }
 
     static Res ICXBTCBelowMinSwap(const CAmount amount, const CAmount minSwap) {
@@ -178,8 +182,8 @@ public:
         return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
     }
 
-    static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) { 
-        return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price)); 
+    static Res AmountOverflowAsValuePrice(const CAmount amount, const CAmount price) {
+        return Res::Err("Value/price too high (%s/%s)", GetDecimalString(amount), GetDecimalString(price));
     }
 
     static Res GovVarVerifyInt() {
@@ -398,6 +402,10 @@ public:
         return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", address);
     }
 
+    static Res TransferDomainInvalidDataSize(const uint32_t max_data) {
+        return Res::Err("Excess data set, maximum allow is %d", max_data);
+    }
+
     static Res InvalidAuth() {
         return Res::Err("tx must have at least one input from account owner");
     }
@@ -419,27 +427,43 @@ public:
     }
 
     static Res TransferDomainETHSourceAddress() {
-        return Res::Err("Src address must not be an ETH address in case of \"DVM\" domain");
+        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
     }
 
-    static Res TransferDomainDFISourceAddress() {
-        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+    static Res TransferDomainDVMSourceAddress() {
+        return Res::Err("Src address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
     static Res TransferDomainInvalidSourceDomain() {
         return Res::Err("Invalid domain set for \"src\" argument");
     }
 
-    static Res TransferDomainETHDestinationAddress() {
-        return Res::Err("Dst address must not be an ETH address in case of \"DVM\" domain");
+    static Res TransferDomainETHDestAddress() {
+        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
     }
 
-    static Res TransferDomainDVMDestinationAddress() {
-        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+    static Res TransferDomainDVMDestAddress() {
+        return Res::Err("Dst address must be a legacy or Bech32 address in case of \"DVM\" domain");
     }
 
     static Res TransferDomainInvalidDestinationDomain() {
         return Res::Err("Invalid domain set for \"dst\" argument");
+    }
+
+    static Res TransferDomainUnknownEdge() {
+        return Res::Err("Unknown transfer domain aspect");
+    }
+
+    static Res TransferDomainInvalid() {
+        return Res::Err("Invalid transfer domain TX");
+    }
+
+    static Res ScriptUnexpected(const CScript &script) {
+        return Res::Err("Unexpected Script: %s", script.GetHex());
+    }
+
+    static Res DatabaseRWFailure(const std::string key) {
+      return Res::Err("DB r/w failure: %s", key);
     }
 };
 

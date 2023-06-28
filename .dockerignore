@@ -5,6 +5,7 @@
 # Editors.
 *.sw*
 .vscode
+!.vscode/settings.default.json
 .clangd
 
 # Misc

@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use ethereum_types::{H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,22 +13,24 @@ struct Config {
     eip158_block: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Alloc {
     pub balance: U256,
     pub code: Option<Vec<u8>>,
     pub storage: Option<HashMap<H256, H256>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisData {
     // config: Config,
-    pub coinbase: H160,
-    pub difficulty: U256,
-    pub extra_data: Vec<u8>,
-    pub gas_limit: U256,
-    pub nonce: H64,
-    pub timestamp: u64,
-    pub alloc: HashMap<H160, Alloc>,
+    pub coinbase: Option<H160>,
+    pub difficulty: Option<U256>,
+    pub extra_data: Option<Bytes>,
+    pub gas_limit: Option<U256>,
+    pub nonce: Option<H64>,
+    pub timestamp: Option<U256>,
+    pub alloc: Option<HashMap<H160, Alloc>>,
+    pub parent_hash: Option<H256>,
+    pub mix_hash: Option<H256>,
 }

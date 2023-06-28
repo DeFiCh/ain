@@ -26,4 +26,23 @@ struct CEvmTxMessage {
     }
 };
 
+class CVMDomainGraphView : public virtual CStorageView {
+public:
+    Res SetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey, uint256 blockHash);
+    ResVal<uint256> GetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey) const;
+    void ForEachVMDomainBlockEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback);
+
+    Res SetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey, uint256 txHash);
+    ResVal<uint256> GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const;
+    void ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback);
+
+    struct VMDomainBlockEdge {
+        static constexpr uint8_t prefix() { return 'N'; }
+    };
+
+    struct VMDomainTxEdge {
+        static constexpr uint8_t prefix() { return 'e'; }
+    };
+};
+
 #endif // DEFI_MASTERNODES_EVM_H

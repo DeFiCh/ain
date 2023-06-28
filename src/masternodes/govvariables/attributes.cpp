@@ -191,10 +191,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"gov", DFIPKeys::GovernanceEnabled},
              {"consortium", DFIPKeys::ConsortiumEnabled},
              {"evm", DFIPKeys::EVMEnabled},
+             {"icx", DFIPKeys::ICXEnabled},
              {"members", DFIPKeys::Members},
              {"gov-payout", DFIPKeys::CFPPayout},
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
+             {"allow-dusd-loops", DFIPKeys::AllowDUSDLoops},
          }},
         {AttributeTypes::Governance,
          {
@@ -267,10 +269,12 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::GovernanceEnabled, "gov"},
              {DFIPKeys::ConsortiumEnabled, "consortium"},
              {DFIPKeys::EVMEnabled, "evm"},
+             {DFIPKeys::ICXEnabled, "icx"},
              {DFIPKeys::Members, "members"},
              {DFIPKeys::CFPPayout, "gov-payout"},
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
+             {DFIPKeys::AllowDUSDLoops, "allow-dusd-loops"},
          }},
         {AttributeTypes::Live,
          {
@@ -595,9 +599,11 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::GovernanceEnabled, VerifyBool},
                  {DFIPKeys::ConsortiumEnabled, VerifyBool},
                  {DFIPKeys::EVMEnabled, VerifyBool},
+                 {DFIPKeys::ICXEnabled, VerifyBool},
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
+                 {DFIPKeys::AllowDUSDLoops, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -808,7 +814,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
                     typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
-                    typeKey != DFIPKeys::EVMEnabled) {
+                    typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
+                    typeKey != DFIPKeys::AllowDUSDLoops) {
                     return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {

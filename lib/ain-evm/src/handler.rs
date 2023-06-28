@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::EVMHandler;
+use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
+use crate::log::LogHandler;
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
@@ -23,8 +24,11 @@ pub struct Handlers {
     pub evm: EVMHandler,
     pub block: BlockHandler,
     pub receipt: ReceiptHandler,
+    pub logs: LogHandler,
     pub storage: Arc<Storage>,
 }
+
+pub type FinalizedBlockInfo = ([u8; 32], Vec<String>, u64);
 
 impl Handlers {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
@@ -54,6 +58,7 @@ impl Handlers {
                 evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                logs: LogHandler::new(Arc::clone(&storage)),
                 storage,
             })
         } else {
@@ -62,6 +67,7 @@ impl Handlers {
                 evm: EVMHandler::restore(Arc::clone(&storage)),
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
+                logs: LogHandler::new(Arc::clone(&storage)),
                 storage,
             })
         }
@@ -74,7 +80,7 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -94,11 +100,11 @@ impl Handlers {
                 Vicinity {
                     beneficiary,
                     timestamp: U256::from(timestamp),
-                    block_number: U256::from(0),
+                    block_number: U256::zero(),
                     ..Default::default()
                 },
                 H256::zero(),
-                U256::from(0),
+                U256::zero(),
             ),
             Some((hash, number)) => (
                 Vicinity {
@@ -191,7 +197,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: U256::from(30_000_000),
+                gas_limit: MAX_GAS_PER_BLOCK,
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),
@@ -221,6 +227,8 @@ impl Handlers {
             let base_fee = self.block.calculate_base_fee(parent_hash);
 
             self.block.connect_block(block.clone(), base_fee);
+            self.logs
+                .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
         }
 

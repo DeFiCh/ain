@@ -1,4 +1,4 @@
-ARG TARGET=arm-linux-gnueabihf
+ARG TARGET=aarch64-linux-gnu
 
 # -----------
 # https://github.com/DeFiCh/containers/blob/main/ain-builder/Dockerfile
@@ -14,6 +14,7 @@ COPY ./make.sh .
 ENV PATH=/root/.cargo/bin:$PATH
 RUN ./make.sh ci-setup-deps
 RUN ./make.sh ci-setup-deps-target
+RUN ./make.sh ci-setup-deps-test
 
 COPY . .
 RUN ./make.sh build-deps
@@ -25,7 +26,7 @@ RUN mkdir /app && cd build/ && \
 
 # -----------
 ### Actual image that contains defi binaries
-FROM --platform=linux/arm/v7 ubuntu:latest
+FROM --platform=linux/arm64 ubuntu:latest
 ARG TARGET
 ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
