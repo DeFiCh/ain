@@ -26,26 +26,21 @@ struct CEvmTxMessage {
     }
 };
 
-enum VMDomainMapType : uint8_t {
-    DVMToEVM            = 0x01,
-    EVMToDVM            = 0x02,
-};
-
-class CVMDomainMapView : public virtual CStorageView {
+class CVMDomainGraphView : public virtual CStorageView {
 public:
-    Res SetVMDomainMapBlockHash(uint8_t type, uint256 blockHashKey, uint256 blockHash);
-    ResVal<uint256> GetVMDomainMapBlockHash(uint8_t type, uint256 blockHashKey) const;
-    void ForEachVMDomainMapBlockIndexes(std::function<bool(const std::pair<uint8_t, uint256> &, const uint256 &)> callback);
+    Res SetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey, uint256 blockHash);
+    ResVal<uint256> GetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey) const;
+    void ForEachVMDomainBlockEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback);
 
-    Res SetVMDomainMapTxHash(uint8_t type, uint256 txHashKey, uint256 txHash);
-    ResVal<uint256> GetVMDomainMapTxHash(uint8_t type, uint256 txHashKey) const;
-    void ForEachVMDomainMapTxIndexes(std::function<bool(const std::pair<uint8_t, uint256> &, const uint256 &)> callback);
+    Res SetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey, uint256 txHash);
+    ResVal<uint256> GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const;
+    void ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback);
 
-    struct VMDomainBlockHash {
+    struct VMDomainBlockEdge {
         static constexpr uint8_t prefix() { return 'N'; }
     };
 
-    struct VMDomainTxHash {
+    struct VMDomainTxEdge {
         static constexpr uint8_t prefix() { return 'e'; }
     };
 };
