@@ -281,7 +281,7 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
         const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
-        if (!authAddress) continue;
+        if (!authAddress || authAddress->IsNull()) continue;
         auto addr = *authAddress;
         if (auto nodeId = GetMasternodeIdByOperator(addr)) {
             return std::make_pair(addr, *nodeId);
@@ -296,7 +296,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
         const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
-        if (!authAddress) continue;
+        if (!authAddress || authAddress->IsNull()) continue;
         auto addr = *authAddress;
         if (auto nodeId = GetMasternodeIdByOperator(addr)) {
             operatorPairs.insert(std::make_pair(addr, *nodeId));
@@ -308,16 +308,13 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    const CKeyID authAddress =
-        dest.index() == PKHashType
-            ? CKeyID(std::get<PKHash>(dest))
-            : (dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID());
-    if (!authAddress.IsNull()) {
-        auto nodeId = GetMasternodeIdByOwner(authAddress);
-        if (nodeId)
-            return {std::make_pair(authAddress, *nodeId)};
-    }
-    return {};
+    const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+    if (!authAddress || authAddress->IsNull()) return {};
+    auto addr = *authAddress;
+    auto nodeId = GetMasternodeIdByOwner(addr);
+    if (!nodeId) return {};
+
+    return {std::make_pair(addr, *nodeId)};
 }
 
 Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode &node, uint16_t timelock) {
