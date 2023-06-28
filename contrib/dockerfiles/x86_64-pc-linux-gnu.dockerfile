@@ -25,7 +25,7 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
-RUN ls -lah
+RUN ls -lah build
 
 # -----------
 ### Actual image that contains defi binaries
@@ -39,7 +39,7 @@ WORKDIR /app
 COPY --from=builder /app/. ./
 # TODO: remove copying of entire build directory into defi image
 COPY --from=builder /work/build/ /work/build/
-COPY --from=builder /work/.cache/ /work/.cache/
+COPY --from=builder /work/.cache/ /work/.ccache/
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \

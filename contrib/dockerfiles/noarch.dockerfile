@@ -27,6 +27,6 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
-RUN ls -lah
+RUN ls -lah build
 # NOTE: These may or may not be runnable binaries on the platform. 
 # So we do not add into a scratch base image. Extract and use as needed.
