@@ -345,7 +345,7 @@ docker_deploy_build() {
     { docker cp "${cid}:/work/build/depends" "${build_dir}/depends" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/lib" "${build_dir}/lib" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/src" "${build_dir}/src" 2>/dev/null && e=1; } || true
-    { docker cp "${cid}:/work/.ccache" "${build_dir}/.ccache" 2>/dev/null && e=1; } || true
+    { docker cp "${cid}:/work/build/.ccache" "${build_dir}/.ccache" 2>/dev/null && e=1; } || true
     docker rm "${cid}"
 
     if [[ "$e" == "1" ]]; then

@@ -5,7 +5,7 @@ ARG TARGET=x86_64-pc-linux-gnu
 FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
 ARG MAKE_DEBUG
-ARG CCACHE_DIR="/work/.ccache"
+ARG CCACHE_DIR="/work/build/.ccache"
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
