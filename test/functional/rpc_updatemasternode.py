@@ -177,8 +177,8 @@ class TestForcedRewardAddress(DefiTestFramework):
                                 self.nodes[0].updatemasternode, "some_bad_mn_id",
                                 {'rewardAddress': forced_reward_address}
                                 )
-        assert_raises_rpc_error(-32600,
-                                "Reward address must be P2PKH or P2WPKH type",
+        assert_raises_rpc_error(-8,
+                                "rewardAddress (some_bad_address) does not refer to a P2SH, P2PKH or P2WPKH address",
                                 self.nodes[0].updatemasternode, mn_id, {'rewardAddress': 'some_bad_address'}
                                 )
 
@@ -276,8 +276,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_raises_rpc_error(-26, "Unknown update type provided", self.nodes[0].sendrawtransaction, updated_tx)
 
         # Test incorrect owner address
-        assert_raises_rpc_error(-32600,
-                                "Owner address must be P2PKH or P2WPKH type",
+        assert_raises_rpc_error(-8,
+                                "ownerAddress (some_bad_address) does not refer to a P2PKH or P2WPKH address",
                                 self.nodes[0].updatemasternode, mn_id, {'ownerAddress': 'some_bad_address'}
                                 )
 
@@ -477,7 +477,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result['rewardAddress'], script_address)
 
         # Verify post fork error on invalid address
-        assert_raises_rpc_error(-32600, "Reward address must be P2SH, P2PKH or P2WPKH type",
+        assert_raises_rpc_error(-8, "rewardAddress (invalid_address) does not refer to a P2SH, P2PKH or P2WPKH address",
                                 self.nodes[0].updatemasternode, mn2, {'rewardAddress': 'invalid_address'})
 
 if __name__ == '__main__':
