@@ -71,10 +71,15 @@ jobs:
       id: cache-build-cpp
       uses: actions/cache/restore@v3
       with:
-        path: |
-          ./.ccache
-          ./build/src
+        path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Restore cached ccache
+      id: cache-ccache
+      uses: actions/cache/restore@v3
+      with:
+        path: ./.ccache
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
     - name: Build depends and configure
       run: ./make.sh build-deps && ./make.sh build-conf

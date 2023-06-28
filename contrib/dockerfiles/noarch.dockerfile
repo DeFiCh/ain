@@ -7,6 +7,7 @@ ARG TARGET=unknown
 FROM ubuntu:latest as builder
 ARG TARGET
 ARG MAKE_DEBUG
+ARG CCACHE_DIR
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
@@ -26,5 +27,6 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
+RUN ls -lah
 # NOTE: These may or may not be runnable binaries on the platform. 
 # So we do not add into a scratch base image. Extract and use as needed.

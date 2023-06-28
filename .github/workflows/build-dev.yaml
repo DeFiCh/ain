@@ -53,10 +53,15 @@ jobs:
       id: cache-build-cpp
       uses: actions/cache@v3
       with:
-        path: |
-          ./.ccache
-          ./build/src
+        path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Cache ccache
+      id: cache-ccache
+      uses: actions/cache@v3
+      with:
+        path: ./.ccache
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
     - name: Build and package
       run: rm .dockerignore && ./make.sh docker-release
@@ -69,9 +74,10 @@ jobs:
 
     - name: Save builds
       if: |
-        ${{ steps.docker-cache-build-deps.outputs.cache-hit != 'true' }} ||
-        ${{ steps.docker-cache-build-rust.outputs.cache-hit != 'true' }} ||
-        ${{ steps.docker-cache-build-cpp.outputs.cache-hit != 'true' }}
+        ${{ steps.cache-build-deps.outputs.cache-hit != 'true' }} ||
+        ${{ steps.cache-build-rust.outputs.cache-hit != 'true' }} ||
+        ${{ steps.cache-build-cpp.outputs.cache-hit != 'true' }} ||
+        ${{ steps.cache-ccache.outputs.cache-hit != 'true' }}
       run: ./make.sh docker-deploy-build
 
     - name: Login to Docker Hub

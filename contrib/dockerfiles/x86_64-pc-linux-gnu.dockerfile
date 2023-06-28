@@ -5,6 +5,7 @@ ARG TARGET=x86_64-pc-linux-gnu
 FROM --platform=linux/amd64 docker.io/defi/ain-builder as builder
 ARG TARGET
 ARG MAKE_DEBUG
+ARG CCACHE_DIR
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
@@ -24,6 +25,8 @@ RUN ./make.sh build-make
 RUN mkdir /app && cd build/ && \
     make -s prefix=/ DESTDIR=/app install
 
+RUN ls -lah
+
 # -----------
 ### Actual image that contains defi binaries
 FROM --platform=linux/amd64 ubuntu:latest as defi
@@ -36,6 +39,7 @@ WORKDIR /app
 COPY --from=builder /app/. ./
 # TODO: remove copying of entire build directory into defi image
 COPY --from=builder /work/build/ /work/build/
+COPY --from=builder /work/.cache/ /work/.cache/
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \

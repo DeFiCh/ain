@@ -281,6 +281,7 @@ docker_build() {
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DOCKERFILE}"
+    local cache_dir=${CCACHE_DIR:-"./.ccache"}
 
     echo "> docker-build";
 
@@ -290,6 +291,7 @@ docker_build() {
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
+        --build-arg CCACHE_DIR="${cache_dir}" \
         -t "${img}" "${docker_context}"
 }
 
@@ -345,7 +347,7 @@ docker_deploy_build() {
     { docker cp "${cid}:/work/build/depends" "${build_dir}/depends" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/lib" "${build_dir}/lib" 2>/dev/null && e=1; } || true
     { docker cp "${cid}:/work/build/src" "${build_dir}/src" 2>/dev/null && e=1; } || true
-    { docker cp "${cid}:/work/.ccache" "${build_dir}/.ccache" 2>/dev/null && e=1; } || true
+    { docker cp "${cid}:/work/.ccache" "./.ccache" 2>/dev/null && e=1; } || true
     docker rm "${cid}"
 
     if [[ "$e" == "1" ]]; then
@@ -961,9 +963,11 @@ _nproc() {
 ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}
-        PATH=$HOME/.cargo/bin:$PATH
-        CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+        {
+            echo "BUILD_VERSION=${IMAGE_VERSION}"
+            echo "PATH=$HOME/.cargo/bin:$PATH"
+            echo "CCACHE_DIR=$(pwd)/.ccache"
+        } >> "$GITHUB_ENV"
         
         if [[ "${MAKE_DEBUG}" == "1" ]]; then
             echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
