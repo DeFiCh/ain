@@ -51,12 +51,21 @@ class EVMTest(DefiTestFramework):
 
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
+        eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         eth_address1 = self.nodes[0].getnewaddress("", "eth")
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
         to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
 
-        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23') # eth_address
-        self.nodes[0].importprivkey(to_address_privkey) # to_address
+        # Import to_address
+        self.nodes[0].importprivkey(to_address_privkey)
+
+        # Import eth_address and validate Bech32 eqivilent is part of the wallet
+        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23')
+        result = self.nodes[0].getaddressinfo(eth_address_bech32)
+        assert_equal(result['scriptPubKey'], '00145f4fbcf30273f770702297e8e0fc55f1bb213db3')
+        assert_equal(result['pubkey'], '021286647f7440111ab928bdea4daa42533639c4567d81eca0fff622fb6438eae3')
+        assert_equal(result['ismine'], True)
+        assert_equal(result['iswitness'], True)
 
         # Check export of private key
         privkey = self.nodes[0].dumpprivkey(to_address)
