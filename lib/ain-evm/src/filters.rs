@@ -14,7 +14,7 @@ pub enum Filter {
 pub struct LogsFilter {
     pub id: usize,
     pub address: Option<Vec<H160>>,
-    pub topics: Option<Vec<H256>>,
+    pub topics: Option<Vec<Option<H256>>>,
     pub from_block: U256,
     pub to_block: U256,
     // Last height that getFilterChanges was called at. We only need to store this since
@@ -77,7 +77,7 @@ impl FilterHandler {
     pub fn create_logs_filter(
         &self,
         address: Option<Vec<H160>>,
-        topics: Option<Vec<H256>>,
+        topics: Option<Vec<Option<H256>>>,
         from_block: U256,
         to_block: U256,
         current_block_height: U256,

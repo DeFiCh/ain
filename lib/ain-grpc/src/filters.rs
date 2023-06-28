@@ -13,7 +13,7 @@ pub struct NewFilterRequest {
     pub address: Option<Vec<H160>>,
     pub from_block: Option<BlockNumber>,
     pub to_block: Option<BlockNumber>,
-    pub topics: Option<Vec<H256>>,
+    pub topics: Option<Vec<Option<H256>>>,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
