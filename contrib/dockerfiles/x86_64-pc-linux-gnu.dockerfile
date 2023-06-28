@@ -39,7 +39,7 @@ WORKDIR /app
 COPY --from=builder /app/. ./
 # TODO: remove copying of entire build directory into defi image
 COPY --from=builder /work/build/ /work/build/
-COPY --from=builder /work/.cache/ /work/.ccache/
+COPY --from=builder /work/.ccache/ /work/.ccache/
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
