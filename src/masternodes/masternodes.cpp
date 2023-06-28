@@ -265,15 +265,12 @@ void CMasternodesView::DecrementMintedBy(const uint256 &nodeId) {
     WriteBy<ID>(nodeId, *node);
 }
 
-std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(CTxDestination dest) {
-    switch (dest.index()) {
-        case PKHashType:
-            return CKeyID(std::get<PKHash>(dest));
-        case WitV0KeyHashType:
-            return CKeyID(std::get<WitnessV0KeyHash>(dest));
-        default: 
-            return {};
+std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(const CTxDestination &dest) {
+    auto type = dest.index();
+    if (type == PKHashType || type == WitV0KeyHashType) {
+        return CKeyID::TryFromDestination(dest);
     }
+    return {};
 }
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const {
@@ -302,7 +299,6 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
             operatorPairs.insert(std::make_pair(addr, *nodeId));
         }
     }
-
     return operatorPairs;
 }
 
@@ -313,7 +309,6 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     auto addr = *authAddress;
     auto nodeId = GetMasternodeIdByOwner(addr);
     if (!nodeId) return {};
-
     return {std::make_pair(addr, *nodeId)};
 }
 
