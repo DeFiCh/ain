@@ -871,8 +871,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
-        let from_block_number = self.block_number_to_u256(input.from_block);
-        let to_block_number = self.block_number_to_u256(input.to_block);
+        let from_block_number = self.block_number_to_u256(input.from_block)?;
+        let to_block_number = self.block_number_to_u256(input.to_block)?;
 
         if from_block_number > to_block_number {
             return Err(Error::Custom(format!(
