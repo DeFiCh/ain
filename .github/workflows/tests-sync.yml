@@ -75,6 +75,9 @@ jobs:
         name: sync
         path: ci/sync/main.sh
 
+    - name: Flush docker build
+      run: sudo docker system prune --all --volumes
+
   generate-matrix:
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
       runs-on: [self-hosted, linux, x64]
