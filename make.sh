@@ -506,7 +506,7 @@ pkg_install_deps() {
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake unzip libc6-dev gcc-multilib locales locales-all
 
@@ -960,8 +960,9 @@ _nproc() {
 ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
+        echo "BUILD_VERSION=${IMAGE_VERSION}
+        PATH=$HOME/.cargo/bin:$PATH
+        CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
         
         if [[ "${MAKE_DEBUG}" == "1" ]]; then
             echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
