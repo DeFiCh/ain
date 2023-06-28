@@ -265,17 +265,26 @@ void CMasternodesView::DecrementMintedBy(const uint256 &nodeId) {
     WriteBy<ID>(nodeId, *node);
 }
 
+std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(CTxDestination dest) {
+    switch (dest.index()) {
+        case PKHashType:
+            return CKeyID(std::get<PKHash>(dest));
+        case WitV0KeyHashType:
+            return CKeyID(std::get<WitnessV0KeyHash>(dest));
+        default: 
+            return {};
+    }
+}
+
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const {
     const auto operators = gArgs.GetArgs("-masternode_operator");
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                       : CKeyID();
-        if (!authAddress.IsNull()) {
-            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
-                return std::make_pair(authAddress, *nodeId);
-            }
+        const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        if (!authAddress) continue;
+        auto addr = *authAddress;
+        if (auto nodeId = GetMasternodeIdByOperator(addr)) {
+            return std::make_pair(addr, *nodeId);
         }
     }
     return {};
@@ -286,13 +295,11 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                       : CKeyID();
-        if (!authAddress.IsNull()) {
-            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
-                operatorPairs.insert(std::make_pair(authAddress, *nodeId));
-            }
+        const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        if (!authAddress) continue;
+        auto addr = *authAddress;
+        if (auto nodeId = GetMasternodeIdByOperator(addr)) {
+            operatorPairs.insert(std::make_pair(addr, *nodeId));
         }
     }
 
