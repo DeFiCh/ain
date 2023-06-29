@@ -74,6 +74,34 @@ jobs:
         path: ./build/.ccache
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
+    - name: Restore cached depends build
+      id: cache-build-deps
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
+    - name: Restore cached rust build
+      id: cache-build-rust
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/lib
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+
+    - name: Restore cached cpp build
+      id: cache-build-cpp
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Restore cached ccache
+      id: cache-ccache
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/.ccache
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
+
     - name: Build binaries
       run: ./make.sh build
       
