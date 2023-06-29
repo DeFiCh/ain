@@ -284,15 +284,15 @@ class EVMTest(DefiTestFramework):
 
         # Check mempools for TXs
         mempool = self.nodes[0].getrawmempool()
-        assert(mempool.count(tx))
-        assert(mempool.count(tx2))
-        assert(mempool.count(tx3))
-        assert(mempool.count(tx4))
+        assert (mempool.count(tx))
+        assert (mempool.count(tx2))
+        assert (mempool.count(tx3))
+        assert (mempool.count(tx4))
         mempool = self.nodes[1].getrawmempool()
-        assert(mempool.count(tx))
-        assert(mempool.count(tx2))
-        assert(mempool.count(tx3))
-        assert(mempool.count(tx4))
+        assert (mempool.count(tx))
+        assert (mempool.count(tx2))
+        assert (mempool.count(tx3))
+        assert (mempool.count(tx4))
         self.nodes[0].generate(1)
 
         # Check TXs in block in correct order
