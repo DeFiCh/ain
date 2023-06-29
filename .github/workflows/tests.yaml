@@ -18,6 +18,7 @@ env:
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
 
@@ -25,6 +26,7 @@ jobs:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
       uses: actions/checkout@v3
+    - run: git config --global --add safe.directory '*'
 
     - name: Checkout pull request head commit
       if: github.event_name == 'pull_request'
@@ -36,7 +38,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
     
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
@@ -44,30 +46,30 @@ jobs:
     - name: Setup dependencies for test
       run: ./make.sh ci-setup-deps-test
 
-    - name: Restore cached depends build
+    - name: Cache depends build
       id: cache-build-deps
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v3
       with:
         path: ./build/depends
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
-    - name: Restore cached rust build
+    - name: Cache rust build
       id: cache-build-rust
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v3
       with:
         path: ./build/lib
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Restore cached cpp build
+    - name: Cache cpp build
       id: cache-build-cpp
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v3
       with:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
-    - name: Restore cached ccache
+    - name: Cache ccache
       id: cache-ccache
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v3
       with:
         path: ./build/.ccache
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
@@ -80,16 +82,18 @@ jobs:
 
   rust-tests:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
 
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target

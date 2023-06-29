@@ -35,33 +35,33 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Cache depends build
-      id: cache-build-deps
+    - name: Cache docker depends build
+      id: docker-cache-build-deps
       uses: actions/cache@v3
       with:
         path: ./build/depends
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
-    - name: Cache rust build
-      id: cache-build-rust
+    - name: Cache docker rust build
+      id: docker-cache-build-rust
       uses: actions/cache@v3
       with:
         path: ./build/lib
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
+        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
 
-    - name: Cache cpp build
-      id: cache-build-cpp
+    - name: Cache docker cpp build
+      id: docker-cache-build-cpp
       uses: actions/cache@v3
       with:
         path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
-    - name: Cache ccache
-      id: cache-ccache
+    - name: Cache docker ccache
+      id: docker-cache-ccache
       uses: actions/cache@v3
       with:
         path: ./build/.ccache
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
+        key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
     - name: Build and package
       run: rm .dockerignore && ./make.sh docker-release
@@ -74,10 +74,10 @@ jobs:
 
     - name: Save builds
       if: |
-        ${{ steps.cache-build-deps.outputs.cache-hit != 'true' }} ||
-        ${{ steps.cache-build-rust.outputs.cache-hit != 'true' }} ||
-        ${{ steps.cache-build-cpp.outputs.cache-hit != 'true' }} ||
-        ${{ steps.cache-ccache.outputs.cache-hit != 'true' }}
+        ${{ steps.docker-cache-build-deps.outputs.cache-hit != 'true' }} ||
+        ${{ steps.docker-cache-build-rust.outputs.cache-hit != 'true' }} ||
+        ${{ steps.docker-cache-build-cpp.outputs.cache-hit != 'true' }} ||
+        ${{ steps.docker-cache-ccache.outputs.cache-hit != 'true' }}
       run: ./make.sh docker-deploy-build
 
     - name: Login to Docker Hub
