@@ -198,7 +198,7 @@ CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     std::string err_string;
     AssertLockNotHeld(cs_main);
     const TransactionError err = BroadcastTransaction(tx, err_string, max_raw_tx_fee, /*relay*/
-                                                      true, /*wait_callback*/ true);
+                                                      false, /*wait_callback*/ true);
     if (TransactionError::OK != err) {
         throw JSONRPCTransactionError(err, err_string);
     }

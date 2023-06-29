@@ -3040,7 +3040,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     }
 
     bool eagerSelect = coinSelectOpts.IsEagerSelectEnabled() || coinSelectOpts.IsFastSelectEnabled();
-    
+
     const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
 
     if (vecSend.empty())
@@ -3430,7 +3430,7 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, CValida
             if (it != mapWallet.end()) {
                 mapWallet.modify(it, [&](CWalletTx& wtx) {
                     std::string err_string;
-                    if (!wtx.SubmitMemoryPoolAndRelay(err_string, true, *locked_chain)) {
+                    if (!wtx.SubmitMemoryPoolAndRelay(err_string, false, *locked_chain)) {
                         WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", err_string);
                         // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
                     }

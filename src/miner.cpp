@@ -663,9 +663,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
@@ -791,33 +788,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                if (txType == CustomTxType::EvmTx) {
-                    auto txMessage = customTypeToMessage(txType);
-                    if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
-                        customTxPassed = false;
-                        break;
-                    }
-
-                    const auto obj = std::get<CEvmTxMessage>(txMessage);
-
-                    CrossBoundaryResult result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
-                    if (!result.ok) {
-                        customTxPassed = false;
-                        break;
-                    }
-
-                    const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
-                    if (nonce != txResult.nonce) {
-                        // Only add if not already in failed TXs to prevent adding on second attempt.
-                        if (!failedTx.count(iter)) {
-                            failedNonces.emplace(txResult.nonce, iter);
-                        }
-                        customTxPassed = false;
-                        break;
-                    }
-                }
-
                 uint64_t gasUsed{};
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
                                 // Not okay invalidate, undo and skip
@@ -828,12 +798,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     break;
                 }
-
-                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
-                    customTxPassed = false;
-                    break;
-                }
-                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());
