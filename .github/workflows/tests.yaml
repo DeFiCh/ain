@@ -46,34 +46,6 @@ jobs:
     - name: Setup dependencies for test
       run: ./make.sh ci-setup-deps-test
 
-    - name: Cache depends build
-      id: cache-build-deps
-      uses: actions/cache@v3
-      with:
-        path: ./build/depends
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
-
-    - name: Cache rust build
-      id: cache-build-rust
-      uses: actions/cache@v3
-      with:
-        path: ./build/lib
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-rust
-
-    - name: Cache cpp build
-      id: cache-build-cpp
-      uses: actions/cache@v3
-      with:
-        path: ./build/src
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
-
-    - name: Cache ccache
-      id: cache-ccache
-      uses: actions/cache@v3
-      with:
-        path: ./build/.ccache
-        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
-
     - name: Restore cached depends build
       id: cache-build-deps
       uses: actions/cache/restore@v3
