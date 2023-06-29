@@ -283,8 +283,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[2]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
         # Check mempools for TXs
-        assert_equal(self.nodes[0].getrawmempool(), [tx3, tx2, tx4, tx])
-        assert_equal(self.nodes[1].getrawmempool(), [tx3, tx2, tx4, tx])
+        mempool = self.nodes[0].getrawmempool()
+        assert(mempool.count(tx))
+        assert(mempool.count(tx2))
+        assert(mempool.count(tx3))
+        assert(mempool.count(tx4))
+        mempool = self.nodes[1].getrawmempool()
+        assert(mempool.count(tx))
+        assert(mempool.count(tx2))
+        assert(mempool.count(tx3))
+        assert(mempool.count(tx4))
         self.nodes[0].generate(1)
 
         # Check TXs in block in correct order

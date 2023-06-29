@@ -811,7 +811,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     if (nonce != txResult.nonce) {
                         // Only add if not already in failed TXs to prevent adding on second attempt.
                         if (!failedTx.count(iter)) {
-                            failedNonces.emplace(nonce, iter);
+                            failedNonces.emplace(txResult.nonce, iter);
                         }
                         customTxPassed = false;
                         break;
