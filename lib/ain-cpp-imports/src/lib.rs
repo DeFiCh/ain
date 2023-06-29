@@ -61,6 +61,9 @@ mod ffi {
     pub fn pastChangiIntermediateHeight3() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn pastChangiIntermediateHeight4() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -143,6 +146,10 @@ pub fn past_changi_intermediate_height_2_height() -> bool {
 
 pub fn past_changi_intermediate_height_3_height() -> bool {
     ffi::pastChangiIntermediateHeight3()
+}
+
+pub fn past_changi_intermediate_height_4_height() -> bool {
+    ffi::pastChangiIntermediateHeight4()
 }
 
 #[cfg(test)]
