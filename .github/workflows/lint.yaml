@@ -36,16 +36,18 @@ jobs:
   rust:
     name: Rust Lints
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
