@@ -30,6 +30,7 @@ pub mod ffi {
         priv_key: [u8; 32],
     }
 
+    #[derive(Default)]
     pub struct FinalizeBlockResult {
         block_hash: [u8; 32],
         failed_transactions: Vec<String>,
@@ -81,7 +82,8 @@ pub mod ffi {
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
 
-        fn evm_finalize(
+        fn evm_try_finalize(
+            result: &mut CrossBoundaryResult,
             context: u64,
             update_state: bool,
             difficulty: u32,
@@ -407,11 +409,13 @@ fn evm_try_queue_tx(
 /// # Errors
 ///
 /// Returns an Error if there is an error restoring the state trie.
+/// Returns an Error if the block has invalid TXs, viz. out of order nonces
 ///
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
-fn evm_finalize(
+fn evm_try_finalize(
+    result: &mut CrossBoundaryResult,
     context: u64,
     update_state: bool,
     difficulty: u32,
@@ -419,18 +423,24 @@ fn evm_finalize(
     timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block_hash, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
-        context,
-        update_state,
-        difficulty,
-        eth_address,
-        timestamp,
-    )?;
-    Ok(ffi::FinalizeBlockResult {
-        block_hash,
-        failed_transactions: failed_txs,
-        miner_fee: gas_used,
-    })
+    match RUNTIME
+        .handlers
+        .finalize_block(context, update_state, difficulty, eth_address, timestamp)
+    {
+        Ok((block_hash, failed_txs, gas_used)) => {
+            result.ok = true;
+            Ok(ffi::FinalizeBlockResult {
+                block_hash,
+                failed_transactions: failed_txs,
+                miner_fee: gas_used,
+            })
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+            Ok(ffi::FinalizeBlockResult::default())
+        }
+    }
 }
 
 pub fn preinit() {

@@ -20,5 +20,6 @@ pub mod ffi {
         fn getCurrentHeight() -> i32;
         fn pastChangiIntermediateHeight2() -> bool;
         fn pastChangiIntermediateHeight3() -> bool;
+        fn pastChangiIntermediateHeight4() -> bool;
     }
 }
