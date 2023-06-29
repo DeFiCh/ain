@@ -543,6 +543,10 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
         auto it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransaction &txConflict = *it->second;
+            // Coinbase TX prevout may incorrectly match and remove EVM TX
+            if (IsEVMTx(txConflict)) {
+                continue;
+            }
             if (txConflict != tx)
             {
                 ClearPrioritisation(txConflict.GetHash());
