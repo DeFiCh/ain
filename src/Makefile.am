@@ -163,6 +163,7 @@ DEFI_CORE_H = \
   masternodes/anchors.h \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
+  masternodes/changiintermediates.h \
   masternodes/coinselect.h \
   masternodes/communityaccounttypes.h \
   masternodes/errors.h \
@@ -399,6 +400,7 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
+  masternodes/changiintermediates.cpp \
   masternodes/evm.cpp  \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \

@@ -365,10 +365,17 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     UniValue metaObj = request.params[1].get_obj();
     if (!metaObj["ownerAddress"].isNull()) {
         newOwnerDest = DecodeDestination(metaObj["ownerAddress"].getValStr());
+        if (newOwnerDest.index() != PKHashType && newOwnerDest.index() != WitV0KeyHashType) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "ownerAddress (" + metaObj["ownerAddress"].getValStr() +
+                                                      ") does not refer to a P2PKH or P2WPKH address");
+        }
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
         operatorDest = DecodeDestination(metaObj["operatorAddress"].getValStr());
+        if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + metaObj["operatorAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
+        }
     }
 
     std::string rewardAddress;
@@ -376,6 +383,9 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         rewardAddress = metaObj["rewardAddress"].getValStr();
         if (!rewardAddress.empty()) {
             rewardDest = DecodeDestination(rewardAddress);
+            if (rewardDest.index() != PKHashType && rewardDest.index() != ScriptHashType && rewardDest.index() != WitV0KeyHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2SH, P2PKH or P2WPKH address");
+            }
         }
     }
 
