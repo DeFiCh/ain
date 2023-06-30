@@ -425,6 +425,11 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     cachedInnerUsage -= memusage::DynamicUsage(mapLinks[it].parents) + memusage::DynamicUsage(mapLinks[it].children);
     mapLinks.erase(it);
     mapTx.erase(it);
+    for (auto& [sender, txs] : ethTxsBySender) {
+        if (txs.count(hash)) {
+            txs.erase(hash);
+        }
+    }
     nTransactionsUpdated++;
     if (minerPolicyEstimator) {minerPolicyEstimator->removeTx(hash, false);}
 }

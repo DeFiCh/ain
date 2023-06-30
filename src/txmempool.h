@@ -519,6 +519,8 @@ public:
     mutable RecursiveMutex cs;
     indexed_transaction_set mapTx GUARDED_BY(cs);
 
+    std::map<std::array<uint8_t, 20>, std::set<uint256>> ethTxsBySender;
+
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
 
