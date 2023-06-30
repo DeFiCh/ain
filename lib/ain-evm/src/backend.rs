@@ -70,7 +70,7 @@ impl EVMBackend {
         storage: I,
         reset_storage: bool,
     ) -> Result<Account> {
-        let account = self.get_account(address).unwrap_or(Account {
+        let account = self.get_account(&address).unwrap_or(Account {
             nonce: U256::zero(),
             balance: U256::zero(),
             storage_root: H256::zero(),
@@ -175,11 +175,17 @@ impl EVMBackend {
 }
 
 impl EVMBackend {
-    pub fn get_account(&self, address: H160) -> Option<Account> {
+    pub fn get_account(&self, address: &H160) -> Option<Account> {
         self.state
             .get(address.as_bytes())
             .unwrap_or(None)
             .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
+    }
+
+    pub fn get_nonce(&self, address: &H160) -> U256 {
+        self.get_account(address)
+            .map(|acc| acc.nonce)
+            .unwrap_or_default()
     }
 }
 
@@ -241,7 +247,7 @@ impl Backend for EVMBackend {
 
     fn basic(&self, address: H160) -> Basic {
         trace!(target: "backend", "[EVMBackend] basic for address {:x?}", address);
-        self.get_account(address)
+        self.get_account(&address)
             .map(|account| Basic {
                 balance: account.balance,
                 nonce: account.nonce,
@@ -251,14 +257,14 @@ impl Backend for EVMBackend {
 
     fn code(&self, address: H160) -> Vec<u8> {
         trace!(target: "backend", "[EVMBackend] code for address {:x?}", address);
-        self.get_account(address)
+        self.get_account(&address)
             .and_then(|account| self.storage.get_code_by_hash(account.code_hash))
             .unwrap_or_default()
     }
 
     fn storage(&self, address: H160, index: H256) -> H256 {
         trace!(target: "backend", "[EVMBackend] Getting storage for address {:x?} at index {:x?}", address, index);
-        self.get_account(address)
+        self.get_account(&address)
             .and_then(|account| {
                 self.trie_store
                     .trie_db
@@ -336,7 +342,7 @@ impl BridgeBackend for EVMBackend {
 
     fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         let account = self
-            .get_account(address)
+            .get_account(&address)
             .ok_or(EVMBackendError::NoSuchAccount(address))?;
 
         if account.balance < amount {

@@ -130,6 +130,13 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
+                    if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+                        let nonce = executor.get_nonce(&signed_tx.sender);
+                        if signed_tx.nonce() != nonce {
+                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                        }
+                    }
+
                     let (
                         TxResponse {
                             exit_reason,
