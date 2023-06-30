@@ -54,6 +54,8 @@ pub mod ffi {
         fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
+        fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<()>;
+
         fn evm_add_balance(
             context: u64,
             address: &str,
@@ -221,6 +223,26 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
         .evm
         .get_next_valid_nonce_in_context(context, address);
     nonce.as_u64()
+}
+
+/// Removes all transactions in the queue whose sender matches the provided sender address in a specific context
+///
+/// # Arguments
+///
+/// * `context` - The context queue number.
+/// * `address` - The EVM address of the account.
+///
+/// /// # Errors
+///
+/// Returns an Error if the context does not match any existing queue
+///
+pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<(), Box<dyn Error>> {
+    let address = H160::from(address);
+    RUNTIME
+        .handlers
+        .evm
+        .remove_txs_by_sender(context, address)?;
+    Ok(())
 }
 
 /// EvmIn. Send DFI to an EVM account.

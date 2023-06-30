@@ -309,6 +309,11 @@ impl EVMHandler {
         self.tx_queues.remove(context);
     }
 
+    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<(), EVMError> {
+        self.tx_queues.remove_txs_by_sender(context, address)?;
+        Ok(())
+    }
+
     /// Retrieves the next valid nonce for the specified account within a particular context.
     ///
     /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
