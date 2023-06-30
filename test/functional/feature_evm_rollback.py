@@ -49,8 +49,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         self.nodes[0].invalidateblock(initialBlockHash)
 
-        block = self.nodes[0].eth_getBlockByNumber(blockNumberPreInvalidation)
-        assert_equal(block, None)
+        assert_raises_rpc_error(-32001, "Custom error: header not found", self.nodes[0].eth_getBlockByNumber, blockNumberPreInvalidation)
         blockByHash = self.nodes[0].eth_getBlockByHash(blockPreInvalidation['hash'])
         assert_equal(blockByHash, None)
         block = self.nodes[0].eth_getBlockByNumber('latest')

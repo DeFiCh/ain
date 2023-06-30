@@ -21,5 +21,6 @@ int getHighestBlock();
 int getCurrentHeight();
 bool pastChangiIntermediateHeight2();
 bool pastChangiIntermediateHeight3();
+bool pastChangiIntermediateHeight4();
 
-#endif // DEFI_FFI_FFIEXPORTS_H
+#endif  // DEFI_FFI_FFIEXPORTS_H
