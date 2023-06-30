@@ -111,7 +111,7 @@ public:
      * Compute the public key from a private key.
      * This is expensive.
      */
-    CPubKey GetPubKey(const bool forceCompressed = false) const;
+    CPubKey GetPubKey() const;
 
     /**
      * Create a DER-serialized signature.

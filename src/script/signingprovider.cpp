@@ -110,7 +110,8 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     const auto ethID = pubkey.GetEthID();
     // Special case. Bech32 request from a converted Eth address.
     if (!pubkey.IsCompressed() && ethID != address && GetEthKey(ethID, ethKey)) {
-        vchPubKeyOut = key.GetPubKey(true);
+        pubkey.Compress();
+        vchPubKeyOut = pubkey;
     } else {
         vchPubKeyOut = pubkey;
     }
