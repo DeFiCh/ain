@@ -258,7 +258,7 @@ class EVMTest(DefiTestFramework):
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
 
         # Test EVM Tx added first in time ordering
-        tx0 = self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
         self.sync_mempools()
 
         # Add more EVM Txs to test block ordering
