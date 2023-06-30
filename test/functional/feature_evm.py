@@ -267,6 +267,7 @@ class EVMTest(DefiTestFramework):
         tx2 = self.nodes[0].evmtx(eth_address, 2, 21, 21001, to_address, 1)
         tx1 = self.nodes[0].evmtx(eth_address, 1, 21, 21001, to_address, 1)
         tx3 = self.nodes[0].evmtx(eth_address, 3, 21, 21001, to_address, 1)
+        raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
         # Check the pending TXs
@@ -316,8 +317,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[6], tx5)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 3997354000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 6000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 4997179955000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 5000000000000000000)
 
         # Check miner account balance after transfer
         miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
@@ -326,14 +327,32 @@ class EVMTest(DefiTestFramework):
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
         assert_equal(block['transactions'], [
-            '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb',
+            '0x21d9f328bd713e31431596c326ef8da189106ce45b3bf4b75bf705c0e14be7d1',
             '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a',
             '0x02b05a6646feb65bf9491f9551e02678263239dc2512d73c9ad6bc80dc1c13ff',
-            '0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c'
+            '0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c',
+            '0xa382aa9f70f15bd0bf70e838f5ac0163e2501dbff2712e9622275e655e42ec1c',
+            '0x05d4cdabc4ad55fb7caf42a7fb6d4e8cea991e2331cd9d98a5eef10d84b5c994'
         ])
 
-        # Check pending TXs now empty
-        assert_equal(self.nodes[0].eth_pendingTransactions(), [])
+        # Check pending TXs contains lower fee nonce TX - Mempool should remove this!
+        assert_equal(self.nodes[0].eth_pendingTransactions(), [
+            {'blockHash': '0x0000000000000000000000000000000000000000000000000000000000000000',
+             'blockNumber': 'null',
+             'from': '0x9b8a4af42140d8a4c153a822f02571a1dd037e89',
+             'gas': '0x5209',
+             'gasPrice': '0x4e3b29200',
+             'hash': '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb',
+             'input': '0x',
+             'nonce': '0x0',
+             'to': '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110',
+             'transactionIndex': '0x0',
+             'value': '0xde0b6b3a7640000',
+             'v': '0x26',
+             'r': '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c',
+             's': '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a',
+             'type': 0}
+        ])
 
         # Try and send EVM TX a second time
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
@@ -350,7 +369,7 @@ class EVMTest(DefiTestFramework):
         # Check EVM miner fee
         opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
         opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
-        eth_fee_sats = Decimal(int(eth_fee, 16)) / 1000000000
+        eth_fee_sats = Decimal(int(Decimal(int(eth_fee, 16)) / 10)) / 100000000
         assert_equal(opreturn_fee_sats, eth_fee_sats)
         assert_equal(opreturn_fee_sats, miner_fee)
 

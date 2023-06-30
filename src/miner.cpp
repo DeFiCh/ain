@@ -871,33 +871,30 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                                     ++it;
                                 }
                             }
+                            checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
                             evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
                             auto count{txResult.nonce};
                             for (const auto& entry : evmTXs[txResult.sender]) {
                                 inBlock.erase(entry);
+                                checkedTX.erase(entry->GetTx().GetHash());
                                 replaceByFee.emplace(count, entry);
                                 ++count;
                             }
                             evmTXs.erase(txResult.sender);
                             evm_remove_txs_by_sender(evmContext, txResult.sender);
-                            LogPrintf("XXX Remnove TXs by sender\n");
                             customTxPassed = false;
                             break;
                         }
                     }
 
                     const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
-                    LogPrintf("XXX Expecting nonce %d\n", nonce);
                     if (nonce != txResult.nonce) {
                         // Only add if not already in failed TXs to prevent adding on second attempt.
                         if (!failedTx.count(iter)) {
                             failedNonces.emplace(txResult.nonce, iter);
                         }
-                        LogPrintf("XXX Failed nonce TX %s acc nonce %d TX nonce %d\n", iter->GetTx().GetHash().ToString(), nonce, txResult.nonce);
                         customTxPassed = false;
                         break;
-                    } else {
-                        LogPrintf("XXX Success nonce TX %s acc nonce %d TX nonce %d\n", iter->GetTx().GetHash().ToString(), nonce, txResult.nonce);
                     }
 
                     evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.used_gas);
