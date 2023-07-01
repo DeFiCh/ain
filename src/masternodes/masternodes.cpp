@@ -1357,7 +1357,7 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
         if (node.rewardAddressType) {
             const auto dest = GetDestinationPKHashOrWPKHashFromKey(node.rewardAddressType, node.rewardAddress);
             if (IsValidDestination(dest)) {
-                const CScript rewardAddress = GetScriptForDestination();
+                const CScript rewardAddress = GetScriptForDestination(dest);
                 if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
                     mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
                 }
