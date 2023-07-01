@@ -189,7 +189,10 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    CKeyID passedID = getCKeyIDFromDestination(destination);
+    const std::optional<CKeyID> address = GetKeyPKHashOrWPKHashFromDestination(destination);
+    if (!address || address->IsNull()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
+    }
 
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {
@@ -197,6 +200,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     }
 
     CKeyID operatorID;
+    CKeyID passedID = *address;
     auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
     // check mnForPassedID is in myAllMNs
     if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {

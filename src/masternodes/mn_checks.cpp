@@ -3834,8 +3834,10 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+        auto ownerDest = GetDestinationPKHashOrWPKHashFromKey(node->ownerType, node->ownerAuthAddress);
+        if (!IsValidDestination(ownerDest)) {
+            return Res::Err("masternode <%s> is not a valid owner type", obj.masternodeId.GetHex());
+        }
 
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
@@ -4364,8 +4366,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
+    CTxDestination destination = GetDestinationPKHashOrWPKHashFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
     if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4448,8 +4449,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
+    CTxDestination destination = GetDestinationPKHashOrWPKHashFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
     Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     LogPrint(BCLog::ACCOUNTCHANGE,

@@ -2326,10 +2326,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
-                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
-
-            if (operatorId.IsNull()) {
+            const auto opAddress = GetKeyPKHashOrWPKHashFromDestination(destination);
+            if (!opAddress || opAddress->IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
             }
@@ -2353,15 +2351,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                 CNoDestination{} :
                 DecodeDestination(customRewardAddressStr, chainparams);
 
+            operatorId = *opAddress;
             CTxDestination ownerDest;
             CTxDestination rewardDest;
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = nodePtr->ownerType == PKHashType ?
-                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+
+                ownerDest = GetDestinationPKHashOrWPKHashFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress);
                 if (nodePtr->rewardAddressType != 0) {
                     rewardDest = nodePtr->GetRewardAddressDestination();
                 }

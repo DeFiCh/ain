@@ -161,6 +161,39 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
     return TX_NONSTANDARD;
 }
 
+
+std::optional<CKeyID> TryFromDestinationToKeyID(const CTxDestination &dest) {
+    // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
+    // flags here and use bit flag logic to decode only specific destinations
+    switch (dest.index()) {
+        case PKHashType:
+            return CKeyID(std::get<PKHash>(dest));
+        case WitV0KeyHashType:
+            return CKeyID(std::get<WitnessV0KeyHash>(dest));
+        case ScriptHashType:
+            return CKeyID(std::get<ScriptHash>(dest));
+        case WitV16KeyEthHashType:
+            return CKeyID(std::get<WitnessV16EthHash>(dest));
+        default: 
+            return {};
+    }
+}
+
+CTxDestination TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
+    switch (keyIdType) {
+        case PKHashType:
+            return CTxDestination(PKHash(keyId));
+        case WitV0KeyHashType:
+            return CTxDestination(WitnessV0KeyHash(keyId));
+        case ScriptHashType:
+            return CTxDestination(ScriptHash(keyId));
+        case WitV16KeyEthHashType:
+            return CTxDestination(WitnessV16EthHash(keyId));
+        default:
+            return CTxDestination(CNoDestination());
+    }
+}
+
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
 {
     std::vector<valtype> vSolutions;

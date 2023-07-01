@@ -22,23 +22,6 @@ class CKeyID : public uint160
 public:
     CKeyID() : uint160() {}
     explicit CKeyID(const uint160& in) : uint160(in) {}
-
-    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest) {
-        // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
-        // flags here and use bit flag logic to decode only specific destinations
-        switch (dest.index()) {
-            case PKHashType:
-                return CKeyID(std::get<PKHash>(dest));
-            case WitV0KeyHashType:
-                return CKeyID(std::get<WitnessV0KeyHash>(dest));
-            case ScriptHashType:
-                return CKeyID(std::get<ScriptHash>(dest));
-            case WitV16KeyEthHashType:
-                return CKeyID(std::get<WitnessV16EthHash>(dest));
-            default: 
-                return {};
-        }
-    }
 };
 
 typedef uint256 ChainCode;

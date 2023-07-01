@@ -13,6 +13,7 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
 #include <core_io.h>
+#include <key_io.h>
 #include <net_processing.h>
 #include <primitives/transaction.h>
 #include <rpc/resultcache.h>
@@ -263,14 +264,6 @@ void CMasternodesView::DecrementMintedBy(const uint256 &nodeId) {
     assert(node);
     --node->mintedBlocks;
     WriteBy<ID>(nodeId, *node);
-}
-
-std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(const CTxDestination &dest) {
-    auto type = dest.index();
-    if (type == PKHashType || type == WitV0KeyHashType) {
-        return CKeyID::TryFromDestination(dest);
-    }
-    return {};
 }
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const {
@@ -1362,19 +1355,21 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
     mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
         if (node.rewardAddressType) {
-            const CScript rewardAddress = GetScriptForDestination(node.rewardAddressType == PKHashType ?
-                                                                  CTxDestination(PKHash(node.rewardAddress)) :
-                                                                  CTxDestination(WitnessV0KeyHash(node.rewardAddress)));
-            if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
-                mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+            const auto dest = GetDestinationPKHashOrWPKHashFromKey(node.rewardAddressType, node.rewardAddress);
+            if (IsValidDestination(dest)) {
+                const CScript rewardAddress = GetScriptForDestination();
+                if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+                    mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+                }
             }
         }
 
-        const CScript rewardAddress = GetScriptForDestination(node.ownerType == PKHashType ?
-                                                              CTxDestination(PKHash(node.ownerAuthAddress)) :
-                                                              CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress)));
-        if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
-            mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+        const auto dest = GetDestinationPKHashOrWPKHashFromKey(node.ownerType, node.ownerAuthAddress);
+        if (IsValidDestination(dest)) {
+            const CScript rewardAddress = GetScriptForDestination(dest);
+            if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
+                mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
+            }
         }
 
         return true;
