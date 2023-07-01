@@ -649,23 +649,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
-        if (txType == CustomTxType::EvmTx) {
-            auto txMessage = customTypeToMessage(txType);
-            if (CustomMetadataParse(height, chainparams.GetConsensus(), metadata, txMessage)) {
-                const auto obj = std::get<CEvmTxMessage>(txMessage);
-
-                CrossBoundaryResult result;
-                const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
-                if (pool.ethTxsBySender[txResult.sender].size() >= MEMPOOL_MAX_ETH_TXS) {
-                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
-                } else {
-                    pool.ethTxsBySender[txResult.sender].insert(tx.GetHash());
-                }
-            }
-        }
-
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
 
@@ -916,6 +899,24 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
+        std::optional<std::array<::std::uint8_t, 20>> ethSender;
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+        if (txType == CustomTxType::EvmTx) {
+            auto txMessage = customTypeToMessage(txType);
+            if (CustomMetadataParse(height, chainparams.GetConsensus(), metadata, txMessage)) {
+                const auto obj = std::get<CEvmTxMessage>(txMessage);
+
+                CrossBoundaryResult result;
+                const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
+                if (pool.ethTxsBySender[txResult.sender].size() >= MEMPOOL_MAX_ETH_TXS) {
+                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
+                } else {
+                    ethSender = txResult.sender;
+                }
+            }
+        }
+
         if (test_accept) {
             // Tx was accepted, but not added
             return true;
@@ -942,7 +943,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         bool validForFeeEstimation = !fReplacementTransaction && !bypass_limits && IsCurrentForFeeEstimation() && pool.HasNoInputsOf(tx);
 
         // Store transaction in memory
-        pool.addUnchecked(entry, setAncestors, validForFeeEstimation);
+        pool.addUnchecked(entry, setAncestors, validForFeeEstimation, ethSender);
         mnview.Flush();
 
         // trim mempool and check if tx was trimmed
