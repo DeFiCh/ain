@@ -21,8 +21,6 @@ pub struct AinExecutor<'backend> {
     backend: &'backend mut EVMBackend,
 }
 
-impl<'backend> AinExecutor<'backend> {}
-
 impl<'backend> AinExecutor<'backend> {
     pub fn new(backend: &'backend mut EVMBackend) -> Self {
         Self { backend }
@@ -38,6 +36,10 @@ impl<'backend> AinExecutor<'backend> {
 
     pub fn commit(&mut self) -> H256 {
         self.backend.commit()
+    }
+
+    pub fn get_nonce(&self, address: &H160) -> U256 {
+        self.backend.get_nonce(address)
     }
 }
 

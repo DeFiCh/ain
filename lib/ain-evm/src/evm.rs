@@ -367,7 +367,7 @@ impl EVMHandler {
             Arc::clone(&self.storage),
             Vicinity::default(),
         )?;
-        Ok(backend.get_account(address))
+        Ok(backend.get_account(&address))
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {

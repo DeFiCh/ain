@@ -353,7 +353,7 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
     nTransactionsUpdated += n;
 }
 
-void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAncestors, bool validFeeEstimate)
+void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAncestors, bool validFeeEstimate, const std::optional<std::array<::std::uint8_t, 20>> ethSender)
 {
     NotifyEntryAdded(entry.GetSharedTx());
     // Add to memory pool without checking anything.
@@ -361,6 +361,10 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     // all the appropriate checks.
     indexed_transaction_set::iterator newit = mapTx.insert(entry).first;
     mapLinks.insert(make_pair(newit, TxLinks()));
+
+    if (ethSender) {
+        ethTxsBySender[*ethSender].insert(entry.GetTx().GetHash());
+    }
 
     // Update transaction for any feeDelta created by PrioritiseTransaction
     // TODO: refactor so that the fee delta is calculated before inserting
@@ -425,6 +429,14 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     cachedInnerUsage -= memusage::DynamicUsage(mapLinks[it].parents) + memusage::DynamicUsage(mapLinks[it].children);
     mapLinks.erase(it);
     mapTx.erase(it);
+    for (auto it = ethTxsBySender.begin(); it != ethTxsBySender.end();) {
+        it->second.erase(hash);
+        if (it->second.empty()) {
+            it = ethTxsBySender.erase(it);
+        } else {
+            ++it;
+        }
+    }
     nTransactionsUpdated++;
     if (minerPolicyEstimator) {minerPolicyEstimator->removeTx(hash, false);}
 }
@@ -543,6 +555,10 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
         auto it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransaction &txConflict = *it->second;
+            // Coinbase TX prevout may incorrectly match and remove EVM TX
+            if (IsEVMTx(txConflict)) {
+                continue;
+            }
             if (txConflict != tx)
             {
                 ClearPrioritisation(txConflict.GetHash());
