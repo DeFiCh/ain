@@ -66,8 +66,8 @@ impl LogHandler {
     // get logs at a block height and filter for topics
     pub fn get_logs(
         &self,
-        address: Option<Vec<H160>>,
-        topics: Option<Vec<Option<H256>>>,
+        address: &Option<Vec<H160>>,
+        topics: &Option<Vec<Option<H256>>>,
         block_number: U256,
     ) -> Vec<LogIndex> {
         debug!("Getting logs for block {:#x?}", block_number);
@@ -120,7 +120,7 @@ impl LogHandler {
         block_numbers
             .into_iter()
             .flat_map(|block_number| {
-                self.get_logs(filter.clone().address, filter.clone().topics, block_number)
+                self.get_logs(&filter.address, &filter.topics, block_number)
                     .into_iter()
             })
             .collect()

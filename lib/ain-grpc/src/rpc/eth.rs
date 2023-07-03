@@ -863,7 +863,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .flat_map(|block_number| {
                 self.handler
                     .logs
-                    .get_logs(input.clone().address, input.clone().topics, block_number)
+                    .get_logs(&input.address, &input.topics, block_number)
                     .into_iter()
                     .map(LogResult::from)
             })
@@ -986,7 +986,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .flat_map(|block_number| {
                         self.handler
                             .logs
-                            .get_logs(filter.clone().address, filter.clone().topics, block_number)
+                            .get_logs(&filter.address, &filter.topics, block_number)
                             .into_iter()
                             .map(LogResult::from)
                     })
