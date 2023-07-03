@@ -914,11 +914,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!res) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
-            
+
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
             const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
-            if (pool.ethTxsBySender[txResult.sender].size() >= MEMPOOL_MAX_ETH_TXS) {
+            assert(result.ok); // Already checked via ApplyCustomTX
+            if (pool.ethTxsBySender.count(txResult.sender) && pool.ethTxsBySender[txResult.sender].size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
                 ethSender = txResult.sender;

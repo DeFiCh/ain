@@ -429,10 +429,12 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     cachedInnerUsage -= memusage::DynamicUsage(mapLinks[it].parents) + memusage::DynamicUsage(mapLinks[it].children);
     mapLinks.erase(it);
     mapTx.erase(it);
-    for (auto& [sender, txs] : ethTxsBySender) {
-        txs.erase(hash);
-        if (sender.empty()) {
-            ethTxsBySender.erase(sender);
+    for (auto it = ethTxsBySender.begin(); it != ethTxsBySender.end();) {
+        it->second.erase(hash);
+        if (it->second.empty()) {
+            it = ethTxsBySender.erase(it);
+        } else {
+            ++it;
         }
     }
     nTransactionsUpdated++;
