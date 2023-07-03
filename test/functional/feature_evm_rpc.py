@@ -154,8 +154,8 @@ class EVMTest(DefiTestFramework):
         assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
 
         # Check vmmap fail on wrong tx
-        evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_tx, 4)
+        fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
+        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
 
         # Check if xvmmap is working for Blocks
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
@@ -165,6 +165,15 @@ class EVMTest(DefiTestFramework):
         # Check vmmap fail on wrong block
         evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
+
+        # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
+        self.nodes[0].invalidateblock(dvm_block)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + dvm_block, self.nodes[0].vmmap, dvm_block, 5)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + latest_block['hash'][2:], self.nodes[0].vmmap, latest_block['hash'], 6)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + dvm_tx, self.nodes[0].vmmap, dvm_tx, 3)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + evm_tx, self.nodes[0].vmmap, evm_tx, 4)
+        assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
+
 
     def run_test(self):
         self.setup()
