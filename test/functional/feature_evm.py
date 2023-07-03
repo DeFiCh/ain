@@ -405,7 +405,11 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_txs), 64)
 
         # Try and send another TX to make sure mempool has removed entires
-        self.nodes[0].evmtx(eth_address, 65, 21, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
+        self.nodes[0].generate(1)
+
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(len(block_txs), 1)
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])
