@@ -894,9 +894,37 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(::ChainActive().Tip(), chainparams.GetConsensus());
-        if (!IsEVMTx(tx) && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
+
+        // TODO: We do multiple guess and parses. Streamline this later.
+        // We also have IsEvmTx,  but we need the metadata here.
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+        auto isEvmTx = txType == CustomTxType::EvmTx;
+
+        if (!isEvmTx && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
+        }
+
+        std::optional<std::array<::std::uint8_t, 20>> ethSender;
+
+        if (isEvmTx) {
+            auto txMessage = customTypeToMessage(txType);
+            auto res = CustomMetadataParse(height, chainparams.GetConsensus(), metadata, txMessage);
+            if (!res) {
+                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
+            }
+
+            const auto obj = std::get<CEvmTxMessage>(txMessage);
+            CrossBoundaryResult result;
+            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
+            assert(result.ok); // Already checked via ApplyCustomTX
+            const auto sender = pool.ethTxsBySender.find(txResult.sender);
+            if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
+            } else {
+                ethSender = txResult.sender;
+            }
         }
 
         if (test_accept) {
@@ -925,7 +953,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         bool validForFeeEstimation = !fReplacementTransaction && !bypass_limits && IsCurrentForFeeEstimation() && pool.HasNoInputsOf(tx);
 
         // Store transaction in memory
-        pool.addUnchecked(entry, setAncestors, validForFeeEstimation);
+        pool.addUnchecked(entry, setAncestors, validForFeeEstimation, ethSender);
         mnview.Flush();
 
         // trim mempool and check if tx was trimmed

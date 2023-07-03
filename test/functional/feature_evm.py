@@ -378,6 +378,21 @@ class EVMTest(DefiTestFramework):
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
 
+        # Test max limit of TX from a specific sender
+        for i in range(64):
+            self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
+
+        # Test error at the 65th EVM TX
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 65, 21, 21001, to_address, 1)
+
+        # Miot a block
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(len(block_txs), 65)
+
+        # Try and send another TX to make sure mempool has removed entires
+        self.nodes[0].evmtx(eth_address, 65, 21, 21001, to_address, 1)
+
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])
         self.test_tx_without_chainid(self.nodes[0], key_pair, web3)
