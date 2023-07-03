@@ -147,7 +147,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
-                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - Any Address to EVM address, 2 - Any address to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"

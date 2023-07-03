@@ -126,15 +126,25 @@ class EVMTest(DefiTestFramework):
         # TODO: This PR isn't ready just yet without proper tests.
         # Current tests are very basic. Need to add proper tests.
         # Merging for now, for faster feedback loop. But this is a key to-do.
-        # Check if xvmmap is working for addresses
+
+        # Check if vmmap is working for different type of addresses
         eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
         address = self.nodes[0].vmmap(eth_address, 2)
         assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
+        assert_equal(address, self.nodes[0].vmmap(address, 2))
+        assert_equal(eth_address, self.nodes[0].vmmap(eth_address, 1))
+
+        # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
+        eth_address = '0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C'
+        assert_raises_rpc_error(-5, "no full public key for address 0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C", self.nodes[0].vmmap, eth_address, 2)
+        assert_raises_rpc_error(-5, "no full public key for address 0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C", self.nodes[0].vmmap, eth_address, 1)
 
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
         assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
+        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 1)
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
+        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
 
         # Check if xvmmap is working for Txs
         list_tx = self.nodes[0].logvmmaps(1)
