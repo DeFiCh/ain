@@ -82,10 +82,10 @@ impl FilterHandler {
         to_block: U256,
         current_block_height: U256,
     ) -> usize {
-        let mut filters = self.filters.write().unwrap();
         let mut filter_id = self.filter_id.write().unwrap();
         *filter_id += 1;
 
+        let mut filters = self.filters.write().unwrap();
         filters.insert(
             *filter_id,
             Filter::Logs(LogsFilter {
@@ -140,15 +140,19 @@ impl FilterHandler {
         }
     }
 
-    pub fn update_last_block(&self, filter_id: usize, block_height: U256) {
+    pub fn update_last_block(&self, filter_id: usize, block_height: U256) -> Result<(), &str> {
         let mut filters = self.filters.write().unwrap();
 
-        let filter = filters.get_mut(&filter_id).unwrap();
+        let Some(filter) = filters.get_mut(&filter_id) else {
+            return Err("Filter not found");
+        };
 
         match filter {
             Filter::Logs(f) => f.last_block_height = block_height,
             _ => {}
         }
+
+        Ok(())
     }
 
     pub fn add_block_to_filters(&self, block_hash: H256) {
@@ -186,7 +190,9 @@ impl FilterHandler {
     pub fn get_entries_from_filter(&self, filter_id: usize) -> Result<Vec<H256>, &str> {
         let mut filters = self.filters.write().unwrap();
 
-        let filter = filters.get_mut(&filter_id).unwrap();
+        let Some(filter) = filters.get_mut(&filter_id) else {
+            return Err("Filter not found");
+        };
 
         match filter {
             Filter::NewBlock(filter) => Ok(filter.get_entries()),
@@ -196,11 +202,6 @@ impl FilterHandler {
     }
 
     pub fn delete_filter(&self, filter_id: usize) -> bool {
-        let mut filters = self.filters.write().unwrap();
-
-        match filters.remove(&filter_id) {
-            Some(_) => true,
-            None => false,
-        }
+        self.filters.write().unwrap().remove(&filter_id).is_some()
     }
 }

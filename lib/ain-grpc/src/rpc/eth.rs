@@ -928,7 +928,8 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 self.handler
                     .filters
-                    .update_last_block(filter_id.as_usize(), current_block_height);
+                    .update_last_block(filter_id.as_usize(), current_block_height)
+                    .map_err(|e| Error::Custom(String::from(e)))?;
 
                 GetFilterChangesResult::Logs(logs)
             }
