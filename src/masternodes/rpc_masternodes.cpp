@@ -12,11 +12,9 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
     }
     else {
         UniValue obj(UniValue::VOBJ);
-        CTxDestination ownerDest = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) :
-                CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
+        CTxDestination ownerDest = node.GetOwnerAddressDestination();
         obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
-        CTxDestination operatorDest = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
-                                      CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
+        CTxDestination operatorDest = node.GetOperatorAddressDestination();
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
             obj.pushKV("rewardAddress", EncodeDestination(node.GetRewardAddressDestination()));

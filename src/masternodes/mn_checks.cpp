@@ -14,6 +14,7 @@
 #include <core_io.h>
 #include <ffi/cxx.h>
 #include <index/txindex.h>
+#include <key_io.h>
 #include <txmempool.h>
 #include <validation.h>
 
@@ -3834,10 +3835,9 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = GetDestinationPKHashOrWPKHashFromKey(node->ownerType, node->ownerAuthAddress);
-        if (!IsValidDestination(ownerDest)) {
-            return Res::Err("masternode <%s> is not a valid owner type", obj.masternodeId.GetHex());
-        }
+        auto ownerDest = node->GetOwnerAddressDestination();
+        if (!IsValidDestination(ownerDest))
+            return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
@@ -4368,8 +4368,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = GetDestinationPKHashOrWPKHashFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
-    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+    CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
@@ -4451,8 +4451,8 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = GetDestinationPKHashOrWPKHashFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
-    Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
+    CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+    Require(IsValidDestination(destination) && tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     LogPrint(BCLog::ACCOUNTCHANGE,
              "AccountChange: hash=%s fund=%s change=%s\n",

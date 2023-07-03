@@ -169,17 +169,25 @@ bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
     return state == ENABLED || state == PRE_RESIGNED;
 }
 
-CTxDestination CMasternode::GetRewardAddressDestination() const {
-    switch(rewardAddressType) {
-        case PKHashType:
-            return {PKHash(rewardAddress)};
-        case ScriptHashType:
-            return {ScriptHash(rewardAddress)};
-        case WitV0KeyHashType:
-            return {WitnessV0KeyHash(rewardAddress)};
+CTxDestination CMasternode::GetOwnerAddressDestination() const {
+    if (ownerType == PKHashType || ownerType == WitV0KeyHashType) {
+        return TryFromKeyIDToDestination(ownerType, ownerAuthAddress);
     }
+    return CTxDestination(CNoDestination());
+}
 
-    return {};
+CTxDestination CMasternode::GetOperatorAddressDestination() const {
+    if (operatorType == PKHashType || operatorType == WitV0KeyHashType) {
+        return TryFromKeyIDToDestination(operatorType, operatorAuthAddress);
+    }
+    return CTxDestination(CNoDestination());
+}
+
+CTxDestination CMasternode::GetRewardAddressDestination() const {
+    if (rewardAddressType == PKHashType || rewardAddressType == ScriptHashType || rewardAddressType == WitV0KeyHashType) {
+        return TryFromKeyIDToDestination(rewardAddressType, rewardAddress);
+    }
+    return CTxDestination(CNoDestination());
 }
 
 std::string CMasternode::GetHumanReadableState(State state) {
@@ -1355,13 +1363,13 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
     mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
         if (node.rewardAddressType) {
-            const CScript rewardAddress = GetScriptForDestination(GetDestinationPKHashOrWPKHashFromKey(node.rewardAddressType, node.rewardAddress));
+            const CScript rewardAddress = GetScriptForDestination(node.GetRewardAddressDestination());
             if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
                 mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
             }
         }
 
-        const CScript rewardAddress = GetScriptForDestination(GetDestinationPKHashOrWPKHashFromKey(node.ownerType, node.ownerAuthAddress));
+        const CScript rewardAddress = GetScriptForDestination(node.GetOwnerAddressDestination());
         if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
         }

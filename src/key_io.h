@@ -28,7 +28,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
 
+CTxDestination GetRewardDestinationFromKey(const char type, const CKeyID &keyId);
 std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(const CTxDestination &dest);
-CTxDestination GetDestinationPKHashOrWPKHashFromKey(const char type, const CKeyID &keyId);
 
 #endif // DEFI_KEY_IO_H

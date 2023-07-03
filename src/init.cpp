@@ -2358,9 +2358,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-
-                ownerDest = GetDestinationPKHashOrWPKHashFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress);
-                if (nodePtr->rewardAddressType != 0 && IsValidDestination(ownerDest)) {
+                ownerDest = nodePtr->GetOwnerAddressDestination();
+                if (nodePtr->rewardAddressType != 0) {
                     rewardDest = nodePtr->GetRewardAddressDestination();
                 }
             }

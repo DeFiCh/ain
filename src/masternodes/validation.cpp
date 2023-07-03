@@ -2233,10 +2233,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                 if (mn->rewardAddressType != 0) {
                     scriptPubKey = GetScriptForDestination(mn->GetRewardAddressDestination());
                 } else {
-                    scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
-                                                           CTxDestination(PKHash(mn->ownerAuthAddress)) :
-                                                           CTxDestination(WitnessV0KeyHash(mn->ownerAuthAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(mn->GetOwnerAddressDestination());
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));

@@ -214,7 +214,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
             metadata << finMsg;
 
-            CTxDestination destination = GetDestinationPKHashOrWPKHashFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+            CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
             if (IsValidDestination(destination)) {
                 CMutableTransaction mTx(txVersion);
                 mTx.vin.resize(1);
@@ -999,7 +999,7 @@ namespace pos {
                     scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(TryFromKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress));
+                    scriptPubKey = GetScriptForDestination(nodePtr->GetOwnerAddressDestination());
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;

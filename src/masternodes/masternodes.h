@@ -110,6 +110,8 @@ public:
 
     State GetState(int height, const CMasternodesView &mnview) const;
     bool IsActive(int height, const CMasternodesView &mnview) const;
+    [[nodiscard]] CTxDestination GetOwnerAddressDestination() const;
+    [[nodiscard]] CTxDestination GetOperatorAddressDestination() const;
     [[nodiscard]] CTxDestination GetRewardAddressDestination() const;
 
     static std::string GetHumanReadableState(State state);
