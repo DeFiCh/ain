@@ -2771,7 +2771,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CreationTxs creationTxs;
     auto counter_n = 1;
-    for (const auto& [id, multiplier] : splits) {
+    for (const auto& [id, rawMultiplier] : splits) {
+        const int32_t multiplier = rawMultiplier / COIN;
         LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
         id, multiplier, counter_n++, splits.size(), pindex->nHeight);
         uint256 tokenCreationTx{};

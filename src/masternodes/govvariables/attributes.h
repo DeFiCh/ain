@@ -315,7 +315,7 @@ struct CConsortiumDailyMinted : public CConsortiumMinted {
 };
 
 using CDexBalances             = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits             = std::map<uint32_t, int32_t>;
+using OracleSplits             = std::map<uint32_t, CAmount>;
 using DescendantValue          = std::pair<uint32_t, int32_t>;
 using AscendantValue           = std::pair<uint32_t, std::string>;
 using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;

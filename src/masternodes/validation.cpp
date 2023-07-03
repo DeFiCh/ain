@@ -1749,7 +1749,8 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         cache.SetVariable(*attributes);
     }
 
-    for (const auto& [id, multiplier] : splits) {
+    for (const auto& [id, rawMultiplier] : splits) {
+        const int32_t multiplier = rawMultiplier / COIN;
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
 

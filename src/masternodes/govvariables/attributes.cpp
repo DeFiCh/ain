@@ -480,16 +480,16 @@ static ResVal<CAttributeValue> VerifySplit(const std::string &str) {
     if (!resId) {
         return resId;
     }
-
-    const auto resMultiplier = VerifyInt32(pairs[1]);
+    const auto resMultiplier = VerifyFloat(pairs[1]);
     if (!resMultiplier) {
         return resMultiplier;
     }
-    if (*resMultiplier == 0) {
+    auto value = std::get<CAmount>(*resMultiplier.val);
+    if (value == 0) {
         return DeFiErrors::GovVarVerifyMultiplier();
     }
 
-    splits[*resId] = *resMultiplier;
+    splits[*resId] = value;
 
     return {splits, Res::Ok()};
 }
@@ -1389,7 +1389,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     if (it != splitValues->begin()) {
                         keyValue += ',';
                     }
-                    keyValue += KeyBuilder(it->first, it->second);
+                    keyValue += KeyBuilder(it->first, it->second / COIN);
                 }
                 ret.pushKV(key, keyValue);
             } else if (const auto &descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
