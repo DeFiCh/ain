@@ -836,9 +836,8 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest))
-                                                                      : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
-            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+            const CKeyID storedID = GetKeyPKHashOrWPKHashFromDestination(pendingDest);
+            if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
             }
@@ -920,8 +919,9 @@ public:
                 }
 
                 CTxDestination dest;
-                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) ||
-                    (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                ExtractDestination(tx.vout[1].scriptPubKey, dest);
+                const auto keyID = GetKeyPKHashOrWPKHashFromDestination(dest);
+                if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
 
@@ -929,8 +929,6 @@ public:
                     return Res::Err("Incorrect collateral amount");
                 }
 
-                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest))
-                                                              : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with collateral address as operator or owner already exists");
                 }
@@ -945,9 +943,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = pendingDest.index() == PKHashType
-                                                ? CKeyID(std::get<PKHash>(pendingDest))
-                                                : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    const CKeyID storedID = GetKeyPKHashOrWPKHashFromDestination(pendingDest);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -1008,9 +1004,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(addressType == PKHashType ?
-                                                                          CTxDestination(PKHash(keyID)) :
-                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    const CScript rewardAddress = GetScriptForDestination(GetRewardDestinationFromKey(addressType, keyID));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }

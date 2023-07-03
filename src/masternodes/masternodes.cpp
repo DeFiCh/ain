@@ -170,24 +170,15 @@ bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
 }
 
 CTxDestination CMasternode::GetOwnerAddressDestination() const {
-    if (ownerType == PKHashType || ownerType == WitV0KeyHashType) {
-        return TryFromKeyIDToDestination(ownerType, ownerAuthAddress);
-    }
-    return CTxDestination(CNoDestination());
+    return GetDestinationPKHashOrWPKHashFromKey(ownerType, ownerAuthAddress);
 }
 
 CTxDestination CMasternode::GetOperatorAddressDestination() const {
-    if (operatorType == PKHashType || operatorType == WitV0KeyHashType) {
-        return TryFromKeyIDToDestination(operatorType, operatorAuthAddress);
-    }
-    return CTxDestination(CNoDestination());
+    return GetDestinationPKHashOrWPKHashFromKey(operatorType, operatorAuthAddress);
 }
 
 CTxDestination CMasternode::GetRewardAddressDestination() const {
-    if (rewardAddressType == PKHashType || rewardAddressType == ScriptHashType || rewardAddressType == WitV0KeyHashType) {
-        return TryFromKeyIDToDestination(rewardAddressType, rewardAddress);
-    }
-    return CTxDestination(CNoDestination());
+        return GetRewardDestinationFromKey(rewardAddressType, rewardAddress);
 }
 
 std::string CMasternode::GetHumanReadableState(State state) {
@@ -278,11 +269,11 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
     const auto operators = gArgs.GetArgs("-masternode_operator");
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
-        if (!authAddress || authAddress->IsNull()) continue;
-        auto addr = *authAddress;
-        if (auto nodeId = GetMasternodeIdByOperator(addr)) {
-            return std::make_pair(addr, *nodeId);
+        const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        if (!authAddress.IsNull()) {
+            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
+                return std::make_pair(authAddress, *nodeId);
+            }
         }
     }
     return {};
@@ -293,24 +284,26 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
-        if (!authAddress || authAddress->IsNull()) continue;
-        auto addr = *authAddress;
-        if (auto nodeId = GetMasternodeIdByOperator(addr)) {
-            operatorPairs.insert(std::make_pair(addr, *nodeId));
+        const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        if (!authAddress.IsNull()) {
+            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
+                operatorPairs.insert(std::make_pair(authAddress, *nodeId));
+            }
         }
     }
+
     return operatorPairs;
 }
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    const std::optional<CKeyID> authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
-    if (!authAddress || authAddress->IsNull()) return {};
-    auto addr = *authAddress;
-    auto nodeId = GetMasternodeIdByOwner(addr);
-    if (!nodeId) return {};
-    return {std::make_pair(addr, *nodeId)};
+    const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+    if (!authAddress.IsNull()) {
+        auto nodeId = GetMasternodeIdByOwner(authAddress);
+        if (nodeId)
+            return {std::make_pair(authAddress, *nodeId)};
+    }
+    return {};
 }
 
 Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode &node, uint16_t timelock) {

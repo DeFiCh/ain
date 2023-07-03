@@ -161,7 +161,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+    CKeyID const operatorAuthKey = GetKeyPKHashOrWPKHashFromDestination(operatorDest);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -251,10 +251,8 @@ UniValue resignmasternode(const JSONRPCRequest& request)
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
-        ownerDest = nodePtr->ownerType == PKHashType ?
-            CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-            CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
+        ownerDest = nodePtr->GetOwnerAddressDestination();
         if (!nodePtr->collateralTx.IsNull()) {
             const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
             if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {
@@ -407,7 +405,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
-        const CKeyID keyID = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+        const CKeyID keyID = GetKeyPKHashOrWPKHashFromDestination(operatorDest);
         msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress), std::make_pair(static_cast<char>(operatorDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
     }
 

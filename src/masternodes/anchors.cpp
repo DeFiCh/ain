@@ -71,8 +71,7 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> &auths, const CTxD
         for (size_t i = 0; i < auths.size(); ++i) {
             anchor.sigs.push_back(auths[i].GetSignature());
         }
-        anchor.rewardKeyID   = rewardDest.index() == PKHashType ? CKeyID(std::get<PKHash>(rewardDest))
-                                                                : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
+        anchor.rewardKeyID   = GetRewardKeyFromDestination(rewardDest);
         anchor.rewardKeyType = rewardDest.index();
         return anchor;
     }

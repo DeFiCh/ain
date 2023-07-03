@@ -162,7 +162,7 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 }
 
 
-std::optional<CKeyID> TryFromDestinationToKeyID(const CTxDestination &dest) {
+CKeyID TryFromDestinationToKeyID(const CTxDestination &dest) {
     // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
     // flags here and use bit flag logic to decode only specific destinations
     switch (dest.index()) {

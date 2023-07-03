@@ -177,7 +177,7 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 
 
 /** Try to get the keyID from the destination address. */
-std::optional<CKeyID> TryFromDestinationToKeyID(const CTxDestination &dest);
+CKeyID TryFromDestinationToKeyID(const CTxDestination &dest);
 
 /** Try to get the destination address from the keyID type. */
 CTxDestination TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId);

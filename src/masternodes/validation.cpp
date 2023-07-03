@@ -2314,7 +2314,7 @@ static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& c
             assert(!coin.IsSpent());
             CTxDestination dest;
             assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            const CKeyID keyId = GetKeyPKHashOrWPKHashFromDestination(dest);
             cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
         }
         return true;
@@ -2412,7 +2412,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
             assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
             assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
-            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            const auto keyID = GetKeyPKHashOrWPKHashFromDestination(dest);
             std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
             minerAddress = GetScriptForDestination(dest);
         } else {

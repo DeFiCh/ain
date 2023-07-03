@@ -248,6 +248,14 @@ bool IsValidDestinationString(const std::string& str)
     return IsValidDestinationString(str, Params());
 }
 
+CTxDestination GetDestinationPKHashOrWPKHashFromKey(const char type, const CKeyID &keyId)
+{
+    if (type == PKHashType || type == WitV0KeyHashType) {
+        return TryFromKeyIDToDestination(type, keyId);
+    }
+    return CTxDestination(CNoDestination());
+}
+
 CTxDestination GetRewardDestinationFromKey(const char type, const CKeyID &keyId)
 {
     if (type == PKHashType || type == ScriptHashType || type == WitV0KeyHashType) {
@@ -256,10 +264,19 @@ CTxDestination GetRewardDestinationFromKey(const char type, const CKeyID &keyId)
     return CTxDestination(CNoDestination());
 }
 
-std::optional<CKeyID> GetKeyPKHashOrWPKHashFromDestination(const CTxDestination &dest)
+CKeyID GetKeyPKHashOrWPKHashFromDestination(const CTxDestination &dest)
 {
     auto type = dest.index();
     if (type == PKHashType || type == WitV0KeyHashType) {
+        return TryFromDestinationToKeyID(dest);
+    }
+    return {};
+}
+
+CKeyID GetRewardKeyFromDestination(const CTxDestination &dest)
+{
+    auto type = dest.index();
+    if (type == PKHashType || type == ScriptHashType || type == WitV0KeyHashType) {
         return TryFromDestinationToKeyID(dest);
     }
     return {};

@@ -2326,8 +2326,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            const auto opAddress = GetKeyPKHashOrWPKHashFromDestination(destination);
-            if (!opAddress || opAddress->IsNull()) {
+            operatorId = GetKeyPKHashOrWPKHashFromDestination(destination);
+            if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
             }
@@ -2351,7 +2351,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 CNoDestination{} :
                 DecodeDestination(customRewardAddressStr, chainparams);
 
-            operatorId = *opAddress;
             CTxDestination ownerDest;
             CTxDestination rewardDest;
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
