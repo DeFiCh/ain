@@ -39,9 +39,9 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct ValidateTxResult {
-        nonce: u64,
-        sender: [u8; 20],
-        used_gas: u64,
+        pub nonce: u64,
+        pub sender: [u8; 20],
+        pub used_gas: u64,
     }
 
     pub struct CrossBoundaryResult {
@@ -71,7 +71,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
-        ) -> Result<ValidateTxResult>;
+        ) -> ValidateTxResult;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
@@ -316,21 +316,21 @@ pub fn evm_try_prevalidate_raw_tx(
     result: &mut CrossBoundaryResult,
     tx: &str,
     with_gas_usage: bool,
-) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
+) -> ffi::ValidateTxResult {
     match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
-            Ok(ffi::ValidateTxResult {
+            return ffi::ValidateTxResult {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            })
+            }
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
-            Ok(ffi::ValidateTxResult::default())
+            return ffi::ValidateTxResult::default();
         }
     }
 }
