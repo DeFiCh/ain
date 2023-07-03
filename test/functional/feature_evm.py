@@ -283,8 +283,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[2]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
         # Check mempools for TXs
-        assert_equal(self.nodes[0].getrawmempool(), [tx3, tx2, tx4, tx])
-        assert_equal(self.nodes[1].getrawmempool(), [tx3, tx2, tx4, tx])
+        mempool = self.nodes[0].getrawmempool()
+        assert (mempool.count(tx))
+        assert (mempool.count(tx2))
+        assert (mempool.count(tx3))
+        assert (mempool.count(tx4))
+        mempool = self.nodes[1].getrawmempool()
+        assert (mempool.count(tx))
+        assert (mempool.count(tx2))
+        assert (mempool.count(tx3))
+        assert (mempool.count(tx4))
         self.nodes[0].generate(1)
 
         # Check TXs in block in correct order
@@ -341,6 +349,21 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
+
+        # Test max limit of TX from a specific sender
+        for i in range(64):
+            self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
+
+        # Test error at the 65th EVM TX
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 65, 21, 21001, to_address, 1)
+
+        # Miot a block
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(len(block_txs), 65)
+
+        # Try and send another TX to make sure mempool has removed entires
+        self.nodes[0].evmtx(eth_address, 65, 21, 21001, to_address, 1)
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])

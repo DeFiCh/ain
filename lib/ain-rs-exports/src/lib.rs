@@ -30,6 +30,7 @@ pub mod ffi {
         priv_key: [u8; 32],
     }
 
+    #[derive(Default)]
     pub struct FinalizeBlockResult {
         block_hash: [u8; 32],
         failed_transactions: Vec<String>,
@@ -38,9 +39,9 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct ValidateTxResult {
-        nonce: u64,
-        sender: [u8; 20],
-        used_gas: u64,
+        pub nonce: u64,
+        pub sender: [u8; 20],
+        pub used_gas: u64,
     }
 
     pub struct CrossBoundaryResult {
@@ -70,7 +71,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
-        ) -> Result<ValidateTxResult>;
+        ) -> ValidateTxResult;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
@@ -81,7 +82,8 @@ pub mod ffi {
             native_tx_hash: [u8; 32],
         ) -> Result<bool>;
 
-        fn evm_finalize(
+        fn evm_try_finalize(
+            result: &mut CrossBoundaryResult,
             context: u64,
             update_state: bool,
             difficulty: u32,
@@ -314,21 +316,21 @@ pub fn evm_try_prevalidate_raw_tx(
     result: &mut CrossBoundaryResult,
     tx: &str,
     with_gas_usage: bool,
-) -> Result<ffi::ValidateTxResult, Box<dyn Error>> {
+) -> ffi::ValidateTxResult {
     match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
-            Ok(ffi::ValidateTxResult {
+            return ffi::ValidateTxResult {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            })
+            };
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
-            Ok(ffi::ValidateTxResult::default())
+            return ffi::ValidateTxResult::default();
         }
     }
 }
@@ -407,11 +409,13 @@ fn evm_try_queue_tx(
 /// # Errors
 ///
 /// Returns an Error if there is an error restoring the state trie.
+/// Returns an Error if the block has invalid TXs, viz. out of order nonces
 ///
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
-fn evm_finalize(
+fn evm_try_finalize(
+    result: &mut CrossBoundaryResult,
     context: u64,
     update_state: bool,
     difficulty: u32,
@@ -419,18 +423,24 @@ fn evm_finalize(
     timestamp: u64,
 ) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
     let eth_address = H160::from(miner_address);
-    let (block_hash, failed_txs, gas_used) = RUNTIME.handlers.finalize_block(
-        context,
-        update_state,
-        difficulty,
-        eth_address,
-        timestamp,
-    )?;
-    Ok(ffi::FinalizeBlockResult {
-        block_hash,
-        failed_transactions: failed_txs,
-        miner_fee: gas_used,
-    })
+    match RUNTIME
+        .handlers
+        .finalize_block(context, update_state, difficulty, eth_address, timestamp)
+    {
+        Ok((block_hash, failed_txs, gas_used)) => {
+            result.ok = true;
+            Ok(ffi::FinalizeBlockResult {
+                block_hash,
+                failed_transactions: failed_txs,
+                miner_fee: gas_used,
+            })
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+            Ok(ffi::FinalizeBlockResult::default())
+        }
+    }
 }
 
 pub fn preinit() {
