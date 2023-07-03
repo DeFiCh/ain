@@ -324,7 +324,7 @@ pub fn evm_try_prevalidate_raw_tx(
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            }
+            };
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
