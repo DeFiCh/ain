@@ -3984,9 +3984,9 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     res = ExtractDestination(destScript, dest);
     if (!res) return DeFiErrors::ScriptUnexpected(destScript);
 
-    auto isValidDVMAddrForEVM = [](const CTxDestination &a) { 
+    auto isValidDVMAddrForEVM = [](const CTxDestination &a) {
         return a.index() == PKHashType || a.index() == WitV0KeyHashType; };
-    auto isValidEVMAddr = [](const CTxDestination &a) { 
+    auto isValidEVMAddr = [](const CTxDestination &a) {
         return a.index() == WitV16KeyEthHashType; };
 
     if (aspect == VMDomainEdge::DVMToEVM) {
@@ -3997,7 +3997,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
-        
+
     } else if (aspect == VMDomainEdge::EVMToDVM) {
         if (!isValidEVMAddr(src)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
@@ -4016,8 +4016,8 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
                                    CTransferDomainItem src, CTransferDomainItem dst) {
-    
-    // TODO: Remove code branch on stable. 
+
+    // TODO: Remove code branch on stable.
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
         return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
     }
@@ -4062,8 +4062,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
-    if (obj.transfers.size() < 1) {
-        return DeFiErrors::TransferDomainInvalid();
+    if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+        if (obj.transfers.size() < 1) {
+            return DeFiErrors::TransferDomainInvalid();
+        }
     }
 
     for (const auto &[src, dst] : obj.transfers) {
