@@ -439,7 +439,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         // if we are here - we've got signed optional auth tx - add all of the outputs into inputs (to do not miss any coins for sure)
         for (size_t i = 0; i < optAuthTx->vout.size(); ++i) {
             if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable())
-                result.push_back(CTxIn(optAuthTx->GetHash(), i));
+                result.emplace_back(optAuthTx->GetHash(), i);
         }
     }
 
