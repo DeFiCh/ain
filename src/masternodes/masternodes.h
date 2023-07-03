@@ -117,6 +117,7 @@ public:
 
     State GetState(int height, const CMasternodesView &mnview) const;
     bool IsActive(int height, const CMasternodesView &mnview) const;
+    [[nodiscard]] CTxDestination GetRewardAddressDestination() const;
 
     static std::string GetHumanReadableState(State state);
     static std::string GetTimelockToString(TimeLock timelock);
@@ -471,7 +472,8 @@ class CCustomCSView : public CMasternodesView,
                       public CLoanView,
                       public CVaultView,
                       public CSettingsView,
-                      public CProposalView {
+                      public CProposalView,
+                      public CVMDomainGraphView {
     // clang-format off
     void CheckPrefixes()
     {
@@ -503,7 +505,8 @@ class CCustomCSView : public CMasternodesView,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
-            CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus
+            CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus,
+            CVMDomainGraphView             ::  VMDomainBlockEdge, VMDomainTxEdge
         >();
     }
     // clang-format on

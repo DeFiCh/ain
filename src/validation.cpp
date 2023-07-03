@@ -3308,8 +3308,13 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
-        if (IsEVMEnabled(pindexNew->nHeight, mnview)) {
-            evm_finalize(evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+        if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
+            CrossBoundaryResult result;
+            evm_try_finalize(result, evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+            if (!result.ok && pindexNew->nHeight >= Params().GetConsensus().ChangiIntermediateHeight4) {
+                return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());
+            }
+
         }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
@@ -4169,11 +4174,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
-            CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
-                CTxDestination(PKHash(node->rewardAddress)) :
-                CTxDestination(WitnessV0KeyHash(node->rewardAddress))
-            );
-            if (block.vtx[0]->vout[0].scriptPubKey != rewardScriptPubKey) {
+            if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(node->GetRewardAddressDestination())) {
                 return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-rewardaddress", "proof of stake failed");
             }
         }

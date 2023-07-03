@@ -178,8 +178,7 @@ class TestForcedRewardAddress(DefiTestFramework):
                                 {'rewardAddress': forced_reward_address}
                                 )
         assert_raises_rpc_error(-8,
-                                "rewardAddress ({}) does not refer to a P2PKH or P2WPKH address".format(
-                                    "some_bad_address"),
+                                "rewardAddress (some_bad_address) does not refer to a P2SH, P2PKH or P2WPKH address",
                                 self.nodes[0].updatemasternode, mn_id, {'rewardAddress': 'some_bad_address'}
                                 )
 
@@ -237,7 +236,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.restart_node(0,
                           ['-gen', '-masternode_operator=' + operator_address, '-rewardaddress=' + cli_reward_address,
                            '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50',
-                           '-grandcentralheight=1'])
+                           '-grandcentralheight=1', '-nextnetworkupgradeheight=510', '-changiintermediateheight=510'])
 
         # Mine blocks
         self.nodes[0].generate(101)
@@ -278,8 +277,7 @@ class TestForcedRewardAddress(DefiTestFramework):
 
         # Test incorrect owner address
         assert_raises_rpc_error(-8,
-                                "ownerAddress ({}) does not refer to a P2PKH or P2WPKH address".format(
-                                    "some_bad_address"),
+                                "ownerAddress (some_bad_address) does not refer to a P2PKH or P2WPKH address",
                                 self.nodes[0].updatemasternode, mn_id, {'ownerAddress': 'some_bad_address'}
                                 )
 
@@ -460,6 +458,27 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result['results']['id'], mn1)
         assert_equal(result['results']['ownerAddress'], foreign_owner)
 
+        # Create scripthash address
+        script_address = self.nodes[0].getnewaddress()
+
+        # Verify error on a script hash address pre-fork
+        assert_raises_rpc_error(-32600, "Reward address must be P2PKH or P2WPKH type",
+                                self.nodes[0].updatemasternode, mn2, {'rewardAddress': script_address})
+
+        # Move to fork height
+        self.nodes[0].generate(510 - self.nodes[0].getblockcount())
+
+        # Change reward address to script hash post-fork
+        self.nodes[0].updatemasternode(mn2, {'rewardAddress': script_address})
+        self.nodes[0].generate(11)
+
+        # Check reward address is now set to the script address
+        result = self.nodes[0].getmasternode(mn2)[mn2]
+        assert_equal(result['rewardAddress'], script_address)
+
+        # Verify post fork error on invalid address
+        assert_raises_rpc_error(-8, "rewardAddress (invalid_address) does not refer to a P2SH, P2PKH or P2WPKH address",
+                                self.nodes[0].updatemasternode, mn2, {'rewardAddress': 'invalid_address'})
 
 if __name__ == '__main__':
     TestForcedRewardAddress().main()

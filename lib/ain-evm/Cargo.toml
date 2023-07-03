@@ -24,6 +24,7 @@ ethbloom = "0.13.0"
 ethereum-types = "0.14.1"
 serde_json = "1.0.96"
 statrs = "0.16.0"
+rustc-hex = "2.1.0"
 
 # Trie dependencies
 hash-db = "0.16.0"
@@ -41,6 +42,12 @@ tokio = { version = "1.1", features = ["rt-multi-thread"] }
 
 # Cache dependencies
 lru = "0.10.0"
+
+# Precompile dependencies
+sp-io = "20.0.0"
+num = { version = "0.4", default-features = false, features = ["alloc"] }
+ripemd = { version = "0.1", default-features = false }
+substrate-bn = "0.6.0"
 
 [dev-dependencies]
 tempdir = "0.3.7"

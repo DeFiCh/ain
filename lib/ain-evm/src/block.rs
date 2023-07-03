@@ -1,19 +1,17 @@
-use ethereum::{Block, BlockAny, PartialHeader, TransactionAny};
+use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
-use std::{fs, io::BufReader, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
-use crate::{
-    genesis::GenesisData,
-    storage::{traits::BlockStorage, Storage},
-};
+use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockHandler {
     storage: Arc<Storage>,
+    first_block_number: U256,
 }
 
 pub struct FeeHistoryData {
@@ -23,9 +21,26 @@ pub struct FeeHistoryData {
     pub reward: Option<Vec<Vec<U256>>>,
 }
 
+pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
+
 impl BlockHandler {
     pub fn new(storage: Arc<Storage>) -> Self {
-        Self { storage }
+        let mut block_handler = Self {
+            storage,
+            first_block_number: U256::zero(),
+        };
+        let (_, block_number) = block_handler
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
+
+        block_handler.first_block_number = block_number;
+        debug!("Current block number is {:#?}", block_number);
+
+        block_handler
+    }
+
+    pub fn get_first_block_number(&self) -> U256 {
+        self.first_block_number
     }
 
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
@@ -47,32 +62,16 @@ impl BlockHandler {
         self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 
-    pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
-        // constants
-        let initial_base_fee = U256::from(10_000_000_000u64); // wei
-        let base_fee_max_change_denominator = U256::from(8);
-        let elasticity_multiplier = U256::from(2);
-
-        // first block has 1 gwei base fee
-        if parent_hash == H256::zero() {
-            return initial_base_fee;
-        }
-
-        // get parent gas usage,
-        // https://eips.ethereum.org/EIPS/eip-1559#:~:text=fee%20is%20correct-,if%20INITIAL_FORK_BLOCK_NUMBER%20%3D%3D%20block.number%3A,-expected_base_fee_per_gas%20%3D%20INITIAL_BASE_FEE
-        let parent_block = self
-            .storage
-            .get_block_by_hash(&parent_hash)
-            .expect("Parent block not found");
-        let parent_base_fee = self
-            .storage
-            .get_base_fee(&parent_block.header.hash())
-            .expect("Parent base fee not found");
-        let parent_gas_used = parent_block.header.gas_used.as_u64();
-        let parent_gas_target =
-            parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
-
+    fn pre_changi_intermediate_2_base_fee_calculation(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
         match parent_gas_used.cmp(&parent_gas_target) {
+            // TODO: incorrect calculation, remove before mainnet launch
             Ordering::Less => parent_base_fee,
             Ordering::Equal => {
                 let gas_used_delta = parent_gas_used - parent_gas_target;
@@ -94,6 +93,97 @@ impl BlockHandler {
                 max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
             }
         }
+    }
+
+    pub fn post_changi_intermediate_2_base_fee_calculation(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
+        match parent_gas_used.cmp(&parent_gas_target) {
+            Ordering::Equal => parent_base_fee,
+            Ordering::Greater => {
+                let gas_used_delta = parent_gas_used - parent_gas_target;
+                let base_fee_per_gas_delta = max(
+                    parent_base_fee * gas_used_delta
+                        / parent_gas_target
+                        / base_fee_max_change_denominator,
+                    U256::one(),
+                );
+
+                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+            }
+            Ordering::Less => {
+                let gas_used_delta = parent_gas_target - parent_gas_used;
+                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
+                    / parent_gas_target
+                    / base_fee_max_change_denominator;
+
+                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+            }
+        }
+    }
+
+    pub fn get_base_fee(
+        &self,
+        parent_gas_used: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+        initial_base_fee: U256,
+    ) -> U256 {
+        match ain_cpp_imports::past_changi_intermediate_height_2_height() {
+            true => self.post_changi_intermediate_2_base_fee_calculation(
+                parent_gas_used,
+                parent_gas_target,
+                parent_base_fee,
+                base_fee_max_change_denominator,
+                initial_base_fee,
+            ),
+            false => self.pre_changi_intermediate_2_base_fee_calculation(
+                parent_gas_used,
+                parent_gas_target,
+                parent_base_fee,
+                base_fee_max_change_denominator,
+                initial_base_fee,
+            ),
+        }
+    }
+
+    pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
+        // constants
+        let base_fee_max_change_denominator = U256::from(8);
+        let elasticity_multiplier = U256::from(2);
+
+        // first block has 1 gwei base fee
+        if parent_hash == H256::zero() {
+            return INITIAL_BASE_FEE;
+        }
+
+        // get parent gas usage,
+        // https://eips.ethereum.org/EIPS/eip-1559#:~:text=fee%20is%20correct-,if%20INITIAL_FORK_BLOCK_NUMBER%20%3D%3D%20block.number%3A,-expected_base_fee_per_gas%20%3D%20INITIAL_BASE_FEE
+        let parent_block = self
+            .storage
+            .get_block_by_hash(&parent_hash)
+            .expect("Parent block not found");
+        let parent_base_fee = self
+            .storage
+            .get_base_fee(&parent_block.header.hash())
+            .expect("Parent base fee not found");
+        let parent_gas_used = parent_block.header.gas_used.as_u64();
+        let parent_gas_target =
+            parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
+
+        self.get_base_fee(
+            parent_gas_used,
+            parent_gas_target,
+            parent_base_fee,
+            base_fee_max_change_denominator,
+            INITIAL_BASE_FEE,
+        )
     }
 
     pub fn fee_history(
@@ -264,28 +354,82 @@ impl BlockHandler {
     }
 }
 
-pub fn new_block_from_json(path: PathBuf, state_root: H256) -> Result<BlockAny, std::io::Error> {
-    let file = fs::File::open(path)?;
-    let reader = BufReader::new(file);
-    let genesis: GenesisData = serde_json::from_reader(reader)?;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    Ok(Block::new(
-        PartialHeader {
-            state_root,
-            number: U256::zero(),
-            timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
-            beneficiary: genesis.coinbase.unwrap_or_default(),
-            difficulty: genesis.difficulty.unwrap_or_default(),
-            extra_data: genesis.extra_data.unwrap_or_default(),
-            parent_hash: genesis.parent_hash.unwrap_or_default(),
-            gas_limit: genesis.gas_limit.unwrap_or_default(),
-            mix_hash: genesis.mix_hash.unwrap_or_default(),
-            nonce: genesis.nonce.unwrap_or_default(),
-            receipts_root: Default::default(),
-            logs_bloom: Default::default(),
-            gas_used: Default::default(),
-        },
-        Vec::new(),
-        Vec::new(),
-    ))
+    #[test]
+    fn test_base_fee_equal() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(20_000_000_000u64),
+            block.post_changi_intermediate_2_base_fee_calculation(
+                15_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_max_increase() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(22_500_000_000u64), // should increase by 12.5%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                30_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_increase() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(20_833_333_333u64), // should increase by ~4.15%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                20_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_max_decrease() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(17_500_000_000u64), // should decrease by 12.5%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                0,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
+
+    #[test]
+    fn test_base_fee_decrease() {
+        let block = BlockHandler::new(Arc::new(Storage::new()));
+        assert_eq!(
+            U256::from(19_166_666_667u64), // should increase by ~4.15%
+            block.post_changi_intermediate_2_base_fee_calculation(
+                10_000_000,
+                15_000_000,
+                U256::from(20_000_000_000u64),
+                U256::from(8),
+                U256::from(10_000_000_000u64)
+            )
+        )
+    }
 }

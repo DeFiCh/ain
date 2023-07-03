@@ -85,6 +85,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/ismine -> wallet/wallet -> wallet/ismine"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
+    "masternodes/changiintermediates -> masternodes/mn_checks -> masternodes/changiintermediates"
 )
 
 EXIT_CODE=0

@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
+#include <masternodes/changiintermediates.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -1048,7 +1049,7 @@ public:
                 }
                 operatorType = true;
 
-                if (addressType != 1 && addressType != 4) {
+                if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
@@ -1067,8 +1068,15 @@ public:
                 }
                 rewardType = true;
 
-                if (addressType != 1 && addressType != 4) {
-                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
+                if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                    if (addressType != PKHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                    }
+                } else {
+                    if (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2SH, P2PKH or P2WPKH type");
+                    }
                 }
 
                 const auto keyID = CKeyID(uint160(rawAddress));
@@ -1226,7 +1234,6 @@ public:
     }
 
     Res operator()(const CMintTokensMessage &obj) const {
-        const auto isRegTest                = Params().NetworkIDString() == CBaseChainParams::REGTEST;
         const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
@@ -1250,7 +1257,7 @@ public:
             if (!token)
                 return Res::Err("token %s does not exist!", tokenId.ToString());
 
-            bool anybodyCanMint = isRegTest && !isRegTestSimulateMainnet;
+            bool anybodyCanMint = IsRegtestNetwork() && !isRegTestSimulateMainnet;
             auto mintable       = MintableToken(tokenId, *token, anybodyCanMint);
 
             auto mintTokensInternal = [&](DCT_ID tokenId, CAmount amount) {
@@ -1473,7 +1480,7 @@ public:
         Require(HasFoundationAuth());
         Require(obj.commission >= 0 && obj.commission <= COIN, "wrong commission");
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
             Require(obj.pairSymbol.find('/') == std::string::npos, "token symbol should not contain '/'");
         }
 
@@ -1542,14 +1549,14 @@ public:
         // check auth
         Require(HasAuth(obj.from));
 
-        return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, {}, consensus);
     }
 
     Res operator()(const CPoolSwapMessageV2 &obj) const {
         // check auth
         Require(HasAuth(obj.swapInfo.from));
 
-        return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
+        return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs, consensus);
     }
 
     Res operator()(const CLiquidityMessage &obj) const {
@@ -1727,7 +1734,7 @@ public:
 
         const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
 
-        Require(mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI}));
+        Require(mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI}));
 
         Require(mnview.AddBalance(script, {{0}, totalDFI}));
 
@@ -1736,7 +1743,7 @@ public:
 
     Res operator()(const CSmartContractMessage &obj) const {
         Require(!obj.accounts.empty(), "Contract account parameters missing");
-        auto contracts = Params().GetConsensus().smartContracts;
+        auto contracts = consensus.smartContracts;
 
         auto contract = contracts.find(obj.name);
         Require(contract != contracts.end(), "Specified smart contract not found");
@@ -2076,7 +2083,7 @@ public:
             }
 
             // After GW exclude TokenSplit if split will have already been performed by startHeight
-            if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+            if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
                 if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
                     const auto attrMap = attrVar->GetAttributesMap();
                     std::vector<CDataStructureV0> keysToErase;
@@ -2144,7 +2151,7 @@ public:
         if (!HasAuth(oracle.val->oracleAddress)) {
             return Res::Err("tx must have at least one input from account owner");
         }
-        if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
+        if (height >= uint32_t(consensus.FortCanningHeight)) {
             for (const auto &tokenPrice : obj.tokenPrices) {
                 for (const auto &price : tokenPrice.second) {
                     if (price.second <= 0) {
@@ -2163,6 +2170,9 @@ public:
     }
 
     Res operator()(const CICXCreateOrderMessage &obj) const {
+        if (!IsICXEnabled(height, mnview, consensus))
+            return DeFiErrors::ICXDisabled();
+
         Require(CheckCustomTx());
 
         CICXOrderImplemetation order;
@@ -2188,6 +2198,9 @@ public:
     }
 
     Res operator()(const CICXMakeOfferMessage &obj) const {
+        if (!IsICXEnabled(height, mnview, consensus))
+            return DeFiErrors::ICXDisabled();
+
         Require(CheckCustomTx());
 
         CICXMakeOfferImplemetation makeoffer;
@@ -2228,6 +2241,9 @@ public:
     }
 
     Res operator()(const CICXSubmitDFCHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview, consensus))
+            return DeFiErrors::ICXDisabled();
+
         Require(CheckCustomTx());
 
         CICXSubmitDFCHTLCImplemetation submitdfchtlc;
@@ -2341,6 +2357,9 @@ public:
     }
 
     Res operator()(const CICXSubmitEXTHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview, consensus))
+            return DeFiErrors::ICXDisabled();
+
         Require(CheckCustomTx());
 
         CICXSubmitEXTHTLCImplemetation submitexthtlc;
@@ -2439,6 +2458,9 @@ public:
     }
 
     Res operator()(const CICXClaimDFCHTLCMessage &obj) const {
+        if (!IsICXEnabled(height, mnview, consensus))
+            return DeFiErrors::ICXDisabled();
+
         Require(CheckCustomTx());
 
         CICXClaimDFCHTLCImplemetation claimdfchtlc;
@@ -2490,14 +2512,26 @@ public:
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            if ((IsTestNetwork() && height >= 1250000) ||
-                Params().NetworkIDString() == CBaseChainParams::REGTEST) {
-                Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
-            } else {
+
+            // Check if ICX should work with bug for makerBonus to maintain complatibility with past netwrok behavior
+            auto ICXBugPath = [&](uint32_t height) {
+                if ((IsTestNetwork() && height >= 1250000) ||
+                    IsRegtestNetwork() ||
+                    (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)))
+                        return false;
+                return true;
+            };
+
+            if (ICXBugPath(height)) {
+                // Proceed with bug behavoir
                 Require(TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
+            } else {
+                // Bug fixed
+                Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress));
             }
         }
 
+        // Reduce amount to fill in order
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
             order->amountToFill -= dfchtlc->amount;
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
@@ -3082,6 +3116,10 @@ public:
         CAmount factorDUSD           = 0;
         CAmount factorDFI            = 0;
 
+
+        auto hasDUSDColl = false;
+        auto hasOtherColl = false;
+
         for (auto &col : vaultAssets.collaterals) {
             auto token = mnview.GetCollateralTokenFromAttributes(col.nTokenId);
 
@@ -3093,6 +3131,9 @@ public:
             if (tokenDUSD && col.nTokenId == tokenDUSD->first) {
                 totalCollateralsDUSD += col.nValue;
                 factorDUSD = token->factor;
+                hasDUSDColl= true;
+            } else {
+                hasOtherColl = true;
             }
         }
 
@@ -3102,6 +3143,18 @@ public:
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
         auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
+        auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
+
+        if(isPostNext) {
+            const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AllowDUSDLoops};
+            auto attributes = mnview.GetAttributes();
+            assert(attributes);
+            auto DUSDLoopsAllowed= attributes->GetValue(enabledKey, false);
+            if(DUSDLoopsAllowed && hasDUSDColl && !hasOtherColl) {
+                return Res::Ok(); //every loan ok when DUSD loops allowed and 100% DUSD collateral
+            }
+        }
+
 
         if (isPostGC) {
             totalCollateralsDUSD = MultiplyAmounts(totalCollateralsDUSD, factorDUSD);
@@ -3658,7 +3711,7 @@ public:
                                  loanToken->symbol,
                                  subInterest,
                                  height);
-                        res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
+                        res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height, consensus);
                         if (!res)
                             return res;
                     }
@@ -3739,6 +3792,7 @@ public:
                                                 obj.from,
                                                 consensus.burnAddress,
                                                 height,
+                                                consensus,
                                                 !directLoanBurn);
                         if (!res)
                             return res;
@@ -3952,25 +4006,37 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
             }
+
+            // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
+            // then just remove this fork guard and comment as CTransferDomainMessage is already
+            // protected by NextNetworkUpgradeHeight.
+            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                    return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+                }
+            }
         }
 
         return res;
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
-        if (!IsEVMEnabled(height, mnview)) {
+        if (!IsEVMEnabled(height, mnview, consensus)) {
             return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
         if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
             return Res::Err("evm tx size too large");
 
-        RustRes result;
+        CrossBoundaryResult result;
         const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
 
-        if (!result.ok) {
-            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-            return Res::Err("evm tx failed to validate %s", result.reason);
+        // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
+            }
         }
 
         evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
@@ -3981,6 +4047,12 @@ public:
 
         gasUsed = hashAndGas.used_gas;
 
+        std::vector<unsigned char> evmTxHashBytes;
+        sha3(obj.evmTx, evmTxHashBytes);
+        auto txHash = tx.GetHash();
+        auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
+        mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 
@@ -4010,6 +4082,81 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect) {
+    CTxDestination src, dest;
+    auto res = ExtractDestination(srcScript, src);
+    if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
+
+    res = ExtractDestination(destScript, dest);
+    if (!res) return DeFiErrors::ScriptUnexpected(destScript);
+
+    auto isValidDVMAddrForEVM = [](const CTxDestination &a) { 
+        return a.index() == PKHashType || a.index() == WitV0KeyHashType; };
+    auto isValidEVMAddr = [](const CTxDestination &a) { 
+        return a.index() == WitV16KeyEthHashType; };
+
+    if (aspect == VMDomainEdge::DVMToEVM) {
+        if (!isValidDVMAddrForEVM(src)) {
+            return DeFiErrors::TransferDomainDVMSourceAddress();
+        }
+        if (!isValidEVMAddr(dest)) {
+            return DeFiErrors::TransferDomainETHDestAddress();
+        }
+        return Res::Ok();
+        
+    } else if (aspect == VMDomainEdge::EVMToDVM) {
+        if (!isValidEVMAddr(src)) {
+            return DeFiErrors::TransferDomainETHSourceAddress();
+        }
+        if (!isValidDVMAddrForEVM(dest)) {
+            return DeFiErrors::TransferDomainDVMDestAddress();
+        }
+        return Res::Ok();
+    }
+
+    return DeFiErrors::TransferDomainUnknownEdge();
+}
+
+Res ValidateTransferDomainEdge(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   const Consensus::Params &consensus,
+                                   CTransferDomainItem src, CTransferDomainItem dst) {
+    
+    // TODO: Remove code branch on stable. 
+    if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+        return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
+    }
+
+    if (src.domain == dst.domain)
+        return DeFiErrors::TransferDomainSameDomain();
+
+    if (src.amount.nValue != dst.amount.nValue)
+        return DeFiErrors::TransferDomainUnequalAmount();
+
+    // Restrict only for use with DFI token for now. Will be enabled later.
+    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+        return DeFiErrors::TransferDomainIncorrectToken();
+
+    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        // DVM to EVM
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
+        if (!res) return res;
+
+        return HasAuth(tx, coins, src.address);
+
+    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        // EVM to DVM
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
+        if (!res) return res;
+
+        return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+    }
+
+    return DeFiErrors::TransferDomainUnknownEdge();
+}
+
+
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
@@ -4017,77 +4164,20 @@ Res ValidateTransferDomain(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const CTransferDomainMessage &obj)
 {
-    auto res = Res::Ok();
-
-    // Check if EVM feature is active
-    if (!IsEVMEnabled(height, mnview)) {
+    if (!IsEVMEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
-    // Iterate over array of transfers
-    for (const auto &[src, dst] : obj.transfers) {
-        // Reject if transfer is within same domain
-        if (src.domain == dst.domain)
-            return DeFiErrors::TransferDomainSameDomain();
-
-        // Check for amounts out equals amounts in
-        if (src.amount.nValue != dst.amount.nValue)
-            return DeFiErrors::TransferDomainUnequalAmount();
-
-        // Restrict only for use with DFI token for now
-        if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-            return DeFiErrors::TransferDomainIncorrectToken();
-
-        CTxDestination dest;
-
-        // Source validation
-        // Check domain type
-        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            // Reject if source address is ETH address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHSourceAddress();
-                }
-            }
-            // Check for authorization on source address
-            res = HasAuth(tx, coins, src.address);
-            if (!res)
-                return res;
-        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-            // Reject if source address is DFI address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDFISourceAddress();
-                }
-            }
-            // Check for authorization on source address
-            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
-            if (!res)
-                return res;
-        } else
-            return DeFiErrors::TransferDomainInvalidSourceDomain();
-
-        // Destination validation
-        // Check domain type
-        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            // Reject if source address is ETH address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHDestinationAddress();
-                }
-            }
-        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-            // Reject if source address is DFI address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDVMDestinationAddress();
-                }
-            }
-        } else
-            return DeFiErrors::TransferDomainInvalidDestinationDomain();
+    if (obj.transfers.size() < 1) {
+        return DeFiErrors::TransferDomainInvalid();
     }
 
-    return res;
+    for (const auto &[src, dst] : obj.transfers) {
+        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        if (!res) return res;
+    }
+
+    return Res::Ok();
 }
 
 Res CustomMetadataParse(uint32_t height,
@@ -4125,31 +4215,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
         }
     }
 
-    // ICXCreateOrder      = '1',
-    // ICXMakeOffer        = '2',
-    // ICXSubmitDFCHTLC    = '3',
-    // ICXSubmitEXTHTLC    = '4',
-    // ICXClaimDFCHTLC     = '5',
-    // ICXCloseOrder       = '6',
-    // ICXCloseOffer       = '7',
-
-    // disable ICX orders for all networks other than testnet
-    if (Params().NetworkIDString() == CBaseChainParams::REGTEST ||
-        (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
-        return false;
-    }
-
-    // Leaving close orders, as withdrawal of existing should be ok
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
-            return false;
-    }
+    return false;
 }
 
 bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Params &consensus) {
@@ -4516,7 +4582,7 @@ bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
     return false;
 }
 
-std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, bool testOnly) {
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly) {
     std::vector<std::vector<DCT_ID> > poolPaths = CalculatePoolPaths(view);
 
     // Record best pair
@@ -4528,7 +4594,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView &view, bool testOnly
         CCustomCSView dummy(view);
 
         // Execute pool path
-        auto res = ExecuteSwap(dummy, path, testOnly);
+        auto res = ExecuteSwap(dummy, path, consensus, testOnly);
 
         // Add error for RPC user feedback
         if (!res) {
@@ -4630,16 +4696,16 @@ std::vector<std::vector<DCT_ID> > CPoolSwap::CalculatePoolPaths(CCustomCSView &v
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
 // testOnly is only meant for one-off tests per well defined view.
-Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, bool testOnly) {
+Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly) {
     Res poolResult = Res::Ok();
     // No composite swap allowed before Fort Canning
-    if (height < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && !poolIDs.empty()) {
+    if (height < static_cast<uint32_t>(consensus.FortCanningHeight) && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
     Require(obj.amountFrom > 0, "Input amount should be positive");
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) &&
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) &&
         poolIDs.size() > MAX_POOL_SWAPS) {
         return Res::Err(
             strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
@@ -4694,7 +4760,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
         const auto swapAmount = swapAmountResult;
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
+        if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) && lastSwap) {
             Require(obj.idTokenTo != swapAmount.nTokenId,
                     "Final swap should have idTokenTo as destination, not source");
 
@@ -4765,7 +4831,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
                 intermediateView.Flush();
 
                 auto &addView = lastSwap ? view : intermediateView;
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
                     res = addView.AddBalance(lastSwap ? (obj.to.empty() ? obj.from : obj.to) : obj.from,
                                              swapAmountResult);
                 } else {
@@ -4780,7 +4846,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
                 // burn the dex in amount
                 if (dexfeeInAmount.nValue > 0) {
-                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                    res = view.AddBalance(consensus.burnAddress, dexfeeInAmount);
                     if (!res) {
                         return res;
                     }
@@ -4789,7 +4855,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
                 // burn the dex out amount
                 if (dexfeeOutAmount.nValue > 0) {
-                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                    res = view.AddBalance(consensus.burnAddress, dexfeeOutAmount);
                     if (!res) {
                         return res;
                     }
@@ -4799,7 +4865,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
                 totalTokenA.swaps += (reserveAmount - initReserveAmount);
                 totalTokenA.commissions += (blockCommission - initBlockCommission);
 
-                if (lastSwap && obj.to == Params().GetConsensus().burnAddress) {
+                if (lastSwap && obj.to == consensus.burnAddress) {
                     totalTokenB.feeburn += swapAmountResult.nValue;
                 }
 
@@ -4812,14 +4878,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
         if (swapAmountResult.nTokenId != obj.idTokenTo) {
             return Res::Err("Final swap output is not same as idTokenTo");
         }
     }
 
     // Reject if price paid post-swap above max price provided
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
         if (swapAmountResult.nValue != 0) {
             const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
             if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
@@ -4844,6 +4910,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     const CScript &from,
                     const CScript &to,
                     uint32_t height,
+                    const Consensus::Params &consensus,
                     bool forceLoanSwap) {
     CPoolSwapMessage obj;
 
@@ -4868,7 +4935,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {
-        if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+        if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
             // direct burn dUSD
             CTokenAmount dUSD{dUsdToken->first, amount};
 
@@ -4877,7 +4944,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
             return mnview.AddBalance(to, dUSD);
         } else
             // swap dUSD -> DFI and burn DFI
-            return poolSwap.ExecuteSwap(mnview, {});
+            return poolSwap.ExecuteSwap(mnview, {}, consensus);
     }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
@@ -4886,14 +4953,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     auto poolTokendUSD = mnview.GetPoolPair(tokenId, dUsdToken->first);
     Require(poolTokendUSD, "Cannot find pool pair %s-DUSD!", token->symbol);
 
-    if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+    if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
         obj.idTokenTo = dUsdToken->first;
 
         // swap tokenID -> dUSD and burn dUSD
-        return poolSwap.ExecuteSwap(mnview, {});
+        return poolSwap.ExecuteSwap(mnview, {}, consensus);
     } else
         // swap tokenID -> dUSD -> DFI and burn DFI
-        return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
+        return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first}, consensus);
 }
 
 bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t height) {
@@ -5080,14 +5147,36 @@ Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
+bool IsRegtestNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::REGTEST;
+}
 bool IsTestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::TESTNET
     || Params().NetworkIDString() == CBaseChainParams::CHANGI
     || Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view) {
-    if (height < Params().GetConsensus().NextNetworkUpgradeHeight) {
+bool IsMainNetwork() {
+    return Params().NetworkIDString() == CBaseChainParams::MAIN;
+}
+
+bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height >= consensus.NextNetworkUpgradeHeight) {
+        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
+        auto attributes = view.GetAttributes();
+        assert(attributes);
+        return attributes->GetValue(enabledKey, false);
+    }
+    // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
+    else if (height < consensus.FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
+        return true;
+
+    // ICX transactions disabled in all other cases
+    return false;
+}
+
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
         return false;
     }
 

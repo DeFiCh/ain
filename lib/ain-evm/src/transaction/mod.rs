@@ -122,8 +122,8 @@ impl TryFrom<TransactionV2> for SignedTx {
                 let hash = H256::from(signing_message.serialize());
                 recover_public_key(
                     &hash,
-                    &tx.signature.r(),
-                    &tx.signature.s(),
+                    tx.signature.r(),
+                    tx.signature.s(),
                     tx.signature.standard_v(),
                 )
             }
@@ -265,6 +265,22 @@ impl SignedTx {
             TransactionV2::Legacy(tx) => *tx.signature.s(),
             TransactionV2::EIP2930(tx) => tx.s,
             TransactionV2::EIP1559(tx) => tx.s,
+        }
+    }
+
+    pub fn max_fee_per_gas(&self) -> Option<U256> {
+        match &self.transaction {
+            TransactionV2::Legacy(_) => None,
+            TransactionV2::EIP2930(_) => None,
+            TransactionV2::EIP1559(tx) => Some(tx.max_fee_per_gas),
+        }
+    }
+
+    pub fn max_priority_fee_per_gas(&self) -> Option<U256> {
+        match &self.transaction {
+            TransactionV2::Legacy(_) => None,
+            TransactionV2::EIP2930(_) => None,
+            TransactionV2::EIP1559(tx) => Some(tx.max_priority_fee_per_gas),
         }
     }
 }
