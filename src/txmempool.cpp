@@ -430,8 +430,9 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     mapLinks.erase(it);
     mapTx.erase(it);
     for (auto& [sender, txs] : ethTxsBySender) {
-        if (txs.count(hash)) {
-            txs.erase(hash);
+        txs.erase(hash);
+        if (sender.empty()) {
+            ethTxsBySender.erase(sender);
         }
     }
     nTransactionsUpdated++;
