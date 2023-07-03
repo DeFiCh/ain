@@ -28,6 +28,8 @@ pub struct Handlers {
     pub storage: Arc<Storage>,
 }
 
+pub type FinalizedBlockInfo = ([u8; 32], Vec<String>, u64);
+
 impl Handlers {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -78,7 +80,7 @@ impl Handlers {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<([u8; 32], Vec<String>, u64), Box<dyn Error>> {
+    ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
@@ -128,6 +130,13 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
+                    if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+                        let nonce = executor.get_nonce(&signed_tx.sender);
+                        if signed_tx.nonce() != nonce {
+                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                        }
+                    }
+
                     let (
                         TxResponse {
                             exit_reason,
@@ -195,7 +204,7 @@ impl Handlers {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: U256::from(MAX_GAS_PER_BLOCK),
+                gas_limit: MAX_GAS_PER_BLOCK,
                 gas_used: U256::from(gas_used),
                 timestamp,
                 extra_data: Vec::default(),

@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
+#include <masternodes/changiintermediates.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -3944,8 +3945,8 @@ public:
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::DVMToEVM, txHash, evmTxHash);
-        mnview.SetVMDomainMapTxHash(VMDomainMapType::EVMToDVM, evmTxHash, txHash);
+        mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         return Res::Ok();
     }
 
@@ -3975,6 +3976,81 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect) {
+    CTxDestination src, dest;
+    auto res = ExtractDestination(srcScript, src);
+    if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
+
+    res = ExtractDestination(destScript, dest);
+    if (!res) return DeFiErrors::ScriptUnexpected(destScript);
+
+    auto isValidDVMAddrForEVM = [](const CTxDestination &a) {
+        return a.index() == PKHashType || a.index() == WitV0KeyHashType; };
+    auto isValidEVMAddr = [](const CTxDestination &a) {
+        return a.index() == WitV16KeyEthHashType; };
+
+    if (aspect == VMDomainEdge::DVMToEVM) {
+        if (!isValidDVMAddrForEVM(src)) {
+            return DeFiErrors::TransferDomainDVMSourceAddress();
+        }
+        if (!isValidEVMAddr(dest)) {
+            return DeFiErrors::TransferDomainETHDestAddress();
+        }
+        return Res::Ok();
+
+    } else if (aspect == VMDomainEdge::EVMToDVM) {
+        if (!isValidEVMAddr(src)) {
+            return DeFiErrors::TransferDomainETHSourceAddress();
+        }
+        if (!isValidDVMAddrForEVM(dest)) {
+            return DeFiErrors::TransferDomainDVMDestAddress();
+        }
+        return Res::Ok();
+    }
+
+    return DeFiErrors::TransferDomainUnknownEdge();
+}
+
+Res ValidateTransferDomainEdge(const CTransaction &tx,
+                                   uint32_t height,
+                                   const CCoinsViewCache &coins,
+                                   const Consensus::Params &consensus,
+                                   CTransferDomainItem src, CTransferDomainItem dst) {
+
+    // TODO: Remove code branch on stable.
+    if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
+        return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
+    }
+
+    if (src.domain == dst.domain)
+        return DeFiErrors::TransferDomainSameDomain();
+
+    if (src.amount.nValue != dst.amount.nValue)
+        return DeFiErrors::TransferDomainUnequalAmount();
+
+    // Restrict only for use with DFI token for now. Will be enabled later.
+    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+        return DeFiErrors::TransferDomainIncorrectToken();
+
+    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        // DVM to EVM
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
+        if (!res) return res;
+
+        return HasAuth(tx, coins, src.address);
+
+    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        // EVM to DVM
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
+        if (!res) return res;
+
+        return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+    }
+
+    return DeFiErrors::TransferDomainUnknownEdge();
+}
+
+
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
@@ -3982,77 +4058,22 @@ Res ValidateTransferDomain(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const CTransferDomainMessage &obj)
 {
-    auto res = Res::Ok();
-
-    // Check if EVM feature is active
     if (!IsEVMEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
-    // Iterate over array of transfers
-    for (const auto &[src, dst] : obj.transfers) {
-        // Reject if transfer is within same domain
-        if (src.domain == dst.domain)
-            return DeFiErrors::TransferDomainSameDomain();
-
-        // Check for amounts out equals amounts in
-        if (src.amount.nValue != dst.amount.nValue)
-            return DeFiErrors::TransferDomainUnequalAmount();
-
-        // Restrict only for use with DFI token for now
-        if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-            return DeFiErrors::TransferDomainIncorrectToken();
-
-        CTxDestination dest;
-
-        // Source validation
-        // Check domain type
-        if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            // Reject if source address is ETH address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHSourceAddress();
-                }
-            }
-            // Check for authorization on source address
-            res = HasAuth(tx, coins, src.address);
-            if (!res)
-                return res;
-        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-            // Reject if source address is DFI address
-            if (ExtractDestination(src.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDFISourceAddress();
-                }
-            }
-            // Check for authorization on source address
-            res = HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
-            if (!res)
-                return res;
-        } else
-            return DeFiErrors::TransferDomainInvalidSourceDomain();
-
-        // Destination validation
-        // Check domain type
-        if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            // Reject if source address is ETH address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() == WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainETHDestinationAddress();
-                }
-            }
-        } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-            // Reject if source address is DFI address
-            if (ExtractDestination(dst.address, dest)) {
-                if (dest.index() != WitV16KeyEthHashType) {
-                    return DeFiErrors::TransferDomainDVMDestinationAddress();
-                }
-            }
-        } else
-            return DeFiErrors::TransferDomainInvalidDestinationDomain();
+    if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+        if (obj.transfers.size() < 1) {
+            return DeFiErrors::TransferDomainInvalid();
+        }
     }
 
-    return res;
+    for (const auto &[src, dst] : obj.transfers) {
+        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        if (!res) return res;
+    }
+
+    return Res::Ok();
 }
 
 Res CustomMetadataParse(uint32_t height,

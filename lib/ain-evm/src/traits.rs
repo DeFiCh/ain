@@ -5,7 +5,7 @@ use primitive_types::{H160, U256};
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {
-    pub caller: Option<H160>,
+    pub caller: H160,
     pub to: Option<H160>,
     pub value: U256,
     pub data: &'a [u8],
