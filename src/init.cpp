@@ -2360,7 +2360,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 assert(nodePtr); // this should not happen if MN was found by operator's id
 
                 ownerDest = GetDestinationPKHashOrWPKHashFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress);
-                if (nodePtr->rewardAddressType != 0) {
+                if (nodePtr->rewardAddressType != 0 && IsValidDestination(ownerDest)) {
                     rewardDest = nodePtr->GetRewardAddressDestination();
                 }
             }
