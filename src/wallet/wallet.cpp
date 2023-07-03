@@ -417,17 +417,14 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     }
 
     if (!IsCrypted()) {
-        const auto keyID = compressedPubKey.IsValid() ? pubkey.GetEthID() : pubkey.GetID();
-        return batch.WriteKey(pubkey,
-                              secret.GetPrivKey(),
-                              mapKeyMetadata[keyID],
-                              compressedPubKey.IsValid());
-        if (compressedPubKey.IsValid()) {
-            return batch.WriteKey(compressedPubKey,
-                                  secret.GetPrivKey(),
-                                  mapKeyMetadata[compressedPubKey.GetID()],
-                                  false);
+        const auto isCompressedValid = compressedPubKey.IsValid();
+        const auto privKey = secret.GetPrivKey();
+        if (!isCompressedValid) {
+            return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetID()], false);
         }
+        return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetEthID()], true) && 
+                batch.WriteKey(compressedPubKey, privKey, mapKeyMetadata[compressedPubKey.GetID()], false);
+
     }
     UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
