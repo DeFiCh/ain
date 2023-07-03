@@ -3959,13 +3959,20 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             }
         } else if (strategy == AuthStrategy::EthKeyMatch) {
             std::vector<TBytes> vRet;
-            if (Solver(coin.out.scriptPubKey, vRet) == txnouttype::TX_PUBKEYHASH)
-            {
+            const auto solution = Solver(coin.out.scriptPubKey, vRet);
+            if (solution == txnouttype::TX_PUBKEYHASH) {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                 auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
                 if (script == auth)
                     return Res::Ok();
+            } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
+                CPubKey pubkey(input.scriptWitness.stack[1]);
+                if (pubkey.Decompress()) {
+                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    if (script == auth)
+                        return Res::Ok();
+                }
             }
         }
     }
@@ -4081,7 +4088,7 @@ Res CustomMetadataParse(uint32_t height,
     } catch (const std::exception &e) {
         return Res::Err(e.what());
     } catch (...) {
-        return Res::Err("unexpected error");
+        return Res::Err("%s unexpected error", __func__ );
     }
 }
 
@@ -4136,7 +4143,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
-        return Res::Err("unexpected error");
+        return Res::Err("%s unexpected error", __func__ );
     }
 }
 

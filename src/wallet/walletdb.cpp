@@ -324,7 +324,15 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             }
             catch (...) {}
 
-            if (!pwallet->LoadKey(key, vchPubKey, ethAddress))
+            CPubKey compressedPubkey;
+            if (ethAddress) {
+                compressedPubkey = CPubKey(vchPubKey.begin(), vchPubKey.end());
+                if (!compressedPubkey.Compress()) {
+                    compressedPubkey = {};
+                }
+            }
+
+            if (!pwallet->LoadKey(key, vchPubKey, compressedPubkey))
             {
                 strErr = "Error reading wallet database: LoadKey failed";
                 return false;

@@ -50,10 +50,22 @@ class EVMTest(DefiTestFramework):
 
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
+        eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
         eth_address1 = self.nodes[0].getnewaddress("", "eth")
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
         to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
+
+        # Import to_address
+        self.nodes[0].importprivkey(to_address_privkey)
+
+        # Import eth_address and validate Bech32 eqivilent is part of the wallet
+        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23')
+        result = self.nodes[0].getaddressinfo(eth_address_bech32)
+        assert_equal(result['scriptPubKey'], '00145f4fbcf30273f770702297e8e0fc55f1bb213db3')
+        assert_equal(result['pubkey'], '021286647f7440111ab928bdea4daa42533639c4567d81eca0fff622fb6438eae3')
+        assert_equal(result['ismine'], True)
+        assert_equal(result['iswitness'], True)
 
         self.nodes[0].importprivkey(eth_address_privkey) # eth_address
         self.nodes[0].importprivkey(to_address_privkey) # to_address
@@ -256,6 +268,7 @@ class EVMTest(DefiTestFramework):
 
         # Get miner DFI balance before transaction
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+        before_blockheight = self.nodes[0].getblockcount()
 
         # Test EVM Tx added first in time ordering
         self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
@@ -374,24 +387,29 @@ class EVMTest(DefiTestFramework):
         assert_equal(opreturn_fee_sats, miner_fee)
 
         # Test rollback of EVM TX
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.rollback_to(before_blockheight, self.nodes)
+        # self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
 
         # Test max limit of TX from a specific sender
-        for i in range(64):
+        for i in range(63):
             self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
 
         # Test error at the 65th EVM TX
-        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 65, 21, 21001, to_address, 1)
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 64, 21, 21001, to_address, 1)
 
         # Miot a block
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
-        assert_equal(len(block_txs), 65)
+        assert_equal(len(block_txs), 64)
 
         # Try and send another TX to make sure mempool has removed entires
-        self.nodes[0].evmtx(eth_address, 65, 21, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
+        self.nodes[0].generate(1)
+
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(len(block_txs), 1)
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])
