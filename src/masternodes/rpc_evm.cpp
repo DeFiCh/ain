@@ -158,8 +158,9 @@ UniValue vmmap(const JSONRPCRequest& request) {
     }.Check(request);
     const std::string hash = request.params[0].get_str();
 
-    if (request.params[1].get_int() >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", VMDomainRPCMapTypeCount));
+    const int typeInt = request.params[1].get_int();
+    if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be between 0 and %d.", VMDomainRPCMapTypeCount));
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
