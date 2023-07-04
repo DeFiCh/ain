@@ -20,11 +20,18 @@ class EVMProvider:
         abi, bytecode = compiled_contract
 
         nonce = self.w3.eth.get_transaction_count(signer.address)
-        tx = self.w3.eth.contract(abi=abi, bytecode=bytecode).constructor(constructor).build_transaction({
-            'chainId': 1133,
-            'nonce': nonce,
-            'gasPrice': Web3.to_wei(5, "gwei")
-        })
+        if constructor != None: 
+            tx = self.w3.eth.contract(abi=abi, bytecode=bytecode).constructor(constructor).build_transaction({
+                'chainId': 1133,
+                'nonce': nonce,
+                'gasPrice': Web3.to_wei(5, "gwei")
+            })
+        else: 
+            tx = self.w3.eth.contract(abi=abi, bytecode=bytecode).constructor().build_transaction({
+                'chainId': 1133,
+                'nonce': nonce,
+                'gasPrice': Web3.to_wei(5, "gwei")
+            })           
 
         signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=signer.pkey)
         deploy_tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)

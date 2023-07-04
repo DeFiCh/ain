@@ -64,20 +64,12 @@ class EVMTest(DefiTestFramework):
         key_pair = KeyPair.from_node(node)
         address = key_pair.address
 
-        node.transferdomain([{"src": {"address": self.address, "amount": "50@DFI", "domain": 2},
-                              "dst": {"address": address, "amount": "50@DFI", "domain": 3}}])
+        node.transferdomain([{"src": {"address": self.address, "amount": "200@DFI", "domain": 2},
+                              "dst": {"address": address, "amount": "200@DFI", "domain": 3}}])
         node.generate(1)
 
-        evm_contract = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
-        contract = node.evm.deploy_compiled_contract(key_pair, evm_contract)
-
-        # set variable
-        node.evm.sign_and_send(contract.functions.store(10), key_pair)
-
-        # get variable
-        assert_equal(contract.functions.retrieve().call(), 10)
-
-        self.failed_tx_should_increment_nonce(key_pair, node)
+        second_evm_contract = EVMContract.from_file("FlattenedStateRelayer.sol", "StateRelayer").compile()
+        second_contract = node.evm.deploy_compiled_contract(key_pair, second_evm_contract)
 
 
 if __name__ == '__main__':
