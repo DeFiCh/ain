@@ -170,6 +170,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
             CPubKey key = AddrToPubKey(pwallet, hash);
+            if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:
@@ -227,7 +228,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
     const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
-    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
+    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC.
     // But there's no need to iterate the whole list, we can start at where we need to and
     // return false, once we hit the limit and stop the iter.
     switch (type) {

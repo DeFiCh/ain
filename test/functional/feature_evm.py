@@ -70,6 +70,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].importprivkey(eth_address_privkey) # eth_address
         self.nodes[0].importprivkey(to_address_privkey) # to_address
 
+        # Check address returned by vmmap
+        dfi_address = self.nodes[0].vmmap(eth_address, 2)
+        assert_equal(eth_address_bech32, dfi_address)
+
         # Check export of private key
         privkey = self.nodes[0].dumpprivkey(to_address)
         assert_equal(privkey, to_address_privkey)
