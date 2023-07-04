@@ -54,6 +54,8 @@ pub mod ffi {
         fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
+        fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<()>;
+
         fn evm_add_balance(
             context: u64,
             address: &str,
@@ -223,6 +225,26 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
     nonce.as_u64()
 }
 
+/// Removes all transactions in the queue whose sender matches the provided sender address in a specific context
+///
+/// # Arguments
+///
+/// * `context` - The context queue number.
+/// * `address` - The EVM address of the account.
+///
+/// /// # Errors
+///
+/// Returns an Error if the context does not match any existing queue
+///
+pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<(), Box<dyn Error>> {
+    let address = H160::from(address);
+    RUNTIME
+        .handlers
+        .evm
+        .remove_txs_by_sender(context, address)?;
+    Ok(())
+}
+
 /// EvmIn. Send DFI to an EVM account.
 ///
 /// # Arguments
@@ -379,11 +401,7 @@ fn evm_try_queue_tx(
     hash: [u8; 32],
 ) -> Result<bool, Box<dyn Error>> {
     let signed_tx: SignedTx = raw_tx.try_into()?;
-    match RUNTIME
-        .handlers
-        .evm
-        .queue_tx(context, signed_tx.into(), hash)
-    {
+    match RUNTIME.handlers.queue_tx(context, signed_tx.into(), hash) {
         Ok(_) => {
             result.ok = true;
             Ok(true)

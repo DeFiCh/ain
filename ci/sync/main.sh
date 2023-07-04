@@ -184,13 +184,13 @@ main() {
     # Create temporary log file
     get_full_log >> "$TMP_LOG"
 
-    # Download reference log file
-    echo "Downloading reference log file : ${REF_LOG_PATH}"
-    $FETCH "$REF_LOG_PATH"
-
     # Create rollback log after sync
     rollback_and_log > "$POST_ROLLBACK_LOG"
     stop_node
+
+    # Download reference log file
+    echo "Downloading reference log file : ${REF_LOG_PATH}"
+    $FETCH "$REF_LOG_PATH"
 }
 
 main "$@"

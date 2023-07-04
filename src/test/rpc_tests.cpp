@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_EQUAL(find_value(resultsObj, "fromAmount").get_real(), 2.0);
     BOOST_CHECK_EQUAL(find_value(resultsObj, "toAddress").get_str(), "dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N");
     BOOST_CHECK_EQUAL(find_value(resultsObj, "toToken").get_str(), "1");
-    BOOST_CHECK_EQUAL(find_value(resultsObj, "maxPrice").get_real(), 3973919657.0);
+    BOOST_CHECK_EQUAL(find_value(resultsObj, "maxPrice").get_real(), 92233720368.54776);
 
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decodecustomtx ")+txHexString + " true"));
     BOOST_CHECK_THROW(CallRPC(std::string("decodecustomtx ")+txHexString+" extra"), std::runtime_error);
