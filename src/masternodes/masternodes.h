@@ -59,6 +59,11 @@ enum class UpdateMasternodeType : uint8_t {
     RemRewardAddress = 0x04
 };
 
+CKeyID GetMNKeyOrDefaultFromDestination(const CTxDestination &dest);
+CKeyID GetRewardKeyOrDefaultFromDestination(const CTxDestination &dest);
+CTxDestination GetMNDestinationOrDefaultFromKey(const char type, const CKeyID &keyId);
+CTxDestination GetRewardDestinationOrDefaultFromKey(const char type, const CKeyID &keyId);
+
 constexpr uint8_t SUBNODE_COUNT{4};
 
 class CMasternode {
@@ -110,9 +115,6 @@ public:
 
     State GetState(int height, const CMasternodesView &mnview) const;
     bool IsActive(int height, const CMasternodesView &mnview) const;
-    [[nodiscard]] CTxDestination GetOwnerAddressDestination() const;
-    [[nodiscard]] CTxDestination GetOperatorAddressDestination() const;
-    [[nodiscard]] CTxDestination GetRewardAddressDestination() const;
 
     static std::string GetHumanReadableState(State state);
     static std::string GetTimelockToString(TimeLock timelock);

@@ -175,12 +175,11 @@ const char* GetTxnOutputType(txnouttype t);
  */
 txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned char>>& vSolutionsRet);
 
-
-/** Try to get the keyID from the destination address. */
-CKeyID TryFromDestinationToKeyID(const CTxDestination &dest);
-
 /** Try to get the destination address from the keyID type. */
-CTxDestination TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId);
+std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId);
+
+/** Get the destination address (or default) from the keyID type. */
+CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId);
 
 /**
  * Parse a standard scriptPubKey for the destination address. Assigns result to

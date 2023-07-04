@@ -74,7 +74,7 @@ public:
 
     void operator()(const CCreateMasterNodeMessage &obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(GetDestinationPKHashOrWPKHashFromKey(obj.operatorType, obj.operatorAuthAddress)));
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(GetMNDestinationOrDefaultFromKey(obj.operatorType, obj.operatorAuthAddress)));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
@@ -85,7 +85,7 @@ public:
         for (const auto &[updateType, addressPair] : obj.updates) {
             const auto &[addressType, rawAddress] = addressPair;
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
-                rpcInfo.pushKV("operatorAddress", EncodeDestination(GetDestinationPKHashOrWPKHashFromKey(addressType, CKeyID(uint160(rawAddress)))));
+                rpcInfo.pushKV("operatorAddress", EncodeDestination(GetMNDestinationOrDefaultFromKey(addressType, CKeyID(uint160(rawAddress)))));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                 CTxDestination dest;
                 if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -93,7 +93,7 @@ public:
                 }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
-                rpcInfo.pushKV("rewardAddress", EncodeDestination(GetRewardDestinationFromKey(addressType, CKeyID(uint160(rawAddress)))));
+                rpcInfo.pushKV("rewardAddress", EncodeDestination(GetRewardDestinationOrDefaultFromKey(addressType, CKeyID(uint160(rawAddress)))));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 rpcInfo.pushKV("rewardAddress", "");
             }

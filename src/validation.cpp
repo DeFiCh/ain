@@ -4202,7 +4202,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
-            if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(node->GetRewardAddressDestination())) {
+            if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(node->rewardAddressType, node->rewardAddress))) {
                 return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-rewardaddress", "proof of stake failed");
             }
         }

@@ -14,7 +14,6 @@
 #include <core_io.h>
 #include <ffi/cxx.h>
 #include <index/txindex.h>
-#include <key_io.h>
 #include <txmempool.h>
 #include <validation.h>
 
@@ -836,7 +835,7 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = GetKeyPKHashOrWPKHashFromDestination(pendingDest);
+            const CKeyID storedID = GetMNKeyOrDefaultFromDestination(pendingDest);
             if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
@@ -920,7 +919,7 @@ public:
 
                 CTxDestination dest;
                 ExtractDestination(tx.vout[1].scriptPubKey, dest);
-                const auto keyID = GetKeyPKHashOrWPKHashFromDestination(dest);
+                const auto keyID = GetMNKeyOrDefaultFromDestination(dest);
                 if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
@@ -943,7 +942,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = GetKeyPKHashOrWPKHashFromDestination(pendingDest);
+                    const CKeyID storedID = GetMNKeyOrDefaultFromDestination(pendingDest);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -1004,7 +1003,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(GetRewardDestinationFromKey(addressType, keyID));
+                    const CScript rewardAddress = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(addressType, keyID));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -3829,7 +3828,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = node->GetOwnerAddressDestination();
+        auto ownerDest = GetMNDestinationOrDefaultFromKey(node->ownerType, node->ownerAuthAddress);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
@@ -4369,7 +4368,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+    CTxDestination destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4452,7 +4451,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+    CTxDestination destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
     Require(IsValidDestination(destination) && tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     LogPrint(BCLog::ACCOUNTCHANGE,

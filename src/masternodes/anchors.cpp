@@ -63,7 +63,7 @@ CKeyID CAnchorAuthMessage::GetSigner() const {
 
 CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> &auths, const CTxDestination &rewardDest) {
     // assumed here that all of the auths are uniform, were checked for sigs and consensus has been reached!
-    assert(rewardDest.index() == PKHashType || rewardDest.index() == WitV0KeyHashType);
+    assert(rewardDest.index() == PKHashType || rewardDest.index() == WitV0KeyHashType || rewardDest.index() == ScriptHashType);
 
     if (auths.size() > 0) {
         CAnchor anchor(static_cast<const CAnchorData &>(auths.at(0)));
@@ -71,7 +71,7 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> &auths, const CTxD
         for (size_t i = 0; i < auths.size(); ++i) {
             anchor.sigs.push_back(auths[i].GetSignature());
         }
-        anchor.rewardKeyID   = GetRewardKeyFromDestination(rewardDest);
+        anchor.rewardKeyID   = GetRewardKeyOrDefaultFromDestination(rewardDest);
         anchor.rewardKeyType = rewardDest.index();
         return anchor;
     }

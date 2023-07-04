@@ -189,20 +189,19 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
+    CKeyID passedID = GetMNKeyOrDefaultFromDestination(destination);
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {
       throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
-    CKeyID operatorID = myAllMNs.begin()->first;
-    const std::optional<CKeyID> address = GetKeyPKHashOrWPKHashFromDestination(destination);
-    if (!address || address->IsNull()) {
-        // check mnForPassedID is in myAllMNs
-        CKeyID passedID = *address;
-        auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
-        if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
-            operatorID = passedID;
-        }
+    CKeyID operatorID;
+    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+    // check mnForPassedID is in myAllMNs
+    if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
+      operatorID = passedID;
+    } else {
+      operatorID = myAllMNs.begin()->first;
     }
 
     CScript coinbase_script = GetScriptForDestination(destination);

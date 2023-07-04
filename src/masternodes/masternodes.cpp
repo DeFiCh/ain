@@ -13,7 +13,6 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
 #include <core_io.h>
-#include <key_io.h>
 #include <net_processing.h>
 #include <primitives/transaction.h>
 #include <rpc/resultcache.h>
@@ -105,6 +104,52 @@ CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProp
     return -1;
 }
 
+CKeyID GetMNKeyOrDefaultFromDestination(const CTxDestination &dest)
+{
+    switch(dest.index()) {
+        case PKHashType:
+        case WitV0KeyHashType:
+            return CKeyID::FromOrDefaultDestination(dest);
+        default:
+            return {};
+    }
+}
+
+CKeyID GetRewardKeyOrDefaultFromDestination(const CTxDestination &dest)
+{
+    switch(dest.index()) {
+        case PKHashType:
+        case ScriptHashType:
+        case WitV0KeyHashType:
+            return CKeyID::FromOrDefaultDestination(dest);
+        default:
+            return {};
+    }
+}
+
+CTxDestination GetMNDestinationOrDefaultFromKey(const char type, const CKeyID &keyId)
+{
+    switch (type) {
+        case PKHashType:
+        case WitV0KeyHashType:
+            return FromOrDefaultKeyIDToDestination(type, keyId);
+        default:
+            return CTxDestination(CNoDestination());
+    }
+}
+
+CTxDestination GetRewardDestinationOrDefaultFromKey(const char type, const CKeyID &keyId)
+{
+    switch (type) {
+        case PKHashType:
+        case ScriptHashType:
+        case WitV0KeyHashType:
+            return FromOrDefaultKeyIDToDestination(type, keyId);
+        default:
+            return CTxDestination(CNoDestination());
+    }
+}
+
 CMasternode::CMasternode()
     : mintedBlocks(0),
       ownerAuthAddress(),
@@ -167,18 +212,6 @@ bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
         return state == ENABLED;
     }
     return state == ENABLED || state == PRE_RESIGNED;
-}
-
-CTxDestination CMasternode::GetOwnerAddressDestination() const {
-    return GetDestinationPKHashOrWPKHashFromKey(ownerType, ownerAuthAddress);
-}
-
-CTxDestination CMasternode::GetOperatorAddressDestination() const {
-    return GetDestinationPKHashOrWPKHashFromKey(operatorType, operatorAuthAddress);
-}
-
-CTxDestination CMasternode::GetRewardAddressDestination() const {
-        return GetRewardDestinationFromKey(rewardAddressType, rewardAddress);
 }
 
 std::string CMasternode::GetHumanReadableState(State state) {
@@ -269,7 +302,7 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
     const auto operators = gArgs.GetArgs("-masternode_operator");
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        const CKeyID authAddress  = GetMNKeyOrDefaultFromDestination(dest);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -284,7 +317,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+        const CKeyID authAddress  = GetMNKeyOrDefaultFromDestination(dest);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -297,7 +330,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    const CKeyID authAddress  = GetKeyPKHashOrWPKHashFromDestination(dest);
+    const CKeyID authAddress  = GetMNKeyOrDefaultFromDestination(dest);
     if (!authAddress.IsNull()) {
         auto nodeId = GetMasternodeIdByOwner(authAddress);
         if (nodeId)
@@ -1356,13 +1389,13 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
     mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
         if (node.rewardAddressType) {
-            const CScript rewardAddress = GetScriptForDestination(node.GetRewardAddressDestination());
+            const CScript rewardAddress = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(node.rewardAddressType, node.rewardAddress));
             if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
                 mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
             }
         }
 
-        const CScript rewardAddress = GetScriptForDestination(node.GetOwnerAddressDestination());
+        const CScript rewardAddress = GetScriptForDestination(GetMNDestinationOrDefaultFromKey(node.ownerType, node.ownerAuthAddress));
         if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
         }

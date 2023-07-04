@@ -214,7 +214,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
             metadata << finMsg;
 
-            CTxDestination destination = GetRewardDestinationFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+            CTxDestination destination;
+            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                destination = GetMNDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+            }
+            else {
+                destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+            }
+
             if (IsValidDestination(destination)) {
                 CMutableTransaction mTx(txVersion);
                 mTx.vin.resize(1);
@@ -1031,10 +1038,10 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(nodePtr->rewardAddressType, nodePtr->rewardAddress));
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(nodePtr->GetOwnerAddressDestination());
+                    scriptPubKey = GetScriptForDestination(GetMNDestinationOrDefaultFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress));
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;

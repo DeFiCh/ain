@@ -2231,9 +2231,9 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(mn->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(mn->rewardAddressType, mn->rewardAddress));
                 } else {
-                    scriptPubKey = GetScriptForDestination(mn->GetOwnerAddressDestination());
+                    scriptPubKey = GetScriptForDestination(GetMNDestinationOrDefaultFromKey(mn->ownerType, mn->ownerAuthAddress));
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
@@ -2314,7 +2314,7 @@ static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& c
             assert(!coin.IsSpent());
             CTxDestination dest;
             assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = GetKeyPKHashOrWPKHashFromDestination(dest);
+            const CKeyID keyId = GetMNKeyOrDefaultFromDestination(dest);
             cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
         }
         return true;
@@ -2412,7 +2412,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
             assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
             assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
-            const auto keyID = GetKeyPKHashOrWPKHashFromDestination(dest);
+            const auto keyID = GetMNKeyOrDefaultFromDestination(dest);
             std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
             minerAddress = GetScriptForDestination(dest);
         } else {

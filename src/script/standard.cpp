@@ -161,39 +161,6 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
     return TX_NONSTANDARD;
 }
 
-
-CKeyID TryFromDestinationToKeyID(const CTxDestination &dest) {
-    // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
-    // flags here and use bit flag logic to decode only specific destinations
-    switch (dest.index()) {
-        case PKHashType:
-            return CKeyID(std::get<PKHash>(dest));
-        case WitV0KeyHashType:
-            return CKeyID(std::get<WitnessV0KeyHash>(dest));
-        case ScriptHashType:
-            return CKeyID(std::get<ScriptHash>(dest));
-        case WitV16KeyEthHashType:
-            return CKeyID(std::get<WitnessV16EthHash>(dest));
-        default: 
-            return {};
-    }
-}
-
-CTxDestination TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
-    switch (keyIdType) {
-        case PKHashType:
-            return CTxDestination(PKHash(keyId));
-        case WitV0KeyHashType:
-            return CTxDestination(WitnessV0KeyHash(keyId));
-        case ScriptHashType:
-            return CTxDestination(ScriptHash(keyId));
-        case WitV16KeyEthHashType:
-            return CTxDestination(WitnessV16EthHash(keyId));
-        default:
-            return CTxDestination(CNoDestination());
-    }
-}
-
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
 {
     std::vector<valtype> vSolutions;
@@ -281,6 +248,33 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     }
 
     return true;
+}
+
+std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
+    switch (keyIdType) {
+        case PKHashType:
+            return CTxDestination(PKHash(keyId));
+        case WitV0KeyHashType:
+            return CTxDestination(WitnessV0KeyHash(keyId));
+        case ScriptHashType:
+            return CTxDestination(ScriptHash(keyId));
+        case WitV16KeyEthHashType:
+            return CTxDestination(WitnessV16EthHash(keyId));
+        default:
+            return {};
+    }
+}
+
+CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
+    auto dest = TryFromKeyIDToDestination(keyIdType, keyId);
+    if (dest) {
+        return *dest;
+    }
+    return CTxDestination(CNoDestination());
+}
+
+bool IsValidDestination(const CTxDestination& dest) {
+    return dest.index() != NoDestType;
 }
 
 namespace {
@@ -381,8 +375,4 @@ CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std
     script << OP_CHECKSIG;
 
     return script;
-}
-
-bool IsValidDestination(const CTxDestination& dest) {
-    return dest.index() != NoDestType;
 }
