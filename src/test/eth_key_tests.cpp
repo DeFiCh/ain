@@ -16,10 +16,12 @@
 
 BOOST_FIXTURE_TEST_SUITE(eth_key_tests, WalletTestingSetup)
 
-static void AddKey(CWallet& wallet, const CKey& key)
+static void AddKey(CWallet& wallet, const CKey& key, bool includeCompressed)
 {
     LOCK(wallet.cs_wallet);
-    wallet.AddKeyPubKey(key, key.GetPubKey(), {});
+    auto compressedPubKey = key.GetPubKey();
+    compressedPubKey.Compress();
+    wallet.AddKeyPubKey(key, key.GetPubKey(), includeCompressed ? compressedPubKey : CPubKey{});
 }
 
 CKeyID GetKeyIDForDestination(const CTxDestination& dest)
@@ -55,9 +57,6 @@ void VerifyKeyInWallet(const std::string& keyStr, const CWallet& wallet) {
     BOOST_TEST_MESSAGE(CKeyIDToLogString(keyId));
 
     CPubKey pubKey;
-    if (wallet.HaveKey(keyId)) {
-        BOOST_TEST_MESSAGE("Have key in wallet");
-    }
     if (wallet.GetPubKey(keyId, pubKey)) {
         BOOST_TEST_MESSAGE("Found key in wallet");
         BOOST_TEST_MESSAGE(CPubKeyToLogString(pubKey));
@@ -82,9 +81,12 @@ CKey StrToKey(const std::string& strSecret) {
 BOOST_AUTO_TEST_CASE(eth_key_test_1)
 {
     auto wallet = &m_wallet;
+    m_chain->lock();
+
     // Priv key for: 0x9b8a4af42140d8a4c153a822f02571a1dd037e89
     auto key = StrToKey("af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23");
-    AddKey(*wallet, key);
+
+    AddKey(*wallet, key, true);
 
     auto ethAddr1 = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
     VerifyKeyInWallet(ethAddr1, *wallet);
