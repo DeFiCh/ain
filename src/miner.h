@@ -215,8 +215,10 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
-    /** Remove failed EVM transactions from the block */
+    /** Remove failed TransferDoamin transactions from the block */
     void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
+    /** Remove specific TX from the block */
+    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
 };
 
 /** Modify the extranonce in a block */

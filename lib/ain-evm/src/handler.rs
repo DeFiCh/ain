@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockHandler;
-use crate::evm::{EVMHandler, MAX_GAS_PER_BLOCK};
+use crate::evm::{EVMError, EVMHandler, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
+use crate::filters::FilterHandler;
 use crate::log::LogHandler;
 use crate::receipt::ReceiptHandler;
 use crate::storage::traits::BlockStorage;
@@ -25,6 +26,7 @@ pub struct Handlers {
     pub block: BlockHandler,
     pub receipt: ReceiptHandler,
     pub logs: LogHandler,
+    pub filters: FilterHandler,
     pub storage: Arc<Storage>,
 }
 
@@ -59,6 +61,7 @@ impl Handlers {
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 logs: LogHandler::new(Arc::clone(&storage)),
+                filters: FilterHandler::new(),
                 storage,
             })
         } else {
@@ -68,6 +71,7 @@ impl Handlers {
                 block: BlockHandler::new(Arc::clone(&storage)),
                 receipt: ReceiptHandler::new(Arc::clone(&storage)),
                 logs: LogHandler::new(Arc::clone(&storage)),
+                filters: FilterHandler::new(),
                 storage,
             })
         }
@@ -130,6 +134,13 @@ impl Handlers {
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
+                    if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+                        let nonce = executor.get_nonce(&signed_tx.sender);
+                        if signed_tx.nonce() != nonce {
+                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                        }
+                    }
+
                     let (
                         TxResponse {
                             exit_reason,
@@ -230,6 +241,7 @@ impl Handlers {
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
+            self.filters.add_block_to_filters(block.header.hash());
         }
 
         Ok((
@@ -237,5 +249,17 @@ impl Handlers {
             failed_transactions,
             gas_used,
         ))
+    }
+
+    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
+        self.evm.tx_queues.queue_tx(context, tx.clone(), hash)?;
+
+        match tx {
+            QueueTx::SignedTx(signed_tx) => {
+                self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+            }
+            _ => {}
+        };
+        Ok(())
     }
 }

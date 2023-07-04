@@ -5,6 +5,7 @@ mod ecrecover;
 pub mod evm;
 pub mod executor;
 mod fee;
+pub mod filters;
 mod genesis;
 pub mod handler;
 pub mod log;
