@@ -48,21 +48,49 @@ std::string CKeyIDToLogString(const CKeyID& key) {
     return fmt::format("KeyID Hex: {}\n", key.GetHex());
 }
 
-void CheckKeyString(const std::string& keyStr) {
-    auto keyId = GetKeyIDForDestination(DecodeDestination(keyStr));
-    auto encoded = EncodeDestination(WitnessV16EthHash(keyId));
+void VerifyKeyInWallet(const std::string& keyStr, const CWallet& wallet) {
+    BOOST_TEST_MESSAGE("=======\nKey: " + keyStr);
 
+    auto keyId = GetKeyIDForDestination(DecodeDestination(keyStr));
     BOOST_TEST_MESSAGE(CKeyIDToLogString(keyId));
+
+    CPubKey pubKey;
+    if (wallet.HaveKey(keyId)) {
+        BOOST_TEST_MESSAGE("Have key in wallet");
+    }
+    if (wallet.GetPubKey(keyId, pubKey)) {
+        BOOST_TEST_MESSAGE("Found key in wallet");
+        BOOST_TEST_MESSAGE(CPubKeyToLogString(pubKey));
+    }
+
+    auto encoded = EncodeDestination(WitnessV16EthHash(keyId));
     BOOST_TEST_MESSAGE(encoded);
+}
+
+CKey StrToKey(const std::string& strSecret) {
+    CKey key;
+    const auto ethKey{IsHex(strSecret)};
+    if (ethKey) {
+        const auto vch = ParseHex(strSecret);
+        key.Set(vch.begin(), vch.end(), false);
+    } else {
+        key = DecodeSecret(strSecret);
+    }
+    return key;
 }
 
 BOOST_AUTO_TEST_CASE(eth_key_test_1)
 {
+    auto wallet = &m_wallet;
+    // Priv key for: 0x9b8a4af42140d8a4c153a822f02571a1dd037e89
+    auto key = StrToKey("af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23");
+    AddKey(*wallet, key);
+
     auto ethAddr1 = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
-    CheckKeyString(ethAddr1);
+    VerifyKeyInWallet(ethAddr1, *wallet);
 
     auto ethAddr2 = "0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC";
-    CheckKeyString(ethAddr2);
+    VerifyKeyInWallet(ethAddr2, *wallet);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
