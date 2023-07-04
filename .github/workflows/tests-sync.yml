@@ -15,11 +15,6 @@ on:
       - master
     types: [labeled, opened, reopened, synchronize]
 
-env:
-  BUILD_VERSION: latest # Computed
-  TARGET: x86_64-pc-linux-gnu
-  MAKE_DEBUG: 0
-
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
@@ -33,16 +28,27 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Build and package
-      run: ./make.sh docker-release
+    - name: Setup dependencies
+      run: sudo ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Setup dependencies for test
+      run: sudo ./make.sh ci-setup-deps-test
+
+      # TODO: Switch this to a docker build later and this builds on the native
+      # VM toolchain and loses disparity with the CI release builds
+    - name: Build binaries
+      run: ./make.sh build
 
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
-         ./build/defichain-${{ env.BUILD_VERSION }}/bin/defid
-         ./build/defichain-${{ env.BUILD_VERSION }}/bin/defi-cli
+         build/src/defid
+         build/src/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3
