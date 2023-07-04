@@ -8,10 +8,8 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error,
-    int_to_eth_u256
+    assert_raises_rpc_error
 )
-
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -74,34 +72,37 @@ class EVMTest(DefiTestFramework):
         assert_equal(address, self.nodes[0].vmmap(address, 2))
         assert_equal(eth_address, self.nodes[0].vmmap(eth_address, 1))
 
-
-
+    def vmmap_valid_tx_should_success(self):
         # Check if xvmmap is working for Txs
         list_tx = self.nodes[0].logvmmaps(1)
-        dvm_tx = list(list_tx['indexes'].keys())[0]
-        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
+        self.dvm_tx = list(list_tx['indexes'].keys())[0]
+        self.evm_tx = self.nodes[0].vmmap(self.dvm_tx, 3)
+        assert_equal(self.dvm_tx, self.nodes[0].vmmap(self.evm_tx, 4))
+        assert_equal("0x" + self.evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
 
+    def vmmap_invalid_tx_should_fail(self):
         # Check vmmap fail on wrong tx
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
 
+    def vmmap_valid_block_should_success(self):
         # Check if xvmmap is working for Blocks
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
-        assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
+        self.latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+        self.dvm_block = self.nodes[0].vmmap(self.latest_block['hash'], 6)
+        assert_equal(self.latest_block['hash'], "0x" + self.nodes[0].vmmap(self.dvm_block, 5))
 
+    def vmmap_invalid_block_should_fail(self):
         # Check vmmap fail on wrong block
         evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
 
+    def vmmap_rollback_should_success(self):
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
-        self.nodes[0].invalidateblock(dvm_block)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + dvm_block, self.nodes[0].vmmap, dvm_block, 5)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + latest_block['hash'][2:], self.nodes[0].vmmap, latest_block['hash'], 6)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + dvm_tx, self.nodes[0].vmmap, dvm_tx, 3)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + evm_tx, self.nodes[0].vmmap, evm_tx, 4)
+        self.nodes[0].invalidateblock(self.dvm_block)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
+        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
         assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
 
 
@@ -115,6 +116,11 @@ class EVMTest(DefiTestFramework):
         self.vmmap_invalid_key_type_should_fail()
         self.vmmap_valid_key_not_present_should_fail()
         self.vmmap_invalid_keys_should_fail()
+        self.vmmap_valid_tx_should_success()
+        self.vmmap_invalid_tx_should_fail()
+        self.vmmap_valid_block_should_success()
+        self.vmmap_invalid_block_should_fail()
+        self.vmmap_rollback_should_success()
         self.test_vmmap()
 
 
