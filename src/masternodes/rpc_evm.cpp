@@ -164,12 +164,24 @@ UniValue vmmap(const JSONRPCRequest& request) {
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(WitnessV16EthHash(key.GetID()));
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            LogPrintf("DVMToEVM::\nHash: %s\nID: %s\nETH-ID: %s\nIsComp: %s\n", 
+                key.GetHash().ToString(), 
+                key.GetID().ToString(), 
+                key.GetEthID().ToString(), 
+                key.IsCompressed() ? "true" : "false");
+            if (key.IsCompressed()) { key.Decompress(); }
+            return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(PKHash(key.GetID()));
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            LogPrintf("EVMToDVM::\nHash: %s\nID: %s\nETH-ID: %s\nIsComp: %s\n", 
+                key.GetHash().ToString(), 
+                key.GetID().ToString(), 
+                key.GetEthID().ToString(), 
+                key.IsCompressed() ? "true" : "false");
+            if (!key.IsCompressed()) { key.Compress(); }
+            return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:
             break;

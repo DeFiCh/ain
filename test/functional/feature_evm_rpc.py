@@ -127,9 +127,39 @@ class EVMTest(DefiTestFramework):
         # Current tests are very basic. Need to add proper tests.
         # Merging for now, for faster feedback loop. But this is a key to-do.
         # Check if xvmmap is working for addresses
+
+        # PASS: 0x9b8a4af42140d8a4c153a822f02571a1dd037e89
+        eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
+        # EVMToDVM: 
+        # Hash: f7bf1e5d2308828788a64a4e7c9077c8709ee5e76d5121c1afb802c75089e4c4
+        # ID: dcacbddfe536bee23b8d31fd3d47c646c9db042e
+        # ETH-ID: 897e03dda17125f022a853c1a4d84021f44a8a9b
+        # IsComp: false
+        dfi_address = self.nodes[0].vmmap(eth_address, 2)
+        # DVMToEVM: 
+        # Hash: 21ae7cb1a739161fdda43d8304f376a3c43a7fa2b3f7f73b70739d3d4c0e9558
+        # ID: b33d21bbf155fce0e897227070f77302f3bc4f5f
+        # ETH-ID: b7e459c505911ea78de95abc6cbc013b708e6fe2
+        # IsComp: true
+        eth_address_back = self.nodes[0].vmmap(dfi_address, 1)
+        assert_equal(eth_address, eth_address_back)
+
+        # TODO: FAIL: 0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC
+        # AssertionError: not(0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC == 0x9b8a4af42140d8a4c153a822f02571a1dd037e89)
         eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
-        address = self.nodes[0].vmmap(eth_address, 2)
-        assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
+        # EVMToDVM: 
+        # Hash: 21ae7cb1a739161fdda43d8304f376a3c43a7fa2b3f7f73b70739d3d4c0e9558
+        # ID: b33d21bbf155fce0e897227070f77302f3bc4f5f
+        # ETH-ID: b7e459c505911ea78de95abc6cbc013b708e6fe2
+        # IsComp: true
+        dfi_address = self.nodes[0].vmmap(eth_address, 2)
+        # DVMToEVM: 
+        # Hash: 21ae7cb1a739161fdda43d8304f376a3c43a7fa2b3f7f73b70739d3d4c0e9558
+        # ID: b33d21bbf155fce0e897227070f77302f3bc4f5f
+        # ETH-ID: b7e459c505911ea78de95abc6cbc013b708e6fe2
+        # IsComp: true
+        eth_address_back = self.nodes[0].vmmap(dfi_address, 1)
+        assert_equal(eth_address, eth_address_back)
 
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
