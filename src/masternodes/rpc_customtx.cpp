@@ -226,13 +226,14 @@ public:
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
-
-        CAmount userMaxPrice = std::numeric_limits<CAmount>::max();
-        if ((arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction) < userMaxPrice) {
-            userMaxPrice = (obj.maxPrice.integer * COIN) + obj.maxPrice.fraction;
+        
+        if (obj.maxPrice.isAboveValid()) {
+            auto price = PoolPrice::getMaxValid();
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
         }
-
-        rpcInfo.pushKV("maxPrice", ValueFromAmount(userMaxPrice));
+        else {
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+        }
     }
 
     void operator()(const CPoolSwapMessageV2 &obj) const {
