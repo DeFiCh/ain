@@ -11,8 +11,10 @@ use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
+use crate::filters::{GetFilterChangesResult, NewFilterRequest};
 use crate::sync::{SyncInfo, SyncState};
 use crate::transaction_log::{GetLogsRequest, LogResult};
+use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -236,8 +238,30 @@ pub trait MetachainRPC {
     #[method(name = "getUncleByBlockHashAndIndex")]
     fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>>;
 
+    // ----------------------------------------
+    // Logs and filters
+    // ----------------------------------------
+
     #[method(name = "getLogs")]
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>>;
+
+    #[method(name = "newFilter")]
+    fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256>;
+
+    #[method(name = "newBlockFilter")]
+    fn new_block_filter(&self) -> RpcResult<U256>;
+
+    #[method(name = "getFilterChanges")]
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult>;
+
+    #[method(name = "uninstallFilter")]
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
+
+    #[method(name = "getFilterLogs")]
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>>;
+
+    #[method(name = "newPendingTransactionFilter")]
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256>;
 }
 
 pub struct MetachainRPCModule {
@@ -855,11 +879,141 @@ impl MetachainRPCServer for MetachainRPCModule {
             .flat_map(|block_number| {
                 self.handler
                     .logs
-                    .get_logs(input.clone().address, input.clone().topics, block_number)
+                    .get_logs(&input.address, &input.topics, block_number)
                     .into_iter()
                     .map(LogResult::from)
             })
             .collect())
+    }
+
+    fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
+        let from_block_number = self.block_number_to_u256(input.from_block)?;
+        let to_block_number = self.block_number_to_u256(input.to_block)?;
+
+        if from_block_number > to_block_number {
+            return Err(Error::Custom(format!(
+                "fromBlock ({}) > toBlock ({})",
+                format_u256(from_block_number),
+                format_u256(to_block_number)
+            )));
+        }
+
+        let current_block_height = match self.handler.storage.get_latest_block() {
+            None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+            Some(block) => block.header.number,
+        };
+
+        Ok(self
+            .handler
+            .filters
+            .create_logs_filter(
+                input.address,
+                input.topics,
+                from_block_number,
+                to_block_number,
+                current_block_height,
+            )
+            .into())
+    }
+
+    fn new_block_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_block_filter().into())
+    }
+
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
+        let filter = self
+            .handler
+            .filters
+            .get_filter(filter_id.as_usize())
+            .map_err(|e| Error::Custom(String::from(e)))?;
+
+        let res = match filter {
+            Filter::Logs(filter) => {
+                let current_block_height = match self.handler.storage.get_latest_block() {
+                    None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+                    Some(block) => block.header.number,
+                };
+
+                let logs = self
+                    .handler
+                    .logs
+                    .get_logs_from_filter(filter)
+                    .into_iter()
+                    .map(LogResult::from)
+                    .collect();
+
+                self.handler
+                    .filters
+                    .update_last_block(filter_id.as_usize(), current_block_height)
+                    .map_err(|e| Error::Custom(String::from(e)))?;
+
+                GetFilterChangesResult::Logs(logs)
+            }
+            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
+                self.handler
+                    .filters
+                    .get_entries_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
+            Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
+                self.handler
+                    .filters
+                    .get_entries_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
+        };
+
+        Ok(res)
+    }
+
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
+        Ok(self.handler.filters.delete_filter(filter_id.as_usize()))
+    }
+
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
+        let filter = self
+            .handler
+            .filters
+            .get_filter(filter_id.as_usize())
+            .map_err(|e| Error::Custom(String::from(e)))?;
+
+        match filter {
+            Filter::Logs(filter) => {
+                // use fromBlock-toBlock
+                let mut block_number = filter.from_block;
+                let to_block_number = filter.to_block;
+                let mut block_numbers = Vec::new();
+
+                if block_number > to_block_number {
+                    return Err(Error::Custom(format!(
+                        "fromBlock ({}) > toBlock ({})",
+                        format_u256(block_number),
+                        format_u256(to_block_number)
+                    )));
+                }
+
+                while block_number <= to_block_number {
+                    block_numbers.push(block_number);
+                    block_number += U256::one();
+                }
+
+                Ok(block_numbers
+                    .into_iter()
+                    .flat_map(|block_number| {
+                        self.handler
+                            .logs
+                            .get_logs(&filter.address, &filter.topics, block_number)
+                            .into_iter()
+                            .map(LogResult::from)
+                    })
+                    .collect())
+            }
+            _ => return Err(Error::Custom(String::from("Filter is not a log filter"))),
+        }
+    }
+
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_transaction_filter().into())
     }
 }
 

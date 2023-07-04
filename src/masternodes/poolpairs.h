@@ -43,10 +43,16 @@ struct PoolPrice {
     }
 
     bool operator!=(const PoolPrice &rhs) const { return integer != rhs.integer || fraction != rhs.fraction; }
-};
 
-static constexpr auto POOLPRICE_MAX =
-    PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
+    static constexpr PoolPrice getMaxValid() {
+        return { MAX_MONEY / COIN, MAX_MONEY % COIN };
+    }
+
+    bool isAboveValid() const {
+        const auto maxPrice = PoolPrice::getMaxValid();
+        return ((integer > maxPrice.integer) || (integer == maxPrice.integer && fraction >= maxPrice.fraction));
+    }
+};
 
 struct CPoolSwapMessage {
     CScript from, to;
