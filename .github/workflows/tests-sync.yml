@@ -34,7 +34,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: rm .dockerignore && sudo ./make.sh docker-release
+      run: rm .dockerignore && ./make.sh docker-release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v3
@@ -51,7 +51,7 @@ jobs:
         path: ci/sync/main.sh
 
     - name: Flush docker build
-      run: sudo docker system prune --all --volumes
+      run: docker system prune --all --volumes
 
   generate-matrix:
       if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
