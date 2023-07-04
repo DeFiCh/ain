@@ -165,22 +165,11 @@ UniValue vmmap(const JSONRPCRequest& request) {
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
             CPubKey key = AddrToPubKey(pwallet, hash);
-            LogPrintf("DVMToEVM::\nHash: %s\nID: %s\nETH-ID: %s\nIsComp: %s\n", 
-                key.GetHash().ToString(), 
-                key.GetID().ToString(), 
-                key.GetEthID().ToString(), 
-                key.IsCompressed() ? "true" : "false");
             if (key.IsCompressed()) { key.Decompress(); }
             return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
             CPubKey key = AddrToPubKey(pwallet, hash);
-            LogPrintf("EVMToDVM::\nHash: %s\nID: %s\nETH-ID: %s\nIsComp: %s\n", 
-                key.GetHash().ToString(), 
-                key.GetID().ToString(), 
-                key.GetEthID().ToString(), 
-                key.IsCompressed() ? "true" : "false");
-            if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:

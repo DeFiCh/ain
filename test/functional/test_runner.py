@@ -335,6 +335,7 @@ BASE_SCRIPTS = [
 
 EXPLICIT_IGNORES = [
     'example_rollback_check.py',
+    'empty_test_template',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
