@@ -31,7 +31,9 @@ impl From<SignedTx> for EthTransactionInfo {
             block_hash: None,
             block_number: None,
             transaction_index: None,
-            field_type: signed_tx.transaction.type_id().unwrap_or_default() as u32,
+            field_type: format_u256(U256::from(
+                signed_tx.transaction.type_id().unwrap_or_default(),
+            )),
             max_fee_per_gas: signed_tx
                 .max_fee_per_gas()
                 .map(format_u256)

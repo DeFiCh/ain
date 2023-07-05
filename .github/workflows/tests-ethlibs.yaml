@@ -9,6 +9,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   NODE_URL: "http://127.0.0.1:19551/"
   TARGET: x86_64-pc-linux-gnu
