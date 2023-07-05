@@ -72,7 +72,7 @@ jobs:
       run: ./make.sh docker-build
 
     - name: log file change
-      run: ls -ltR
+      run: find . -mmin -20
 
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
