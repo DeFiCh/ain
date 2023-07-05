@@ -37,8 +37,6 @@ jobs:
     - name: Setup dependencies for test
       run: sudo ./make.sh ci-setup-deps-test
 
-      # TODO: Switch this to a docker build later and this builds on the native
-      # VM toolchain and loses disparity with the CI release builds
     - name: Build binaries
       run: ./make.sh build
 
