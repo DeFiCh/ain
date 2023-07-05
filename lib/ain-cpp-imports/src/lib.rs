@@ -158,6 +158,7 @@ pub fn past_changi_intermediate_height_4_height() -> bool {
 }
 
 pub fn log_print(message: &str) {
+    // TODO: Switch to u8 to avoid intermediate string conversions
     ffi::CppLogPrintf(message.to_owned());
 }
 

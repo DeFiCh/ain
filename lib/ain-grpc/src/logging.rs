@@ -1,8 +1,5 @@
 use std::io::Write;
 
-// TODO:
-// - Switch to u8 to avoid intermediate string conversions
-// - Use a custom format to clear up timing.
 #[derive(Debug, Default)]
 pub struct CppLogTarget {
     enable_stdout: bool,
@@ -12,7 +9,12 @@ pub fn cpp_log_target_format<'a>(
     buf: &mut env_logger::fmt::Formatter,
     record: &log::Record<'a>,
 ) -> std::io::Result<()> {
-    writeln!(buf, "{}", record.args())
+    let mod_path = record.module_path();
+    if let Some(mod_path) = mod_path {
+        writeln!(buf, "[{}] {}", mod_path, record.args())
+    } else {
+        writeln!(buf, "{}", record.args())
+    }
 }
 
 impl CppLogTarget {
