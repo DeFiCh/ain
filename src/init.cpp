@@ -1946,7 +1946,11 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
 
             // Default to using the first address passed to bind to ETH RPC server and gRPC server
-            start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
+            CrossBoundaryResult result;
+            start_servers(result, eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
+            if (!result.ok) {
+                LogPrintf("EVM servers failed to start: %s\n", result.reason.c_str());
+            }
 
             try {
                 LOCK(cs_main);

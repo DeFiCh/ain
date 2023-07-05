@@ -2,15 +2,15 @@ use ain_evm::{
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
-use ain_grpc::{init_evm_runtime, start_servers, stop_evm_runtime};
+use ain_grpc::{init_evm_runtime, start_evm_servers, stop_evm_runtime};
 
 use ain_evm::runtime::RUNTIME;
 use log::debug;
-use std::error::Error;
 
+use ain_evm::transaction::TransactionError;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
-use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
+use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::ffi::CrossBoundaryResult;
 
@@ -50,24 +50,19 @@ pub mod ffi {
     }
 
     extern "Rust" {
-        fn evm_get_balance(address: [u8; 20]) -> Result<u64>;
-        fn evm_get_nonce(address: [u8; 20]) -> Result<u64>;
+        fn evm_get_balance(address: [u8; 20]) -> u64;
+        fn evm_get_nonce(address: [u8; 20]) -> u64;
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
-        fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<()>;
+        fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]);
 
-        fn evm_add_balance(
-            context: u64,
-            address: &str,
-            amount: [u8; 32],
-            native_tx_hash: [u8; 32],
-        ) -> Result<()>;
+        fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], native_tx_hash: [u8; 32]);
         fn evm_sub_balance(
             context: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
-        ) -> Result<bool>;
+        ) -> bool;
 
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
@@ -82,7 +77,7 @@ pub mod ffi {
             context: u64,
             raw_tx: &str,
             native_tx_hash: [u8; 32],
-        ) -> Result<bool>;
+        );
 
         fn evm_try_finalize(
             result: &mut CrossBoundaryResult,
@@ -91,16 +86,19 @@ pub mod ffi {
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
-        ) -> Result<FinalizeBlockResult>;
+        ) -> FinalizeBlockResult;
 
         fn preinit();
         fn init_evm_runtime();
-        fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<()>;
+        fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &str);
         fn stop_evm_runtime();
 
-        fn create_and_sign_tx(ctx: CreateTransactionContext) -> Result<Vec<u8>>;
+        fn create_and_sign_tx(
+            result: &mut CrossBoundaryResult,
+            ctx: CreateTransactionContext,
+        ) -> Vec<u8>;
 
-        fn evm_disconnect_latest_block() -> Result<()>;
+        fn evm_disconnect_latest_block();
     }
 }
 
@@ -117,7 +115,10 @@ pub mod ffi {
 /// # Returns
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
-pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>, TransactionError> {
+pub fn create_and_sign_tx(
+    result: &mut CrossBoundaryResult,
+    ctx: ffi::CreateTransactionContext,
+) -> Vec<u8> {
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
@@ -143,9 +144,17 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 
     // Sign
     let priv_key_h256 = H256::from(ctx.priv_key);
-    let signed = t.sign(&priv_key_h256, ctx.chain_id)?;
-
-    Ok(signed.encode().into())
+    match t.sign(&priv_key_h256, ctx.chain_id) {
+        Ok(signed) => {
+            result.ok = true;
+            signed.encode().into()
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+            Vec::new()
+        }
+    }
 }
 
 /// Retrieves the balance of an EVM account at latest block height.
@@ -161,7 +170,7 @@ pub fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<Vec<u8>,
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+pub fn evm_get_balance(address: [u8; 20]) -> u64 {
     let account = H160::from(address);
     let (_, latest_block_number) = RUNTIME
         .handlers
@@ -175,7 +184,7 @@ pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
-    Ok(balance.as_u64())
+    balance.as_u64()
 }
 
 /// Retrieves the nonce of an EVM account at latest block height.
@@ -191,7 +200,7 @@ pub fn evm_get_balance(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
 /// # Returns
 ///
 /// Returns the nonce of the account as a `u64` on success.
-pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
+pub fn evm_get_nonce(address: [u8; 20]) -> u64 {
     let account = H160::from(address);
     let (_, latest_block_number) = RUNTIME
         .handlers
@@ -203,7 +212,7 @@ pub fn evm_get_nonce(address: [u8; 20]) -> Result<u64, Box<dyn Error>> {
         .evm
         .get_nonce(account, latest_block_number)
         .unwrap_or_default();
-    Ok(nonce.as_u64())
+    nonce.as_u64()
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific context
@@ -232,17 +241,9 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
 /// * `context` - The context queue number.
 /// * `address` - The EVM address of the account.
 ///
-/// /// # Errors
-///
-/// Returns an Error if the context does not match any existing queue
-///
-pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<(), Box<dyn Error>> {
+pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) {
     let address = H160::from(address);
-    RUNTIME
-        .handlers
-        .evm
-        .remove_txs_by_sender(context, address)?;
-    Ok(())
+    let _ = RUNTIME.handlers.evm.remove_txs_by_sender(context, address);
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -254,28 +255,13 @@ pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) -> Result<(), B
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-/// # Errors
-///
-/// Returns an Error if:
-/// - the context does not match any existing queue
-/// - the address is not a valid EVM address
-///
-/// # Returns
-///
-/// Returns `Ok(())` on success.
-pub fn evm_add_balance(
-    context: u64,
-    address: &str,
-    amount: [u8; 32],
-    hash: [u8; 32],
-) -> Result<(), Box<dyn Error>> {
-    let address = address.parse()?;
-
-    RUNTIME
-        .handlers
-        .evm
-        .add_balance(context, address, amount.into(), hash)?;
-    Ok(())
+pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
+    if let Ok(address) = address.parse() {
+        let _ = RUNTIME
+            .handlers
+            .evm
+            .add_balance(context, address, amount.into(), hash);
+    }
 }
 
 /// EvmOut. Send DFI from an EVM account.
@@ -297,21 +283,17 @@ pub fn evm_add_balance(
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_sub_balance(
-    context: u64,
-    address: &str,
-    amount: [u8; 32],
-    hash: [u8; 32],
-) -> Result<bool, Box<dyn Error>> {
-    let address = address.parse()?;
-    match RUNTIME
-        .handlers
-        .evm
-        .sub_balance(context, address, amount.into(), hash)
-    {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
+    if let Ok(address) = address.parse() {
+        if let Ok(()) = RUNTIME
+            .handlers
+            .evm
+            .sub_balance(context, address, amount.into(), hash)
+        {
+            return true;
+        }
     }
+    false
 }
 
 /// Validates a raw EVM transaction.
@@ -393,25 +375,21 @@ fn evm_discard_context(context: u64) {
 /// - The `raw_tx` is in invalid format
 /// - The queue does not exists.
 ///
-/// # Returns
-///
-/// Returns `true` if the transaction is successfully queued, `false` otherwise.
-fn evm_try_queue_tx(
-    result: &mut CrossBoundaryResult,
-    context: u64,
-    raw_tx: &str,
-    hash: [u8; 32],
-) -> Result<bool, Box<dyn Error>> {
-    let signed_tx: SignedTx = raw_tx.try_into()?;
-    match RUNTIME.handlers.queue_tx(context, signed_tx.into(), hash) {
-        Ok(_) => {
-            result.ok = true;
-            Ok(true)
-        }
+fn evm_try_queue_tx(result: &mut CrossBoundaryResult, context: u64, raw_tx: &str, hash: [u8; 32]) {
+    let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
+    match signed_tx {
+        Ok(signed_tx) => match RUNTIME.handlers.queue_tx(context, signed_tx.into(), hash) {
+            Ok(_) => {
+                result.ok = true;
+            }
+            Err(e) => {
+                result.ok = false;
+                result.reason = e.to_string();
+            }
+        },
         Err(e) => {
             result.ok = false;
             result.reason = e.to_string();
-            Ok(false)
         }
     }
 }
@@ -426,11 +404,6 @@ fn evm_try_queue_tx(
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
 ///
-/// # Errors
-///
-/// Returns an Error if there is an error restoring the state trie.
-/// Returns an Error if the block has invalid TXs, viz. out of order nonces
-///
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
@@ -441,7 +414,7 @@ fn evm_try_finalize(
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
-) -> Result<ffi::FinalizeBlockResult, Box<dyn Error>> {
+) -> ffi::FinalizeBlockResult {
     let eth_address = H160::from(miner_address);
     match RUNTIME
         .handlers
@@ -449,16 +422,16 @@ fn evm_try_finalize(
     {
         Ok((block_hash, failed_txs, gas_used)) => {
             result.ok = true;
-            Ok(ffi::FinalizeBlockResult {
+            ffi::FinalizeBlockResult {
                 block_hash,
                 failed_transactions: failed_txs,
                 miner_fee: gas_used,
-            })
+            }
         }
         Err(e) => {
             result.ok = false;
             result.reason = e.to_string();
-            Ok(ffi::FinalizeBlockResult::default())
+            ffi::FinalizeBlockResult::default()
         }
     }
 }
@@ -467,7 +440,18 @@ pub fn preinit() {
     ain_grpc::preinit();
 }
 
-fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {
+fn evm_disconnect_latest_block() {
     RUNTIME.handlers.storage.disconnect_latest_block();
-    Ok(())
+}
+
+fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &str) {
+    match start_evm_servers(json_addr, grpc_addr) {
+        Ok(()) => {
+            result.ok = true;
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+        }
+    }
 }
