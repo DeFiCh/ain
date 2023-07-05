@@ -173,7 +173,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     }
 
     if (!rewardAddress.empty() && rewardDest.index() != 1 && rewardDest.index() != 2 && rewardDest.index() != 4) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH, BECH32 or P2WPKH address");
     }
 
     CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));

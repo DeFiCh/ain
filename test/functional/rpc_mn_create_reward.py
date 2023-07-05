@@ -42,10 +42,10 @@ class MasternodesRpcCreateRewardTest(DefiTestFramework):
                                 self.nodes[0].createmasternode, collateral1)
 
         # Fail to create: Wrong reward address format
-        assert_raises_rpc_error(-8, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', self.nodes[0].getnewaddress("", "eth"))
+        assert_raises_rpc_error(-8, "does not refer to a P2PKH, BECH32 or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', self.nodes[0].getnewaddress("", "eth"))
 
         # Fail to create: Invalid reward address
-        assert_raises_rpc_error(-8, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', "test")
+        assert_raises_rpc_error(-8, "does not refer to a P2PKH, BECH32 or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', "test")
 
         idnode0 = self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', reward)
         self.nodes[0].generate(1)
