@@ -335,6 +335,7 @@ BASE_SCRIPTS = [
 ]
 
 EXPLICIT_IGNORES = [
+    'empty_test_template.py',
     'example_rollback_check.py',
 ]
 
