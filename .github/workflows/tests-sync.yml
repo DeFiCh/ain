@@ -15,6 +15,10 @@ on:
       - master
     types: [labeled, opened, reopened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
