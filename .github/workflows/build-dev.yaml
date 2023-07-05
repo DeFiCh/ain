@@ -38,7 +38,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: ./make.sh ci-export-vars && rm .dockerignore
+      run: ./make.sh ci-export-vars
 
     - name: Cache docker depends build
       id: docker-cache-build-deps
@@ -67,6 +67,14 @@ jobs:
       with:
         path: ./build/.ccache
         key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
+
+    - name: Use cache
+      if: |
+        ${{ steps.docker-cache-build-deps.outputs.cache-hit == 'true' }} &&
+        ${{ steps.docker-cache-build-rust.outputs.cache-hit == 'true' }} &&
+        ${{ steps.docker-cache-build-cpp.outputs.cache-hit == 'true' }} &&
+        ${{ steps.docker-cache-ccache.outputs.cache-hit == 'true' }}
+      run: rm .dockerignore
 
     - name: Build builder image
       run: ./make.sh docker-build
