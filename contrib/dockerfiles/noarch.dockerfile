@@ -20,7 +20,6 @@ RUN ./make.sh ci-setup-deps-target
 RUN ./make.sh ci-setup-deps-test
 
 COPY . .
-RUN ls -lahR ./build
 RUN ./make.sh build-deps
 RUN ./make.sh build-conf
 RUN ./make.sh build-make

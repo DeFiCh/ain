@@ -977,6 +977,12 @@ ci_export_vars() {
         else
             echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
         fi
+
+        if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+        else
+            echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
+        fi
     fi
 }
 

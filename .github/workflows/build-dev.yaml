@@ -38,9 +38,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: |
-        ./make.sh ci-export-vars
-        mv ./ci/builder/.dockerignore ./.dockerignore
+      run: ./make.sh ci-export-vars && rm .dockerignore
 
     - name: Cache docker depends build
       id: docker-cache-build-deps
@@ -87,18 +85,10 @@ jobs:
         ./make.sh package
 
     - name: Publish artifact
-      if: ${{ env.TARGET != 'x86_64-w64-mingw32' }}
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
-
-    - name: Publish win-x64 artifact
-      if: ${{ env.TARGET == 'x86_64-w64-mingw32' }}
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.zip
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Login to Docker Hub
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
