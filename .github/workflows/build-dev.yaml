@@ -78,6 +78,9 @@ jobs:
     - name: Package
       run: ./make.sh docker-deploy && ./make.sh package
 
+    - name: Get artifact
+      run: ./make.sh ci-export-package
+
     - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
