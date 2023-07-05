@@ -7,10 +7,9 @@ use ain_grpc::{init_evm_runtime, start_evm_servers, stop_evm_runtime};
 use ain_evm::runtime::RUNTIME;
 use log::debug;
 
-use ain_evm::transaction::TransactionError;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
-use transaction::{LegacyUnsignedTransaction, LOWER_H256};
+use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi::CrossBoundaryResult;
 
