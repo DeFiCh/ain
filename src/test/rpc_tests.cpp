@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC("decodecustomtx DEADBEEF"), std::runtime_error);
     std::string txHexString = "02000000000102451e06ae0c9849f7e225cc5c955c40ac227e85e237f739c5b47edeae3cebed5f01000000171600142fb061e87e925d30269f47403567003470b52e90ffffffff451e06ae0c9849f7e225cc5c955c40ac227e85e237f739c5b47edeae3cebed5f020000001716001474a10535114fc2557fd1ed797763e51830e648c6ffffffff030000000000000000526a4c4f446654787317a914424695dc36783457935a11e35c3effab7bf8a838870000c2eb0b0000000017a914424695dc36783457935a11e35c3effab7bf8a8388701a933ddec00000000000000000000000020cbab2f0000000017a9140f86611d6aa52b91642e6e4f214a67370673a29087400d03000000000017a914424695dc36783457935a11e35c3effab7bf8a8388702473044022041b75640d5f2eaa68343499642365a1b60b78ed09fdc8e00daf6d3641374508e022028d6ebf96314f3faefc80a504ab2f62d973053d5c75957f4ee0c16e39d39d6fb0121025e2d64209d4152a105f54cf692b501a0f977902d865a9890181fa4f7e74da86e02483045022100d672be7e857101ef4e98e66e2005965e4e58fe769dc541e595efb355f8a4f8cf022027ac5214b5d78cc1a177b087c57699b89a8e83183f23fb457df19d18cce3b9700121023756485f970b02af74180fe132d3551b454578ce305c0d6d511ceb73f7d145e800000000";
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decodecustomtx ")+txHexString));
-    // r should be {"txid":"cc0f352bc55c835892b22c670ead2a9082247e18ba3c258c6b4dc8f37cade693","type":"PoolSwap","valid":true,"results":{"fromAddress":"dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N","fromToken":"0","fromAmount":2.00000000,"toAddress":"dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N","toToken":"1","maxPrice":3973919657.00000000}}
+    // r should be {"txid":"cc0f352bc55c835892b22c670ead2a9082247e18ba3c258c6b4dc8f37cade693","type":"PoolSwap","valid":true,"results":{"fromAddress":"dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N","fromToken":"0","fromAmount":2.00000000,"toAddress":"dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N","toToken":"1","maxPrice": 1200000000.00000000}}
     //Check for the details
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "txid").get_str(), "cc0f352bc55c835892b22c670ead2a9082247e18ba3c258c6b4dc8f37cade693");
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "type").get_str(), "PoolSwap");
@@ -98,7 +98,9 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_EQUAL(find_value(resultsObj, "fromAmount").get_real(), 2.0);
     BOOST_CHECK_EQUAL(find_value(resultsObj, "toAddress").get_str(), "dKTimnyUteWgQCGaFe2m49MzYuU7sSVv2N");
     BOOST_CHECK_EQUAL(find_value(resultsObj, "toToken").get_str(), "1");
-    BOOST_CHECK_EQUAL(find_value(resultsObj, "maxPrice").get_real(), 92233720368.54776);
+    // After https://github.com/DeFiCh/ain/commit/307574033894dd4c889c0b39e7ac5f3833182145, 
+    // max value is now capped at PoolPrice::getMaxValid()
+    BOOST_CHECK_EQUAL(find_value(resultsObj, "maxPrice").get_real(), 1200000000.00000000);
 
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decodecustomtx ")+txHexString + " true"));
     BOOST_CHECK_THROW(CallRPC(std::string("decodecustomtx ")+txHexString+" extra"), std::runtime_error);
