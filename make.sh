@@ -19,6 +19,7 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"builder"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -277,6 +278,7 @@ release() {
 
 docker_build() {
     local target=${1:-${TARGET}}
+    local stage="${DOCKER_TARGET_STAGE}"
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
@@ -284,12 +286,13 @@ docker_build() {
 
     echo "> docker-build";
 
-    local img="${img_prefix}-${target}:${img_version}"
+    local img=${2:-"${img_prefix}-${target}:${img_version}"}
     echo "> building: ${img}"
     echo "> docker build: ${img}"
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
+        --target "${stage}" \
         -t "${img}" "${docker_context}"
 }
 
@@ -358,7 +361,7 @@ docker_deploy_build() {
 docker_release() {
     local target=${1:-${TARGET}}
 
-    docker_build "$target"
+    docker_build "$target" "$@"
     docker_deploy "$target"
     package "$target"
 }

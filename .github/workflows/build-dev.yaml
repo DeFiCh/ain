@@ -28,12 +28,13 @@ jobs:
         target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
       TARGET: ${{matrix.target}}
+      DOCKER_TARGET_STAGE: builder
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars && rm .dockerignore
 
     - name: Cache docker depends build
       id: docker-cache-build-deps
@@ -63,8 +64,18 @@ jobs:
         path: ./build/.ccache
         key: docker-${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cache
 
-    - name: Build and package
-      run: rm .dockerignore && ./make.sh docker-release
+    - name: Build builder image
+      run: ./make.sh docker-build
+
+    - name: Build defi image
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      run: DOCKER_TARGET_STAGE="defi" ./make.sh docker-build defi/defichain:${ver}
+
+    - name: Log docker images
+      run: docker image ls
+
+    - name: Package
+      run: ./make.sh docker-deploy && ./make.sh package
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3

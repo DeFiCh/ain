@@ -35,8 +35,6 @@ LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
 COPY --from=builder /app/. ./
-# TODO: Remove copying of entire build directory into defi image
-COPY --from=builder /work/build/ /work/build/
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
