@@ -57,7 +57,7 @@ test:
 
 .PHONY: clippy
 clippy:
-	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
+	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS) -- -Dwarnings
 
 .PHONY: fmt-check
 fmt-check:
