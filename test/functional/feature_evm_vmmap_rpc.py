@@ -49,8 +49,7 @@ class VMMapTests(DefiTestFramework):
             ["bcrt1qmhpq9hxgdglwja6uruc92yne8ekxljgykrfta5", "0xfD0766e7aBe123A25c73c95f6dc3eDe26D0b7263"],
         ]
         for x in priv_keys:
-            self.nodes[0].importprivkey(x)
-        
+            self.nodes[0].importprivkey(x)        
         for [dfi_addr, eth_addr] in addr_maps:
             assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
             assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
@@ -103,9 +102,8 @@ class VMMapTests(DefiTestFramework):
         self.rollback_to(self.start_block_height)
         # TODO: Each fn, should be independent of each other. Should rely on vars set outside of it's context or setup.
         # For rollback, keys need to be added, checked, rollback to state in-between, checked for expected output in the middle
-        # and then checked for expected output after rolled back to clean state. 
-        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.
-     
+        # and then checked for expected output after rolled back to clean state.
+        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.    
         # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
         # assert_raises_rpc_error(-32600, "Key not found: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
         # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
@@ -142,7 +140,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
-        
+        # vmmap tests
         self.vmmap_should_exist()
         self.vmmap_invalid_key_type_should_fail()
         self.vmmap_valid_key_not_present_should_fail()
@@ -152,7 +150,7 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_block_should_success()
         self.vmmap_invalid_block_should_fail()
         self.vmmap_rollback_should_success()
-
+        # logvmmap tests
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
         self.logvmmaps_block_exist()
