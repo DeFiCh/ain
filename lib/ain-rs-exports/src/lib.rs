@@ -342,17 +342,19 @@ pub fn evm_try_prevalidate_raw_tx(
     match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
-            return ffi::ValidateTxResult {
+
+            ffi::ValidateTxResult {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            };
+            }
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
-            return ffi::ValidateTxResult::default();
+
+            ffi::ValidateTxResult::default()
         }
     }
 }
