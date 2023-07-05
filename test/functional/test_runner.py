@@ -313,6 +313,7 @@ BASE_SCRIPTS = [
     'feature_on_chain_government_voting_period_alignment.py',
     'feature_on_chain_government_fee_distribution.py',
     'feature_on_chain_government_voting_scenarios.py',
+    'feature_on_chain_government_voting_scenarios_delegate.py',
     'rpc_listgovproposals.py',
     'rpc_help.py',
     'feature_help.py',
