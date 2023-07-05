@@ -361,7 +361,7 @@ docker_deploy_build() {
 docker_release() {
     local target=${1:-${TARGET}}
 
-    docker_build "$target" "$@"
+    docker_build "$target"
     docker_deploy "$target"
     package "$target"
 }
@@ -964,8 +964,8 @@ _nproc() {
 ci_export_vars() {
     local build_dir="${BUILD_DIR}"
 
+    # GitHub Actions
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-        # GitHub Actions
         {
             echo "BUILD_VERSION=${IMAGE_VERSION}"
             echo "PATH=$HOME/.cargo/bin:$PATH"
