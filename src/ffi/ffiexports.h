@@ -22,5 +22,6 @@ int getCurrentHeight();
 bool pastChangiIntermediateHeight2();
 bool pastChangiIntermediateHeight3();
 bool pastChangiIntermediateHeight4();
+void CppLogPrintf(rust::string message);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

@@ -7,6 +7,7 @@ pub mod call_request;
 pub mod codegen;
 mod filters;
 mod impls;
+pub mod logging;
 mod receipt;
 pub mod rpc;
 mod sync;
@@ -20,6 +21,7 @@ use jsonrpsee::http_server::HttpServerBuilder;
 
 #[allow(unused)]
 use log::{debug, info};
+use logging::CppLogTarget;
 
 use crate::rpc::{
     debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
@@ -68,7 +70,8 @@ pub fn preinit() {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
     )
-    .target(env_logger::Target::Stdout)
+    .format(logging::cpp_log_target_format)
+    .target(env_logger::Target::Pipe(Box::new(CppLogTarget::new(false))))
     .init();
     info!("init");
 }
