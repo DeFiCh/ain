@@ -34,20 +34,6 @@ src/univalue/gen
 src/secp256k1/gen_context
 src/secp256k1/src/ecmult_static_context.h
 
-# autotools
-
-Makefile
-Makefile.in
-Makefile.am.user
-Makefile.test
-!depends/Makefile
-!src/leveldb*/Makefile
-
-config.log
-config.status
-configure
-configure~
-
 aclocal.m4
 autom4te.cache/
 **/build-aux/config.guess
@@ -68,26 +54,6 @@ autom4te.cache/
 libtool
 stamp-h1
 
-.deps
-.dirstamp
-.libs
-.*.swp
-*.*~*
-*.bak
-*.rej
-*.orig
-*.pyc
-*.o
-*.o-*
-*.a
-*.pb.cc
-*.pb.h
-*.dat
-
-*.log
-*.trs
-*.dmg
-
 *.json.h
 *.raw.h
 
@@ -95,10 +61,6 @@ stamp-h1
 *.patch
 !depends/patches/**/*.patch
 !contrib/devtools/*.patch
-
-#libtool object files
-*.lo
-*.la
 
 # Compilation and Qt preprocessor part
 *.qm
