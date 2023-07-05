@@ -19,7 +19,7 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DOCKER_TARGET_STAGE=${DOCKER_TARGET_STAGE:-"builder"}
+    DOCKER_TARGET=${DOCKER_TARGET:-"builder"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -278,7 +278,7 @@ release() {
 
 docker_build() {
     local target=${1:-${TARGET}}
-    local stage="${DOCKER_TARGET_STAGE}"
+    local stage="${DOCKER_TARGET}"
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
@@ -977,23 +977,6 @@ ci_export_vars() {
         else
             echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
         fi
-    fi
-}
-
-ci_export_package() {
-    local pkg_name="${PACKAGE}"
-    local pkg_file_name="${pkg_name}.tar.gz"
-    local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
-
-    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
-        pkg_file_name="${pkg_name}.zip"
-        pkg_sign_file_name="${pkg_name}.zip.SHA256"
-    fi
-
-    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-        # GitHub Actions
-        echo "PACKAGE_NAME=${pkg_file_name}" >> "$GITHUB_ENV"
-        echo "PACKAGE_SIGN_NAME=${pkg_sign_file_name}" >> "$GITHUB_ENV"
     fi
 }
 

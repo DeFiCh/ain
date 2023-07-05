@@ -31,13 +31,19 @@ jobs:
     - name: Sign package
       run: ./make.sh sign
 
-    - name: Get artifacts
-      run: ./make.sh ci-export-package
-
     - name: Publish artifacts
       uses: actions/upload-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: |
-          ./build/${{ env.PACKAGE_NAME }}
-          ./build/${{ env.PACKAGE_SIGN_NAME }}
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.tar.gz.SHA256
+
+    - name: Publish win-x64 artifacts
+      if: ${{ env.TARGET == 'x86_64-w64-mingw32' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: |
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.zip
+          ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.zip.SHA256
