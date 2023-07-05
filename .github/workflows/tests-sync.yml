@@ -18,13 +18,11 @@ on:
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
 jobs:
-  build-binaries:
+  build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -36,7 +34,7 @@ jobs:
       run: ./make.sh ci-setup-deps-target
 
     - name: Install dependencies for test
-      run: ./make.sh ci-setup-deps-test
+      run: sudo ./make.sh ci-setup-deps-test
 
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
@@ -96,7 +94,7 @@ jobs:
 
   sync:
     runs-on: [self-hosted, linux, x64]
-    needs: [build-binaries, generate-matrix]
+    needs: [build, generate-matrix]
 
     strategy:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}

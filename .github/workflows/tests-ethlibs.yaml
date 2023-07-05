@@ -13,8 +13,9 @@ env:
   NODE_URL: "http://127.0.0.1:19551/"
 
 jobs:
-  build-binaries:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     steps:
     - uses: actions/checkout@v3
 
@@ -22,7 +23,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
@@ -40,11 +41,16 @@ jobs:
         path: |
           build/src/defid
           build/src/defi-cli
-          ci/ethlibs_test/main.sh
+
+    - name: Upload shell commands
+      uses: actions/upload-artifact@v3
+      with:
+        name: sync
+        path: ci/ethlibs_test/main.sh
 
   node-rpc-tests:
     runs-on: ubuntu-latest
-    needs: build-binaries
+    needs: build
 
     steps:
     - name: Download binaries
@@ -52,11 +58,16 @@ jobs:
       with:
         name: defibins
 
+    - name: Download shell commands
+      uses: actions/download-artifact@v3
+      with:
+        name: sync
+
     - name: Setup permissions
-      run: chmod uog+x build/src/defid build/src/defi-cli build/src/defid build/src/defi-cli ci/ethlibs_test/main.sh
+      run: chmod uog+x ./defid ./defi-cli  ./main.sh
 
     - name: Setup test fixtures
-      run: ./ci/ethlibs_test/main.sh
+      run: ./main.sh
 
     - name: Setup Go
       uses: actions/setup-go@v3

@@ -22,8 +22,8 @@ setup_vars() {
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
-    TARGET=${TARGET:-"$(_get_default_target)"}
-    DOCKERFILE=${DOCKERFILE:-"$(_get_default_docker_file)"}
+    TARGET=${TARGET:-"$(get_default_target)"}
+    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -45,9 +45,9 @@ setup_vars() {
         default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
     fi
 
-    MAKE_JOBS=${MAKE_JOBS:-"$(_nproc)"}
+    MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
 
-    MAKE_CONF_ARGS="$(_get_default_conf_args) ${MAKE_CONF_ARGS:-}"
+    MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
@@ -63,7 +63,7 @@ setup_vars() {
 }
 
 main() {
-    _ensure_script_dir
+    _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
     _platform_init
@@ -91,7 +91,7 @@ main() {
     return 1
 }
 
-_ensure_script_dir() {
+_setup_dir_env() {
     _WORKING_DIR="$(pwd)"
     local dir
     dir="$(dirname "${BASH_SOURCE[0]}")"
@@ -174,8 +174,7 @@ build_make() {
     _fold_start "build_make"
 
     # shellcheck disable=SC2086
-    make DESTDIR="${build_target_dir}" -j${make_jobs} ${make_args}
-
+    make DESTDIR="${build_target_dir}" -j${make_jobs} JOBS=${make_jobs} ${make_args}
 
     _fold_end
     _exit_dir
@@ -382,7 +381,7 @@ exec() {
     _fold_start "exec:: ${*-(default)}"
 
     # shellcheck disable=SC2086,SC2068
-    make -j$make_jobs $make_args $@
+    make -j$make_jobs JOBS=${make_jobs} $make_args $@
 
     _fold_end
     _exit_dir
@@ -447,7 +446,6 @@ pkg_install_deps() {
 
     # gcc-multilib: for cross compilations
     # locales: for using en-US.UTF-8 (see head of this file).
-
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
@@ -457,6 +455,12 @@ pkg_install_deps() {
         curl cmake unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
+}
+
+pkg_setup_locale() {
+    # Not a hard requirement. We use en_US.UTF-8 to maintain coherence across
+    # different platforms. C.UTF-8 is not available on all platforms.
+    locale-gen "en_US.UTF-8"
 }
 
 pkg_install_deps_mingw_x86_64() {
@@ -656,7 +660,7 @@ clean() {
 # Defaults
 # ---
 
-_get_default_target() {
+get_default_target() {
     local default_target=""
     if [[ "${OSTYPE}" == "darwin"* ]]; then
         local macos_arch=""
@@ -690,7 +694,7 @@ _get_default_target() {
     echo "$default_target"
 }
 
-_get_default_docker_file() {
+get_default_docker_file() {
     local target="${TARGET}"
     local dockerfiles_dir="${DOCKERFILES_DIR}"
 
@@ -711,7 +715,7 @@ _get_default_docker_file() {
     # non docker cmds
 }
 
-_get_default_conf_args() {
+get_default_conf_args() {
     local conf_args=""
     if [[ "$TARGET" =~ .*linux.* ]]; then
         conf_args="${conf_args} --enable-glibc-back-compat";
@@ -725,6 +729,17 @@ _get_default_conf_args() {
     echo "$conf_args"
 }
 
+get_default_jobs() {
+    local total
+    total=$(_nproc)
+    # Use a num closer to 80% of the cores by default
+    local jobs=$(( total * 4/5 ))
+    if (( jobs > 1 )); then
+        echo $jobs
+    else
+        echo 1
+    fi
+}
 
 # Dev tools
 # ---
@@ -763,9 +778,9 @@ check_git_dirty() {
 
 check_rs() {
     check_enter_build_rs_dir
-    lint_cargo_check
-    lint_cargo_clippy
-    lint_cargo_fmt
+    lib check 1
+    lib clippy 1
+    lib fmt-check 1
     _exit_dir
 }
 
@@ -776,30 +791,31 @@ check_enter_build_rs_dir() {
         exit 1; }
 }
 
-lint_cargo_check() {
+lib() {
+    local cmd="${1-}"
+    local exit_on_err="${2:-0}"
+    local jobs="$MAKE_JOBS"
+    
     check_enter_build_rs_dir
-    make check || { 
-        echo "Error: Please resolve compiler checks before commit"; 
-        exit 1; }
+    # shellcheck disable=SC2086
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
+        echo "Error: Please resolve all checks"; 
+        exit 1;
+        fi; }
     _exit_dir
 }
 
-lint_cargo_clippy() {
-    check_enter_build_rs_dir 
-    make clippy || { 
-        echo "Error: Please resolve compiler lints before commit"; 
-        exit 1; }
-    _exit_dir
+rust_analyzer_check() {
+    lib "check CARGO_EXTRA_ARGS=--all-targets --workspace --message-format=json"
 }
 
-lint_cargo_fmt() {
-    check_enter_build_rs_dir
-    make fmt-check  || {
-        echo "Error: Please format code before commit"; 
-        exit 1; }
-    _exit_dir
+compiledb() {
+    _platform_init_intercept_build
+    clean 2> /dev/null || true
+    build_deps
+    build_conf
+    _intercept_build ./make.sh build_make
 }
-
 
 # Platform specifics
 # ---
@@ -847,6 +863,25 @@ _platform_pkg_tip() {
     echo "tip: osx: brew install ${brew_pkg}"
 }
 
+_platform_init_intercept_build() {
+    _INTERCEPT_BUILD_CMD=""
+    local intercept_build_cmds=("intercept-build-15" "intercept-build")
+    local x
+    for x in "${intercept_build_cmds[@]}"; do
+        if command -v "$x" >/dev/null ; then
+            _INTERCEPT_BUILD_CMD="$x"
+            _intercept_build() {
+                "$_INTERCEPT_BUILD_CMD" "$@"
+            }
+            return
+        fi
+    done
+
+    echo "error: intercept-build-15/intercept-build required"
+    _platform_pkg_tip clang-tools
+    exit 1
+}
+
 _nproc() {
     if [[ "${OSTYPE}" == "darwin"* ]]; then
         sysctl -n hw.logicalcpu
@@ -869,6 +904,7 @@ ci_export_vars() {
 ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_update_base
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
+    DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
 }
@@ -903,7 +939,7 @@ ci_setup_deps_test() {
 }
 
 get_rust_target() {
-    # Note: https://github.com/llvm/llvm-project/blob/dc895d023e63fd9276fe493eded776e101015c86/llvm/lib/TargetParser/Triple.cpp
+    # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
     # The function is called in 2 places:
     # 1. When setting up Rust, which TARGET is passed from the environment
     # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet

@@ -1,4 +1,5 @@
 use ain_evm::transaction::{SignedTx, TransactionError};
+use ethereum::EnvelopedEncodable;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H256, U256};
 
@@ -30,6 +31,17 @@ impl From<SignedTx> for EthTransactionInfo {
             block_hash: None,
             block_number: None,
             transaction_index: None,
+            field_type: format_u256(U256::from(
+                signed_tx.transaction.type_id().unwrap_or_default(),
+            )),
+            max_fee_per_gas: signed_tx
+                .max_fee_per_gas()
+                .map(format_u256)
+                .unwrap_or_default(),
+            max_priority_fee_per_gas: signed_tx
+                .max_priority_fee_per_gas()
+                .map(format_u256)
+                .unwrap_or_default(),
         }
     }
 }

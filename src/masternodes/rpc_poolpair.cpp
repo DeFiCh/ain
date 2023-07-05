@@ -179,15 +179,13 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest &request, CPoolSwapMessage
         if (!token2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
 
+        CAmount maxPrice = std::numeric_limits<CAmount>::max();
         if (!metadataObj["maxPrice"].isNull()) {
-            CAmount maxPrice              = AmountFromValue(metadataObj["maxPrice"]);
-            poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
-            poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
-        } else {
-            // There is no maxPrice calculation anymore
-            poolSwapMsg.maxPrice.integer  = std::numeric_limits<CAmount>::max();
-            poolSwapMsg.maxPrice.fraction = std::numeric_limits<CAmount>::max();
+            maxPrice = AmountFromValue(metadataObj["maxPrice"]);
         }
+
+        poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
+        poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
     }
 }
 
@@ -1071,7 +1069,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
         auto directPool = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
         if (!directPool || !directPool->second.status) {
             auto compositeSwap    = CPoolSwap(poolSwapMsg, targetHeight);
-            poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
+            poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview, Params().GetConsensus());
 
             // No composite or direct pools found
             if (poolSwapMsgV2.poolIDs.empty()) {
@@ -1199,6 +1197,8 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
+    const Consensus::Params &consensus = Params().GetConsensus();
+
     // test execution and get amount
     Res res = Res::Ok();
     {
@@ -1221,7 +1221,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
 
             poolIds.push_back(poolPair->first);
         } else if (path == "auto" || path == "composite") {
-            poolIds = poolSwap.CalculateSwaps(mnview_dummy, true);
+            poolIds = poolSwap.CalculateSwaps(mnview_dummy, consensus,true);
         } else {
             path = "custom";
 
@@ -1237,7 +1237,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
             }
         }
 
-        res = poolSwap.ExecuteSwap(mnview_dummy, poolIds, true);
+        res = poolSwap.ExecuteSwap(mnview_dummy, poolIds, consensus, true);
         if (!res) {
             std::string errorMsg{"Cannot find usable pool pair."};
             if (!poolSwap.errors.empty()) {

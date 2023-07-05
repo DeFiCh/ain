@@ -1,3 +1,4 @@
+use crate::filters::LogsFilter;
 use crate::receipt::Receipt;
 use crate::storage::traits::LogStorage;
 use crate::storage::Storage;
@@ -5,7 +6,7 @@ use ethereum::ReceiptV3;
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -65,8 +66,8 @@ impl LogHandler {
     // get logs at a block height and filter for topics
     pub fn get_logs(
         &self,
-        address: Option<Vec<H160>>,
-        topics: Option<Vec<H256>>,
+        address: &Option<Vec<H160>>,
+        topics: &Option<Vec<Option<H256>>>,
         block_number: U256,
     ) -> Vec<LogIndex> {
         debug!("Getting logs for block {:#x?}", block_number);
@@ -78,7 +79,6 @@ impl LogHandler {
                 // filter by addresses
                 logs.into_iter()
                     .filter(|(address, _)| addresses.contains(address))
-                    .into_iter()
                     .flat_map(|(_, log)| log)
                     .collect()
             }
@@ -89,10 +89,40 @@ impl LogHandler {
             Some(topics) => logs
                 .into_iter()
                 .filter(|log| {
-                    let set: HashSet<_> = log.topics.iter().copied().collect();
-                    topics.iter().any(|item| set.contains(item))
+                    topics
+                        .iter() // for all topic filters
+                        .zip(&log.topics) // construct tuple with corresponding log topics
+                        .all(|(filter_item, log_item)| {
+                            // check if topic filter at index matches log topic
+                            filter_item.as_ref().map_or(true, |item| item == log_item)
+                        })
                 })
                 .collect(),
         }
+    }
+
+    pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Vec<LogIndex> {
+        if filter.last_block_height >= filter.to_block {
+            // not possible to have any new entries
+            return Vec::new();
+        }
+
+        // get all logs that match filter from last_block_height to to_block
+        let mut block_numbers = Vec::new();
+        let mut block_number = filter.last_block_height;
+
+        while block_number <= filter.to_block {
+            debug!("Will query block {block_number}");
+            block_numbers.push(block_number);
+            block_number += U256::one();
+        }
+
+        block_numbers
+            .into_iter()
+            .flat_map(|block_number| {
+                self.get_logs(&filter.address, &filter.topics, block_number)
+                    .into_iter()
+            })
+            .collect()
     }
 }

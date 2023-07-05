@@ -259,7 +259,7 @@ public:
         double f1 = (double)a.GetFee() * b.GetTxSize();
         double f2 = (double)b.GetFee() * a.GetTxSize();
         if (f1 == f2) {
-            return b.GetTx().GetHash() < a.GetTx().GetHash();
+            return a.GetTime() < b.GetTime();
         }
         return f1 > f2;
     }
@@ -294,7 +294,7 @@ public:
         double f2 = a_size * b_mod_fee;
 
         if (f1 == f2) {
-            return a.GetTx().GetHash() < b.GetTx().GetHash();
+            return a.GetTime() < b.GetTime();
         }
         return f1 > f2;
     }
@@ -519,6 +519,8 @@ public:
     mutable RecursiveMutex cs;
     indexed_transaction_set mapTx GUARDED_BY(cs);
 
+    std::map<std::array<uint8_t, 20>, std::set<uint256>> ethTxsBySender;
+
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
 
@@ -578,7 +580,7 @@ public:
     // and any other callers may break wallet's in-mempool tracking (due to
     // lack of CValidationInterface::TransactionAddedToMempool callbacks).
     void addUnchecked(const CTxMemPoolEntry& entry, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
-    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
+    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true, const std::optional<std::array<::std::uint8_t, 20>> ethSender = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
 
     void removeRecursive(const CTransaction& tx, MemPoolRemovalReason reason) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForReorg(const CCoinsViewCache* pcoins, unsigned int nMemPoolHeight, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);

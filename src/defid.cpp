@@ -58,7 +58,6 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
-    preinit();
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -120,6 +119,7 @@ static bool AppInit(int argc, char* argv[])
         gArgs.SoftSetBoolArg("-server", true);
         // Set this early so that parameter interactions go to console
         InitLogging();
+        preinit();
         InitParameterInteraction();
         if (!AppInitBasicSetup())
         {

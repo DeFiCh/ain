@@ -7,6 +7,7 @@
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <univalue.h>
+#include <arith_uint256.h>
 
 extern std::string ScriptToString(const CScript &script);
 
@@ -234,7 +235,14 @@ public:
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
-        rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+        
+        if (obj.maxPrice.isAboveValid()) {
+            auto price = PoolPrice::getMaxValid();
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
+        }
+        else {
+            rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+        }
     }
 
     void operator()(const CPoolSwapMessageV2 &obj) const {

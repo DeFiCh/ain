@@ -9,20 +9,23 @@ env:
   BUILD_VERSION: latest # Computed
   DOCKER_HUB_USER: defi
   MAKE_DEBUG: 0
+  GIT_VERSION: 1
 
 jobs:
   linux-x64:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      TARGET: x86_64-pc-linux-gnu
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release
+      run: ./make.sh docker-release
 
     - name: Publish artifacts
       uses: actions/upload-artifact@v3
@@ -47,15 +50,17 @@ jobs:
   linux-aarch64:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      TARGET: aarch64-linux-gnu
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
     
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="aarch64-linux-gnu" ./make.sh docker-release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - aarch64-linux-gnu
       uses: actions/upload-artifact@v3
@@ -66,15 +71,17 @@ jobs:
   win-x64:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      TARGET: x86_64-w64-mingw32
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-w64-mingw32" ./make.sh docker-release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - x86_64-w64-mingw32
       uses: actions/upload-artifact@v3
@@ -85,15 +92,17 @@ jobs:
   osx-x64:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      TARGET: x86_64-apple-darwin
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="x86_64-apple-darwin" ./make.sh docker-release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - x86_64-apple-darwin
       uses: actions/upload-artifact@v3
@@ -104,15 +113,17 @@ jobs:
   osx-aarch64:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      TARGET: aarch64-apple-darwin
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
     - name: Build and package
-      run: GIT_VERSION=1 TARGET="aarch64-apple-darwin" ./make.sh docker-release
+      run: ./make.sh docker-release
 
     - name: Publish artifact - aarch64-apple-darwin
       uses: actions/upload-artifact@v3
@@ -134,7 +145,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Populate environment
-      run: GIT_VERSION=1 ./make.sh ci-export-vars
+      run: ./make.sh ci-export-vars
 
     - name: Cleanup work dir
       run: rm -rf *
@@ -158,16 +169,16 @@ jobs:
     - name: Generate SHA256 checksum
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        cd ./defichain-${ver}-x86_64-pc-linux-gnu
-        sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256
-        cd ./defichain-${ver}-aarch64-linux-gnu
-        sha256sum ./defichain-${ver}-aarch64-linux-gnu.tar.gz > ./defichain-${ver}-aarch64-linux-gnu.tar.gz.SHA256
-        cd .. && cd ./defichain-${ver}-x86_64-w64-mingw32
-        sha256sum ./defichain-${ver}-x86_64-w64-mingw32.zip > ./defichain-${ver}-x86_64-w64-mingw32.zip.SHA256
-        cd .. && cd ./defichain-${ver}-x86_64-apple-darwin
-        sha256sum ./defichain-${ver}-x86_64-apple-darwin.tar.gz > ././defichain-${ver}-x86_64-apple-darwin.tar.gz.SHA256
-        cd .. && cd ./defichain-${ver}-aarch64-apple-darwin
-        sha256sum ./defichain-${ver}-aarch64-apple-darwin.tar.gz > ././defichain-${ver}-aarch64-apple-darwin.tar.gz.SHA256
+        (cd ./defichain-${ver}-x86_64-pc-linux-gnu
+        sha256sum ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${ver}-x86_64-pc-linux-gnu.tar.gz.SHA256)
+        (cd ./defichain-${ver}-aarch64-linux-gnu
+        sha256sum ./defichain-${ver}-aarch64-linux-gnu.tar.gz > ./defichain-${ver}-aarch64-linux-gnu.tar.gz.SHA256)
+        (cd ./defichain-${ver}-x86_64-w64-mingw32
+        sha256sum ./defichain-${ver}-x86_64-w64-mingw32.zip > ./defichain-${ver}-x86_64-w64-mingw32.zip.SHA256)
+        (cd ./defichain-${ver}-x86_64-apple-darwin
+        sha256sum ./defichain-${ver}-x86_64-apple-darwin.tar.gz > ././defichain-${ver}-x86_64-apple-darwin.tar.gz.SHA256)
+        (cd ./defichain-${ver}-aarch64-apple-darwin
+        sha256sum ./defichain-${ver}-aarch64-apple-darwin.tar.gz > ././defichain-${ver}-aarch64-apple-darwin.tar.gz.SHA256)
 
     - name: Upload release asset - linux-x64
       uses: actions/upload-release-asset@v1

@@ -272,10 +272,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     XVM xvm{};
-    if (IsEVMEnabled(nHeight, mnview)) {
+    if (IsEVMEnabled(nHeight, mnview, consensus)) {
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
-        auto blockResult = evm_finalize(evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
+        CrossBoundaryResult result;
+        auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
         evm_discard_context(evmContext);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
@@ -364,7 +365,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview) && !xvm.evm.blockHash.IsNull()) {
+        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
@@ -533,6 +534,30 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
+void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters) {
+
+    // Make sure we only remove EVM TXs which have no descendants or TX fees.
+    // Removing others TXs is more complicated and should be handled by RemoveFailedTransactions.
+    for (const auto& iter : iters) {
+        const auto &tx = iter->GetTx();
+        std::vector<unsigned char> metadata;
+        const auto txType = GuessCustomTxType(tx, metadata, false);
+        if (txType != CustomTxType::EvmTx) {
+            continue;
+        }
+
+        for (size_t i = 0; i < pblock->vtx.size();  ++i) {
+            if (pblock->vtx[i] && pblock->vtx[i]->GetHash() == iter->GetTx().GetHash()) {
+                pblock->vtx.erase(pblock->vtx.begin() + i);
+                break;
+            }
+        }
+
+        nBlockWeight -= iter->GetTxWeight();
+        --nBlockTx;
+    }
+}
+
 void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees) {
     if (failedTransactions.empty()) {
         return;
@@ -594,6 +619,7 @@ void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &fa
         if (txFees.count(tx->GetHash())) {
             nFees -= txFees.at(tx->GetHash());
         }
+        --nBlockTx;
     }
 }
 
@@ -643,6 +669,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     CTxMemPool::setEntries failedTx;
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+    // Used for replacement Eth TXs when a TX in chain pays a higher fee
+    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -666,6 +694,19 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Variable to tally total gas used in the block
     uint64_t totalGas{};
 
+    // Used to track EVM TXs by sender and nonce.
+    // Key: sender address, nonce
+    // Value: fee
+    std::map<std::pair<std::array<std::uint8_t, 20>, uint64_t>, uint64_t> evmTXFees;
+
+    // Used to track EVM TXs by sender
+    // Key: sender address
+    // Value: vector of mempool TX iterator
+    std::map<std::array<std::uint8_t, 20>, std::vector<CTxMemPool::txiter>> evmTXs;
+
+    // Used to track gas fees of EVM TXs
+    std::map<uint256, uint64_t> evmGasFees;
+
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
@@ -679,8 +720,16 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         // the next entry from mapTx, or the best from mapModifiedTx?
         bool fUsingModified = false;
 
+        // Check wheter we are using Eth replaceByFee
+        bool usingReplaceByFee{};
+
         modtxscoreiter modit = mapModifiedTx.get<ancestor_score>().begin();
-        if (mi == mempool.mapTx.get<T>().end() && mapModifiedTx.empty()) {
+        if (!replaceByFee.empty()) {
+            const auto it = replaceByFee.begin();
+            iter = it->second;
+            replaceByFee.erase(it);
+            usingReplaceByFee = true;
+        } else if (mi == mempool.mapTx.get<T>().end() && mapModifiedTx.empty()) {
             const auto it = failedNonces.begin();
             iter = it->second;
             failedNonces.erase(it);
@@ -800,34 +849,68 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
-                    RustRes result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
+                    CrossBoundaryResult result;
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
                     if (!result.ok) {
                         customTxPassed = false;
                         break;
+                    }
+
+                    const auto evmKey = std::make_pair(txResult.sender, txResult.nonce);
+                    if (evmTXFees.count(evmKey)) {
+                        const auto& usedGas = evmTXFees.at(evmKey);
+                        if (txResult.used_gas > usedGas) {
+                            // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
+                            RemoveEVMTransactions(evmTXs[txResult.sender]);
+                            for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
+                                const auto& [sender, nonce] = it->first;
+                                if (sender == txResult.sender) {
+                                    totalGas -= it->second;
+                                    it = evmTXFees.erase(it);
+                                } else {
+                                    ++it;
+                                }
+                            }
+                            checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
+                            evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
+                            auto count{txResult.nonce};
+                            for (const auto& entry : evmTXs[txResult.sender]) {
+                                inBlock.erase(entry);
+                                checkedTX.erase(entry->GetTx().GetHash());
+                                replaceByFee.emplace(count, entry);
+                                ++count;
+                            }
+                            evmTXs.erase(txResult.sender);
+                            evm_remove_txs_by_sender(evmContext, txResult.sender);
+                            customTxPassed = false;
+                            break;
+                        }
                     }
 
                     const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
                     if (nonce != txResult.nonce) {
                         // Only add if not already in failed TXs to prevent adding on second attempt.
                         if (!failedTx.count(iter)) {
-                            failedNonces.emplace(nonce, iter);
+                            failedNonces.emplace(txResult.nonce, iter);
                         }
                         customTxPassed = false;
                         break;
                     }
+
+                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.used_gas);
+                    evmTXs[txResult.sender].push_back(sortedEntries[i]);
                 }
 
                 uint64_t gasUsed{};
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
-                                // Not okay invalidate, undo and skip
+                // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
-
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
-
                     break;
                 }
+
+                evmGasFees.emplace(tx.GetHash(), gasUsed);
 
                 if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
                     customTxPassed = false;
@@ -845,6 +928,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         if (!customTxPassed) {
             if (fUsingModified) {
                 mapModifiedTx.get<ancestor_score>().erase(modit);
+            }
+            if (usingReplaceByFee) {
+                // TX failed in chain so remove the rest of the items
+                replaceByFee.clear();
             }
             failedTx.insert(iter);
             continue;
@@ -943,12 +1030,9 @@ namespace pos {
             }
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
-                // this is safe cause MN was found
+                // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
                 }
                 else {
                     scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
