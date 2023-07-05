@@ -62,7 +62,7 @@ jobs:
       run: ./make.sh build-deps && ./make.sh build-conf
 
     - name: Format checks
-      run: ./make.sh lib fmt-check
+      run: ./make.sh lib fmt-check 1
 
     - name: Clippy checks
-      run: ./make.sh lib clippy
+      run: ./make.sh lib clippy 1
