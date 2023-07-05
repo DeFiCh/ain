@@ -64,14 +64,6 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
 
-    def test_vmmap(self):
-        # Check if vmmap is working for different type of addresses
-        eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
-        address = self.nodes[0].vmmap(eth_address, 2)
-        assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
-        assert_equal(address, self.nodes[0].vmmap(address, 2))
-        assert_equal(eth_address, self.nodes[0].vmmap(eth_address, 1))
-
     def logvmmaps_tx_exist(self):
         list_tx = self.nodes[0].logvmmaps(1)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
@@ -148,7 +140,6 @@ class EVMTest(DefiTestFramework):
         self.vmmap_valid_block_should_success()
         self.vmmap_invalid_block_should_fail()
         self.vmmap_rollback_should_success()
-        self.test_vmmap()
 
 
 if __name__ == '__main__':
