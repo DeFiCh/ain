@@ -254,12 +254,10 @@ impl Handlers {
     pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
         self.evm.tx_queues.queue_tx(context, tx.clone(), hash)?;
 
-        match tx {
-            QueueTx::SignedTx(signed_tx) => {
-                self.filters.add_tx_to_filters(signed_tx.transaction.hash())
-            }
-            _ => {}
-        };
+        if let QueueTx::SignedTx(signed_tx) = tx {
+            self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+        }
+
         Ok(())
     }
 }
