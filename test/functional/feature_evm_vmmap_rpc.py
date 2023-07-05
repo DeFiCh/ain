@@ -28,7 +28,6 @@ class VMMapTests(DefiTestFramework):
 
         # Generate chain
         self.nodes[0].generate(101)
-
         assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, self.ethAddress, 0, 21, 21000, self.toAddress, 0.1)
 
         # Move to fork height
@@ -103,7 +102,7 @@ class VMMapTests(DefiTestFramework):
         # TODO: Each fn, should be independent of each other. Should rely on vars set outside of it's context or setup.
         # For rollback, keys need to be added, checked, rollback to state in-between, checked for expected output in the middle
         # and then checked for expected output after rolled back to clean state.
-        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.    
+        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.
         # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
         # assert_raises_rpc_error(-32600, "Key not found: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
         # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
