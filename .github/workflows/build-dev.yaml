@@ -69,7 +69,7 @@ jobs:
 
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: DOCKER_TARGET_STAGE="defi" IMAGE_NAME="defi/defichain:${ver}" ./make.sh docker-build
+      run: DOCKER_TARGET_STAGE="defi" IMAGE_NAME="defi/defichain:${{ env.BUILD_VERSION }}" ./make.sh docker-build
 
     - name: Log docker images
       run: docker image ls
@@ -102,5 +102,4 @@ jobs:
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
         docker push defi/defichain:${ver}
