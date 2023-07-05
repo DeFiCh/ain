@@ -33,13 +33,7 @@ class MasternodesRpcCreateRewardTest(DefiTestFramework):
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
         # Fail to create: Insufficient funds (not matured coins)
-        try:
-            idnode0 = self.nodes[0].createmasternode(
-                collateral0
-            )
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Insufficient funds" in errorString)
+        assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[0].createmasternode, collateral0)
 
         # Create node0
         self.nodes[0].generate(20)
@@ -49,24 +43,16 @@ class MasternodesRpcCreateRewardTest(DefiTestFramework):
                                 self.nodes[0].createmasternode, collateral1)
 
         # Fail to create: Wrong reward address format
-        try:
-            self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', self.nodes[0].getnewaddress("", "eth"))
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("does not refer to a P2PKH or P2WPKH address" in errorString)
+        assert_raises_rpc_error(-8, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', self.nodes[0].getnewaddress("", "eth"))
 
         # Fail to create: Invalid reward address
-        try:
-            self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', "test")
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("does not refer to a P2PKH or P2WPKH address" in errorString)
+        assert_raises_rpc_error(-8, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].createmasternode, collateral0, '', [], 'TENYEARTIMELOCK', "test")
 
         idnode0 = self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', reward)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['rewardAddress'], reward)
 
-
+        # Should create: masternode without reward address
         idnode1 = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode1]['rewardAddress'], '')
