@@ -4,8 +4,8 @@ pragma solidity >=0.7.0 <0.9.0;
 
 contract Counter {
     string public name = "Counter";
-    address private owner;
-    uint256 count = 0;
+    address public owner;
+    uint256 private count = 0;
 
     event echo(string message);
 
@@ -18,6 +18,14 @@ contract Counter {
         require(msg.sender == owner); // validate whether caller is the address of owner
         _; // if true continue process
     }
+
+    // function inspectSender() public view returns (address) {
+    //     return msg.sender;
+    // }
+
+    // function inspectOrigin() public view returns (address) {
+    //     return tx.origin;
+    // }
 
     // computing
     function mul(uint256 a, uint256 b) public pure returns (uint256) {
@@ -36,7 +44,8 @@ contract Counter {
     }
 
     // set state
-    function setCount(uint256 _count) public onlyOwner {
+    // function setCount(uint256 _count) public onlyOwner {
+    function setCount(uint256 _count) public {
         count = _count;
     }
 
