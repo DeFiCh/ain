@@ -41,6 +41,7 @@ class VMMapTests(DefiTestFramework):
         self.start_block_height = self.nodes[0].getblockcount()
 
     def vmmap_should_exist(self):
+        # TODO: Add more keys and addr maps, to ensure it's tested with multiple items in the index
         priv_keys = [
             "cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz"
         ]
