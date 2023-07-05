@@ -55,3 +55,4 @@ class EVMProvider:
         self.generator(1)
 
         self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        return tx_hash
