@@ -64,6 +64,11 @@ mod ffi {
     pub fn pastChangiIntermediateHeight4() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+
+    pub fn CppLogPrintf(_message: String) {
+        // Intentionally left empty, so it can be used from everywhere.
+        // Just the logs are skipped.
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -150,6 +155,10 @@ pub fn past_changi_intermediate_height_3_height() -> bool {
 
 pub fn past_changi_intermediate_height_4_height() -> bool {
     ffi::pastChangiIntermediateHeight4()
+}
+
+pub fn log_print(message: &str) {
+    ffi::CppLogPrintf(message.to_owned());
 }
 
 #[cfg(test)]

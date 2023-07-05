@@ -64,11 +64,33 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
+struct LogTarget {}
+
+// TODO:
+// - Switch to u8 to avoid intermediate string conversions
+// - Use a custom format to clear up timing.
+impl std::io::Write for LogTarget {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        // let mut out = std::io::stdout().lock();
+        // out.write(buf)?;
+        let s = std::str::from_utf8(buf).or(Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Invalid UTF-8 sequence",
+        )))?;
+        ain_cpp_imports::log_print(s);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 pub fn preinit() {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
     )
-    .target(env_logger::Target::Stdout)
+    .target(env_logger::Target::Pipe(Box::new(LogTarget {})))
     .init();
     info!("init");
 }
