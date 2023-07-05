@@ -48,7 +48,14 @@ class MasternodesRpcCreateRewardTest(DefiTestFramework):
         assert_raises_rpc_error(-8, "Address ({}) is not owned by the wallet".format(collateral1),
                                 self.nodes[0].createmasternode, collateral1)
 
-        # Fail to create: Wrong reward address
+        # Fail to create: Wrong reward address format
+        try:
+            self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', self.nodes[0].getnewaddress("", "eth"))
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert ("does not refer to a P2PKH or P2WPKH address" in errorString)
+
+        # Fail to create: Invalid reward address
         try:
             self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', "test")
         except JSONRPCException as e:
@@ -58,6 +65,11 @@ class MasternodesRpcCreateRewardTest(DefiTestFramework):
         idnode0 = self.nodes[0].createmasternode(collateral0, '', [], 'TENYEARTIMELOCK', reward)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['rewardAddress'], reward)
+
+
+        idnode1 = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listmasternodes()[idnode1]['rewardAddress'], '')
 
 
 if __name__ == '__main__':

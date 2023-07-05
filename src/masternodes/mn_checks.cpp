@@ -820,8 +820,10 @@ public:
         node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
         if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
-            node.rewardAddressType   = obj.rewardType;
-            node.rewardAddress = obj.rewardAddress;
+            if (obj.rewardType == NoDestType || obj.rewardType == PKHashType || obj.rewardType == ScriptHashType || obj.rewardType == WitV0KeyHashType) {
+                node.rewardAddressType = obj.rewardType;
+                node.rewardAddress = obj.rewardAddress;
+            }
         }
 
         // Set masternode version2 after FC for new serialisation

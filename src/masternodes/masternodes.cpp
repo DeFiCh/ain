@@ -309,6 +309,9 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
         return Res::Err(
             "bad owner and|or operator address (should be P2PKH or P2WPKH only) or node with those addresses exists");
     }
+    if (node.rewardAddressType != 0 && node.rewardAddressType != 1 && node.rewardAddressType != 2 && node.rewardAddressType != 4) {
+        return Res::Err("bad reward address");
+    }
 
     WriteBy<ID>(nodeId, node);
     WriteBy<Owner>(node.ownerAuthAddress, nodeId);

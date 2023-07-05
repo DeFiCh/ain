@@ -134,7 +134,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     std::string ownerAddress = request.params[0].getValStr();
     std::string operatorAddress = request.params.size() > 1 && !request.params[1].getValStr().empty() ? request.params[1].getValStr() : ownerAddress;
-    std::string rewardAddress = !request.params[4].getValStr().empty() ? request.params[4].getValStr() : ownerAddress;
+    std::string rewardAddress = request.params[4].getValStr();
     CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
@@ -174,12 +174,12 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    if (rewardDest.index() != 1 && rewardDest.index() != 4) {
+    if (!rewardAddress.empty() && rewardDest.index() != 1 && rewardDest.index() != 2 && rewardDest.index() != 4) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
     CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
-    CKeyID const rewardAuthKey = rewardDest.index() == 1 ? CKeyID(std::get<PKHash>(rewardDest)) : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
+    CKeyID rewardAuthKey = getCKeyIDFromDestination(rewardDest);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
