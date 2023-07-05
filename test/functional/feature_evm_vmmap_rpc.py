@@ -11,6 +11,7 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -23,8 +24,8 @@ class EVMTest(DefiTestFramework):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         self.toAddress = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
-        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23') # ethAddress
-        self.nodes[0].importprivkey('17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35') # toAddress
+        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23')  # ethAddress
+        self.nodes[0].importprivkey('17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35')  # toAddress
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -64,13 +65,36 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
 
     def test_vmmap(self):
-
         # Check if vmmap is working for different type of addresses
         eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
         address = self.nodes[0].vmmap(eth_address, 2)
         assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
         assert_equal(address, self.nodes[0].vmmap(address, 2))
         assert_equal(eth_address, self.nodes[0].vmmap(eth_address, 1))
+
+    def logvmmaps_tx_exist(self):
+        list_tx = self.nodes[0].logvmmaps(1)
+        eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        assert_equal(eth_tx[2:] in list(list_tx['indexes'].values()), True)
+        dfi_tx = self.nodes[0].vmmap(eth_tx, 4)
+        assert_equal(dfi_tx in list(list_tx['indexes'].keys()), True)
+
+    def logvmmaps_invalid_tx_should_fail(self):
+        list_tx = self.nodes[0].logvmmaps(1)
+        assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
+        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
+
+    def logvmmaps_block_exist(self):
+        list_blocks = self.nodes[0].logvmmaps(0)
+        eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        assert_equal(eth_block[2:] in list(list_blocks['indexes'].values()), True)
+        dfi_block = self.nodes[0].vmmap(eth_block, 6)
+        assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
+
+    def logvmmaps_invalid_block_should_fail(self):
+        list_tx = self.nodes[0].logvmmaps(1)
+        assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
+        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
 
     def vmmap_valid_tx_should_success(self):
         # Check if xvmmap is working for Txs
@@ -105,14 +129,17 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "DB r/w failure: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
         assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
 
-
     def run_test(self):
         self.setup()
-        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.ethAddress, "amount":"100@DFI", "domain": 3}}])
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         self.vmmap_should_exist()
+        self.logvmmaps_tx_exist()
+        self.logvmmaps_invalid_tx_should_fail()
+        self.logvmmaps_block_exist()
+        self.logvmmaps_invalid_block_should_fail()
         self.vmmap_invalid_key_type_should_fail()
         self.vmmap_valid_key_not_present_should_fail()
         self.vmmap_invalid_keys_should_fail()
