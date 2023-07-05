@@ -5,7 +5,8 @@
 
 Res CVMDomainGraphView::SetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey, uint256 blockHash)
 {
-    return WriteBy<VMDomainBlockEdge>(std::pair(static_cast<uint8_t>(type), blockHashKey), blockHash) ? Res::Ok() : DeFiErrors::DatabaseRWFailure(blockHashKey.GetHex());
+    return WriteBy<VMDomainBlockEdge>(std::pair(static_cast<uint8_t>(type), blockHashKey), blockHash)
+            ? Res::Ok() : DeFiErrors::DatabaseWriteFailure(blockHashKey.GetHex());
 }
 
 ResVal<uint256> CVMDomainGraphView::GetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey) const
@@ -13,13 +14,13 @@ ResVal<uint256> CVMDomainGraphView::GetVMDomainBlockEdge(VMDomainEdge type, uint
     uint256 blockHash;
     if (ReadBy<VMDomainBlockEdge>(std::pair(static_cast<uint8_t>(type), blockHashKey), blockHash))
         return ResVal<uint256>(blockHash, Res::Ok());
-    return DeFiErrors::DatabaseRWFailure(blockHashKey.GetHex());
+    return DeFiErrors::DatabaseReadFailure(blockHashKey.GetHex());
 }
 
 Res CVMDomainGraphView::SetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey, uint256 txHash)
 {
     return WriteBy<VMDomainTxEdge>(std::pair(static_cast<uint8_t>(type), txHashKey), txHash) 
-        ? Res::Ok() : DeFiErrors::DatabaseRWFailure(txHashKey.GetHex());
+        ? Res::Ok() : DeFiErrors::DatabaseWriteFailure(txHashKey.GetHex());
 }
 
 ResVal<uint256> CVMDomainGraphView::GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const
@@ -27,7 +28,7 @@ ResVal<uint256> CVMDomainGraphView::GetVMDomainTxEdge(VMDomainEdge type, uint256
     uint256 txHash;
     if (ReadBy<VMDomainTxEdge>(std::pair(static_cast<uint8_t>(type), txHashKey), txHash))
         return ResVal<uint256>(txHash, Res::Ok());
-    return DeFiErrors::DatabaseRWFailure(txHashKey.GetHex());
+    return DeFiErrors::DatabaseReadFailure(txHashKey.GetHex());
 }
 
 void CVMDomainGraphView::ForEachVMDomainBlockEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback) {

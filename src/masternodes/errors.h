@@ -462,8 +462,12 @@ public:
         return Res::Err("Unexpected Script: %s", script.GetHex());
     }
 
-    static Res DatabaseRWFailure(const std::string key) {
+    static Res DatabaseWriteFailure(const std::string key) {
       return Res::Err("DB r/w failure: %s", key);
+    }
+
+    static Res DatabaseReadFailure(const std::string key) {
+        return Res::Err("Key not found: %s", key);
     }
 };
 

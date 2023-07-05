@@ -99,7 +99,7 @@ class EVMTest(DefiTestFramework):
     def vmmap_invalid_tx_should_fail(self):
         # Check vmmap fail on wrong tx
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
+        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
 
     def vmmap_valid_block_should_success(self):
         # Check if xvmmap is working for Blocks
@@ -110,15 +110,15 @@ class EVMTest(DefiTestFramework):
     def vmmap_invalid_block_should_fail(self):
         # Check vmmap fail on wrong block
         evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
+        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
 
     def vmmap_rollback_should_success(self):
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
         self.nodes[0].invalidateblock(self.dvm_block)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
-        assert_raises_rpc_error(-32600, "DB r/w failure: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
+        assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
+        assert_raises_rpc_error(-32600, "Key not found: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
+        assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
+        assert_raises_rpc_error(-32600, "Key not found: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
         assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
 
     def run_test(self):
