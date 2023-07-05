@@ -69,7 +69,7 @@ jobs:
 
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: DOCKER_TARGET_STAGE="defi" ./make.sh docker-build defi/defichain:${ver}
+      run: DOCKER_TARGET_STAGE="defi" IMAGE_NAME="defi/defichain:${ver}" ./make.sh docker-build
 
     - name: Log docker images
       run: docker image ls

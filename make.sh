@@ -286,7 +286,7 @@ docker_build() {
 
     echo "> docker-build";
 
-    local img=${2:-"${img_prefix}-${target}:${img_version}"}
+    local img=${IMAGE_NAME:-"${img_prefix}-${target}:${img_version}"}
     echo "> building: ${img}"
     echo "> docker build: ${img}"
     docker build -f "${docker_file}" \
