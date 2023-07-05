@@ -310,7 +310,15 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal, const bool et
     mapKeyMetadata[keyID] = metadata;
     UpdateTimeFirstKey(nCreationTime);
 
-    if (!AddKeyPubKeyWithDB(batch, secret, pubkey, ethAddress)) {
+    CPubKey compressedPubkey;
+    if (ethAddress) {
+        compressedPubkey = CPubKey(pubkey.begin(), pubkey.end());
+        if (!compressedPubkey.Compress()) {
+            compressedPubkey = {};
+        }
+    }
+
+    if (!AddKeyPubKeyWithDB(batch, secret, pubkey, compressedPubkey)) {
         throw std::runtime_error(std::string(__func__) + ": AddKey failed");
     }
     return pubkey;
@@ -371,7 +379,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
         throw std::runtime_error(std::string(__func__) + ": Writing HD chain model failed");
 }
 
-bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const CPubKey& pubkey, const bool ethAddress)
+bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const CPubKey& pubkey, const CPubKey &compressedPubKey)
 {
     AssertLockHeld(cs_wallet);
 
@@ -385,7 +393,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     if (needsDB) {
         encrypted_batch = &batch;
     }
-    if (!AddKeyPubKeyInner(secret, pubkey, ethAddress)) {
+    if (!AddKeyPubKeyInner(secret, pubkey, compressedPubKey)) {
         if (needsDB) encrypted_batch = nullptr;
         return false;
     }
@@ -409,20 +417,23 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     }
 
     if (!IsCrypted()) {
-        const auto keyID = ethAddress ? pubkey.GetEthID() : pubkey.GetID();
-        return batch.WriteKey(pubkey,
-                              secret.GetPrivKey(),
-                              mapKeyMetadata[keyID],
-                              ethAddress);
+        const auto isCompressedValid = compressedPubKey.IsValid();
+        const auto privKey = secret.GetPrivKey();
+        if (!isCompressedValid) {
+            return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetID()], false);
+        }
+        return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetEthID()], true) && 
+                batch.WriteKey(compressedPubKey, privKey, mapKeyMetadata[compressedPubKey.GetID()], false);
+
     }
     UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
 }
 
-bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey, const bool ethAddress)
+bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey, const CPubKey &compressedPubKey)
 {
     WalletBatch batch(*database);
-    return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey, ethAddress);
+    return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey, compressedPubKey);
 }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
@@ -1675,7 +1686,7 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         mapKeyMetadata[seed.GetID()] = metadata;
 
         // write the key&metadata to the database
-        if (!AddKeyPubKey(key, seed, false))
+        if (!AddKeyPubKey(key, seed, {}))
             throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
     }
 
@@ -1840,7 +1851,7 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& priv
 {
     WalletBatch batch(*database);
     for (const auto& [id, keyPair] : privkey_map) {
-        const CKey& key = keyPair.first;
+        const auto& [key, ethAddress] = keyPair;
         CPubKey pubkey = key.GetPubKey();
         assert(key.VerifyPubKey(pubkey));
         // Skip if we already have the key
@@ -1849,8 +1860,17 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& priv
             continue;
         }
         mapKeyMetadata[id].nCreateTime = timestamp;
+
+        CPubKey compressedPubkey;
+        if (ethAddress) {
+            compressedPubkey = CPubKey(pubkey.begin(), pubkey.end());
+            if (!compressedPubkey.Compress()) {
+                compressedPubkey = {};
+            }
+        }
+
         // If the private key is not present in the wallet, insert it.
-        if (!AddKeyPubKeyWithDB(batch, key, pubkey, keyPair.second)) {
+        if (!AddKeyPubKeyWithDB(batch, key, pubkey, compressedPubkey)) {
             return false;
         }
         UpdateTimeFirstKey(timestamp);
@@ -3040,7 +3060,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     }
 
     bool eagerSelect = coinSelectOpts.IsEagerSelectEnabled() || coinSelectOpts.IsFastSelectEnabled();
-    
+
     const auto sumAmountToSelect = eagerSelect ? nValue + DEFAULT_TRANSACTION_MAXFEE : MAX_MONEY;
 
     if (vecSend.empty())
@@ -5012,11 +5032,11 @@ bool CWallet::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
     return true;
 }
 
-bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const bool ethAddress)
+bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {
-        return FillableSigningProvider::AddKeyPubKey(key, pubkey, ethAddress);
+        return FillableSigningProvider::AddKeyPubKey(key, pubkey, compressedPubKey);
     }
 
     if (IsLocked()) {
@@ -5029,7 +5049,7 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const bo
         return false;
     }
 
-    if (!AddCryptedKey(pubkey, vchCryptedSecret, ethAddress)) {
+    if (!AddCryptedKey(pubkey, vchCryptedSecret, compressedPubKey.IsValid())) {
         return false;
     }
     return true;

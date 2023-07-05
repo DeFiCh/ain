@@ -205,6 +205,9 @@ public:
     //! Turn this public key into an uncompressed public key.
     bool Decompress();
 
+    //! Turn this public key into a compressed public key.
+    bool Compress();
+
     //! Derive BIP32 child pubkey.
     bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
 

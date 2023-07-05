@@ -236,6 +236,20 @@ bool CPubKey::Decompress() {
     return true;
 }
 
+bool CPubKey::Compress() {
+    if (!IsValid())
+        return false;
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
+        return false;
+    }
+    unsigned char pub[COMPRESSED_PUBLIC_KEY_SIZE];
+    size_t publen = COMPRESSED_PUBLIC_KEY_SIZE;
+    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
+    Set(pub, pub + publen);
+    return true;
+}
+
 bool CPubKey::Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const {
     assert(IsValid());
     assert((nChild >> 31) == 0);

@@ -117,6 +117,20 @@ impl TransactionQueueMap {
             .map_or(0, TransactionQueue::len)
     }
 
+    /// Removes all transactions in the queue whose sender matches the provided sender address.
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
+    ///
+    pub fn remove_txs_by_sender(&self, context_id: u64, sender: H160) -> Result<(), QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&context_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.remove_txs_by_sender(sender))
+    }
+
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
     /// in the `TransactionQueue` associated with the provided context ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
@@ -187,6 +201,17 @@ impl TransactionQueue {
 
     pub fn len(&self) -> usize {
         self.transactions.lock().unwrap().len()
+    }
+
+    pub fn remove_txs_by_sender(&self, sender: H160) {
+        self.transactions.lock().unwrap().retain(|(tx, _)| {
+            let tx_sender = match tx {
+                QueueTx::SignedTx(tx) => tx.sender,
+                QueueTx::BridgeTx(tx) => tx.sender(),
+            };
+            tx_sender != sender
+        });
+        self.account_nonces.lock().unwrap().remove(&sender);
     }
 
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
