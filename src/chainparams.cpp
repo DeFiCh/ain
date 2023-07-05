@@ -1322,7 +1322,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus, const bool imm
     if (eunosHeight.has_value()){
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
-  
+
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight, immediateActivation);
     UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight, immediateActivation);
     UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight, immediateActivation);
@@ -1339,7 +1339,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus, const bool imm
     UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight, immediateActivation);
     UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight, immediateActivation);
     UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2, immediateActivation);
-    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
+    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate4", "-changiintermediate4height", consensus.ChangiIntermediateHeight4, immediateActivation);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
