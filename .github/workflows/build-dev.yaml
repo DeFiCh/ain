@@ -71,6 +71,9 @@ jobs:
     - name: Build builder image
       run: ./make.sh docker-build
 
+    - name: log file change
+      run: ls -ltR
+
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       run: DOCKER_TARGET="defi" IMAGE_NAME="defi/defichain:${{ env.BUILD_VERSION }}" ./make.sh docker-build
