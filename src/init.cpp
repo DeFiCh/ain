@@ -2326,7 +2326,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = GetMNKeyOrDefaultFromDestination(destination);
+            operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNKeyType);
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
@@ -2357,9 +2357,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = GetMNDestinationOrDefaultFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress);
+                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNKeyType);
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = GetRewardDestinationOrDefaultFromKey(nodePtr->rewardAddressType, nodePtr->rewardAddress);
+                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType);
                 }
             }
 

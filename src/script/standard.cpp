@@ -250,23 +250,36 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     return true;
 }
 
-std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
+std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
     switch (keyIdType) {
         case PKHashType:
-            return CTxDestination(PKHash(keyId));
+            if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
+                return CTxDestination(PKHash(keyId));
+            }
+            break;
         case WitV0KeyHashType:
-            return CTxDestination(WitnessV0KeyHash(keyId));
+            if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
+                return CTxDestination(WitnessV0KeyHash(keyId));
+            }
+            break;
         case ScriptHashType:
-            return CTxDestination(ScriptHash(keyId));
+            if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
+                return CTxDestination(ScriptHash(keyId));
+            }
+            break;
         case WitV16KeyEthHashType:
-            return CTxDestination(WitnessV16EthHash(keyId));
+            if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+                return CTxDestination(WitnessV16EthHash(keyId));
+            }
+            break;
         default:
             return {};
     }
+    return {};
 }
 
-CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId) {
-    auto dest = TryFromKeyIDToDestination(keyIdType, keyId);
+CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
+    auto dest = TryFromKeyIDToDestination(keyIdType, keyId, filter);
     if (dest) {
         return *dest;
     }

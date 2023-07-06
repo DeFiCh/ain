@@ -835,7 +835,7 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = GetMNKeyOrDefaultFromDestination(pendingDest);
+            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNKeyType);
             if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
@@ -919,7 +919,7 @@ public:
 
                 CTxDestination dest;
                 ExtractDestination(tx.vout[1].scriptPubKey, dest);
-                const auto keyID = GetMNKeyOrDefaultFromDestination(dest);
+                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNKeyType);
                 if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
@@ -942,7 +942,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = GetMNKeyOrDefaultFromDestination(pendingDest);
+                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNKeyType);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -1003,7 +1003,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(addressType, keyID));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(addressType, keyID, KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -3828,7 +3828,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = GetMNDestinationOrDefaultFromKey(node->ownerType, node->ownerAuthAddress);
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNKeyType);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
@@ -4368,7 +4368,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4451,8 +4451,10 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
-    Require(IsValidDestination(destination) && tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
 
     LogPrint(BCLog::ACCOUNTCHANGE,
              "AccountChange: hash=%s fund=%s change=%s\n",

@@ -12,12 +12,12 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
     }
     else {
         UniValue obj(UniValue::VOBJ);
-        CTxDestination ownerDest = GetMNDestinationOrDefaultFromKey(node.ownerType, node.ownerAuthAddress);
+        CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(node.ownerType, node.ownerAuthAddress, KeyType::MNKeyType);
         obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
-        CTxDestination operatorDest = GetMNDestinationOrDefaultFromKey(node.operatorType, node.operatorAuthAddress);
+        CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(node.operatorType, node.operatorAuthAddress, KeyType::MNKeyType);
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
-            obj.pushKV("rewardAddress", EncodeDestination(GetRewardDestinationOrDefaultFromKey(node.rewardAddressType, node.rewardAddress)));
+            obj.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(node.rewardAddressType, node.rewardAddress, KeyType::MNRewardKeyType)));
         }
         else {
             obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
@@ -161,7 +161,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    CKeyID const operatorAuthKey = GetMNKeyOrDefaultFromDestination(operatorDest);
+    CKeyID const operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNKeyType);
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
              << static_cast<char>(operatorDest.index()) << operatorAuthKey;
@@ -251,7 +251,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
 
-        ownerDest = GetMNDestinationOrDefaultFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress);
+        ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNKeyType);
         if (!nodePtr->collateralTx.IsNull()) {
             const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
             if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {
@@ -404,7 +404,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
-        const CKeyID keyID = GetMNKeyOrDefaultFromDestination(operatorDest);
+        const CKeyID keyID = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNKeyType);
         msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress), std::make_pair(static_cast<char>(operatorDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
     }
 
@@ -412,7 +412,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         if (rewardAddress.empty()) {
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress), std::pair<char, std::vector<unsigned char>>());
         } else {
-            const CKeyID keyID = GetRewardKeyOrDefaultFromDestination(rewardDest);
+            const CKeyID keyID = CKeyID::FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress), std::make_pair(static_cast<char>(rewardDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
         }
     }

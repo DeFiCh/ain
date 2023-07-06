@@ -4204,10 +4204,10 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.ChangiIntermediateHeight) {
-                destination = GetMNDestinationOrDefaultFromKey(node->rewardAddressType, node->rewardAddress);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNKeyType);
             }
             else {
-                destination = GetRewardDestinationOrDefaultFromKey(node->rewardAddressType, node->rewardAddress);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
             }
 
             if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {

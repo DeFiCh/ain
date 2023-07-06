@@ -157,6 +157,17 @@ enum TxDestType {
     WitV16KeyEthHashType,
 };
 
+enum KeyType {
+    UnknownKeyType = 0,
+    PKHashKeyType = 1 << 0,
+    ScriptHashKeyType = 1 << 1,
+    WPKHashKeyType = 1 << 2,
+    EthHashKey = 1 << 3,
+    MNKeyType = PKHashKeyType | WPKHashKeyType,
+    MNRewardKeyType = PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
+    AllKeyType = ~0,
+};
+
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);
 
@@ -176,10 +187,10 @@ const char* GetTxnOutputType(txnouttype t);
 txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned char>>& vSolutionsRet);
 
 /** Try to get the destination address from the keyID type. */
-std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId);
+std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter=KeyType::UnknownKeyType);
 
 /** Get the destination address (or default) from the keyID type. */
-CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId);
+CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter=KeyType::UnknownKeyType);
 
 /**
  * Parse a standard scriptPubKey for the destination address. Assigns result to

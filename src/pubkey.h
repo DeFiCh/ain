@@ -24,25 +24,38 @@ public:
     CKeyID() : uint160() {}
     explicit CKeyID(const uint160& in) : uint160(in) {}
 
-    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest) {
+    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
         // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
         // flags here and use bit flag logic to decode only specific destinations
         switch (dest.index()) {
             case PKHashType:
-                return CKeyID(std::get<PKHash>(dest));
+                if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
+                    return CKeyID(std::get<PKHash>(dest));
+                }
+                break;
             case WitV0KeyHashType:
-                return CKeyID(std::get<WitnessV0KeyHash>(dest));
+                if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
+                    return CKeyID(std::get<WitnessV0KeyHash>(dest));
+                }
+                break;
             case ScriptHashType:
-                return CKeyID(std::get<ScriptHash>(dest));
+                if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
+                    return CKeyID(std::get<ScriptHash>(dest));
+                }
+                break;
             case WitV16KeyEthHashType:
-                return CKeyID(std::get<WitnessV16EthHash>(dest));
+                if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+                    return CKeyID(std::get<WitnessV16EthHash>(dest));
+                }
+                break;
             default: 
                 return {};
         }
+        return {};
     }
 
-    static CKeyID FromOrDefaultDestination(const CTxDestination &dest) {
-        auto key = TryFromDestination(dest);
+    static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
+        auto key = TryFromDestination(dest, filter);
         if (key) {
             return *key;
         }

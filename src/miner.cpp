@@ -216,10 +216,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             CTxDestination destination;
             if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                destination = GetMNDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNKeyType);
             }
             else {
-                destination = GetRewardDestinationOrDefaultFromKey(finMsg.rewardKeyType, finMsg.rewardKeyID);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
             }
 
             if (IsValidDestination(destination)) {
@@ -1038,10 +1038,10 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(GetRewardDestinationOrDefaultFromKey(nodePtr->rewardAddressType, nodePtr->rewardAddress));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType));
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(GetMNDestinationOrDefaultFromKey(nodePtr->ownerType, nodePtr->ownerAuthAddress));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNKeyType));
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;
