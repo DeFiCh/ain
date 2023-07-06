@@ -1,6 +1,7 @@
 use crate::evm::EVMServices;
 use crate::storage::traits::FlushableStorage;
 
+use anyhow::Result;
 use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -43,6 +44,19 @@ impl Services {
             json_rpc: Mutex::new(None),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
+    }
+
+    pub fn stop_network(&self) -> Result<()> {
+        self.json_rpc
+            .lock()
+            .unwrap()
+            .take()
+            .expect("json rpc server not running")
+            .stop()
+            .unwrap();
+
+        // TODO: Propogate error
+        Ok(())
     }
 
     pub fn stop(&self) {

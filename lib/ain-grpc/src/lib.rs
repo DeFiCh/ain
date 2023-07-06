@@ -32,11 +32,11 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
 };
 
-use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ain_evm::services::{Services, SERVICES};
+use anyhow::Result;
 
 pub fn preinit() {}
 
@@ -55,13 +55,13 @@ pub fn init_services() {
     let _ = &*SERVICES;
 }
 
-pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
     init_network_json_rpc_service(&SERVICES, json_addr)?;
     init_network_grpc_service(&SERVICES, grpc_addr)?;
     Ok(())
 }
 
-pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<()> {
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let handle = runtime.tokio_runtime.clone();
@@ -79,17 +79,19 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     Ok(())
 }
 
-pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
     // runtime
     //     .rt_handle
     // .spawn(Server::builder().serve(addr.parse()?));
-
     Ok(())
 }
 
-pub fn stop_network_services() {}
+pub fn stop_network_services() -> Result<()> {
+    info!("Shutdown rs network services");
+    SERVICES.stop_network()
+}
 
 pub fn stop_services() {
     info!("Shutdown rs services");

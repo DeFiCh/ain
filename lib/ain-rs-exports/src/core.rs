@@ -37,6 +37,13 @@ pub fn ain_rs_init_network_services(
 }
 
 pub fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult) {
-    ain_grpc::stop_network_services();
-    result.ok = true;
+    match ain_grpc::stop_network_services() {
+        Ok(()) => {
+            result.ok = true;
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+        }
+    }
 }
