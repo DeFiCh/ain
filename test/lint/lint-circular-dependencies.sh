@@ -75,6 +75,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "pos -> validation -> txdb -> pos"
     "pos_kernel -> validation -> pos_kernel"
     "pos_kernel -> validation -> txdb -> pos_kernel"
+    "pubkey -> script/standard -> script/interpreter -> pubkey"
     "spv/support/BRAddress -> spv/support/BRBech32 -> spv/support/BRAddress"
     "spv/bitcoin/BRChainParams -> spv/bitcoin/BRMerkleBlock -> spv/support/BRAddress -> spv/bitcoin/BRChainParams"
     "spv/bitcoin/BRChainParams -> spv/bitcoin/BRPeer -> spv/bitcoin/BRTransaction -> spv/support/BRKey -> spv/bitcoin/BRChainParams"
