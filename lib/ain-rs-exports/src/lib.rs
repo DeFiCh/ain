@@ -19,25 +19,25 @@ pub const GWEI_TO_SATS: u64 = 10;
 #[cxx::bridge]
 pub mod ffi {
     pub struct CreateTransactionContext {
-        chain_id: u64,
-        nonce: [u8; 32],
-        gas_price: [u8; 32],
-        gas_limit: [u8; 32],
-        to: [u8; 20],
-        value: [u8; 32],
-        input: Vec<u8>,
-        priv_key: [u8; 32],
+        pub chain_id: u64,
+        pub nonce: [u8; 32],
+        pub gas_price: [u8; 32],
+        pub gas_limit: [u8; 32],
+        pub to: [u8; 20],
+        pub value: [u8; 32],
+        pub input: Vec<u8>,
+        pub priv_key: [u8; 32],
     }
 
     #[derive(Default)]
-    pub struct FinalizeBlockResult {
-        block_hash: [u8; 32],
-        failed_transactions: Vec<String>,
-        miner_fee: u64,
+    pub struct FinalizeBlockCompletion {
+        pub block_hash: [u8; 32],
+        pub failed_transactions: Vec<String>,
+        pub miner_fee: u64,
     }
 
     #[derive(Default)]
-    pub struct ValidateTxResult {
+    pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
         pub used_gas: u64,
@@ -50,7 +50,7 @@ pub mod ffi {
 
     extern "Rust" {
         fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_nonce(address: [u8; 20]) -> u64;
+
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
 
         fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]);
@@ -67,7 +67,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
-        ) -> ValidateTxResult;
+        ) -> ValidateTxCompletion;
 
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
@@ -85,7 +85,7 @@ pub mod ffi {
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
-        ) -> FinalizeBlockResult;
+        ) -> FinalizeBlockCompletion;
 
         fn preinit();
         fn init_evm_runtime();
@@ -184,34 +184,6 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
     balance /= WEI_TO_GWEI;
     balance /= GWEI_TO_SATS;
     balance.as_u64()
-}
-
-/// Retrieves the nonce of an EVM account at latest block height.
-///
-/// # Arguments
-///
-/// * `address` - The EVM address of the account.
-///
-/// # Errors
-///
-/// Throws an Error if the address is not a valid EVM address.
-///
-/// # Returns
-///
-/// Returns the nonce of the account as a `u64` on success.
-pub fn evm_get_nonce(address: [u8; 20]) -> u64 {
-    let account = H160::from(address);
-    let (_, latest_block_number) = RUNTIME
-        .handlers
-        .block
-        .get_latest_block_hash_and_number()
-        .unwrap_or_default();
-    let nonce = RUNTIME
-        .handlers
-        .evm
-        .get_nonce(account, latest_block_number)
-        .unwrap_or_default();
-    nonce.as_u64()
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific context
@@ -319,12 +291,12 @@ pub fn evm_try_prevalidate_raw_tx(
     result: &mut CrossBoundaryResult,
     tx: &str,
     with_gas_usage: bool,
-) -> ffi::ValidateTxResult {
+) -> ffi::ValidateTxCompletion {
     match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
 
-            ffi::ValidateTxResult {
+            ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
@@ -335,7 +307,7 @@ pub fn evm_try_prevalidate_raw_tx(
             result.ok = false;
             result.reason = e.to_string();
 
-            ffi::ValidateTxResult::default()
+            ffi::ValidateTxCompletion::default()
         }
     }
 }
@@ -413,7 +385,7 @@ fn evm_try_finalize(
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
-) -> ffi::FinalizeBlockResult {
+) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
     match RUNTIME
         .handlers
@@ -421,7 +393,7 @@ fn evm_try_finalize(
     {
         Ok((block_hash, failed_txs, gas_used)) => {
             result.ok = true;
-            ffi::FinalizeBlockResult {
+            ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions: failed_txs,
                 miner_fee: gas_used,
@@ -430,7 +402,7 @@ fn evm_try_finalize(
         Err(e) => {
             result.ok = false;
             result.reason = e.to_string();
-            ffi::FinalizeBlockResult::default()
+            ffi::FinalizeBlockCompletion::default()
         }
     }
 }
