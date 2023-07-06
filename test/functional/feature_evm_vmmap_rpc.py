@@ -64,9 +64,10 @@ class VMMapTests(DefiTestFramework):
 
     def vmmap_valid_address_invalid_type_should_fail(self):
         address = self.nodes[0].getnewaddress()
-        # TODO: Use invalid address types. As in, pass a PKH address to 
-        # vmmap with type 2 and it should fail ideally.
-        # Pass an ETH address to type 1 and it should fail. 
+        # TODO: Use invalid address types not meant for that api. 
+        # As in, pass a P2PKH address to vmmap with type 2 and it should fail.
+        # Pass an ETH address to type 1 and it should fail.
+        # Pass a P2SH address to either and it should fail.
         assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be between 0 and 7.", self.nodes[0].vmmap, address, 8)
         assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be between 0 and 7.", self.nodes[0].vmmap, address, -1)
 
@@ -80,6 +81,10 @@ class VMMapTests(DefiTestFramework):
 
     def vmmap_valid_tx_should_succeed(self):
         # Check if xvmmap is working for Txs
+        # TODO: Do just use logvmmap. Rather pull the tx info
+        # for a block from the APIs and use that tx to test vmmap.
+        # That's the correct way. logvmmap and vmmap results in 
+        # cyclic testing.
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
         evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
@@ -88,11 +93,23 @@ class VMMapTests(DefiTestFramework):
 
     def vmmap_invalid_tx_should_fail(self):
         # Check vmmap fail on wrong tx
+        # TODO:
+        #   - Check for multiple ones.
+        #   - Get a valid tx, prefix it with garbage and check fail.
+        #   - Get a valid tx, suffix it with garbage and check fail.
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "garbage", 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 4)
 
     def vmmap_valid_block_should_succeed(self):
         # Check if xvmmap is working for Blocks
+        # TODO:
+        #   - Check for multiple ones.
+        #   - Get a valid tx, prefix it with garbage and check fail.
+        #   - Get a valid tx, suffix it with garbage and check fail.
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
         dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
         assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
@@ -101,6 +118,11 @@ class VMMapTests(DefiTestFramework):
         # Check vmmap fail on wrong block
         evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 6)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap,"garbage", 6)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 6)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 6)
+
 
     def vmmap_rollback_should_succeed(self):
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
