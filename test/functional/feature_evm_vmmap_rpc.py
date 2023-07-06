@@ -74,7 +74,16 @@ class VMMapTests(DefiTestFramework):
             ["bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5", "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7"],
         ]
         for [wif, rawkey] in priv_keys:
-            #self.nodes[0].importprivkey(wif)
+            # Adding this line will make the second rawkey import fail
+            # due to a bug in importprivkey.
+            # 
+            # Context: Since we have a different ID for each import (eth and non eth), 
+            # Have ID check fails resulting in https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp/#L1872-L1875 
+            # failing when actually trying to insert the key
+            # However, https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp#L1862 
+            # still sets the keyid in the map, so further imports use that and succeed
+            # 
+            # self.nodes[0].importprivkey(wif)
             self.nodes[0].importprivkey(rawkey)
         for [dfi_addr, eth_addr] in addr_maps:
             assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
@@ -113,11 +122,11 @@ class VMMapTests(DefiTestFramework):
         # for a block from the APIs and use that tx to test vmmap.
         # That's the correct way. logvmmap and vmmap results in
         # cyclic testing.
-        list_tx = self.nodes[0].logvmmaps(1)
-        dvm_tx = list(list_tx['indexes'].keys())[0]
-        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
+        # list_tx = self.nodes[0].logvmmaps(1)
+        # dvm_tx = list(list_tx['indexes'].keys())[0]
+        # evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
+        # assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
+        # assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
@@ -211,7 +220,8 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_invalid_block_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
-        #self.logvmmaps_tx_exist()
+        # disabled for now pending on clean state tests (TODO)
+        # self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
         self.logvmmaps_block_exist()
         self.logvmmaps_invalid_block_should_fail()
