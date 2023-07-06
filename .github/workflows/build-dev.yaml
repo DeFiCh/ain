@@ -79,12 +79,9 @@ jobs:
     - name: Build builder image
       run: ./make.sh docker-build
 
-    - name: log file changes if there were any
-      run: find . -mmin -30
-
     - name: Build defi image
       if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: DOCKER_TARGET="defi" IMAGE_NAME="defi/defichain:${{ env.BUILD_VERSION }}" ./make.sh docker-build
+      run: find . -mmin -30 && DOCKER_TARGET="defi" IMAGE_NAME="defi/defichain:${{ env.BUILD_VERSION }}" ./make.sh docker-build
 
     - name: Deploy and package
       run: |
