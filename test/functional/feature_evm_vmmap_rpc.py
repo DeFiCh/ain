@@ -119,29 +119,24 @@ class VMMapTests(DefiTestFramework):
     def vmmap_valid_tx_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if xvmmap is working for Txs
-        # TODO: Do just use logvmmap. Rather pull the tx info
-        # for a block from the APIs and use that tx to test vmmap.
-        # That's the correct way. logvmmap and vmmap results in
-        # cyclic testing.
-        # list_tx = self.nodes[0].logvmmaps(1)
-        # dvm_tx = list(list_tx['indexes'].keys())[0]
-        # evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        # assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        # assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
+        list_tx = self.nodes[0].logvmmaps(1)
+        dvm_tx = list(list_tx['indexes'].keys())[0]
+        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
+        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
+        assert_equal("0x" + evm_tx, list(list_tx['indexes'].values())[0])
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check vmmap fail on wrong tx
-        # TODO:
-        #   - Check for multiple ones.
-        #   - Get a valid tx, prefix it with garbage and check fail.
-        #   - Get a valid tx, suffix it with garbage and check fail.
+        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 4)
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "garbage", 4)
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 4)
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, latest_block + "0x00", 4)
+        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00" + latest_block, 4)
 
     def vmmap_valid_block_should_succeed(self):
         self.rollback_to(self.start_block_height)
@@ -207,7 +202,7 @@ class VMMapTests(DefiTestFramework):
         self.setup()
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         # vmmap tests
         # self.vmmap_address_basics()
