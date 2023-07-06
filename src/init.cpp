@@ -64,6 +64,7 @@
 #include <validationinterface.h>
 #include <walletinitinterface.h>
 #include <wallet/wallet.h>
+#include <ffi/ffihelpers.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -221,11 +222,7 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
-    CrossBoundaryResult result;
-    rs_stop_network_services(result);
-    if (!result.ok) {
-        LogPrintf(result.reason.c_str());
-    }
+    CrossBoundaryChecked(ain_rs_stop_network_services(result));
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -290,16 +287,10 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
+    ShutdownDfTxGlobalTaskPool();
+    CrossBoundaryChecked(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
-    ShutdownDfTxGlobalTaskPool();
-    {
-        result = CrossBoundaryResult{};
-        rs_stop_core_services(result);
-        if (!result.ok) {
-            LogPrintf(result.reason.c_str());
-        }
-    }
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -1925,17 +1916,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
 
-                // All DBs have been initialized. We start the rust core services to ensure that we
+                // All DBs have been initialized. We start the rust core services to ensure that
                 // it's initialized as late as possible, but before anything can start rolling blocks
                 // back or forth. `ReplayBlocks, VerifyDB` etc. 
-                {
-                    CrossBoundaryResult result;
-                    rs_init_core_services(result);
-                    if (!result.ok) {
-                        LogPrintf(result.reason.c_str());
-                        return false;
-                    }
-                }
+                auto res = CrossBoundaryChecked(ain_rs_init_core_services(result));
+                if (!res) return false;
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
@@ -2301,12 +2286,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Default to using the first address passed to bind
         auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
         auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        CrossBoundaryResult result;
-        rs_init_network_services(result, eth_endpoint, grpc_endpoint);
-        if (!result.ok) {
-            LogPrintf(result.reason.c_str());
-            return false;
-        }
+        auto res = CrossBoundaryChecked(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
+        if (!res) return false;
     }
     uiInterface.InitMessage(_("Done loading").translated);
 
