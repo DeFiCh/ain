@@ -76,13 +76,13 @@ class VMMapTests(DefiTestFramework):
         for [wif, rawkey] in priv_keys:
             # Adding this line will make the second rawkey import fail
             # due to a bug in importprivkey.
-            # 
+            #
             # Context: Since we have a different ID for each import (eth and non eth),
             # Have ID check fails resulting in https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp/#L1872-L1875
             # failing when actually trying to insert the key
             # However, https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp#L1862
             # still sets the keyid in the map, so further imports use that and succeed
-            # 
+            #
             # self.nodes[0].importprivkey(wif)
             self.nodes[0].importprivkey(rawkey)
         for [dfi_addr, eth_addr] in addr_maps:
@@ -146,7 +146,7 @@ class VMMapTests(DefiTestFramework):
         self.rollback_to(self.start_block_height)
         # Check if xvmmap is working for Blocks
         # TODO:
-        #   - Check for multiple ones. Generate and verify hashes manually. 
+        #   - Check for multiple ones. Generate and verify hashes manually.
         #     Not have cyclic results
         #   - Get a valid tx, prefix it with garbage and check fail.
         #   - Get a valid tx, suffix it with garbage and check fail.
