@@ -1089,7 +1089,7 @@ public:
         consensus.ChangiIntermediateHeight = 10000000;
         consensus.ChangiIntermediateHeight2 = 10000000;
         consensus.ChangiIntermediateHeight3 = 10000000;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks

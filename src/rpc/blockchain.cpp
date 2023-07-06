@@ -1354,6 +1354,10 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
     BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.GrandCentralEpilogueHeight);
     BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.NextNetworkUpgradeHeight);
+    BuriedForkDescPushBack(softforks, "changiintermediate", consensusParams.ChangiIntermediateHeight);
+    BuriedForkDescPushBack(softforks, "changiintermediate2", consensusParams.ChangiIntermediateHeight2);
+    BuriedForkDescPushBack(softforks, "changiintermediate3", consensusParams.ChangiIntermediateHeight3);
+    BuriedForkDescPushBack(softforks, "changiintermediate4", consensusParams.ChangiIntermediateHeight4);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

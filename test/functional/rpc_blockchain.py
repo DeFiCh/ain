@@ -144,6 +144,10 @@ class BlockchainTest(DefiTestFramework):
             'grandcentral': {'type': 'buried', 'active': False, 'height': 10000000},
             'grandcentralepilogue': {'type': 'buried', 'active': False, 'height': 10000000},
             'nextnetworkupgrade': {'type': 'buried', 'active': False, 'height': 10000000},
+            'changiintermediate': {'type': 'buried', 'active': False, 'height': 10000000},
+            'changiintermediate2': {'type': 'buried', 'active': False, 'height': 10000000},
+            'changiintermediate3': {'type': 'buried', 'active': False, 'height': 10000000},
+            'changiintermediate4': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
