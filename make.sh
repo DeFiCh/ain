@@ -249,7 +249,7 @@ package() {
     echo "> package: ${pkg_path}"
 }
 
-sign() {
+sign_package() {
     local pkg_name="${PACKAGE}"
     local pkg_file_name="${pkg_name}.tar.gz"
     local pkg_sign_file_name="${pkg_name}.tar.gz.SHA256"
