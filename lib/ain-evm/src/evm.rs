@@ -1,6 +1,6 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
-use crate::core::{EVMError, NativeTxHash, EVMCoreService, MAX_GAS_PER_BLOCK};
+use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::filters::FilterService;
 use crate::log::LogService;

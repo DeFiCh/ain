@@ -11,13 +11,13 @@ pub trait MetachainNetRPC {
 }
 
 pub struct MetachainNetRPCModule {
-    handler: Arc<EVMServices>,
+    _handler: Arc<EVMServices>,
 }
 
 impl MetachainNetRPCModule {
     #[must_use]
     pub fn new(handler: Arc<EVMServices>) -> Self {
-        Self { handler }
+        Self { _handler: handler }
     }
 }
 

@@ -1,13 +1,13 @@
 mod backend;
 pub mod block;
 pub mod bytes;
-mod ecrecover;
 pub mod core;
+mod ecrecover;
+pub mod evm;
 pub mod executor;
 mod fee;
 pub mod filters;
 mod genesis;
-pub mod evm;
 pub mod log;
 mod precompiles;
 pub mod receipt;
