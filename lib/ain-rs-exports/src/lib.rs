@@ -14,7 +14,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::dst20::{contract, deploy_dst20};
+use crate::dst20::deploy_dst20;
 use crate::ffi::CrossBoundaryResult;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
@@ -105,7 +105,12 @@ pub mod ffi {
 
         fn evm_disconnect_latest_block() -> Result<()>;
 
-        fn get_bytes() -> Result<()>;
+        fn create_dst20(
+            result: &mut CrossBoundaryResult,
+            native_hash: [u8; 32],
+            name: &str,
+            symbol: &str,
+        ) -> Result<bool>;
     }
 }
 
@@ -475,6 +480,21 @@ fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn get_bytes(name: String, symbol: String) -> Result<(), Box<dyn Error>> {
-    deploy_dst20(name, symbol)
+fn create_dst20(
+    result: &mut CrossBoundaryResult,
+    native_hash: [u8; 32],
+    name: &str,
+    symbol: &str,
+) -> Result<bool, Box<dyn Error>> {
+    debug!("HERE");
+    match deploy_dst20(native_hash, String::from(name), String::from(symbol)) {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            debug!("{:#?}", e);
+            result.ok = false;
+            result.reason = e.to_string();
+
+            Ok(false)
+        }
+    }
 }

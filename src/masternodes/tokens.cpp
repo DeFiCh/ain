@@ -9,6 +9,7 @@
 #include <core_io.h>
 #include <primitives/transaction.h>
 #include <util/strencodings.h>
+#include <ain_rs_exports.h>
 
 #include <univalue.h>
 

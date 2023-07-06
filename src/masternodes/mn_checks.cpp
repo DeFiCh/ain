@@ -1041,8 +1041,11 @@ public:
         CTokenImplementation token;
         static_cast<CToken &>(token) = obj;
 
-        token.symbol         = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
@@ -1054,11 +1057,29 @@ public:
         if (static_cast<int>(height) >= consensus.BayfrontHeight) {  // formal compatibility if someone cheat and create
                                                                      // LPS token on the pre-bayfront node
             if (token.IsPoolShare()) {
-                return Res::Err("Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+                return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
         }
 
-        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+        auto createToken = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+
+        // create DST20 token
+        if (IsEVMEnabled(height, mnview, consensus)) {
+            CrossBoundaryResult result;
+            try {
+                create_dst20(result, tx.GetHash().ToArrayReversed(), rust::string(tokenSymbol.c_str()),
+                             rust::string(tokenName.c_str()));
+            }
+            catch (std::runtime_error& e) {
+                LogPrintf("%s", e.what());
+            }
+
+            if (!result.ok) {
+                LogPrintf("[dst20create error] %s", result.reason);
+            }
+        }
+
+        return createToken;
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {

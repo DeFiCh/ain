@@ -9,6 +9,7 @@ contract MyToken is ERC20, ERC20Burnable, Ownable {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to, uint256 amount) public onlyOwner {
+        // precompile here to check for transferdomain
         _mint(to, amount);
     }
 }

@@ -183,6 +183,7 @@ dependencies = [
 name = "ain-rs-exports"
 version = "0.1.0"
 dependencies = [
+ "ain-cpp-imports",
  "ain-evm",
  "ain-grpc",
  "cxx",
@@ -190,6 +191,8 @@ dependencies = [
  "ethereum",
  "ethers",
  "hex",
+ "lazy_static",
+ "libsecp256k1",
  "log",
  "primitive-types",
  "proc-macro2",

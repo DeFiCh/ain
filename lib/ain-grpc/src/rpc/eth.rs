@@ -11,7 +11,7 @@ use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
 use ain_evm::executor::TxResponse;
 use ain_evm::handler::Handlers;
 
-use crate::erc20::contract;
+use crate::erc20::deploy_dst20;
 use crate::filters::{GetFilterChangesResult, NewFilterRequest};
 use crate::sync::{SyncInfo, SyncState};
 use crate::transaction_log::{GetLogsRequest, LogResult};
@@ -1021,7 +1021,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn test(&self) -> RpcResult<bool> {
-        contract();
+        // deploy_dst20();
         Ok(true)
     }
 }
