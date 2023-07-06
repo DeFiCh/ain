@@ -15,7 +15,7 @@
     CrossBoundaryResult result; \
     x; \
     if (!result.ok) { \
-        LogPrintf(result.reason.c_str()); \
+        LogPrintf("%s\n", result.reason.c_str()); \
         return false; \
     } \
     return true; \
