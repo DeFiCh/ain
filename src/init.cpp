@@ -221,6 +221,11 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
+    CrossBoundaryResult result;
+    rs_stop_network_services(result);
+    if (!result.ok) {
+        LogPrintf(result.reason.c_str());
+    }
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -288,6 +293,13 @@ void Shutdown(InitInterfaces& interfaces)
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     ShutdownDfTxGlobalTaskPool();
+    {
+        result = CrossBoundaryResult{};
+        rs_stop_core_services(result);
+        if (!result.ok) {
+            LogPrintf(result.reason.c_str());
+        }
+    }
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -1968,18 +1980,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
             }
 
-            std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
-            std::vector<std::pair<std::string, uint16_t>> g_endpoints;
-            SetupRPCPorts(eth_endpoints, g_endpoints);
-
-            // Start the GRPC and ETH RPC servers
-            // Default to using the first address passed to bind
-            CrossBoundaryResult result;
-            start_servers(result, eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
-            if (!result.ok) {
-                LogPrintf("EVM servers failed to start: %s\n", result.reason.c_str());
-            }
-
             try {
                 LOCK(cs_main);
                 if (!is_coinsview_empty) {
@@ -2202,6 +2202,31 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     // ********************************************************* Step 13: start node
+
+    {
+        CrossBoundaryResult result;
+        rs_init_core_services(result);
+        if (!result.ok) {
+            LogPrintf(result.reason.c_str());
+            return false;
+        }
+    }
+
+    // Start the GRPC and ETH RPC servers
+    {
+        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
+        std::vector<std::pair<std::string, uint16_t>> g_endpoints;
+        SetupRPCPorts(eth_endpoints, g_endpoints);
+        // Default to using the first address passed to bind
+        auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
+        auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
+        CrossBoundaryResult result;
+        rs_init_network_services(result, eth_endpoint, grpc_endpoint);
+        if (!result.ok) {
+            LogPrintf(result.reason.c_str());
+            return false;
+        }
+    }
 
     int chain_active_height;
 

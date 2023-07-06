@@ -2,9 +2,8 @@ use ain_evm::{
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
-use ain_grpc::{init_evm_runtime, start_evm_servers, stop_evm_runtime};
 
-use ain_evm::runtime::RUNTIME;
+use ain_evm::runtime::SERVICES;
 use log::debug;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
@@ -49,12 +48,22 @@ pub mod ffi {
     }
 
     extern "Rust" {
+        // Core
+        fn rs_preinit(result: &mut CrossBoundaryResult);
+        fn rs_init_logging(result: &mut CrossBoundaryResult);
+        fn rs_init_core_services(result: &mut CrossBoundaryResult);
+        fn rs_stop_core_services(result: &mut CrossBoundaryResult);
+        fn rs_init_network_services(
+            result: &mut CrossBoundaryResult,
+            json_addr: &str,
+            grpc_addr: &str,
+        );
+        fn rs_stop_network_services(result: &mut CrossBoundaryResult);
+
+        // EVM specific
         fn evm_get_balance(address: [u8; 20]) -> u64;
-
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
-
         fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]);
-
         fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], native_tx_hash: [u8; 32]);
         fn evm_sub_balance(
             context: u64,
@@ -62,13 +71,11 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> bool;
-
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
         ) -> ValidateTxCompletion;
-
         fn evm_get_context() -> u64;
         fn evm_discard_context(context: u64);
         fn evm_try_queue_tx(
@@ -77,7 +84,6 @@ pub mod ffi {
             raw_tx: &str,
             native_tx_hash: [u8; 32],
         );
-
         fn evm_try_finalize(
             result: &mut CrossBoundaryResult,
             context: u64,
@@ -86,13 +92,7 @@ pub mod ffi {
             miner_address: [u8; 20],
             timestamp: u64,
         ) -> FinalizeBlockCompletion;
-
-        fn preinit();
-        fn init_evm_runtime();
-        fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &str);
-        fn stop_evm_runtime();
-
-        fn create_and_sign_tx(
+        fn evm_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
@@ -100,6 +100,51 @@ pub mod ffi {
         fn evm_disconnect_latest_block();
     }
 }
+
+//// ==================== Core ====================
+
+pub fn rs_preinit(result: &mut CrossBoundaryResult) {
+    ain_grpc::preinit();
+    result.ok = true;
+}
+
+pub fn rs_init_logging(result: &mut CrossBoundaryResult) {
+    ain_grpc::init_logging();
+    result.ok = true;
+}
+
+pub fn rs_init_core_services(result: &mut CrossBoundaryResult) {
+    ain_grpc::init_services();
+    result.ok = true;
+}
+
+pub fn rs_stop_core_services(result: &mut CrossBoundaryResult) {
+    ain_grpc::stop_services();
+    result.ok = true;
+}
+
+pub fn rs_init_network_services(
+    result: &mut CrossBoundaryResult,
+    json_addr: &str,
+    grpc_addr: &str,
+) {
+    match ain_grpc::init_network_services(json_addr, grpc_addr) {
+        Ok(()) => {
+            result.ok = true;
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+        }
+    }
+}
+
+pub fn rs_stop_network_services(result: &mut CrossBoundaryResult) {
+    ain_grpc::stop_network_services();
+    result.ok = true;
+}
+
+//// ==================== EVM ====================
 
 /// Creates and signs a transaction.
 ///
@@ -114,7 +159,7 @@ pub mod ffi {
 /// # Returns
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
-pub fn create_and_sign_tx(
+pub fn evm_create_and_sign_tx(
     result: &mut CrossBoundaryResult,
     ctx: ffi::CreateTransactionContext,
 ) -> Vec<u8> {
@@ -171,14 +216,14 @@ pub fn create_and_sign_tx(
 /// Returns the balance of the account as a `u64` on success.
 pub fn evm_get_balance(address: [u8; 20]) -> u64 {
     let account = H160::from(address);
-    let (_, latest_block_number) = RUNTIME
-        .handlers
+    let (_, latest_block_number) = SERVICES
+        .evm
         .block
         .get_latest_block_hash_and_number()
         .unwrap_or_default();
-    let mut balance = RUNTIME
-        .handlers
+    let mut balance = SERVICES
         .evm
+        .queue
         .get_balance(account, latest_block_number)
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
@@ -198,9 +243,9 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
 /// Returns the next valid nonce of the account in a specific context as a `u64`
 pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
     let address = H160::from(address);
-    let nonce = RUNTIME
-        .handlers
+    let nonce = SERVICES
         .evm
+        .queue
         .get_next_valid_nonce_in_context(context, address);
     nonce.as_u64()
 }
@@ -214,7 +259,7 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
 ///
 pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) {
     let address = H160::from(address);
-    let _ = RUNTIME.handlers.evm.remove_txs_by_sender(context, address);
+    let _ = SERVICES.evm.queue.remove_txs_by_sender(context, address);
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -228,9 +273,9 @@ pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) {
 ///
 pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
     if let Ok(address) = address.parse() {
-        let _ = RUNTIME
-            .handlers
+        let _ = SERVICES
             .evm
+            .queue
             .add_balance(context, address, amount.into(), hash);
     }
 }
@@ -256,9 +301,9 @@ pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
 pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
     if let Ok(address) = address.parse() {
-        if let Ok(()) = RUNTIME
-            .handlers
+        if let Ok(()) = SERVICES
             .evm
+            .queue
             .sub_balance(context, address, amount.into(), hash)
         {
             return true;
@@ -292,7 +337,7 @@ pub fn evm_try_prevalidate_raw_tx(
     tx: &str,
     with_gas_usage: bool,
 ) -> ffi::ValidateTxCompletion {
-    match RUNTIME.handlers.evm.validate_raw_tx(tx, with_gas_usage) {
+    match SERVICES.evm.queue.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
 
@@ -319,7 +364,7 @@ pub fn evm_try_prevalidate_raw_tx(
 /// Returns the EVM context queue number as a `u64`.
 #[must_use]
 pub fn evm_get_context() -> u64 {
-    RUNTIME.handlers.evm.get_context()
+    SERVICES.evm.queue.get_context()
 }
 
 /// /// Discards an EVM context queue.
@@ -329,7 +374,7 @@ pub fn evm_get_context() -> u64 {
 /// * `context` - The context queue number.
 ///
 fn evm_discard_context(context: u64) {
-    RUNTIME.handlers.evm.remove(context)
+    SERVICES.evm.queue.remove(context)
 }
 
 /// Add an EVM transaction to a specific queue.
@@ -349,7 +394,7 @@ fn evm_discard_context(context: u64) {
 fn evm_try_queue_tx(result: &mut CrossBoundaryResult, context: u64, raw_tx: &str, hash: [u8; 32]) {
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
     match signed_tx {
-        Ok(signed_tx) => match RUNTIME.handlers.queue_tx(context, signed_tx.into(), hash) {
+        Ok(signed_tx) => match SERVICES.evm.queue_tx(context, signed_tx.into(), hash) {
             Ok(_) => {
                 result.ok = true;
             }
@@ -387,8 +432,8 @@ fn evm_try_finalize(
     timestamp: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match RUNTIME
-        .handlers
+    match SERVICES
+        .evm
         .finalize_block(context, update_state, difficulty, eth_address, timestamp)
     {
         Ok((block_hash, failed_txs, gas_used)) => {
@@ -407,22 +452,6 @@ fn evm_try_finalize(
     }
 }
 
-pub fn preinit() {
-    ain_grpc::preinit();
-}
-
 fn evm_disconnect_latest_block() {
-    RUNTIME.handlers.storage.disconnect_latest_block();
-}
-
-fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &str) {
-    match start_evm_servers(json_addr, grpc_addr) {
-        Ok(()) => {
-            result.ok = true;
-        }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-        }
-    }
+    SERVICES.evm.storage.disconnect_latest_block();
 }

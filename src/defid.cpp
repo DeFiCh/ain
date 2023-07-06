@@ -58,6 +58,14 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
+    {
+        CrossBoundaryResult result;
+        rs_preinit(result);
+        if (!result.ok) {
+            throw std::runtime_error(result.reason.c_str());
+        }
+    }
+
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -119,7 +127,14 @@ static bool AppInit(int argc, char* argv[])
         gArgs.SoftSetBoolArg("-server", true);
         // Set this early so that parameter interactions go to console
         InitLogging();
-        preinit();
+        {
+            CrossBoundaryResult result;
+            rs_init_logging(result);
+            if (!result.ok) {
+                LogPrintf(result.reason.c_str());
+                return false;
+            }
+        }
         InitParameterInteraction();
         if (!AppInitBasicSetup())
         {
@@ -162,7 +177,6 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
-        init_evm_runtime();
         fRet = AppInitMain(interfaces);
     }
     catch (const std::exception& e) {
@@ -178,7 +192,6 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
-    stop_evm_runtime();
 
     return fRet;
 }

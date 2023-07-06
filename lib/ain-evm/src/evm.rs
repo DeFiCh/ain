@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity}
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
-use crate::receipt::ReceiptHandler;
+use crate::receipt::ReceiptService;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -28,7 +28,7 @@ pub type NativeTxHash = [u8; 32];
 
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
-pub struct EVMHandler {
+pub struct TxQueueService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
@@ -55,7 +55,7 @@ fn init_vsdb() {
     debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
 }
 
-impl EVMHandler {
+impl TxQueueService {
     pub fn restore(storage: Arc<Storage>) -> Self {
         init_vsdb();
 
@@ -84,7 +84,7 @@ impl EVMHandler {
                 state_root,
                 number: U256::zero(),
                 beneficiary: Default::default(),
-                receipts_root: ReceiptHandler::get_receipts_root(&Vec::new()),
+                receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
                 logs_bloom: Default::default(),
                 gas_used: Default::default(),
                 gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
@@ -253,7 +253,7 @@ impl EVMHandler {
 }
 
 // Transaction queue methods
-impl EVMHandler {
+impl TxQueueService {
     pub fn add_balance(
         &self,
         context: u64,
@@ -353,7 +353,7 @@ impl EVMHandler {
 }
 
 // State methods
-impl EVMHandler {
+impl TxQueueService {
     pub fn get_account(
         &self,
         address: H160,

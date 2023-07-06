@@ -1,10 +1,10 @@
 use crate::backend::{EVMBackend, Vicinity};
-use crate::block::BlockHandler;
-use crate::evm::{EVMError, EVMHandler, NativeTxHash, MAX_GAS_PER_BLOCK};
+use crate::block::BlockService;
+use crate::evm::{EVMError, NativeTxHash, TxQueueService, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::filters::FilterHandler;
-use crate::log::LogHandler;
-use crate::receipt::ReceiptHandler;
+use crate::filters::FilterService;
+use crate::log::LogService;
+use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
@@ -21,18 +21,18 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-pub struct Handlers {
-    pub evm: EVMHandler,
-    pub block: BlockHandler,
-    pub receipt: ReceiptHandler,
-    pub logs: LogHandler,
-    pub filters: FilterHandler,
+pub struct EVMServices {
+    pub queue: TxQueueService,
+    pub block: BlockService,
+    pub receipt: ReceiptService,
+    pub logs: LogService,
+    pub filters: FilterService,
     pub storage: Arc<Storage>,
 }
 
 pub type FinalizedBlockInfo = ([u8; 32], Vec<String>, u64);
 
-impl Handlers {
+impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
     /// This JSON-based initialization is exclusively reserved for regtest environments.
@@ -57,21 +57,21 @@ impl Handlers {
             }
             let storage = Arc::new(Storage::new());
             Ok(Self {
-                evm: EVMHandler::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
-                block: BlockHandler::new(Arc::clone(&storage)),
-                receipt: ReceiptHandler::new(Arc::clone(&storage)),
-                logs: LogHandler::new(Arc::clone(&storage)),
-                filters: FilterHandler::new(),
+                queue: TxQueueService::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
+                block: BlockService::new(Arc::clone(&storage)),
+                receipt: ReceiptService::new(Arc::clone(&storage)),
+                logs: LogService::new(Arc::clone(&storage)),
+                filters: FilterService::new(),
                 storage,
             })
         } else {
             let storage = Arc::new(Storage::restore());
             Ok(Self {
-                evm: EVMHandler::restore(Arc::clone(&storage)),
-                block: BlockHandler::new(Arc::clone(&storage)),
-                receipt: ReceiptHandler::new(Arc::clone(&storage)),
-                logs: LogHandler::new(Arc::clone(&storage)),
-                filters: FilterHandler::new(),
+                queue: TxQueueService::restore(Arc::clone(&storage)),
+                block: BlockService::new(Arc::clone(&storage)),
+                receipt: ReceiptService::new(Arc::clone(&storage)),
+                logs: LogService::new(Arc::clone(&storage)),
+                filters: FilterService::new(),
                 storage,
             })
         }
@@ -85,9 +85,9 @@ impl Handlers {
         beneficiary: H160,
         timestamp: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
-        let mut failed_transactions = Vec::with_capacity(self.evm.tx_queues.len(context));
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.evm.tx_queues.len(context));
+        let mut all_transactions = Vec::with_capacity(self.queue.tx_queues.len(context));
+        let mut failed_transactions = Vec::with_capacity(self.queue.tx_queues.len(context));
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.queue.tx_queues.len(context));
         let mut gas_used = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
@@ -124,14 +124,14 @@ impl Handlers {
 
         let mut backend = EVMBackend::from_root(
             state_root,
-            Arc::clone(&self.evm.trie_store),
+            Arc::clone(&self.queue.trie_store),
             Arc::clone(&self.storage),
             vicinity,
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
+        for (queue_tx, hash) in self.queue.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     if ain_cpp_imports::past_changi_intermediate_height_4_height() {
@@ -162,7 +162,7 @@ impl Handlers {
 
                     all_transactions.push(signed_tx.clone());
                     gas_used += used_gas;
-                    EVMHandler::logs_bloom(logs, &mut logs_bloom);
+                    TxQueueService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
@@ -192,7 +192,7 @@ impl Handlers {
         }
 
         if update_state {
-            self.evm.tx_queues.remove(context);
+            self.queue.tx_queues.remove(context);
         }
 
         let block = Block::new(
@@ -204,7 +204,7 @@ impl Handlers {
                 } else {
                     backend.root()
                 },
-                receipts_root: ReceiptHandler::get_receipts_root(&receipts_v3),
+                receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
@@ -252,7 +252,7 @@ impl Handlers {
     }
 
     pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
-        self.evm.tx_queues.queue_tx(context, tx.clone(), hash)?;
+        self.queue.tx_queues.queue_tx(context, tx.clone(), hash)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())

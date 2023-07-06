@@ -16,6 +16,9 @@ mod transaction_log;
 mod transaction_request;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
 
@@ -33,30 +36,50 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use ain_evm::runtime::{Runtime, RUNTIME};
+use ain_evm::runtime::{Services, SERVICES};
 
-#[cfg(test)]
-mod tests;
+pub fn preinit() {}
 
-pub fn add_json_rpc_server(runtime: &Runtime, addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn init_logging() {
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
+    )
+    .format(logging::cpp_log_target_format)
+    .target(env_logger::Target::Pipe(Box::new(CppLogTarget::new(false))))
+    .init();
+    info!("Init rs logging");
+}
+
+pub fn init_services() {
+    info!("Init rs services");
+    let _ = &*SERVICES;
+}
+
+pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
+    init_network_json_rpc_service(&SERVICES, json_addr)?;
+    init_network_grpc_service(&SERVICES, grpc_addr)?;
+    Ok(())
+}
+
+pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(), Box<dyn Error>> {
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
-    let handle = runtime.rt_handle.clone();
-    let server = runtime.rt_handle.block_on(
+    let handle = runtime.tokio_runtime.clone();
+    let server = runtime.tokio_runtime.block_on(
         HttpServerBuilder::default()
             .custom_tokio_runtime(handle)
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();
-    methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
-    methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
-    methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.handlers)).into_rpc())?;
+    methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+    methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+    methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    *runtime.jrpc_handle.lock().unwrap() = Some(server.start(methods)?);
+    *runtime.json_rpc.lock().unwrap() = Some(server.start(methods)?);
     Ok(())
 }
 
-pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<(), Box<dyn Error>> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
     // runtime
@@ -66,28 +89,9 @@ pub fn add_grpc_server(_runtime: &Runtime, _addr: &str) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-pub fn preinit() {
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or(log::Level::Info.as_str()),
-    )
-    .format(logging::cpp_log_target_format)
-    .target(env_logger::Target::Pipe(Box::new(CppLogTarget::new(false))))
-    .init();
-    info!("init");
-}
+pub fn stop_network_services() {}
 
-pub fn init_evm_runtime() {
-    info!("init evm runtime");
-    let _ = &*RUNTIME;
-}
-
-pub fn start_evm_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
-    add_json_rpc_server(&RUNTIME, json_addr)?;
-    add_grpc_server(&RUNTIME, grpc_addr)?;
-    Ok(())
-}
-
-pub fn stop_evm_runtime() {
-    info!("stop evm runtime");
-    RUNTIME.stop();
+pub fn stop_services() {
+    info!("Shutdown rs services");
+    SERVICES.stop();
 }

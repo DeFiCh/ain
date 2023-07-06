@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ain_evm::transaction::SignedTx;
 use primitive_types::{H160, H256, U256};
 
-use ain_evm::handler::Handlers;
+use ain_evm::handler::EVMServices;
 
 #[test]
 fn test_finalize_block_and_do_not_update_state() {

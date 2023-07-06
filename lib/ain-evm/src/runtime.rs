@@ -1,4 +1,4 @@
-use crate::handler::Handlers;
+use crate::handler::EVMServices;
 use crate::storage::traits::FlushableStorage;
 
 use jsonrpsee_http_server::HttpServerHandle;
@@ -8,46 +8,54 @@ use tokio::runtime::{Builder, Handle as AsyncHandle};
 use tokio::sync::mpsc::{self, Sender};
 
 lazy_static::lazy_static! {
-    // Global runtime exposed by the library
-    pub static ref RUNTIME: Runtime = Runtime::new();
+    // Global services exposed by the library
+    pub static ref SERVICES: Services = Services::new();
 }
 
-pub struct Runtime {
-    pub rt_handle: AsyncHandle,
-    pub tx: Sender<()>,
-    pub handle: Mutex<Option<JoinHandle<()>>>,
-    pub jrpc_handle: Mutex<Option<HttpServerHandle>>, // dropping the handle kills server
-    pub handlers: Arc<Handlers>,
+pub struct Services {
+    pub tokio_runtime: AsyncHandle,
+    pub tokio_runtime_channel_tx: Sender<()>,
+    pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
+    pub json_rpc: Mutex<Option<HttpServerHandle>>,
+    pub evm: Arc<EVMServices>,
 }
 
-impl Default for Runtime {
+impl Default for Services {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Runtime {
+impl Services {
     pub fn new() -> Self {
         let r = Builder::new_multi_thread().enable_all().build().unwrap();
         let (tx, mut rx) = mpsc::channel(1);
 
-        Runtime {
-            tx,
-            rt_handle: r.handle().clone(),
-            handle: Mutex::new(Some(thread::spawn(move || {
-                log::info!("Starting runtime in a separate thread");
+        Services {
+            tokio_runtime_channel_tx: tx,
+            tokio_runtime: r.handle().clone(),
+            tokio_worker: Mutex::new(Some(thread::spawn(move || {
+                log::info!("Starting tokio worker thread");
                 r.block_on(async move {
                     rx.recv().await;
                 });
             }))),
-            jrpc_handle: Mutex::new(None),
-            handlers: Arc::new(Handlers::new().expect("Error initializating handlers")),
+            json_rpc: Mutex::new(None),
+            evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
 
     pub fn stop(&self) {
-        let _ = self.tx.blocking_send(());
-        self.handle
+        let _ = self.tokio_runtime_channel_tx.blocking_send(());
+        self.json_rpc
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .stop()
+            .unwrap();
+
+        self.tokio_worker
             .lock()
             .unwrap()
             .take()
@@ -56,13 +64,7 @@ impl Runtime {
             .unwrap();
 
         // Persist EVM State to disk
-        self.handlers
-            .evm
-            .flush()
-            .expect("Could not flush evm state");
-        self.handlers
-            .storage
-            .flush()
-            .expect("Could not flush storage");
+        self.evm.queue.flush().expect("Could not flush evm state");
+        self.evm.storage.flush().expect("Could not flush storage");
     }
 }
