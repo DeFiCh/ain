@@ -40,6 +40,8 @@ class VMMapTests(DefiTestFramework):
         self.start_block_height = self.nodes[0].getblockcount()
 
     def vmmap_address_basics(self):
+        # Same keys to import both formats. 
+        # Currently in discussion. Tests disabled.
         priv_keys = [
             "cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz",
             "cPaTadxsWhzHNgi2hAiFXXnw7foEGXBME75s27CEGFeS8S3pYf8j",
@@ -52,6 +54,25 @@ class VMMapTests(DefiTestFramework):
         ]
         for x in priv_keys:
             self.nodes[0].importprivkey(x)
+        for [dfi_addr, eth_addr] in addr_maps:
+            assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
+            assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
+
+    def vmmap_address_basics_manual_import(self):
+        # Import both keys for now.
+        priv_keys = [
+            ["cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz", "2468918553ca24474efea1e6a3641a1302bd643d15c13a6dbe89b8da38c90b3c"],
+            ["cPaTadxsWhzHNgi2hAiFXXnw7foEGXBME75s27CEGFeS8S3pYf8j", "3b8ccde96d9c78c6cf248ffcb9ed89ba8327b8c994600ca391b38f5deffa15ca"],
+            ["cSu1eq6MKxZ2exooiXEwC7jA4W7Gd3YyfDL8BWQCm8abaDKrnDkr", "9e9b4756952999af30a62ebe4f8bcd12ed251d820e5d3c8cee550685693f2688"],
+        ]
+        addr_maps = [
+            ["bcrt1qmhpq9hxgdglwja6uruc92yne8ekxljgykrfta5", "0xfD0766e7aBe123A25c73c95f6dc3eDe26D0b7263"],
+            ["bcrt1qtqggfdte5jp8duffzmt54aqtqwlv3l8xsjdrhf", "0x4d07A76Db2a281a348d5A5a1833F4322D77799d5"],
+            ["bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5", "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7"],
+        ]
+        for [wif, rawkey] in priv_keys:
+            self.nodes[0].importprivkey(wif)
+            self.nodes[0].importprivkey(rawkey)
         for [dfi_addr, eth_addr] in addr_maps:
             assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
             assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
@@ -168,7 +189,8 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         # vmmap tests
-        self.vmmap_address_basics()
+        # self.vmmap_address_basics()
+        self.vmmap_address_basics_manual_import()
         self.vmmap_valid_address_not_present_should_fail()
         self.vmmap_valid_address_invalid_type_should_fail()
         self.vmmap_invalid_address_should_fail()
