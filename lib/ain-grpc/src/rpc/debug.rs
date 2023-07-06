@@ -1,4 +1,4 @@
-use ain_evm::handler::EVMServices;
+use ain_evm::evm::EVMServices;
 use ethereum::Account;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
@@ -45,7 +45,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     fn log_account_states(&self) -> RpcResult<()> {
         let backend = self
             .handler
-            .queue
+            .core
             .get_latest_block_backend()
             .expect("Error restoring backend");
         let ro_handle = backend.ro_handle();

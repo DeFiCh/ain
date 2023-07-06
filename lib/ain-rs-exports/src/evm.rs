@@ -3,7 +3,7 @@ use ain_evm::{
     transaction::{self, SignedTx},
 };
 
-use ain_evm::runtime::SERVICES;
+use ain_evm::services::SERVICES;
 use log::debug;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
@@ -92,7 +92,7 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
         .unwrap_or_default();
     let mut balance = SERVICES
         .evm
-        .queue
+        .core
         .get_balance(account, latest_block_number)
         .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
     balance /= WEI_TO_GWEI;
@@ -114,7 +114,7 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
     let address = H160::from(address);
     let nonce = SERVICES
         .evm
-        .queue
+        .core
         .get_next_valid_nonce_in_context(context, address);
     nonce.as_u64()
 }
@@ -128,7 +128,7 @@ pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u
 ///
 pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) {
     let address = H160::from(address);
-    let _ = SERVICES.evm.queue.remove_txs_by_sender(context, address);
+    let _ = SERVICES.evm.core.remove_txs_by_sender(context, address);
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -144,7 +144,7 @@ pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
     if let Ok(address) = address.parse() {
         let _ = SERVICES
             .evm
-            .queue
+            .core
             .add_balance(context, address, amount.into(), hash);
     }
 }
@@ -172,7 +172,7 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
     if let Ok(address) = address.parse() {
         if let Ok(()) = SERVICES
             .evm
-            .queue
+            .core
             .sub_balance(context, address, amount.into(), hash)
         {
             return true;
@@ -206,7 +206,7 @@ pub fn evm_try_prevalidate_raw_tx(
     tx: &str,
     with_gas_usage: bool,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.queue.validate_raw_tx(tx, with_gas_usage) {
+    match SERVICES.evm.core.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
 
@@ -232,7 +232,7 @@ pub fn evm_try_prevalidate_raw_tx(
 ///
 /// Returns the EVM context queue number as a `u64`.
 pub fn evm_get_context() -> u64 {
-    SERVICES.evm.queue.get_context()
+    SERVICES.evm.core.get_context()
 }
 
 /// /// Discards an EVM context queue.
@@ -242,7 +242,7 @@ pub fn evm_get_context() -> u64 {
 /// * `context` - The context queue number.
 ///
 pub fn evm_discard_context(context: u64) {
-    SERVICES.evm.queue.remove(context)
+    SERVICES.evm.core.remove(context)
 }
 
 /// Add an EVM transaction to a specific queue.

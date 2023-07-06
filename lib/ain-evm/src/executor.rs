@@ -2,7 +2,7 @@ use crate::precompiles::MetachainPrecompiles;
 
 use crate::{
     backend::{EVMBackend, EVMBackendError},
-    evm::TxQueueService,
+    core::EVMCoreService,
     fee::calculate_prepay_gas,
     traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
@@ -159,7 +159,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
             logs_bloom: {
                 let mut bloom: Bloom = Bloom::default();
-                TxQueueService::logs_bloom(logs.clone(), &mut bloom);
+                EVMCoreService::logs_bloom(logs.clone(), &mut bloom);
                 bloom
             },
             status_code: u8::from(exit_reason.is_succeed()),
