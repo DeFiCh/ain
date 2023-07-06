@@ -40,7 +40,7 @@ class VMMapTests(DefiTestFramework):
         self.start_block_height = self.nodes[0].getblockcount()
 
     def vmmap_address_basics(self):
-        # Same keys to import both formats. 
+        # Same keys to import both formats.
         # Currently in discussion. Tests disabled.
         priv_keys = [
             "cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz",
@@ -85,7 +85,7 @@ class VMMapTests(DefiTestFramework):
 
     def vmmap_valid_address_invalid_type_should_fail(self):
         address = self.nodes[0].getnewaddress()
-        # TODO: Use invalid address types not meant for that api. 
+        # TODO: Use invalid address types not meant for that api.
         # As in, pass a P2PKH address to vmmap with type 2 and it should fail.
         # Pass an ETH address to type 1 and it should fail.
         # Pass a P2SH address to either and it should fail.
@@ -104,7 +104,7 @@ class VMMapTests(DefiTestFramework):
         # Check if xvmmap is working for Txs
         # TODO: Do just use logvmmap. Rather pull the tx info
         # for a block from the APIs and use that tx to test vmmap.
-        # That's the correct way. logvmmap and vmmap results in 
+        # That's the correct way. logvmmap and vmmap results in
         # cyclic testing.
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
