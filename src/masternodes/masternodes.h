@@ -59,7 +59,6 @@ enum class UpdateMasternodeType : uint8_t {
     RemRewardAddress = 0x04
 };
 
-
 constexpr uint8_t SUBNODE_COUNT{4};
 
 class CMasternode {
