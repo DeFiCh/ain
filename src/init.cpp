@@ -1972,8 +1972,13 @@ bool AppInitMain(InitInterfaces& interfaces)
             std::vector<std::pair<std::string, uint16_t>> g_endpoints;
             SetupRPCPorts(eth_endpoints, g_endpoints);
 
-            // Start the ETH RPC and gRPC servers
-            start_servers(eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
+            // Start the GRPC and ETH RPC servers
+            // Default to using the first address passed to bind
+            CrossBoundaryResult result;
+            start_servers(result, eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
+            if (!result.ok) {
+                LogPrintf("EVM servers failed to start: %s\n", result.reason.c_str());
+            }
 
             try {
                 LOCK(cs_main);
