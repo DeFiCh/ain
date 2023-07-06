@@ -27,10 +27,10 @@ public:
 };
 
 /**
- * Default setting for nMaxDatacarrierBytes. 3997 bytes of data, +1 for OP_RETURN,
+ * Default setting for nMaxDatacarrierBytes. 19,997 bytes of data, +1 for OP_RETURN,
  * +2 for the pushdata opcodes.
  */
-static const unsigned int MAX_OP_RETURN_RELAY = 4000;
+static const unsigned int MAX_OP_RETURN_RELAY = 20000;
 
 /**
  * A data carrying output is an unspendable output containing data. The script
@@ -101,6 +101,7 @@ struct WitnessV0KeyHash : public uint160
 {
     WitnessV0KeyHash() : uint160() {}
     explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
+    explicit WitnessV0KeyHash(const CPubKey& pubkey);
     using uint160::uint160;
 };
 

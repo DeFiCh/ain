@@ -22,8 +22,13 @@ bool MutableTransactionSignatureCreator::CreateSig(const SigningProvider& provid
     if (!provider.GetKey(address, key))
         return false;
 
+    // Special case. Bech32 address created from Eth address which has an uncompressed private key.
+    CKey ethKey;
+    const auto ethID = key.GetPubKey().GetEthID();
+    const auto bechFromEth = !key.IsCompressed() && ethID != address && provider.GetEthKey(ethID, ethKey);
+
     // Signing with uncompressed keys is disabled in witness scripts
-    if (sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
+    if (!bechFromEth && sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
         return false;
     // Signing with compressed keys is disabled in eth scripts
     if (sigversion == SigVersion::WITNESS_V16 && key.IsCompressed())

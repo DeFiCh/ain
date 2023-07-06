@@ -69,7 +69,7 @@ FlatSigningProvider Merge(const FlatSigningProvider& a, const FlatSigningProvide
     return ret;
 }
 
-void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const bool ethAddress)
+void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const CPubKey &compressedPubKey)
 {
     AssertLockHeld(cs_KeyStore);
     CKeyID key_id = pubkey.GetID();
@@ -84,10 +84,13 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
     // "Implicitly" refers to fact that scripts are derived automatically from
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
-    if (ethAddress) {
+    if (compressedPubKey.IsValid()) {
         auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+        auto witScript = GetScriptForDestination(WitnessV0KeyHash(compressedPubKey.GetID()));
         CScriptID id(script);
+        CScriptID witId(witScript);
         mapScripts[id] = std::move(script);
+        mapScripts[witId] = std::move(witScript);
     } else if (pubkey.IsCompressed()) {
         CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
         // This does not use AddCScript, as it may be overridden.
@@ -102,19 +105,29 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     if (!GetKey(address, key)) {
         return false;
     }
-    vchPubKeyOut = key.GetPubKey();
+    auto pubkey = key.GetPubKey();
+    CKey ethKey;
+    const auto ethID = pubkey.GetEthID();
+    // Special case. Bech32 request from a converted Eth address.
+    if (!pubkey.IsCompressed() && ethID != address && GetEthKey(ethID, ethKey)) {
+        pubkey.Compress();
+        vchPubKeyOut = pubkey;
+    } else {
+        vchPubKeyOut = pubkey;
+    }
     return true;
 }
 
-bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress)
+bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey)
 {
     LOCK(cs_KeyStore);
     mapKeys[pubkey.GetID()] = key;
-    if (ethAddress) {
+    if (compressedPubKey.IsValid()) {
         mapKeys[pubkey.GetEthID()] = key;
         mapEthKeys[pubkey.GetEthID()] = key;
+        mapKeys[compressedPubKey.GetID()] = key;
     }
-    ImplicitlyLearnRelatedKeyScripts(pubkey, ethAddress);
+    ImplicitlyLearnRelatedKeyScripts(pubkey, compressedPubKey);
     return true;
 }
 

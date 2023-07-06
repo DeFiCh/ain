@@ -147,7 +147,14 @@ UniValue vmmap(const JSONRPCRequest& request) {
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
-                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
+                            1 - Address format: DFI -> ETH \n\
+                            2 - Address format: ETH -> DFI \n\
+                            3 - Tx Hash: DFI -> EVM \n\
+                            4 - Tx Hash: EVM -> DFI \n\
+                            5 - Block Hash: DFI -> EVM \n\
+                            6 - Block Hash: EVM -> DFI"
+                        }
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
@@ -158,18 +165,21 @@ UniValue vmmap(const JSONRPCRequest& request) {
     }.Check(request);
     const std::string hash = request.params[0].get_str();
 
-    if (request.params[1].get_int() >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", VMDomainRPCMapTypeCount));
+    const int typeInt = request.params[1].get_int();
+    if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(WitnessV16EthHash(key.GetID()));
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            if (key.IsCompressed()) { key.Decompress(); }
+            return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(PKHash(key.GetID()));
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            if (!key.IsCompressed()) { key.Compress(); }
+            return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:
             break;
