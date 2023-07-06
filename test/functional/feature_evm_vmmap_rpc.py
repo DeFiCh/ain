@@ -39,7 +39,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_block_height = self.nodes[0].getblockcount()
 
-    def vmmap_should_exist(self):
+    def vmmap_address_basics(self):
         priv_keys = [
             "cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz",
             "cPaTadxsWhzHNgi2hAiFXXnw7foEGXBME75s27CEGFeS8S3pYf8j",
@@ -51,23 +51,26 @@ class VMMapTests(DefiTestFramework):
             ["bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5", "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7"],
         ]
         for x in priv_keys:
-            self.nodes[0].importprivkey(x)        
+            self.nodes[0].importprivkey(x)
         for [dfi_addr, eth_addr] in addr_maps:
             assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
             assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
 
-    def vmmap_valid_key_not_present_should_fail(self):
+    def vmmap_valid_address_not_present_should_fail(self):
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
         eth_address = '0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C'
         assert_raises_rpc_error(-5, "no full public key for address 0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C", self.nodes[0].vmmap, eth_address, 2)
         assert_raises_rpc_error(-5, "no full public key for address 0x3DA3eA35d64557864bbD0da7f6a19a2d2F69f19C", self.nodes[0].vmmap, eth_address, 1)
 
-    def vmmap_invalid_key_type_should_fail(self):
+    def vmmap_valid_address_invalid_type_should_fail(self):
         address = self.nodes[0].getnewaddress()
+        # TODO: Use invalid address types. As in, pass a PKH address to 
+        # vmmap with type 2 and it should fail ideally.
+        # Pass an ETH address to type 1 and it should fail. 
         assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be between 0 and 7.", self.nodes[0].vmmap, address, 8)
         assert_raises_rpc_error(-8, "Invalid parameters, argument \"type\" must be between 0 and 7.", self.nodes[0].vmmap, address, -1)
 
-    def vmmap_invalid_keys_should_fail(self):
+    def vmmap_invalid_address_should_fail(self):
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
         assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
@@ -75,7 +78,7 @@ class VMMapTests(DefiTestFramework):
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
         assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
 
-    def vmmap_valid_tx_should_success(self):
+    def vmmap_valid_tx_should_succeed(self):
         # Check if xvmmap is working for Txs
         list_tx = self.nodes[0].logvmmaps(1)
         dvm_tx = list(list_tx['indexes'].keys())[0]
@@ -88,7 +91,7 @@ class VMMapTests(DefiTestFramework):
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
 
-    def vmmap_valid_block_should_success(self):
+    def vmmap_valid_block_should_succeed(self):
         # Check if xvmmap is working for Blocks
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
         dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
@@ -99,7 +102,7 @@ class VMMapTests(DefiTestFramework):
         evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
 
-    def vmmap_rollback_should_success(self):
+    def vmmap_rollback_should_succeed(self):
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
         self.rollback_to(self.start_block_height)
         # TODO: Each fn, should be independent of each other. Should rely on vars set outside of it's context or setup.
@@ -143,15 +146,15 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         # vmmap tests
-        self.vmmap_should_exist()
-        self.vmmap_invalid_key_type_should_fail()
-        self.vmmap_valid_key_not_present_should_fail()
-        self.vmmap_invalid_keys_should_fail()
-        self.vmmap_valid_tx_should_success()
+        self.vmmap_address_basics()
+        self.vmmap_valid_address_not_present_should_fail()
+        self.vmmap_valid_address_invalid_type_should_fail()
+        self.vmmap_invalid_address_should_fail()
+        self.vmmap_valid_tx_should_succeed()
         self.vmmap_invalid_tx_should_fail()
-        self.vmmap_valid_block_should_success()
+        self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_block_should_fail()
-        self.vmmap_rollback_should_success()
+        self.vmmap_rollback_should_succeed()
         # logvmmap tests
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
