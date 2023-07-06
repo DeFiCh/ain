@@ -13,7 +13,11 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+env:
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
 
 jobs:
   generic:
@@ -40,9 +44,25 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+    - run: git config --global --add safe.directory '*'
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
+
+    - name: Setup dependencies for target
+      run: ./make.sh ci-setup-deps-target
+
+    - name: Setup dependencies for test
+      run: ./make.sh ci-setup-deps-test
+
+    - name: Build depends and configure
+      run: ./make.sh build-deps && ./make.sh build-conf
 
     - name: Format checks
-      run: ./make.sh lib fmt-check
+      run: ./make.sh lib fmt-check 1
 
     - name: Clippy checks
-      run: ./make.sh lib clippy
+      run: ./make.sh lib clippy 1
