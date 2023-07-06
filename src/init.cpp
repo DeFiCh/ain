@@ -1925,6 +1925,18 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
 
+                // All DBs have been initialized. We start the rust core services to ensure that we
+                // it's initialized as late as possible, but before anything can start rolling blocks
+                // back or forth. `ReplayBlocks, VerifyDB` etc. 
+                {
+                    CrossBoundaryResult result;
+                    rs_init_core_services(result);
+                    if (!result.ok) {
+                        LogPrintf(result.reason.c_str());
+                        return false;
+                    }
+                }
+
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
@@ -2203,30 +2215,6 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 13: start node
 
-    {
-        CrossBoundaryResult result;
-        rs_init_core_services(result);
-        if (!result.ok) {
-            LogPrintf(result.reason.c_str());
-            return false;
-        }
-    }
-
-    // Start the GRPC and ETH RPC servers
-    {
-        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
-        std::vector<std::pair<std::string, uint16_t>> g_endpoints;
-        SetupRPCPorts(eth_endpoints, g_endpoints);
-        // Default to using the first address passed to bind
-        auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
-        auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        CrossBoundaryResult result;
-        rs_init_network_services(result, eth_endpoint, grpc_endpoint);
-        if (!result.ok) {
-            LogPrintf(result.reason.c_str());
-            return false;
-        }
-    }
 
     int chain_active_height;
 
@@ -2304,6 +2292,22 @@ bool AppInitMain(InitInterfaces& interfaces)
     // ********************************************************* Step 14: finished
 
     SetRPCWarmupFinished();
+    // Start the GRPC and ETH RPC servers
+    // We start the evm RPC servers as late as possible.
+    {
+        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
+        std::vector<std::pair<std::string, uint16_t>> g_endpoints;
+        SetupRPCPorts(eth_endpoints, g_endpoints);
+        // Default to using the first address passed to bind
+        auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
+        auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
+        CrossBoundaryResult result;
+        rs_init_network_services(result, eth_endpoint, grpc_endpoint);
+        if (!result.ok) {
+            LogPrintf(result.reason.c_str());
+            return false;
+        }
+    }
     uiInterface.InitMessage(_("Done loading").translated);
 
     for (const auto& client : interfaces.chain_clients) {
