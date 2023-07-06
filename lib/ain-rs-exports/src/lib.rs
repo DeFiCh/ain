@@ -1,3 +1,5 @@
+mod dst20;
+
 use ain_evm::{
     storage::traits::Rollback,
     transaction::{self, SignedTx},
@@ -12,6 +14,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
+use crate::dst20::{contract, deploy_dst20};
 use crate::ffi::CrossBoundaryResult;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
@@ -101,6 +104,8 @@ pub mod ffi {
         fn create_and_sign_tx(ctx: CreateTransactionContext) -> Result<Vec<u8>>;
 
         fn evm_disconnect_latest_block() -> Result<()>;
+
+        fn get_bytes() -> Result<()>;
     }
 }
 
@@ -468,4 +473,8 @@ pub fn preinit() {
 fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {
     RUNTIME.handlers.storage.disconnect_latest_block();
     Ok(())
+}
+
+fn get_bytes(name: String, symbol: String) -> Result<(), Box<dyn Error>> {
+    deploy_dst20(name, symbol)
 }
