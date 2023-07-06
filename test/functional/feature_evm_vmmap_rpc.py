@@ -94,26 +94,27 @@ class VMMapTests(DefiTestFramework):
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
         eth_address = self.nodes[1].getnewaddress("", "eth")
         assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmmap, eth_address, 1)
 
     def vmmap_valid_address_invalid_type_should_fail(self):
         self.rollback_to(self.start_block_height)
-        address = self.nodes[0].getnewaddress()
-        # TODO: Use invalid address types not meant for that api.
-        # As in, pass a P2PKH address to vmmap with type 2 and it should fail.
-        # Pass an ETH address to type 1 and it should fail.
-        # Pass a P2SH address to either and it should fail.
+        address = self.nodes[0].getnewaddress("", "legacy")
+        p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
+        eth_address = self.nodes[0].getnewaddress("", "eth")
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 8)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, -1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 2)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, p2sh_address, 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, p2sh_address, 2)
 
     def vmmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
         assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 1)
-        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
-        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 2)
 
     def vmmap_valid_tx_should_succeed(self):
         self.rollback_to(self.start_block_height)

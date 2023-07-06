@@ -172,11 +172,19 @@ UniValue vmmap(const JSONRPCRequest& request) {
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV0KeyHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+            }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (key.IsCompressed()) { key.Decompress(); }
             return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+            }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
