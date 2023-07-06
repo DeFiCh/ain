@@ -77,10 +77,10 @@ class VMMapTests(DefiTestFramework):
             # Adding this line will make the second rawkey import fail
             # due to a bug in importprivkey.
             # 
-            # Context: Since we have a different ID for each import (eth and non eth), 
-            # Have ID check fails resulting in https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp/#L1872-L1875 
+            # Context: Since we have a different ID for each import (eth and non eth),
+            # Have ID check fails resulting in https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp/#L1872-L1875
             # failing when actually trying to insert the key
-            # However, https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp#L1862 
+            # However, https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp#L1862
             # still sets the keyid in the map, so further imports use that and succeed
             # 
             # self.nodes[0].importprivkey(wif)
