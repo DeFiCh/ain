@@ -25,6 +25,8 @@ WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
 
+WitnessV0KeyHash::WitnessV0KeyHash(const CPubKey& pubkey) : uint160(pubkey.GetID()) {}
+
 WitnessV16EthHash::WitnessV16EthHash(const CPubKey& pubkey) : uint160(pubkey.GetEthID()) {}
 
 const char* GetTxnOutputType(txnouttype t)
