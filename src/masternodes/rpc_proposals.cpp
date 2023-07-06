@@ -530,7 +530,7 @@ UniValue votegov(const JSONRPCRequest &request) {
                                     strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
             }
 
-            const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNKeyType);
+            const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                 mnId = masterNodeIdByOwner.value();
             } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
@@ -670,7 +670,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                         strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
                 }
 
-                const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNKeyType);
+                const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
                 if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                     mnId = masterNodeIdByOwner.value();
                 } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {

@@ -216,7 +216,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             CTxDestination destination;
             if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
             }
             else {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
@@ -1041,7 +1041,7 @@ namespace pos {
                     scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType));
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNKeyType));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType));
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;

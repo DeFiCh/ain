@@ -835,7 +835,7 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNKeyType);
+            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
             if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
@@ -919,7 +919,7 @@ public:
 
                 CTxDestination dest;
                 ExtractDestination(tx.vout[1].scriptPubKey, dest);
-                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNKeyType);
+                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
                 if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
@@ -942,7 +942,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNKeyType);
+                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -3828,7 +3828,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNKeyType);
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNOwnerKeyType);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 

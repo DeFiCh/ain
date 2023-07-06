@@ -12,9 +12,9 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
     }
     else {
         UniValue obj(UniValue::VOBJ);
-        CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(node.ownerType, node.ownerAuthAddress, KeyType::MNKeyType);
+        CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(node.ownerType, node.ownerAuthAddress, KeyType::MNOwnerKeyType);
         obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
-        CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(node.operatorType, node.operatorAuthAddress, KeyType::MNKeyType);
+        CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(node.operatorType, node.operatorAuthAddress, KeyType::MNOperatorKeyType);
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
             obj.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(node.rewardAddressType, node.rewardAddress, KeyType::MNRewardKeyType)));
@@ -161,7 +161,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    CKeyID const operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNKeyType);
+    CKeyID const operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
              << static_cast<char>(operatorDest.index()) << operatorAuthKey;
@@ -251,7 +251,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
 
-        ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNKeyType);
+        ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType);
         if (!nodePtr->collateralTx.IsNull()) {
             const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
             if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {
@@ -404,7 +404,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
-        const CKeyID keyID = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNKeyType);
+        const CKeyID keyID = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
         msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress), std::make_pair(static_cast<char>(operatorDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
     }
 

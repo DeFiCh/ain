@@ -4204,7 +4204,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.ChangiIntermediateHeight) {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
             }
             else {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);

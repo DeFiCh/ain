@@ -164,8 +164,9 @@ enum KeyType {
     ScriptHashKeyType = 1 << 1,
     WPKHashKeyType = 1 << 2,
     EthHashKey = 1 << 3,
-    MNKeyType = PKHashKeyType | WPKHashKeyType,
-    MNRewardKeyType = PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
+    MNOperatorKeyType = (1 << 4) | PKHashKeyType | WPKHashKeyType,
+    MNOwnerKeyType = (1 << 5) | PKHashKeyType | WPKHashKeyType,
+    MNRewardKeyType = (1 << 6) | PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
     AllKeyType = ~0,
 };
 
