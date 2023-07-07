@@ -452,7 +452,7 @@ fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
 
 }
 
-/// Return the block for a given height.
+/// Return the block number for a given blockhash.
 ///
 /// # Arguments
 ///
