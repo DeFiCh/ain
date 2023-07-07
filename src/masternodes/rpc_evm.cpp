@@ -234,7 +234,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
             if (evmBlockHash.val.has_value()) {
                 return evm_get_block_number_by_hash(evmBlockHash.val.value().ToArrayReversed());
             }
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("EVM block bot found DVM hash: %s", pindex->GetBlockHash().GetHex()));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("EVM block not found DVM hash: %s", pindex->GetBlockHash().GetHex()));
         }
         case VMDomainRPCMapType::BlockNumberEVMToDVM: {
             int height;
@@ -248,6 +248,9 @@ UniValue vmmap(const JSONRPCRequest& request) {
             }
             auto evmHash = evm_get_block_hash_by_number(height);
             auto evmBlockHash = std::vector<uint8_t>(evmHash.begin(), evmHash.end());
+            if (uint256(evmBlockHash).IsNull()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "EVM block not found");
+            }
             std::reverse(evmBlockHash.begin(), evmBlockHash.end());
             auto dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
             if(dvm_block.val.has_value()) {
