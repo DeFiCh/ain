@@ -1012,7 +1012,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     })
                     .collect())
             }
-            _ => return Err(Error::Custom(String::from("Filter is not a log filter"))),
+            _ => Err(Error::Custom(String::from("Filter is not a log filter"))),
         }
     }
 

@@ -297,6 +297,7 @@ BASE_SCRIPTS = [
     'feature_evm_rollback.py',
     'feature_evm_rpc_transaction.py',
     'feature_evm_rpc.py',
+    'feature_evm_vmmap_rpc.py',
     'feature_evm_smart_contract.py',
     'feature_evm.py',
     'feature_loan_low_interest.py',
@@ -334,6 +335,7 @@ BASE_SCRIPTS = [
 ]
 
 EXPLICIT_IGNORES = [
+    'empty_test_template.py',
     'example_rollback_check.py',
 ]
 

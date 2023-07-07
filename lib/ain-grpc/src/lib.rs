@@ -82,7 +82,7 @@ pub fn init_evm_runtime() {
     let _ = &*RUNTIME;
 }
 
-pub fn start_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
+pub fn start_evm_servers(json_addr: &str, grpc_addr: &str) -> Result<(), Box<dyn Error>> {
     add_json_rpc_server(&RUNTIME, json_addr)?;
     add_grpc_server(&RUNTIME, grpc_addr)?;
     Ok(())

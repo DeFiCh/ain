@@ -11,6 +11,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 env:
   BUILD_VERSION: latest # Computed
   DOCKER_HUB_USER: defi
