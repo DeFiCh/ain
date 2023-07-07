@@ -461,12 +461,12 @@ fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
 ///
 /// Returns the block number associated with the given blockhash.
 fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64 {
-    let block = RUNTIME
+    match RUNTIME
         .handlers
         .storage
-        .get_block_by_hash(&H256::from(hash));
-    if block.is_some() {
-        return block.unwrap().header.number.as_u64()
+        .get_block_by_hash(&H256::from(hash))
+    {
+        Some(block) => block.unwrap().header.number.as_u64(),
+        None => 0
     }
-    0
 }
