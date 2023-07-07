@@ -431,6 +431,15 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
     }
 }
 
+/// Return the block for a given height.
+///
+/// # Arguments
+///
+/// * `height` - The block number we want to get the blockhash from.
+///
+/// # Returns
+///
+/// Returns the blockhash associated with the given block number.
 fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
     let block = RUNTIME
         .handlers
@@ -443,6 +452,15 @@ fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
 
 }
 
+/// Return the block for a given height.
+///
+/// # Arguments
+///
+/// * `hash` - The hash of the block we want to get the block number.
+///
+/// # Returns
+///
+/// Returns the block number associated with the given blockhash.
 fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64 {
     let block = RUNTIME
         .handlers
