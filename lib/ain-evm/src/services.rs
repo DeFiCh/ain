@@ -8,6 +8,11 @@ use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle as AsyncHandle};
 use tokio::sync::mpsc::{self, Sender};
 
+// TODO: SERVICES needs to go into its own core crate now, 
+// and this crate be dedicated to evm
+// Note: This cannot just move to rs-exports, since rs-exports cannot cannot have reverse
+// deps that depend on it.
+
 lazy_static::lazy_static! {
     // Global services exposed by the library
     pub static ref SERVICES: Services = Services::new();
@@ -36,7 +41,7 @@ impl Services {
             tokio_runtime_channel_tx: tx,
             tokio_runtime: r.handle().clone(),
             tokio_worker: Mutex::new(Some(thread::spawn(move || {
-                log::info!("Starting tokio worker thread");
+                log::info!("Starting tokio waiter");
                 r.block_on(async move {
                     rx.recv().await;
                 });
