@@ -466,7 +466,7 @@ fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64 {
         .storage
         .get_block_by_hash(&H256::from(hash))
     {
-        Some(block) => block.unwrap().header.number.as_u64(),
+        Some(block) => block.header.number.as_u64(),
         None => 0
     }
 }
