@@ -84,7 +84,7 @@ pub mod ffi {
             miner_address: [u8; 20],
             timestamp: u64,
         ) -> FinalizeBlockCompletion;
-        fn evm_create_and_sign_tx(
+        fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;

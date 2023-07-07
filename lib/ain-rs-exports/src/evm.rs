@@ -28,7 +28,7 @@ pub const GWEI_TO_SATS: u64 = 10;
 /// # Returns
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
-pub fn evm_create_and_sign_tx(
+pub fn evm_try_create_and_sign_tx(
     result: &mut ffi::CrossBoundaryResult,
     ctx: ffi::CreateTransactionContext,
 ) -> Vec<u8> {
