@@ -8,7 +8,7 @@ use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle as AsyncHandle};
 use tokio::sync::mpsc::{self, Sender};
 
-// TODO: SERVICES needs to go into its own core crate now, 
+// TODO: SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to evm
 // Note: This cannot just move to rs-exports, since rs-exports cannot cannot have reverse
 // deps that depend on it.

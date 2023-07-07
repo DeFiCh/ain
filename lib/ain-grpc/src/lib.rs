@@ -38,10 +38,10 @@ use std::sync::Arc;
 use ain_evm::services::{Services, SERVICES};
 use anyhow::Result;
 
-// TODO: Ideally most of the below and SERVICES needs to go into its own core crate now, 
-// and this crate be dedicated to network services. 
+// TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
+// and this crate be dedicated to network services.
 // Note: This cannot just move to rs-exports, since rs-exports cannot cannot have reverse
-// deps that depend on it. 
+// deps that depend on it.
 
 pub fn preinit() {}
 
