@@ -3705,6 +3705,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
         if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+            pubkey.Decompress();
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;

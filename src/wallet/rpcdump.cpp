@@ -169,8 +169,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
         }
 
         CKey key;
-        const auto ethKey{IsHex(strSecret)};
-        if (ethKey) {
+        if (const auto ethKey{IsHex(strSecret)}; ethKey) {
             const auto vch = ParseHex(strSecret);
             key.Set(vch.begin(), vch.end(), false);
         } else {
@@ -180,7 +179,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
 
         CPubKey pubkey = key.GetPubKey();
         assert(key.VerifyPubKey(pubkey));
-        CKeyID vchAddress = ethKey ? pubkey.GetEthID() : pubkey.GetID();
+        CKeyID vchAddress = pubkey.GetID();
         {
             pwallet->MarkDirty();
 
@@ -194,7 +193,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
             }
 
             // Use timestamp of 1 to scan the whole chain
-            if (!pwallet->ImportPrivKeys({{vchAddress, {key, ethKey}}}, 1)) {
+            if (!pwallet->ImportPrivKeys({{vchAddress, key}}, 1)) {
                 throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
             }
 
@@ -662,7 +661,7 @@ UniValue importwallet(const JSONRPCRequest& request)
 
             pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(PKHash(keyid)));
 
-            if (!pwallet->ImportPrivKeys({{keyid, {key, label == "eth"}}}, time)) {
+            if (!pwallet->ImportPrivKeys({{keyid, key}}, time)) {
                 pwallet->WalletLogPrintf("Error importing key for %s\n", EncodeDestination(PKHash(keyid)));
                 fGood = false;
                 continue;
@@ -997,7 +996,7 @@ static std::string RecurseImportData(const CScript& script, ImportData& import_d
     }
 }
 
-static UniValue ProcessImportLegacy(ImportData& import_data, std::map<CKeyID, CPubKey>& pubkey_map, std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, std::set<CScript>& script_pub_keys, bool& have_solving_data, const UniValue& data, std::vector<CKeyID>& ordered_pubkeys)
+static UniValue ProcessImportLegacy(ImportData& import_data, std::map<CKeyID, CPubKey>& pubkey_map, std::map<CKeyID, CKey>& privkey_map, std::set<CScript>& script_pub_keys, bool& have_solving_data, const UniValue& data, std::vector<CKeyID>& ordered_pubkeys)
 {
     UniValue warnings(UniValue::VARR);
 
@@ -1088,7 +1087,7 @@ static UniValue ProcessImportLegacy(ImportData& import_data, std::map<CKeyID, CP
         if (pubkey_map.count(id)) {
             pubkey_map.erase(id);
         }
-        privkey_map.emplace(id, std::make_pair(key, ethKey));
+        privkey_map.emplace(id, key);
     }
 
 
@@ -1148,7 +1147,7 @@ static UniValue ProcessImportLegacy(ImportData& import_data, std::map<CKeyID, CP
     return warnings;
 }
 
-static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID, CPubKey>& pubkey_map, std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, std::set<CScript>& script_pub_keys, bool& have_solving_data, const UniValue& data, std::vector<CKeyID>& ordered_pubkeys)
+static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID, CPubKey>& pubkey_map, std::map<CKeyID, CKey>& privkey_map, std::set<CScript>& script_pub_keys, bool& have_solving_data, const UniValue& data, std::vector<CKeyID>& ordered_pubkeys)
 {
     UniValue warnings(UniValue::VARR);
 
@@ -1193,7 +1192,7 @@ static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID
 
         std::copy(out_keys.pubkeys.begin(), out_keys.pubkeys.end(), std::inserter(pubkey_map, pubkey_map.end()));
         for (const auto& [key, value] : out_keys.keys) {
-            privkey_map.emplace(key, std::make_pair(value, false));
+            privkey_map.emplace(key, value);
         }
         import_data.key_origins.insert(out_keys.origins.begin(), out_keys.origins.end());
     }
@@ -1211,7 +1210,7 @@ static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID
         if (!pubkey_map.count(id)) {
             warnings.push_back("Ignoring irrelevant private key.");
         } else {
-            privkey_map.emplace(id, std::make_pair(key, false));
+            privkey_map.emplace(id, key);
         }
     }
 
@@ -1257,7 +1256,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
 
         ImportData import_data;
         std::map<CKeyID, CPubKey> pubkey_map;
-        std::map<CKeyID, std::pair<CKey, bool>> privkey_map;
+        std::map<CKeyID, CKey> privkey_map;
         std::set<CScript> script_pub_keys;
         std::vector<CKeyID> ordered_pubkeys;
         bool have_solving_data;

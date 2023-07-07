@@ -2272,7 +2272,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         auto pwallet = GetWallets()[0];
         pwallet->SetAddressBook(dest, "", "receive");
-        pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
+        pwallet->ImportPrivKeys({{keyID, key}}, time);
 
         // Create masternode
         CMasternode node;

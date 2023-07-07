@@ -88,7 +88,7 @@ bool WalletBatch::WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubk
 
 bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta, const bool ethAddress)
 {
-    if (!WriteKeyMetadata(keyMeta, vchPubKey, false)) {
+    if (!WriteKeyMetadata(keyMeta, vchPubKey, false) && !ethAddress) {
         return false;
     }
 
@@ -98,7 +98,7 @@ bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey,
     vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
     vchKey.insert(vchKey.end(), vchPrivKey.begin(), vchPrivKey.end());
 
-    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), CKeyData{vchPrivKey, Hash(vchKey.begin(), vchKey.end()), ethAddress}, false);
+    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), CKeyData{vchPrivKey, Hash(vchKey.begin(), vchKey.end()), ethAddress}, ethAddress);
 }
 
 bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,

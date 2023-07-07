@@ -72,7 +72,6 @@ FlatSigningProvider Merge(const FlatSigningProvider& a, const FlatSigningProvide
 void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const CPubKey &compressedPubKey)
 {
     AssertLockHeld(cs_KeyStore);
-    CKeyID key_id = pubkey.GetID();
     // This adds the redeemscripts necessary to detect P2WPKH and P2SH-P2WPKH
     // outputs. Technically P2WPKH outputs don't have a redeemscript to be
     // spent. However, our current IsMine logic requires the corresponding
@@ -92,7 +91,7 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
         mapScripts[id] = std::move(script);
         mapScripts[witId] = std::move(witScript);
     } else if (pubkey.IsCompressed()) {
-        CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
+        CScript script = GetScriptForDestination(WitnessV0KeyHash(pubkey));
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
         mapScripts[id] = std::move(script);
@@ -111,10 +110,11 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     // Special case. Bech32 request from a converted Eth address.
     if (!pubkey.IsCompressed() && ethID != address && GetEthKey(ethID, ethKey)) {
         pubkey.Compress();
-        vchPubKeyOut = pubkey;
-    } else {
-        vchPubKeyOut = pubkey;
+    } // Request from Eth address but key is compressed due to import from compressed WIF.
+    else if (pubkey.IsCompressed() && GetEthKey(address, ethKey)) {
+        pubkey.Decompress();
     }
+    vchPubKeyOut = pubkey;
     return true;
 }
 

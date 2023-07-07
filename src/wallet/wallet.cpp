@@ -422,8 +422,9 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
         if (!isCompressedValid) {
             return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetID()], false);
         }
-        return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetEthID()], true) && 
-                batch.WriteKey(compressedPubKey, privKey, mapKeyMetadata[compressedPubKey.GetID()], false);
+        // Ignore failure on this call as address may already be added as Bech32
+        batch.WriteKey(compressedPubKey, privKey, mapKeyMetadata[compressedPubKey.GetID()], false);
+        return batch.WriteKey(pubkey, privKey, mapKeyMetadata[pubkey.GetID()], true);
 
     }
     UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
@@ -1847,11 +1848,10 @@ bool CWallet::ImportScripts(const std::set<CScript>& scripts, int64_t timestamp)
     return true;
 }
 
-bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& privkey_map, const int64_t timestamp)
+bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const int64_t timestamp)
 {
     WalletBatch batch(*database);
-    for (const auto& [id, keyPair] : privkey_map) {
-        const auto& [key, ethAddress] = keyPair;
+    for (const auto& [id, key] : privkey_map) {
         CPubKey pubkey = key.GetPubKey();
         assert(key.VerifyPubKey(pubkey));
         // Skip if we already have the key
@@ -1862,17 +1862,24 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, std::pair<CKey, bool>>& priv
         mapKeyMetadata[id].nCreateTime = timestamp;
 
         CPubKey compressedPubkey;
-        if (ethAddress) {
-            compressedPubkey = CPubKey(pubkey.begin(), pubkey.end());
-            if (!compressedPubkey.Compress()) {
-                compressedPubkey = {};
-            }
-        }
 
         // If the private key is not present in the wallet, insert it.
         if (!AddKeyPubKeyWithDB(batch, key, pubkey, compressedPubkey)) {
             return false;
         }
+
+        // Now add as Eth address.
+        compressedPubkey = pubkey;
+        if (!compressedPubkey.IsCompressed()) {
+            compressedPubkey.Compress();
+        } else {
+            pubkey.Decompress();
+        }
+
+        if (!AddKeyPubKeyWithDB(batch, key, pubkey, compressedPubkey)) {
+            return false;
+        }
+
         UpdateTimeFirstKey(timestamp);
     }
     return true;
