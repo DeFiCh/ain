@@ -441,15 +441,14 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
 ///
 /// Returns the blockhash associated with the given block number.
 fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
-    let block = RUNTIME
+    match RUNTIME
         .handlers
         .storage
-        .get_block_by_number(&U256::from(height));
-    if block.is_some() {
-        return block.unwrap().header.hash().to_fixed_bytes()
+        .get_block_by_number(&U256::from(height))
+    {
+        Some(block) => block.header.hash().to_fixed_bytes(),
+        None => [0; 32],
     }
-    [0; 32]
-
 }
 
 /// Return the block number for a given blockhash.
