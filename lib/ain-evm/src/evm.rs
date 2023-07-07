@@ -254,10 +254,6 @@ impl EVMHandler {
 
 // Transaction queue methods
 impl EVMHandler {
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
-        self.tx_queues.queue_tx(context, tx, hash)?;
-        Ok(())
-    }
     pub fn add_balance(
         &self,
         context: u64,
@@ -307,6 +303,11 @@ impl EVMHandler {
 
     pub fn remove(&self, context: u64) {
         self.tx_queues.remove(context);
+    }
+
+    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<(), EVMError> {
+        self.tx_queues.remove_txs_by_sender(context, address)?;
+        Ok(())
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular context.
