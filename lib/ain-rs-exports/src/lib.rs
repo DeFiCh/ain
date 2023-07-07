@@ -100,8 +100,8 @@ pub mod ffi {
 
         fn evm_disconnect_latest_block();
 
-        fn evm_get_block_hash_by_number(height: u64) -> [u8; 32];
-        fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64;
+        fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -> [u8; 32];
+        fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]) -> u64;
     }
 }
 
@@ -440,14 +440,21 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
 /// # Returns
 ///
 /// Returns the blockhash associated with the given block number.
-fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
-    match RUNTIME
+fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -> [u8; 32] {
+    return match RUNTIME
         .handlers
         .storage
         .get_block_by_number(&U256::from(height))
     {
-        Some(block) => block.header.hash().to_fixed_bytes(),
-        None => [0; 32],
+        Some(block) => {
+            result.ok = true;
+            block.header.hash().to_fixed_bytes()
+        },
+        None => {
+            result.ok = false;
+            result.reason = "Block not found (Invalid block number)".parse().unwrap();
+            [0; 32]
+        },
     }
 }
 
@@ -460,13 +467,20 @@ fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
 /// # Returns
 ///
 /// Returns the block number associated with the given blockhash.
-fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64 {
-    match RUNTIME
+fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]) -> u64 {
+    return match RUNTIME
         .handlers
         .storage
         .get_block_by_hash(&H256::from(hash))
     {
-        Some(block) => block.header.number.as_u64(),
-        None => 0
+        Some(block) => {
+            result.ok = true;
+            block.header.number.as_u64()
+        },
+        None => {
+            result.ok = false;
+            result.reason = "Block not found (Invalid hash)".parse().unwrap();
+            0
+        }
     }
 }
