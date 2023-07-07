@@ -11,10 +11,12 @@ enum class VMDomainRPCMapType {
     TxHashDVMToEVM,
     TxHashEVMToEVM,
     BlockHashDVMToEVM,
-    BlockHashEVMToDVM
+    BlockHashEVMToDVM,
+    BlockNumberDVMToEVM,
+    BlockNumberEVMToDVM,
 };
 
-static int VMDomainRPCMapTypeCount = 7;
+static int VMDomainRPCMapTypeCount = 9;
 
 enum class VMDomainIndexType {
     BlockHash,
@@ -157,7 +159,9 @@ UniValue vmmap(const JSONRPCRequest& request) {
                             3 - Tx Hash: DFI -> EVM \n\
                             4 - Tx Hash: EVM -> DFI \n\
                             5 - Block Hash: DFI -> EVM \n\
-                            6 - Block Hash: EVM -> DFI"
+                            6 - Block Hash: EVM -> DFI \n\
+                            7 - Block Number: DFI -> EVM \n\
+                            8 - Block Number: EVM -> DFI"
                         }
                },
                RPCResult{
@@ -208,6 +212,49 @@ UniValue vmmap(const JSONRPCRequest& request) {
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
             res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(hash));
             break;
+        }
+        case VMDomainRPCMapType::BlockNumberDVMToEVM: {
+            int height;
+            try {
+                height = stoi(hash);
+            } catch (...) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter for block number");
+            }
+            const int current_tip = ::ChainActive().Height();
+            if (height < 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d is negative", height));
+            }
+            if (height > current_tip) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Target block height %d after current tip %d", height, current_tip));
+            }
+            CBlockIndex *pindex = ::ChainActive()[height];
+            auto evmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM,
+                                                                 uint256S(pindex->GetBlockHash().GetHex()));
+            if (evmBlockHash.val.has_value()) {
+                return evm_get_block_number_by_hash(evmBlockHash.val.value().ToArrayReversed());
+            }
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("EVM block bot found DVM hash: %s", pindex->GetBlockHash().GetHex()));
+        }
+        case VMDomainRPCMapType::BlockNumberEVMToDVM: {
+            int height;
+            try {
+                height = stoi(hash);
+            } catch (...) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter for block number");
+            }
+            if (height < 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d is negative", height));
+            }
+            auto evmHash = evm_get_block_hash_by_number(height);
+            auto evmBlockHash = std::vector<uint8_t>(evmHash.begin(), evmHash.end());
+            std::reverse(evmBlockHash.begin(), evmBlockHash.end());
+            auto dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
+            if(dvm_block.val.has_value()) {
+                CBlockIndex *pindex = LookupBlockIndex(*dvm_block.val);
+                return pindex->GetBlockHeader().deprecatedHeight;
+            }
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("DVM block bot found EVM hash: %s", uint256(evmBlockHash).GetHex()));
         }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");

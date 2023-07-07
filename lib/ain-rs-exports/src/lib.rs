@@ -9,6 +9,7 @@ use log::debug;
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
+use ain_evm::storage::traits::BlockStorage;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi::CrossBoundaryResult;
@@ -98,6 +99,9 @@ pub mod ffi {
         ) -> Vec<u8>;
 
         fn evm_disconnect_latest_block();
+
+        fn evm_get_block_hash_by_number(height: u64) -> [u8; 32];
+        fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64;
     }
 }
 
@@ -425,4 +429,27 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
             result.reason = e.to_string();
         }
     }
+}
+
+fn evm_get_block_hash_by_number(height: u64) -> [u8; 32] {
+    let block = RUNTIME
+        .handlers
+        .storage
+        .get_block_by_number(&U256::from(height));
+    if block.is_some() {
+        return block.unwrap().header.hash().to_fixed_bytes()
+    }
+    [0; 32]
+
+}
+
+fn evm_get_block_number_by_hash(hash: [u8; 32]) -> u64 {
+    let block = RUNTIME
+        .handlers
+        .storage
+        .get_block_by_hash(&H256::from(hash));
+    if block.is_some() {
+        return block.unwrap().header.number.as_u64()
+    }
+    0
 }

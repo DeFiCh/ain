@@ -103,7 +103,7 @@ class VMMapTests(DefiTestFramework):
         # As in, pass a P2PKH address to vmmap with type 2 and it should fail.
         # Pass an ETH address to type 1 and it should fail.
         # Pass a P2SH address to either and it should fail.
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 8)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 80)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, -1)
 
     def vmmap_invalid_address_should_fail(self):
