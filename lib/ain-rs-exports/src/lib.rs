@@ -441,7 +441,7 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
 ///
 /// Returns the blockhash associated with the given block number.
 fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -> [u8; 32] {
-    return match RUNTIME
+    match RUNTIME
         .handlers
         .storage
         .get_block_by_number(&U256::from(height))
@@ -455,7 +455,7 @@ fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -
             result.reason = "Block not found (Invalid block number)".parse().unwrap();
             [0; 32]
         }
-    };
+    }
 }
 
 /// Return the block number for a given blockhash.
@@ -468,7 +468,7 @@ fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -
 ///
 /// Returns the block number associated with the given blockhash.
 fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]) -> u64 {
-    return match RUNTIME
+    match RUNTIME
         .handlers
         .storage
         .get_block_by_hash(&H256::from(hash))
@@ -482,5 +482,5 @@ fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]
             result.reason = "Block not found (Invalid hash)".parse().unwrap();
             0
         }
-    };
+    }
 }
