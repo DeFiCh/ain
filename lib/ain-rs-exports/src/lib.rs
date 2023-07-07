@@ -7,9 +7,9 @@ use ain_grpc::{init_evm_runtime, start_evm_servers, stop_evm_runtime};
 use ain_evm::runtime::RUNTIME;
 use log::debug;
 
+use ain_evm::storage::traits::BlockStorage;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
-use ain_evm::storage::traits::BlockStorage;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi::CrossBoundaryResult;
@@ -449,13 +449,13 @@ fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u64) -
         Some(block) => {
             result.ok = true;
             block.header.hash().to_fixed_bytes()
-        },
+        }
         None => {
             result.ok = false;
             result.reason = "Block not found (Invalid block number)".parse().unwrap();
             [0; 32]
-        },
-    }
+        }
+    };
 }
 
 /// Return the block number for a given blockhash.
@@ -476,11 +476,11 @@ fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]
         Some(block) => {
             result.ok = true;
             block.header.number.as_u64()
-        },
+        }
         None => {
             result.ok = false;
             result.reason = "Block not found (Invalid hash)".parse().unwrap();
             0
         }
-    }
+    };
 }
