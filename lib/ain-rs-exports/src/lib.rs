@@ -107,6 +107,7 @@ pub mod ffi {
 
         fn create_dst20(
             result: &mut CrossBoundaryResult,
+            context: u64,
             native_hash: [u8; 32],
             name: &str,
             symbol: &str,
@@ -482,12 +483,18 @@ fn evm_disconnect_latest_block() -> Result<(), Box<dyn Error>> {
 
 fn create_dst20(
     result: &mut CrossBoundaryResult,
+    context: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
 ) -> Result<bool, Box<dyn Error>> {
     debug!("HERE");
-    match deploy_dst20(native_hash, String::from(name), String::from(symbol)) {
+    match deploy_dst20(
+        native_hash,
+        context,
+        String::from(name),
+        String::from(symbol),
+    ) {
         Ok(_) => Ok(true),
         Err(e) => {
             debug!("{:#?}", e);

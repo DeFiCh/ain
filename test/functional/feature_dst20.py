@@ -50,6 +50,8 @@ class DST20(DefiTestFramework):
         web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
 
         print(web3.eth.get_block("latest"), True)
+        print(web3.eth.get_code(Web3.to_checksum_address("0x5a433c6717e21e9e1c3d376ca859cd81901529a9")))
+        print(web3.eth.get_transaction_receipt("0x6c70f61286bcaef4f2a08d041789ec8b5e0f67055668680eb91d5478a577cf02"))
 
         raise Exception()
 

@@ -57,6 +57,7 @@ impl SystemNonceHandler {
 /// Generates bytecode and creates a system transaction in mempool
 pub fn deploy_dst20(
     native_hash: [u8; 32],
+    context: u64,
     name: String,
     symbol: String,
 ) -> Result<(), Box<dyn Error>> {
@@ -121,7 +122,6 @@ pub fn deploy_dst20(
     );
 
     // add transaction to pool
-    let context = RUNTIME.handlers.evm.get_context();
     RUNTIME
         .handlers
         .queue_tx(context, signed_tx.into(), native_hash)

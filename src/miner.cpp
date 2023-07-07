@@ -900,6 +900,30 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.used_gas);
                     evmTXs[txResult.sender].push_back(sortedEntries[i]);
                 }
+                if (txType == CustomTxType::CreateToken) {
+                    // create DST20 token
+                    auto txMessage = customTypeToMessage(txType);
+                    if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
+                        customTxPassed = false;
+                        break;
+                    }
+
+                    const auto obj = std::get<CCreateTokenMessage>(txMessage);
+
+                    CrossBoundaryResult result;
+                    try {
+                        create_dst20(result, evmContext, tx.GetHash().ToArrayReversed(), rust::string(obj.symbol.c_str()),
+                                     rust::string(obj.name.c_str()));
+                    }
+                    catch (std::runtime_error &e) {
+                        LogPrintf("%s", e.what());
+                    }
+
+                    if (!result.ok) {
+                        LogPrintf("[dst20create error] %s", result.reason);
+                    }
+
+                }
 
                 uint64_t gasUsed{};
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);

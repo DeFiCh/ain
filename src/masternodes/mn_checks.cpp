@@ -1061,25 +1061,7 @@ public:
             }
         }
 
-        auto createToken = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
-
-        // create DST20 token
-        if (IsEVMEnabled(height, mnview, consensus)) {
-            CrossBoundaryResult result;
-            try {
-                create_dst20(result, tx.GetHash().ToArrayReversed(), rust::string(tokenSymbol.c_str()),
-                             rust::string(tokenName.c_str()));
-            }
-            catch (std::runtime_error& e) {
-                LogPrintf("%s", e.what());
-            }
-
-            if (!result.ok) {
-                LogPrintf("[dst20create error] %s", result.reason);
-            }
-        }
-
-        return createToken;
+        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {
