@@ -52,9 +52,12 @@ impl Services {
     }
 
     pub fn stop_network(&self) -> Result<()> {
-        self.json_rpc
-            .lock()
-            .unwrap()
+        let mut json_rpc_handle = self.json_rpc.lock().unwrap();
+        if (json_rpc_handle).is_none() {
+            // Server was never started
+            return Ok(());
+        }
+        json_rpc_handle
             .take()
             .expect("json rpc server not running")
             .stop()
