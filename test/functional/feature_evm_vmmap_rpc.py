@@ -160,19 +160,27 @@ class VMMapTests(DefiTestFramework):
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 6)
         assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 6)
 
-
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
-        # TODO: Each fn, should be independent of each other. Should rely on vars set outside of it's context or setup.
-        # For rollback, keys need to be added, checked, rollback to state in-between, checked for expected output in the middle
-        # and then checked for expected output after rolled back to clean state.
-        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
-        # assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
+        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        base_block_dvm = self.nodes[0].getbestblockhash()
+        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
+        new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        list_blocks = self.nodes[0].logvmmaps(0)
+        list_tx = self.nodes[0].logvmmaps(1)
+        assert_equal(base_block[2:] in list(list_blocks['indexes'].values()), True)
+        assert_equal(new_block[2:] in list(list_blocks['indexes'].values()), True)
+        assert_equal(tx in list(list_tx['indexes'].keys()), True)
+        self.nodes[0].invalidateblock(base_block_dvm)
+        list_blocks = self.nodes[0].logvmmaps(0)
+        list_tx = self.nodes[0].logvmmaps(1)
+        assert_equal(base_block[2:] in list(list_blocks['indexes'].values()), True)
+        assert_equal(new_block[2:] in list(list_blocks['indexes'].values()), False)
+        assert_equal(tx in list(list_tx['indexes'].keys()), False)
 
     def logvmmaps_tx_exist(self):
         list_tx = self.nodes[0].logvmmaps(1)
@@ -202,7 +210,7 @@ class VMMapTests(DefiTestFramework):
         self.setup()
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        self.tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         # vmmap tests
         # self.vmmap_address_basics()
