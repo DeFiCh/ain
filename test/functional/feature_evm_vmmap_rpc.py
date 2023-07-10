@@ -217,10 +217,6 @@ class VMMapTests(DefiTestFramework):
 
     def run_test(self):
         self.setup()
-        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
-        self.nodes[0].generate(1)
         # vmmap tests
         # self.vmmap_address_basics()
         self.vmmap_address_basics_manual_import()
@@ -233,7 +229,6 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_invalid_block_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
-        # disabled for now pending on clean state tests (TODO)
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
         self.logvmmaps_block_exist()
