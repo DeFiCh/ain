@@ -141,14 +141,17 @@ class VMMapTests(DefiTestFramework):
     def vmmap_valid_block_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if xvmmap is working for Blocks
-        # TODO:
-        #   - Check for multiple ones. Generate and verify hashes manually.
-        #     Not have cyclic results
-        #   - Get a valid tx, prefix it with garbage and check fail.
-        #   - Get a valid tx, suffix it with garbage and check fail.
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
         dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
-        assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
+        assert_equal(dvm_block, self.nodes[0].getbestblockhash())
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
+        dvm_block = self.nodes[0].getbestblockhash()
+        evm_block = self.nodes[0].vmmap(dvm_block, 5)
+        assert_equal(evm_block, self.nodes[0].eth_getBlockByNumber("latest", False)['hash'][2:])
+
 
     def vmmap_invalid_block_should_fail(self):
         self.rollback_to(self.start_block_height)
