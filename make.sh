@@ -542,7 +542,7 @@ pkg_install_rust() {
 }
 
 pkg_install_web3_deps() {
-    _fold_start "pkg-install-solc"
+    _fold_start "pkg-install-web3-deps"
     python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
     _fold_end
@@ -552,6 +552,14 @@ pkg_setup_rust() {
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
+}
+
+pkg_install_solc() {
+    _fold_start "pkg-install-solc"
+    add-apt-repository ppa:ethereum/ethereum -y
+    apt-get update
+    apt-get install solc -y
+    _fold_end
 }
 
 clean_pkg_local_osx_sysroot() {
@@ -907,6 +915,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    DEBIAN_FRONTEND=noninteractive pkg_install_solc
 }
 
 _ci_setup_deps_target() {

@@ -186,10 +186,12 @@ dependencies = [
  "ain-cpp-imports",
  "ain-evm",
  "ain-grpc",
+ "anyhow",
  "cxx",
  "cxx-gen",
  "ethereum",
  "ethers",
+ "ethers-solc",
  "hex",
  "lazy_static",
  "libsecp256k1",
@@ -197,6 +199,7 @@ dependencies = [
  "primitive-types",
  "proc-macro2",
  "rlp",
+ "serde_json",
 ]
 
 [[package]]
