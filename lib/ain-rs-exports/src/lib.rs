@@ -445,7 +445,6 @@ fn create_dst20(
     name: &str,
     symbol: &str,
 ) -> bool {
-    debug!("HERE");
     match deploy_dst20(
         native_hash,
         context,

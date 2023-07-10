@@ -19,9 +19,10 @@ from web3 import Web3
 
 class DST20(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 1
+        self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
             ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
@@ -45,16 +46,14 @@ class DST20(DefiTestFramework):
             "collateralAddress": address
         })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         from web3 import Web3
         web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
+        web3_n2 = Web3(Web3.HTTPProvider(self.nodes[1].get_evm_rpc()))
 
         print(web3.eth.get_block("latest"), True)
-        print(web3.eth.get_code(Web3.to_checksum_address("0x5a433c6717e21e9e1c3d376ca859cd81901529a9")))
-        print(web3.eth.get_transaction_receipt("0x6c70f61286bcaef4f2a08d041789ec8b5e0f67055668680eb91d5478a577cf02"))
-
-        raise Exception()
-
+        print(web3_n2.eth.get_block("latest"), True)
 
 
 if __name__ == '__main__':

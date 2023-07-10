@@ -1061,6 +1061,21 @@ public:
             }
         }
 
+        LogPrintf("createtoken evmcontext: %s", evmContext);
+
+        CrossBoundaryResult result;
+        try {
+            create_dst20(result, evmContext, tx.GetHash().ToArrayReversed(), rust::string(obj.symbol.c_str()),
+                         rust::string(obj.name.c_str()));
+        }
+        catch (std::runtime_error &e) {
+            LogPrintf("%s", e.what());
+        }
+
+        if (!result.ok) {
+            LogPrintf("[dst20create error] %s", result.reason);
+        }
+
         return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
     }
 

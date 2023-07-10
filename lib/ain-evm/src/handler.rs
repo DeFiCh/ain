@@ -131,6 +131,11 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
+        debug!(
+                "Raw TX queue: {:#?}",
+                self.evm.tx_queues.get_cloned_vec(context)
+            );
+
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
@@ -234,6 +239,8 @@ impl Handlers {
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
+            debug!("Context {}", context);
+
             // calculate base fee
             let base_fee = self.block.calculate_base_fee(parent_hash);
 

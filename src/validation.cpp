@@ -3338,6 +3338,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
+            LogPrintf("finalize evmcontext: %s", evmContext);
             evm_try_finalize(result, evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
             if (!result.ok && pindexNew->nHeight >= Params().GetConsensus().ChangiIntermediateHeight4) {
                 return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());

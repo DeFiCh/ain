@@ -68,8 +68,6 @@ pub fn deploy_dst20(
         &[Token::String(name), Token::String(symbol)],
     )?;
 
-    debug!("Deploy TX data: {:#?}", input);
-
     // build transaction
     let chain_id = ain_cpp_imports::get_chain_id()?;
 
