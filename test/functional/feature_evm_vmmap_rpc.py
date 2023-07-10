@@ -119,11 +119,13 @@ class VMMapTests(DefiTestFramework):
     def vmmap_valid_tx_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if xvmmap is working for Txs
-        list_tx = self.nodes[0].logvmmaps(1)
-        dvm_tx = list(list_tx['indexes'].keys())[0]
-        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        assert_equal("0x" + evm_tx, list(list_tx['indexes'].values())[0])
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
+        latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
+        assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
@@ -186,11 +188,15 @@ class VMMapTests(DefiTestFramework):
         assert_equal(tx in list(list_tx['indexes'].keys()), False)
 
     def logvmmaps_tx_exist(self):
+        self.rollback_to(self.start_block_height)
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
         list_tx = self.nodes[0].logvmmaps(1)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
         assert_equal(eth_tx[2:] in list(list_tx['indexes'].values()), True)
-        dfi_tx = self.nodes[0].vmmap(eth_tx, 4)
-        assert_equal(dfi_tx in list(list_tx['indexes'].keys()), True)
+        assert_equal(tx in list(list_tx['indexes'].keys()), True)
 
     def logvmmaps_invalid_tx_should_fail(self):
         list_tx = self.nodes[0].logvmmaps(1)
@@ -221,14 +227,14 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_address_not_present_should_fail()
         self.vmmap_valid_address_invalid_type_should_fail()
         self.vmmap_invalid_address_should_fail()
-#        self.vmmap_valid_tx_should_succeed()
+        self.vmmap_valid_tx_should_succeed()
         self.vmmap_invalid_tx_should_fail()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_block_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
         # disabled for now pending on clean state tests (TODO)
-        # self.logvmmaps_tx_exist()
+        self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
         self.logvmmaps_block_exist()
         self.logvmmaps_invalid_block_should_fail()
