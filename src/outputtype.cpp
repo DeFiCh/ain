@@ -63,7 +63,13 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
             return witdest;
         }
     }
-    case OutputType::ETH: return WitnessV16EthHash(key);
+    case OutputType::ETH: {
+        CPubKey pubkeyCopy = key;
+        if (pubkeyCopy.IsCompressed()) {
+            pubkeyCopy.Decompress();
+        }
+        return WitnessV16EthHash(pubkeyCopy);
+    }
     default: assert(false);
     }
 }

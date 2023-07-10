@@ -83,17 +83,17 @@ class EVMTest(DefiTestFramework):
         assert_equal(eth_info['pubkey'], '04ed3add70f9d3fde074bc74310d5684f5e5d2836106a8286aef1324f9791658da9034d75da80783a544da73d3bb809df9f8bd50309b51b8ee3fab240d5610511c')
 
         # Import Bech32 uncompressed private key for:
-        # Bech32: bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8
-        # Eth: 0x9b8a4af42140d8a4c153a822f02571a1dd037e89
-        self.nodes[0].importprivkey('92vFaHJzsyWnJhocQv8F2wuTzPG9FnNxqFcyARtBtqeXjZs6QqG')
-        bech32_info = self.nodes[0].getaddressinfo(eth_address_bech32)
+        # Bech32: bcrt1qzm54jxk82jp34jx49v5uaxk4ye2pv03e5aknl6
+        # Eth: 0xd61Cd3F09E2C20376BFa34ed3a4FcF512341fA0E
+        self.nodes[0].importprivkey('92e6XLo5jVAVwrQKPNTs93oQco8f8sDNBcpv73Dsrs397fQtFQn')
+        bech32_info = self.nodes[0].getaddressinfo('bcrt1qzm54jxk82jp34jx49v5uaxk4ye2pv03e5aknl6')
         assert_equal(bech32_info['ismine'], True)
         assert_equal(bech32_info['iswitness'], True)
-        assert_equal(bech32_info['pubkey'], '021286647f7440111ab928bdea4daa42533639c4567d81eca0fff622fb6438eae3')
-        eth_info = self.nodes[0].getaddressinfo(eth_address)
+        assert_equal(bech32_info['pubkey'], '02087a947bbb87f5005d25c56a10a7660694b81bffe209a9e89a6e2683a6a900b6')
+        eth_info = self.nodes[0].getaddressinfo('0xd61Cd3F09E2C20376BFa34ed3a4FcF512341fA0E')
         assert_equal(eth_info['ismine'], True)
         assert_equal(eth_info['solvable'], True)
-        assert_equal(eth_info['pubkey'], '041286647f7440111ab928bdea4daa42533639c4567d81eca0fff622fb6438eae31cee4e0c53581dacc579fde09f5a25150703e9efd8d2c5ecbbda619d4ca104e6')
+        assert_equal(eth_info['pubkey'], '04087a947bbb87f5005d25c56a10a7660694b81bffe209a9e89a6e2683a6a900b6ff3a7732eb015021deda823f265ed7a5bbec7aa7e83eb395d4cb7d5dea63d144')
 
         # Import addresses
         self.nodes[0].importprivkey(eth_address_privkey) # eth_address
@@ -103,7 +103,7 @@ class EVMTest(DefiTestFramework):
         privkey = self.nodes[0].dumpprivkey(to_address)
         assert_equal(privkey, to_address_privkey)
 
-        # Check creation and prikey dump of new Eth key
+        # Check creation and private key dump of new Eth key
         test_eth_dump = self.nodes[0].getnewaddress("", "eth")
         self.nodes[0].dumpprivkey(test_eth_dump)
 

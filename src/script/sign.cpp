@@ -22,16 +22,8 @@ bool MutableTransactionSignatureCreator::CreateSig(const SigningProvider& provid
     if (!provider.GetKey(address, key))
         return false;
 
-    // Special case. Bech32 address created from Eth address which has an uncompressed private key.
-    CKey ethKey;
-    const auto ethID = key.GetPubKey().GetEthID();
-    const auto bechFromEth = !key.IsCompressed() && ethID != address && provider.GetEthKey(ethID, ethKey);
-
     // Signing with uncompressed keys is disabled in witness scripts
-    if (!bechFromEth && sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
-        return false;
-    // Signing with compressed keys is disabled in eth scripts
-    if (sigversion == SigVersion::WITNESS_V16 && key.IsCompressed())
+    if (sigversion == SigVersion::WITNESS_V0 && !key.IsCompressed())
         return false;
     uint256 hash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion);
     if (!key.Sign(hash, vchSig))
@@ -124,7 +116,14 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         ret.push_back(std::move(sig));
         return true;
     case TX_PUBKEYHASH: {
-        CKeyID keyID = CKeyID(uint160(vSolutions[0]));
+        CKeyID keyID;
+        if (sigversion == SigVersion::WITNESS_V16) {
+            keyID = CKeyID(uint160(vSolutions[0]), KeyAddressType::UNCOMPRESSED);
+        } else if (sigversion == SigVersion::WITNESS_V0) {
+            keyID = CKeyID(uint160(vSolutions[0]), KeyAddressType::COMPRESSED);
+        } else {
+            keyID = CKeyID(uint160(vSolutions[0]));
+        }
         CPubKey pubkey;
         if (!GetPubKey(provider, sigdata, keyID, pubkey)) {
             // Pubkey could not be found, add to missing

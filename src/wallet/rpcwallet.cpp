@@ -3680,7 +3680,7 @@ public:
     {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::COMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;
@@ -3704,8 +3704,7 @@ public:
     UniValue operator()(const WitnessV16EthHash& id) const {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
-            pubkey.Decompress();
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::UNCOMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;

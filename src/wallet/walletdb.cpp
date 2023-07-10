@@ -86,9 +86,9 @@ bool WalletBatch::WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubk
     return WriteIC(std::make_pair(DBKeys::KEYMETA, pubkey), meta, overwrite);
 }
 
-bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta, const bool ethAddress)
+bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
 {
-    if (!WriteKeyMetadata(keyMeta, vchPubKey, false) && !ethAddress) {
+    if (!WriteKeyMetadata(keyMeta, vchPubKey, false)) {
         return false;
     }
 
@@ -98,7 +98,7 @@ bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey,
     vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
     vchKey.insert(vchKey.end(), vchPrivKey.begin(), vchPrivKey.end());
 
-    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), CKeyData{vchPrivKey, Hash(vchKey.begin(), vchKey.end()), ethAddress}, ethAddress);
+    return WriteIC(std::make_pair(DBKeys::KEY, vchPubKey), CKeyData{vchPrivKey, Hash(vchKey.begin(), vchKey.end())}, false);
 }
 
 bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
@@ -317,22 +317,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
 
-            bool ethAddress{};
-            try
-            {
-                ssValue >> ethAddress;
-            }
-            catch (...) {}
-
-            CPubKey compressedPubkey;
-            if (ethAddress) {
-                compressedPubkey = CPubKey(vchPubKey.begin(), vchPubKey.end());
-                if (!compressedPubkey.Compress()) {
-                    compressedPubkey = {};
-                }
-            }
-
-            if (!pwallet->LoadKey(key, vchPubKey, compressedPubkey))
+            if (!pwallet->LoadKey(key, vchPubKey))
             {
                 strErr = "Error reading wallet database: LoadKey failed";
                 return false;
@@ -374,11 +359,11 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKeyMetadata keyMeta;
             ssValue >> keyMeta;
             wss.nKeyMeta++;
-            if (keyMeta.nVersion == CKeyMetadata::VERSION_ETH) {
-                pwallet->LoadKeyMetadata(vchPubKey.GetEthID(), keyMeta);
-            } else {
-                pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
+            pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
+            if (vchPubKey.IsCompressed()) {
+                vchPubKey.Decompress();
             }
+            pwallet->LoadKeyMetadata(vchPubKey.GetEthID(), keyMeta);
         } else if (strType == DBKeys::WATCHMETA) {
             CScript script;
             ssKey >> script;

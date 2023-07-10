@@ -16,12 +16,21 @@
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
+enum class KeyAddressType : uint8_t {
+    DEFAULT, // Uses whatever is set in the pub / priv key
+    COMPRESSED,
+    UNCOMPRESSED
+};
+
 /** A reference to a CKey: the Hash160 of its serialized public key */
 class CKeyID : public uint160
 {
 public:
     CKeyID() : uint160() {}
     explicit CKeyID(const uint160& in) : uint160(in) {}
+    CKeyID(const uint160& in, const KeyAddressType type) : uint160(in), type(type) {}
+
+    KeyAddressType type{KeyAddressType::DEFAULT};
 };
 
 typedef uint256 ChainCode;
