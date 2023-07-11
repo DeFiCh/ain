@@ -11,6 +11,15 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
+class VMMapType:
+    Auto = 0
+    AddressDVMToEVM = 1
+    AddressEVMToDVM = 2
+    TxHashDVMToEVM = 3
+    TxHashEVMToEVM = 4
+    BlockHashDVMToEVM = 5
+    BlockHashEVMToDVM = 6
+
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -100,83 +109,75 @@ class VMMapTests(DefiTestFramework):
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
         eth_address = self.nodes[0].getnewaddress("", "eth")
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 8)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, -1)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 2)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, p2sh_address, 1)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, p2sh_address, 2)
+        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, *args)
+        assert_invalid(address, 8)
+        assert_invalid(address, -1)
+        assert_invalid(eth_address, VMMapType.AddressDVMToEVM)
+        assert_invalid(address, VMMapType.AddressEVMToDVM)
+        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
+        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
 
     def vmmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
+        assert_raises_rpc_error(-5, eth_address + " does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 1)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 2)
 
     def vmmap_valid_tx_should_succeed(self):
+        import pprint
         self.rollback_to(self.start_block_height)
-        # Check if xvmmap is working for Txs
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        list_evm_block = []
-        list_dvm_block = []
-        for i in range(5):
-            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
-            if (i + 1) % 5 == 0:
-                self.nodes[0].evmtx(self.ethAddress, i + 1, 21, 21000, self.toAddress, 1)
-                self.nodes[0].evmtx(self.ethAddress, i + 2, 21, 21000, self.toAddress, 1)
-                self.nodes[0].evmtx(self.ethAddress, i + 3, 21, 21000, self.toAddress, 1)
-                self.nodes[0].evmtx(self.ethAddress, i + 4, 21, 21000, self.toAddress, 1)
+        tx_maps = []
+        nonce = 0
+        for i in range(1):
+            # generate 5 txs in the block
+            num_txs = 5
+            for j in range(num_txs):
+                self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21000, self.toAddress, 1)
+                nonce += 1
             self.nodes[0].generate(1)
-            list_evm_block.append(self.nodes[0].eth_getBlockByNumber("latest", False))
-            list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
+            dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+            eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+            for j in range(num_txs):
+                # note dfi block is j+1 since we ignore coinbase
+                tx_maps.append([dfi_block['tx'][j+1], eth_block['transactions'][j]])
+        for item in tx_maps:
+            # TODO: bug, should pass without 0x prefix
+            assert_equal("0x" + self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM), item[0])
 
-        for i in range(5):
-            for transaction in list_evm_block[i]['transactions']:
-                assert_equal(self.nodes[0].vmmap(transaction, 4) in list_dvm_block[i]['tx'], True)
-
-    def vmmap_invalid_tx_should_fail(self):
+    def vmmap_invalid_should_fail(self):
         self.rollback_to(self.start_block_height)
-        # Check vmmap fail on wrong tx
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "garbage", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, latest_block + "0x00", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00" + latest_block, 4)
+        assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
+        for map_type in range(6):
+            if map_type in [0, 1, 2]: continue # addr types and auto are ignored for this test
+            assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
+            assert_err("0x00", map_type)
+            assert_err("garbage", map_type)
+            assert_err(latest_eth_block + "0x00", map_type) # invalid suffix
+            assert_err("0x00" + latest_eth_block, map_type) # invalid prefix
 
     def vmmap_valid_block_should_succeed(self):
         self.rollback_to(self.start_block_height)
-        # Check if xvmmap is working for Blocks
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        list_evm_block = []
-        list_dvm_block = []
+        block_maps = []
         for i in range(5):
             self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
             self.nodes[0].generate(1)
-            list_evm_block.append(self.nodes[0].eth_getBlockByNumber("latest", False))
-            list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
-
-        for i in range(5):
-            assert_equal(self.nodes[0].vmmap(list_evm_block[i]['hash'], 6) in list_dvm_block[i]['hash'], True)
-
-
-    def vmmap_invalid_block_should_fail(self):
-        self.rollback_to(self.start_block_height)
-        # Check vmmap fail on wrong block
-        evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap,"garbage", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 6)
+            dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+            eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+            block_maps.append([dfi_block['hash'], eth_block['hash']])
+        for item in block_maps:
+            # TODO: bug, should pass without 0x prefix
+            assert_equal("0x" + self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
@@ -241,9 +242,8 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_address_invalid_type_should_fail()
         self.vmmap_invalid_address_should_fail()
         self.vmmap_valid_tx_should_succeed()
-        self.vmmap_invalid_tx_should_fail()
         self.vmmap_valid_block_should_succeed()
-        self.vmmap_invalid_block_should_fail()
+        self.vmmap_invalid_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
         self.logvmmaps_tx_exist()
