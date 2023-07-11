@@ -126,6 +126,26 @@ class VMMapTests(DefiTestFramework):
         latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
         dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
         assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
+        self.nodes[0].evmtx(self.ethAddress, 1, 21, 21000, self.toAddress, 2)
+        self.nodes[0].generate(1)
+        latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
+        assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
+        self.nodes[0].evmtx(self.ethAddress, 2, 21, 21000, self.toAddress, 20)
+        self.nodes[0].generate(1)
+        latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
+        assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
+        self.nodes[0].evmtx(self.ethAddress, 3, 21, 21000, self.toAddress, 5)
+        self.nodes[0].generate(1)
+        latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
+        assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
+        self.nodes[0].evmtx(self.ethAddress, 4, 21, 21000, self.toAddress, 9)
+        self.nodes[0].generate(1)
+        latest_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
+        dvm_tx = self.nodes[0].vmmap(latest_tx, 4)
+        assert_equal(dvm_tx in self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'], True)
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
