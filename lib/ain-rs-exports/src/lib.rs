@@ -53,6 +53,10 @@ pub mod ffi {
     }
 
     extern "Rust" {
+        // In-fallible functions
+        //
+        // If they are fallible, it's a TODO to changed and move later
+        // so errors are propogated up properly.
         fn evm_get_balance(address: [u8; 20]) -> u64;
         fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
         fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]);
@@ -63,13 +67,19 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> bool;
+        fn evm_get_context() -> u64;
+        fn evm_discard_context(context: u64);
+        fn evm_disconnect_latest_block();
+
+        // Failible functions
+        // Has to take CrossBoundaryResult as first param
+        // Has to start with try_ / evm_try
+
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
             with_gas_usage: bool,
         ) -> ValidateTxCompletion;
-        fn evm_get_context() -> u64;
-        fn evm_discard_context(context: u64);
         fn evm_try_queue_tx(
             result: &mut CrossBoundaryResult,
             context: u64,
@@ -89,6 +99,5 @@ pub mod ffi {
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
 
-        fn evm_disconnect_latest_block();
     }
 }
