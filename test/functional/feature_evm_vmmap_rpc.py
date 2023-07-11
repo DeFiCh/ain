@@ -121,18 +121,16 @@ class VMMapTests(DefiTestFramework):
         # Check if xvmmap is working for Txs
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        list_evm_tx = []
-        list_dvm_tx = []
+        list_evm_block = []
+        list_dvm_block = []
         for i in range(5):
             self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
             self.nodes[0].generate(1)
-            list_evm_tx.append(self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
-            list_dvm_tx.append(self.nodes[0].vmmap(list_evm_tx[-1], 4))
+            list_evm_block.append(self.nodes[0].eth_getBlockByNumber("latest", False))
+            list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
 
         for i in range(5):
-            best_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-            assert_equal(list_dvm_tx[-i - 1] in best_block['tx'], True)
-            self.nodes[0].invalidateblock(best_block['hash'])
+            assert_equal(self.nodes[0].vmmap(list_evm_block[i]['transactions'][0], 4) in list_dvm_block[i]['tx'], True)
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
