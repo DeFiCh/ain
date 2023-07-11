@@ -154,7 +154,8 @@ class VMMapTests(DefiTestFramework):
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
         for map_type in range(6):
-            if map_type in [0, 1, 2]: continue # addr types and auto are ignored for this test
+            if map_type in [0, 1, 2]: 
+                continue # addr types and auto are ignored for this test
             assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
             assert_err("0x00", map_type)
             assert_err("garbage", map_type)
