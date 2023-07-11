@@ -168,17 +168,20 @@ UniValue vmmap(const JSONRPCRequest& request) {
                },
     }.Check(request);
     const std::string hash = request.params[0].get_str();
+    auto invalidParam = []() {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+    };
 
     const int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+        invalidParam();
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
             CTxDestination dest = DecodeDestination(hash);
             if (dest.index() != WitV0KeyHashType) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+                invalidParam();
             }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (key.IsCompressed()) { key.Decompress(); }
@@ -187,7 +190,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
         case VMDomainRPCMapType::AddressEVMToDVM: {
             CTxDestination dest = DecodeDestination(hash);
             if (dest.index() != WitV16KeyEthHashType) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+                invalidParam();
             }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (!key.IsCompressed()) { key.Compress(); }
