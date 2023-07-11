@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::RwLock};
 
-use crate::log::LogIndex;
+use crate::{log::LogIndex, MaybeTransactionV2, MaybeBlockAny, block};
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 use std::borrow::ToOwned;
@@ -11,10 +11,12 @@ use crate::storage::traits::LogStorage;
 use super::{
     code::CodeHistory,
     traits::{
-        BlockStorage, FlushableStorage, PersistentState, PersistentStateError, ReceiptStorage,
+        BlockStorage, FlushableStorage, PersistentState, ReceiptStorage,
         Rollback, TransactionStorage,
     },
 };
+
+use crate::Result;
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
@@ -91,78 +93,86 @@ impl BlockchainDataHandler {
 
 impl TransactionStorage for BlockchainDataHandler {
     // TODO: Feature flag
-    fn extend_transactions_from_block(&self, block: &BlockAny) {
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         let mut transactions = self.transactions.write().unwrap();
 
         for transaction in &block.transactions {
             let hash = transaction.hash();
             transactions.insert(hash, transaction.clone());
         }
+
+        Ok(())
     }
 
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
-        self.transactions
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<MaybeTransactionV2> {
+        let res = self.transactions
             .read()
             .unwrap()
             .get(hash)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(res)
     }
 
     fn get_transaction_by_block_hash_and_index(
         &self,
         block_hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.block_map
+    ) -> Result<MaybeTransactionV2> {
+        let res = self.block_map
             .write()
             .unwrap()
             .get(block_hash)
             .and_then(|block_number| {
                 self.get_transaction_by_block_number_and_index(block_number, index)
-            })
+            });
+        Ok(res)
     }
 
     fn get_transaction_by_block_number_and_index(
         &self,
         block_number: &U256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.blocks
+    ) -> Result<MaybeTransactionV2> {
+        let res = self.blocks
             .write()
             .unwrap()
             .get(block_number)?
             .transactions
             .get(index)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(res)
     }
 
-    fn put_transaction(&self, transaction: &TransactionV2) {
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
         self.transactions
             .write()
             .unwrap()
             .insert(transaction.hash(), transaction.clone());
+        Ok(())
     }
 }
 
 impl BlockStorage for BlockchainDataHandler {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.blocks
+    fn get_block_by_number(&self, number: &U256) -> Result<MaybeBlockAny> {
+        let res = self.blocks
             .write()
             .unwrap()
             .get(number)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(res)
     }
 
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
-        self.block_map
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<MaybeBlockAny> {
+        let res = self.block_map
             .write()
             .unwrap()
             .get(block_hash)
-            .and_then(|block_number| self.get_block_by_number(block_number))
+            .and_then(|block_number| self.get_block_by_number(block_number));
+        Ok(res)
     }
 
-    fn put_block(&self, block: &BlockAny) {
-        self.extend_transactions_from_block(block);
+    fn put_block(&self, block: &BlockAny) -> Result<()> {
+        self.extend_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
@@ -171,32 +181,38 @@ impl BlockStorage for BlockchainDataHandler {
             .unwrap()
             .insert(block_number, block.clone());
         self.block_map.write().unwrap().insert(hash, block_number);
+        
+        Ok(())
     }
 
-    fn get_latest_block(&self) -> Option<BlockAny> {
-        self.latest_block_number
+    fn get_latest_block(&self) -> Result<MaybeBlockAny> {
+        let res = self.latest_block_number
             .read()
             .unwrap()
             .as_ref()
-            .and_then(|number| self.get_block_by_number(number))
+            .and_then(|number| self.get_block_by_number(number));
+        Ok(res)
     }
 
-    fn put_latest_block(&self, block: Option<&BlockAny>) {
+    fn put_latest_block(&self, block: &BlockAny) -> Result<()> {
         let mut latest_block_number = self.latest_block_number.write().unwrap();
         *latest_block_number = block.map(|b| b.header.number);
+        Ok(())
     }
 
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
-        self.base_fee_map
+    fn get_base_fee(&self, block_hash: &H256) -> Result<Option<U256>> {
+        let res = self.base_fee_map
             .read()
             .unwrap()
             .get(block_hash)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(res)
     }
 
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
+    fn set_base_fee(&self, block_hash: H256, base_fee: U256) -> Result<()> {
         let mut base_fee_map = self.base_fee_map.write().unwrap();
         base_fee_map.insert(block_hash, base_fee);
+        Ok(())
     }
 }
 
@@ -233,7 +249,7 @@ impl LogStorage for BlockchainDataHandler {
 }
 
 impl FlushableStorage for BlockchainDataHandler {
-    fn flush(&self) -> Result<(), PersistentStateError> {
+    fn flush(&self) -> Result<()> {
         self.block_map
             .write()
             .unwrap()
@@ -287,8 +303,9 @@ impl BlockchainDataHandler {
 }
 
 impl Rollback for BlockchainDataHandler {
-    fn disconnect_latest_block(&self) {
-        if let Some(block) = self.get_latest_block() {
+    fn disconnect_latest_block(&self) -> Result<()> {
+        let block = self.get_latest_block()?;
+        if let Some(block) = block {
             println!("disconnecting block number : {:x?}", block.header.number);
             let mut transactions = self.transactions.write().unwrap();
             let mut receipts = self.receipts.write().unwrap();
@@ -306,7 +323,8 @@ impl Rollback for BlockchainDataHandler {
             self.blocks.write().unwrap().remove(&block.header.number);
             self.code_map.write().unwrap().rollback(block.header.number);
 
-            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
+            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())?;
         }
+        Ok(())
     }
 }

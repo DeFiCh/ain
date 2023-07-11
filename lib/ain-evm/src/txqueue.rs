@@ -10,6 +10,8 @@ use crate::{
     transaction::{bridge::BridgeTx, SignedTx},
 };
 
+use crate::{Result, EVMError};
+
 #[derive(Debug)]
 pub struct TransactionQueueMap {
     queues: RwLock<HashMap<u64, TransactionQueue>>,
@@ -53,12 +55,12 @@ impl TransactionQueueMap {
     }
 
     /// Clears the `TransactionQueue` vector associated with the provided context ID.
-    pub fn clear(&self, context_id: u64) -> Result<(), QueueError> {
+    pub fn clear(&self, context_id: u64) -> Result<()> {
         self.queues
             .read()
             .unwrap()
             .get(&context_id)
-            .ok_or(QueueError::NoSuchContext)
+            .ok_or(EVMError::QueueNoSuchContext)
             .map(TransactionQueue::clear)
     }
 
@@ -72,8 +74,8 @@ impl TransactionQueueMap {
     ///
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
-    /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
+    /// Returns `EVMError::QueueNoSuchContext` if no queue is associated with the given context ID.
+    /// Returns `EVMError::QueueInvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
     ///
     pub fn queue_tx(
@@ -81,12 +83,12 @@ impl TransactionQueueMap {
         context_id: u64,
         tx: QueueTx,
         hash: NativeTxHash,
-    ) -> Result<(), QueueError> {
+    ) -> Result<()> {
         self.queues
             .read()
             .unwrap()
             .get(&context_id)
-            .ok_or(QueueError::NoSuchContext)
+            .ok_or(EVMError::QueueNoSuchContext)
             .map(|queue| queue.queue_tx((tx, hash)))?
     }
 
@@ -122,12 +124,12 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
     ///
-    pub fn remove_txs_by_sender(&self, context_id: u64, sender: H160) -> Result<(), QueueError> {
+    pub fn remove_txs_by_sender(&self, context_id: u64, sender: H160) -> Result<()> {
         self.queues
             .read()
             .unwrap()
             .get(&context_id)
-            .ok_or(QueueError::NoSuchContext)
+            .ok_or(EVMError::QueueNoSuchContext)
             .map(|queue| queue.remove_txs_by_sender(sender))
     }
 
@@ -185,12 +187,12 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().clone()
     }
 
-    pub fn queue_tx(&self, tx: QueueTxWithNativeHash) -> Result<(), QueueError> {
+    pub fn queue_tx(&self, tx: QueueTxWithNativeHash) -> Result<()> {
         if let QueueTx::SignedTx(signed_tx) = &tx.0 {
             let mut account_nonces = self.account_nonces.lock().unwrap();
             if let Some(nonce) = account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
-                    return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
+                    return Err(EVMError::QueueInvalidNonce((signed_tx.clone(), *nonce)));
                 }
             }
             account_nonces.insert(signed_tx.sender, signed_tx.nonce());
@@ -230,35 +232,18 @@ impl From<SignedTx> for QueueTx {
     }
 }
 
-#[derive(Debug)]
-pub enum QueueError {
-    NoSuchContext,
-    InvalidNonce((Box<SignedTx>, U256)),
-}
-
-impl std::fmt::Display for QueueError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QueueError::NoSuchContext => write!(f, "No transaction queue for this context"),
-            QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
-        }
-    }
-}
-
-impl std::error::Error for QueueError {}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
 
     use ethereum_types::{H256, U256};
 
-    use crate::transaction::bridge::BalanceUpdate;
+    use crate::{transaction::bridge::BalanceUpdate, EVMError};
 
     use super::*;
 
     #[test]
-    fn test_invalid_nonce_order() -> Result<(), QueueError> {
+    fn test_invalid_nonce_order() -> Result<()> {
         let queue = TransactionQueue::new();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
@@ -274,12 +259,12 @@ mod tests {
         queue.queue_tx((tx2, H256::from_low_u64_be(2).into()))?;
         // Should fail as nonce 2 is already queued for this sender
         let queued = queue.queue_tx((tx3, H256::from_low_u64_be(3).into()));
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        assert!(matches!(queued, Err(EVMError::QueueInvalidNonce { .. })));
         Ok(())
     }
 
     #[test]
-    fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), QueueError> {
+    fn test_invalid_nonce_order_with_transfer_domain() -> Result<()> {
         let queue = TransactionQueue::new();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
@@ -302,12 +287,12 @@ mod tests {
         queue.queue_tx((tx3, H256::from_low_u64_be(3).into()))?;
         // Should fail as nonce 2 is already queued for this sender
         let queued = queue.queue_tx((tx4, H256::from_low_u64_be(4).into()));
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        assert!(matches!(queued, Err(EVMError::QueueInvalidNonce { .. })));
         Ok(())
     }
 
     #[test]
-    fn test_valid_nonce_order() -> Result<(), QueueError> {
+    fn test_valid_nonce_order() -> Result<()> {
         let queue = TransactionQueue::new();
 
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6

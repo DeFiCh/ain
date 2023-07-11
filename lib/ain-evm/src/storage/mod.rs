@@ -5,6 +5,7 @@ pub mod traits;
 
 use crate::log::LogIndex;
 use ethereum::{BlockAny, TransactionV2};
+use crate::{MaybeTransactionV2, MaybeBlockAny};
 use primitive_types::{H160, H256, U256};
 use std::collections::HashMap;
 
@@ -15,10 +16,12 @@ use self::{
     cache::Cache,
     data_handler::BlockchainDataHandler,
     traits::{
-        BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage, Rollback,
+        BlockStorage, FlushableStorage, ReceiptStorage, Rollback,
         TransactionStorage,
     },
 };
+
+use crate::Result;
 
 #[derive(Debug)]
 pub struct Storage {
@@ -49,7 +52,7 @@ impl Storage {
 }
 
 impl BlockStorage for Storage {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
+    fn get_block_by_number(&self, number: &U256) -> Result<MaybeBlockAny> {
         self.cache.get_block_by_number(number).or_else(|| {
             let block = self.blockchain_data_handler.get_block_by_number(number);
             if let Some(ref block) = block {
@@ -59,7 +62,7 @@ impl BlockStorage for Storage {
         })
     }
 
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<MaybeBlockAny> {
         self.cache.get_block_by_hash(block_hash).or_else(|| {
             let block = self.blockchain_data_handler.get_block_by_hash(block_hash);
             if let Some(ref block) = block {
@@ -69,27 +72,30 @@ impl BlockStorage for Storage {
         })
     }
 
-    fn put_block(&self, block: &BlockAny) {
-        self.cache.put_block(block);
-        self.blockchain_data_handler.put_block(block);
+    fn put_block(&self, block: &BlockAny) -> Result<()> {
+        self.cache.put_block(block)?;
+        self.blockchain_data_handler.put_block(block)?;
+        Ok(())
     }
 
-    fn get_latest_block(&self) -> Option<BlockAny> {
-        self.cache.get_latest_block().or_else(|| {
+    fn get_latest_block(&self) -> Result<MaybeBlockAny> {
+        let res = self.cache.get_latest_block().or_else(|| {
             let latest_block = self.blockchain_data_handler.get_latest_block();
             if let Some(ref block) = latest_block {
-                self.cache.put_latest_block(Some(block));
+                self.cache.put_latest_block(Some(block))?;
             }
             latest_block
-        })
+        });
+        Ok(res)
     }
 
-    fn put_latest_block(&self, block: Option<&BlockAny>) {
-        self.cache.put_latest_block(block);
-        self.blockchain_data_handler.put_latest_block(block);
+    fn put_latest_block(&self, block: &BlockAny) -> Result<()> {
+        self.cache.put_latest_block(block)?;
+        self.blockchain_data_handler.put_latest_block(block)?;
+        Ok(())
     }
 
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
+    fn get_base_fee(&self, block_hash: &H256) -> Result<Option<U256>> {
         self.cache.get_base_fee(block_hash).or_else(|| {
             let base_fee = self.blockchain_data_handler.get_base_fee(block_hash);
             if let Some(base_fee) = base_fee {
@@ -99,7 +105,7 @@ impl BlockStorage for Storage {
         })
     }
 
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
+    fn set_base_fee(&self, block_hash: H256, base_fee: U256) -> Result<()> {
         self.cache.set_base_fee(block_hash, base_fee);
         self.blockchain_data_handler
             .set_base_fee(block_hash, base_fee);
@@ -107,7 +113,7 @@ impl BlockStorage for Storage {
 }
 
 impl TransactionStorage for Storage {
-    fn extend_transactions_from_block(&self, block: &BlockAny) {
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         // Feature flag
         self.cache.extend_transactions_from_block(block);
 
@@ -115,7 +121,7 @@ impl TransactionStorage for Storage {
             .extend_transactions_from_block(block);
     }
 
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<MaybeTransactionV2> {
         self.cache.get_transaction_by_hash(hash).or_else(|| {
             let transaction = self.blockchain_data_handler.get_transaction_by_hash(hash);
             if let Some(ref transaction) = transaction {
@@ -129,7 +135,7 @@ impl TransactionStorage for Storage {
         &self,
         hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2> {
+    ) -> Result<MaybeTransactionV2> {
         self.cache
             .get_transaction_by_block_hash_and_index(hash, index)
             .or_else(|| {
@@ -147,23 +153,25 @@ impl TransactionStorage for Storage {
         &self,
         number: &U256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.cache
+    ) -> Result<MaybeTransactionV2> {
+        let res = self.cache
             .get_transaction_by_block_number_and_index(number, index)
             .or_else(|| {
                 let transaction = self
                     .blockchain_data_handler
-                    .get_transaction_by_block_number_and_index(number, index);
+                    .get_transaction_by_block_number_and_index(number, index)?;
                 if let Some(ref transaction) = transaction {
-                    self.cache.put_transaction(transaction)
+                    self.cache.put_transaction(transaction)?
                 }
                 transaction
-            })
+            });
+        Ok(res)
     }
 
-    fn put_transaction(&self, transaction: &TransactionV2) {
-        self.cache.put_transaction(transaction);
-        self.blockchain_data_handler.put_transaction(transaction);
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
+        self.cache.put_transaction(transaction)?;
+        self.blockchain_data_handler.put_transaction(transaction)?;
+        Ok(())
     }
 }
 
@@ -189,7 +197,7 @@ impl LogStorage for Storage {
 }
 
 impl FlushableStorage for Storage {
-    fn flush(&self) -> Result<(), PersistentStateError> {
+    fn flush(&self) -> Result<()> {
         self.blockchain_data_handler.flush()
     }
 }
@@ -214,8 +222,9 @@ impl Storage {
 }
 
 impl Rollback for Storage {
-    fn disconnect_latest_block(&self) {
-        self.cache.disconnect_latest_block();
-        self.blockchain_data_handler.disconnect_latest_block();
+    fn disconnect_latest_block(&self) -> Result<()> {
+        self.cache.disconnect_latest_block()?; 
+        self.blockchain_data_handler.disconnect_latest_block()?;
+        Ok(())
     }
 }

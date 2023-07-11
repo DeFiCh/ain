@@ -6,6 +6,8 @@ use ain_evm::{
 use ain_evm::services::SERVICES;
 use log::debug;
 
+use ain_evm::Result;
+
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};

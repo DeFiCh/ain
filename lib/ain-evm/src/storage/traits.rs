@@ -1,6 +1,6 @@
 use crate::receipt::Receipt;
-use ethereum::BlockAny;
-use ethereum::TransactionV2;
+use ethereum::{BlockAny, TransactionV2};
+use crate::{Result, MaybeTransactionV2, MaybeBlockAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::{H160, U256};
@@ -15,30 +15,30 @@ use std::path::Path;
 use std::path::PathBuf;
 
 pub trait BlockStorage {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny>;
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny>;
-    fn put_block(&self, block: &BlockAny);
-    fn get_latest_block(&self) -> Option<BlockAny>;
-    fn put_latest_block(&self, block: Option<&BlockAny>);
+    fn get_block_by_number(&self, number: &U256) -> Result<MaybeBlockAny>;
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<MaybeBlockAny>;
+    fn put_block(&self, block: &BlockAny) -> Result<()>;
+    fn get_latest_block(&self) -> Result<MaybeBlockAny>;
+    fn put_latest_block(&self, block: &BlockAny) -> Result<()>;
 
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256>;
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256);
+    fn get_base_fee(&self, block_hash: &H256) -> Result<Option<U256>>;
+    fn set_base_fee(&self, block_hash: H256, base_fee: U256) -> Result<()>;
 }
 
 pub trait TransactionStorage {
-    fn extend_transactions_from_block(&self, block: &BlockAny);
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2>;
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()>;
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<MaybeTransactionV2>;
     fn get_transaction_by_block_hash_and_index(
         &self,
         hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2>;
+    ) -> Result<MaybeTransactionV2>;
     fn get_transaction_by_block_number_and_index(
         &self,
         number: &U256,
         index: usize,
-    ) -> Option<TransactionV2>;
-    fn put_transaction(&self, transaction: &TransactionV2);
+    ) -> Result<MaybeTransactionV2>;
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()>;
 }
 
 pub trait ReceiptStorage {
@@ -52,15 +52,15 @@ pub trait LogStorage {
 }
 
 pub trait FlushableStorage {
-    fn flush(&self) -> Result<(), PersistentStateError>;
+    fn flush(&self) -> Result<()>;
 }
 
 pub trait Rollback {
-    fn disconnect_latest_block(&self);
+    fn disconnect_latest_block(&self) -> Result<()>;
 }
 
 pub trait PersistentState {
-    fn save_to_disk(&self, file_path: &str) -> Result<(), PersistentStateError>
+    fn save_to_disk(&self, file_path: &str) -> Result<()>
     where
         Self: serde::ser::Serialize,
     {
@@ -82,7 +82,7 @@ pub trait PersistentState {
         Ok(())
     }
 
-    fn load_from_disk(file_path: &str) -> Result<Self, PersistentStateError>
+    fn load_from_disk(file_path: &str) -> Result<Self>
     where
         Self: Sized + serde::de::DeserializeOwned + Default,
     {
@@ -104,31 +104,3 @@ pub trait PersistentState {
     }
 }
 
-#[derive(Debug)]
-pub enum PersistentStateError {
-    IoError(io::Error),
-    BincodeError(bincode::Error),
-}
-
-impl fmt::Display for PersistentStateError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            PersistentStateError::IoError(err) => write!(f, "IO error: {err}"),
-            PersistentStateError::BincodeError(err) => write!(f, "Bincode error: {err}"),
-        }
-    }
-}
-
-impl std::error::Error for PersistentStateError {}
-
-impl From<io::Error> for PersistentStateError {
-    fn from(error: io::Error) -> Self {
-        PersistentStateError::IoError(error)
-    }
-}
-
-impl From<bincode::Error> for PersistentStateError {
-    fn from(error: bincode::Error) -> Self {
-        PersistentStateError::BincodeError(error)
-    }
-}

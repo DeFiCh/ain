@@ -1,6 +1,6 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
-use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
+use crate::core::{EVMCoreService, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::filters::FilterService;
 use crate::log::LogService;
@@ -12,14 +12,13 @@ use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
 
-use anyhow::anyhow;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use crate::{Result, format_err};
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -48,10 +47,10 @@ impl EVMServices {
     /// # Return
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
-    pub fn new() -> Result<Self, anyhow::Error> {
+    pub fn new() -> Result<Self> {
         if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
-                return Err(anyhow!(
+                return Err(format_err!(
                     "Loading a genesis from JSON file is restricted to regtest network"
                 ));
             }
@@ -84,7 +83,7 @@ impl EVMServices {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
-    ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
+    ) -> Result<FinalizedBlockInfo> {
         let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(context));
@@ -137,7 +136,7 @@ impl EVMServices {
                     if ain_cpp_imports::past_changi_intermediate_height_4_height() {
                         let nonce = executor.get_nonce(&signed_tx.sender);
                         if signed_tx.nonce() != nonce {
-                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                            return Err(format_err!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
                         }
                     }
 
@@ -251,7 +250,7 @@ impl EVMServices {
         ))
     }
 
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
+    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<()> {
         self.core.tx_queues.queue_tx(context, tx.clone(), hash)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {

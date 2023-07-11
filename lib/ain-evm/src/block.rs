@@ -6,6 +6,7 @@ use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
 use std::sync::Arc;
+use crate::Result;
 
 use crate::storage::{traits::BlockStorage, Storage};
 
@@ -43,10 +44,12 @@ impl BlockService {
         self.first_block_number
     }
 
-    pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
-        self.storage
+    pub fn get_latest_block_hash_and_number(&self) -> Result<Option<(H256, U256)>> {
+        let res = self.storage
             .get_latest_block()
-            .map(|latest_block| (latest_block.header.hash(), latest_block.header.number))
+            .unwrap()
+            .map(|latest_block| (latest_block.header.hash(), latest_block.header.number));
+        Ok(res)
     }
 
     pub fn get_latest_state_root(&self) -> H256 {
@@ -214,6 +217,8 @@ impl BlockService {
                 let base_fee = self
                     .storage
                     .get_base_fee(&block.header.hash())
+                    // TODO: UNWRAP from refactor
+                    .unwrap()
                     .unwrap_or_else(|| panic!("No base fee for block {}", block.header.number));
 
                 let gas_ratio = if block.header.gas_limit == U256::zero() {

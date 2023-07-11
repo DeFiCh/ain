@@ -1,7 +1,7 @@
 use crate::evm::EVMServices;
 use crate::storage::traits::FlushableStorage;
 
-use anyhow::Result;
+use crate::Result;
 use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};

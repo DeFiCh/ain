@@ -1,7 +1,8 @@
-use crate::{backend::EVMBackendError, executor::TxResponse, transaction::SignedTx};
+use crate::{executor::TxResponse, transaction::SignedTx};
 use ethereum::{AccessList, ReceiptV3};
 use evm::Config;
 use primitive_types::{H160, U256};
+use crate::Result;
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {
@@ -22,7 +23,7 @@ pub trait Executor {
 }
 
 pub trait BridgeBackend {
-    fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
+    fn add_balance(&mut self, address: H160, amount: U256) -> Result<()>;
 
-    fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
+    fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()>;
 }

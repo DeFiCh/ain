@@ -1,7 +1,7 @@
 use crate::precompiles::MetachainPrecompiles;
 
 use crate::{
-    backend::{EVMBackend, EVMBackendError},
+    backend::{EVMBackend},
     core::EVMCoreService,
     fee::calculate_prepay_gas,
     traits::{BridgeBackend, Executor, ExecutorContext},
@@ -16,6 +16,7 @@ use evm::{
 };
 use log::trace;
 use primitive_types::{H160, H256};
+use crate::Result;
 
 pub struct AinExecutor<'backend> {
     backend: &'backend mut EVMBackend,
@@ -26,11 +27,11 @@ impl<'backend> AinExecutor<'backend> {
         Self { backend }
     }
 
-    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         self.backend.add_balance(address, amount)
     }
 
-    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         self.backend.sub_balance(address, amount)
     }
 

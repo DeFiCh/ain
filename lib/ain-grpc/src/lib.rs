@@ -36,7 +36,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ain_evm::services::{Services, SERVICES};
-use anyhow::Result;
+pub use ain_evm::{Result, Ok, format_err};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.

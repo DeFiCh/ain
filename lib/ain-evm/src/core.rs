@@ -1,19 +1,18 @@
-use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
+use crate::backend::{EVMBackend, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
 use crate::receipt::ReceiptService;
-use crate::storage::traits::{BlockStorage, PersistentStateError};
+use crate::storage::traits::{BlockStorage};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::trie::TrieDBStore;
-use crate::txqueue::{QueueError, QueueTx, TransactionQueueMap};
+use crate::txqueue::{QueueTx, TransactionQueueMap};
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-use anyhow::anyhow;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
 
@@ -23,6 +22,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use vsdb_core::vsdb_set_base_dir;
+use crate::{Result,format_err};
+use crate::EVMError;
 
 pub type NativeTxHash = [u8; 32];
 
@@ -107,11 +108,11 @@ impl EVMCoreService {
         handler
     }
 
-    pub fn flush(&self) -> Result<(), PersistentStateError> {
+    pub fn flush(&self) -> Result<()> {
         self.trie_store.flush()
     }
 
-    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse, Box<dyn Error>> {
+    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse> {
         let EthCallArgs {
             caller,
             to,
@@ -145,7 +146,7 @@ impl EVMCoreService {
             Arc::clone(&self.storage),
             vicinity,
         )
-        .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
@@ -160,11 +161,11 @@ impl EVMCoreService {
         &self,
         tx: &str,
         with_gas_usage: bool,
-    ) -> Result<(SignedTx, u64), Box<dyn Error>> {
+    ) -> Result<(SignedTx, u64)> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
 
         let block_number = self
@@ -178,7 +179,7 @@ impl EVMCoreService {
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
             .get_nonce(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting nonce {e}"))?;
+            .map_err(|e| format_err!("Error getting nonce {e}"))?;
 
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
@@ -191,7 +192,7 @@ impl EVMCoreService {
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
         if nonce > signed_tx.nonce() {
-            return Err(anyhow!(
+            return Err(format_err!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
                 signed_tx.nonce()
@@ -202,7 +203,7 @@ impl EVMCoreService {
         const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
         let balance = self
             .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+            .map_err(|e| format_err!("Error getting balance {e}"))?;
 
         debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
 
@@ -211,7 +212,7 @@ impl EVMCoreService {
 
         if balance < MIN_GAS_PER_TX || balance < prepay_gas {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(anyhow!("insufficient balance to pay fees").into());
+            return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         let gas_limit = signed_tx.gas_limit();
@@ -221,7 +222,7 @@ impl EVMCoreService {
             MAX_GAS_PER_BLOCK
         );
         if gas_limit > MAX_GAS_PER_BLOCK {
-            return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
+            return Err(format_err!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
         let used_gas = if with_gas_usage {
@@ -260,7 +261,7 @@ impl EVMCoreService {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), EVMError> {
+    ) -> Result<()> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues.queue_tx(context, queue_tx, hash)?;
         Ok(())
@@ -272,14 +273,14 @@ impl EVMCoreService {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), EVMError> {
+    ) -> Result<()> {
         let block_number = self
             .storage
             .get_latest_block()
             .map_or(U256::default(), |block| block.header.number);
         let balance = self.get_balance(address, block_number)?;
         if balance < amount {
-            Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
+            Err(EVMError::InsufficientBalance(InsufficientBalance {
                 address,
                 account_balance: balance,
                 amount,
@@ -296,7 +297,7 @@ impl EVMCoreService {
         self.tx_queues.get_context()
     }
 
-    pub fn clear(&self, context: u64) -> Result<(), EVMError> {
+    pub fn clear(&self, context: u64) -> Result<()> {
         self.tx_queues.clear(context)?;
         Ok(())
     }
@@ -305,7 +306,7 @@ impl EVMCoreService {
         self.tx_queues.remove(context);
     }
 
-    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<(), EVMError> {
+    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<()> {
         self.tx_queues.remove_txs_by_sender(context, address)?;
         Ok(())
     }
@@ -358,7 +359,7 @@ impl EVMCoreService {
         &self,
         address: H160,
         block_number: U256,
-    ) -> Result<Option<Account>, EVMError> {
+    ) -> Result<Option<Account>> {
         let state_root = self
             .storage
             .get_block_by_number(&block_number)
@@ -375,7 +376,7 @@ impl EVMCoreService {
         Ok(backend.get_account(&address))
     }
 
-    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {
+    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number).map(|opt_account| {
             opt_account.map_or_else(
                 || None,
@@ -389,7 +390,7 @@ impl EVMCoreService {
         address: H160,
         position: U256,
         block_number: U256,
-    ) -> Result<Option<Vec<u8>>, EVMError> {
+    ) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number)?
             .map_or(Ok(None), |account| {
                 let storage_trie = self
@@ -406,7 +407,7 @@ impl EVMCoreService {
             })
     }
 
-    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256> {
         let balance = self
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.balance);
@@ -415,7 +416,7 @@ impl EVMCoreService {
         Ok(balance)
     }
 
-    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256> {
         let nonce = self
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.nonce);
@@ -424,7 +425,7 @@ impl EVMCoreService {
         Ok(nonce)
     }
 
-    pub fn get_latest_block_backend(&self) -> Result<EVMBackend, EVMBackendError> {
+    pub fn get_latest_block_backend(&self) -> Result<EVMBackend> {
         let (state_root, block_number) = self
             .storage
             .get_latest_block()
@@ -444,41 +445,4 @@ impl EVMCoreService {
     }
 }
 
-use std::fmt;
 
-#[derive(Debug)]
-pub enum EVMError {
-    BackendError(EVMBackendError),
-    QueueError(QueueError),
-    NoSuchAccount(H160),
-    TrieError(String),
-}
-
-impl fmt::Display for EVMError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {e}"),
-            EVMError::QueueError(e) => write!(f, "EVMError: Queue error: {e}"),
-            EVMError::NoSuchAccount(address) => {
-                write!(f, "EVMError: No such acccount for address {address:#x}")
-            }
-            EVMError::TrieError(e) => {
-                write!(f, "EVMError: Trie error {e}")
-            }
-        }
-    }
-}
-
-impl From<EVMBackendError> for EVMError {
-    fn from(e: EVMBackendError) -> Self {
-        EVMError::BackendError(e)
-    }
-}
-
-impl From<QueueError> for EVMError {
-    fn from(e: QueueError) -> Self {
-        EVMError::QueueError(e)
-    }
-}
-
-impl std::error::Error for EVMError {}

@@ -8,6 +8,8 @@ use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
 use vsdb_trie_db::{MptOnce, MptRo};
 
+use crate::{Result, EVMError};
+
 use crate::{
     storage::{traits::BlockStorage, Storage},
     traits::BridgeBackend,
@@ -40,8 +42,6 @@ pub struct EVMBackend {
     pub vicinity: Vicinity,
 }
 
-type Result<T> = std::result::Result<T, EVMBackendError>;
-
 impl EVMBackend {
     pub fn from_root(
         state_root: H256,
@@ -52,7 +52,7 @@ impl EVMBackend {
         let state = trie_store
             .trie_db
             .trie_restore(&[0], None, state_root.into())
-            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
+            .map_err(|e| EVMError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(EVMBackend {
             state,
@@ -81,12 +81,12 @@ impl EVMBackend {
             self.trie_store
                 .trie_db
                 .trie_create(address.as_bytes(), None, true)
-                .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?
+                .map_err(|e| EVMError::TrieCreationFailed(e.to_string()))?
         } else {
             self.trie_store
                 .trie_db
                 .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?
+                .map_err(|e| EVMError::TrieRestoreFailed(e.to_string()))?
         };
 
         storage.into_iter().for_each(|(k, v)| {
@@ -109,7 +109,7 @@ impl EVMBackend {
 
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
-            .map_err(|e| EVMBackendError::TrieError(format!("{e}")))?;
+            .map_err(|e| EVMError::TrieError(format!("{e}")))?;
 
         Ok(new_account)
     }
@@ -204,6 +204,8 @@ impl Backend for EVMBackend {
         trace!(target: "backend", "[EVMBackend] Getting block hash for block {:x?}", number);
         self.storage
             .get_block_by_number(&number)
+            // TODO: Remove UNWRAP
+            .unwrap()
             .map_or(H256::zero(), |block| block.header.hash())
     }
 
@@ -343,10 +345,10 @@ impl BridgeBackend for EVMBackend {
     fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         let account = self
             .get_account(&address)
-            .ok_or(EVMBackendError::NoSuchAccount(address))?;
+            .ok_or(EVMError::NoSuchAccount(address))?;
 
         if account.balance < amount {
-            Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
+            Err(EVMError::InsufficientBalance(InsufficientBalance {
                 address,
                 account_balance: account.balance,
                 amount,
@@ -363,7 +365,7 @@ impl BridgeBackend for EVMBackend {
     }
 }
 
-use std::{error::Error, fmt, sync::Arc};
+use std::{sync::Arc};
 
 #[derive(Debug)]
 pub struct InsufficientBalance {
@@ -372,41 +374,3 @@ pub struct InsufficientBalance {
     pub amount: U256,
 }
 
-#[derive(Debug)]
-pub enum EVMBackendError {
-    TrieCreationFailed(String),
-    TrieRestoreFailed(String),
-    TrieError(String),
-    NoSuchAccount(H160),
-    InsufficientBalance(InsufficientBalance),
-}
-
-impl fmt::Display for EVMBackendError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EVMBackendError::TrieCreationFailed(e) => {
-                write!(f, "EVMBackendError: Failed to create trie {e}")
-            }
-            EVMBackendError::TrieRestoreFailed(e) => {
-                write!(f, "EVMBackendError: Failed to restore trie {e}")
-            }
-            EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {e}"),
-            EVMBackendError::NoSuchAccount(address) => {
-                write!(
-                    f,
-                    "EVMBackendError: No such acccount for address {}",
-                    address
-                )
-            }
-            EVMBackendError::InsufficientBalance(InsufficientBalance {
-                address,
-                account_balance,
-                amount,
-            }) => {
-                write!(f, "EVMBackendError: Insufficient balance for address {address}, trying to deduct {amount} but address has only {account_balance}")
-            }
-        }
-    }
-}
-
-impl Error for EVMBackendError {}
