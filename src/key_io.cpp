@@ -154,7 +154,10 @@ CKey DecodeSecret(const std::string& str)
 {
     CKey key;
     std::vector<unsigned char> data;
-    if (DecodeBase58Check(str, data)) {
+    if (IsHex(str)) {
+        const auto vch = ParseHex(str);
+        key.Set(vch.begin(), vch.end(), false);
+    } else if (DecodeBase58Check(str, data)) {
         const std::vector<unsigned char>& privkey_prefix = Params().Base58Prefix(CChainParams::SECRET_KEY);
         if ((data.size() == 32 + privkey_prefix.size() || (data.size() == 33 + privkey_prefix.size() && data.back() == 1)) &&
             std::equal(privkey_prefix.begin(), privkey_prefix.end(), data.begin())) {

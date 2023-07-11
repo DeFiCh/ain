@@ -623,14 +623,7 @@ UniValue importwallet(const JSONRPCRequest& request)
                 }
             }
 
-            CKey key;
-            if (strLabel == "eth") {
-                const auto vch = ParseHex(vstr[0]);
-                key.Set(vch.begin(), vch.end(), false);
-            } else {
-                key = DecodeSecret(vstr[0]);
-            }
-
+            CKey key = DecodeSecret(vstr[0]);
             if (key.IsValid()) {
                 keys.push_back(std::make_tuple(key, nTime, fLabel, strLabel));
             } else if(IsHex(vstr[0])) {
@@ -657,7 +650,7 @@ UniValue importwallet(const JSONRPCRequest& request)
 
             CPubKey pubkey = key.GetPubKey();
             assert(key.VerifyPubKey(pubkey));
-            CKeyID keyid = label == "eth" ? pubkey.GetEthID() : pubkey.GetID();
+            CKeyID keyid = pubkey.GetID();
 
             pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(PKHash(keyid)));
 
@@ -1071,19 +1064,12 @@ static UniValue ProcessImportLegacy(ImportData& import_data, std::map<CKeyID, CP
     }
     for (size_t i = 0; i < keys.size(); ++i) {
         const auto& str = keys[i].get_str();
-        CKey key;
-        const auto ethKey{IsHex(str)};
-        if (ethKey) {
-            const auto vch = ParseHex(str);
-            key.Set(vch.begin(), vch.end(), false);
-        } else {
-            key = DecodeSecret(str);
-        }
+        CKey key = DecodeSecret(str);
         if (!key.IsValid()) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key encoding");
         }
         CPubKey pubkey = key.GetPubKey();
-        CKeyID id = ethKey ? pubkey.GetEthID() : pubkey.GetID();
+        CKeyID id = pubkey.GetID();
         if (pubkey_map.count(id)) {
             pubkey_map.erase(id);
         }
