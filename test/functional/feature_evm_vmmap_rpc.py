@@ -202,6 +202,8 @@ class VMMapTests(DefiTestFramework):
         list_tx = self.nodes[0].logvmmaps(1)
         assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
+        assert_equal("garbage" not in list(list_tx['indexes'].values()), True)
+        assert_equal("0x" not in list(list_tx['indexes'].values()), True)
 
     def logvmmaps_block_exist(self):
         list_blocks = self.nodes[0].logvmmaps(0)
@@ -211,9 +213,11 @@ class VMMapTests(DefiTestFramework):
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
-        list_tx = self.nodes[0].logvmmaps(1)
-        assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
-        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
+        list_block = self.nodes[0].logvmmaps(1)
+        assert_equal("invalid tx" not in list(list_block['indexes'].values()), True)
+        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_block['indexes'].values()), True)
+        assert_equal("garbage" not in list(list_block['indexes'].values()), True)
+        assert_equal("0x" not in list(list_block['indexes'].values()), True)
 
     def run_test(self):
         self.setup()
