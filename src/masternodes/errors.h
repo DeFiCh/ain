@@ -469,6 +469,18 @@ public:
     static Res DatabaseKeyNotFound(const std::string &key) {
         return Res::Err("Key not found: %s", key);
     }
+
+    static Res InvalidBlockNumber(const std::string &height) {
+        return Res::Err("Invalid parameter for block number: %s", height);
+    }
+
+    static Res NegativeBlockNumber(const std::string &height) {
+        return Res::Err("Target block height %d is negative", height);
+    }
+
+    static Res BlockNumberAfterTip(const uint64_t &height, const uint64_t &tip) {
+        return Res::Err("Target block height %d after current tip %d", height, tip);
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H
