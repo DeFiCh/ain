@@ -8,6 +8,7 @@ use ethers::types::Bytes;
 use libsecp256k1::SecretKey;
 use log::debug;
 use primitive_types::{H160, H256, U256};
+use std::collections::HashSet;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::RwLock;
@@ -22,6 +23,7 @@ const PRIVATE_KEY: &str = "074016d5336e9bb4f204ea5bb536ba5c222ae836b92881a8de8de
 
 pub struct SystemNonceHandler {
     pub nonce: RwLock<U256>,
+    pub native_txs: RwLock<HashSet<[u8; 32]>>,
 }
 
 impl SystemNonceHandler {
@@ -40,14 +42,27 @@ impl SystemNonceHandler {
 
         Ok(Self {
             nonce: RwLock::new(nonce),
+            native_txs: RwLock::new(HashSet::new()),
         })
     }
 
-    fn get_and_increment_nonce(&self) -> U256 {
-        let mut nonce = self.nonce.write().unwrap();
-        *nonce += U256::one();
+    fn get_and_increment_nonce(&self, native_hash: [u8; 32], apply_changes: bool) -> U256 {
+        let mut native_txs = self.native_txs.write().unwrap();
 
-        *nonce - U256::one()
+        debug!("Native hash: {:?}", native_hash);
+        if native_txs.contains(&native_hash) || !apply_changes {
+            let nonce = self.nonce.read().unwrap();
+            debug!("Not increasing nonce, nonce: {:?}", *nonce);
+
+            *nonce
+        } else {
+            let mut nonce = self.nonce.write().unwrap();
+            native_txs.insert(native_hash);
+            *nonce += U256::one();
+            debug!("Increasing nonce, nonce: {:?}", *nonce - U256::one());
+
+            *nonce - U256::one()
+        }
     }
 }
 
@@ -55,11 +70,16 @@ impl SystemNonceHandler {
 pub fn deploy_dst20(
     native_hash: [u8; 32],
     context: u64,
+    apply_changes: bool,
     name: String,
     symbol: String,
 ) -> Result<(), Box<dyn Error>> {
-    let bytecode_json: serde_json::Value = serde_json::from_str(include_str!("../dst20/output/bytecode.json")).expect("Unable to read bytecode");
-    let bytecode_raw = bytecode_json["object"].as_str().expect("Bytecode object not available");
+    let bytecode_json: serde_json::Value =
+        serde_json::from_str(include_str!("../dst20/output/bytecode.json"))
+            .expect("Unable to read bytecode");
+    let bytecode_raw = bytecode_json["object"]
+        .as_str()
+        .expect("Bytecode object not available");
     let bytecode: Bytes = Bytes::from(hex::decode(&bytecode_raw[2..]).expect("Decode failed"));
     let abi = Abi::load(include_str!("../dst20/output/abi.json").as_bytes())?;
     let address = H160::from_str(PUBLIC_KEY).expect("Unable to construct address");
@@ -73,7 +93,7 @@ pub fn deploy_dst20(
     // build transaction
     let chain_id = ain_cpp_imports::get_chain_id()?;
 
-    let nonce = SYSTEM_NONCE.get_and_increment_nonce();
+    let nonce = SYSTEM_NONCE.get_and_increment_nonce(native_hash, apply_changes);
 
     let block_number = match RUNTIME.handlers.block.get_latest_block_hash_and_number() {
         None => return Err("Unable to get block".into()),

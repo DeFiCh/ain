@@ -1131,7 +1131,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             continue;
         }
         uint64_t gasUsed{};
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height, gasUsed);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height, gasUsed, false);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

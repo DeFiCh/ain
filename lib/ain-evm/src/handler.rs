@@ -13,7 +13,7 @@ use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
 use anyhow::anyhow;
-use ethereum::{Block, PartialHeader, ReceiptV3};
+use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -131,10 +131,18 @@ impl Handlers {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        debug!(
-                "Raw TX queue: {:#?}",
-                self.evm.tx_queues.get_cloned_vec(context)
-            );
+        debug!("Raw TX queue",);
+
+        for (qtx, _) in self.evm.tx_queues.get_cloned_vec(context) {
+            match qtx {
+                QueueTx::SignedTx(t) => match t.transaction {
+                    TransactionV2::Legacy(tx) => debug!("{:?}", tx.nonce),
+                    TransactionV2::EIP2930(tx) => debug!("{:?}", tx.nonce),
+                    TransactionV2::EIP1559(tx) => debug!("{:?}", tx.nonce),
+                },
+                _ => {}
+            }
+        }
 
         for (queue_tx, hash) in self.evm.tx_queues.get_cloned_vec(context) {
             match queue_tx {

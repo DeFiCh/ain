@@ -55,6 +55,25 @@ class DST20(DefiTestFramework):
         print(web3.eth.get_block("latest"), True)
         print(web3_n2.eth.get_block("latest"), True)
 
+        node.createtoken({
+            "symbol": "ETH",
+            "name": "ETH token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        node.createtoken({
+            "symbol": "DUSD",
+            "name": "DUSD token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        print()
+        print(web3.eth.get_block("latest"), True)
+        print(web3_n2.eth.get_block("latest"), True)
+
 
 if __name__ == '__main__':
     DST20().main()

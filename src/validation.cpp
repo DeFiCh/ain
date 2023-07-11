@@ -2671,7 +2671,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto applyCustomTxTime = GetTimeMicros();
             uint64_t gasUsed{};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmContext);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmContext, !fJustCheck);
 
             totalGas += gasUsed;
             if (totalGas > MAX_BLOCK_GAS_LIMIT) {

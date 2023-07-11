@@ -770,6 +770,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint32_t txn;
     uint64_t evmContext;
     uint64_t &gasUsed;
+    bool applyChanges;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -780,13 +781,15 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmContext,
-                          uint64_t &gasUsed)
+                          uint64_t &gasUsed,
+                          bool applyChanges)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
           evmContext(evmContext),
-          gasUsed(gasUsed) {}
+          gasUsed(gasUsed),
+          applyChanges(applyChanges) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -1061,11 +1064,9 @@ public:
             }
         }
 
-        LogPrintf("createtoken evmcontext: %s", evmContext);
-
         CrossBoundaryResult result;
         try {
-            create_dst20(result, evmContext, tx.GetHash().ToArrayReversed(), rust::string(obj.symbol.c_str()),
+            create_dst20(result, evmContext, applyChanges, tx.GetHash().ToArrayReversed(), rust::string(obj.symbol.c_str()),
                          rust::string(obj.name.c_str()));
         }
         catch (std::runtime_error &e) {
@@ -4154,14 +4155,15 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   uint64_t time,
                   uint64_t &gasUsed,
                   uint32_t txn,
-                  const uint64_t evmContext) {
+                  const uint64_t evmContext,
+                  bool applyChanges) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     auto context = evmContext;
     if (context == 0) context = evm_get_context();
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, gasUsed), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, gasUsed, applyChanges), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4248,7 +4250,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmContext) {
+                  const uint64_t evmContext,
+                  bool applyChanges) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4272,7 +4275,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, gasUsed, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, gasUsed, txn, evmContext, applyChanges);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {

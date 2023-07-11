@@ -476,7 +476,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const uint64_t evmContext = 0);
+                  const uint64_t evmContext = 0,
+                  bool applyChanges         = false);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -486,7 +487,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   uint64_t time,
                   uint64_t &gasUsed,
                   uint32_t txn = 0,
-                  const uint64_t evmContext = 0);
+                  const uint64_t evmContext = 0,
+                  bool applyChanges         = false);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,
                                     int height,

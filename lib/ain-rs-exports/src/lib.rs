@@ -105,6 +105,7 @@ pub mod ffi {
         fn create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
+            apply_changes: bool,
             native_hash: [u8; 32],
             name: &str,
             symbol: &str,
@@ -441,6 +442,7 @@ fn start_servers(result: &mut CrossBoundaryResult, json_addr: &str, grpc_addr: &
 fn create_dst20(
     result: &mut CrossBoundaryResult,
     context: u64,
+    apply_changes: bool,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
@@ -448,6 +450,7 @@ fn create_dst20(
     match deploy_dst20(
         native_hash,
         context,
+        apply_changes,
         String::from(name),
         String::from(symbol),
     ) {
