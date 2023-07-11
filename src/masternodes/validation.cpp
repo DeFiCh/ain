@@ -2429,7 +2429,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     if (!result.ok) {
         LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
     }
-    auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend()--);
+    auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
     
     cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
