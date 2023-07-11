@@ -266,14 +266,19 @@ void CMasternodesView::DecrementMintedBy(const uint256 &nodeId) {
 }
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const {
-    const auto operators = gArgs.GetArgs("-masternode_operator");
+    auto operators = gArgs.GetArgs("-masternode_operator");
+    if (fRegtestMockNetwork) {
+        operators.emplace_back(regtestMocknetOperator);
+    }
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
         const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
                                     : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
                                                                        : CKeyID();
         if (!authAddress.IsNull()) {
-            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
+            if (fRegtestMockNetwork) {
+                return std::make_pair(authAddress, uint256{});
+            } else if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
             }
         }
@@ -282,14 +287,19 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
 }
 
 std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const {
-    const auto operators = gArgs.GetArgs("-masternode_operator");
+    auto operators = gArgs.GetArgs("-masternode_operator");
+    if (fRegtestMockNetwork) {
+        operators.emplace_back(regtestMocknetOperator);
+    }
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
         const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
                                     : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
                                                                        : CKeyID();
-        if (!authAddress.IsNull()) {
+        if (fRegtestMockNetwork) {
+            return {std::make_pair(authAddress, uint256{})};
+        } else if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
             }

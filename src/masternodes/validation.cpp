@@ -2388,7 +2388,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         assert(block.ExtractMinterKey(minter));
         CScript minerAddress;
 
-        if (!fMockNetwork) {
+        if (!fMockNetwork && !fRegtestMockNetwork) {
             const auto id = cache.GetMasternodeIdByOperator(minter);
             assert(id);
             const auto node = cache.GetMasternode(*id);

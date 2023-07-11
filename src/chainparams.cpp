@@ -22,6 +22,8 @@
 #include <boost/algorithm/string/split.hpp>
 
 bool fMockNetwork = false;
+bool fRegtestMockNetwork = false;
+std::string regtestMocknetOperator = "bcrt1qf7euayrhj902lekgxc4yx79k50xd5wnjvn92wc";
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
@@ -1087,7 +1089,7 @@ public:
         consensus.ChangiIntermediateHeight = 10000000;
         consensus.ChangiIntermediateHeight2 = 10000000;
         consensus.ChangiIntermediateHeight3 = 10000000;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1182,8 +1184,6 @@ public:
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 0;
         m_assumed_chain_state_size = 0;
-
-        UpdateActivationParametersFromArgs();
 
         base58Prefixes[PUBKEY_ADDRESS] = {0x6f};
         base58Prefixes[SCRIPT_ADDRESS] = {0xc4};
@@ -1297,6 +1297,8 @@ public:
             0,
             0
         };
+
+        UpdateActivationParametersFromArgs();
     }
 
     /**
@@ -1311,9 +1313,9 @@ public:
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
-std::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
-    if (gArgs.IsArgSet(argFlag)) {
-        int64_t height = gArgs.GetArg(argFlag, argTarget);
+std::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget, const bool immediateActivation = false) {
+    if (gArgs.IsArgSet(argFlag) || immediateActivation) {
+        int64_t height = immediateActivation ? 1 : gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
             std::string lowerArgName = ToLower(argFlag);
             throw std::runtime_error(strprintf(
@@ -1329,35 +1331,37 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
     return {};
 }
 
-void SetupCommonArgActivationParams(Consensus::Params &consensus) {
-    UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
-    UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
-    UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight);
-    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
-    UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.ClarkeQuayHeight);
-    UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DakotaHeight);
-    UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
-    auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
+void SetupCommonArgActivationParams(Consensus::Params &consensus, const bool immediateActivation = false) {
+    UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight, immediateActivation);
+    UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight, immediateActivation);
+    UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight, immediateActivation);
+    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight, immediateActivation);
+    UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.ClarkeQuayHeight, immediateActivation);
+    UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DakotaHeight, immediateActivation);
+    UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight, immediateActivation);
+    auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight, immediateActivation);
     if (eunosHeight.has_value()){
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
-    UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
-    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
-    UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
-    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
-    UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
-    UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
-    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
-    UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
-    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
-    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
-    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight);
-    UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight);
-    UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2);
-    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
+
+    UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight, immediateActivation);
+    UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight, immediateActivation);
+    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight, immediateActivation);
+    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight, immediateActivation);
+    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3, immediateActivation);
+    UpdateHeightValidation("Changi Intermediate4", "-changiintermediate4height", consensus.ChangiIntermediateHeight4, immediateActivation);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1423,7 +1427,14 @@ void CDevNetParams::UpdateActivationParametersFromArgs() {
 
 void CRegTestParams::UpdateActivationParametersFromArgs()
 {
-    SetupCommonArgActivationParams(consensus);
+    fRegtestMockNetwork = gArgs.IsArgSet("-regtest-dev");
+
+    if (fRegtestMockNetwork) {
+        gArgs.ForceSetArg("-regtest", "1");
+    }
+
+    SetupCommonArgActivationParams(consensus, fRegtestMockNetwork);
+
     if (!gArgs.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {
