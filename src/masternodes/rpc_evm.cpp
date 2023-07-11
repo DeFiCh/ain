@@ -112,7 +112,11 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::array<uint8_t, 32> privKey{};
     std::copy(key.begin(), key.end(), privKey.begin());
 
-    const auto signedTx = create_and_sign_tx(CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
+    CrossBoundaryResult result;
+    const auto signedTx = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArray(), gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value.GetByteArray(), input, privKey});
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+    }
 
     std::vector<uint8_t> evmTx(signedTx.size());
     std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
@@ -236,7 +240,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
     const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
-    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
+    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC.
     // But there's no need to iterate the whole list, we can start at where we need to and
     // return false, once we hit the limit and stop the iter.
     switch (type) {

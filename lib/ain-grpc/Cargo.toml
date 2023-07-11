@@ -27,6 +27,7 @@ async-trait = "0.1.68"
 rlp = "0.5.2"
 sha3 = "0.10.6"
 serde_with = "3.0.0"
+anyhow = "1.0.71"
 
 [build-dependencies]
 cxx-gen = "0.7"
