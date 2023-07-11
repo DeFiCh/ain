@@ -918,7 +918,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
             const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
-            assert(result.ok); // Already checked via ApplyCustomTX
+            if (!result.ok) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
+            }
             const auto sender = pool.ethTxsBySender.find(txResult.sender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");

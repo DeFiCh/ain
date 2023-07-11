@@ -778,7 +778,6 @@ check_git_dirty() {
 
 check_rs() {
     check_enter_build_rs_dir
-    lib check 1
     lib clippy 1
     lib fmt-check 1
     _exit_dir
