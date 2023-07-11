@@ -125,12 +125,20 @@ class VMMapTests(DefiTestFramework):
         list_dvm_block = []
         for i in range(5):
             self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            if (i + 1) % 5 == 0:
+                self.nodes[0].evmtx(self.ethAddress, i + 1, 21, 21000, self.toAddress, 1)
+                self.nodes[0].evmtx(self.ethAddress, i + 2, 21, 21000, self.toAddress, 1)
+                self.nodes[0].evmtx(self.ethAddress, i + 3, 21, 21000, self.toAddress, 1)
+                self.nodes[0].evmtx(self.ethAddress, i + 4, 21, 21000, self.toAddress, 1)
             self.nodes[0].generate(1)
             list_evm_block.append(self.nodes[0].eth_getBlockByNumber("latest", False))
             list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
 
         for i in range(5):
-            assert_equal(self.nodes[0].vmmap(list_evm_block[i]['transactions'][0], 4) in list_dvm_block[i]['tx'], True)
+            print(list_evm_block[i]['transactions'])
+            for transaction in list_evm_block[i]['transactions']:
+                print(transaction)
+                assert_equal(self.nodes[0].vmmap(transaction, 4) in list_dvm_block[i]['tx'], True)
 
     def vmmap_invalid_tx_should_fail(self):
         self.rollback_to(self.start_block_height)
@@ -148,16 +156,18 @@ class VMMapTests(DefiTestFramework):
     def vmmap_valid_block_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if xvmmap is working for Blocks
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
-        assert_equal(dvm_block, self.nodes[0].getbestblockhash())
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
-        self.nodes[0].generate(1)
-        dvm_block = self.nodes[0].getbestblockhash()
-        evm_block = self.nodes[0].vmmap(dvm_block, 5)
-        assert_equal(evm_block, self.nodes[0].eth_getBlockByNumber("latest", False)['hash'][2:])
+        list_evm_block = []
+        list_dvm_block = []
+        for i in range(5):
+            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            self.nodes[0].generate(1)
+            list_evm_block.append(self.nodes[0].eth_getBlockByNumber("latest", False))
+            list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
+
+        for i in range(5):
+            assert_equal(self.nodes[0].vmmap(list_evm_block[i]['hash'], 6) in list_dvm_block[i]['hash'], True)
 
 
     def vmmap_invalid_block_should_fail(self):
