@@ -135,9 +135,7 @@ class VMMapTests(DefiTestFramework):
             list_dvm_block.append(self.nodes[0].getblock(self.nodes[0].getbestblockhash()))
 
         for i in range(5):
-            print(list_evm_block[i]['transactions'])
             for transaction in list_evm_block[i]['transactions']:
-                print(transaction)
                 assert_equal(self.nodes[0].vmmap(transaction, 4) in list_dvm_block[i]['tx'], True)
 
     def vmmap_invalid_tx_should_fail(self):
