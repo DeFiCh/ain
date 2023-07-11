@@ -21,11 +21,11 @@ pub struct LogIndex {
     pub transaction_index: usize,
 }
 
-pub struct LogHandler {
+pub struct LogService {
     storage: Arc<Storage>,
 }
 
-impl LogHandler {
+impl LogService {
     pub fn new(storage: Arc<Storage>) -> Self {
         Self { storage }
     }
