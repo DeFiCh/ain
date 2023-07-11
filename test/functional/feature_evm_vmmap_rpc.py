@@ -127,13 +127,12 @@ class VMMapTests(DefiTestFramework):
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 2)
 
     def vmmap_valid_tx_should_succeed(self):
-        import pprint
         self.rollback_to(self.start_block_height)
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
         tx_maps = []
         nonce = 0
-        for i in range(1):
+        for i in range(5):
             # generate 5 txs in the block
             num_txs = 5
             for j in range(num_txs):
@@ -146,8 +145,7 @@ class VMMapTests(DefiTestFramework):
                 # note dfi block is j+1 since we ignore coinbase
                 tx_maps.append([dfi_block['tx'][j+1], eth_block['transactions'][j]])
         for item in tx_maps:
-            # TODO: bug, should pass without 0x prefix
-            assert_equal("0x" + self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM), item[0])
 
     def vmmap_invalid_should_fail(self):
@@ -175,8 +173,7 @@ class VMMapTests(DefiTestFramework):
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
             block_maps.append([dfi_block['hash'], eth_block['hash']])
         for item in block_maps:
-            # TODO: bug, should pass without 0x prefix
-            assert_equal("0x" + self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
 
     def vmmap_rollback_should_succeed(self):
@@ -190,16 +187,20 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         list_blocks = self.nodes[0].logvmmaps(0)
+        list_blocks = list(list_blocks['indexes'].values())
         list_tx = self.nodes[0].logvmmaps(1)
-        assert_equal(base_block[2:] in list(list_blocks['indexes'].values()), True)
-        assert_equal(new_block[2:] in list(list_blocks['indexes'].values()), True)
-        assert_equal(tx in list(list_tx['indexes'].keys()), True)
+        list_tx = list(list_tx['indexes'].keys())
+        assert_equal(base_block[2:] in list_blocks, True)
+        assert_equal(new_block[2:] in list_blocks, True)
+        assert_equal(tx in list_tx, True)
         self.nodes[0].invalidateblock(base_block_dvm)
         list_blocks = self.nodes[0].logvmmaps(0)
+        list_blocks = list(list_blocks['indexes'].values())
         list_tx = self.nodes[0].logvmmaps(1)
-        assert_equal(base_block[2:] in list(list_blocks['indexes'].values()), True)
-        assert_equal(new_block[2:] in list(list_blocks['indexes'].values()), False)
-        assert_equal(tx in list(list_tx['indexes'].keys()), False)
+        list_tx = list(list_tx['indexes'].keys())
+        assert_equal(base_block[2:] in list_blocks, True)
+        assert_equal(new_block[2:] in list_blocks, False)
+        assert_equal(tx in list_tx, False)
 
     def logvmmaps_tx_exist(self):
         self.rollback_to(self.start_block_height)
