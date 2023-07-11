@@ -347,10 +347,20 @@ test() {
     _fold_end
 
     _fold_start "functional-tests"
-    # shellcheck disable=SC2086
-    ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
-    _fold_end
 
+    # enter python virtualenv
+    local build_dir="${BUILD_TARGET_DIR}"
+    source ${build_dir}/env/bin/activate
+    _ensure_venv_active
+
+    # shellcheck disable=SC2086
+    python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
+
+    # exit virtualenv
+    deactivate
+    _ensure_venv_inactive
+
+    _fold_end
     _exit_dir
 }
 
@@ -543,8 +553,21 @@ pkg_install_rust() {
 
 pkg_install_web3_deps() {
     _fold_start "pkg-install-solc"
+    # create and enter virtual environment
+    local build_dir="${BUILD_TARGET_DIR}"
+    _ensure_enter_dir "${build_dir}"
+    python3 -m venv env
+    source env/bin/activate
+    _ensure_venv_active
+
+    # install dependencies
     python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
+
+    # exit virtualenv
+    deactivate
+    _ensure_venv_inactive
+
     _fold_end
 }
 
@@ -985,6 +1008,22 @@ _fold_end() {
 _ensure_enter_dir() {
     local dir="${1?dir required}"
     mkdir -p "${dir}" && pushd "${dir}" > /dev/null
+}
+
+_ensure_venv_active() {
+  INVENV=$(python3 -c 'import sys; print (sys.prefix != sys.base_prefix)')
+  if [ "$INVENV" == "False" ]; then
+      echo "Python venv is not active"
+      exit 1
+  fi
+}
+
+_ensure_venv_inactive() {
+  INVENV=$(python3 -c 'import sys; print (sys.prefix != sys.base_prefix)')
+  if [ "$INVENV" == "True" ]; then
+      echo "Python venv is active"
+      exit 1
+  fi
 }
 
 _exit_dir() {
