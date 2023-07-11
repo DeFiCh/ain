@@ -113,7 +113,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::copy(key.begin(), key.end(), privKey.begin());
 
     CrossBoundaryResult result;
-    const auto signedTx = create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
+    const auto signedTx = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArray(), gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value.GetByteArray(), input, privKey});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }

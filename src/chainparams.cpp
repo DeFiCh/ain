@@ -1213,15 +1213,36 @@ public:
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
         consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
+
+        struct KeyPairString {
+            std::string pub;
+            std::string priv;
+        };
         // owner base58, operator base58
-        vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
-        vMasternodes.push_back({"msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"});
-        vMasternodes.push_back({"myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS", "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4"});
-        vMasternodes.push_back({"mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz", "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t"});
-        vMasternodes.push_back({"mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg"});
-        vMasternodes.push_back({"mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN"});
-        vMasternodes.push_back({"bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv"});
-        vMasternodes.push_back({"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r"});
+        std::vector<KeyPairString> mnkeys = {
+            {"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz"},
+            {"mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy", "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"},
+            {"msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W"},
+            {"mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ", "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV"},
+            {"myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS", "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9"},
+            {"mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4", "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD"},
+            {"mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz", "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY"},
+            {"n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t", "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL"},
+            {"mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u"},
+            {"mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg", "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy"},
+            {"mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb"},
+            {"mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN", "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe"},
+            {"bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj"},
+            {"bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"},
+            {"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp"},
+            {"bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"},
+        };
+        
+        for(size_t i = 0; i < mnkeys.size(); i+=2) {
+            auto ownerPubKey = mnkeys[i].pub;
+            auto operatorPubKey = mnkeys[i+1].pub;
+            vMasternodes.push_back({ ownerPubKey, operatorPubKey });
+        }
 
         // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));

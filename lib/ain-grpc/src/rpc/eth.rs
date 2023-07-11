@@ -7,9 +7,9 @@ use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
+use ain_evm::core::{EthCallArgs, MAX_GAS_PER_BLOCK};
+use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
-use ain_evm::handler::Handlers;
 
 use crate::filters::{GetFilterChangesResult, NewFilterRequest};
 use crate::sync::{SyncInfo, SyncState};
@@ -265,12 +265,12 @@ pub trait MetachainRPC {
 }
 
 pub struct MetachainRPCModule {
-    handler: Arc<Handlers>,
+    handler: Arc<EVMServices>,
 }
 
 impl MetachainRPCModule {
     #[must_use]
-    pub fn new(handler: Arc<Handlers>) -> Self {
+    pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
 
@@ -320,7 +320,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = input;
         let TxResponse { data, .. } = self
             .handler
-            .evm
+            .core
             .call(EthCallArgs {
                 caller: from,
                 to,
@@ -355,7 +355,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         );
         let balance = self
             .handler
-            .evm
+            .core
             .get_balance(address, block_number)
             .unwrap_or(U256::zero());
 
@@ -373,7 +373,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let code = self
             .handler
-            .evm
+            .core
             .get_code(address, block_number)
             .map_err(|e| Error::Custom(format!("Error getting address code : {e:?}")))?;
 
@@ -396,7 +396,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         );
 
         self.handler
-            .evm
+            .core
             .get_storage_at(address, position, block_number)
             .map_err(|e| Error::Custom(format!("get_storage_at error : {e:?}")))?
             .map_or(Ok(H256::default()), |storage| {
@@ -577,7 +577,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             Some(nonce) => nonce,
             None => self
                 .handler
-                .evm
+                .core
                 .get_nonce(from, block_number)
                 .map_err(|e| {
                     Error::Custom(format!("Error getting address transaction count : {e:?}"))
@@ -695,7 +695,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_number = self.block_number_to_u256(block_number)?;
         let nonce = self
             .handler
-            .evm
+            .core
             .get_nonce(address, block_number)
             .map_err(|e| {
                 Error::Custom(format!("Error getting address transaction count : {e:?}"))
@@ -722,7 +722,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_number = self.block_number_to_u256(block_number)?;
         let TxResponse { used_gas, .. } = self
             .handler
-            .evm
+            .core
             .call(EthCallArgs {
                 caller: from,
                 to,

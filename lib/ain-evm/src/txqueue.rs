@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    evm::NativeTxHash,
+    core::NativeTxHash,
     transaction::{bridge::BridgeTx, SignedTx},
 };
 

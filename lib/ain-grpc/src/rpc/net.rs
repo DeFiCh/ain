@@ -1,4 +1,4 @@
-use ain_evm::handler::Handlers;
+use ain_evm::evm::EVMServices;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use std::sync::Arc;
@@ -11,13 +11,13 @@ pub trait MetachainNetRPC {
 }
 
 pub struct MetachainNetRPCModule {
-    _handler: Arc<Handlers>,
+    _handler: Arc<EVMServices>,
 }
 
 impl MetachainNetRPCModule {
     #[must_use]
-    pub fn new(_handler: Arc<Handlers>) -> Self {
-        Self { _handler }
+    pub fn new(handler: Arc<EVMServices>) -> Self {
+        Self { _handler: handler }
     }
 }
 

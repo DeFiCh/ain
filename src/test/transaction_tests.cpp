@@ -798,7 +798,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     rust::Vec<uint8_t> input{};
 
     CrossBoundaryResult result;
-    const auto reply = create_and_sign_tx(result, CreateTransactionContext{chainID, nonce, gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value, input, privKey});
+    const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce, gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value, input, privKey});
     std::vector<uint8_t> replyVector(reply.size());
     std::copy(reply.begin(), reply.end(), replyVector.begin());
     std::string transaction(HexStr(replyVector.begin(), replyVector.end()));

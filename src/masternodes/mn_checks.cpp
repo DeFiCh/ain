@@ -3880,7 +3880,7 @@ public:
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
             }
@@ -3898,7 +3898,7 @@ public:
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
             }
 
             // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
@@ -3933,7 +3933,7 @@ public:
             }
         }
 
-        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray());
         if (!result.ok) {
             LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to queue %s\n", result.reason);
