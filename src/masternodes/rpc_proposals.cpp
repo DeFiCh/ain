@@ -536,6 +536,8 @@ UniValue votegov(const JSONRPCRequest &request) {
                 mnId = masterNodeIdByOwner.value();
             } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
                 mnId = masterNodeIdByOperator.value();
+            } else if (auto masterNodeIdByDelegate = view.GetMasternodeIdByDelegate(ckeyId)) {
+                mnId = masterNodeIdByDelegate.value();
             }
         }
         auto node = view.GetMasternode(mnId);
@@ -678,6 +680,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                     mnId = masterNodeIdByOwner.value();
                 } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
                     mnId = masterNodeIdByOperator.value();
+                } else if (auto masterNodeIdByDelegate = view.GetMasternodeIdByDelegate(ckeyId)) {
+                    mnId = masterNodeIdByDelegate.value();
                 }
             }
 

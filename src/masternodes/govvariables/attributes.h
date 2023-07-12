@@ -89,6 +89,7 @@ enum DFIPKeys : uint8_t {
     EVMEnabled           = 'u',
     ICXEnabled           = 'v',
     AllowDUSDLoops       = 'w',
+    MNSetDelegateAddress = 'x'
 };
 
 enum GovernanceKeys : uint8_t {

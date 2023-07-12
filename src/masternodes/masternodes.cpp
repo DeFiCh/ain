@@ -246,6 +246,10 @@ std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &id
     return ReadBy<Owner, uint256>(id);
 }
 
+std::optional<uint256> CMasternodesView::GetMasternodeIdByDelegate(const CKeyID &id) const {
+    return ReadBy<VoteDelegate, uint256>(id);
+}
+
 void CMasternodesView::ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
                                          const uint256 &start) {
     ForEach<ID, uint256, CMasternode>(callback, start);
@@ -322,6 +326,10 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
         return Res::Err(
             "bad owner and|or operator address (should be P2PKH or P2WPKH only) or node with those addresses exists");
     }
+    if (!node.voteDelegationAddress.IsNull() && ((node.voteDelegationType != 1 && node.voteDelegationType != 4) || GetMasternodeIdByDelegate(node.voteDelegationAddress))) {
+      return Res::Err(
+          "bad delegate address (should be P2PKH or P2WPKH only) or node with those addresses exists");
+    }
 
     WriteBy<ID>(nodeId, node);
     WriteBy<Owner>(node.ownerAuthAddress, nodeId);
@@ -330,6 +338,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
     if (timelock > 0) {
         WriteBy<Timelock>(nodeId, timelock);
     }
+    WriteBy<VoteDelegate>(node.voteDelegationAddress, nodeId);
 
     return Res::Ok();
 }
@@ -361,8 +370,8 @@ void CMasternodesView::SetForcedRewardAddress(const uint256 &nodeId,
                                               const CKeyID &rewardAddress,
                                               int height) {
     // If old masternode update for new serialisation
-    if (node.version < CMasternode::VERSION0) {
-        node.version = CMasternode::VERSION0;
+    if (node.version < CMasternode::VERSION1) {
+        node.version = CMasternode::VERSION1;
     }
 
     // Set new reward address
@@ -377,6 +386,34 @@ void CMasternodesView::SetForcedRewardAddress(const uint256 &nodeId,
 void CMasternodesView::RemForcedRewardAddress(const uint256 &nodeId, CMasternode &node, int height) {
     node.rewardAddressType = 0;
     node.rewardAddress.SetNull();
+    WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+}
+
+void CMasternodesView::SetForcedDelegateAddress(const uint256 &nodeId,
+                                              CMasternode &node,
+                                              const char delegateAddressType,
+                                              const CKeyID &delegateAddress,
+                                              int height) {
+    // If old masternode update for new serialisation
+    if (node.version < CMasternode::VERSION2) {
+        node.version = CMasternode::VERSION2;
+    }
+
+    // Set new reward address
+    node.voteDelegationType    = delegateAddressType;
+    node.voteDelegationAddress = delegateAddress;
+    WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+}
+
+void CMasternodesView::RemForcedDelegateAddress(const uint256 &nodeId, CMasternode &node, int height) {
+    node.voteDelegationType = 0;
+    node.voteDelegationAddress.SetNull();
     WriteBy<ID>(nodeId, node);
 
     // Pending change
@@ -410,6 +447,8 @@ void CMasternodesView::UpdateMasternodeOperator(const uint256 &nodeId,
     // Overwrite and create new record
     WriteBy<ID>(nodeId, node);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
+
+    WriteBy<VoteDelegate>(node.voteDelegationAddress, nodeId);
 
     // Pending change
     WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
@@ -779,6 +818,14 @@ std::optional<std::set<CScript>> CSettingsView::SettingsGetRewardAddresses() {
 
 void CSettingsView::SettingsSetRewardAddresses(const std::set<CScript> &addresses) {
     WriteBy<KVSettings>(MN_REWARD_ADDRESSES, addresses);
+}
+
+std::optional<std::set<CScript>> CSettingsView::SettingsGetDelegateAddresses() {
+    return ReadBy<KVSettings, std::set<CScript>>(MN_DELEGATE_ADDRESSES);
+}
+
+void CSettingsView::SettingsSetDelegateAddresses(const std::set<CScript> &addresses) {
+    WriteBy<KVSettings>(MN_DELEGATE_ADDRESSES, addresses);
 }
 
 /*

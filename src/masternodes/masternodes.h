@@ -52,11 +52,13 @@ CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCre
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet);
 
 enum class UpdateMasternodeType : uint8_t {
-    None             = 0x00,
-    OwnerAddress     = 0x01,
-    OperatorAddress  = 0x02,
-    SetRewardAddress = 0x03,
-    RemRewardAddress = 0x04
+    None               = 0x00,
+    OwnerAddress       = 0x01,
+    OperatorAddress    = 0x02,
+    SetRewardAddress   = 0x03,
+    RemRewardAddress   = 0x04,
+    SetDelegateAddress = 0x05,
+    RemDelegateAddress = 0x06
 };
 
 constexpr uint8_t SUBNODE_COUNT{4};
@@ -75,8 +77,9 @@ public:
     enum TimeLock { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
 
     enum Version : int32_t {
-        PRE_FORT_CANNING = -1,
-        VERSION0         = 0,
+        VERSION0_PRE_FORT_CANNING = -1,
+        VERSION1         = 0,
+        VERSION2         = 1,
     };
 
     //! Minted blocks counter
@@ -104,6 +107,10 @@ public:
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
     uint256 collateralTx;
+
+    //! THis field will be used for vote delegation
+    char voteDelegationType;
+    CKeyID voteDelegationAddress;
 
     //! empty constructor
     CMasternode();
@@ -133,9 +140,14 @@ public:
         READWRITE(collateralTx);
 
         // Only available after FortCanning
-        if (version > PRE_FORT_CANNING) {
+        if (version > VERSION0_PRE_FORT_CANNING) {
             READWRITE(rewardAddress);
             READWRITE(rewardAddressType);
+        }
+
+        if (version > VERSION1){
+            READWRITE(voteDelegationType);
+            READWRITE(voteDelegationAddress);
         }
     }
 
@@ -206,6 +218,7 @@ public:
     std::optional<CMasternode> GetMasternode(const uint256 &id) const;
     std::optional<uint256> GetMasternodeIdByOperator(const CKeyID &id) const;
     std::optional<uint256> GetMasternodeIdByOwner(const CKeyID &id) const;
+    std::optional<uint256> GetMasternodeIdByDelegate(const CKeyID &id) const;
     void ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
                            const uint256 &start = uint256());
 
@@ -228,6 +241,12 @@ public:
                                 const CKeyID &rewardAddress,
                                 int height);
     void RemForcedRewardAddress(const uint256 &nodeId, CMasternode &node, int height);
+    void SetForcedDelegateAddress(const uint256 &nodeId,
+                                CMasternode &node,
+                                const char delegateAddressType,
+                                const CKeyID &delegateAddress,
+                                int height);
+    void RemForcedDelegateAddress(const uint256 &nodeId, CMasternode &node, int height);
     void UpdateMasternodeOperator(const uint256 &nodeId,
                                   CMasternode &node,
                                   const char operatorType,
@@ -299,6 +318,10 @@ public:
     // Store long term time lock
     struct Timelock {
         static constexpr uint8_t prefix() { return 'K'; }
+    };
+
+    struct VoteDelegate {
+        static constexpr uint8_t prefix() { return 'D'; }
     };
 };
 
@@ -381,6 +404,7 @@ public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
     const std::string DEX_STATS_ENABLED     = "DexStatsEnabled";
     const std::string MN_REWARD_ADDRESSES   = "MNRewardAddresses";
+    const std::string MN_DELEGATE_ADDRESSES = "MNDelegateAddresses";
 
     void SetDexStatsLastHeight(int32_t height);
     std::optional<int32_t> GetDexStatsLastHeight();
@@ -389,6 +413,8 @@ public:
 
     std::optional<std::set<CScript>> SettingsGetRewardAddresses();
     void SettingsSetRewardAddresses(const std::set<CScript> &addresses);
+    std::optional<std::set<CScript>> SettingsGetDelegateAddresses();
+    void SettingsSetDelegateAddresses(const std::set<CScript> &addresses);
 
     struct KVSettings {
         static constexpr uint8_t prefix() { return '0'; }
