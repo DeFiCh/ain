@@ -189,7 +189,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
             CTxDestination dest = DecodeDestination(hash);
-            if (dest.index() != WitV0KeyHashType) {
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
                 throwInvalidParam();
             }
             CPubKey key = AddrToPubKey(pwallet, hash);
