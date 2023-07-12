@@ -306,12 +306,20 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    CPubKey pubkeyCopy = pubkey;
-    if (pubkeyCopy.IsCompressed()) {
+    if (!pubkey.IsCompressed()) {
+        auto pubkeyCopy = pubkey;
+        pubkeyCopy.Compress();
+        mapKeyMetadata[pubkey.GetID()] = metadata;
+        mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
+        mapKeyMetadata[pubkey.GetEthID()] = metadata;
+    } else {
+        auto pubkeyCopy = pubkey;
         pubkeyCopy.Decompress();
+        mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
+        mapKeyMetadata[pubkey.GetID()] = metadata;
+        mapKeyMetadata[pubkeyCopy.GetEthID()] = metadata;
     }
-    mapKeyMetadata[pubkey.GetID()] = metadata;
-    mapKeyMetadata[pubkeyCopy.GetEthID()] = metadata;
+
     UpdateTimeFirstKey(nCreationTime);
 
     if (!AddKeyPubKeyWithDB(batch, secret, pubkey)) {
@@ -1840,7 +1848,8 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
             WalletLogPrintf("Already have key with pubkey %s, skipping\n", HexStr(pubkey));
             continue;
         }
-        mapKeyMetadata[id].nCreateTime = timestamp;
+
+        AddTimestampToMeta(pubkey, timestamp);
 
         // If the private key is not present in the wallet, insert it.
         if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
@@ -1850,6 +1859,22 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         UpdateTimeFirstKey(timestamp);
     }
     return true;
+}
+
+void CWallet::AddTimestampToMeta(const CPubKey pubkey, const int64_t timestamp) {
+    if (!pubkey.IsCompressed()) {
+        auto pubkeyCopy = pubkey;
+        pubkeyCopy.Compress();
+        mapKeyMetadata[pubkey.GetID()].nCreateTime = timestamp;
+        mapKeyMetadata[pubkeyCopy.GetID()].nCreateTime = timestamp;
+        mapKeyMetadata[pubkey.GetEthID()].nCreateTime = timestamp;
+    } else {
+        auto pubkeyCopy = pubkey;
+        pubkeyCopy.Decompress();
+        mapKeyMetadata[pubkeyCopy.GetID()].nCreateTime = timestamp;
+        mapKeyMetadata[pubkey.GetID()].nCreateTime = timestamp;
+        mapKeyMetadata[pubkeyCopy.GetEthID()].nCreateTime = timestamp;
+    }
 }
 
 bool CWallet::ImportPubKeys(const std::vector<CKeyID>& ordered_pubkeys, const std::map<CKeyID, CPubKey>& pubkey_map, const std::map<CKeyID, std::pair<CPubKey, KeyOriginInfo>>& key_origins, const bool add_keypool, const bool internal, const int64_t timestamp)
@@ -1873,7 +1898,8 @@ bool CWallet::ImportPubKeys(const std::vector<CKeyID>& ordered_pubkeys, const st
         if (!AddWatchOnlyWithDB(batch, GetScriptForRawPubKey(pubkey), timestamp)) {
             return false;
         }
-        mapKeyMetadata[id].nCreateTime = timestamp;
+
+        AddTimestampToMeta(pubkey, timestamp);
 
         // Add to keypool only works with pubkeys
         if (add_keypool) {

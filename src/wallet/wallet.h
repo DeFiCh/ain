@@ -843,6 +843,8 @@ private:
     //! Unsets a wallet flag and saves it to disk
     void UnsetWalletFlagWithDB(WalletBatch& batch, uint64_t flag);
 
+    void AddTimestampToMeta(const CPubKey pubkey, const int64_t timestamp);
+
     /** Interface for accessing chain state. */
     interfaces::Chain* m_chain;
 
