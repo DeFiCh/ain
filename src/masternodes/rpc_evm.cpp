@@ -167,20 +167,40 @@ UniValue vmmap(const JSONRPCRequest& request) {
                        HelpExampleCli("vmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
+
+    auto throwInvalidParam = []() {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+    };
+
+    auto ensureEVMHashPrefixed = [](const std::string& str, const VMDomainRPCMapType type) {
+        if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
+            return "0x" + str;
+        }
+        return str;
+    };
+
     const std::string hash = request.params[0].get_str();
 
     const int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+        throwInvalidParam();
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
+                throwInvalidParam();
+            }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (key.IsCompressed()) { key.Decompress(); }
             return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throwInvalidParam();
+            }
             CPubKey key = AddrToPubKey(pwallet, hash);
             if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
@@ -213,10 +233,11 @@ UniValue vmmap(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
     }
+
     if (!res) {
         throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
     } else {
-        return res.val->ToString();
+        return ensureEVMHashPrefixed(res.val->ToString(), type);
     }
 }
 
