@@ -10,7 +10,7 @@ pub fn calculate_prepay_gas(signed_tx: &SignedTx) -> U256 {
     }
 }
 
-pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: &U64) -> U64 {
+pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256) -> U256 {
     match &signed_tx.transaction {
         ethereum::TransactionV2::Legacy(tx) => used_gas.saturating_mul(tx.gas_price),
         ethereum::TransactionV2::EIP2930(tx) => used_gas.saturating_mul(tx.gas_price),
