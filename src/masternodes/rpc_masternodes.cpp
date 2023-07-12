@@ -107,6 +107,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
                                                                               "specify either FIVEYEARTIMELOCK or TENYEARTIMELOCK to create a masternode that cannot be resigned for\n"
                                                                               "five or ten years and will have 1.5x or 2.0 the staking power respectively. Be aware that this means\n"
                                                                               "that you cannot spend the collateral used to create a masternode for whatever period is specified."},
+                   {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Masternode`s reward address"},
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -131,13 +132,21 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     std::string ownerAddress = request.params[0].getValStr();
     std::string operatorAddress = request.params.size() > 1 && !request.params[1].getValStr().empty() ? request.params[1].getValStr() : ownerAddress;
+    std::string rewardAddress = request.params[4].getValStr();
     CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
+    CTxDestination rewardDest = DecodeDestination(rewardAddress);
 
     bool eunosPaya;
     {
         LOCK(cs_main);
         eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
+    }
+
+    bool nextNetworkUpdate;
+    {
+        LOCK(cs_main);
+        nextNetworkUpdate = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().NextNetworkUpgradeHeight;
     }
 
     // Get timelock if any
@@ -163,7 +172,12 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
+    if (!rewardAddress.empty() && rewardDest.index() != 1 && rewardDest.index() != 2 && rewardDest.index() != 4) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH, BECH32 or P2WPKH address");
+    }
+
     CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+    CKeyID rewardAuthKey = getCKeyIDFromDestination(rewardDest);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -171,6 +185,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     if (eunosPaya) {
         metadata << timelock;
+    }
+
+    if (nextNetworkUpdate) {
+        metadata << static_cast<char>(rewardDest.index()) << rewardAuthKey;
     }
 
     CScript scriptMeta;

@@ -251,6 +251,8 @@ struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
     uint16_t timelock{0};
+    char rewardType;
+    CKeyID rewardAddress;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -261,6 +263,10 @@ struct CCreateMasterNodeMessage {
         // Only available after EunosPaya
         if (!s.eof()) {
             READWRITE(timelock);
+        }
+        if (!s.eof()) {
+            READWRITE(rewardType);
+            READWRITE(rewardAddress);
         }
     }
 };

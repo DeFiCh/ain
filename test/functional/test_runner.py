@@ -149,6 +149,7 @@ BASE_SCRIPTS = [
     'rpc_getchaintips.py',
     'rpc_misc.py',
     'rpc_mn_basic.py',
+    'rpc_mn_create_reward.py',
     'feature_smart_contracts.py',
     'feature_reject_customtxs.py',
     'feature_initdist.py',
