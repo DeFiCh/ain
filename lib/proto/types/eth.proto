@@ -20,7 +20,7 @@ message EthTransactionInfo {
     string v = 12; // Signature v value
     string r = 13; // Signature r value
     string s = 14; // Signature s value
-    uint32 type = 15; // Transaction type
+    string type = 15; // Transaction type
     string maxFeePerGas = 16; // Present in EIP1559 TXs
     string maxPriorityFeePerGas = 17; // Present in EIP1559 TXs
 }

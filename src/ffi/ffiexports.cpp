@@ -2,7 +2,15 @@
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
+#include <logging.h>
 
+// TODO: Later switch this to u8 so we skip the 
+// conversion and is more efficient.
+// Direct const* char ptr is not allowed due to CXX, but
+// we can convert ourselves and pass the final u8.
+void CppLogPrintf(rust::string message) {
+    LogPrintf(message.c_str());
+}
 
 uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
@@ -225,5 +233,5 @@ bool pastChangiIntermediateHeight3() {
 
 bool pastChangiIntermediateHeight4() {
     LOCK(cs_main);
-    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight3;
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight4;
 }

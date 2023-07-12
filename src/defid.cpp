@@ -21,6 +21,7 @@
 #include <util/threadnames.h>
 #include <util/translation.h>
 #include <ain_rs_exports.h>
+#include <ffi/ffihelpers.h>
 #include <functional>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -58,7 +59,8 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
-    preinit();
+    CrossBoundaryCheckedThrow(ain_rs_preinit(result));
+
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
 
@@ -120,6 +122,10 @@ static bool AppInit(int argc, char* argv[])
         gArgs.SoftSetBoolArg("-server", true);
         // Set this early so that parameter interactions go to console
         InitLogging();
+        
+        auto res = CrossBoundaryChecked(ain_rs_init_logging(result));
+        if (!res) return false;
+
         InitParameterInteraction();
         if (!AppInitBasicSetup())
         {
@@ -162,7 +168,6 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
-        init_evm_runtime();
         fRet = AppInitMain(interfaces);
     }
     catch (const std::exception& e) {
@@ -178,7 +183,6 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
-    stop_evm_runtime();
 
     return fRet;
 }

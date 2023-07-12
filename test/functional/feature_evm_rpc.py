@@ -122,40 +122,6 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
         assert_equal(block, latest_block)
 
-    def test_vmmap(self):
-        # TODO: This PR isn't ready just yet without proper tests.
-        # Current tests are very basic. Need to add proper tests.
-        # Merging for now, for faster feedback loop. But this is a key to-do.
-        # Check if xvmmap is working for addresses
-        eth_address = '0x2E04dbc946c6473DFd318d3bE2BE36E5dfbdACDC'
-        address = self.nodes[0].vmmap(eth_address, 2)
-        assert_equal(eth_address, self.nodes[0].vmmap(address, 1))
-
-        # Check that vmmap is failing on wrong input
-        eth_address = '0x0000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
-
-        # Check if xvmmap is working for Txs
-        list_tx = self.nodes[0].logvmmaps(1)
-        dvm_tx = list(list_tx['indexes'].keys())[0]
-        evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
-
-        # Check vmmap fail on wrong tx
-        evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_tx, 4)
-
-        # Check if xvmmap is working for Blocks
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
-        assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
-
-        # Check vmmap fail on wrong block
-        evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "DB r/w failure: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
-
     def run_test(self):
         self.setup()
 
@@ -171,7 +137,6 @@ class EVMTest(DefiTestFramework):
         self.test_address_state(self.ethAddress) # TODO test smart contract
 
         self.test_block()
-        self.test_vmmap()
 
 
 if __name__ == '__main__':

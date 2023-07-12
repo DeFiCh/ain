@@ -7,12 +7,14 @@ use crate::receipt::ReceiptResult;
 use crate::transaction_request::{TransactionMessage, TransactionRequest};
 use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
+use ain_evm::core::{EthCallArgs, MAX_GAS_PER_BLOCK};
+use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
-use ain_evm::handler::Handlers;
 
+use crate::filters::{GetFilterChangesResult, NewFilterRequest};
 use crate::sync::{SyncInfo, SyncState};
 use crate::transaction_log::{GetLogsRequest, LogResult};
+use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -171,18 +173,27 @@ pub trait MetachainRPC {
     ) -> RpcResult<U256>;
 
     // ----------------------------------------
-    // Send
+    // Sign
     // ----------------------------------------
 
-    /// Sends a signed transaction.
-    /// Returns the transaction hash as a hexadecimal string.
-    #[method(name = "sendRawTransaction")]
-    fn send_raw_transaction(&self, tx: &str) -> RpcResult<String>;
+    /// Signs a transaction.
+    /// Retuns a raw transaction as a hexademical string.
+    #[method(name = "signTransaction")]
+    fn sign_transaction(&self, req: TransactionRequest) -> RpcResult<String>;
+
+    // ----------------------------------------
+    // Send
+    // ----------------------------------------
 
     /// Sends a transaction.
     /// Returns the transaction hash as a hexadecimal string.
     #[method(name = "sendTransaction")]
     fn send_transaction(&self, req: TransactionRequest) -> RpcResult<String>;
+
+    /// Sends a signed transaction.
+    /// Returns the transaction hash as a hexadecimal string.
+    #[method(name = "sendRawTransaction")]
+    fn send_raw_transaction(&self, tx: &str) -> RpcResult<String>;
 
     // ----------------------------------------
     // Gas
@@ -227,17 +238,39 @@ pub trait MetachainRPC {
     #[method(name = "getUncleByBlockHashAndIndex")]
     fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>>;
 
+    // ----------------------------------------
+    // Logs and filters
+    // ----------------------------------------
+
     #[method(name = "getLogs")]
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>>;
+
+    #[method(name = "newFilter")]
+    fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256>;
+
+    #[method(name = "newBlockFilter")]
+    fn new_block_filter(&self) -> RpcResult<U256>;
+
+    #[method(name = "getFilterChanges")]
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult>;
+
+    #[method(name = "uninstallFilter")]
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
+
+    #[method(name = "getFilterLogs")]
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>>;
+
+    #[method(name = "newPendingTransactionFilter")]
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256>;
 }
 
 pub struct MetachainRPCModule {
-    handler: Arc<Handlers>,
+    handler: Arc<EVMServices>,
 }
 
 impl MetachainRPCModule {
     #[must_use]
-    pub fn new(handler: Arc<Handlers>) -> Self {
+    pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
 
@@ -287,7 +320,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = input;
         let TxResponse { data, .. } = self
             .handler
-            .evm
+            .core
             .call(EthCallArgs {
                 caller: from,
                 to,
@@ -322,7 +355,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         );
         let balance = self
             .handler
-            .evm
+            .core
             .get_balance(address, block_number)
             .unwrap_or(U256::zero());
 
@@ -340,7 +373,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let code = self
             .handler
-            .evm
+            .core
             .get_code(address, block_number)
             .map_err(|e| Error::Custom(format!("Error getting address code : {e:?}")))?;
 
@@ -363,7 +396,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         );
 
         self.handler
-            .evm
+            .core
             .get_storage_at(address, position, block_number)
             .map_err(|e| Error::Custom(format!("get_storage_at error : {e:?}")))?
             .map_or(Ok(H256::default()), |storage| {
@@ -519,8 +552,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
-    fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
-        debug!(target:"rpc", "[send_transaction] Sending transaction: {:?}", request);
+    fn sign_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
+        debug!(target:"rpc", "[sign_transaction] signing transaction: {:?}", request);
 
         let from = match request.from {
             Some(from) => from,
@@ -544,7 +577,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             Some(nonce) => nonce,
             None => self
                 .handler
-                .evm
+                .core
                 .get_nonce(from, block_number)
                 .map_err(|e| {
                     Error::Custom(format!("Error getting address transaction count : {e:?}"))
@@ -595,12 +628,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let transaction = sign(from, message).unwrap();
+        let signed = sign(from, message).unwrap();
 
-        let encoded_bytes = transaction.encode();
-        let encoded_string = hex::encode(encoded_bytes);
-        let encoded = encoded_string.as_str();
-        let hash = self.send_raw_transaction(encoded)?;
+        let encoded = hex::encode(signed.encode());
+
+        Ok(encoded)
+    }
+
+    fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
+        debug!(target:"rpc", "[send_transaction] Sending transaction: {:?}", request);
+
+        let signed = self.sign_transaction(request)?;
+
+        let hash = self.send_raw_transaction(signed.as_str())?;
         debug!(target:"rpc", "[send_transaction] signed: {:?}", hash);
 
         Ok(hash)
@@ -655,7 +695,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_number = self.block_number_to_u256(block_number)?;
         let nonce = self
             .handler
-            .evm
+            .core
             .get_nonce(address, block_number)
             .map_err(|e| {
                 Error::Custom(format!("Error getting address transaction count : {e:?}"))
@@ -682,7 +722,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_number = self.block_number_to_u256(block_number)?;
         let TxResponse { used_gas, .. } = self
             .handler
-            .evm
+            .core
             .call(EthCallArgs {
                 caller: from,
                 to,
@@ -839,11 +879,141 @@ impl MetachainRPCServer for MetachainRPCModule {
             .flat_map(|block_number| {
                 self.handler
                     .logs
-                    .get_logs(input.clone().address, input.clone().topics, block_number)
+                    .get_logs(&input.address, &input.topics, block_number)
                     .into_iter()
                     .map(LogResult::from)
             })
             .collect())
+    }
+
+    fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
+        let from_block_number = self.block_number_to_u256(input.from_block)?;
+        let to_block_number = self.block_number_to_u256(input.to_block)?;
+
+        if from_block_number > to_block_number {
+            return Err(Error::Custom(format!(
+                "fromBlock ({}) > toBlock ({})",
+                format_u256(from_block_number),
+                format_u256(to_block_number)
+            )));
+        }
+
+        let current_block_height = match self.handler.storage.get_latest_block() {
+            None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+            Some(block) => block.header.number,
+        };
+
+        Ok(self
+            .handler
+            .filters
+            .create_logs_filter(
+                input.address,
+                input.topics,
+                from_block_number,
+                to_block_number,
+                current_block_height,
+            )
+            .into())
+    }
+
+    fn new_block_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_block_filter().into())
+    }
+
+    fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
+        let filter = self
+            .handler
+            .filters
+            .get_filter(filter_id.as_usize())
+            .map_err(|e| Error::Custom(String::from(e)))?;
+
+        let res = match filter {
+            Filter::Logs(filter) => {
+                let current_block_height = match self.handler.storage.get_latest_block() {
+                    None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+                    Some(block) => block.header.number,
+                };
+
+                let logs = self
+                    .handler
+                    .logs
+                    .get_logs_from_filter(filter)
+                    .into_iter()
+                    .map(LogResult::from)
+                    .collect();
+
+                self.handler
+                    .filters
+                    .update_last_block(filter_id.as_usize(), current_block_height)
+                    .map_err(|e| Error::Custom(String::from(e)))?;
+
+                GetFilterChangesResult::Logs(logs)
+            }
+            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
+                self.handler
+                    .filters
+                    .get_entries_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
+            Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
+                self.handler
+                    .filters
+                    .get_entries_from_filter(filter_id.as_usize())
+                    .map_err(|e| Error::Custom(String::from(e)))?,
+            ),
+        };
+
+        Ok(res)
+    }
+
+    fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
+        Ok(self.handler.filters.delete_filter(filter_id.as_usize()))
+    }
+
+    fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
+        let filter = self
+            .handler
+            .filters
+            .get_filter(filter_id.as_usize())
+            .map_err(|e| Error::Custom(String::from(e)))?;
+
+        match filter {
+            Filter::Logs(filter) => {
+                // use fromBlock-toBlock
+                let mut block_number = filter.from_block;
+                let to_block_number = filter.to_block;
+                let mut block_numbers = Vec::new();
+
+                if block_number > to_block_number {
+                    return Err(Error::Custom(format!(
+                        "fromBlock ({}) > toBlock ({})",
+                        format_u256(block_number),
+                        format_u256(to_block_number)
+                    )));
+                }
+
+                while block_number <= to_block_number {
+                    block_numbers.push(block_number);
+                    block_number += U256::one();
+                }
+
+                Ok(block_numbers
+                    .into_iter()
+                    .flat_map(|block_number| {
+                        self.handler
+                            .logs
+                            .get_logs(&filter.address, &filter.topics, block_number)
+                            .into_iter()
+                            .map(LogResult::from)
+                    })
+                    .collect())
+            }
+            _ => Err(Error::Custom(String::from("Filter is not a log filter"))),
+        }
+    }
+
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_transaction_filter().into())
     }
 }
 

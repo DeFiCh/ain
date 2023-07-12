@@ -736,7 +736,7 @@ private:
     WatchKeyMap mapWatchKeys GUARDED_BY(cs_KeyStore);
 
     bool AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret, const bool ethAddress = false);
-    bool AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const bool ethAddress = false);
+    bool AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey = {});
 
     std::atomic<bool> fAbortRescan{false};
     std::atomic<bool> fScanningWallet{false}; // controlled by WalletRescanReserver
@@ -828,7 +828,7 @@ private:
     bool AddKeyOriginWithDB(WalletBatch& batch, const CPubKey& pubkey, const KeyOriginInfo& info);
 
     //! Adds a key to the store, and saves it to disk.
-    bool AddKeyPubKeyWithDB(WalletBatch &batch,const CKey& key, const CPubKey &pubkey, const bool ethAddress = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddKeyPubKeyWithDB(WalletBatch &batch,const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     //! Adds a watch-only address to the store, and saves it to disk.
     bool AddWatchOnlyWithDB(WalletBatch &batch, const CScript& dest, int64_t create_time) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -1003,9 +1003,9 @@ public:
      */
     CPubKey GenerateNewKey(WalletBatch& batch, bool internal = false, const bool ethAddress = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, and saves it to disk.
-    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadKey(const CKey& key, const CPubKey &pubkey, const bool ethAddress) { return AddKeyPubKeyInner(key, pubkey, ethAddress); }
+    bool LoadKey(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey) { return AddKeyPubKeyInner(key, pubkey, compressedPubKey); }
     //! Load metadata (used by LoadWallet)
     void LoadKeyMetadata(const CKeyID& keyID, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LoadScriptMetadata(const CScriptID& script_id, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
