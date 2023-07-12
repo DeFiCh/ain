@@ -5017,16 +5017,19 @@ bool CWallet::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
         return false;
 
     fUseCrypto = true;
+    std::set<CPubKey> pubkeys;
     for (const KeyMap::value_type& mKey : mapKeys)
     {
         const CKey &key = mKey.second;
         CPubKey vchPubKey = key.GetPubKey();
+        if (pubkeys.count(vchPubKey)) continue;
         CKeyingMaterial vchSecret(key.begin(), key.end());
         std::vector<unsigned char> vchCryptedSecret;
         if (!EncryptSecret(vMasterKeyIn, vchSecret, vchPubKey.GetHash(), vchCryptedSecret))
             return false;
         if (!AddCryptedKey(vchPubKey, vchCryptedSecret))
             return false;
+        pubkeys.insert(vchPubKey);
     }
     mapKeys.clear();
     return true;
@@ -5063,7 +5066,20 @@ bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<uns
         return false;
     }
 
-    mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+    if (!vchPubKey.IsCompressed()) {
+        auto pubkeyCopy = vchPubKey;
+        pubkeyCopy.Compress();
+        mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+        mapCryptedKeys[pubkeyCopy.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+        mapCryptedKeys[vchPubKey.GetEthID()] = make_pair(vchPubKey, vchCryptedSecret);
+    } else {
+        auto pubkeyCopy = vchPubKey;
+        pubkeyCopy.Decompress();
+        mapCryptedKeys[pubkeyCopy.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+        mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+        mapCryptedKeys[pubkeyCopy.GetEthID()] = make_pair(vchPubKey, vchCryptedSecret);
+    }
+
     ImplicitlyLearnRelatedKeyScripts(vchPubKey);
     return true;
 }
