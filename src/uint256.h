@@ -53,15 +53,24 @@ public:
     void SetHex(const std::string& str);
     std::string ToString() const;
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> ToArray() const
+    uint64_t GetUint64(int pos) const
     {
-        std::array<uint8_t, WIDTH> array;
-        std::copy(data, data + sizeof(data), array.begin());
-        return array;
+        const uint8_t* ptr = data + pos * 8;
+        return ((uint64_t)ptr[0]) | \
+               ((uint64_t)ptr[1]) << 8 | \
+               ((uint64_t)ptr[2]) << 16 | \
+               ((uint64_t)ptr[3]) << 24 | \
+               ((uint64_t)ptr[4]) << 32 | \
+               ((uint64_t)ptr[5]) << 40 | \
+               ((uint64_t)ptr[6]) << 48 | \
+               ((uint64_t)ptr[7]) << 56;
     }
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> ToArrayReversed() const
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArray() const
     {
+        // We store bytes in the reverse order. So any expectations of
+        // an array of bytes should be in same order as the hex string.
+        // The protected data array is an internal implementation detail. 
         std::array<uint8_t, WIDTH> reversedArray;
         std::copy(std::reverse_iterator<const uint8_t*>(data + sizeof(data)), std::reverse_iterator<const uint8_t*>(data), reversedArray.begin());
         return reversedArray;
@@ -92,18 +101,6 @@ public:
         return sizeof(data);
     }
 
-    uint64_t GetUint64(int pos) const
-    {
-        const uint8_t* ptr = data + pos * 8;
-        return ((uint64_t)ptr[0]) | \
-               ((uint64_t)ptr[1]) << 8 | \
-               ((uint64_t)ptr[2]) << 16 | \
-               ((uint64_t)ptr[3]) << 24 | \
-               ((uint64_t)ptr[4]) << 32 | \
-               ((uint64_t)ptr[5]) << 40 | \
-               ((uint64_t)ptr[6]) << 48 | \
-               ((uint64_t)ptr[7]) << 56;
-    }
 
     template<typename Stream>
     void Serialize(Stream& s) const

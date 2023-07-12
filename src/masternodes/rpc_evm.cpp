@@ -116,7 +116,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::copy(key.begin(), key.end(), privKey.begin());
 
     CrossBoundaryResult result;
-    const auto signedTx = create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
+    const auto signedTx = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArray(), gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value.GetByteArray(), input, privKey});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
@@ -191,7 +191,7 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, evmBlockHash.msg);
     }
     CrossBoundaryResult result;
-    auto blockNumber = evm_get_block_number_by_hash(result, evmBlockHash.val.value().ToArrayReversed());
+    auto blockNumber = evm_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
     if (!result.ok) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,result.reason.c_str());
     }
@@ -223,20 +223,40 @@ UniValue vmmap(const JSONRPCRequest& request) {
                        HelpExampleCli("vmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
+
+    auto throwInvalidParam = []() {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+    };
+
+    auto ensureEVMHashPrefixed = [](const std::string& str, const VMDomainRPCMapType type) {
+        if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
+            return "0x" + str;
+        }
+        return str;
+    };
+
     const std::string input = request.params[0].get_str();
 
     const int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+        throwInvalidParam();
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
+                throwInvalidParam();
+            }
             CPubKey key = AddrToPubKey(pwallet, input);
             if (key.IsCompressed()) { key.Decompress(); }
             return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throwInvalidParam();
+            }
             CPubKey key = AddrToPubKey(pwallet, input);
             if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
@@ -275,10 +295,11 @@ UniValue vmmap(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
     }
+
     if (!res) {
         throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
     } else {
-        return res.val->ToString();
+        return ensureEVMHashPrefixed(res.val->ToString(), type);
     }
 }
 

@@ -233,5 +233,5 @@ bool pastChangiIntermediateHeight3() {
 
 bool pastChangiIntermediateHeight4() {
     LOCK(cs_main);
-    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight3;
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight4;
 }
