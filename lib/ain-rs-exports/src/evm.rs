@@ -6,9 +6,9 @@ use ain_evm::{
 use ain_evm::services::SERVICES;
 use log::debug;
 
+use ain_evm::storage::traits::BlockStorage;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
-use ain_evm::storage::traits::BlockStorage;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -331,7 +331,6 @@ pub fn evm_disconnect_latest_block() {
     SERVICES.evm.storage.disconnect_latest_block();
 }
 
-
 /// Return the block for a given height.
 ///
 /// # Arguments
@@ -369,11 +368,7 @@ pub fn evm_get_block_hash_by_number(result: &mut CrossBoundaryResult, height: u6
 ///
 /// Returns the block number associated with the given blockhash.
 pub fn evm_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]) -> u64 {
-    match SERVICES
-        .evm
-        .storage
-        .get_block_by_hash(&H256::from(hash))
-    {
+    match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
         Some(block) => {
             result.ok = true;
             block.header.number.as_u64()
