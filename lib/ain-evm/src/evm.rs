@@ -255,8 +255,7 @@ impl EVMServices {
                 failed_transactions,
                 total_gas_fees.try_into().unwrap(),
             ))
-        }
-        else {
+        } else {
             Ok((
                 *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
