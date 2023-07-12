@@ -3964,7 +3964,14 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
         } else if (strategy == AuthStrategy::EthKeyMatch) {
             std::vector<TBytes> vRet;
             const auto solution = Solver(coin.out.scriptPubKey, vRet);
-            if (solution == txnouttype::TX_WITNESS_V0_KEYHASH &&
+            if (solution == txnouttype::TX_PUBKEYHASH) {
+                auto it = input.scriptSig.begin();
+                CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                auto scriptOut = GetScriptForDestination(PKHash(pubkey));
+                if (script == auth && coin.out.scriptPubKey == scriptOut)
+                    return Res::Ok();
+            } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH &&
                 input.scriptWitness.stack.size() == 2) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
                 if (pubkey.Decompress()) {
