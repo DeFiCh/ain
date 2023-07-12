@@ -11,6 +11,15 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
+class VMMapType:
+    Auto = 0
+    AddressDVMToEVM = 1
+    AddressEVMToDVM = 2
+    TxHashDVMToEVM = 3
+    TxHashEVMToEVM = 4
+    BlockHashDVMToEVM = 5
+    BlockHashEVMToDVM = 6
+
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -94,101 +103,123 @@ class VMMapTests(DefiTestFramework):
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
         eth_address = self.nodes[1].getnewaddress("", "eth")
         assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmmap, eth_address, 1)
 
     def vmmap_valid_address_invalid_type_should_fail(self):
         self.rollback_to(self.start_block_height)
-        address = self.nodes[0].getnewaddress()
-        # TODO: Use invalid address types not meant for that api.
-        # As in, pass a P2PKH address to vmmap with type 2 and it should fail.
-        # Pass an ETH address to type 1 and it should fail.
-        # Pass a P2SH address to either and it should fail.
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, 8)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, address, -1)
+        address = self.nodes[0].getnewaddress("", "legacy")
+        p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
+        eth_address = self.nodes[0].getnewaddress("", "eth")
+        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, *args)
+        assert_invalid(address, 8)
+        assert_invalid(address, -1)
+        assert_invalid(eth_address, VMMapType.AddressDVMToEVM)
+        assert_invalid(address, VMMapType.AddressEVMToDVM)
+        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
+        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
 
     def vmmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check that vmmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-5, "0x0000000000000000000000000000000000000000 does not refer to a key", self.nodes[0].vmmap, eth_address, 1)
-        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 1)
-        assert_raises_rpc_error(-5, "Invalid address: test", self.nodes[0].vmmap, 'test', 2)
+        assert_raises_rpc_error(-5, eth_address + " does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 1)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 2)
 
     def vmmap_valid_tx_should_succeed(self):
         self.rollback_to(self.start_block_height)
-        # Check if xvmmap is working for Txs
-        # TODO: Do just use logvmmap. Rather pull the tx info
-        # for a block from the APIs and use that tx to test vmmap.
-        # That's the correct way. logvmmap and vmmap results in
-        # cyclic testing.
-        # list_tx = self.nodes[0].logvmmaps(1)
-        # dvm_tx = list(list_tx['indexes'].keys())[0]
-        # evm_tx = self.nodes[0].vmmap(dvm_tx, 3)
-        # assert_equal(dvm_tx, self.nodes[0].vmmap(evm_tx, 4))
-        # assert_equal("0x" + evm_tx, self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0])
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        tx_maps = []
+        nonce = 0
+        for i in range(5):
+            # generate 5 txs in the block
+            num_txs = 5
+            for j in range(num_txs):
+                self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21000, self.toAddress, 1)
+                nonce += 1
+            self.nodes[0].generate(1)
+            dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+            eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+            for j in range(num_txs):
+                # note dfi block is j+1 since we ignore coinbase
+                tx_maps.append([dfi_block['tx'][j+1], eth_block['transactions'][j]])
+        for item in tx_maps:
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM), item[0])
 
-    def vmmap_invalid_tx_should_fail(self):
+    def vmmap_invalid_should_fail(self):
         self.rollback_to(self.start_block_height)
-        # Check vmmap fail on wrong tx
-        # TODO:
-        #   - Check for multiple ones.
-        #   - Get a valid tx, prefix it with garbage and check fail.
-        #   - Get a valid tx, suffix it with garbage and check fail.
+        latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, fake_evm_tx, 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "garbage", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 4)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 4)
+        assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
+        for map_type in range(6):
+            if map_type in [0, 1, 2]:
+                continue # addr types and auto are ignored for this test
+            assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
+            assert_err("0x00", map_type)
+            assert_err("garbage", map_type)
+            assert_err(latest_eth_block + "0x00", map_type) # invalid suffix
+            assert_err("0x00" + latest_eth_block, map_type) # invalid prefix
 
     def vmmap_valid_block_should_succeed(self):
         self.rollback_to(self.start_block_height)
-        # Check if xvmmap is working for Blocks
-        # TODO:
-        #   - Check for multiple ones. Generate and verify hashes manually.
-        #     Not have cyclic results
-        #   - Get a valid tx, prefix it with garbage and check fail.
-        #   - Get a valid tx, suffix it with garbage and check fail.
-        latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        dvm_block = self.nodes[0].vmmap(latest_block['hash'], 6)
-        assert_equal(latest_block['hash'], "0x" + self.nodes[0].vmmap(dvm_block, 5))
-
-    def vmmap_invalid_block_should_fail(self):
-        self.rollback_to(self.start_block_height)
-        # Check vmmap fail on wrong block
-        evm_block = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-32600, "Key not found: 0000000000000000000000000000000000000000000000000000000000000000", self.nodes[0].vmmap, evm_block, 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0x00", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap,"garbage", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "0", 6)
-        assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, "x", 6)
-
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        block_maps = []
+        for i in range(5):
+            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            self.nodes[0].generate(1)
+            dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+            eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+            block_maps.append([dfi_block['hash'], eth_block['hash']])
+        for item in block_maps:
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
-        # TODO: Each fn, should be independent of each other. Should rely on vars set outside of it's context or setup.
-        # For rollback, keys need to be added, checked, rollback to state in-between, checked for expected output in the middle
-        # and then checked for expected output after rolled back to clean state.
-        # The below is extremely fragile, depends on unclean state as well as ordering of other functions.
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_block, self.nodes[0].vmmap, self.dvm_block, 5)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.latest_block['hash'][2:], self.nodes[0].vmmap, self.latest_block['hash'], 6)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.dvm_tx, self.nodes[0].vmmap, self.dvm_tx, 3)
-        # assert_raises_rpc_error(-32600, "Key not found: " + self.evm_tx, self.nodes[0].vmmap, self.evm_tx, 4)
-        # assert_equal(self.nodes[0].logvmmaps(1), {"indexes": {}, "count": 0})
+        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        base_block_dvm = self.nodes[0].getbestblockhash()
+        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
+        new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
+        list_blocks = self.nodes[0].logvmmaps(0)
+        list_blocks = list(list_blocks['indexes'].values())
+        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = list(list_tx['indexes'].keys())
+        assert_equal(base_block[2:] in list_blocks, True)
+        assert_equal(new_block[2:] in list_blocks, True)
+        assert_equal(tx in list_tx, True)
+        self.nodes[0].invalidateblock(base_block_dvm)
+        list_blocks = self.nodes[0].logvmmaps(0)
+        list_blocks = list(list_blocks['indexes'].values())
+        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = list(list_tx['indexes'].keys())
+        assert_equal(base_block[2:] in list_blocks, True)
+        assert_equal(new_block[2:] in list_blocks, False)
+        assert_equal(tx in list_tx, False)
 
     def logvmmaps_tx_exist(self):
+        self.rollback_to(self.start_block_height)
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
         list_tx = self.nodes[0].logvmmaps(1)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
         assert_equal(eth_tx[2:] in list(list_tx['indexes'].values()), True)
-        dfi_tx = self.nodes[0].vmmap(eth_tx, 4)
-        assert_equal(dfi_tx in list(list_tx['indexes'].keys()), True)
+        assert_equal(tx in list(list_tx['indexes'].keys()), True)
 
     def logvmmaps_invalid_tx_should_fail(self):
         list_tx = self.nodes[0].logvmmaps(1)
         assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
+        assert_equal("garbage" not in list(list_tx['indexes'].values()), True)
+        assert_equal("0x" not in list(list_tx['indexes'].values()), True)
 
     def logvmmaps_block_exist(self):
         list_blocks = self.nodes[0].logvmmaps(0)
@@ -198,30 +229,26 @@ class VMMapTests(DefiTestFramework):
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
-        list_tx = self.nodes[0].logvmmaps(1)
-        assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
-        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
+        list_block = self.nodes[0].logvmmaps(1)
+        assert_equal("invalid tx" not in list(list_block['indexes'].values()), True)
+        assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_block['indexes'].values()), True)
+        assert_equal("garbage" not in list(list_block['indexes'].values()), True)
+        assert_equal("0x" not in list(list_block['indexes'].values()), True)
 
     def run_test(self):
         self.setup()
-        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
-        self.nodes[0].generate(1)
         # vmmap tests
         # self.vmmap_address_basics()
         self.vmmap_address_basics_manual_import()
         self.vmmap_valid_address_not_present_should_fail()
         self.vmmap_valid_address_invalid_type_should_fail()
         self.vmmap_invalid_address_should_fail()
-#        self.vmmap_valid_tx_should_succeed()
-        self.vmmap_invalid_tx_should_fail()
+        self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
-        self.vmmap_invalid_block_should_fail()
+        self.vmmap_invalid_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
-        # disabled for now pending on clean state tests (TODO)
-        # self.logvmmaps_tx_exist()
+        self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
         self.logvmmaps_block_exist()
         self.logvmmaps_invalid_block_should_fail()
