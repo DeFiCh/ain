@@ -22,6 +22,14 @@ struct InitInterfaces
     std::vector<std::unique_ptr<interfaces::ChainClient>> chain_clients;
 };
 
+struct CacheSizes {
+    int64_t customCacheSize;
+    int64_t txIndexCache;
+    int64_t blockTreeDBCache;
+    int64_t filterIndexCache;
+    int64_t coinDBCache;
+};
+
 namespace boost
 {
 class thread_group;

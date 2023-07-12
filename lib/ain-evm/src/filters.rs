@@ -61,12 +61,12 @@ impl PendingTransactionFilter {
     }
 }
 
-pub struct FilterHandler {
+pub struct FilterService {
     pub filters: RwLock<HashMap<usize, Filter>>,
     pub filter_id: RwLock<usize>,
 }
 
-impl FilterHandler {
+impl FilterService {
     pub fn new() -> Self {
         Self {
             filters: RwLock::new(HashMap::new()),
@@ -98,7 +98,7 @@ impl FilterHandler {
             }),
         );
 
-        return *filter_id;
+        *filter_id
     }
 
     pub fn create_block_filter(&self) -> usize {
@@ -113,7 +113,7 @@ impl FilterHandler {
 
         filters.insert(*filter_id, filter);
 
-        return *filter_id;
+        *filter_id
     }
 
     pub fn create_transaction_filter(&self) -> usize {
@@ -128,7 +128,7 @@ impl FilterHandler {
 
         filters.insert(*filter_id, filter);
 
-        return *filter_id;
+        *filter_id
     }
 
     pub fn get_filter(&self, filter_id: usize) -> Result<Filter, &str> {
@@ -147,9 +147,8 @@ impl FilterHandler {
             return Err("Filter not found");
         };
 
-        match filter {
-            Filter::Logs(f) => f.last_block_height = block_height,
-            _ => {}
+        if let Filter::Logs(f) = filter {
+            f.last_block_height = block_height;
         }
 
         Ok(())
@@ -161,12 +160,9 @@ impl FilterHandler {
 
         for item in filters.iter_mut() {
             let filter = item.1;
-            match filter {
-                Filter::NewBlock(filter) => {
-                    debug!("Added block hash to {:#?}", filter.clone());
-                    filter.block_hashes.push(block_hash);
-                }
-                _ => {}
+            if let Filter::NewBlock(filter) = filter {
+                debug!("Added block hash to {:#?}", filter.clone());
+                filter.block_hashes.push(block_hash);
             }
         }
     }
@@ -177,12 +173,9 @@ impl FilterHandler {
 
         for item in filters.iter_mut() {
             let filter = item.1;
-            match filter {
-                Filter::NewPendingTransactions(filter) => {
-                    debug!("Added tx hash to {:#?}", filter.clone());
-                    filter.transaction_hashes.push(tx_hash);
-                }
-                _ => {}
+            if let Filter::NewPendingTransactions(filter) = filter {
+                debug!("Added tx hash to {:#?}", filter.clone());
+                filter.transaction_hashes.push(tx_hash);
             }
         }
     }
@@ -203,5 +196,11 @@ impl FilterHandler {
 
     pub fn delete_filter(&self, filter_id: usize) -> bool {
         self.filters.write().unwrap().remove(&filter_id).is_some()
+    }
+}
+
+impl Default for FilterService {
+    fn default() -> Self {
+        Self::new()
     }
 }

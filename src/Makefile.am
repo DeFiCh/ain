@@ -158,6 +158,7 @@ DEFI_CORE_H = \
   limitedmap.h \
   logging.h \
   ffi/ffiexports.h \
+  ffi/ffihelpers.h \
   masternodes/accounts.h \
   masternodes/accountshistory.h \
   masternodes/anchors.h \

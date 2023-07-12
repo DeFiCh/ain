@@ -5,9 +5,9 @@ pub struct CppLogTarget {
     enable_stdout: bool,
 }
 
-pub fn cpp_log_target_format<'a>(
+pub fn cpp_log_target_format(
     buf: &mut env_logger::fmt::Formatter,
-    record: &log::Record<'a>,
+    record: &log::Record,
 ) -> std::io::Result<()> {
     let mod_path = record.module_path();
     if let Some(mod_path) = mod_path {

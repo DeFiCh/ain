@@ -1,4 +1,4 @@
-use ain_evm::handler::Handlers;
+use ain_evm::evm::EVMServices;
 use ethereum::Account;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
@@ -21,12 +21,12 @@ pub trait MetachainDebugRPC {
 }
 
 pub struct MetachainDebugRPCModule {
-    handler: Arc<Handlers>,
+    handler: Arc<EVMServices>,
 }
 
 impl MetachainDebugRPCModule {
     #[must_use]
-    pub fn new(handler: Arc<Handlers>) -> Self {
+    pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
 }
@@ -45,14 +45,14 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     fn log_account_states(&self) -> RpcResult<()> {
         let backend = self
             .handler
-            .evm
+            .core
             .get_latest_block_backend()
             .expect("Error restoring backend");
         let ro_handle = backend.ro_handle();
 
         ro_handle.iter().for_each(|el| match el {
             Ok((_, v)) => {
-                if let Some(account) = Account::decode(&Rlp::new(&v)).ok() {
+                if let Ok(account) = Account::decode(&Rlp::new(&v)) {
                     debug!("[log_account_states] account {:?}", account)
                 } else {
                     debug!("[log_account_states] Error decoding account {:?}", v)

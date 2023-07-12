@@ -112,7 +112,11 @@ UniValue evmtx(const JSONRPCRequest& request) {
     std::array<uint8_t, 32> privKey{};
     std::copy(key.begin(), key.end(), privKey.begin());
 
-    const auto signedTx = create_and_sign_tx(CreateTransactionContext{chainID, nonce.ToArrayReversed(), gasPrice.ToArrayReversed(), gasLimit.ToArrayReversed(), to, value.ToArrayReversed(), input, privKey});
+    CrossBoundaryResult result;
+    const auto signedTx = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArray(), gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value.GetByteArray(), input, privKey});
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+    }
 
     std::vector<uint8_t> evmTx(signedTx.size());
     std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
@@ -147,7 +151,14 @@ UniValue vmmap(const JSONRPCRequest& request) {
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
                        {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
-                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of mapping: 1 - DFI Address to EVM, 2 - EVM to DFI Address, 3 - DFI Tx to EVM, 4 - EVM Tx to DFI, 5 - DFI Block to EVM, 6 - EVM Block to DFI"}
+                       {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
+                            1 - Address format: DFI -> ETH \n\
+                            2 - Address format: ETH -> DFI \n\
+                            3 - Tx Hash: DFI -> EVM \n\
+                            4 - Tx Hash: EVM -> DFI \n\
+                            5 - Block Hash: DFI -> EVM \n\
+                            6 - Block Hash: EVM -> DFI"
+                        }
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
@@ -156,20 +167,43 @@ UniValue vmmap(const JSONRPCRequest& request) {
                        HelpExampleCli("vmmap", R"('"<hex>"' 1)")
                },
     }.Check(request);
+
+    auto throwInvalidParam = []() {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter"));
+    };
+
+    auto ensureEVMHashPrefixed = [](const std::string& str, const VMDomainRPCMapType type) {
+        if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
+            return "0x" + str;
+        }
+        return str;
+    };
+
     const std::string hash = request.params[0].get_str();
 
-    if (request.params[1].get_int() >= VMDomainRPCMapTypeCount) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"type\" must be less than %d.", VMDomainRPCMapTypeCount));
+    const int typeInt = request.params[1].get_int();
+    if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
+        throwInvalidParam();
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(WitnessV16EthHash(key.GetID()));
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            if (key.IsCompressed()) { key.Decompress(); }
+            return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
-            const CPubKey key = AddrToPubKey(pwallet, hash);
-            return EncodeDestination(PKHash(key.GetID()));
+            CTxDestination dest = DecodeDestination(hash);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, hash);
+            if (!key.IsCompressed()) { key.Compress(); }
+            return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:
             break;
@@ -199,10 +233,11 @@ UniValue vmmap(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
     }
+
     if (!res) {
         throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
     } else {
-        return res.val->ToString();
+        return ensureEVMHashPrefixed(res.val->ToString(), type);
     }
 }
 
@@ -226,7 +261,7 @@ UniValue logvmmaps(const JSONRPCRequest& request) {
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
     const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
-    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC. 
+    // TODO: For now, we iterate through the whole list. But this is just a debugging RPC.
     // But there's no need to iterate the whole list, we can start at where we need to and
     // return false, once we hit the limit and stop the iter.
     switch (type) {
