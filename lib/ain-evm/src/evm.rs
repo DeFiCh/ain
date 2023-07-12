@@ -89,6 +89,7 @@ impl EVMServices {
         let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut gas_used = 0u64;
+        let mut gas_fees = 0u64;
         let mut logs_bloom: Bloom = Bloom::default();
 
         let parent_data = self.block.get_latest_block_hash_and_number();
@@ -160,8 +161,11 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    all_transactions.push(signed_tx.clone());
+                    let gas_fee = calculate_gas_fee(signed_tx, used_gas);
                     gas_used += used_gas;
+                    gas_fees += gas_fee;
+
+                    all_transactions.push(signed_tx.clone());
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
@@ -244,11 +248,20 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
         }
 
-        Ok((
-            *block.header.hash().as_fixed_bytes(),
-            failed_transactions,
-            gas_used,
-        ))
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            Ok((
+                *block.header.hash().as_fixed_bytes(),
+                failed_transactions,
+                gas_fees,
+            ))
+        }
+        else {
+            Ok((
+                *block.header.hash().as_fixed_bytes(),
+                failed_transactions,
+                gas_used,
+            ))
+        }
     }
 
     pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
