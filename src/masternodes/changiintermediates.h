@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <serialize.h>
+#include <uint256.h>
 
 class CCoinsViewCache;
 class CTransaction;
