@@ -221,18 +221,18 @@ pub fn evm_try_prevalidate_raw_tx(
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
 
-            return ffi::ValidateTxCompletion {
+            ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            };
+            }
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
 
-            return ffi::ValidateTxCompletion::default();
+            ffi::ValidateTxCompletion::default()
         }
     }
 }

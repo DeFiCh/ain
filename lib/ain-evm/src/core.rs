@@ -174,16 +174,12 @@ impl EVMCoreService {
             .map(|block| block.header.number)
             .unwrap_or_default();
 
-        debug!(
-            "[validate_raw_tx] block_number : {:#?}",
-            block_number
-        );
-
+        debug!("[validate_raw_tx] block_number : {:#?}", block_number);
 
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
-        .get_nonce(signed_tx.sender, block_number)
-        .map_err(|e| anyhow!("Error getting nonce {e}"))?;
+            .get_nonce(signed_tx.sender, block_number)
+            .map_err(|e| anyhow!("Error getting nonce {e}"))?;
 
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
@@ -193,10 +189,7 @@ impl EVMCoreService {
             "[validate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
-        debug!(
-            "[validate_raw_tx] nonce : {:#?}",
-            nonce
-        );
+        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(

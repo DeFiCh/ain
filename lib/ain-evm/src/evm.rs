@@ -9,8 +9,8 @@ use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::SignedTx;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
 
@@ -267,10 +267,7 @@ impl EVMServices {
         }
     }
 
-    pub fn verify_tx_fees(
-        &self,
-        tx: &str
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -278,7 +275,9 @@ impl EVMServices {
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() && ain_cpp_imports::reject_below_base_gas_fees() {
+        if ain_cpp_imports::past_changi_intermediate_height_4_height()
+            && ain_cpp_imports::reject_below_base_gas_fees()
+        {
             let tx_gas_price = get_tx_gas_price(&signed_tx);
             let next_block_fees = self.block.calculate_next_block_base_fee();
             if tx_gas_price < next_block_fees {
@@ -286,6 +285,7 @@ impl EVMServices {
                 return Err(anyhow!("tx gas price is lower than next block base fee").into());
             }
         }
+
         Ok(())
     }
 
