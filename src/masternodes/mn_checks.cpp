@@ -965,11 +965,13 @@ public:
                 }
                 operatorType = true;
 
-                if (addressType != PKHashType && addressType != WitV0KeyHashType) {
+                std::string operatorAddress(rawAddress.begin(), rawAddress.end());
+                const auto operatorDest = DecodeDestination(operatorAddress);
+                const auto keyID = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
+                if (keyID.IsNull() || (addressType != PKHashType && addressType != WitV0KeyHashType)) {
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with that operator address already exists");
                 }
@@ -984,18 +986,20 @@ public:
                 }
                 rewardType = true;
 
+                std::string rewardAddress(rawAddress.begin(), rawAddress.end());
+                const auto rewardDest = DecodeDestination(rewardAddress);
+                const auto keyID = CKeyID::FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
                 // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
                 if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                    if (addressType != PKHashType && addressType != WitV0KeyHashType) {
+                    if (keyID.IsNull() || (addressType != PKHashType && addressType != WitV0KeyHashType)) {
                         return Res::Err("Reward address must be P2PKH or P2WPKH type");
                     }
                 } else {
-                    if (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType) {
+                    if (keyID.IsNull() || (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType)) {
                         return Res::Err("Reward address must be P2SH, P2PKH or P2WPKH type");
                     }
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
                 mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
 
                 // Store history of all reward address changes. This allows us to call CalculateOwnerReward
