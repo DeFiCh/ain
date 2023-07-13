@@ -4,6 +4,8 @@
 #include <chainparams.h>
 #include <ffi/cxx.h>
 
+static const bool DEFAULT_REJECT_BASE_GAS_FEES = true;
+
 uint64_t getChainId();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
@@ -17,6 +19,7 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
 std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID);
 rust::string getStateInputJSON();
+bool rejectBelowBaseGasFees();
 int getHighestBlock();
 int getCurrentHeight();
 bool pastChangiIntermediateHeight2();

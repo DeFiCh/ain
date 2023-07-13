@@ -1,12 +1,11 @@
 use ain_evm::{
+    services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
 
-use ain_evm::services::SERVICES;
-use log::debug;
-
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
@@ -196,6 +195,7 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 /// - The EVM transaction is invalid
 /// - Could not fetch the underlying EVM account
 /// - Account's nonce does not match raw tx's nonce
+/// - Transaction gas fee is lower than the next block's base fee
 ///
 /// # Returns
 ///
@@ -206,22 +206,33 @@ pub fn evm_try_prevalidate_raw_tx(
     tx: &str,
     with_gas_usage: bool,
 ) -> ffi::ValidateTxCompletion {
+    match SERVICES.evm.verify_tx_fees(tx) {
+        Ok(_) => (),
+        Err(e) => {
+            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+            result.ok = false;
+            result.reason = e.to_string();
+
+            return ffi::ValidateTxCompletion::default();
+        }
+    }
+
     match SERVICES.evm.core.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
 
-            ffi::ValidateTxCompletion {
+            return ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 used_gas,
-            }
+            };
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             result.ok = false;
             result.reason = e.to_string();
 
-            ffi::ValidateTxCompletion::default()
+            return ffi::ValidateTxCompletion::default();
         }
     }
 }
