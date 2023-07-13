@@ -2,6 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
+use crate::fee::calculate_gas_fee;
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -88,7 +89,8 @@ impl EVMServices {
         let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
         let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(context));
-        let mut gas_used = 0u64;
+        let mut total_gas_used = 0u64;
+        let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
 
         let parent_data = self.block.get_latest_block_hash_and_number();
@@ -160,8 +162,11 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas));
+                    total_gas_used += used_gas;
+                    total_gas_fees += gas_fee;
+
                     all_transactions.push(signed_tx.clone());
-                    gas_used += used_gas;
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
@@ -209,7 +214,7 @@ impl EVMServices {
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
                 gas_limit: MAX_GAS_PER_BLOCK,
-                gas_used: U256::from(gas_used),
+                gas_used: U256::from(total_gas_used),
                 timestamp,
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
@@ -244,11 +249,19 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
         }
 
-        Ok((
-            *block.header.hash().as_fixed_bytes(),
-            failed_transactions,
-            gas_used,
-        ))
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            Ok((
+                *block.header.hash().as_fixed_bytes(),
+                failed_transactions,
+                total_gas_fees.try_into().unwrap(),
+            ))
+        } else {
+            Ok((
+                *block.header.hash().as_fixed_bytes(),
+                failed_transactions,
+                total_gas_used,
+            ))
+        }
     }
 
     pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
