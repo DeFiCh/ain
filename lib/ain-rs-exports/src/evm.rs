@@ -1,11 +1,12 @@
 use ain_evm::{
-    services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
 
-use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
+use ain_evm::services::SERVICES;
 use log::debug;
+
+use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
@@ -195,7 +196,6 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 /// - The EVM transaction is invalid
 /// - Could not fetch the underlying EVM account
 /// - Account's nonce does not match raw tx's nonce
-/// - Transaction gas fee is lower than the next block's base fee
 ///
 /// # Returns
 ///
@@ -206,17 +206,6 @@ pub fn evm_try_prevalidate_raw_tx(
     tx: &str,
     with_gas_usage: bool,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx) {
-        Ok(_) => (),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            result.ok = false;
-            result.reason = e.to_string();
-
-            return ffi::ValidateTxCompletion::default();
-        }
-    }
-
     match SERVICES.evm.core.validate_raw_tx(tx, with_gas_usage) {
         Ok((signed_tx, used_gas)) => {
             result.ok = true;
@@ -320,12 +309,13 @@ pub fn evm_try_finalize(
         .evm
         .finalize_block(context, update_state, difficulty, eth_address, timestamp)
     {
-        Ok((block_hash, failed_txs, gas_used)) => {
+        Ok((block_hash, failed_txs, burnt_fees, priority_fees)) => {
             result.ok = true;
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions: failed_txs,
-                miner_fee: gas_used,
+                total_burnt_fees: burnt_fees,
+                total_priority_fees: priority_fees,
             }
         }
         Err(e) => {

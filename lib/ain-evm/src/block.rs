@@ -186,16 +186,6 @@ impl BlockService {
         )
     }
 
-    pub fn calculate_next_block_base_fee(&self) -> U256 {
-        let current_block_data = self.get_latest_block_hash_and_number();
-        let current_block_hash = match current_block_data {
-            None => H256::zero(),
-            Some((hash, _)) => hash,
-        };
-
-        self.calculate_base_fee(current_block_hash)
-    }
-
     pub fn fee_history(
         &self,
         block_count: usize,

@@ -211,10 +211,6 @@ rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
 
-bool rejectBelowBaseGasFees() {
-    return gArgs.GetBoolArg("-rejectbelowbasegasfees", DEFAULT_REJECT_BASE_GAS_FEES);
-}
-
 int getHighestBlock() {
     return pindexBestHeader ? pindexBestHeader->nHeight
                             : (int) ::ChainActive().Height(); // return current block count if no peers

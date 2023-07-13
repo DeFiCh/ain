@@ -13,11 +13,10 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-
+use anyhow::anyhow;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
 
-use anyhow::anyhow;
 use hex::FromHex;
 use log::debug;
 use std::error::Error;
