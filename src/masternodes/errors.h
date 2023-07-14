@@ -262,6 +262,10 @@ public:
         return Res::Err("Unsupported key for Governance Proposal section - {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedTransferType(const unsigned char type) {
+        return Res::Err("Unsupported key for Transfer Domain {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() {
         return Res::Err("Unsupported Param ID");
     }
@@ -410,6 +414,10 @@ public:
         return Res::Err("tx must have at least one input from account owner");
     }
 
+    static Res TransferDomainNotEnabled() {
+        return Res::Err("Cannot create tx, transfer domain is not enabled");
+    }
+
     static Res TransferDomainEVMNotEnabled() {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
@@ -424,6 +432,14 @@ public:
 
     static Res TransferDomainIncorrectToken() {
         return Res::Err("For transferdomain, only DFI token is currently supported");
+    }
+
+    static Res TransferDomainEVMDVMNotEnabled() {
+        return Res::Err("EVM to DVM is not currently enabled");
+    }
+
+    static Res TransferDomainDVMEVMNotEnabled() {
+        return Res::Err("DVM to EVM is not currently enabled");
     }
 
     static Res TransferDomainETHSourceAddress() {
