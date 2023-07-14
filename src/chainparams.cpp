@@ -1358,6 +1358,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight);
     UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2);
     UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
+    UpdateHeightValidation("Changi Intermediate4", "-changiintermediate4height", consensus.ChangiIntermediateHeight4);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

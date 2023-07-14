@@ -2453,6 +2453,23 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     }
 }
 
+static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight != chainparams.GetConsensus().ChangiIntermediateHeight4 || IsRegtestNetwork()) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+
+    attributes->SetValue(evm_dvm, true);
+    attributes->SetValue(dvm_evm, true);
+
+    cache.SetVariable(*attributes);
+}
+
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
     CCustomCSView cache(mnview);
 
@@ -2509,6 +2526,9 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
 
     // Execute EVM Queue
     ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
+
+    // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
+    ProcessChangiIntermediate4(pindex, cache, chainparams);
 
     // construct undo
     auto& flushable = cache.GetStorage();
