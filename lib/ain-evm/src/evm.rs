@@ -264,8 +264,16 @@ impl EVMServices {
         }
     }
 
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash, gas_used: U256) -> Result<(), EVMError> {
-        self.core.tx_queues.queue_tx(context, tx.clone(), hash, gas_used)?;
+    pub fn queue_tx(
+        &self,
+        context: u64,
+        tx: QueueTx,
+        hash: NativeTxHash,
+        gas_used: U256,
+    ) -> Result<(), EVMError> {
+        self.core
+            .tx_queues
+            .queue_tx(context, tx.clone(), hash, gas_used)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())

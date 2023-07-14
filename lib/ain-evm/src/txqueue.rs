@@ -149,7 +149,7 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&context_id)
-            .and_then(|queue| Some(queue.get_total_gas_used()))
+            .map(|queue| queue.get_total_gas_used())
     }
 }
 
@@ -242,10 +242,7 @@ impl TransactionQueue {
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
-        self.total_gas_used
-            .lock()
-            .unwrap()
-            .clone()
+        *self.total_gas_used.lock().unwrap()
     }
 }
 
