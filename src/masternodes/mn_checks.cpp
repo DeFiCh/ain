@@ -4018,11 +4018,18 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+};
+
 Res ValidateTransferDomainEdge(const CTransaction &tx,
+                                   const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
-                                   CTransferDomainItem src, CTransferDomainItem dst) {
+                                   CTransferDomainItem src,
+                                   CTransferDomainItem dst) {
 
     // TODO: Remove code branch on stable.
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
@@ -4040,6 +4047,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.dvmToEvm) {
+                return DeFiErrors::TransferDomainDVMEVMNotEnabled();
+            }
+        }
+
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
         if (!res) return res;
@@ -4047,6 +4060,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.evmTodvm) {
+                return DeFiErrors::TransferDomainEVMDVMNotEnabled();
+            }
+        }
+
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
         if (!res) return res;
@@ -4069,14 +4088,28 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
+    if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+        return DeFiErrors::TransferDomainNotEnabled();
+    }
+
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (obj.transfers.size() < 1) {
+        if (obj.transfers.size() != 1) {
+            return DeFiErrors::TransferDomainMultipleTransfers();
+        }
+
+        if (tx.vin.size() > 1) {
             return DeFiErrors::TransferDomainInvalid();
         }
     }
 
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
@@ -5084,6 +5117,17 @@ bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::
     }
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
+
+bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomain};
     auto attributes = view.GetAttributes();
     assert(attributes);
     return attributes->GetValue(enabledKey, false);

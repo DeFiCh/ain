@@ -21,8 +21,8 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1']
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105', '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1'],
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105', '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1']
         ]
 
     def test_tx_without_chainid(self, node, keypair, web3):
@@ -49,6 +49,7 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
 
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        address2 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
@@ -86,8 +87,26 @@ class EVMTest(DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(4)
 
+        # Check error before EVM enabled
+        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
+        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Check error before transferdomain enabled
+        assert_raises_rpc_error(-32600, "Cannot create tx, transfer domain is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+
+        # Activate transferdomain
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/transferdomain': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Check error before transferdomain DVM to EVM is enabled
+        assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+
+        # Activate transferdomain DVM to EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/dvm-evm': 'true'}})
         self.nodes[0].generate(1)
 
         # Check transferdomain without DFI balance before DFI address is funded
@@ -140,6 +159,15 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@BTC", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Excess data set, maximum allow is 0", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2, "data": "1"}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Excess data set, maximum allow is 0", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3, "data": "1"}}])
+
+        # Check error before transferdomain DVM to EVM is enabled
+        assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 2}}])
+
+        # Activate transferdomain DVM to EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/evm-dvm': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Test not enough balance for EVM to DVM transfer
         assert_raises_rpc_error(-32600, "Not enough balance in " + eth_address + " to cover \"EVM\" domain transfer", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
 
         # Transfer 100 DFI from DVM to EVM
@@ -173,13 +201,15 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"101@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@BTC", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@BTC", "domain": 2}}])
+        assert_raises_rpc_error(-32600, "TransferDomain currently only supports a single transfer per transaction", self.nodes[0].transferdomain, [{"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address, "amount":"10@DFI", "domain": 2}},
+                                           {"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address2, "amount":"10@DFI", "domain": 2}}])
 
         # Transfer 100 DFI from DVM to EVM
-        tx2 = self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
+        tx = self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
         self.nodes[0].generate(1)
 
-        # Check tx2 fields
-        result = self.nodes[0].getcustomtx(tx2)["results"]["transfers"][0]
+        # Check tx fields
+        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
         assert_equal(result["src"]["address"], eth_address)
         assert_equal(result["src"]["amount"], "100.00000000@0")
         assert_equal(result["src"]["domain"], "EVM")
@@ -193,67 +223,6 @@ class EVMTest(DefiTestFramework):
         assert_equal(new_dfi_balance, dfi_balance)
         assert_equal(new_eth_balance, eth_balance)
         assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
-
-        # Check multiple transfers in one tx
-        tx3 = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"10@DFI", "domain": 3}},
-                                      {"src": {"address":address, "amount":"20@DFI", "domain": 2}, "dst":{"address":eth_address1, "amount":"20@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
-
-        # Check tx3 fields
-        result = self.nodes[0].getcustomtx(tx3)["results"]["transfers"]
-        assert_equal(result[0]["src"]["address"], address)
-        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["src"]["domain"], "DVM")
-        assert_equal(result[0]["dst"]["address"], eth_address)
-        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["dst"]["domain"], "EVM")
-        assert_equal(result[1]["src"]["address"], address)
-        assert_equal(result[1]["src"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["src"]["domain"], "DVM")
-        assert_equal(result[1]["dst"]["address"], eth_address1)
-        assert_equal(result[1]["dst"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["dst"]["domain"], "EVM")
-
-        # Check new balances
-        new_dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
-        new_eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        new_eth_balance1 = self.nodes[0].eth_getBalance(eth_address1)
-        assert_equal(new_dfi_balance, dfi_balance - Decimal('30'))
-        assert_equal(new_eth_balance, int_to_eth_u256(10))
-        assert_equal(new_eth_balance1, int_to_eth_u256(20))
-
-        # Create transferdomain DVM->EVM and in same tx do EVM->DVM transfer (mixed transfers)
-        tx = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"10@DFI", "domain": 3}},
-                                               {"src": {"address":eth_address1, "amount":"20@DFI", "domain": 3}, "dst":{"address":address, "amount":"20@DFI", "domain": 2}}])
-        self.nodes[0].generate(1)
-
-        # Check fields
-        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"]
-        assert_equal(result[0]["src"]["address"], address)
-        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["src"]["domain"], "DVM")
-        assert_equal(result[0]["dst"]["address"], eth_address)
-        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["dst"]["domain"], "EVM")
-        assert_equal(result[1]["src"]["address"], eth_address1)
-        assert_equal(result[1]["src"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["src"]["domain"], "EVM")
-        assert_equal(result[1]["dst"]["address"], address)
-        assert_equal(result[1]["dst"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["dst"]["domain"], "DVM")
-
-        # Create transferdomain DVM->EVM
-        self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"20@DFI", "domain": 3}, "dst":{"address":address, "amount":"20@DFI", "domain": 2}}])
-        self.nodes[0].generate(1)
-
-        # Check new balances
-        new_dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
-        new_eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        new_eth_balance1 = self.nodes[0].eth_getBalance(eth_address1)
-        assert_equal(new_dfi_balance, dfi_balance)
-        assert_equal(new_eth_balance, eth_balance)
-        assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
-        assert_equal(new_eth_balance1, int_to_eth_u256(0))
 
         # evmtx tests
 
@@ -373,7 +342,6 @@ class EVMTest(DefiTestFramework):
         # Check EVM blockhash
         eth_block = self.nodes[0].eth_getBlockByNumber('latest')
         eth_hash = eth_block['hash'][2:]
-        eth_fee = eth_block['gasUsed'][2:]
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
         block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][20:84]
@@ -382,8 +350,6 @@ class EVMTest(DefiTestFramework):
         # Check EVM miner fee
         opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
         opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
-        eth_fee_sats = Decimal(int(Decimal(int(eth_fee, 16)) / 10)) / 100000000
-        assert_equal(opreturn_fee_sats, eth_fee_sats)
         assert_equal(opreturn_fee_sats, miner_fee)
 
         # Test rollback of EVM TX
