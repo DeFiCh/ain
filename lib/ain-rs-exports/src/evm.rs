@@ -1,4 +1,5 @@
 use ain_evm::{
+    evm::FinalizedBlockInfo,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
@@ -309,13 +310,18 @@ pub fn evm_try_finalize(
         .evm
         .finalize_block(context, update_state, difficulty, eth_address, timestamp)
     {
-        Ok((block_hash, failed_txs, burnt_fees, priority_fees)) => {
+        Ok(FinalizedBlockInfo {
+            block_hash,
+            failed_transactions,
+            total_burnt_fees,
+            total_priority_fees,
+        }) => {
             result.ok = true;
             ffi::FinalizeBlockCompletion {
                 block_hash,
-                failed_transactions: failed_txs,
-                total_burnt_fees: burnt_fees,
-                total_priority_fees: priority_fees,
+                failed_transactions,
+                total_burnt_fees,
+                total_priority_fees,
             }
         }
         Err(e) => {

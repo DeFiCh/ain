@@ -31,7 +31,12 @@ pub struct EVMServices {
     pub storage: Arc<Storage>,
 }
 
-pub type FinalizedBlockInfo = ([u8; 32], Vec<String>, u64, u64);
+pub struct FinalizedBlockInfo {
+    pub block_hash: [u8; 32],
+    pub failed_transactions: Vec<String>,
+    pub total_burnt_fees: u64,
+    pub total_priority_fees: u64,
+}
 
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
@@ -253,19 +258,19 @@ impl EVMServices {
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
             let total_burnt_fees = U256::from(total_gas_used) * base_fee;
             let total_priority_fees = total_gas_fees - total_burnt_fees;
-            Ok((
-                *block.header.hash().as_fixed_bytes(),
+            Ok(FinalizedBlockInfo {
+                block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_burnt_fees.try_into().unwrap(),
-                total_priority_fees.try_into().unwrap(),
-            ))
+                total_burnt_fees: total_burnt_fees.try_into().unwrap(),
+                total_priority_fees: total_priority_fees.try_into().unwrap(),
+            })
         } else {
-            Ok((
-                *block.header.hash().as_fixed_bytes(),
+            Ok(FinalizedBlockInfo {
+                block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_gas_used,
-                0u64,
-            ))
+                total_burnt_fees: total_gas_used,
+                total_priority_fees: 0u64,
+            })
         }
     }
 

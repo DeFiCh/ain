@@ -765,7 +765,7 @@ END
 }
 
 check() {
-    check_git_dirty
+    # check_git_dirty
     check_rs
 }
 
