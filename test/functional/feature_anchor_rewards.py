@@ -167,7 +167,7 @@ class AnchorRewardsTest(DefiTestFramework):
                                     'privkey': "1_cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
                                 }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
 
-        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[1].spv_createanchor,
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2SH or P2WPKH address", self.nodes[1].spv_createanchor,
                                 [{
                                     'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
                                     'vout': 3,
@@ -175,7 +175,7 @@ class AnchorRewardsTest(DefiTestFramework):
                                     'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
                                 }], "__mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
 
-        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[1].spv_createanchor,
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2SH or P2WPKH address", self.nodes[1].spv_createanchor,
                                 [{
                                     'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
                                     'vout': 3,

@@ -39,7 +39,7 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
         assert(ownerDest.index() == PKHashType || ownerDest.index() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest)) ;
+        CKeyID operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)

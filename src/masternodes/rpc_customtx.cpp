@@ -74,10 +74,7 @@ public:
 
     void operator()(const CCreateMasterNodeMessage &obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator",
-                       EncodeDestination(obj.operatorType == PKHashType
-                                             ? CTxDestination(PKHash(obj.operatorAuthAddress))
-                                             : CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(FromOrDefaultKeyIDToDestination(obj.operatorType, obj.operatorAuthAddress, KeyType::MNOperatorKeyType)));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
@@ -88,21 +85,15 @@ public:
         for (const auto &[updateType, addressPair] : obj.updates) {
             const auto &[addressType, rawAddress] = addressPair;
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
-                rpcInfo.pushKV(
-                    "operatorAddress",
-                    EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
-                                                                : CTxDestination(WitnessV0KeyHash(rawAddress))));
+                rpcInfo.pushKV("operatorAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(addressType, CKeyID(uint160(rawAddress)), KeyType::MNOperatorKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                 CTxDestination dest;
                 if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
-                    rpcInfo.pushKV("ownerAddress",EncodeDestination(dest));
+                    rpcInfo.pushKV("ownerAddress", EncodeDestination(dest));
                 }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
-                rpcInfo.pushKV(
-                    "rewardAddress",
-                    EncodeDestination(addressType == PKHashType ? CTxDestination(PKHash(rawAddress))
-                                                                : CTxDestination(WitnessV0KeyHash(rawAddress))));
+                rpcInfo.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(addressType, CKeyID(uint160(rawAddress)), KeyType::MNRewardKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 rpcInfo.pushKV("rewardAddress", "");
             }

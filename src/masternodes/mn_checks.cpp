@@ -835,9 +835,8 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest))
-                                                                      : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
-            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
+            if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
             }
@@ -919,8 +918,9 @@ public:
                 }
 
                 CTxDestination dest;
-                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) ||
-                    (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                ExtractDestination(tx.vout[1].scriptPubKey, dest);
+                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+                if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
 
@@ -928,8 +928,6 @@ public:
                     return Res::Err("Incorrect collateral amount");
                 }
 
-                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest))
-                                                              : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with collateral address as operator or owner already exists");
                 }
@@ -944,9 +942,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = pendingDest.index() == PKHashType
-                                                ? CKeyID(std::get<PKHash>(pendingDest))
-                                                : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -973,7 +969,13 @@ public:
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode operator address is invalid");
+                }
+
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with that operator address already exists");
                 }
@@ -999,7 +1001,13 @@ public:
                     }
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode reward address is invalid");
+                }
+
                 mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
 
                 // Store history of all reward address changes. This allows us to call CalculateOwnerReward
@@ -1007,9 +1015,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(addressType == PKHashType ?
-                                                                          CTxDestination(PKHash(keyID)) :
-                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(addressType, keyID, KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -3834,8 +3840,9 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNOwnerKeyType);
+        if (!IsValidDestination(ownerDest))
+            return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
@@ -4406,9 +4413,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
@@ -4490,9 +4496,10 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
 
     LogPrint(BCLog::ACCOUNTCHANGE,
              "AccountChange: hash=%s fund=%s change=%s\n",
