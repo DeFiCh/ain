@@ -1,7 +1,7 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas;
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas};
 use crate::receipt::ReceiptService;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
@@ -159,8 +159,9 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
-        with_gas_usage: bool,
-    ) -> Result<(SignedTx, u64), Box<dyn Error>> {
+        call_tx: bool,
+        context: u64,
+    ) -> Result<(SignedTx, U256, u64), Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -224,7 +225,7 @@ impl EVMCoreService {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        let used_gas = if with_gas_usage {
+        let used_gas = if call_tx {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
                 to: signed_tx.to(),
@@ -239,7 +240,24 @@ impl EVMCoreService {
             u64::default()
         };
 
-        Ok((signed_tx, used_gas))
+        if call_tx {
+            let total_current_gas_used = self
+                .tx_queues
+                .get_total_gas_used(context)
+                .unwrap_or_default();
+
+            if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
+                return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
+            }
+        }
+
+        let tx_fee = if call_tx {
+            calculate_gas_fee(&signed_tx, U256::from(used_gas))
+        } else {
+            U256::zero()
+        };
+
+        Ok((signed_tx, tx_fee, used_gas))
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
@@ -262,8 +280,7 @@ impl EVMCoreService {
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
-        self.tx_queues
-            .queue_tx(context, queue_tx, hash, 0u64)?;
+        self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
         Ok(())
     }
 
@@ -288,8 +305,7 @@ impl EVMCoreService {
             .into())
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
-            self.tx_queues
-                .queue_tx(context, queue_tx, hash, 0u64)?;
+            self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
             Ok(())
         }
     }

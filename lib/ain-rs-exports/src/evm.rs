@@ -204,16 +204,18 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-    with_gas_usage: bool,
+    call_tx: bool,
+    context: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.core.validate_raw_tx(tx, with_gas_usage) {
-        Ok((signed_tx, used_gas)) => {
+    match SERVICES.evm.core.validate_raw_tx(tx, call_tx, context) {
+        Ok((signed_tx, tx_fees, gas_used)) => {
             result.ok = true;
 
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                used_gas,
+                tx_fees: tx_fees.try_into().unwrap_or_default(),
+                gas_used,
             }
         }
         Err(e) => {
