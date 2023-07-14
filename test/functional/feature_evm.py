@@ -201,13 +201,15 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"101@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@BTC", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@BTC", "domain": 2}}])
+        assert_raises_rpc_error(-32600, "Invalid transfer domain TX", self.nodes[0].transferdomain, [{"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address, "amount":"10@DFI", "domain": 2}},
+                                           {"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address2, "amount":"10@DFI", "domain": 2}}])
 
         # Transfer 100 DFI from DVM to EVM
-        tx2 = self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
+        tx = self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
         self.nodes[0].generate(1)
 
-        # Check tx2 fields
-        result = self.nodes[0].getcustomtx(tx2)["results"]["transfers"][0]
+        # Check tx fields
+        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
         assert_equal(result["src"]["address"], eth_address)
         assert_equal(result["src"]["amount"], "100.00000000@0")
         assert_equal(result["src"]["domain"], "EVM")
@@ -221,67 +223,6 @@ class EVMTest(DefiTestFramework):
         assert_equal(new_dfi_balance, dfi_balance)
         assert_equal(new_eth_balance, eth_balance)
         assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
-
-        # Check multiple DVM to EVM transfers in one tx
-        tx3 = self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"10@DFI", "domain": 3}},
-                                      {"src": {"address":address, "amount":"20@DFI", "domain": 2}, "dst":{"address":eth_address1, "amount":"20@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
-
-        # Check tx3 fields
-        result = self.nodes[0].getcustomtx(tx3)["results"]["transfers"]
-        assert_equal(result[0]["src"]["address"], address)
-        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["src"]["domain"], "DVM")
-        assert_equal(result[0]["dst"]["address"], eth_address)
-        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["dst"]["domain"], "EVM")
-        assert_equal(result[1]["src"]["address"], address)
-        assert_equal(result[1]["src"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["src"]["domain"], "DVM")
-        assert_equal(result[1]["dst"]["address"], eth_address1)
-        assert_equal(result[1]["dst"]["amount"], "20.00000000@0")
-        assert_equal(result[1]["dst"]["domain"], "EVM")
-
-        # Check new balances
-        new_dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
-        new_eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        new_eth_balance1 = self.nodes[0].eth_getBalance(eth_address1)
-        assert_equal(new_dfi_balance, dfi_balance - Decimal('30'))
-        assert_equal(new_eth_balance, int_to_eth_u256(10))
-        assert_equal(new_eth_balance1, int_to_eth_u256(20))
-
-        # Check multiple EVM to DVM transfers in one tx
-        tx = self.nodes[0].transferdomain([{"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address, "amount":"10@DFI", "domain": 2}},
-                                               {"src": {"address":eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":address2, "amount":"10@DFI", "domain": 2}}])
-        self.nodes[0].generate(1)
-
-        # Check fields
-        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"]
-        assert_equal(result[0]["src"]["address"], eth_address1)
-        assert_equal(result[0]["src"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["src"]["domain"], "EVM")
-        assert_equal(result[0]["dst"]["address"], address)
-        assert_equal(result[0]["dst"]["amount"], "10.00000000@0")
-        assert_equal(result[0]["dst"]["domain"], "DVM")
-        assert_equal(result[1]["src"]["address"], eth_address1)
-        assert_equal(result[1]["src"]["amount"], "10.00000000@0")
-        assert_equal(result[1]["src"]["domain"], "EVM")
-        assert_equal(result[1]["dst"]["address"], address2)
-        assert_equal(result[1]["dst"]["amount"], "10.00000000@0")
-        assert_equal(result[1]["dst"]["domain"], "DVM")
-
-        # Create transferdomain DVM->EVM
-        self.nodes[0].transferdomain([{"src": {"address":eth_address, "amount":"10@DFI", "domain": 3}, "dst":{"address":address, "amount":"10@DFI", "domain": 2}}])
-        self.nodes[0].generate(1)
-
-        # Check new balances
-        new_dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
-        new_eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        new_eth_balance1 = self.nodes[0].eth_getBalance(eth_address1)
-        assert_equal(new_dfi_balance, dfi_balance)
-        assert_equal(new_eth_balance, eth_balance)
-        assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
-        assert_equal(new_eth_balance1, int_to_eth_u256(0))
 
         # evmtx tests
 
