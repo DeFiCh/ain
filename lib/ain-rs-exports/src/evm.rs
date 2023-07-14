@@ -271,7 +271,7 @@ pub fn evm_try_queue_tx(
         Ok(signed_tx) => {
             match SERVICES
                 .evm
-                .queue_tx(context, signed_tx.into(), hash, U256::from(gas_used))
+                .queue_tx(context, signed_tx.into(), hash, gas_used)
             {
                 Ok(_) => {
                     result.ok = true;

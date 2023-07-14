@@ -263,7 +263,7 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(context, queue_tx, hash, U256::zero())?;
+            .queue_tx(context, queue_tx, hash, 0u64)?;
         Ok(())
     }
 
@@ -289,7 +289,7 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(context, queue_tx, hash, U256::zero())?;
+                .queue_tx(context, queue_tx, hash, 0u64)?;
             Ok(())
         }
     }

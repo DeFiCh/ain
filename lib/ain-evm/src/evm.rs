@@ -269,7 +269,7 @@ impl EVMServices {
         context: u64,
         tx: QueueTx,
         hash: NativeTxHash,
-        gas_used: U256,
+        gas_used: u64,
     ) -> Result<(), EVMError> {
         self.core
             .tx_queues
