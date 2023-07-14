@@ -4018,8 +4018,13 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+};
+
 Res ValidateTransferDomainEdge(const CTransaction &tx,
-                                   const CCustomCSView &mnview,
+                                   const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
@@ -4041,15 +4046,9 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
         return DeFiErrors::TransferDomainIncorrectToken();
 
-    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
-    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
-
-    const auto attributes = mnview.GetAttributes();
-    assert(attributes);
-
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!attributes->GetValue(dvm_evm, false)) {
+            if (!transferdomainConfig.dvmToEvm) {
                 return DeFiErrors::TransferDomainDVMEVMNotEnabled();
             }
         }
@@ -4062,7 +4061,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!attributes->GetValue(evm_dvm, false)) {
+            if (!transferdomainConfig.evmTodvm) {
                 return DeFiErrors::TransferDomainEVMDVMNotEnabled();
             }
         }
@@ -4099,8 +4098,14 @@ Res ValidateTransferDomain(const CTransaction &tx,
         }
     }
 
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, mnview, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
