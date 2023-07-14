@@ -4022,7 +4022,9 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
-                                   CTransferDomainItem src, CTransferDomainItem dst) {
+                                   CTransferDomainItem src,
+                                   CTransferDomainItem dst,
+                                   std::set<CScript> &uniqueSources) {
 
     // TODO: Remove code branch on stable.
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
@@ -4038,6 +4040,8 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     // Restrict only for use with DFI token for now. Will be enabled later.
     if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
         return DeFiErrors::TransferDomainIncorrectToken();
+
+    uniqueSources.insert(src.address);
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         // DVM to EVM
@@ -4075,9 +4079,16 @@ Res ValidateTransferDomain(const CTransaction &tx,
         }
     }
 
+    std::set<CScript> uniqueSources;
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst, uniqueSources);
         if (!res) return res;
+    }
+
+    if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+        if (tx.vin.size() > uniqueSources.size()) {
+            return DeFiErrors::TransferDomainInvalid();
+        }
     }
 
     return Res::Ok();
