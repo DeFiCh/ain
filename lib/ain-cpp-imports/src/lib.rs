@@ -49,11 +49,6 @@ mod ffi {
     pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
-
-    pub fn rejectBelowBaseGasFees() -> bool {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
-
     pub fn getHighestBlock() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -142,10 +137,6 @@ pub fn get_state_input_json() -> Option<String> {
     } else {
         Some(json_path)
     }
-}
-
-pub fn reject_below_base_gas_fees() -> bool {
-    ffi::rejectBelowBaseGasFees()
 }
 
 pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {

@@ -25,7 +25,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainparamsbase -> util/system -> chainparamsbase"
     "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
     "consensus/tx_verify -> masternodes/mn_checks -> txmempool -> consensus/tx_verify"
-    "ffi/ffiexports -> masternodes/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports"
     "index/txindex -> validation -> index/txindex"
     "init -> masternodes/govvariables/attributes -> masternodes/mn_rpc -> wallet/rpcwallet -> init"
     "masternodes/accountshistory -> masternodes/historywriter -> masternodes/accountshistory"
