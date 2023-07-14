@@ -286,10 +286,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
         if (nHeight >= consensus.ChangiIntermediateHeight4) {
-            xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees / CAMOUNT_TO_GWEI, blockResult.total_priority_fees / CAMOUNT_TO_GWEI}};
+            xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
         }
         else {
-            xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees / CAMOUNT_TO_GWEI}};
+            xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
         }
 
         std::vector<std::string> failedTransactions;

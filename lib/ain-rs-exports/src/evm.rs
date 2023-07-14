@@ -296,7 +296,7 @@ pub fn evm_try_queue_tx(
 ///
 /// # Returns
 ///
-/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
+/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 pub fn evm_try_finalize(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
@@ -320,8 +320,8 @@ pub fn evm_try_finalize(
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees,
-                total_priority_fees,
+                total_burnt_fees: total_burnt_fees / GWEI_TO_SATS,
+                total_priority_fees: total_priority_fees / GWEI_TO_SATS,
             }
         }
         Err(e) => {
