@@ -26,3 +26,7 @@ class KeyPair:
         pkey = node.dumpprivkey(address)
 
         return KeyPair(pkey, address)
+
+    @staticmethod
+    def from_str(pkey, address):
+        return KeyPair(pkey, address)

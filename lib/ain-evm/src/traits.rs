@@ -25,4 +25,12 @@ pub trait BridgeBackend {
     fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
 
     fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError>;
+
+    fn deploy_contract(
+        &mut self,
+        address: &H160,
+        code: Vec<u8>,
+        name: String,
+        symbol: String,
+    ) -> Result<(), EVMBackendError>;
 }

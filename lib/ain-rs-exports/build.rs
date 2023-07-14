@@ -1,11 +1,11 @@
 use proc_macro2::TokenStream;
 
-use std::{env, fs};
+use anyhow::anyhow;
+use ethers_solc::{Project, ProjectPathsConfig};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use anyhow::anyhow;
-use ethers_solc::{Project, ProjectPathsConfig};
+use std::{env, fs};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pkg_name = env::var("CARGO_PKG_NAME")?;
@@ -69,18 +69,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .sources(&root)
         .build()?;
 
-    let project = Project::builder().paths(paths).set_auto_detect(true).no_artifacts().build()?;
+    let project = Project::builder()
+        .paths(paths)
+        .set_auto_detect(true)
+        .no_artifacts()
+        .build()?;
     let output = project.compile().unwrap();
     let artifacts = output.into_artifacts();
 
     for (id, artifact) in artifacts {
         if id.name == "MyToken" {
             let abi = artifact.abi.ok_or_else(|| anyhow!("ABI not found"))?;
-            let bytecode = artifact.bytecode.expect("No bytecode found");
+            let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
 
             fs::create_dir_all("dst20/output/")?;
-            fs::write(PathBuf::from("dst20/output/bytecode.json"), serde_json::to_string(&bytecode).unwrap().as_bytes())?;
-            fs::write(PathBuf::from("dst20/output/abi.json"), serde_json::to_string(&abi).unwrap().as_bytes())?;
+            fs::write(
+                PathBuf::from("dst20/output/bytecode.json"),
+                serde_json::to_string(&bytecode).unwrap().as_bytes(),
+            )?;
+            fs::write(
+                PathBuf::from("dst20/output/abi.json"),
+                serde_json::to_string(&abi).unwrap().as_bytes(),
+            )?;
         }
     }
 

@@ -1,9 +1,10 @@
+use crate::runtime::RUNTIME;
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
 use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
-use rlp::{Decodable, Encodable, Rlp};
+use rlp::{Decodable, Encodable, Rlp, RlpStream};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Blake2Hasher;
 use vsdb_trie_db::{MptOnce, MptRo};
@@ -180,6 +181,15 @@ impl EVMBackend {
             .get(address.as_bytes())
             .unwrap_or(None)
             .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
+    }
+
+    pub fn put_account(&mut self, address: &H160, account: Account) -> Result<()> {
+        let mut account_data = RlpStream::new();
+        account.rlp_append(&mut account_data);
+
+        self.state
+            .insert(address.as_bytes(), account_data.as_raw())
+            .map_err(|err| EVMBackendError::DeployContractFailed(*address))
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {
@@ -361,8 +371,61 @@ impl BridgeBackend for EVMBackend {
             Ok(())
         }
     }
+
+    fn deploy_contract(
+        &mut self,
+        address: &H160,
+        code: Vec<u8>,
+        name: String,
+        symbol: String,
+    ) -> Result<()> {
+        // let code_hash = keccak(&code);
+        //
+        // let account = Account {
+        //     nonce: Default::default(),
+        //     balance: Default::default(),
+        //     storage_root: Default::default(),
+        //     code_hash,
+        // };
+        //
+        // // set code and codehash
+        // self.put_account(address, account)
+        //     .map_err(|e| {
+        //         debug!("{}", e);
+        //         Err::<(), EVMBackendError>(EVMBackendError::DeployContractFailed(*address))
+        //     })
+        //     .unwrap();
+        // self.storage.put_code(code_hash, code);
+
+        // set storage
+        // let mut storage_trie = self
+        //     .trie_store
+        //     .trie_db
+        //     .trie_create(address.as_bytes(), None, true)
+        //     .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?;
+
+        // let mut slot = H256::zero();
+        // let encoded = hex::encode("BTC");
+
+        // debug!("ABI ENCODED: {:#?}", slot);
+
+        self.apply(
+            *address,
+            Basic {
+                balance: U256::zero(),
+                nonce: U256::zero(),
+            },
+            Some(code),
+            vec![(H256::from_low_u64_be(3), get_abi_encoded_string("BTC"))],
+            true,
+        )
+        .expect("TODO: panic message");
+
+        Ok(())
+    }
 }
 
+use ethabi::Token;
 use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]
@@ -379,6 +442,7 @@ pub enum EVMBackendError {
     TrieError(String),
     NoSuchAccount(H160),
     InsufficientBalance(InsufficientBalance),
+    DeployContractFailed(H160),
 }
 
 impl fmt::Display for EVMBackendError {
@@ -405,8 +469,21 @@ impl fmt::Display for EVMBackendError {
             }) => {
                 write!(f, "EVMBackendError: Insufficient balance for address {address}, trying to deduct {amount} but address has only {account_balance}")
             }
+            EVMBackendError::DeployContractFailed(address) => {
+                write!(f, "Unable to deploy contract to {address}")
+            }
         }
     }
+}
+
+fn get_abi_encoded_string(input: &str) -> H256 {
+    let length = input.len();
+
+    let mut storage_value = H256::default();
+    storage_value.0[31] = (length * 2) as u8;
+    storage_value.0[..length].copy_from_slice(input.as_bytes());
+
+    storage_value
 }
 
 impl Error for EVMBackendError {}

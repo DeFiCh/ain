@@ -1,10 +1,10 @@
-use ain_evm::evm::{EthCallArgs, MAX_GAS_PER_BLOCK};
-use ain_evm::executor::TxResponse;
 use ain_evm::runtime::RUNTIME;
-use ain_evm::transaction::SignedTx;
+use ain_evm::transaction::system::{DeployContractData, SystemTx};
+use ain_evm::tx_queue::QueueTx;
 use ethereum::{EIP1559TransactionMessage, TransactionAction, TransactionV2};
 use ethers::abi::{Abi, Token};
 use ethers::types::Bytes;
+use ethers::utils::keccak256;
 use libsecp256k1::SecretKey;
 use log::debug;
 use primitive_types::{H160, H256, U256};
@@ -67,67 +67,16 @@ pub fn deploy_dst20(
     name: String,
     symbol: String,
 ) -> Result<(), Box<dyn Error>> {
-    let bytecode_json: serde_json::Value =
-        serde_json::from_str(include_str!("../dst20/output/bytecode.json"))
-            .expect("Unable to read bytecode");
-    let bytecode_raw = bytecode_json["object"]
-        .as_str()
-        .expect("Bytecode object not available");
-    let bytecode: Bytes = Bytes::from(hex::decode(&bytecode_raw[2..]).expect("Decode failed"));
-    let abi = Abi::load(include_str!("../dst20/output/abi.json").as_bytes())?;
-    let address = H160::from_str(PUBLIC_KEY).expect("Unable to construct address");
+    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+        name,
+        symbol,
+    }));
 
-    // generate TX data
-    let input: Vec<u8> = abi.constructor().unwrap().encode_input(
-        bytecode.to_vec(),
-        &[Token::String(name), Token::String(symbol)],
-    )?;
-
-    // build transaction
-    let chain_id = ain_cpp_imports::get_chain_id()?;
-
-    let nonce = SYSTEM_NONCE.get_and_increment_nonce(apply_changes);
-
-    let block_number = match RUNTIME.handlers.block.get_latest_block_hash_and_number() {
-        None => return Err("Unable to get block".into()),
-        Some((_, number)) => number,
-    };
-
-    let TxResponse { used_gas, .. } = RUNTIME.handlers.evm.call(EthCallArgs {
-        caller: Some(address),
-        to: None,
-        value: Default::default(),
-        data: input.as_slice(),
-        gas_limit: MAX_GAS_PER_BLOCK.as_u64(),
-        access_list: vec![],
-        block_number,
-    })?;
-
-    let tx = EIP1559TransactionMessage {
-        chain_id,
-        nonce,
-        max_priority_fee_per_gas: Default::default(), // we want this to be 0
-        max_fee_per_gas: U256::max_value(), // do not have limit, this is constrained during mining
-        gas_limit: U256::from(used_gas),
-        action: TransactionAction::Create,
-        value: Default::default(),
-        input,
-        access_list: vec![],
-    };
-
-    // sign tx
-    let signed_tx: SignedTx = sign_eip1559(tx)?.try_into()?;
-    debug!(
-        "DST20 transaction created, tx hash: {:#?}, sender: {:#?}",
-        signed_tx.transaction.hash(),
-        signed_tx.sender
-    );
-
-    // add transaction to pool
     RUNTIME
         .handlers
-        .queue_tx(context, signed_tx.into(), native_hash)
-        .map_err(|e| Box::new(e) as Box<dyn Error>)
+        .queue_tx(context, system_tx.into(), native_hash)?;
+
+    Ok(())
 }
 
 fn sign_eip1559(m: EIP1559TransactionMessage) -> Result<TransactionV2, Box<dyn Error>> {

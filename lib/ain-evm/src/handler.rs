@@ -12,6 +12,7 @@ use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
+use crate::transaction::system::{DeployContractData, SystemTx};
 use anyhow::anyhow;
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
@@ -197,6 +198,19 @@ impl Handlers {
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
                         failed_transactions.push(hex::encode(hash));
+                    }
+                }
+                QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                    name,
+                    symbol,
+                })) => {
+                    debug!(
+                        "[finalize_block] DeployContract for name {}, symbol {}",
+                        name, symbol
+                    );
+
+                    if let Err(e) = executor.deploy_contract(name, symbol) {
+                        debug!("[finalize_block] SystemTx failed with {e}");
                     }
                 }
             }

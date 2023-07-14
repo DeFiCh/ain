@@ -104,6 +104,7 @@ dependencies = [
  "ain-cpp-imports",
  "anyhow",
  "bincode",
+ "ethabi",
  "ethbloom",
  "ethereum",
  "ethereum-types",

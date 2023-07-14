@@ -5,6 +5,7 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
+use crate::transaction::system::SystemTx;
 use crate::{
     evm::NativeTxHash,
     transaction::{bridge::BridgeTx, SignedTx},
@@ -148,6 +149,7 @@ impl TransactionQueueMap {
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
     BridgeTx(BridgeTx),
+    SystemTx(SystemTx),
 }
 
 type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
@@ -208,6 +210,7 @@ impl TransactionQueue {
             let tx_sender = match tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
+                QueueTx::SystemTx(_) => H160::zero(),
             };
             tx_sender != sender
         });

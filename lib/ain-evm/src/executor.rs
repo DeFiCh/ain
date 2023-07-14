@@ -1,5 +1,7 @@
 use crate::precompiles::MetachainPrecompiles;
+use std::str::FromStr;
 
+use crate::bytes::Bytes;
 use crate::{
     backend::{EVMBackend, EVMBackendError},
     evm::EVMHandler,
@@ -32,6 +34,24 @@ impl<'backend> AinExecutor<'backend> {
 
     pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
         self.backend.sub_balance(address, amount)
+    }
+
+    pub fn deploy_contract(&mut self, name: String, symbol: String) -> Result<(), EVMBackendError> {
+        let bytecode_json: serde_json::Value = serde_json::from_str(include_str!(
+            "../../ain-rs-exports/dst20/output/bytecode.json"
+        ))
+        .expect("Unable to read bytecode");
+        let bytecode_raw = bytecode_json["object"]
+            .as_str()
+            .expect("Bytecode object not available");
+        let bytecode: Bytes = Bytes::from(hex::decode(&bytecode_raw[2..]).expect("Decode failed"));
+
+        self.backend.deploy_contract(
+            &H160::from_str("0x0000000000000000000000000000000000000100").unwrap(),
+            bytecode.0,
+            name,
+            symbol,
+        )
     }
 
     pub fn commit(&mut self) -> H256 {

@@ -204,7 +204,7 @@ impl EVMHandler {
             .get_balance(signed_tx.sender, block_number)
             .map_err(|e| anyhow!("Error getting balance {e}"))?;
 
-        debug!("[validate_raw_tx] Accout balance : {:x?}", balance);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
         let prepay_gas = calculate_prepay_gas(&signed_tx);
         debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
@@ -444,6 +444,7 @@ impl EVMHandler {
     }
 }
 
+use keccak_hash::keccak256;
 use std::fmt;
 
 #[derive(Debug)]
