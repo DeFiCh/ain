@@ -4093,7 +4093,11 @@ Res ValidateTransferDomain(const CTransaction &tx,
     }
 
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (obj.transfers.size() < 1) {
+        if (obj.transfers.size() != 1) {
+            return DeFiErrors::TransferDomainMultipleTransfers();
+        }
+
+        if (tx.vin.size() > 1) {
             return DeFiErrors::TransferDomainInvalid();
         }
     }

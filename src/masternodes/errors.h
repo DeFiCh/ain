@@ -474,6 +474,10 @@ public:
         return Res::Err("Invalid transfer domain TX");
     }
 
+    static Res TransferDomainMultipleTransfers() {
+        return Res::Err("TransferDomain currently only supports a single transfer per transaction");
+    }
+
     static Res ScriptUnexpected(const CScript &script) {
         return Res::Err("Unexpected Script: %s", script.GetHex());
     }
