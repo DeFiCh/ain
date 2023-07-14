@@ -146,14 +146,14 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayGovernanceIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTransferIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"edges", TransferIDs::Edges},
+            {"allowed", TransferIDs::Edges},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
     static const std::map<uint8_t, std::string> params{
-            {TransferIDs::Edges, "edges"},
+            {TransferIDs::Edges, "allowed"},
     };
     return params;
 }

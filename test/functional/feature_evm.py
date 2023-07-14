@@ -105,7 +105,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/edges/dvm-evm': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/dvm-evm': 'true'}})
         self.nodes[0].generate(1)
 
         # Check transferdomain without DFI balance before DFI address is funded
@@ -163,7 +163,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/edges/evm-dvm': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/evm-dvm': 'true'}})
         self.nodes[0].generate(1)
 
         # Test not enough balance for EVM to DVM transfer
