@@ -3967,9 +3967,11 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             if (solution == txnouttype::TX_PUBKEYHASH) {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                if (script == auth)
-                    return Res::Ok();
+                if (pubkey.Decompress()) {
+                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    if (script == auth)
+                        return Res::Ok();
+                }
             } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
                 if (pubkey.Decompress()) {

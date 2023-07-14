@@ -662,10 +662,10 @@ UniValue importwallet(const JSONRPCRequest& request)
 
             if (has_label) {
                 if (label == "spv") {
-                    pwallet->SetAddressBook(PKHash(keyid), "spv", "spv");
+                    pwallet->SetAddressBook(PKHash(keyid), label, "spv");
                     spvPubKeys.insert(pubkey);
                 } else if (label == "eth") {
-                    pwallet->SetAddressBook(PKHash(keyid), "eth", "eth");
+                    pwallet->SetAddressBook(WitnessV16EthHash(keyid), label, "receive");
                 } else {
                     pwallet->SetAddressBook(PKHash(keyid), label, "receive");
                 }
@@ -850,8 +850,12 @@ UniValue dumpwallet(const JSONRPCRequest& request)
         std::string strLabel;
         CKey key;
         if (pwallet->GetKey(keyid, key)) {
+            // Ignore alternative addresses of seed. Actual HD seed will still be exported.
+            if (pwallet->mapKeyMetadata[keyid].has_key_origin && pwallet->mapKeyMetadata[keyid].hdKeypath == "s") {
+                continue;
+            }
             const auto found{GetWalletAddressesForKey(pwallet, keyid, strAddr, strLabel)};
-            file << strprintf("%s %s ", strLabel == "eth" ? HexStr(key.begin(), key.end()) : EncodeSecret(key), strTime);
+            file << strprintf("%s %s ", EncodeSecret(key), strTime);
             if (found) {
                file << strprintf("label=%s", strLabel);
             } else if (keyid == seed_id) {

@@ -83,8 +83,8 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
     // "Implicitly" refers to fact that scripts are derived automatically from
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
-    if (!pubkey.IsCompressed()) {
-        auto pubkeyCopy = pubkey;
+    auto pubkeyCopy = pubkey;
+    if (!pubkeyCopy.IsCompressed()) {
         pubkeyCopy.Compress();
         auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
         auto witScript = GetScriptForDestination(WitnessV0KeyHash(pubkeyCopy));
@@ -93,7 +93,6 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
         mapScripts[id] = std::move(script);
         mapScripts[witId] = std::move(witScript);
     } else {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Decompress();
         auto script = GetScriptForDestination(WitnessV16EthHash(pubkeyCopy));
         auto witScript = GetScriptForDestination(WitnessV0KeyHash(pubkey));
@@ -125,17 +124,16 @@ bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubke
 {
     LOCK(cs_KeyStore);
 
-    if (!pubkey.IsCompressed()) {
-        auto pubkeyCopy = pubkey;
+    mapKeys[pubkey.GetID()] = key;
+
+    auto pubkeyCopy = pubkey;
+    if (!pubkeyCopy.IsCompressed()) {
         pubkeyCopy.Compress();
-        mapKeys[pubkey.GetID()] = key; // Uncompressed legacy
         mapKeys[pubkeyCopy.GetID()] = key; // Bech32
         mapKeys[pubkey.GetEthID()] = key; // Eth
     } else {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Decompress();
         mapKeys[pubkeyCopy.GetID()] = key; // Uncompressed legacy
-        mapKeys[pubkey.GetID()] = key; // Bech32
         mapKeys[pubkeyCopy.GetEthID()] = key; // Eth
     }
 

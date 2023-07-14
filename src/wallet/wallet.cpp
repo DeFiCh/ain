@@ -306,17 +306,16 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
+    mapKeyMetadata[pubkey.GetID()] = metadata;
+
+    auto pubkeyCopy = pubkey;
     if (!pubkey.IsCompressed()) {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Compress();
-        mapKeyMetadata[pubkey.GetID()] = metadata;
         mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
         mapKeyMetadata[pubkey.GetEthID()] = metadata;
     } else {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Decompress();
         mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
-        mapKeyMetadata[pubkey.GetID()] = metadata;
         mapKeyMetadata[pubkeyCopy.GetEthID()] = metadata;
     }
 
@@ -1675,6 +1674,19 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         // mem store the metadata
         mapKeyMetadata[seed.GetID()] = metadata;
 
+        metadata.has_key_origin = true;
+
+        auto pubkeyCopy = seed;
+        if (!pubkeyCopy.IsCompressed()) {
+            pubkeyCopy.Compress();
+            mapKeyMetadata[seed.GetEthID()] = metadata;
+            mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
+        } else {
+            pubkeyCopy.Decompress();
+            mapKeyMetadata[pubkeyCopy.GetEthID()] = metadata;
+            mapKeyMetadata[pubkeyCopy.GetID()] = metadata;
+        }
+
         // write the key&metadata to the database
         if (!AddKeyPubKey(key, seed))
             throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
@@ -1862,17 +1874,17 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
 }
 
 void CWallet::AddTimestampToMeta(const CPubKey pubkey, const int64_t timestamp) {
+
+    mapKeyMetadata[pubkey.GetID()].nCreateTime = timestamp;
+
+    auto pubkeyCopy = pubkey;
     if (!pubkey.IsCompressed()) {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Compress();
-        mapKeyMetadata[pubkey.GetID()].nCreateTime = timestamp;
         mapKeyMetadata[pubkeyCopy.GetID()].nCreateTime = timestamp;
         mapKeyMetadata[pubkey.GetEthID()].nCreateTime = timestamp;
     } else {
-        auto pubkeyCopy = pubkey;
         pubkeyCopy.Decompress();
         mapKeyMetadata[pubkeyCopy.GetID()].nCreateTime = timestamp;
-        mapKeyMetadata[pubkey.GetID()].nCreateTime = timestamp;
         mapKeyMetadata[pubkeyCopy.GetEthID()].nCreateTime = timestamp;
     }
 }
@@ -3662,14 +3674,30 @@ void CWallet::LoadKeyPool(int64_t nIndex, const CKeyPool &keypool)
         setExternalKeyPool.insert(nIndex);
     }
     m_max_keypool_index = std::max(m_max_keypool_index, nIndex);
-    m_pool_key_to_index[keypool.vchPubKey.GetID()] = nIndex;
+    CKeyID keyid, eth, bech;
+    auto pubkeyCopy = keypool.vchPubKey;
+    if (!keypool.vchPubKey.IsCompressed()) {
+        pubkeyCopy.Compress();
+        keyid = keypool.vchPubKey.GetID();
+        eth = keypool.vchPubKey.GetEthID();
+        bech = pubkeyCopy.GetID();
+    } else {
+        pubkeyCopy.Decompress();
+        bech = keypool.vchPubKey.GetID();
+        keyid = pubkeyCopy.GetID();
+        eth = pubkeyCopy.GetEthID();
+    }
 
-    // If no metadata exists yet, create a default with the pool key's
-    // creation time. Note that this may be overwritten by actually
-    // stored metadata for that key later, which is fine.
-    CKeyID keyid = keypool.vchPubKey.GetID();
+    m_pool_key_to_index[keyid] = nIndex;
+    m_pool_key_to_index[eth] = nIndex;
+    m_pool_key_to_index[bech] = nIndex;
+
     if (mapKeyMetadata.count(keyid) == 0)
         mapKeyMetadata[keyid] = CKeyMetadata(keypool.nTime);
+    if (mapKeyMetadata.count(eth) == 0)
+        mapKeyMetadata[eth] = CKeyMetadata(keypool.nTime);
+    if (mapKeyMetadata.count(bech) == 0)
+        mapKeyMetadata[bech] = CKeyMetadata(keypool.nTime);
 }
 
 bool CWallet::TopUpKeyPool(unsigned int kpSize)
@@ -3731,6 +3759,16 @@ void CWallet::AddKeypoolPubkeyWithDB(const CPubKey& pubkey, const bool internal,
         setExternalKeyPool.insert(index);
     }
     m_pool_key_to_index[pubkey.GetID()] = index;
+    auto pubkeyCopy = pubkey;
+    if (!pubkey.IsCompressed()) {
+        pubkeyCopy.Compress();
+        m_pool_key_to_index[pubkey.GetEthID()] = index;
+        m_pool_key_to_index[pubkeyCopy.GetID()] = index;
+    } else {
+        pubkeyCopy.Decompress();
+        m_pool_key_to_index[pubkeyCopy.GetID()] = index;
+        m_pool_key_to_index[pubkeyCopy.GetEthID()] = index;
+    }
 }
 
 bool CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool, bool fRequestedInternal)
@@ -3773,6 +3811,16 @@ bool CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool, bool fRe
         }
 
         m_pool_key_to_index.erase(keypool.vchPubKey.GetID());
+        auto pubkeyCopy = keypool.vchPubKey;
+        if (!keypool.vchPubKey.IsCompressed()) {
+            pubkeyCopy.Compress();
+            m_pool_key_to_index.erase(keypool.vchPubKey.GetEthID());
+            m_pool_key_to_index.erase(pubkeyCopy.GetID());
+        } else {
+            pubkeyCopy.Decompress();
+            m_pool_key_to_index.erase(pubkeyCopy.GetID());
+            m_pool_key_to_index.erase(pubkeyCopy.GetEthID());
+        }
         WalletLogPrintf("keypool reserve %d\n", nIndex);
     }
     return true;
@@ -3799,6 +3847,16 @@ void CWallet::ReturnKey(int64_t nIndex, bool fInternal, const CPubKey& pubkey)
             setExternalKeyPool.insert(nIndex);
         }
         m_pool_key_to_index[pubkey.GetID()] = nIndex;
+        auto pubkeyCopy = pubkey;
+        if (!pubkey.IsCompressed()) {
+            pubkeyCopy.Compress();
+            m_pool_key_to_index[pubkey.GetEthID()] = nIndex;
+            m_pool_key_to_index[pubkeyCopy.GetID()] = nIndex;
+        } else {
+            pubkeyCopy.Decompress();
+            m_pool_key_to_index[pubkeyCopy.GetID()] = nIndex;
+            m_pool_key_to_index[pubkeyCopy.GetEthID()] = nIndex;
+        }
     }
     WalletLogPrintf("keypool return %d\n", nIndex);
 }
@@ -3842,10 +3900,17 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
     LearnRelatedScripts(new_key, type);
     dest = GetDestinationForKey(new_key, type);
 
-    if (type != OutputType::ETH) {
-        SetAddressBook(dest, label, "receive");
+    SetAddressBook(dest, label, "receive");
+    SetAddressBook(GetDestinationForKey(new_key, OutputType::ETH), "eth", "receive");
+
+    if (!new_key.IsCompressed()) {
+        new_key.Compress();
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), "", "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), "", "receive");
     } else {
-        SetAddressBook(dest, "eth", "eth");
+        new_key.Decompress();
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), "", "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), "", "receive");
     }
 
     return true;
@@ -4099,6 +4164,16 @@ void CWallet::MarkReserveKeysAsUsed(int64_t keypool_id)
         CKeyPool keypool;
         if (batch.ReadPool(index, keypool)) { //TODO: This should be unnecessary
             m_pool_key_to_index.erase(keypool.vchPubKey.GetID());
+            auto pubkeyCopy = keypool.vchPubKey;
+            if (!keypool.vchPubKey.IsCompressed()) {
+                pubkeyCopy.Compress();
+                m_pool_key_to_index.erase(keypool.vchPubKey.GetEthID());
+                m_pool_key_to_index.erase(pubkeyCopy.GetID());
+            } else {
+                pubkeyCopy.Decompress();
+                m_pool_key_to_index.erase(pubkeyCopy.GetID());
+                m_pool_key_to_index.erase(pubkeyCopy.GetEthID());
+            }
         }
         LearnAllRelatedScripts(keypool.vchPubKey);
         batch.ErasePool(index);
@@ -5066,17 +5141,16 @@ bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<uns
         return false;
     }
 
+    mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
+
+    auto pubkeyCopy = vchPubKey;
     if (!vchPubKey.IsCompressed()) {
-        auto pubkeyCopy = vchPubKey;
         pubkeyCopy.Compress();
-        mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
         mapCryptedKeys[pubkeyCopy.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
         mapCryptedKeys[vchPubKey.GetEthID()] = make_pair(vchPubKey, vchCryptedSecret);
     } else {
-        auto pubkeyCopy = vchPubKey;
         pubkeyCopy.Decompress();
         mapCryptedKeys[pubkeyCopy.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
-        mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
         mapCryptedKeys[pubkeyCopy.GetEthID()] = make_pair(vchPubKey, vchCryptedSecret);
     }
 

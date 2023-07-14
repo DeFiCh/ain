@@ -77,13 +77,20 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
 std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 {
     PKHash keyid(key);
+    auto pubkeyCopy = key;
     if (key.IsCompressed()) {
+        pubkeyCopy.Decompress();
         CTxDestination segwit = WitnessV0KeyHash(keyid);
         CTxDestination p2sh = ScriptHash(GetScriptForDestination(segwit));
-        return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit)};
+        CTxDestination eth = WitnessV16EthHash(pubkeyCopy);
+        CTxDestination uncompressedLegacy = PKHash(pubkeyCopy);
+        return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit), std::move(eth), std::move(uncompressedLegacy)};
     } else {
+        pubkeyCopy.Compress();
         CTxDestination eth = WitnessV16EthHash(key);
-        return std::vector<CTxDestination>{std::move(keyid), std::move(eth)};
+        CTxDestination segwit = WitnessV0KeyHash(pubkeyCopy);
+        CTxDestination p2sh = ScriptHash(GetScriptForDestination(segwit));
+        return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit), std::move(eth)};
     }
 }
 
