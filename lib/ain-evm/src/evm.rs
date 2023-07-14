@@ -275,8 +275,7 @@ impl EVMServices {
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height()
-        {
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
             let tx_gas_price = get_tx_gas_price(&signed_tx);
             let next_block_fees = self.block.calculate_next_block_base_fee();
             if tx_gas_price < next_block_fees {
