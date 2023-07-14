@@ -320,8 +320,8 @@ pub fn evm_try_finalize(
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: total_burnt_fees / GWEI_TO_SATS,
-                total_priority_fees: total_priority_fees / GWEI_TO_SATS,
+                total_burnt_fees: total_burnt_fees / WEI_TO_GWEI / GWEI_TO_SATS,
+                total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
             }
         }
         Err(e) => {
