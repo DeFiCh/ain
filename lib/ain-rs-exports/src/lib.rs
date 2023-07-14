@@ -84,7 +84,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             context: u64,
             raw_tx: &str,
-            native_tx_hash: [u8; 32],
+            hash: [u8; 32],
+            gas_used: u64,
         );
         fn evm_try_finalize(
             result: &mut CrossBoundaryResult,

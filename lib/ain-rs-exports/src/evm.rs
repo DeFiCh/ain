@@ -264,10 +264,11 @@ pub fn evm_try_queue_tx(
     context: u64,
     raw_tx: &str,
     hash: [u8; 32],
+    gas_used: u64,
 ) {
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
     match signed_tx {
-        Ok(signed_tx) => match SERVICES.evm.queue_tx(context, signed_tx.into(), hash) {
+        Ok(signed_tx) => match SERVICES.evm.queue_tx(context, signed_tx.into(), hash, U256::from(gas_used)) {
             Ok(_) => {
                 result.ok = true;
             }
