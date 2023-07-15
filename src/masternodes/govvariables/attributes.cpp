@@ -51,27 +51,29 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayVersions() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
-        {"locks",      AttributeTypes::Locks     },
-        {"oracles",    AttributeTypes::Oracles   },
-        {"params",     AttributeTypes::Param     },
-        {"poolpairs",  AttributeTypes::Poolpairs },
-        {"token",      AttributeTypes::Token     },
-        {"gov",        AttributeTypes::Governance},
-        {"consortium", AttributeTypes::Consortium},
+        {"locks",          AttributeTypes::Locks     },
+        {"oracles",        AttributeTypes::Oracles   },
+        {"params",         AttributeTypes::Param     },
+        {"poolpairs",      AttributeTypes::Poolpairs },
+        {"token",          AttributeTypes::Token     },
+        {"gov",            AttributeTypes::Governance},
+        {"consortium",     AttributeTypes::Consortium},
+        {"transferdomain", AttributeTypes::Transfer  },
     };
     return types;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
-        {AttributeTypes::Live,       "live"      },
-        {AttributeTypes::Locks,      "locks"     },
-        {AttributeTypes::Oracles,    "oracles"   },
-        {AttributeTypes::Param,      "params"    },
-        {AttributeTypes::Poolpairs,  "poolpairs" },
-        {AttributeTypes::Token,      "token"     },
-        {AttributeTypes::Governance, "gov"       },
-        {AttributeTypes::Consortium, "consortium"},
+        {AttributeTypes::Live,       "live"          },
+        {AttributeTypes::Locks,      "locks"         },
+        {AttributeTypes::Oracles,    "oracles"       },
+        {AttributeTypes::Param,      "params"        },
+        {AttributeTypes::Poolpairs,  "poolpairs"     },
+        {AttributeTypes::Token,      "token"         },
+        {AttributeTypes::Governance, "gov"           },
+        {AttributeTypes::Consortium, "consortium"    },
+        {AttributeTypes::Transfer,   "transferdomain"},
     };
     return types;
 }
@@ -142,6 +144,20 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayGovernanceIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTransferIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"allowed", TransferIDs::Edges},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {TransferIDs::Edges, "allowed"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {AttributeTypes::Token,
@@ -197,6 +213,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
              {"allow-dusd-loops", DFIPKeys::AllowDUSDLoops},
+             {"transferdomain", DFIPKeys::TransferDomain},
          }},
         {AttributeTypes::Governance,
          {
@@ -212,6 +229,11 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"quorum", GovernanceKeys::Quorum},
              {"voting_period", GovernanceKeys::VotingPeriod},
              {"cfp_max_cycles", GovernanceKeys::CFPMaxCycles},
+         }},
+        {AttributeTypes::Transfer,
+         {
+            {"evm-dvm", TransferKeys::EVM_DVM},
+            {"dvm-evm", TransferKeys::DVM_EVM},
          }},
     };
     return keys;
@@ -275,6 +297,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::AllowDUSDLoops, "allow-dusd-loops"},
+             {DFIPKeys::TransferDomain, "transferdomain"},
          }},
         {AttributeTypes::Live,
          {
@@ -309,6 +332,11 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {GovernanceKeys::Quorum, "quorum"},
              {GovernanceKeys::VotingPeriod, "voting_period"},
              {GovernanceKeys::CFPMaxCycles, "cfp_max_cycles"},
+         }},
+        {AttributeTypes::Transfer,
+         {
+            {TransferKeys::EVM_DVM, "evm-dvm"},
+            {TransferKeys::DVM_EVM, "dvm-evm"},
          }},
     };
     return keys;
@@ -604,6 +632,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::AllowDUSDLoops, VerifyBool},
+                 {DFIPKeys::TransferDomain, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -627,6 +656,11 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {GovernanceKeys::Quorum, VerifyPct},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
                  {GovernanceKeys::CFPMaxCycles, VerifyUInt32},
+             }},
+            {AttributeTypes::Transfer,
+             {
+                {TransferKeys::EVM_DVM, VerifyBool},
+                {TransferKeys::DVM_EVM, VerifyBool},
              }},
     };
     return parsers;
@@ -747,6 +781,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("governance", allowedGovernanceIDs());
         }
         typeId = id->second;
+    } else if (type == AttributeTypes::Transfer) {
+        auto id = allowedTransferIDs().find(keys[2]);
+        if (id == allowedTransferIDs().end()) {
+            return DeFiErrors::GovVarVariableInvalidKey("transferdomain", allowedTransferIDs());
+        }
+        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -815,7 +855,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
                     typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
                     typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                    typeKey != DFIPKeys::AllowDUSDLoops) {
+                    typeKey != DFIPKeys::AllowDUSDLoops && typeKey != DFIPKeys::TransferDomain) {
                     return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {
@@ -834,6 +874,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
                     typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles)
                     return DeFiErrors::GovVarVariableUnsupportedProposalType(typeKey);
+            } else {
+                return DeFiErrors::GovVarVariableUnsupportedGovType();
+            }
+        } else if (type == AttributeTypes::Transfer) {
+            if (typeId == TransferIDs::Edges) {
+                if (typeKey != TransferKeys::DVM_EVM && typeKey != TransferKeys::EVM_DVM)
+                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -1145,6 +1192,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayOracleIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Governance) {
                 id = displayGovernanceIDs().at(attrV0->typeId);
+            }  else if (attrV0->type == AttributeTypes::Transfer) {
+                id = displayTransferIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1553,6 +1602,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Governance:
                 if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                     return Res::Err("Cannot be set before GrandCentral");
+                }
+                break;
+
+            case AttributeTypes::Transfer:
+                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 break;
 

@@ -521,6 +521,7 @@ bool IsTestNetwork();
 bool IsMainNetwork();
 bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,

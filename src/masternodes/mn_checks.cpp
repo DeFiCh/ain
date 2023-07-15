@@ -832,9 +832,8 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest))
-                                                                      : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
-            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
+            if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
             }
@@ -916,8 +915,9 @@ public:
                 }
 
                 CTxDestination dest;
-                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) ||
-                    (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                ExtractDestination(tx.vout[1].scriptPubKey, dest);
+                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+                if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
 
@@ -925,8 +925,6 @@ public:
                     return Res::Err("Incorrect collateral amount");
                 }
 
-                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest))
-                                                              : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with collateral address as operator or owner already exists");
                 }
@@ -941,9 +939,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = pendingDest.index() == PKHashType
-                                                ? CKeyID(std::get<PKHash>(pendingDest))
-                                                : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -970,7 +966,13 @@ public:
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode operator address is invalid");
+                }
+
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with that operator address already exists");
                 }
@@ -996,7 +998,13 @@ public:
                     }
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode reward address is invalid");
+                }
+
                 mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
 
                 // Store history of all reward address changes. This allows us to call CalculateOwnerReward
@@ -1004,9 +1012,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(addressType == PKHashType ?
-                                                                          CTxDestination(PKHash(keyID)) :
-                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(addressType, keyID, KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -3831,8 +3837,9 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNOwnerKeyType);
+        if (!IsValidDestination(ownerDest))
+            return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
@@ -4013,11 +4020,18 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+};
+
 Res ValidateTransferDomainEdge(const CTransaction &tx,
+                                   const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
-                                   CTransferDomainItem src, CTransferDomainItem dst) {
+                                   CTransferDomainItem src,
+                                   CTransferDomainItem dst) {
 
     // TODO: Remove code branch on stable.
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
@@ -4035,6 +4049,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.dvmToEvm) {
+                return DeFiErrors::TransferDomainDVMEVMNotEnabled();
+            }
+        }
+
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
         if (!res) return res;
@@ -4042,6 +4062,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.evmTodvm) {
+                return DeFiErrors::TransferDomainEVMDVMNotEnabled();
+            }
+        }
+
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
         if (!res) return res;
@@ -4064,14 +4090,28 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
+    if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+        return DeFiErrors::TransferDomainNotEnabled();
+    }
+
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (obj.transfers.size() < 1) {
+        if (obj.transfers.size() != 1) {
+            return DeFiErrors::TransferDomainMultipleTransfers();
+        }
+
+        if (tx.vin.size() > 1) {
             return DeFiErrors::TransferDomainInvalid();
         }
     }
 
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
@@ -4366,9 +4406,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
@@ -4450,9 +4489,10 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
 
     LogPrint(BCLog::ACCOUNTCHANGE,
              "AccountChange: hash=%s fund=%s change=%s\n",
@@ -5077,6 +5117,17 @@ bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::
     }
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
+
+bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomain};
     auto attributes = view.GetAttributes();
     assert(attributes);
     return attributes->GetValue(enabledKey, false);

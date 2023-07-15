@@ -9,6 +9,7 @@
 
 #include <hash.h>
 #include <serialize.h>
+#include <script/standard.h>
 #include <uint256.h>
 
 #include <stdexcept>
@@ -22,6 +23,44 @@ class CKeyID : public uint160
 public:
     CKeyID() : uint160() {}
     explicit CKeyID(const uint160& in) : uint160(in) {}
+
+    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
+        // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
+        // flags here and use bit flag logic to decode only specific destinations
+        switch (dest.index()) {
+            case PKHashType:
+                if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
+                    return CKeyID(std::get<PKHash>(dest));
+                }
+                break;
+            case WitV0KeyHashType:
+                if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
+                    return CKeyID(std::get<WitnessV0KeyHash>(dest));
+                }
+                break;
+            case ScriptHashType:
+                if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
+                    return CKeyID(std::get<ScriptHash>(dest));
+                }
+                break;
+            case WitV16KeyEthHashType:
+                if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+                    return CKeyID(std::get<WitnessV16EthHash>(dest));
+                }
+                break;
+            default: 
+                return {};
+        }
+        return {};
+    }
+
+    static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
+        auto key = TryFromDestination(dest, filter);
+        if (key) {
+            return *key;
+        }
+        return {};
+    }
 };
 
 typedef uint256 ChainCode;

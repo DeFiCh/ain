@@ -518,6 +518,7 @@ void SetupServerArgs()
     gArgs.AddArg("-changiintermediateheight", "Changi Intermediate fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediate2height", "Changi Intermediate2 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediate3height", "Changi Intermediate3 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changiintermediate4height", "Changi Intermediate4 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -2368,9 +2369,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
-                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
-
+            operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
@@ -2401,11 +2400,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = nodePtr->ownerType == PKHashType ?
-                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType);
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = nodePtr->GetRewardAddressDestination();
+                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType);
                 }
             }
 

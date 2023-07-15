@@ -131,9 +131,9 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
     std::string rewardAddress = request.params[1].getValStr();
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
-    if (rewardDest.index() != 1 && rewardDest.index() != 4)
+    if (rewardDest.index() != PKHashType && rewardDest.index() != ScriptHashType && rewardDest.index() != WitV0KeyHashType)
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2SH or P2WPKH address");
     }
     bool const send = request.params[2].isNull() ? true : request.params[2].getBool();
 
@@ -227,8 +227,8 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     std::string rewardAddress = request.params[0].getValStr();
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
-    if (rewardDest.index() != 1 && rewardDest.index() != 4) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+    if (rewardDest.index() != PKHashType && rewardDest.index() != ScriptHashType && rewardDest.index() != WitV0KeyHashType) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2SH or P2WPKH address");
     }
 
     THeight prevAnchorHeight{0};

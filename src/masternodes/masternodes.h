@@ -110,7 +110,6 @@ public:
 
     State GetState(int height, const CMasternodesView &mnview) const;
     bool IsActive(int height, const CMasternodesView &mnview) const;
-    [[nodiscard]] CTxDestination GetRewardAddressDestination() const;
 
     static std::string GetHumanReadableState(State state);
     static std::string GetTimelockToString(TimeLock timelock);
@@ -480,7 +479,7 @@ class CCustomCSView : public CMasternodesView,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
             CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus,
-            CVMDomainGraphView             ::  VMDomainBlockEdge, VMDomainTxEdge
+            CVMDomainGraphView      ::  VMDomainBlockEdge, VMDomainTxEdge
         >();
     }
     // clang-format on

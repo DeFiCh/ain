@@ -252,6 +252,46 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     return true;
 }
 
+std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
+    switch (keyIdType) {
+        case PKHashType:
+            if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
+                return CTxDestination(PKHash(keyId));
+            }
+            break;
+        case WitV0KeyHashType:
+            if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
+                return CTxDestination(WitnessV0KeyHash(keyId));
+            }
+            break;
+        case ScriptHashType:
+            if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
+                return CTxDestination(ScriptHash(keyId));
+            }
+            break;
+        case WitV16KeyEthHashType:
+            if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+                return CTxDestination(WitnessV16EthHash(keyId));
+            }
+            break;
+        default:
+            return {};
+    }
+    return {};
+}
+
+CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
+    auto dest = TryFromKeyIDToDestination(keyIdType, keyId, filter);
+    if (dest) {
+        return *dest;
+    }
+    return CTxDestination(CNoDestination());
+}
+
+bool IsValidDestination(const CTxDestination& dest) {
+    return dest.index() != NoDestType;
+}
+
 namespace {
 class CScriptVisitor
 {
@@ -350,8 +390,4 @@ CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std
     script << OP_CHECKSIG;
 
     return script;
-}
-
-bool IsValidDestination(const CTxDestination& dest) {
-    return dest.index() != NoDestType;
 }
