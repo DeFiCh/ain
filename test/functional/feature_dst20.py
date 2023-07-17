@@ -167,6 +167,9 @@ class DST20(DefiTestFramework):
             Decimal(1),
         )
 
+        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        assert_equal(amountBTC, "9.00000000@BTC")
+
         self.nodes[0].transferdomain(
             [
                 {
@@ -186,6 +189,8 @@ class DST20(DefiTestFramework):
             / math.pow(10, btc.functions.decimals().call()),
             Decimal(2),
         )
+        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        assert_equal(amountBTC, "8.00000000@BTC")
 
         self.nodes[0].transferdomain(
             [
@@ -206,6 +211,8 @@ class DST20(DefiTestFramework):
             / math.pow(10, btc.functions.decimals().call()),
             Decimal(0.5),
         )
+        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        assert_equal(amountBTC, "9.50000000@BTC")
 
 
 if __name__ == "__main__":
