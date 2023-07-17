@@ -3903,9 +3903,23 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
-                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+
+                if (tokenId == DCT_ID{0}) {
+                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                                         ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                        return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+                    }
+                }
+                else {
+                        CrossBoundaryResult result;
+                        evm_brige_dst20(result, evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                                        ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString(), true);
+
+                        if (!result.ok) {
+                            return Res::Err("Error bridging DST20: %s", result.reason);
+                        }
                 }
             }
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
