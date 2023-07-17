@@ -269,7 +269,7 @@ impl EVMServices {
                 "[finalize_block] raw transaction : {:#?}",
                 total_priority_fees
             );
-        Ok(FinalizedBlockInfo {
+            Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
                 total_burnt_fees: total_burnt_fees.try_into().unwrap(),
