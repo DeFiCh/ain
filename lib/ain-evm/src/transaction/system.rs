@@ -8,14 +8,15 @@ pub struct DeployContractData {
 }
 
 #[derive(Debug, Clone)]
-pub struct DST20InData {
+pub struct DST20Data {
     pub to: H160,
     pub contract: H160,
     pub amount: U256,
+    pub out: bool,
 }
 
 #[derive(Debug, Clone)]
 pub enum SystemTx {
     DeployContract(DeployContractData),
-    DST20In(DST20InData),
+    DST20Bridge(DST20Data),
 }

@@ -3928,8 +3928,8 @@ public:
                     evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
                 else {
                     CrossBoundaryResult result;
-                    evm_add_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
-                                  ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString());
+                    evm_brige_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                                  ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString(), false);
 
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);

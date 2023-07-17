@@ -12,7 +12,7 @@ use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::tx_queue::QueueTx;
 
-use crate::transaction::system::{DST20InData, DeployContractData, SystemTx};
+use crate::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use anyhow::anyhow;
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
@@ -215,17 +215,18 @@ impl Handlers {
                         debug!("[finalize_block] SystemTx failed with {e}");
                     }
                 }
-                QueueTx::SystemTx(SystemTx::DST20In(DST20InData {
+                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                     to,
                     contract,
                     amount,
+                    out,
                 })) => {
                     debug!(
-                        "[finalize_block] DST20 bridge in for address {}, token {}, amount {}",
-                        to, contract, amount
+                        "[finalize_block] DST20 bridge for address {}, token {}, amount {}, bridge out {}",
+                        to, contract, amount, out
                     );
 
-                    if let Err(e) = executor.dst20_bridge_in(to, contract, amount) {
+                    if let Err(e) = executor.dst20_bridge(to, contract, amount, out) {
                         debug!("[finalize_block] SystemTx failed with {e}");
                     }
                 }

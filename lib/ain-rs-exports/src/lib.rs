@@ -111,13 +111,14 @@ pub mod ffi {
             token_id: &str,
         ) -> bool;
 
-        fn evm_add_dst20(
+        fn evm_brige_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
             token_id: &str,
+            out: bool,
         );
     }
 }
@@ -477,13 +478,14 @@ fn create_dst20(
     }
 }
 
-fn evm_add_dst20(
+fn evm_brige_dst20(
     result: &mut CrossBoundaryResult,
     context: u64,
     address: &str,
     amount: [u8; 32],
     native_tx_hash: [u8; 32],
     token_id: &str,
+    out: bool,
 ) {
     match bridge_to_dst20(
         context,
@@ -491,6 +493,7 @@ fn evm_add_dst20(
         amount,
         native_tx_hash,
         String::from(token_id),
+        out,
     ) {
         Ok(_) => result.ok = true,
         Err(e) => {

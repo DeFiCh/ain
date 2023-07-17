@@ -1,5 +1,5 @@
 use ain_evm::runtime::RUNTIME;
-use ain_evm::transaction::system::{DST20InData, DeployContractData, SystemTx};
+use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::tx_queue::QueueTx;
 use log::debug;
 use primitive_types::H160;
@@ -33,14 +33,16 @@ pub fn bridge_to_dst20(
     amount: [u8; 32],
     native_hash: [u8; 32],
     token_id: String,
+    out: bool,
 ) -> Result<(), Box<dyn Error>> {
     let address = address.parse()?;
     let contract = dst20_address_from_token_id(token_id)?;
 
-    let system_tx = QueueTx::SystemTx(SystemTx::DST20In(DST20InData {
+    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         to: address,
         contract,
         amount: amount.into(),
+        out,
     }));
     RUNTIME.handlers.queue_tx(context, system_tx, native_hash)?;
 
