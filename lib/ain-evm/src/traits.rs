@@ -33,4 +33,11 @@ pub trait BridgeBackend {
         name: &str,
         symbol: &str,
     ) -> Result<(), EVMBackendError>;
+
+    fn dst20_bridge_in(
+        &mut self,
+        to: H160,
+        contract: H160,
+        amount: U256,
+    ) -> Result<(), EVMBackendError>;
 }

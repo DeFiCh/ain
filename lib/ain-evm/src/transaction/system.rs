@@ -1,4 +1,4 @@
-use primitive_types::H160;
+use primitive_types::{H160, U256};
 
 #[derive(Debug, Clone)]
 pub struct DeployContractData {
@@ -8,6 +8,14 @@ pub struct DeployContractData {
 }
 
 #[derive(Debug, Clone)]
+pub struct DST20InData {
+    pub to: H160,
+    pub contract: H160,
+    pub amount: U256,
+}
+
+#[derive(Debug, Clone)]
 pub enum SystemTx {
     DeployContract(DeployContractData),
+    DST20In(DST20InData),
 }

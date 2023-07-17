@@ -3921,8 +3921,20 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+
+                if (tokenId == DCT_ID{0})
+                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+                else {
+                    CrossBoundaryResult result;
+                    evm_add_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                                  ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString());
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
             }
 
             // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
@@ -4060,8 +4072,8 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainUnequalAmount();
 
     // Restrict only for use with DFI token for now. Will be enabled later.
-    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-        return DeFiErrors::TransferDomainIncorrectToken();
+//    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
+//        return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         // DVM to EVM

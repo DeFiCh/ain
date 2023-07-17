@@ -4,6 +4,8 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
+import math
+
 from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -52,7 +54,7 @@ class DST20(DefiTestFramework):
         web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
         web3_n2 = Web3(Web3.HTTPProvider(self.nodes[1].get_evm_rpc()))
 
-        node.createtoken({
+        tx = node.createtoken({
             "symbol": "BTC",
             "name": "BTC token",
             "isDAT": True,
@@ -60,6 +62,8 @@ class DST20(DefiTestFramework):
         })
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        print(node.gettoken(tx))
 
         node.createtoken({
             "symbol": "ETH",
@@ -93,6 +97,18 @@ class DST20(DefiTestFramework):
         dusd = web3.eth.contract(address=contract_address_dusd, abi=abi)
         print(dusd.functions.name().call())
         print(dusd.functions.symbol().call())
+
+        key_pair = KeyPair.from_node(node)
+
+        node.minttokens("10@BTC")
+        node.generate(1)
+
+        self.nodes[0].transferdomain([{"src": {"address": address, "amount": "1@BTC", "domain": 2},
+                                       "dst": {"address": "0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3", "amount": "1@BTC", "domain": 3}}])
+        node.generate(1)
+
+        assert_equal(btc.functions.balanceOf("0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3").call() / math.pow(10, btc.functions.decimals().call()), Decimal(1))
+
 
 
 if __name__ == '__main__':

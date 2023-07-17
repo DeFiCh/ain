@@ -395,8 +395,26 @@ impl BridgeBackend for EVMBackend {
 
         Ok(())
     }
+
+    fn dst20_bridge_in(&mut self, to: H160, contract: H160, amount: U256) -> Result<()> {
+        let storage_index = get_address_storage_index(to);
+
+        self.apply(
+            contract,
+            Basic {
+                balance: U256::zero(),
+                nonce: U256::zero(),
+            },
+            None,
+            vec![(storage_index, u256_to_h256(amount))],
+            false,
+        )
+        .expect("TODO: panic message");
+        Ok(())
+    }
 }
 
+use sha3::{Digest, Keccak256};
 use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]
@@ -455,6 +473,32 @@ fn get_abi_encoded_string(input: &str) -> H256 {
     storage_value.0[..length].copy_from_slice(input.as_bytes());
 
     storage_value
+}
+
+fn u256_to_h256(input: U256) -> H256 {
+    let mut bytes = [0_u8; 32];
+    input.to_big_endian(&mut bytes);
+
+    H256::from(bytes)
+}
+
+fn get_address_storage_index(address: H160) -> H256 {
+    // padded slot, slot for our contract is 0
+    let slot = H256::zero();
+
+    // padded key
+    let key = H256::from(address);
+
+    // keccak256(padded key + padded slot)
+    let mut hasher = Keccak256::new();
+    hasher.update(key.as_fixed_bytes());
+    hasher.update(slot.as_fixed_bytes());
+    let hash_result = hasher.finalize();
+
+    let mut index_bytes = [0u8; 32];
+    index_bytes.copy_from_slice(&hash_result);
+
+    H256::from(index_bytes)
 }
 
 impl Error for EVMBackendError {}

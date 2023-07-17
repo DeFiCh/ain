@@ -54,6 +54,15 @@ impl<'backend> AinExecutor<'backend> {
             .deploy_contract(&address, bytecode.0, name, symbol)
     }
 
+    pub fn dst20_bridge_in(
+        &mut self,
+        to: H160,
+        contract: H160,
+        amount: U256,
+    ) -> Result<(), EVMBackendError> {
+        self.backend.dst20_bridge_in(to, contract, amount)
+    }
+
     pub fn commit(&mut self) -> H256 {
         self.backend.commit()
     }

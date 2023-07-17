@@ -13,7 +13,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::dst20::deploy_dst20;
+use crate::dst20::{bridge_to_dst20, deploy_dst20};
 use crate::ffi::CrossBoundaryResult;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
@@ -110,6 +110,15 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         ) -> bool;
+
+        fn evm_add_dst20(
+            result: &mut CrossBoundaryResult,
+            context: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+            token_id: &str,
+        );
     }
 }
 
@@ -454,12 +463,39 @@ fn create_dst20(
         String::from(symbol),
         String::from(token_id),
     ) {
-        Ok(_) => true,
+        Ok(_) => {
+            result.ok = true;
+
+            true
+        }
         Err(e) => {
             result.ok = false;
             result.reason = e.to_string();
 
             false
+        }
+    }
+}
+
+fn evm_add_dst20(
+    result: &mut CrossBoundaryResult,
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+    native_tx_hash: [u8; 32],
+    token_id: &str,
+) {
+    match bridge_to_dst20(
+        context,
+        address,
+        amount,
+        native_tx_hash,
+        String::from(token_id),
+    ) {
+        Ok(_) => result.ok = true,
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
         }
     }
 }

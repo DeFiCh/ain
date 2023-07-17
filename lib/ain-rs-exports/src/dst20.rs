@@ -1,5 +1,5 @@
 use ain_evm::runtime::RUNTIME;
-use ain_evm::transaction::system::{DeployContractData, SystemTx};
+use ain_evm::transaction::system::{DST20InData, DeployContractData, SystemTx};
 use ain_evm::tx_queue::QueueTx;
 use log::debug;
 use primitive_types::H160;
@@ -22,7 +22,26 @@ pub fn deploy_dst20(
         symbol,
         address,
     }));
+    RUNTIME.handlers.queue_tx(context, system_tx, native_hash)?;
 
+    Ok(())
+}
+
+pub fn bridge_to_dst20(
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+    native_hash: [u8; 32],
+    token_id: String,
+) -> Result<(), Box<dyn Error>> {
+    let address = address.parse()?;
+    let contract = dst20_address_from_token_id(token_id)?;
+
+    let system_tx = QueueTx::SystemTx(SystemTx::DST20In(DST20InData {
+        to: address,
+        contract,
+        amount: amount.into(),
+    }));
     RUNTIME.handlers.queue_tx(context, system_tx, native_hash)?;
 
     Ok(())
