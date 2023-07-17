@@ -344,7 +344,7 @@ test() {
 
     _fold_start "unit-tests"
     # shellcheck disable=SC2086
-#    make -j$make_jobs check
+    make -j$make_jobs check
     _fold_end
 
     _fold_start "functional-tests"
