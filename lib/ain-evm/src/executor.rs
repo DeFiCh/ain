@@ -36,7 +36,7 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.sub_balance(address, amount)
     }
 
-    pub fn deploy_contract(&mut self, name: String, symbol: String) -> Result<(), EVMBackendError> {
+    pub fn deploy_contract(&mut self, name: &str, symbol: &str) -> Result<(), EVMBackendError> {
         let bytecode_json: serde_json::Value = serde_json::from_str(include_str!(
             "../../ain-rs-exports/dst20/output/bytecode.json"
         ))

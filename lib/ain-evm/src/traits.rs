@@ -30,7 +30,7 @@ pub trait BridgeBackend {
         &mut self,
         address: &H160,
         code: Vec<u8>,
-        name: String,
-        symbol: String,
+        name: &str,
+        symbol: &str,
     ) -> Result<(), EVMBackendError>;
 }

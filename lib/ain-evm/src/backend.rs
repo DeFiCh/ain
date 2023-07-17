@@ -376,39 +376,9 @@ impl BridgeBackend for EVMBackend {
         &mut self,
         address: &H160,
         code: Vec<u8>,
-        name: String,
-        symbol: String,
+        name: &str,
+        symbol: &str,
     ) -> Result<()> {
-        // let code_hash = keccak(&code);
-        //
-        // let account = Account {
-        //     nonce: Default::default(),
-        //     balance: Default::default(),
-        //     storage_root: Default::default(),
-        //     code_hash,
-        // };
-        //
-        // // set code and codehash
-        // self.put_account(address, account)
-        //     .map_err(|e| {
-        //         debug!("{}", e);
-        //         Err::<(), EVMBackendError>(EVMBackendError::DeployContractFailed(*address))
-        //     })
-        //     .unwrap();
-        // self.storage.put_code(code_hash, code);
-
-        // set storage
-        // let mut storage_trie = self
-        //     .trie_store
-        //     .trie_db
-        //     .trie_create(address.as_bytes(), None, true)
-        //     .map_err(|e| EVMBackendError::TrieCreationFailed(e.to_string()))?;
-
-        // let mut slot = H256::zero();
-        // let encoded = hex::encode("BTC");
-
-        // debug!("ABI ENCODED: {:#?}", slot);
-
         self.apply(
             *address,
             Basic {
@@ -416,7 +386,10 @@ impl BridgeBackend for EVMBackend {
                 nonce: U256::zero(),
             },
             Some(code),
-            vec![(H256::from_low_u64_be(3), get_abi_encoded_string("BTC"))],
+            vec![
+                (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+                (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
+            ],
             true,
         )
         .expect("TODO: panic message");
@@ -425,7 +398,6 @@ impl BridgeBackend for EVMBackend {
     }
 }
 
-use ethabi::Token;
 use std::{error::Error, fmt, sync::Arc};
 
 #[derive(Debug)]

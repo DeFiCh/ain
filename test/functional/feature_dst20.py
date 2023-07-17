@@ -88,8 +88,11 @@ class DST20(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
 
-        print(Web3.to_hex(web3.eth.get_code(contract_address, "latest")))
         print(contract.functions.name().call())
+        print(contract.functions.symbol().call())
+        print(contract.functions.balanceOf(system.address).call())
+        print(contract.functions.totalSupply().call())
+
 
         node.generate(1)
         self.sync_blocks()

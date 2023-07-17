@@ -209,7 +209,7 @@ impl Handlers {
                         name, symbol
                     );
 
-                    if let Err(e) = executor.deploy_contract(name, symbol) {
+                    if let Err(e) = executor.deploy_contract(name.as_str(), symbol.as_str()) {
                         debug!("[finalize_block] SystemTx failed with {e}");
                     }
                 }
