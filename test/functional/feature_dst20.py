@@ -68,34 +68,16 @@ class DST20(DefiTestFramework):
         # self.sync_blocks()
 
         contract_address = "0x0000000000000000000000000000000000000100"
-        # print(Web3.to_hex(web3.eth.get_code(contract_address)))
-
-        # try to mint
-        key_pair = KeyPair.from_node(node)
-        system = KeyPair.from_str("074016d5336e9bb4f204ea5bb536ba5c222ae836b92881a8de8de44e1dfea3a2", "0xeB4B222C3dE281d40F5EBe8B273106bFcC1C1b94")
-
-        nonce = web3.eth.get_transaction_count(system.address)
-        # assert_equal(nonce, 3)
 
         abi = open("./lib/ain-rs-exports/dst20/output/abi.json").read()
         contract = web3.eth.contract(address=contract_address, abi=abi)
-
-        chain_id = web3.eth.chain_id
-        call = contract.functions.mint(key_pair.address, Web3.to_wei("1", "ether")).build_transaction({"chainId": chain_id, "from": system.address, "nonce": nonce})
-        signed_tx = web3.eth.account.sign_transaction(call, private_key=system.pkey)
-        send_tx = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
         node.generate(1)
         self.sync_blocks()
 
         print(contract.functions.name().call())
         print(contract.functions.symbol().call())
-        print(contract.functions.balanceOf(system.address).call())
         print(contract.functions.totalSupply().call())
-
-
-        node.generate(1)
-        self.sync_blocks()
 
 
 
