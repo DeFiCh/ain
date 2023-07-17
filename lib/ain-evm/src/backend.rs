@@ -182,6 +182,33 @@ impl EVMBackend {
             .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
     }
 
+    fn get_account_balance(&self, contract: H160, storage_index: H256) -> Result<U256> {
+        let account = self.get_account(&contract).unwrap_or(Account {
+            nonce: U256::zero(),
+            balance: U256::zero(),
+            storage_root: H256::zero(),
+            code_hash: H256::zero(),
+        });
+
+        let state = self
+            .trie_store
+            .trie_db
+            .trie_restore(
+                contract.clone().as_bytes(),
+                None,
+                account.storage_root.into(),
+            )
+            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
+
+        Ok(U256::from(
+            state
+                .get(storage_index.clone().as_bytes())
+                .unwrap_or_default()
+                .unwrap_or_default()
+                .as_slice(),
+        ))
+    }
+
     pub fn put_account(&mut self, address: &H160, account: Account) -> Result<()> {
         let mut account_data = RlpStream::new();
         account.rlp_append(&mut account_data);
@@ -399,6 +426,9 @@ impl BridgeBackend for EVMBackend {
     fn dst20_bridge_in(&mut self, to: H160, contract: H160, amount: U256) -> Result<()> {
         let storage_index = get_address_storage_index(to);
 
+        let mut balance = self.get_account_balance(contract.clone(), storage_index)?;
+        balance += amount;
+
         self.apply(
             contract,
             Basic {
@@ -406,7 +436,7 @@ impl BridgeBackend for EVMBackend {
                 nonce: U256::zero(),
             },
             None,
-            vec![(storage_index, u256_to_h256(amount))],
+            vec![(storage_index, u256_to_h256(balance))],
             false,
         )
         .expect("TODO: panic message");

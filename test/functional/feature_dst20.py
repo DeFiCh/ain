@@ -63,8 +63,6 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        print(node.gettoken(tx))
-
         node.createtoken({
             "symbol": "ETH",
             "name": "ETH token",
@@ -104,11 +102,22 @@ class DST20(DefiTestFramework):
         node.generate(1)
 
         self.nodes[0].transferdomain([{"src": {"address": address, "amount": "1@BTC", "domain": 2},
-                                       "dst": {"address": "0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3", "amount": "1@BTC", "domain": 3}}])
+                                       "dst": {"address": "0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3",
+                                               "amount": "1@BTC", "domain": 3}}])
         node.generate(1)
 
-        assert_equal(btc.functions.balanceOf("0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3").call() / math.pow(10, btc.functions.decimals().call()), Decimal(1))
+        assert_equal(btc.functions.balanceOf("0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3").call() / math.pow(10,
+                                                                                                             btc.functions.decimals().call()),
+                     Decimal(1))
 
+        self.nodes[0].transferdomain([{"src": {"address": address, "amount": "1@BTC", "domain": 2},
+                                       "dst": {"address": "0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3",
+                                               "amount": "1@BTC", "domain": 3}}])
+        node.generate(1)
+
+        assert_equal(btc.functions.balanceOf("0xa418a212049A5D7e868C687F6EDFD4356Cb3a9b3").call() / math.pow(10,
+                                                                                                             btc.functions.decimals().call()),
+                     Decimal(2))
 
 
 if __name__ == '__main__':
