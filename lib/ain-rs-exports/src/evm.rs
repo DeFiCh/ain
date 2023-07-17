@@ -1,4 +1,5 @@
 use ain_evm::{
+    evm::FinalizedBlockInfo,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
@@ -303,7 +304,7 @@ pub fn evm_try_queue_tx(
 ///
 /// # Returns
 ///
-/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
+/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 pub fn evm_try_finalize(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
@@ -317,12 +318,18 @@ pub fn evm_try_finalize(
         .evm
         .finalize_block(context, update_state, difficulty, eth_address, timestamp)
     {
-        Ok((block_hash, failed_txs, gas_used)) => {
+        Ok(FinalizedBlockInfo {
+            block_hash,
+            failed_transactions,
+            total_burnt_fees,
+            total_priority_fees,
+        }) => {
             result.ok = true;
             ffi::FinalizeBlockCompletion {
                 block_hash,
-                failed_transactions: failed_txs,
-                miner_fee: gas_used,
+                failed_transactions,
+                total_burnt_fees: total_burnt_fees / WEI_TO_GWEI / GWEI_TO_SATS,
+                total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
             }
         }
         Err(e) => {

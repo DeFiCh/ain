@@ -39,7 +39,7 @@ class EVMTest(DefiTestFramework):
             'to': "0x0000000000000000000000000000000000000000",
             'value': web3.to_wei(0.1, 'ether'),
             'gas': 21000,
-            'gasPrice': web3.to_wei(1, 'gwei')
+            'gasPrice': web3.to_wei(10, 'gwei')
         }
 
         signed_tx = web3.eth.account.sign_transaction(tx, keypair.pkey)
@@ -275,7 +275,7 @@ class EVMTest(DefiTestFramework):
         tx = web3.eth.contract(abi=abi, bytecode=bytecode).constructor(None).build_transaction({
             'chainId': 1133,
             'nonce': 0,
-            'gasPrice': Web3.to_wei(5, "gwei")
+            'gasPrice': Web3.to_wei(10, "gwei")
         })
         signed_tx = web3.eth.account.sign_transaction(tx, private_key=eth_address_privkey)
         web3.eth.send_raw_transaction(signed_tx.rawTransaction)
@@ -291,7 +291,7 @@ class EVMTest(DefiTestFramework):
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
-        assert_equal(block_txs[1], '10f25f6e0b6a818c25c876c1bef12788a05b29d2f254c9ff0439f8d7427f5e57')
+        assert_equal(block_txs[1], 'fe0106aae2f1fd36535cf5e3d5007b5237e323633f5ee94dcc7b626c31425654')
         assert_equal(block_txs[2], tx1)
         assert_equal(block_txs[3], tx2)
         assert_equal(block_txs[4], tx3)
@@ -299,7 +299,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[6], tx5)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 4997179955000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 4996564910000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 5000000000000000000)
 
         # Check miner account balance after transfer
@@ -309,7 +309,7 @@ class EVMTest(DefiTestFramework):
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
         assert_equal(block['transactions'], [
-            '0x21d9f328bd713e31431596c326ef8da189106ce45b3bf4b75bf705c0e14be7d1',
+            '0x8e0acf5ae13fccb364872d2852670f35fecdb55ed341ca9664e7cd80639bdb52',
             '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a',
             '0x02b05a6646feb65bf9491f9551e02678263239dc2512d73c9ad6bc80dc1c13ff',
             '0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c',
@@ -348,9 +348,9 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_hash, eth_hash)
 
         # Check EVM miner fee
-        opreturn_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
-        opreturn_fee_sats = Decimal(int(opreturn_fee_amount[2:4] + opreturn_fee_amount[0:2], 16)) / 100000000
-        assert_equal(opreturn_fee_sats, miner_fee)
+        opreturn_priority_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][100:]
+        opreturn_priority_fee_sats = Decimal(int(opreturn_priority_fee_amount[4:6] + opreturn_priority_fee_amount[2:4] + opreturn_priority_fee_amount[0:2], 16)) / 100000000
+        assert_equal(opreturn_priority_fee_sats, miner_fee)
 
         # Test rollback of EVM TX
         self.rollback_to(before_blockheight, self.nodes)
@@ -365,7 +365,7 @@ class EVMTest(DefiTestFramework):
         # Test error at the 65th EVM TX
         assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 64, 21, 21001, to_address, 1)
 
-        # Miot a block
+        # Mint a block
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(len(block_txs), 64)

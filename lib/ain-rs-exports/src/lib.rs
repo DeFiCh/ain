@@ -42,7 +42,8 @@ pub mod ffi {
     pub struct FinalizeBlockCompletion {
         pub block_hash: [u8; 32],
         pub failed_transactions: Vec<String>,
-        pub miner_fee: u64,
+        pub total_burnt_fees: u64,
+        pub total_priority_fees: u64,
     }
 
     #[derive(Default)]
