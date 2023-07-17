@@ -203,13 +203,16 @@ impl Handlers {
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
                     symbol,
+                    address,
                 })) => {
                     debug!(
                         "[finalize_block] DeployContract for name {}, symbol {}",
                         name, symbol
                     );
 
-                    if let Err(e) = executor.deploy_contract(name.as_str(), symbol.as_str()) {
+                    if let Err(e) =
+                        executor.deploy_contract(name.as_str(), symbol.as_str(), address)
+                    {
                         debug!("[finalize_block] SystemTx failed with {e}");
                     }
                 }

@@ -1064,12 +1064,14 @@ public:
             }
         }
 
-        if (IsEVMEnabled(height, mnview, consensus)) {
+        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+
+        if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
             try {
                 create_dst20(result, evmContext, applyChanges, tx.GetHash().ToArrayReversed(),
                              rust::string(tokenSymbol.c_str()),
-                             rust::string(tokenName.c_str()));
+                             rust::string(tokenName.c_str()), tokenId->ToString());
             }
             catch (std::runtime_error &e) {
                 return Res::Err("Error creating DST20 token: %s", e.what());
@@ -1080,7 +1082,7 @@ public:
             }
         }
 
-        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+        return tokenId;
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {

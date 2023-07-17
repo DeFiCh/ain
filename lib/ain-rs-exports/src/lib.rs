@@ -109,6 +109,7 @@ pub mod ffi {
             native_hash: [u8; 32],
             name: &str,
             symbol: &str,
+            token_id: &str,
         ) -> bool;
     }
 }
@@ -446,6 +447,7 @@ fn create_dst20(
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
+    token_id: &str,
 ) -> bool {
     match deploy_dst20(
         native_hash,
@@ -453,10 +455,10 @@ fn create_dst20(
         apply_changes,
         String::from(name),
         String::from(symbol),
+        String::from(token_id),
     ) {
         Ok(_) => true,
         Err(e) => {
-            debug!("{:#?}", e);
             result.ok = false;
             result.reason = e.to_string();
 

@@ -22,8 +22,16 @@ class DST20(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
+             '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
+             '-changiintermediateheight=105', '-changiintermediate3height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def run_test(self):
@@ -36,7 +44,8 @@ class DST20(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
         node.transferdomain([{"src": {"address": address, "amount": "50@DFI", "domain": 2},
-                              "dst": {"address": "0xeB4B222C3dE281d40F5EBe8B273106bFcC1C1b94", "amount": "50@DFI", "domain": 3}}])
+                              "dst": {"address": "0xeB4B222C3dE281d40F5EBe8B273106bFcC1C1b94", "amount": "50@DFI",
+                                      "domain": 3}}])
         self.nodes[0].generate(1)
 
         from web3 import Web3
@@ -52,33 +61,38 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        # node.createtoken({
-        #     "symbol": "ETH",
-        #     "name": "ETH token",
-        #     "isDAT": True,
-        #     "collateralAddress": address
-        # })
-        # node.createtoken({
-        #     "symbol": "DUSD",
-        #     "name": "DUSD token",
-        #     "isDAT": True,
-        #     "collateralAddress": address
-        # })
-        # self.nodes[0].generate(1)
-        # self.sync_blocks()
-
-        contract_address = "0x0000000000000000000000000000000000000100"
-
-        abi = open("./lib/ain-rs-exports/dst20/output/abi.json").read()
-        contract = web3.eth.contract(address=contract_address, abi=abi)
-
-        node.generate(1)
+        node.createtoken({
+            "symbol": "ETH",
+            "name": "ETH token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        node.createtoken({
+            "symbol": "DUSD",
+            "name": "DUSD token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
-        print(contract.functions.name().call())
-        print(contract.functions.symbol().call())
-        print(contract.functions.totalSupply().call())
+        contract_address_btc = "0xff00000000000000000000000000000000000001"
+        contract_address_eth = "0xff00000000000000000000000000000000000002"
+        contract_address_dusd = Web3.to_checksum_address("0xff00000000000000000000000000000000000003")
 
+        abi = open("./lib/ain-rs-exports/dst20/output/abi.json").read()
+
+        btc = web3.eth.contract(address=contract_address_btc, abi=abi)
+        print(btc.functions.name().call())
+        print(btc.functions.symbol().call())
+
+        eth = web3.eth.contract(address=contract_address_eth, abi=abi)
+        print(eth.functions.name().call())
+        print(eth.functions.symbol().call())
+
+        dusd = web3.eth.contract(address=contract_address_dusd, abi=abi)
+        print(dusd.functions.name().call())
+        print(dusd.functions.symbol().call())
 
 
 if __name__ == '__main__':

@@ -36,7 +36,12 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.sub_balance(address, amount)
     }
 
-    pub fn deploy_contract(&mut self, name: &str, symbol: &str) -> Result<(), EVMBackendError> {
+    pub fn deploy_contract(
+        &mut self,
+        name: &str,
+        symbol: &str,
+        address: H160,
+    ) -> Result<(), EVMBackendError> {
         let bytecode_json: serde_json::Value = serde_json::from_str(include_str!(
             "../../ain-rs-exports/dst20/output/bytecode.json"
         ))
@@ -46,12 +51,8 @@ impl<'backend> AinExecutor<'backend> {
             .expect("Bytecode object not available");
         let bytecode: Bytes = Bytes::from(hex::decode(&bytecode_raw[2..]).expect("Decode failed"));
 
-        self.backend.deploy_contract(
-            &H160::from_str("0x0000000000000000000000000000000000000100").unwrap(),
-            bytecode.0,
-            name,
-            symbol,
-        )
+        self.backend
+            .deploy_contract(&address, bytecode.0, name, symbol)
     }
 
     pub fn commit(&mut self) -> H256 {
