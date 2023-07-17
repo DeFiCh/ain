@@ -20,6 +20,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/changiintermediates.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>
@@ -41,7 +42,8 @@
 struct EVM {
     uint32_t version;
     uint256 blockHash;
-    uint64_t minerFee;
+    uint64_t burntFee;
+    uint64_t priorityFee;
 
     ADD_SERIALIZE_METHODS;
 
@@ -49,7 +51,8 @@ struct EVM {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(version);
         READWRITE(blockHash);
-        READWRITE(minerFee);
+        READWRITE(burntFee);
+        READWRITE(priorityFee);
     }
 };
 
@@ -214,27 +217,33 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
             metadata << finMsg;
 
-            CTxDestination destination =
-                    finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
-                            WitnessV0KeyHash(finMsg.rewardKeyID));
+            CTxDestination destination;
+            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+            }
+            else {
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+            }
 
-            CMutableTransaction mTx(txVersion);
-            mTx.vin.resize(1);
-            mTx.vin[0].prevout.SetNull();
-            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-            mTx.vout.resize(2);
-            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-            mTx.vout[0].nValue = 0;
-            mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
-                    CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
+            if (IsValidDestination(destination)) {
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(2);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+                mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
+                        CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
-            auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
-            if (!rewardTx) {
-                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(
-                        WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
+                if (!rewardTx) {
+                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+                    pblocktemplate->vTxFees.push_back(0);
+                    pblocktemplate->vTxSigOpsCost.push_back(
+                            WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                }
             }
         }
     }
@@ -272,6 +281,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     XVM xvm{};
+    XVMChangiIntermediate xvm_changi{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
@@ -281,7 +291,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{0,{0, uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
+        if (nHeight >= consensus.ChangiIntermediateHeight4) {
+            xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
+        }
+        else {
+            xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
+        }
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -365,13 +380,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
+        if (IsEVMEnabled(nHeight, mnview, consensus) && (!xvm.evm.blockHash.IsNull() || !xvm_changi.evm.blockHash.IsNull())) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
             CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
-            metadata << xvm;
+            if (nHeight >= consensus.ChangiIntermediateHeight4) {
+                metadata << xvm;
+            }
+            else {
+                metadata << xvm_changi;
+            }
 
             CScript script;
             script << OP_RETURN << ToByteVector(metadata);
@@ -1032,13 +1052,10 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType));
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType));
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;

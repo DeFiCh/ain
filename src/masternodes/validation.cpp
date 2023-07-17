@@ -2231,12 +2231,9 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(mn->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddressType, mn->rewardAddress, KeyType::MNRewardKeyType));
                 } else {
-                    scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
-                                                           CTxDestination(PKHash(mn->ownerAuthAddress)) :
-                                                           CTxDestination(WitnessV0KeyHash(mn->ownerAuthAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerType, mn->ownerAuthAddress, KeyType::MNOwnerKeyType));
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
@@ -2317,7 +2314,7 @@ static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& c
             assert(!coin.IsSpent());
             CTxDestination dest;
             assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            const CKeyID keyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
         }
         return true;
@@ -2415,7 +2412,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
         assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
-        const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+        const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
         std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
         minerAddress = GetScriptForDestination(dest);
     } else {
@@ -2444,7 +2441,13 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
-    cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
+    if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
+        cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+    }
+    else {
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    }
 }
 
 static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
