@@ -218,7 +218,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (nHeight < consensus.ChangiIntermediateHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
             }
             else {

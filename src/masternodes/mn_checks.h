@@ -63,7 +63,9 @@ protected:
 
 enum AuthStrategy: uint32_t {
     DirectPubKeyMatch = 0,
-    EthKeyMatch = 1,
+    PKHashMatch = 1 << 0,
+    Bech32Match = 1 << 1,
+    EthKeyMatch = 1 << 2,
 };
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;

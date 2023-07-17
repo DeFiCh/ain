@@ -2458,8 +2458,8 @@ static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView&
     auto attributes = cache.GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
-    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
 
     attributes->SetValue(evm_dvm, true);
     attributes->SetValue(dvm_evm, true);

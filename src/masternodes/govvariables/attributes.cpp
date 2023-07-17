@@ -146,14 +146,16 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayGovernanceIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTransferIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"allowed", TransferIDs::Edges},
+            {"evm-dvm", TransferIDs::EVMToDVM},
+            {"dvm-evm", TransferIDs::DVMToEVM},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
     static const std::map<uint8_t, std::string> params{
-            {TransferIDs::Edges, "allowed"},
+            {TransferIDs::EVMToDVM, "evm-dvm"},
+            {TransferIDs::DVMToEVM, "dvm-evm"},
     };
     return params;
 }
@@ -232,8 +234,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {"evm-dvm", TransferKeys::EVM_DVM},
-            {"dvm-evm", TransferKeys::DVM_EVM},
+            {"enabled", TransferKeys::TransferEnabled},
+            {"src-formats", TransferKeys::Src_Formats},
+            {"dest-formats", TransferKeys::Dest_Formats},
          }},
     };
     return keys;
@@ -335,8 +338,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {TransferKeys::EVM_DVM, "evm-dvm"},
-            {TransferKeys::DVM_EVM, "dvm-evm"},
+            {TransferKeys::TransferEnabled, "enabled"},
+            {TransferKeys::Src_Formats, "src-formats"},
+            {TransferKeys::Dest_Formats, "dest-formats"},
          }},
     };
     return keys;
@@ -573,6 +577,31 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     return {members, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyEVMAddressTypes(const UniValue &array) {
+    AllowedEVMAddresses addressSet;
+    for (const auto &value : array.getValues()) {
+        if (value.getValStr() != "erc55") {
+            return Res::Err("Unrecognised address format, expected types are: erc55");
+        }
+        addressSet.insert(EVMAddressTypes::ERC55);
+    }
+    return {addressSet, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyDVMAddressTypes(const UniValue &array) {
+    AllowedEVMAddresses addressSet;
+    for (const auto &value : array.getValues()) {
+        if (value.getValStr() == "bech32") {
+            addressSet.insert(EVMAddressTypes::BECH32);
+        } else if (value.getValStr() == "p2pkh") {
+            addressSet.insert(EVMAddressTypes::PKHASH);
+        } else {
+            return Res::Err("Unrecognised address format, expected types are: bech32, p2pkh");
+        }
+    }
+    return {addressSet, Res::Ok()};
+}
+
 static inline void rtrim(std::string &s, unsigned char remove) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
 }
@@ -659,8 +688,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Transfer,
              {
-                {TransferKeys::EVM_DVM, VerifyBool},
-                {TransferKeys::DVM_EVM, VerifyBool},
+                {TransferKeys::TransferEnabled, VerifyBool},
              }},
     };
     return parsers;
@@ -878,9 +906,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         } else if (type == AttributeTypes::Transfer) {
-            if (typeId == TransferIDs::Edges) {
-                if (typeKey != TransferKeys::DVM_EVM && typeKey != TransferKeys::EVM_DVM)
+            if (typeId == TransferIDs::DVMToEVM || typeId == TransferIDs::EVMToDVM) {
+                if (typeKey != TransferKeys::TransferEnabled &&
+                    typeKey != TransferKeys::Src_Formats &&
+                    typeKey != TransferKeys::Dest_Formats) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+                }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -910,7 +941,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
     // Tidy into new parseValue map for UniValue
     if (attrV0.type == AttributeTypes::Consortium && attrV0.key == ConsortiumKeys::MemberValues) {
-        if (value && value->get_obj().empty()) {
+        if (value && !value->isObject() && value->get_obj().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -921,7 +952,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         return applyVariable(attrV0, *attribValue.val);
     } else if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::Foundation &&
                attrV0.key == DFIPKeys::Members) {
-        if (value && value->get_array().empty()) {
+        if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -930,8 +961,30 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::EVMToDVM &&
+               (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats)) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        auto attribValue = attrV0.key == TransferKeys::Src_Formats ? VerifyEVMAddressTypes(*value) : VerifyDVMAddressTypes(*value);
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::DVMToEVM &&
+               (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats)) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        auto attribValue = attrV0.key == TransferKeys::Src_Formats ? VerifyDVMAddressTypes(*value) : VerifyEVMAddressTypes(*value);
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
     } else {
-        if (value && value->get_str().empty()) {
+        if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -1334,6 +1387,18 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 UniValue array(UniValue::VARR);
                 for (const auto &member : *strMembers) {
                     array.push_back(member);
+                }
+                ret.pushKV(key, array);
+            } else if (const auto values = std::get_if<AllowedEVMAddresses>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &value : *values) {
+                    if (value == EVMAddressTypes::BECH32) {
+                        array.push_back("bech32");
+                    } else if (value == EVMAddressTypes::PKHASH) {
+                        array.push_back("p2pkh");
+                    } else if (value == EVMAddressTypes::ERC55) {
+                        array.push_back("erc55");
+                    }
                 }
                 ret.pushKV(key, array);
             }
