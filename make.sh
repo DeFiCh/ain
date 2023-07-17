@@ -1010,7 +1010,7 @@ _ensure_venv_active() {
   local python_venv="${PYTHON_VENV_BIN_DIR}"
 
   # silence warning as ShellCheck is unable to follow dynamic paths
-  # shellcheck disable=SC2236
+  # shellcheck disable=SC1091
   source ${python_venv}/activate
 
   INVENV=$(python3 -c 'import sys; print (sys.prefix != sys.base_prefix)')
