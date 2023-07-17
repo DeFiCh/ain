@@ -33,6 +33,7 @@ setup_vars() {
     BUILD_TARGET_DIR="${BUILD_DIR}"
     BUILD_DEPENDS_DIR=${BUILD_DEPENDS_DIR:-"${BUILD_DIR}/depends"}
     BUILD_DEPENDS_DIR="$(_canonicalize "$BUILD_DEPENDS_DIR")"
+    PYTHON_VENV_BIN_DIR="${BUILD_DIR}/env/bin"
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
@@ -1006,8 +1007,8 @@ _ensure_enter_dir() {
 }
 
 _ensure_venv_active() {
-  local build_dir="${BUILD_DIR}"
-  source ${build_dir}/env/bin/activate
+  local python_venv="${PYTHON_VENV_BIN_DIR}"
+  source ${python_venv}/activate
 
   INVENV=$(python3 -c 'import sys; print (sys.prefix != sys.base_prefix)')
   if [ "$INVENV" == "False" ]; then
