@@ -261,7 +261,9 @@ impl EVMServices {
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
             let total_burnt_fees = U256::from(total_gas_used) * base_fee;
             let total_priority_fees = total_gas_fees - total_burnt_fees;
-            Ok(FinalizedBlockInfo {
+            debug!("[finalize_block] Total burnt fees : {:#?}", total_burnt_fees);
+            debug!("[finalize_block] raw transaction : {:#?}", total_priority_fees);
+        Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
                 total_burnt_fees: total_burnt_fees.try_into().unwrap(),

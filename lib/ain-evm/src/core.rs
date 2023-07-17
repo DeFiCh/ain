@@ -242,6 +242,7 @@ impl EVMCoreService {
         };
 
         if call_tx {
+            debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
                 .get_total_gas_used(context)
