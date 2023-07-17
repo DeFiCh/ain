@@ -1,7 +1,7 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas};
+use crate::fee::calculate_prepay_gas;
 use crate::receipt::ReceiptService;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
