@@ -252,13 +252,7 @@ impl EVMCoreService {
             }
         }
 
-        let tx_fee = if call_tx {
-            calculate_gas_fee(&signed_tx, U256::from(used_gas))
-        } else {
-            U256::zero()
-        };
-
-        Ok((signed_tx, tx_fee, used_gas))
+        Ok((signed_tx, prepay_gas, used_gas))
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
