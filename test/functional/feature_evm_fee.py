@@ -62,7 +62,7 @@ class EVMFeeTest(DefiTestFramework):
 
     def test_low_gas_price(self):
         height = self.nodes[0].getblockcount()
-        
+
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
