@@ -1,5 +1,4 @@
 use crate::precompiles::MetachainPrecompiles;
-use std::str::FromStr;
 
 use crate::bytes::Bytes;
 use crate::{

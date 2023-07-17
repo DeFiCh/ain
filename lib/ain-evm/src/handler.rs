@@ -135,13 +135,12 @@ impl Handlers {
         debug!("Raw TX queue",);
 
         for (qtx, _) in self.evm.tx_queues.get_cloned_vec(context) {
-            match qtx {
-                QueueTx::SignedTx(t) => match t.transaction {
+            if let QueueTx::SignedTx(t) = qtx {
+                match t.transaction {
                     TransactionV2::Legacy(tx) => debug!("{:?}", tx.nonce),
                     TransactionV2::EIP2930(tx) => debug!("{:?}", tx.nonce),
                     TransactionV2::EIP1559(tx) => debug!("{:?}", tx.nonce),
-                },
-                _ => {}
+                }
             }
         }
 

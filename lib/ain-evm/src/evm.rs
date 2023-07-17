@@ -444,7 +444,6 @@ impl EVMHandler {
     }
 }
 
-use keccak_hash::keccak256;
 use std::fmt;
 
 #[derive(Debug)]

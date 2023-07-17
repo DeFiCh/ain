@@ -1069,7 +1069,7 @@ public:
         if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
             try {
-                create_dst20(result, evmContext, applyChanges, tx.GetHash().ToArrayReversed(),
+                create_dst20(result, evmContext, tx.GetHash().ToArrayReversed(),
                              rust::string(tokenSymbol.c_str()),
                              rust::string(tokenName.c_str()), tokenId->ToString());
             }

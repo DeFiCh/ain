@@ -204,6 +204,9 @@ impl TransactionQueue {
     pub fn len(&self) -> usize {
         self.transactions.lock().unwrap().len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.transactions.lock().unwrap().is_empty()
+    }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
         self.transactions.lock().unwrap().retain(|(tx, _)| {

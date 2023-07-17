@@ -1,4 +1,3 @@
-use crate::runtime::RUNTIME;
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
@@ -189,7 +188,7 @@ impl EVMBackend {
 
         self.state
             .insert(address.as_bytes(), account_data.as_raw())
-            .map_err(|err| EVMBackendError::DeployContractFailed(*address))
+            .map_err(|_| EVMBackendError::DeployContractFailed(*address))
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {
