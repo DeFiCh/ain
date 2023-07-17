@@ -214,27 +214,33 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
             metadata << finMsg;
 
-            CTxDestination destination =
-                    finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
-                            WitnessV0KeyHash(finMsg.rewardKeyID));
+            CTxDestination destination;
+            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+            }
+            else {
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+            }
 
-            CMutableTransaction mTx(txVersion);
-            mTx.vin.resize(1);
-            mTx.vin[0].prevout.SetNull();
-            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-            mTx.vout.resize(2);
-            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-            mTx.vout[0].nValue = 0;
-            mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
-                    CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
+            if (IsValidDestination(destination)) {
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(2);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+                mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
+                        CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
-            auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
-            if (!rewardTx) {
-                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(
-                        WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
+                if (!rewardTx) {
+                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+                    pblocktemplate->vTxFees.push_back(0);
+                    pblocktemplate->vTxSigOpsCost.push_back(
+                            WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                }
             }
         }
     }
@@ -1032,13 +1038,10 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType));
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType));
                 }
             } else {
                 scriptPubKey = args.coinbaseScript;

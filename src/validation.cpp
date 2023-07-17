@@ -918,7 +918,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
             const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
-            assert(result.ok); // Already checked via ApplyCustomTX
+            if (!result.ok) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
+            }
             const auto sender = pool.ethTxsBySender.find(txResult.sender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
@@ -4202,7 +4204,15 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
-            if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(node->GetRewardAddressDestination())) {
+            CTxDestination destination;
+            if (height < consensusParams.ChangiIntermediateHeight) {
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
+            }
+            else {
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
+            }
+
+            if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {
                 return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-rewardaddress", "proof of stake failed");
             }
         }

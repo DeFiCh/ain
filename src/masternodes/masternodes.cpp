@@ -168,19 +168,6 @@ bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
     return state == ENABLED || state == PRE_RESIGNED;
 }
 
-CTxDestination CMasternode::GetRewardAddressDestination() const {
-    switch(rewardAddressType) {
-        case PKHashType:
-            return {PKHash(rewardAddress)};
-        case ScriptHashType:
-            return {ScriptHash(rewardAddress)};
-        case WitV0KeyHashType:
-            return {WitnessV0KeyHash(rewardAddress)};
-    }
-
-    return {};
-}
-
 std::string CMasternode::GetHumanReadableState(State state) {
     switch (state) {
         case PRE_ENABLED:
@@ -269,9 +256,7 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
     const auto operators = gArgs.GetArgs("-masternode_operator");
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                       : CKeyID();
+        const CKeyID authAddress  = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -286,9 +271,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                       : CKeyID();
+        const CKeyID authAddress  = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -301,10 +284,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    const CKeyID authAddress =
-        dest.index() == PKHashType
-            ? CKeyID(std::get<PKHash>(dest))
-            : (dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID());
+    const CKeyID authAddress  = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
     if (!authAddress.IsNull()) {
         auto nodeId = GetMasternodeIdByOwner(authAddress);
         if (nodeId)
@@ -1363,17 +1343,13 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
     mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
         if (node.rewardAddressType) {
-            const CScript rewardAddress = GetScriptForDestination(node.rewardAddressType == PKHashType ?
-                                                                  CTxDestination(PKHash(node.rewardAddress)) :
-                                                                  CTxDestination(WitnessV0KeyHash(node.rewardAddress)));
+            const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.rewardAddressType, node.rewardAddress, KeyType::MNRewardKeyType));
             if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
                 mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
             }
         }
 
-        const CScript rewardAddress = GetScriptForDestination(node.ownerType == PKHashType ?
-                                                              CTxDestination(PKHash(node.ownerAuthAddress)) :
-                                                              CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress)));
+        const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.ownerType, node.ownerAuthAddress, KeyType::MNOwnerKeyType));
         if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
         }
