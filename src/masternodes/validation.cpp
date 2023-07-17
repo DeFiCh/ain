@@ -2441,7 +2441,13 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
-    cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
+    if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
+        cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+    }
+    else {
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    }
 }
 
 static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
