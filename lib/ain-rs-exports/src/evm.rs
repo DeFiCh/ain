@@ -1,6 +1,6 @@
 use ain_evm::{
-    services::SERVICES,
     evm::FinalizedBlockInfo,
+    services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
