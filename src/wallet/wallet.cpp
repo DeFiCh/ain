@@ -3834,7 +3834,7 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
 
     // Generate a new key that is added to wallet
     CPubKey new_key;
-    if (!GetKeyFromPool(new_key, type == OutputType::ETH)) {
+    if (!GetKeyFromPool(new_key, type == OutputType::ERC55)) {
         error = "Error: Keypool ran out, please call keypoolrefill first";
         return false;
     }
@@ -3842,10 +3842,11 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
     LearnRelatedScripts(new_key, type);
     dest = GetDestinationForKey(new_key, type);
 
-    if (type != OutputType::ETH) {
+    if (type != OutputType::ERC55) {
         SetAddressBook(dest, label, "receive");
     } else {
-        SetAddressBook(dest, "eth", "eth");
+        // TODO: On rollback, change to erc55
+        SetAddressBook(dest, label, "eth");
     }
 
     return true;
@@ -4799,7 +4800,7 @@ void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
         // Make sure the resulting program is solvable.
         assert(IsSolvable(*this, witprog));
         AddCScript(witprog);
-    } else if (!key.IsCompressed() && type == OutputType::ETH) {
+    } else if (!key.IsCompressed() && type == OutputType::ERC55) {
         CScript script = GetScriptForDestination(WitnessV16EthHash(key));
         AddCScript(script);
     }

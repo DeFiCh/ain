@@ -17,7 +17,7 @@ enum class OutputType {
     LEGACY,
     P2SH_SEGWIT,
     BECH32,
-    ETH,
+    ERC55,
 
     /**
      * Special output type for change outputs only. Automatically choose type

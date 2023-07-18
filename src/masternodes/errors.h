@@ -443,7 +443,7 @@ public:
     }
 
     static Res TransferDomainETHSourceAddress() {
-        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Src address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMSourceAddress() {
@@ -455,7 +455,7 @@ public:
     }
 
     static Res TransferDomainETHDestAddress() {
-        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Dst address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMDestAddress() {

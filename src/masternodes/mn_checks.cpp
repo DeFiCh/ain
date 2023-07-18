@@ -3878,7 +3878,7 @@ public:
                 if (!res)
                     return res;
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Subtract balance from ETH address
+                // Subtract balance from ERC55 address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
@@ -3896,7 +3896,7 @@ public:
                 if (!res)
                     return res;
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Add balance to ETH address
+                // Add balance to ERC55 address
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
