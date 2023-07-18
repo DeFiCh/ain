@@ -217,15 +217,23 @@ impl EVMCoreService {
         let prepay_gas = calculate_prepay_gas(&signed_tx);
         debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
 
-        if balance < prepay_gas {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(anyhow!("insufficient balance to pay fees").into());
-        }
-
         let gas_limit = signed_tx.gas_limit();
-        if gas_limit < MIN_GAS_PER_TX {
-            debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
-            return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            if balance < prepay_gas {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(anyhow!("insufficient balance to pay fees").into());
+            }
+
+            if gas_limit < MIN_GAS_PER_TX {
+                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
+                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+            }
+        }
+        else {
+            if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(anyhow!("insufficient balance to pay fees").into());
+            }
         }
 
         if gas_limit > MAX_GAS_PER_BLOCK {
