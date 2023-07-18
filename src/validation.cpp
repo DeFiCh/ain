@@ -2597,9 +2597,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {

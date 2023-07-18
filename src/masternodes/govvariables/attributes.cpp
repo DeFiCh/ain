@@ -59,6 +59,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
         {"gov",            AttributeTypes::Governance},
         {"consortium",     AttributeTypes::Consortium},
         {"transferdomain", AttributeTypes::Transfer  },
+        {"evm",            AttributeTypes::EVMType   },
     };
     return types;
 }
@@ -74,6 +75,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
         {AttributeTypes::Governance, "gov"           },
         {AttributeTypes::Consortium, "consortium"    },
         {AttributeTypes::Transfer,   "transferdomain"},
+        {AttributeTypes::EVMType,    "evm"           },
     };
     return types;
 }
@@ -126,6 +128,20 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedOracleIDs() {
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayOracleIDs() {
     static const std::map<uint8_t, std::string> params{
         {OracleIDs::Splits, "splits"},
+    };
+    return params;
+}
+
+const std::map<std::string, uint8_t> &ATTRIBUTES::allowedEVMIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"block", EVMIDs::Block},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayEVMIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {EVMIDs::Block, "block"},
     };
     return params;
 }
@@ -215,6 +231,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"allow-dusd-loops", DFIPKeys::AllowDUSDLoops},
              {"transferdomain", DFIPKeys::TransferDomain},
          }},
+        {AttributeTypes::EVMType,
+         {
+            {"confirmations_for_final", EVMKeys::Finalized},
+         }},
         {AttributeTypes::Governance,
          {
              {"fee_redistribution", GovernanceKeys::FeeRedistribution},
@@ -298,6 +318,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::AllowDUSDLoops, "allow-dusd-loops"},
              {DFIPKeys::TransferDomain, "transferdomain"},
+         }},
+        {AttributeTypes::EVMType,
+         {
+            {EVMKeys::Finalized, "confirmations_for_final"},
          }},
         {AttributeTypes::Live,
          {
@@ -642,6 +666,10 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              {
                  {OracleIDs::Splits, VerifySplit},
              }},
+            {AttributeTypes::EVMType,
+             {
+                {EVMKeys::Finalized, VerifyUInt32},
+             }},
             {AttributeTypes::Governance,
              {
                  {GovernanceKeys::FeeRedistribution, VerifyBool},
@@ -769,7 +797,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("locks", allowedLocksIDs());
         }
         typeId = id->second;
-    } else if (type == AttributeTypes::Oracles) {
+    } else if (type == AttributeTypes::EVMType) {
+        auto id = allowedEVMIDs().find(keys[2]);
+        if (id == allowedEVMIDs().end()) {
+            return DeFiErrors::GovVarVariableInvalidKey("evm", allowedEVMIDs());
+        }
+        typeId = id->second;
+    }else if (type == AttributeTypes::Oracles) {
         auto id = allowedOracleIDs().find(keys[2]);
         if (id == allowedOracleIDs().end()) {
             return DeFiErrors::GovVarVariableInvalidKey("oracles", allowedOracleIDs());
@@ -864,6 +898,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedParamType();
+            }
+        } else if (type == AttributeTypes::EVMType) {
+            if (typeId == EVMIDs::Block) {
+                if (typeKey != EVMKeys::Finalized)
+                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+            } else {
+                return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         } else if (type == AttributeTypes::Governance) {
             if (typeId == GovernanceIDs::Proposals) {
@@ -1188,6 +1229,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             if (attrV0->type == AttributeTypes::Param || attrV0->type == AttributeTypes::Live ||
                 attrV0->type == AttributeTypes::Locks) {
                 id = displayParamsIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::EVMType) {
+                id = displayEVMIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Oracles) {
                 id = displayOracleIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Governance) {
@@ -1602,6 +1645,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Governance:
                 if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                     return Res::Err("Cannot be set before GrandCentral");
+                }
+                break;
+
+            case AttributeTypes::EVMType:
+                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 break;
 
