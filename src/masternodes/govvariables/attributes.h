@@ -53,7 +53,7 @@ enum TransferIDs : uint8_t {
 };
 
 enum VaultIDs : uint8_t {
-    DFIPDUSDVault = 'a',
+    DUSDVault = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -98,7 +98,7 @@ enum DFIPKeys : uint8_t {
     MintTokens           = 't',
     EVMEnabled           = 'u',
     ICXEnabled           = 'v',
-    DUSDVault            = 'w',
+    DUSDVaultEnabled     = 'w',
     TransferDomain       = 'x',
 };
 

@@ -541,7 +541,7 @@ class DUSDLoanTests(DefiTestFramework):
                                 self.takeloan_withdraw, vault_id, "67.00000000@DUSD", 'takeloan')
 
         self.goto_next_height()
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dfipusdvault/dusd-vault': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/dusd-vault-enabled': 'true'}})
         self.nodes[0].generate(1)
 
         self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
@@ -564,7 +564,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.takeloan_withdraw(vault_id, "100.00000000@BTC", 'withdraw')
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dfipusdvault/dusd-vault': 'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/dusd-vault-enabled': 'false'}})
         self.nodes[0].generate(1)
 
         # not allowed if attribute false

@@ -3043,11 +3043,11 @@ public:
         auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
 
         if(isPostNext) {
-            const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DFIPDUSDVault, DFIPKeys::DUSDVault};
+            const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, DFIPKeys::DUSDVaultEnabled};
             auto attributes = mnview.GetAttributes();
             assert(attributes);
-            auto DUSDVaultAllowed= attributes->GetValue(enabledKey, false);
-            if(DUSDVaultAllowed && hasDUSDColl && !hasOtherColl) {
+            auto DUSDVaultsAllowed = attributes->GetValue(enabledKey, false);
+            if(DUSDVaultsAllowed && hasDUSDColl && !hasOtherColl) {
                 return Res::Ok(); //every loan ok when DUSD loops allowed and 100% DUSD collateral
             }
         }
