@@ -53,7 +53,8 @@ Res ChangiBuggyIntermediates::ValidateTransferDomainEdge2(const CTransaction &tx
                     return DeFiErrors::TransferDomainDVMDestAddress();
                 }
             }
-            return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+            return HasAuth(tx, coins, src.address, AuthStrategy::Mapped,
+                           static_cast<AuthFlags>(AuthFlags::SourceBech32 | AuthFlags::SourcePKHash));
         }
         return res;
     }

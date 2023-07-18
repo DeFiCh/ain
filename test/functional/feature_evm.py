@@ -209,6 +209,15 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32', 'p2pkh']}})
         self.nodes[0].generate(1)
 
+        # Check transferdomain EVM to DVM before Bech32 auth is enabled
+        assert_raises_rpc_error(-32600, 'tx must have at least one input from account owner', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}}])
+
+        # Activate transferdomain ERC55 address
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/auth-formats': ['bech32-erc55']}})
+        self.nodes[0].generate(1)
+
+        print(self.nodes[0].getgov('ATTRIBUTES'))
+
         # Test not enough balance for EVM to DVM transfer
         assert_raises_rpc_error(-32600, "Not enough balance in " + eth_address + " to cover \"EVM\" domain transfer", self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
 

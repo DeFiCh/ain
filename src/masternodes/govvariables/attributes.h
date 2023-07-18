@@ -148,7 +148,8 @@ enum PoolKeys : uint8_t {
 enum TransferKeys : uint8_t {
     TransferEnabled = 'a',
     Src_Formats     = 'b',
-    Dest_Formats     = 'c',
+    Dest_Formats    = 'c',
+    Auth_Formats    = 'd',
 };
 
 struct CDataStructureV0 {
@@ -301,7 +302,9 @@ struct CConsortiumDailyMinted : public CConsortiumMinted {
 
 enum EVMAddressTypes : uint8_t {
     BECH32,
+    BECH32_ERC55,
     PKHASH,
+    PKHASH_ERC55,
     ERC55,
 };
 
@@ -312,7 +315,7 @@ using AscendantValue           = std::pair<uint32_t, std::string>;
 using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
 using CConsortiumGlobalMinted  = std::map<DCT_ID, CConsortiumMinted>;
-using AllowedEVMAddresses      = std::set<uint8_t>;
+using AllowedEVMTypes          = std::set<uint8_t>;
 using CAttributeType           = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue          = std::variant<bool,
                                      CAmount,
@@ -331,7 +334,7 @@ using CAttributeValue          = std::variant<bool,
                                      CConsortiumGlobalMinted,
                                      int32_t,
                                      uint32_t,
-                                     AllowedEVMAddresses>;
+                                     AllowedEVMTypes>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);

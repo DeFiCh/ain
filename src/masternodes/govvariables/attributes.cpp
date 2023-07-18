@@ -237,6 +237,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
             {"enabled", TransferKeys::TransferEnabled},
             {"src-formats", TransferKeys::Src_Formats},
             {"dest-formats", TransferKeys::Dest_Formats},
+            {"auth-formats", TransferKeys::Auth_Formats},
          }},
     };
     return keys;
@@ -341,6 +342,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
             {TransferKeys::TransferEnabled, "enabled"},
             {TransferKeys::Src_Formats, "src-formats"},
             {TransferKeys::Dest_Formats, "dest-formats"},
+            {TransferKeys::Auth_Formats, "auth-formats"},
          }},
     };
     return keys;
@@ -578,18 +580,21 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
 }
 
 static ResVal<CAttributeValue> VerifyEVMAddressTypes(const UniValue &array) {
-    AllowedEVMAddresses addressSet;
+    AllowedEVMTypes addressSet;
     for (const auto &value : array.getValues()) {
         if (value.getValStr() != "erc55") {
             return Res::Err("Unrecognised address format, expected types are: erc55");
         }
         addressSet.insert(EVMAddressTypes::ERC55);
     }
+    if (addressSet.empty()) {
+        return Res::Err("No values set");
+    }
     return {addressSet, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyDVMAddressTypes(const UniValue &array) {
-    AllowedEVMAddresses addressSet;
+    AllowedEVMTypes addressSet;
     for (const auto &value : array.getValues()) {
         if (value.getValStr() == "bech32") {
             addressSet.insert(EVMAddressTypes::BECH32);
@@ -598,6 +603,26 @@ static ResVal<CAttributeValue> VerifyDVMAddressTypes(const UniValue &array) {
         } else {
             return Res::Err("Unrecognised address format, expected types are: bech32, p2pkh");
         }
+    }
+    if (addressSet.empty()) {
+        return Res::Err("No values set");
+    }
+    return {addressSet, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyEVMAuthTypes(const UniValue &array) {
+    AllowedEVMTypes addressSet;
+    for (const auto &value : array.getValues()) {
+        if (value.getValStr() == "bech32-erc55") {
+            addressSet.insert(EVMAddressTypes::BECH32_ERC55);
+        } else if (value.getValStr() == "p2pkh-erc55") {
+            addressSet.insert(EVMAddressTypes::PKHASH_ERC55);
+        } else {
+            return Res::Err("Unrecognised address format, expected types are: bech32-erc55, p2pkh-erc55");
+        }
+    }
+    if (addressSet.empty()) {
+        return Res::Err("No values set");
     }
     return {addressSet, Res::Ok()};
 }
@@ -906,10 +931,17 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         } else if (type == AttributeTypes::Transfer) {
-            if (typeId == TransferIDs::DVMToEVM || typeId == TransferIDs::EVMToDVM) {
+            if (typeId == TransferIDs::DVMToEVM) {
                 if (typeKey != TransferKeys::TransferEnabled &&
                     typeKey != TransferKeys::Src_Formats &&
                     typeKey != TransferKeys::Dest_Formats) {
+                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+                }
+            } else if (typeId == TransferIDs::EVMToDVM) {
+                if (typeKey != TransferKeys::TransferEnabled &&
+                    typeKey != TransferKeys::Src_Formats &&
+                    typeKey != TransferKeys::Dest_Formats &&
+                    typeKey != TransferKeys::Auth_Formats) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else {
@@ -963,11 +995,20 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         return applyVariable(attrV0, *attribValue.val);
     } else if (attrV0.type == AttributeTypes::Transfer &&
                attrV0.typeId == TransferIDs::EVMToDVM &&
-               (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats)) {
+               (attrV0.key == TransferKeys::Dest_Formats ||
+               attrV0.key == TransferKeys::Src_Formats ||
+               attrV0.key == TransferKeys::Auth_Formats)) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
-        auto attribValue = attrV0.key == TransferKeys::Src_Formats ? VerifyEVMAddressTypes(*value) : VerifyDVMAddressTypes(*value);
+        ResVal<CAttributeValue> attribValue(AllowedEVMTypes{}, Res::Ok());
+        if (attrV0.key == TransferKeys::Dest_Formats) {
+            attribValue = VerifyDVMAddressTypes(*value);
+        } else if (attrV0.key == TransferKeys::Src_Formats) {
+            attribValue = VerifyEVMAddressTypes(*value);
+        } else if (attrV0.key == TransferKeys::Auth_Formats) {
+            attribValue = VerifyEVMAuthTypes(*value);
+        }
         if (!attribValue) {
             return std::move(attribValue);
         }
@@ -1389,13 +1430,17 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     array.push_back(member);
                 }
                 ret.pushKV(key, array);
-            } else if (const auto values = std::get_if<AllowedEVMAddresses>(&attribute.second)) {
+            } else if (const auto values = std::get_if<AllowedEVMTypes>(&attribute.second)) {
                 UniValue array(UniValue::VARR);
                 for (const auto &value : *values) {
                     if (value == EVMAddressTypes::BECH32) {
                         array.push_back("bech32");
+                    } else if (value == EVMAddressTypes::BECH32_ERC55) {
+                        array.push_back("bech32-erc55");
                     } else if (value == EVMAddressTypes::PKHASH) {
                         array.push_back("p2pkh");
+                    } else if (value == EVMAddressTypes::PKHASH_ERC55) {
+                        array.push_back("p2pkh-erc55");
                     } else if (value == EVMAddressTypes::ERC55) {
                         array.push_back("erc55");
                     }

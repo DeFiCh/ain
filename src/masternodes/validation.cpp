@@ -2460,9 +2460,23 @@ static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView&
 
     CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 dvm_dvm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::Src_Formats};
+    CDataStructureV0 dvm_evm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::Dest_Formats};
+    CDataStructureV0 evm_evm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Src_Formats};
+    CDataStructureV0 evm_dvm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Dest_Formats};
+    CDataStructureV0 evm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Auth_Formats};
+
+    AllowedEVMTypes native{EVMAddressTypes::PKHASH, EVMAddressTypes::BECH32};
+    AllowedEVMTypes erc55{EVMAddressTypes::ERC55};
+    AllowedEVMTypes auth{EVMAddressTypes::BECH32_ERC55, EVMAddressTypes::PKHASH_ERC55};
 
     attributes->SetValue(evm_dvm, true);
     attributes->SetValue(dvm_evm, true);
+    attributes->SetValue(dvm_dvm_formats, native);
+    attributes->SetValue(dvm_evm_formats, erc55);
+    attributes->SetValue(evm_evm_formats, erc55);
+    attributes->SetValue(evm_dvm_formats, native);
+    attributes->SetValue(evm_auth_formats, auth);
 
     cache.SetVariable(*attributes);
 }
