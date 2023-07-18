@@ -310,15 +310,6 @@ public:
         }
         return false;
     }
-    bool HasTokens() const
-    {
-        for (size_t i = 0; i < vout.size(); i++) {
-            if (vout[i].nTokenId > DCT_ID{0}) {
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
 /** A mutable version of CTransaction. */
@@ -337,7 +328,6 @@ struct CMutableTransaction
     inline void Serialize(Stream& s) const {
         SerializeTransaction(*this, s);
     }
-
 
     template <typename Stream>
     inline void Unserialize(Stream& s) {
@@ -358,15 +348,6 @@ struct CMutableTransaction
     {
         for (size_t i = 0; i < vin.size(); i++) {
             if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
-    }
-    bool HasTokens() const
-    {
-        for (size_t i = 0; i < vout.size(); i++) {
-            if (vout[i].nTokenId > DCT_ID{0}) {
                 return true;
             }
         }

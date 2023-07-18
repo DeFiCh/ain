@@ -174,7 +174,6 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "\nGenerate 11 blocks to myaddress\n"
             + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
             + "If you are running the DeFi Blockchain wallet, you can get a new address to send the newly generated DFI to with:\n"
-            + HelpExampleCli("getnewaddress", "")
                 },
             }.Check(request);
 
