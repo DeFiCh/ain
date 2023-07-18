@@ -132,6 +132,8 @@ impl EVMServices {
             ),
         };
 
+        let base_fee = self.block.calculate_base_fee(parent_hash);
+
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.core.trie_store),
@@ -170,7 +172,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas));
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee);
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
@@ -241,9 +243,6 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
         );
-
-        // calculate base fee
-        let base_fee = self.block.calculate_base_fee(parent_hash);
 
         if update_state {
             debug!(
