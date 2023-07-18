@@ -252,7 +252,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Vaults,
         {
-             {"dusd-vault-enabled", DFIPKeys::DUSDVaultEnabled},
+             {"dusd-vault-enabled", VaultKeys::DUSDVaultEnabled},
         }},
     };
     return keys;
@@ -358,7 +358,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Vaults,
         {
-             {DFIPKeys::DUSDVaultEnabled, "dusd-vault-enabled"},
+             {VaultKeys::DUSDVaultEnabled, "dusd-vault-enabled"},
         }},
     };
     return keys;
@@ -685,7 +685,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Vaults,
             {
-                 {DFIPKeys::DUSDVaultEnabled, VerifyBool},
+                 {VaultKeys::DUSDVaultEnabled, VerifyBool},
             }},
     };
     return parsers;
@@ -918,7 +918,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::Vaults) {
             if (typeId == VaultIDs::DUSDVault) {
-                if (typeKey != DFIPKeys::DUSDVaultEnabled) {
+                if (typeKey != VaultKeys::DUSDVaultEnabled) {
                     return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
                 }
             } else {
@@ -1654,7 +1654,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Vaults:
-                if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == DFIPKeys::DUSDVaultEnabled) {
+                if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
                     if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
                         return Res::Err("Cannot be set before NextNetworkUpgrade");
                     }

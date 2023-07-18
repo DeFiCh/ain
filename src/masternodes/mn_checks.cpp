@@ -3043,7 +3043,7 @@ public:
         auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
 
         if(isPostNext) {
-            const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, DFIPKeys::DUSDVaultEnabled};
+            const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};
             auto attributes = mnview.GetAttributes();
             assert(attributes);
             auto DUSDVaultsAllowed = attributes->GetValue(enabledKey, false);

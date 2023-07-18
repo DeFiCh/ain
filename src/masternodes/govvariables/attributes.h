@@ -98,8 +98,7 @@ enum DFIPKeys : uint8_t {
     MintTokens           = 't',
     EVMEnabled           = 'u',
     ICXEnabled           = 'v',
-    DUSDVaultEnabled     = 'w',
-    TransferDomain       = 'x',
+    TransferDomain       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -152,6 +151,10 @@ enum PoolKeys : uint8_t {
 enum TransferKeys : uint8_t {
     DVM_EVM = 'a',
     EVM_DVM = 'b',
+};
+
+enum VaultKeys : uint8_t {
+    DUSDVaultEnabled = 'w',
 };
 
 struct CDataStructureV0 {
