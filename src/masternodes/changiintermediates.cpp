@@ -26,7 +26,7 @@ Res ChangiBuggyIntermediates::ValidateTransferDomainEdge2(const CTransaction &tx
 
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             CTxDestination dest;
-            // Reject if source address is ERC55 address
+            // Reject if source address is ETH address
             if (ExtractDestination(src.address, dest)) {
                 if (dest.index() == WitV16KeyEthHashType) {
                     return DeFiErrors::TransferDomainDVMSourceAddress();
