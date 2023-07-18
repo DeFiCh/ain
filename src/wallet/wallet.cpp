@@ -3901,16 +3901,17 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
     dest = GetDestinationForKey(new_key, type);
 
     SetAddressBook(dest, label, "receive");
-    SetAddressBook(GetDestinationForKey(new_key, OutputType::ETH), "eth", "receive");
 
     if (!new_key.IsCompressed()) {
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::ETH), label, "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), label, "receive");
         new_key.Compress();
-        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), "", "receive");
-        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), "", "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), label, "receive");
     } else {
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), label, "receive");
         new_key.Decompress();
-        SetAddressBook(GetDestinationForKey(new_key, OutputType::BECH32), "", "receive");
-        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), "", "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::ETH), label, "receive");
+        SetAddressBook(GetDestinationForKey(new_key, OutputType::LEGACY), label, "receive");
     }
 
     return true;

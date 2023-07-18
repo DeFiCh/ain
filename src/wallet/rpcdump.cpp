@@ -664,8 +664,6 @@ UniValue importwallet(const JSONRPCRequest& request)
                 if (label == "spv") {
                     pwallet->SetAddressBook(PKHash(keyid), label, "spv");
                     spvPubKeys.insert(pubkey);
-                } else if (label == "eth") {
-                    pwallet->SetAddressBook(WitnessV16EthHash(keyid), label, "receive");
                 } else {
                     pwallet->SetAddressBook(PKHash(keyid), label, "receive");
                 }

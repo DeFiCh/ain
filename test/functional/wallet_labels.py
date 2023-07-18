@@ -13,6 +13,7 @@ from collections import defaultdict
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.address import key_to_p2pkh
 
 
 class WalletLabelsTest(DefiTestFramework):
@@ -108,7 +109,13 @@ class WalletLabelsTest(DefiTestFramework):
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
             address = node.getnewaddress()
+            eth_address = node.vmmap(address, 1)
+            bech32_address = node.vmmap(eth_address, 2)
+            legacy_address = key_to_p2pkh(node.getaddressinfo(eth_address)['pubkey'])
             node.setlabel(address, label.name)
+            node.setlabel(eth_address, label.name)
+            node.setlabel(bech32_address, label.name)
+            node.setlabel(legacy_address, label.name)
             label.add_address(address)
             label.verify(node)
             assert_raises_rpc_error(-11, "No addresses with label", node.getaddressesbylabel, "")
@@ -162,8 +169,14 @@ class Label:
                  "purpose": self.purpose[address]})
             assert_equal(node.getaddressinfo(address)['label'], self.name)
 
+        # Ignore addresses added from Eth address support
+        addresses = node.getaddressesbylabel(self.name)
+        delete = [key for key in addresses if key[0:1] != '2']
+        for key in delete:
+            del addresses[key]
+
         assert_equal(
-            node.getaddressesbylabel(self.name),
+            addresses,
             {address: {"purpose": self.purpose[address]} for address in self.addresses})
 
 
