@@ -50,7 +50,8 @@ pub mod ffi {
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
-        pub used_gas: u64,
+        pub tx_fees: u64,
+        pub gas_used: u64,
     }
 
     extern "Rust" {
@@ -79,13 +80,15 @@ pub mod ffi {
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-            with_gas_usage: bool,
+            call_tx: bool,
+            context: u64,
         ) -> ValidateTxCompletion;
         fn evm_try_queue_tx(
             result: &mut CrossBoundaryResult,
             context: u64,
             raw_tx: &str,
-            native_tx_hash: [u8; 32],
+            hash: [u8; 32],
+            gas_used: u64,
         );
         fn evm_try_finalize(
             result: &mut CrossBoundaryResult,
