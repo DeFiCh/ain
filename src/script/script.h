@@ -56,7 +56,8 @@ enum opcodetype
     // push value
     OP_0 = 0x00,
     OP_FALSE = OP_0,
-    OP_PUSHDATA1 = 0x4c,
+
+    OP_PUSHDATA1 = 0x4c,                    // 76
     OP_PUSHDATA2 = 0x4d,
     OP_PUSHDATA4 = 0x4e,
     OP_1NEGATE = 0x4f,
@@ -80,7 +81,7 @@ enum opcodetype
     OP_16 = 0x60,
 
     // control
-    OP_NOP = 0x61,
+    OP_NOP = 0x61,                          // 97
     OP_VER = 0x62,
     OP_IF = 0x63,
     OP_NOTIF = 0x64,
@@ -92,7 +93,7 @@ enum opcodetype
     OP_RETURN = 0x6a,
 
     // stack ops
-    OP_TOALTSTACK = 0x6b,
+    OP_TOALTSTACK = 0x6b,                   // 107
     OP_FROMALTSTACK = 0x6c,
     OP_2DROP = 0x6d,
     OP_2DUP = 0x6e,
@@ -113,14 +114,14 @@ enum opcodetype
     OP_TUCK = 0x7d,
 
     // splice ops
-    OP_CAT = 0x7e,
+    OP_CAT = 0x7e,                          // 126
     OP_SUBSTR = 0x7f,
     OP_LEFT = 0x80,
     OP_RIGHT = 0x81,
     OP_SIZE = 0x82,
 
     // bit logic
-    OP_INVERT = 0x83,
+    OP_INVERT = 0x83,                       // 131
     OP_AND = 0x84,
     OP_OR = 0x85,
     OP_XOR = 0x86,
@@ -130,7 +131,7 @@ enum opcodetype
     OP_RESERVED2 = 0x8a,
 
     // numeric
-    OP_1ADD = 0x8b,
+    OP_1ADD = 0x8b,                         // 139
     OP_1SUB = 0x8c,
     OP_2MUL = 0x8d,
     OP_2DIV = 0x8e,
@@ -162,9 +163,8 @@ enum opcodetype
     OP_WITHIN = 0xa5,
 
     // crypto
-    OP_RIPEMD160 = 0xa6,
+    OP_RIPEMD160 = 0xa6,                    // 166
     OP_SHA1 = 0xa7,
-    OP_SHA3 = 0xc0,
     OP_SHA256 = 0xa8,
     OP_HASH160 = 0xa9,
     OP_HASH256 = 0xaa,
@@ -175,7 +175,7 @@ enum opcodetype
     OP_CHECKMULTISIGVERIFY = 0xaf,
 
     // expansion
-    OP_NOP1 = 0xb0,
+    OP_NOP1 = 0xb0,                         // 176
     OP_CHECKLOCKTIMEVERIFY = 0xb1,
     OP_NOP2 = OP_CHECKLOCKTIMEVERIFY,
     OP_CHECKSEQUENCEVERIFY = 0xb2,
@@ -188,7 +188,10 @@ enum opcodetype
     OP_NOP9 = 0xb8,
     OP_NOP10 = 0xb9,
 
-    OP_INVALIDOPCODE = 0xff,
+    // DeFiChain expansion
+    OP_KECCAK = 0xc0,                       // 192
+
+    OP_INVALIDOPCODE = 0xff,                // 255
 };
 
 // Maximum value that an opcode can be
