@@ -17,9 +17,8 @@ pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256, base_fee: U256) -
         ethereum::TransactionV2::Legacy(tx) => used_gas.saturating_mul(tx.gas_price),
         ethereum::TransactionV2::EIP2930(tx) => used_gas.saturating_mul(tx.gas_price),
         ethereum::TransactionV2::EIP1559(tx) => {
-            let max_gas_fee = used_gas.saturating_mul(tx.max_fee_per_gas);
-            let gas_fee_with_tip = used_gas.saturating_mul(tx.max_priority_fee_per_gas + base_fee);
-            cmp::min(max_gas_fee, gas_fee_with_tip)
+            let gas_fee = cmp::min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee);
+            used_gas.saturating_mul(gas_fee)
         }
     }
 }
