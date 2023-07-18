@@ -266,7 +266,7 @@ impl EVMServices {
                 total_burnt_fees
             );
             debug!(
-                "[finalize_block] raw transaction : {:#?}",
+                "[finalize_block] Total priority fees : {:#?}",
                 total_priority_fees
             );
             Ok(FinalizedBlockInfo {

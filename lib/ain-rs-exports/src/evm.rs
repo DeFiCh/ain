@@ -2,7 +2,7 @@ use ain_evm::{
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
-    transaction::{self, SignedTx},
+    transaction::{self, SignedTx}, core::ValidateTxInfo,
 };
 
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
@@ -220,14 +220,18 @@ pub fn evm_try_prevalidate_raw_tx(
     }
 
     match SERVICES.evm.core.validate_raw_tx(tx, call_tx, context) {
-        Ok((signed_tx, tx_fees, gas_used)) => {
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_gas,
+            used_gas,
+        }) => {
             result.ok = true;
 
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: tx_fees.try_into().unwrap_or_default(),
-                gas_used,
+                tx_fees: prepay_gas.try_into().unwrap_or_default(),
+                gas_used: used_gas,
             }
         }
         Err(e) => {

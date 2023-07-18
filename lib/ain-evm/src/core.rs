@@ -44,6 +44,12 @@ pub struct EthCallArgs<'a> {
     pub block_number: U256,
 }
 
+pub struct ValidateTxInfo {
+    pub signed_tx: SignedTx,
+    pub prepay_gas: U256,
+    pub used_gas: u64,
+}
+
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
     let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
@@ -162,7 +168,7 @@ impl EVMCoreService {
         tx: &str,
         call_tx: bool,
         context: u64,
-    ) -> Result<(SignedTx, U256, u64), Box<dyn Error>> {
+    ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -253,7 +259,11 @@ impl EVMCoreService {
             }
         }
 
-        Ok((signed_tx, prepay_gas, used_gas))
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_gas,
+            used_gas,
+        })
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
