@@ -261,6 +261,14 @@ impl EVMServices {
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
             let total_burnt_fees = U256::from(total_gas_used) * base_fee;
             let total_priority_fees = total_gas_fees - total_burnt_fees;
+            debug!(
+                "[finalize_block] Total burnt fees : {:#?}",
+                total_burnt_fees
+            );
+            debug!(
+                "[finalize_block] Total priority fees : {:#?}",
+                total_priority_fees
+            );
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
@@ -297,8 +305,16 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
-        self.core.tx_queues.queue_tx(context, tx.clone(), hash)?;
+    pub fn queue_tx(
+        &self,
+        context: u64,
+        tx: QueueTx,
+        hash: NativeTxHash,
+        gas_used: u64,
+    ) -> Result<(), EVMError> {
+        self.core
+            .tx_queues
+            .queue_tx(context, tx.clone(), hash, gas_used)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())
