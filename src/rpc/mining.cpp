@@ -174,7 +174,6 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "\nGenerate 11 blocks to myaddress\n"
             + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
             + "If you are running the DeFi Blockchain wallet, you can get a new address to send the newly generated DFI to with:\n"
-            + HelpExampleCli("getnewaddress", "")
                 },
             }.Check(request);
 
@@ -189,8 +188,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    CKeyID passedID = getCKeyIDFromDestination(destination);
-
+    CKeyID passedID = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {
       throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");

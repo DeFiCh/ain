@@ -2231,12 +2231,9 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(mn->GetRewardAddressDestination());
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddressType, mn->rewardAddress, KeyType::MNRewardKeyType));
                 } else {
-                    scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
-                                                           CTxDestination(PKHash(mn->ownerAuthAddress)) :
-                                                           CTxDestination(WitnessV0KeyHash(mn->ownerAuthAddress))
-                    );
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerType, mn->ownerAuthAddress, KeyType::MNOwnerKeyType));
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
@@ -2317,7 +2314,7 @@ static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& c
             assert(!coin.IsSpent());
             CTxDestination dest;
             assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            const CKeyID keyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
         }
         return true;
@@ -2382,67 +2379,92 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 }
 
 static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return;
 
-    if (IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) {
-        CKeyID minter;
-        assert(block.ExtractMinterKey(minter));
-        CScript minerAddress;
+    CKeyID minter;
+    assert(block.ExtractMinterKey(minter));
+    CScript minerAddress;
 
-        if (!fMockNetwork) {
-            const auto id = cache.GetMasternodeIdByOperator(minter);
-            assert(id);
-            const auto node = cache.GetMasternode(*id);
-            assert(node);
+    if (!fMockNetwork) {
+        const auto id = cache.GetMasternodeIdByOperator(minter);
+        assert(id);
+        const auto node = cache.GetMasternode(*id);
+        assert(node);
 
-            auto height = node->creationHeight;
-            auto mnID = *id;
-            if (!node->collateralTx.IsNull()) {
-                const auto idHeight = cache.GetNewCollateral(node->collateralTx);
-                assert(idHeight);
-                height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
-                mnID = node->collateralTx;
-            }
-
-            const auto blockindex = ::ChainActive()[height];
-            assert(blockindex);
-
-            CTransactionRef tx;
-            uint256 hash_block;
-            assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
-            assert(tx->vout.size() >= 2);
-
-            CTxDestination dest;
-            assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
-            assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
-
-            const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
-            minerAddress = GetScriptForDestination(dest);
-        } else {
-            std::copy(minter.begin(), minter.end(), beneficiary.begin());
-            const auto dest = PKHash(minter);
-            minerAddress = GetScriptForDestination(dest);
+        auto height = node->creationHeight;
+        auto mnID = *id;
+        if (!node->collateralTx.IsNull()) {
+            const auto idHeight = cache.GetNewCollateral(node->collateralTx);
+            assert(idHeight);
+            height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+            mnID = node->collateralTx;
         }
 
-        CrossBoundaryResult result;
-        const auto blockResult = evm_try_finalize(result, evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
-        auto evmBlockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
-        std::reverse(evmBlockHash.begin(), evmBlockHash.end());
+        const auto blockindex = ::ChainActive()[height];
+        assert(blockindex);
 
-        cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), uint256(evmBlockHash));
-        cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash), block.GetHash());
+        CTransactionRef tx;
+        uint256 hash_block;
+        assert(GetTransaction(mnID, tx, Params().GetConsensus(), hash_block, blockindex));
+        assert(tx->vout.size() >= 2);
 
-        if (!blockResult.failed_transactions.empty()) {
-            std::vector<std::string> failedTransactions;
-            for (const auto& rust_string : blockResult.failed_transactions) {
-                failedTransactions.emplace_back(rust_string.data(), rust_string.length());
-            }
+        CTxDestination dest;
+        assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
+        assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
 
-            RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
-        }
-
-        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.miner_fee / CAMOUNT_TO_GWEI)});
+        const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
+        std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
+        minerAddress = GetScriptForDestination(dest);
+    } else {
+        std::copy(minter.begin(), minter.end(), beneficiary.begin());
+        const auto dest = PKHash(minter);
+        minerAddress = GetScriptForDestination(dest);
     }
+
+    CrossBoundaryResult result;
+    const auto blockResult = evm_try_finalize(result, evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
+    if (!result.ok) {
+        LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
+    }
+    auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
+    auto evmBlockHash = uint256(evmBlockHashData);
+    
+    cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+
+    if (!blockResult.failed_transactions.empty()) {
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        }
+
+        RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
+    }
+
+    if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
+        cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+    }
+    else {
+        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    }
+}
+
+static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight != chainparams.GetConsensus().ChangiIntermediateHeight4 || IsRegtestNetwork()) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+
+    attributes->SetValue(evm_dvm, true);
+    attributes->SetValue(dvm_evm, true);
+
+    cache.SetVariable(*attributes);
 }
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
@@ -2501,6 +2523,9 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
 
     // Execute EVM Queue
     ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
+
+    // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
+    ProcessChangiIntermediate4(pindex, cache, chainparams);
 
     // construct undo
     auto& flushable = cache.GetStorage();

@@ -262,6 +262,14 @@ public:
         return Res::Err("Unsupported key for Governance Proposal section - {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedTransferType(const unsigned char type) {
+        return Res::Err("Unsupported key for Transfer Domain {%d}", type);
+    }
+
+    static Res GovVarVariableUnsupportedVaultsType(const unsigned char type) {
+        return Res::Err("Unsupported key for Vaults {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() {
         return Res::Err("Unsupported Param ID");
     }
@@ -410,6 +418,10 @@ public:
         return Res::Err("tx must have at least one input from account owner");
     }
 
+    static Res TransferDomainNotEnabled() {
+        return Res::Err("Cannot create tx, transfer domain is not enabled");
+    }
+
     static Res TransferDomainEVMNotEnabled() {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
@@ -426,8 +438,16 @@ public:
         return Res::Err("For transferdomain, only DFI token is currently supported");
     }
 
+    static Res TransferDomainEVMDVMNotEnabled() {
+        return Res::Err("EVM to DVM is not currently enabled");
+    }
+
+    static Res TransferDomainDVMEVMNotEnabled() {
+        return Res::Err("DVM to EVM is not currently enabled");
+    }
+
     static Res TransferDomainETHSourceAddress() {
-        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Src address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMSourceAddress() {
@@ -439,7 +459,7 @@ public:
     }
 
     static Res TransferDomainETHDestAddress() {
-        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Dst address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMDestAddress() {
@@ -456,6 +476,10 @@ public:
 
     static Res TransferDomainInvalid() {
         return Res::Err("Invalid transfer domain TX");
+    }
+
+    static Res TransferDomainMultipleTransfers() {
+        return Res::Err("TransferDomain currently only supports a single transfer per transaction");
     }
 
     static Res ScriptUnexpected(const CScript &script) {

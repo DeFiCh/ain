@@ -524,14 +524,13 @@ UniValue votegov(const JSONRPCRequest &request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
                                     strprintf("The masternode id or address is not valid: %s", id));
             }
-            CKeyID ckeyId;
-            if (dest.index() == PKHashType) { 
-                ckeyId = CKeyID(std::get<PKHash>(dest));
-            } else if (dest.index() == WitV0KeyHashType) {
-                ckeyId =  CKeyID(std::get<WitnessV0KeyHash>(dest));
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
+
+            if (dest.index() != PKHashType && dest.index() != WitV0KeyHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, 
+                                    strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
             }
+
+            const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                 mnId = masterNodeIdByOwner.value();
             } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
@@ -665,15 +664,13 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,
                         strprintf("The masternode id or address is not valid: %s", id));
                 }
-                CKeyID ckeyId;
-                if (dest.index() == PKHashType) {
-                    ckeyId = CKeyID(std::get<PKHash>(dest));
-                } else if (dest.index() == WitV0KeyHashType) {
-                    ckeyId =  CKeyID(std::get<WitnessV0KeyHash>(dest));
-                } else {
+
+                if (dest.index() != PKHashType && dest.index() != WitV0KeyHashType) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, 
                         strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
                 }
+
+                const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
                 if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
                     mnId = masterNodeIdByOwner.value();
                 } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {

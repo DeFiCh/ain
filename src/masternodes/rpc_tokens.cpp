@@ -604,8 +604,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, gasUsed);
+        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
         result.pushKV("valid", res.ok);
     } else {
         if (nHeight >= Params().GetConsensus().DakotaHeight) {

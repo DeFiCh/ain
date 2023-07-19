@@ -39,7 +39,7 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
         assert(ownerDest.index() == PKHashType || ownerDest.index() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest)) ;
+        CKeyID operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -644,7 +644,7 @@ public:
         consensus.ChangiIntermediateHeight = 1717800;
         consensus.ChangiIntermediateHeight2 = 1717493;
         consensus.ChangiIntermediateHeight3 = 1730100;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 1775300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1358,6 +1358,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Changi Intermediate", "-changiintermediateheight", consensus.ChangiIntermediateHeight);
     UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2);
     UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
+    UpdateHeightValidation("Changi Intermediate4", "-changiintermediate4height", consensus.ChangiIntermediateHeight4);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

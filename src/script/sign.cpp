@@ -230,7 +230,7 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     else if (solved && whichType == TX_WITNESS_V16_ETHHASH)
     {
         CScript witnessscript;
-        witnessscript << OP_DUP << OP_SHA3 << ToByteVector(result[0]) << OP_EQUALVERIFY << OP_CHECKSIG;
+        witnessscript << OP_DUP << OP_KECCAK << ToByteVector(result[0]) << OP_EQUALVERIFY << OP_CHECKSIG;
         txnouttype subType;
         solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V16, sigdata);
         sigdata.scriptWitness.stack = result;

@@ -37,7 +37,7 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].getbalance()
         self.nodes[0].utxostoaccount({self.address: "201@DFI"})
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true', 'v0/params/feature/transferdomain': 'true', 'v0/transferdomain/allowed/dvm-evm': 'true'}})
         self.nodes[0].generate(1)
 
         self.creationAddress = "0xe61a3a6eb316d773c773f4ce757a542f673023c6"
