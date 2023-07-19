@@ -83,25 +83,13 @@ void FillableSigningProvider::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pu
     // "Implicitly" refers to fact that scripts are derived automatically from
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
-    auto pubkeyCopy = pubkey;
-    if (!pubkeyCopy.IsCompressed()) {
-        pubkeyCopy.Compress();
-        auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-        auto witScript = GetScriptForDestination(WitnessV0KeyHash(pubkeyCopy));
-        CScriptID id(script);
-        CScriptID witId(witScript);
-        mapScripts[id] = std::move(script);
-        mapScripts[witId] = std::move(witScript);
-    } else {
-        pubkeyCopy.Decompress();
-        auto script = GetScriptForDestination(WitnessV16EthHash(pubkeyCopy));
-        auto witScript = GetScriptForDestination(WitnessV0KeyHash(pubkey));
-        // This does not use AddCScript, as it may be overridden.
-        CScriptID id(script);
-        CScriptID witId(witScript);
-        mapScripts[id] = std::move(script);
-        mapScripts[witId] = std::move(witScript);
-    }
+    auto [uncomp, comp] = GetBothPubkeyCompressions(pubkey);
+    auto script = GetScriptForDestination(WitnessV16EthHash(uncomp));
+    auto witScript = GetScriptForDestination(WitnessV0KeyHash(comp));
+    CScriptID id(script);
+    CScriptID witId(witScript);
+    mapScripts[id] = std::move(script);
+    mapScripts[witId] = std::move(witScript);
 }
 
 bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKeyOut) const
