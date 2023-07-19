@@ -64,6 +64,7 @@
 #include <validationinterface.h>
 #include <walletinitinterface.h>
 #include <wallet/wallet.h>
+#include <ffi/ffihelpers.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -221,6 +222,7 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
+    CrossBoundaryChecked(ain_rs_stop_network_services(result));
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -285,9 +287,10 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
+    ShutdownDfTxGlobalTaskPool();
+    CrossBoundaryChecked(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
-    ShutdownDfTxGlobalTaskPool();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
@@ -515,6 +518,7 @@ void SetupServerArgs()
     gArgs.AddArg("-changiintermediateheight", "Changi Intermediate fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediate2height", "Changi Intermediate2 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-changiintermediate3height", "Changi Intermediate3 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-changiintermediate4height", "Changi Intermediate4 fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -1913,6 +1917,12 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
 
+                // All DBs have been initialized. We start the rust core services to ensure that
+                // it's initialized as late as possible, but before anything can start rolling blocks
+                // back or forth. `ReplayBlocks, VerifyDB` etc. 
+                auto res = CrossBoundaryChecked(ain_rs_init_core_services(result));
+                if (!res) return false;
+
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
@@ -1966,18 +1976,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                     strLoadError = _("Unable to rewind the database to a pre-fork state. You will need to redownload the blockchain").translated;
                     break;
                 }
-            }
-
-            std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
-            std::vector<std::pair<std::string, uint16_t>> g_endpoints;
-            SetupRPCPorts(eth_endpoints, g_endpoints);
-
-            // Start the GRPC and ETH RPC servers
-            // Default to using the first address passed to bind
-            CrossBoundaryResult result;
-            start_servers(result, eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second), g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second));
-            if (!result.ok) {
-                LogPrintf("EVM servers failed to start: %s\n", result.reason.c_str());
             }
 
             try {
@@ -2203,6 +2201,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 13: start node
 
+
     int chain_active_height;
 
     //// debug print
@@ -2279,6 +2278,18 @@ bool AppInitMain(InitInterfaces& interfaces)
     // ********************************************************* Step 14: finished
 
     SetRPCWarmupFinished();
+    // Start the GRPC and ETH RPC servers
+    // We start the evm RPC servers as late as possible.
+    {
+        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
+        std::vector<std::pair<std::string, uint16_t>> g_endpoints;
+        SetupRPCPorts(eth_endpoints, g_endpoints);
+        // Default to using the first address passed to bind
+        auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
+        auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
+        auto res = CrossBoundaryChecked(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
+        if (!res) return false;
+    }
     uiInterface.InitMessage(_("Done loading").translated);
 
     for (const auto& client : interfaces.chain_clients) {
@@ -2358,9 +2369,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
-                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
-
+            operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
@@ -2391,11 +2400,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = nodePtr->ownerType == PKHashType ?
-                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType);
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = nodePtr->GetRewardAddressDestination();
+                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType);
                 }
             }
 

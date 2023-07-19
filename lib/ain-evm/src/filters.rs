@@ -61,12 +61,12 @@ impl PendingTransactionFilter {
     }
 }
 
-pub struct FilterHandler {
+pub struct FilterService {
     pub filters: RwLock<HashMap<usize, Filter>>,
     pub filter_id: RwLock<usize>,
 }
 
-impl FilterHandler {
+impl FilterService {
     pub fn new() -> Self {
         Self {
             filters: RwLock::new(HashMap::new()),
@@ -199,7 +199,7 @@ impl FilterHandler {
     }
 }
 
-impl Default for FilterHandler {
+impl Default for FilterService {
     fn default() -> Self {
         Self::new()
     }

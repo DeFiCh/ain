@@ -769,8 +769,6 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmContext;
-    uint64_t &gasUsed;
-    bool applyChanges;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -780,16 +778,12 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmContext,
-                          uint64_t &gasUsed,
-                          bool applyChanges)
+                          const uint64_t evmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
-          evmContext(evmContext),
-          gasUsed(gasUsed),
-          applyChanges(applyChanges) {}
+          evmContext(evmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -838,9 +832,8 @@ public:
             assert(!coin.IsSpent());
             CTxDestination pendingDest;
             assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest))
-                                                                      : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
-            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+            const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
+            if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
                 duplicate = true;
                 return false;
             }
@@ -922,8 +915,9 @@ public:
                 }
 
                 CTxDestination dest;
-                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) ||
-                    (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                ExtractDestination(tx.vout[1].scriptPubKey, dest);
+                const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+                if (keyID.IsNull()) {
                     return Res::Err("Owner address must be P2PKH or P2WPKH type");
                 }
 
@@ -931,8 +925,6 @@ public:
                     return Res::Err("Incorrect collateral amount");
                 }
 
-                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest))
-                                                              : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with collateral address as operator or owner already exists");
                 }
@@ -947,9 +939,7 @@ public:
                     assert(!coin.IsSpent());
                     CTxDestination pendingDest;
                     assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                    const CKeyID storedID = pendingDest.index() == PKHashType
-                                                ? CKeyID(std::get<PKHash>(pendingDest))
-                                                : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
                     if (storedID == keyID) {
                         duplicate = true;
                         return false;
@@ -976,7 +966,13 @@ public:
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode operator address is invalid");
+                }
+
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with that operator address already exists");
                 }
@@ -1002,7 +998,13 @@ public:
                     }
                 }
 
-                const auto keyID = CKeyID(uint160(rawAddress));
+                CKeyID keyID;
+                try {
+                    keyID = CKeyID(uint160(rawAddress));
+                } catch (...) {
+                    return Res::Err("Updating masternode reward address is invalid");
+                }
+
                 mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
 
                 // Store history of all reward address changes. This allows us to call CalculateOwnerReward
@@ -1010,9 +1012,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(addressType == PKHashType ?
-                                                                          CTxDestination(PKHash(keyID)) :
-                                                                          CTxDestination(WitnessV0KeyHash(keyID)));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(addressType, keyID, KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -1069,7 +1069,7 @@ public:
         if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
             try {
-                create_dst20(result, evmContext, tx.GetHash().ToArrayReversed(),
+                evm_create_dst20(result, evmContext, tx.GetHash().GetByteArray(),
                              rust::string(tokenSymbol.c_str()),
                              rust::string(tokenName.c_str()), tokenId->ToString());
             }
@@ -3858,8 +3858,9 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNOwnerKeyType);
+        if (!IsValidDestination(ownerDest))
+            return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
@@ -3907,15 +3908,14 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
 
                 if (tokenId == DCT_ID{0}) {
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
-                                         ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed())) {
+                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                 }
                 else {
                         CrossBoundaryResult result;
-                        evm_brige_dst20(result, evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
-                                        ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString(), true);
+                        evm_bridge_dst20(result, evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                                        ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
 
                         if (!result.ok) {
                             return Res::Err("Error bridging DST20: %s", result.reason);
@@ -3939,11 +3939,11 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
 
                 if (tokenId == DCT_ID{0})
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed());
+                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
                 else {
                     CrossBoundaryResult result;
-                    evm_brige_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
-                                  ArithToUint256(balanceIn).ToArrayReversed(), tx.GetHash().ToArrayReversed(), tokenId.ToString(), false);
+                    evm_bridge_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                                  ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
 
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
@@ -3973,7 +3973,7 @@ public:
             return Res::Err("evm tx size too large");
 
         CrossBoundaryResult result;
-        const auto hashAndGas = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
+        const auto prevalidateResults = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
 
         // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
@@ -3983,13 +3983,11 @@ public:
             }
         }
 
-        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().ToArrayReversed());
+        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), prevalidateResults.gas_used);
         if (!result.ok) {
             LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to queue %s\n", result.reason);
         }
-
-        gasUsed = hashAndGas.used_gas;
 
         std::vector<unsigned char> evmTxHashBytes;
         sha3(obj.evmTx, evmTxHashBytes);
@@ -4068,11 +4066,18 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+};
+
 Res ValidateTransferDomainEdge(const CTransaction &tx,
+                                   const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
-                                   CTransferDomainItem src, CTransferDomainItem dst) {
+                                   CTransferDomainItem src,
+                                   CTransferDomainItem dst) {
 
     // TODO: Remove code branch on stable.
     if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
@@ -4090,6 +4095,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 //        return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.dvmToEvm) {
+                return DeFiErrors::TransferDomainDVMEVMNotEnabled();
+            }
+        }
+
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
         if (!res) return res;
@@ -4097,6 +4108,12 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+            if (!transferdomainConfig.evmTodvm) {
+                return DeFiErrors::TransferDomainEVMDVMNotEnabled();
+            }
+        }
+
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
         if (!res) return res;
@@ -4120,13 +4137,27 @@ Res ValidateTransferDomain(const CTransaction &tx,
     }
 
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (obj.transfers.size() < 1) {
+        if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+            return DeFiErrors::TransferDomainNotEnabled();
+        }
+
+        if (obj.transfers.size() != 1) {
+            return DeFiErrors::TransferDomainMultipleTransfers();
+        }
+
+        if (tx.vin.size() > 1) {
             return DeFiErrors::TransferDomainInvalid();
         }
     }
 
+    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
+    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
@@ -4184,17 +4215,15 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint64_t &gasUsed,
                   uint32_t txn,
-                  const uint64_t evmContext,
-                  bool applyChanges) {
+                  const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     auto context = evmContext;
     if (context == 0) context = evm_get_context();
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, gasUsed, applyChanges), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4277,12 +4306,10 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
-                  uint64_t &gasUsed,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmContext,
-                  bool applyChanges) {
+                  const uint64_t evmContext) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4306,7 +4333,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, gasUsed, txn, evmContext, applyChanges);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -4425,9 +4452,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
@@ -4509,9 +4535,10 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID))
-                                                           : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
 
     LogPrint(BCLog::ACCOUNTCHANGE,
              "AccountChange: hash=%s fund=%s change=%s\n",
@@ -5136,6 +5163,17 @@ bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::
     }
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
+
+bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomain};
     auto attributes = view.GetAttributes();
     assert(attributes);
     return attributes->GetValue(enabledKey, false);

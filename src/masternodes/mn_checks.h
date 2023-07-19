@@ -472,12 +472,10 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
-                  uint64_t &gasUsed,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const uint64_t evmContext = 0,
-                  bool applyChanges         = false);
+                  const uint64_t evmContext = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -485,10 +483,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
-                  uint64_t &gasUsed,
                   uint32_t txn = 0,
-                  const uint64_t evmContext = 0,
-                  bool applyChanges         = false);
+                  const uint64_t evmContext = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,
                                     int height,
@@ -525,6 +521,7 @@ bool IsTestNetwork();
 bool IsMainNetwork();
 bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,

@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ain_evm::transaction::SignedTx;
 use primitive_types::{H160, H256, U256};
 
-use ain_evm::handler::Handlers;
+use ain_evm::evm::EVMServices;
 
 #[test]
 fn test_finalize_block_and_do_not_update_state() {
@@ -60,7 +60,9 @@ fn test_finalize_block_and_update_state() {
     assert_eq!(handler.evm.tx_queues.len(context), 3);
     assert_eq!(handler.evm.tx_queues.len(handler.evm.get_context()), 0);
 
-    let (block, failed_txs) = handler.finalize_block(context, true, 0, None).unwrap();
+    let FinalizedBlockInfo { block, failed_txs } =
+        handler.finalize_block(context, true, 0, None).unwrap();
+
     assert_eq!(
         block.transactions,
         vec![tx1, tx2, tx3.clone()]

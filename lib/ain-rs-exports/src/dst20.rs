@@ -1,13 +1,68 @@
-use ain_evm::runtime::RUNTIME;
+use crate::ffi::CrossBoundaryResult;
+use ain_evm::services::SERVICES;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::tx_queue::QueueTx;
+use ain_evm::txqueue::QueueTx;
 use log::debug;
 use primitive_types::H160;
 use std::error::Error;
 use std::str::FromStr;
 
+pub fn evm_bridge_dst20(
+    result: &mut CrossBoundaryResult,
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+    native_tx_hash: [u8; 32],
+    token_id: &str,
+    out: bool,
+) {
+    match bridge_to_dst20(
+        context,
+        address,
+        amount,
+        native_tx_hash,
+        String::from(token_id),
+        out,
+    ) {
+        Ok(_) => result.ok = true,
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+        }
+    }
+}
+
+pub fn evm_create_dst20(
+    result: &mut CrossBoundaryResult,
+    context: u64,
+    native_hash: [u8; 32],
+    name: &str,
+    symbol: &str,
+    token_id: &str,
+) -> bool {
+    match deploy_dst20(
+        native_hash,
+        context,
+        String::from(name),
+        String::from(symbol),
+        String::from(token_id),
+    ) {
+        Ok(_) => {
+            result.ok = true;
+
+            true
+        }
+        Err(e) => {
+            result.ok = false;
+            result.reason = e.to_string();
+
+            false
+        }
+    }
+}
+
 /// Creates a deploy token system transaction in mempool
-pub fn deploy_dst20(
+fn deploy_dst20(
     native_hash: [u8; 32],
     context: u64,
     name: String,
@@ -22,12 +77,12 @@ pub fn deploy_dst20(
         symbol,
         address,
     }));
-    RUNTIME.handlers.queue_tx(context, system_tx, native_hash)?;
+    SERVICES.evm.queue_tx(context, system_tx, native_hash, 0)?;
 
     Ok(())
 }
 
-pub fn bridge_to_dst20(
+fn bridge_to_dst20(
     context: u64,
     address: &str,
     amount: [u8; 32],
@@ -44,7 +99,7 @@ pub fn bridge_to_dst20(
         amount: amount.into(),
         out,
     }));
-    RUNTIME.handlers.queue_tx(context, system_tx, native_hash)?;
+    SERVICES.evm.queue_tx(context, system_tx, native_hash, 0)?;
 
     Ok(())
 }

@@ -24,7 +24,7 @@ pub struct Receipt {
     pub cumulative_gas: U256,
 }
 
-pub struct ReceiptHandler {
+pub struct ReceiptService {
     storage: Arc<Storage>,
 }
 
@@ -36,7 +36,7 @@ fn get_contract_address(sender: &H160, nonce: &U256) -> H160 {
     H160::from(keccak(stream.as_raw()))
 }
 
-impl ReceiptHandler {
+impl ReceiptService {
     pub fn new(storage: Arc<Storage>) -> Self {
         Self { storage }
     }

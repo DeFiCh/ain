@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
 
-pub struct BlockHandler {
+pub struct BlockService {
     storage: Arc<Storage>,
     first_block_number: U256,
 }
@@ -23,7 +23,7 @@ pub struct FeeHistoryData {
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 
-impl BlockHandler {
+impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Self {
         let mut block_handler = Self {
             storage,
@@ -184,6 +184,16 @@ impl BlockHandler {
             base_fee_max_change_denominator,
             INITIAL_BASE_FEE,
         )
+    }
+
+    pub fn calculate_next_block_base_fee(&self) -> U256 {
+        let current_block_data = self.get_latest_block_hash_and_number();
+        let current_block_hash = match current_block_data {
+            None => H256::zero(),
+            Some((hash, _)) => hash,
+        };
+
+        self.calculate_base_fee(current_block_hash)
     }
 
     pub fn fee_history(
@@ -360,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_base_fee_equal() {
-        let block = BlockHandler::new(Arc::new(Storage::new()));
+        let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(20_000_000_000u64),
             block.post_changi_intermediate_2_base_fee_calculation(
@@ -375,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_base_fee_max_increase() {
-        let block = BlockHandler::new(Arc::new(Storage::new()));
+        let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(22_500_000_000u64), // should increase by 12.5%
             block.post_changi_intermediate_2_base_fee_calculation(
@@ -390,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_base_fee_increase() {
-        let block = BlockHandler::new(Arc::new(Storage::new()));
+        let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(20_833_333_333u64), // should increase by ~4.15%
             block.post_changi_intermediate_2_base_fee_calculation(
@@ -405,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_base_fee_max_decrease() {
-        let block = BlockHandler::new(Arc::new(Storage::new()));
+        let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(17_500_000_000u64), // should decrease by 12.5%
             block.post_changi_intermediate_2_base_fee_calculation(
@@ -420,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_base_fee_decrease() {
-        let block = BlockHandler::new(Arc::new(Storage::new()));
+        let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(19_166_666_667u64), // should increase by ~4.15%
             block.post_changi_intermediate_2_base_fee_calculation(

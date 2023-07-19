@@ -881,7 +881,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 //
                 case OP_RIPEMD160:
                 case OP_SHA1:
-                case OP_SHA3:
+                case OP_KECCAK:
                 case OP_SHA256:
                 case OP_HASH160:
                 case OP_HASH256:
@@ -890,12 +890,12 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     if (stack.size() < 1)
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
                     valtype& vch = stacktop(-1);
-                    valtype vchHash((opcode == OP_RIPEMD160 || opcode == OP_SHA1 || opcode == OP_SHA3 || opcode == OP_HASH160) ? 20 : 32);
+                    valtype vchHash((opcode == OP_RIPEMD160 || opcode == OP_SHA1 || opcode == OP_KECCAK || opcode == OP_HASH160) ? 20 : 32);
                     if (opcode == OP_RIPEMD160)
                         CRIPEMD160().Write(vch.data(), vch.size()).Finalize(vchHash.data());
                     else if (opcode == OP_SHA1)
                         CSHA1().Write(vch.data(), vch.size()).Finalize(vchHash.data());
-                    else if (opcode == OP_SHA3) {
+                    else if (opcode == OP_KECCAK) {
                         const size_t HEADER_OFFSET{1};
                         const auto result = Sha3({vch.begin() + HEADER_OFFSET, vch.end()});
                         memcpy(vchHash.data(), result.begin(), 20);
@@ -1459,7 +1459,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             if (witness.stack.size() != 2) {
                 return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH); // 2 items in witness
             }
-            scriptPubKey << OP_DUP << OP_SHA3 << program << OP_EQUALVERIFY << OP_CHECKSIG;
+            scriptPubKey << OP_DUP << OP_KECCAK << program << OP_EQUALVERIFY << OP_CHECKSIG;
             stack = witness.stack;
         } else {
             return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH);
