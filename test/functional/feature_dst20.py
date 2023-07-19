@@ -4,20 +4,19 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
+
 import math
+from decimal import Decimal
 
 from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256
-from test_framework.evm_contract import EVMContract
+from test_framework.util import assert_equal
 
-from decimal import Decimal
-from web3 import Web3
 
 
 class DST20(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
             [
@@ -40,28 +39,7 @@ class DST20(DefiTestFramework):
                 "-changiintermediate3height=105",
                 "-subsidytest=1",
                 "-txindex=1",
-            ],
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=105",
-                "-changiintermediateheight=105",
-                "-changiintermediate3height=105",
-                "-subsidytest=1",
-                "-txindex=1",
-            ],
+            ]
         ]
 
     def run_test(self):
@@ -90,9 +68,8 @@ class DST20(DefiTestFramework):
         from web3 import Web3
 
         web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
-        web3_n2 = Web3(Web3.HTTPProvider(self.nodes[1].get_evm_rpc()))
 
-        tx = node.createtoken(
+        node.createtoken(
             {
                 "symbol": "BTC",
                 "name": "BTC token",
@@ -131,16 +108,16 @@ class DST20(DefiTestFramework):
         abi = open("./lib/ain-rs-exports/dst20/output/abi.json", encoding="utf-8").read()
 
         btc = web3.eth.contract(address=contract_address_btc, abi=abi)
-        print(btc.functions.name().call())
-        print(btc.functions.symbol().call())
+        assert_equal(btc.functions.name().call(), "BTC token")
+        assert_equal(btc.functions.symbol().call(), "BTC")
 
         eth = web3.eth.contract(address=contract_address_eth, abi=abi)
-        print(eth.functions.name().call())
-        print(eth.functions.symbol().call())
+        assert_equal(eth.functions.name().call(), "ETH token")
+        assert_equal(eth.functions.symbol().call(), "ETH")
 
         dusd = web3.eth.contract(address=contract_address_dusd, abi=abi)
-        print(dusd.functions.name().call())
-        print(dusd.functions.symbol().call())
+        assert_equal(dusd.functions.name().call(), "DUSD token")
+        assert_equal(dusd.functions.symbol().call(), "DUSD")
 
         key_pair = KeyPair.from_node(node)
 
