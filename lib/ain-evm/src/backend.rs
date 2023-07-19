@@ -426,7 +426,7 @@ impl BridgeBackend for EVMBackend {
     fn dst20_bridge(&mut self, to: H160, contract: H160, amount: U256, out: bool) -> Result<()> {
         let storage_index = get_address_storage_index(to);
 
-        let mut balance = self.get_account_balance(contract.clone(), storage_index)?;
+        let mut balance = self.get_account_balance(contract, storage_index)?;
 
         match out {
             true => balance -= amount,
