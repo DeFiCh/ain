@@ -74,7 +74,7 @@ class EVMRolllbackTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0xa',
             'gas': '0x7a120',
-            'gasPrice': '0x7a120',
+            'gasPrice': '0x2540BE400',
         })
         self.nodes[0].generate(1)
 
