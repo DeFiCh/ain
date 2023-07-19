@@ -1,12 +1,13 @@
 use ain_evm::{
+    core::ValidateTxInfo,
+    evm::FinalizedBlockInfo,
+    services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
 };
 
-use ain_evm::services::SERVICES;
-use log::debug;
-
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
+use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
@@ -196,6 +197,7 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 /// - The EVM transaction is invalid
 /// - Could not fetch the underlying EVM account
 /// - Account's nonce does not match raw tx's nonce
+/// - Transaction gas fee is lower than the next block's base fee
 ///
 /// # Returns
 ///
@@ -204,16 +206,33 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-    with_gas_usage: bool,
+    call_tx: bool,
+    context: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.core.validate_raw_tx(tx, with_gas_usage) {
-        Ok((signed_tx, used_gas)) => {
+    match SERVICES.evm.verify_tx_fees(tx) {
+        Ok(_) => (),
+        Err(e) => {
+            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+            result.ok = false;
+            result.reason = e.to_string();
+
+            return ffi::ValidateTxCompletion::default();
+        }
+    }
+
+    match SERVICES.evm.core.validate_raw_tx(tx, call_tx, context) {
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_gas,
+            used_gas,
+        }) => {
             result.ok = true;
 
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                used_gas,
+                tx_fees: prepay_gas.try_into().unwrap_or_default(),
+                gas_used: used_gas,
             }
         }
         Err(e) => {
@@ -264,18 +283,24 @@ pub fn evm_try_queue_tx(
     context: u64,
     raw_tx: &str,
     hash: [u8; 32],
+    gas_used: u64,
 ) {
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
     match signed_tx {
-        Ok(signed_tx) => match SERVICES.evm.queue_tx(context, signed_tx.into(), hash) {
-            Ok(_) => {
-                result.ok = true;
+        Ok(signed_tx) => {
+            match SERVICES
+                .evm
+                .queue_tx(context, signed_tx.into(), hash, gas_used)
+            {
+                Ok(_) => {
+                    result.ok = true;
+                }
+                Err(e) => {
+                    result.ok = false;
+                    result.reason = e.to_string();
+                }
             }
-            Err(e) => {
-                result.ok = false;
-                result.reason = e.to_string();
-            }
-        },
+        }
         Err(e) => {
             result.ok = false;
             result.reason = e.to_string();
@@ -295,7 +320,7 @@ pub fn evm_try_queue_tx(
 ///
 /// # Returns
 ///
-/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, and miner fee on success.
+/// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 pub fn evm_try_finalize(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
@@ -309,12 +334,18 @@ pub fn evm_try_finalize(
         .evm
         .finalize_block(context, update_state, difficulty, eth_address, timestamp)
     {
-        Ok((block_hash, failed_txs, gas_used)) => {
+        Ok(FinalizedBlockInfo {
+            block_hash,
+            failed_transactions,
+            total_burnt_fees,
+            total_priority_fees,
+        }) => {
             result.ok = true;
             ffi::FinalizeBlockCompletion {
                 block_hash,
-                failed_transactions: failed_txs,
-                miner_fee: gas_used,
+                failed_transactions,
+                total_burnt_fees: total_burnt_fees / WEI_TO_GWEI / GWEI_TO_SATS,
+                total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
             }
         }
         Err(e) => {

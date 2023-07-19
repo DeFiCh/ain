@@ -538,9 +538,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         return state.Invalid(ValidationInvalidReason::TX_CONFLICT, false, REJECT_DUPLICATE, "txn-already-in-mempool");
     }
 
+    auto isEVMTx = IsEVMTx(tx);
+
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
-    if (!IsEVMTx(tx)) {
+    if (!isEVMTx) {
         for (const CTxIn &txin : tx.vin)
         {
             const CTransaction* ptxConflicting = pool.GetConflictTx(txin.prevout);
@@ -589,7 +591,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.SetBackend(viewMemPool);
 
         // do all inputs exist?
-        if (!IsEVMTx(tx)) {
+        if (!isEVMTx) {
             for (const CTxIn& txin : tx.vin) {
                 if (!coins_cache.HaveCoinInCache(txin.prevout)) {
                     coins_to_uncache.push_back(txin.prevout);
@@ -639,12 +641,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // let make sure we have needed coins
-        if (!IsEVMTx(tx) && view.GetValueIn(tx) < nFees) {
+        if (!isEVMTx && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, gasUsed, nAcceptTime);
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -657,11 +658,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
-        if (!IsEVMTx(tx) && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
+        if (!isEVMTx && !CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !IsEVMTx(tx) && !AreInputsStandard(tx, view))
+        if (fRequireStandard && !isEVMTx && !AreInputsStandard(tx, view))
             return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
         // Check for non-standard witness in P2WSH
@@ -699,7 +700,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (!IsEVMTx(tx) && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
+        if (!isEVMTx && !bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
 
@@ -917,7 +918,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
-            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false);
+            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false, 0u);
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
@@ -2392,8 +2393,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2599,9 +2599,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2672,15 +2669,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            uint64_t gasUsed{};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmContext);
-
-            totalGas += gasUsed;
-            if (totalGas > MAX_BLOCK_GAS_LIMIT) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                     error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, MAX_BLOCK_GAS_LIMIT, totalGas),
-                                     REJECT_CUSTOMTX, "over-gas-limit");
-            }
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

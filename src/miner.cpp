@@ -20,6 +20,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/changiintermediates.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>
@@ -41,7 +42,8 @@
 struct EVM {
     uint32_t version;
     uint256 blockHash;
-    uint64_t minerFee;
+    uint64_t burntFee;
+    uint64_t priorityFee;
 
     ADD_SERIALIZE_METHODS;
 
@@ -49,7 +51,8 @@ struct EVM {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(version);
         READWRITE(blockHash);
-        READWRITE(minerFee);
+        READWRITE(burntFee);
+        READWRITE(priorityFee);
     }
 };
 
@@ -278,6 +281,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     XVM xvm{};
+    XVMChangiIntermediate xvm_changi{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
@@ -287,7 +291,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{0,{0, uint256(blockHash), blockResult.miner_fee / CAMOUNT_TO_GWEI}};
+        if (nHeight >= consensus.ChangiIntermediateHeight4) {
+            xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
+        }
+        else {
+            xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
+        }
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -371,13 +380,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
+        if (IsEVMEnabled(nHeight, mnview, consensus) && (!xvm.evm.blockHash.IsNull() || !xvm_changi.evm.blockHash.IsNull())) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
             CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
-            metadata << xvm;
+            if (nHeight >= consensus.ChangiIntermediateHeight4) {
+                metadata << xvm;
+            }
+            else {
+                metadata << xvm_changi;
+            }
 
             CScript script;
             script << OP_RETURN << ToByteVector(metadata);
@@ -697,9 +711,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     // Used to track EVM TXs by sender and nonce.
     // Key: sender address, nonce
     // Value: fee
@@ -709,9 +720,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Key: sender address
     // Value: vector of mempool TX iterator
     std::map<std::array<std::uint8_t, 20>, std::vector<CTxMemPool::txiter>> evmTXs;
-
-    // Used to track gas fees of EVM TXs
-    std::map<uint256, uint64_t> evmGasFees;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -856,7 +864,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     CrossBoundaryResult result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true);
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
                     if (!result.ok) {
                         customTxPassed = false;
                         break;
@@ -864,14 +872,13 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     const auto evmKey = std::make_pair(txResult.sender, txResult.nonce);
                     if (evmTXFees.count(evmKey)) {
-                        const auto& usedGas = evmTXFees.at(evmKey);
-                        if (txResult.used_gas > usedGas) {
+                        const auto& gasFees = evmTXFees.at(evmKey);
+                        if (txResult.tx_fees > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
                             RemoveEVMTransactions(evmTXs[txResult.sender]);
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
                                 const auto& [sender, nonce] = it->first;
                                 if (sender == txResult.sender) {
-                                    totalGas -= it->second;
                                     it = evmTXFees.erase(it);
                                 } else {
                                     ++it;
@@ -903,26 +910,17 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.used_gas);
+                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.tx_fees);
                     evmTXs[txResult.sender].push_back(sortedEntries[i]);
                 }
 
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmContext);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
-
-                evmGasFees.emplace(tx.GetHash(), gasUsed);
-
-                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
-                    customTxPassed = false;
-                    break;
-                }
-                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());

@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::calculate_gas_fee;
+use crate::fee::{calculate_gas_fee, get_tx_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -10,12 +10,15 @@ use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
 
-use anyhow::anyhow;
-use ethereum::{Block, PartialHeader, ReceiptV3};
+use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
+
+use anyhow::anyhow;
+use hex::FromHex;
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
@@ -31,7 +34,12 @@ pub struct EVMServices {
     pub storage: Arc<Storage>,
 }
 
-pub type FinalizedBlockInfo = ([u8; 32], Vec<String>, u64);
+pub struct FinalizedBlockInfo {
+    pub block_hash: [u8; 32],
+    pub failed_transactions: Vec<String>,
+    pub total_burnt_fees: u64,
+    pub total_priority_fees: u64,
+}
 
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
@@ -124,6 +132,8 @@ impl EVMServices {
             ),
         };
 
+        let base_fee = self.block.calculate_base_fee(parent_hash);
+
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.core.trie_store),
@@ -162,7 +172,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas));
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee);
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
@@ -239,8 +249,6 @@ impl EVMServices {
                 "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
-            // calculate base fee
-            let base_fee = self.block.calculate_base_fee(parent_hash);
 
             self.block.connect_block(block.clone(), base_fee);
             self.logs
@@ -250,22 +258,62 @@ impl EVMServices {
         }
 
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            Ok((
-                *block.header.hash().as_fixed_bytes(),
+            let total_burnt_fees = U256::from(total_gas_used) * base_fee;
+            let total_priority_fees = total_gas_fees - total_burnt_fees;
+            debug!(
+                "[finalize_block] Total burnt fees : {:#?}",
+                total_burnt_fees
+            );
+            debug!(
+                "[finalize_block] Total priority fees : {:#?}",
+                total_priority_fees
+            );
+            Ok(FinalizedBlockInfo {
+                block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_gas_fees.try_into().unwrap(),
-            ))
+                total_burnt_fees: total_burnt_fees.try_into().unwrap(),
+                total_priority_fees: total_priority_fees.try_into().unwrap(),
+            })
         } else {
-            Ok((
-                *block.header.hash().as_fixed_bytes(),
+            Ok(FinalizedBlockInfo {
+                block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_gas_used,
-            ))
+                total_burnt_fees: total_gas_used,
+                total_priority_fees: 0u64,
+            })
         }
     }
 
-    pub fn queue_tx(&self, context: u64, tx: QueueTx, hash: NativeTxHash) -> Result<(), EVMError> {
-        self.core.tx_queues.queue_tx(context, tx.clone(), hash)?;
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+        debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
+        let buffer = <Vec<u8>>::from_hex(tx)?;
+        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
+        let signed_tx: SignedTx = tx.try_into()?;
+
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            let tx_gas_price = get_tx_gas_price(&signed_tx);
+            let next_block_fees = self.block.calculate_next_block_base_fee();
+            if tx_gas_price < next_block_fees {
+                debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
+                return Err(anyhow!("tx gas price is lower than next block base fee").into());
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn queue_tx(
+        &self,
+        context: u64,
+        tx: QueueTx,
+        hash: NativeTxHash,
+        gas_used: u64,
+    ) -> Result<(), EVMError> {
+        self.core
+            .tx_queues
+            .queue_tx(context, tx.clone(), hash, gas_used)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())
