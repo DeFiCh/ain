@@ -952,7 +952,7 @@ ci_setup_deps_target() {
 }
 
 ci_setup_deps_test() {
-    pkg_install_web3_deps
+    pkg_local_install_py_deps
 }
 
 get_rust_target() {
