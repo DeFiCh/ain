@@ -475,7 +475,7 @@ class GovsetTest(DefiTestFramework):
                                 "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected",
                                 self.nodes[0].setgov, {"ATTRIBUTES": {'v0/token/payback_dfi': 'true'}})
         assert_raises_rpc_error(-5,
-                                "Unrecognised type argument provided, valid types are: consortium, gov, locks, oracles, params, poolpairs, token,",
+                                "Unrecognised type argument provided, valid types are: consortium, evm, gov, locks, oracles, params, poolpairs, token, transferdomain, vaults,",
                                 self.nodes[0].setgov, {"ATTRIBUTES": {'v0/unrecognised/5/payback_dfi': 'true'}})
         assert_raises_rpc_error(-5,
                                 "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_collateral, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,",

@@ -247,8 +247,8 @@ impl SignedTx {
     pub fn v(&self) -> u64 {
         match &self.transaction {
             TransactionV2::Legacy(tx) => tx.signature.v(),
-            TransactionV2::EIP2930(tx) => tx.chain_id,
-            TransactionV2::EIP1559(tx) => tx.chain_id,
+            TransactionV2::EIP2930(tx) => tx.odd_y_parity as u64,
+            TransactionV2::EIP1559(tx) => tx.odd_y_parity as u64,
         }
     }
 
