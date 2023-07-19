@@ -252,7 +252,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Vaults,
         {
-             {"dusd-vault-enabled", VaultKeys::DUSDVaultEnabled},
+             {"enabled", VaultKeys::DUSDVaultEnabled},
         }},
     };
     return keys;
@@ -358,7 +358,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Vaults,
         {
-             {VaultKeys::DUSDVaultEnabled, "dusd-vault-enabled"},
+             {VaultKeys::DUSDVaultEnabled, "enabled"},
         }},
     };
     return keys;
