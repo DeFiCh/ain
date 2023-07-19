@@ -644,7 +644,7 @@ public:
         consensus.ChangiIntermediateHeight = 1717800;
         consensus.ChangiIntermediateHeight2 = 1717493;
         consensus.ChangiIntermediateHeight3 = 1730100;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 1775300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

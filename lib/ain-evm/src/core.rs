@@ -27,6 +27,7 @@ use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
+pub const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
 pub struct EVMCoreService {
@@ -207,7 +208,6 @@ impl EVMCoreService {
             .into());
         }
 
-        const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
         let balance = self
             .get_balance(signed_tx.sender, block_number)
             .map_err(|e| anyhow!("Error getting balance {e}"))?;
@@ -217,18 +217,24 @@ impl EVMCoreService {
         let prepay_gas = calculate_prepay_gas(&signed_tx);
         debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
 
-        if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+        let gas_limit = signed_tx.gas_limit();
+        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            if balance < prepay_gas {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(anyhow!("insufficient balance to pay fees").into());
+            }
+
+            if gas_limit < MIN_GAS_PER_TX {
+                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
+                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+            }
+        } else if balance < MIN_GAS_PER_TX || balance < prepay_gas {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
 
-        let gas_limit = signed_tx.gas_limit();
-
-        debug!(
-            "[validate_raw_tx] MAX_GAS_PER_BLOCK: {:#x}",
-            MAX_GAS_PER_BLOCK
-        );
         if gas_limit > MAX_GAS_PER_BLOCK {
+            debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 

@@ -535,30 +535,21 @@ class DUSDLoanTests(DefiTestFramework):
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
 
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'true'}})
-        self.nodes[0].generate(1)
-
-        #still not allowed before hardfork
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
-        self.goto_next_height()
-
         # min coll ratio still applies
         assert_raises_rpc_error(-32600,
                                 "Vault does not have enough collateralization ratio defined by loan scheme - 148 < 150",
                                 self.takeloan_withdraw, vault_id, "67.00000000@DUSD", 'takeloan')
 
-
+        self.goto_next_height()
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/enabled': 'true'}})
         self.nodes[0].generate(1)
+
         self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
         self.nodes[0].generate(1)
         self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'withdraw')
         self.nodes[0].generate(1)
 
-        # not sure why this is needed like this. but it works
         self.update_oracle_price()
-        #also fails with other crypto in
         self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
         self.nodes[0].generate(1)
         assert_raises_rpc_error(-32600,
@@ -569,15 +560,14 @@ class DUSDLoanTests(DefiTestFramework):
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,
                                 self.takeloan_withdraw, vault_id, "5.00000000@BTC", 'withdraw')
 
-        # full withdrawal (go to 100% DUSD) should work
+        # full withdrawal to go back to 100% DUSD vault
         self.takeloan_withdraw(vault_id, "100.00000000@BTC", 'withdraw')
         self.nodes[0].generate(1)
 
-
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/allow-dusd-loops': 'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/enabled': 'false'}})
         self.nodes[0].generate(1)
 
-        #not allowed if attribute false
+        # not allowed if attribute false
 
         assert_raises_rpc_error(-32600,
                                 ERR_STRING_MIN_COLLATERAL_DFI_PCT,

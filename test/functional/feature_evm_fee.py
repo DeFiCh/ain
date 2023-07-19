@@ -113,6 +113,22 @@ class EVMFeeTest(DefiTestFramework):
 
         self.rollback_to(height)
 
+    def test_low_gas_limit(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        assert_raises_rpc_error(-32001, "evm tx failed to validate gas limit is below the minimum gas per tx", self.nodes[0].eth_sendTransaction, {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x5207', # 20_999
+            'gasPrice': '0x2540BE400', # 10_000_000_000
+        })
+
+        self.rollback_to(height)
+
     def test_gas_limit_higher_than_block_limit(self):
         height = self.nodes[0].getblockcount()
 
@@ -182,6 +198,8 @@ class EVMFeeTest(DefiTestFramework):
         self.test_high_gas_price()
 
         self.test_max_gas_price()
+
+        self.test_low_gas_limit()
 
         self.test_gas_limit_higher_than_block_limit()
 

@@ -60,6 +60,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
         {"consortium",     AttributeTypes::Consortium},
         {"transferdomain", AttributeTypes::Transfer  },
         {"evm",            AttributeTypes::EVMType   },
+        {"vaults",         AttributeTypes::Vaults    },
     };
     return types;
 }
@@ -76,6 +77,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
         {AttributeTypes::Consortium, "consortium"    },
         {AttributeTypes::Transfer,   "transferdomain"},
         {AttributeTypes::EVMType,    "evm"           },
+        {AttributeTypes::Vaults,     "vaults"        },
     };
     return types;
 }
@@ -174,6 +176,20 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t> &ATTRIBUTES::allowedVaultIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"dusd-vault", VaultIDs::DUSDVault},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayVaultIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {VaultIDs::DUSDVault, "dusd-vault"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {AttributeTypes::Token,
@@ -228,7 +244,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"gov-payout", DFIPKeys::CFPPayout},
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
-             {"allow-dusd-loops", DFIPKeys::AllowDUSDLoops},
              {"transferdomain", DFIPKeys::TransferDomain},
          }},
         {AttributeTypes::EVMType,
@@ -255,6 +270,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
             {"evm-dvm", TransferKeys::EVM_DVM},
             {"dvm-evm", TransferKeys::DVM_EVM},
          }},
+        {AttributeTypes::Vaults,
+        {
+             {"enabled", VaultKeys::DUSDVaultEnabled},
+        }},
     };
     return keys;
 }
@@ -316,7 +335,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::CFPPayout, "gov-payout"},
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
-             {DFIPKeys::AllowDUSDLoops, "allow-dusd-loops"},
              {DFIPKeys::TransferDomain, "transferdomain"},
          }},
         {AttributeTypes::EVMType,
@@ -362,6 +380,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
             {TransferKeys::EVM_DVM, "evm-dvm"},
             {TransferKeys::DVM_EVM, "dvm-evm"},
          }},
+        {AttributeTypes::Vaults,
+        {
+             {VaultKeys::DUSDVaultEnabled, "enabled"},
+        }},
     };
     return keys;
 }
@@ -655,7 +677,6 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
-                 {DFIPKeys::AllowDUSDLoops, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
              }},
             {AttributeTypes::Locks,
@@ -690,6 +711,10 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                 {TransferKeys::EVM_DVM, VerifyBool},
                 {TransferKeys::DVM_EVM, VerifyBool},
              }},
+            {AttributeTypes::Vaults,
+            {
+                 {VaultKeys::DUSDVaultEnabled, VerifyBool},
+            }},
     };
     return parsers;
 }
@@ -821,7 +846,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("transferdomain", allowedTransferIDs());
         }
         typeId = id->second;
-    } else {
+    } else if (type == AttributeTypes::Vaults) {
+        auto id = allowedVaultIDs().find(keys[2]);
+        if (id == allowedVaultIDs().end()) {
+            return DeFiErrors::GovVarVariableInvalidKey("vaults", allowedVaultIDs());
+        }
+        typeId = id->second;
+    }
+    else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
             return id;
@@ -889,7 +921,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
                     typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
                     typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                    typeKey != DFIPKeys::AllowDUSDLoops && typeKey != DFIPKeys::TransferDomain) {
+                    typeKey != DFIPKeys::TransferDomain) {
                     return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {
@@ -922,6 +954,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             if (typeId == TransferIDs::Edges) {
                 if (typeKey != TransferKeys::DVM_EVM && typeKey != TransferKeys::EVM_DVM)
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+            } else {
+                return DeFiErrors::GovVarVariableUnsupportedGovType();
+            }
+        } else if (type == AttributeTypes::Vaults) {
+            if (typeId == VaultIDs::DUSDVault) {
+                if (typeKey != VaultKeys::DUSDVaultEnabled) {
+                    return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
+                }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -1235,8 +1275,10 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayOracleIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Governance) {
                 id = displayGovernanceIDs().at(attrV0->typeId);
-            }  else if (attrV0->type == AttributeTypes::Transfer) {
+            } else if (attrV0->type == AttributeTypes::Transfer) {
                 id = displayTransferIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::Vaults) {
+                id = displayVaultIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1657,6 +1699,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Transfer:
                 if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
+                }
+                break;
+
+            case AttributeTypes::Vaults:
+                if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
+                    if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                        return Res::Err("Cannot be set before NextNetworkUpgrade");
+                    }
                 }
                 break;
 

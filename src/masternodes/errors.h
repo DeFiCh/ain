@@ -266,6 +266,10 @@ public:
         return Res::Err("Unsupported key for Transfer Domain {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedVaultsType(const unsigned char type) {
+        return Res::Err("Unsupported key for Vaults {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() {
         return Res::Err("Unsupported Param ID");
     }
@@ -443,7 +447,7 @@ public:
     }
 
     static Res TransferDomainETHSourceAddress() {
-        return Res::Err("Src address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Src address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMSourceAddress() {
@@ -455,7 +459,7 @@ public:
     }
 
     static Res TransferDomainETHDestAddress() {
-        return Res::Err("Dst address must be an ETH address in case of \"EVM\" domain");
+        return Res::Err("Dst address must be an ERC55 address in case of \"EVM\" domain");
     }
 
     static Res TransferDomainDVMDestAddress() {
