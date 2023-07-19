@@ -262,6 +262,17 @@ public:
     static bool TryRecoverSigCompat(const std::vector<unsigned char>& vchSig, std::vector<unsigned char>* sig = nullptr);
 };
 
+inline std::pair<CPubKey, CPubKey> GetBothPubkeyCompressions(const CPubKey &key) {
+    auto keyCopy = key;
+    if (key.IsCompressed()) {
+        keyCopy.Decompress();
+        return {keyCopy, key};
+    } else {
+        keyCopy.Compress();
+    }
+    return {key, keyCopy};
+}
+
 struct CExtPubKey {
     unsigned char nDepth;
     unsigned char vchFingerprint[4];

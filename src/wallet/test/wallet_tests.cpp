@@ -218,11 +218,10 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
     {
         std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>(chain.get(), WalletLocation(), WalletDatabase::CreateDummy());
         LOCK(wallet->cs_wallet);
-        auto pubkeyCopy = coinbaseKey.GetPubKey();
-        pubkeyCopy.Decompress();
-        wallet->mapKeyMetadata[coinbaseKey.GetPubKey().GetID()].nCreateTime = KEY_TIME;
-        wallet->mapKeyMetadata[pubkeyCopy.GetID()].nCreateTime = KEY_TIME;
-        wallet->mapKeyMetadata[pubkeyCopy.GetEthID()].nCreateTime = KEY_TIME;
+        auto [uncomp, comp] = GetBothPubkeyCompressions(coinbaseKey.GetPubKey());
+        wallet->mapKeyMetadata[uncomp.GetID()].nCreateTime = KEY_TIME;
+        wallet->mapKeyMetadata[uncomp.GetEthID()].nCreateTime = KEY_TIME;
+        wallet->mapKeyMetadata[comp.GetID()].nCreateTime = KEY_TIME;
         wallet->AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
 
         JSONRPCRequest request;

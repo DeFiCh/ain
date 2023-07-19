@@ -124,18 +124,10 @@ bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubke
 {
     LOCK(cs_KeyStore);
 
-    mapKeys[pubkey.GetID()] = key;
-
-    auto pubkeyCopy = pubkey;
-    if (!pubkeyCopy.IsCompressed()) {
-        pubkeyCopy.Compress();
-        mapKeys[pubkeyCopy.GetID()] = key; // Bech32
-        mapKeys[pubkey.GetEthID()] = key; // Eth
-    } else {
-        pubkeyCopy.Decompress();
-        mapKeys[pubkeyCopy.GetID()] = key; // Uncompressed legacy
-        mapKeys[pubkeyCopy.GetEthID()] = key; // Eth
-    }
+    auto [uncomp, comp] = GetBothPubkeyCompressions(pubkey);
+    mapKeys[uncomp.GetID()] = key;
+    mapKeys[uncomp.GetEthID()] = key;
+    mapKeys[comp.GetID()] = key;
 
     ImplicitlyLearnRelatedKeyScripts(pubkey);
     return true;

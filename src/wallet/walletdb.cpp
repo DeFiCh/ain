@@ -359,17 +359,10 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKeyMetadata keyMeta;
             ssValue >> keyMeta;
             wss.nKeyMeta++;
-            pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
-            auto pubkeyCopy = vchPubKey;
-            if (!vchPubKey.IsCompressed()) {
-                pubkeyCopy.Compress();
-                pwallet->LoadKeyMetadata(pubkeyCopy.GetID(), keyMeta);
-                pwallet->LoadKeyMetadata(vchPubKey.GetEthID(), keyMeta);
-            } else {
-                pubkeyCopy.Decompress();
-                pwallet->LoadKeyMetadata(pubkeyCopy.GetID(), keyMeta);
-                pwallet->LoadKeyMetadata(pubkeyCopy.GetEthID(), keyMeta);
-            }
+            auto [uncomp, comp] = GetBothPubkeyCompressions(vchPubKey);
+            pwallet->LoadKeyMetadata(uncomp.GetID(), keyMeta);
+            pwallet->LoadKeyMetadata(uncomp.GetEthID(), keyMeta);
+            pwallet->LoadKeyMetadata(comp.GetID(), keyMeta);
         } else if (strType == DBKeys::WATCHMETA) {
             CScript script;
             ssKey >> script;
