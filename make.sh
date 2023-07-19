@@ -1008,6 +1008,7 @@ _ensure_enter_dir() {
 _py_activate_env() {
   local python_venv="${PYTHON_VENV_DIR}"
   python3 -m venv "${python_venv}"
+  # shellcheck disable=SC1091
   source "${python_venv}/bin/activate"
 }
 
