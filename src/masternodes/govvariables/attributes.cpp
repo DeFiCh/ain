@@ -248,7 +248,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::EVMType,
          {
-            {"confirmations_for_final", EVMKeys::Finalized},
+            {"finality_count", EVMKeys::Finalized},
          }},
         {AttributeTypes::Governance,
          {
