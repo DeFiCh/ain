@@ -75,7 +75,7 @@ class WalletLabelsTest(DefiTestFramework):
         # recognize the label/address associations.
         labels = [Label(name) for name in ("a", "b", "c", "d", "e")]
         for label in labels:
-            address = node.getnewaddress(label.name)
+            address = node.getnewaddress(label.name, "bech32")
             label.add_receive_address(address)
             label.verify(node)
 
@@ -99,7 +99,7 @@ class WalletLabelsTest(DefiTestFramework):
             node.sendtoaddress(to_label.addresses[0], amount_to_send)
         node.generate(1)
         for label in labels:
-            address = node.getnewaddress(label.name)
+            address = node.getnewaddress(label.name, "bech32")
             label.add_receive_address(address)
             label.verify(node)
             assert_equal(node.getreceivedbylabel(label.name), 2)
@@ -108,7 +108,7 @@ class WalletLabelsTest(DefiTestFramework):
 
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
-            address = node.getnewaddress()
+            address = node.getnewaddress("", "bech32")
             eth_address = node.vmmap(address, 1)
             bech32_address = node.vmmap(eth_address, 2)
             legacy_address = key_to_p2pkh(node.getaddressinfo(eth_address)['pubkey'])
@@ -124,9 +124,8 @@ class WalletLabelsTest(DefiTestFramework):
         for label in labels:
             addresses = []
             for x in range(10):
-                addresses.append(node.getnewaddress())
+                addresses.append(node.getnewaddress("", "bech32"))
             multisig_address = node.addmultisigaddress(5, addresses, label.name)['address']
-            label.add_address(multisig_address)
             label.purpose[multisig_address] = "send"
             label.verify(node)
         node.generate(101)
@@ -171,7 +170,7 @@ class Label:
 
         # Ignore addresses added from Eth address support
         addresses = node.getaddressesbylabel(self.name)
-        delete = [key for key in addresses if key[0:1] != '2']
+        delete = [key for key in addresses if key[0:1] != 'b']
         for key in delete:
             del addresses[key]
 
