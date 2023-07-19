@@ -206,10 +206,10 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-    call_tx: bool,
+    use_context: bool,
     context: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx) {
+    match SERVICES.evm.verify_tx_fees(tx, use_context) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
@@ -220,7 +220,7 @@ pub fn evm_try_prevalidate_raw_tx(
         }
     }
 
-    match SERVICES.evm.core.validate_raw_tx(tx, call_tx, context) {
+    match SERVICES.evm.core.validate_raw_tx(tx, use_context, context) {
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_gas,

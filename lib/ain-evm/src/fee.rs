@@ -24,10 +24,12 @@ pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256, base_fee: U256) -
 }
 
 // Gas prices are denoted in wei
-pub fn get_tx_gas_price(signed_tx: &SignedTx) -> U256 {
+pub fn get_tx_gas_price(signed_tx: &SignedTx, base_fee: U256) -> U256 {
     match &signed_tx.transaction {
         ethereum::TransactionV2::Legacy(tx) => tx.gas_price,
         ethereum::TransactionV2::EIP2930(tx) => tx.gas_price,
-        ethereum::TransactionV2::EIP1559(tx) => tx.max_fee_per_gas,
+        ethereum::TransactionV2::EIP1559(tx) => {
+            cmp::min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee)
+        }
     }
 }

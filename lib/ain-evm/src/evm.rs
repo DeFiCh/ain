@@ -284,7 +284,7 @@ impl EVMServices {
         }
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -293,11 +293,21 @@ impl EVMServices {
         let signed_tx: SignedTx = tx.try_into()?;
 
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let tx_gas_price = get_tx_gas_price(&signed_tx);
-            let next_block_fees = self.block.calculate_next_block_base_fee();
-            if tx_gas_price < next_block_fees {
-                debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
-                return Err(anyhow!("tx gas price is lower than next block base fee").into());
+            if use_context {
+                let next_block_fees = self.block.calculate_next_block_base_fee();
+                let tx_gas_price = get_tx_gas_price(&signed_tx, next_block_fees);
+                if tx_gas_price < next_block_fees {
+                    debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
+                    return Err(anyhow!("tx gas price is lower than next block base fee").into());
+                }
+            }
+            else {
+                let initial_block_fees = self.block.calculate_base_fee(H256::zero());
+                let tx_gas_price = get_tx_gas_price(&signed_tx, initial_block_fees);
+                if tx_gas_price < initial_block_fees {
+                    debug!("[verify_tx_fees] tx gas price is lower than initial block base fee");
+                    return Err(anyhow!("tx gas price is lower than initial block base fee").into());
+                }
             }
         }
 
