@@ -378,12 +378,12 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_txs), 1)
 
         # Test setting of finalized block
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/confirmations_for_final': '100'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/finality_count': '100'}})
         self.nodes[0].generate(1)
 
         # Check Gov var is present
         attrs = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attrs['v0/evm/block/confirmations_for_final'], '100')
+        assert_equal(attrs['v0/evm/block/finality_count'], '100')
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])

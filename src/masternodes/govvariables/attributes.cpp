@@ -321,7 +321,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::EVMType,
          {
-            {EVMKeys::Finalized, "confirmations_for_final"},
+            {EVMKeys::Finalized, "finality_count"},
          }},
         {AttributeTypes::Live,
          {
