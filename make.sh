@@ -349,12 +349,12 @@ test() {
 
     _fold_start "functional-tests"
 
-    _py_activate_env
+    py_env_activate
 
     # shellcheck disable=SC2086
     python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
 
-    _py_deactivate_env
+    py_env_deactivate
 
     _fold_end
     _exit_dir
@@ -552,17 +552,15 @@ clean_pkg_local_osx_sysroot() {
     _safe_rm_rf "$build_depends_dir/SDKs"
 }
 
-
-
 pkg_local_install_py_deps() {
     _fold_start "pkg-install-py-deps"
-    _py_activate_env
+    py_env_activate
 
     # install dependencies
     python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
-    _py_deactivate_env
+    py_env_deactivate
     _fold_end
 }
 
@@ -575,6 +573,17 @@ pkg_setup_rust() {
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
+}
+
+py_env_activate() {
+  local python_venv="${PYTHON_VENV_DIR}"
+  python3 -m venv "${python_venv}"
+  # shellcheck disable=SC1091
+  source "${python_venv}/bin/activate"
+}
+
+py_env_deactivate() {
+  deactivate
 }
 
 purge() {
@@ -1003,17 +1012,6 @@ _fold_end() {
 _ensure_enter_dir() {
     local dir="${1?dir required}"
     mkdir -p "${dir}" && pushd "${dir}" > /dev/null
-}
-
-_py_activate_env() {
-  local python_venv="${PYTHON_VENV_DIR}"
-  python3 -m venv "${python_venv}"
-  # shellcheck disable=SC1091
-  source "${python_venv}/bin/activate"
-}
-
-_py_deactivate_env() {
-  deactivate
 }
 
 _exit_dir() {
