@@ -128,7 +128,7 @@ class DST20(DefiTestFramework):
             "0xff00000000000000000000000000000000000003"
         )
 
-        abi = open("./lib/ain-rs-exports/dst20/output/abi.json").read()
+        abi = open("./lib/ain-rs-exports/dst20/output/abi.json", encoding="utf-8").read()
 
         btc = web3.eth.contract(address=contract_address_btc, abi=abi)
         print(btc.functions.name().call())
