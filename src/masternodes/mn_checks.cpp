@@ -1068,15 +1068,10 @@ public:
 
         if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
-            try {
                 evm_create_dst20(result, evmContext, tx.GetHash().GetByteArray(),
                                  rust::string(tokenName.c_str()),
                                  rust::string(tokenSymbol.c_str()),
                                  tokenId->ToString());
-            }
-            catch (std::runtime_error &e) {
-                return Res::Err("Error creating DST20 token: %s", e.what());
-            }
 
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);

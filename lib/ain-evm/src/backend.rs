@@ -215,7 +215,12 @@ impl EVMBackend {
 
         self.state
             .insert(address.as_bytes(), account_data.as_raw())
-            .map_err(|_| EVMBackendError::DeployContractFailed(*address))
+            .map_err(|_| {
+                EVMBackendError::DeployContractFailed(format!(
+                    "Could not write account {:#?} to address {:#x}",
+                    account, address
+                ))
+            })
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {
@@ -417,8 +422,7 @@ impl BridgeBackend for EVMBackend {
                 (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
             ],
             true,
-        )
-        .expect("TODO: panic message");
+        )?;
 
         Ok(())
     }
@@ -442,8 +446,8 @@ impl BridgeBackend for EVMBackend {
             None,
             vec![(storage_index, u256_to_h256(balance))],
             false,
-        )
-        .expect("TODO: panic message");
+        )?;
+
         Ok(())
     }
 }
@@ -465,7 +469,8 @@ pub enum EVMBackendError {
     TrieError(String),
     NoSuchAccount(H160),
     InsufficientBalance(InsufficientBalance),
-    DeployContractFailed(H160),
+    DeployContractFailed(String),
+    DST20BridgeFailed(String),
 }
 
 impl fmt::Display for EVMBackendError {
@@ -492,8 +497,17 @@ impl fmt::Display for EVMBackendError {
             }) => {
                 write!(f, "EVMBackendError: Insufficient balance for address {address}, trying to deduct {amount} but address has only {account_balance}")
             }
-            EVMBackendError::DeployContractFailed(address) => {
-                write!(f, "Unable to deploy contract to {address}")
+            EVMBackendError::DeployContractFailed(error) => {
+                write!(
+                    f,
+                    "EVMBackendError: Unable to deploy contract with error {error}"
+                )
+            }
+            EVMBackendError::DST20BridgeFailed(error) => {
+                write!(
+                    f,
+                    "EVMBackendError: Unable to bridge DST20 with error {error}"
+                )
             }
         }
     }

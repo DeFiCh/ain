@@ -44,11 +44,16 @@ impl<'backend> AinExecutor<'backend> {
         let bytecode_json: serde_json::Value = serde_json::from_str(include_str!(
             "../../ain-rs-exports/dst20/output/bytecode.json"
         ))
-        .expect("Unable to read bytecode");
-        let bytecode_raw = bytecode_json["object"]
-            .as_str()
-            .expect("Bytecode object not available");
-        let bytecode: Bytes = Bytes::from(hex::decode(&bytecode_raw[2..]).expect("Decode failed"));
+        .map_err(|e| EVMBackendError::DeployContractFailed(e.to_string()))?;
+
+        let bytecode_raw = bytecode_json["object"].as_str().ok_or_else(|| {
+            EVMBackendError::DeployContractFailed("Bytecode object not available".to_string())
+        })?;
+
+        let bytecode: Bytes = Bytes::from(
+            hex::decode(&bytecode_raw[2..])
+                .map_err(|e| EVMBackendError::DeployContractFailed(e.to_string()))?,
+        );
 
         self.backend
             .deploy_contract(&address, bytecode.0, name, symbol)
