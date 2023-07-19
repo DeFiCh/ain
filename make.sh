@@ -1043,7 +1043,8 @@ _append_to_path() {
         # Check if the directory is not already in the PATH
         if [[ ":$PATH:" != *":$1:"* ]]; then
             # Append the directory to the PATH
-            export PATH="$PATH:$1"
+            local path="$PATH:$1"
+            export PATH="${path}"
         else
             echo "'$1' already in PATH"
         fi
@@ -1057,7 +1058,8 @@ _remove_from_path() {
         # Check if the directory is in the PATH
         if [[ ":$PATH:" == *":$1:"* ]]; then
             # Remove the directory from the PATH
-            export PATH=$(echo "$PATH" | tr : '\n' | grep -v "^$1$" | tr '\n' :)
+            local path=$(echo "$PATH" | tr : '\n' | grep -v "^$1$" | tr '\n' :)
+            export PATH="${path}"
         else
             echo "'$1' not in PATH"
         fi
