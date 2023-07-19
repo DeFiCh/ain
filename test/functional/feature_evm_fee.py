@@ -16,7 +16,7 @@ class EVMFeeTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):
@@ -57,13 +57,29 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0x1',
+            'gasPrice': '0x2540BE400', # 10_000_000_000
         })
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         # Deduct 50000. 29000 value + min 21000 call fee
-        assert_equal(int(balance[2:], 16), 99999999999999950000)
+        assert_equal(int(balance[2:], 16), 99999789999999971000)
+
+        self.rollback_to(height)
+
+    def test_low_gas_price(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        assert_raises_rpc_error(-32001, "tx gas price is lower than next block base fee", self.nodes[0].eth_sendTransaction, {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x7a120',
+            'gasPrice': '0x3B9ACA00', # 1_000_000_000
+        })
 
         self.rollback_to(height)
 
@@ -78,13 +94,13 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0x3B9ACA00', # 1_000_000_000
+            'gasPrice': '0x2540BE400', # 10_000_000_000
         })
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         # Deduct 21_000_000_029_000. 29_000 value + 21_000 * 1_000_000_000
-        assert_equal(int(balance[2:], 16), 99999978999999971000)
+        assert_equal(int(balance[2:], 16), 99999789999999971000)
 
         self.rollback_to(height)
 
@@ -104,6 +120,22 @@ class EVMFeeTest(DefiTestFramework):
 
         self.rollback_to(height)
 
+    def test_low_gas_limit(self):
+        height = self.nodes[0].getblockcount()
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        assert_raises_rpc_error(-32001, "evm tx failed to validate gas limit is below the minimum gas per tx", self.nodes[0].eth_sendTransaction, {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0x7148', # 29_000
+            'gas': '0x5207', # 20_999
+            'gasPrice': '0x2540BE400', # 10_000_000_000
+        })
+
+        self.rollback_to(height)
+
     def test_gas_limit_higher_than_block_limit(self):
         height = self.nodes[0].getblockcount()
 
@@ -115,7 +147,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x1C9C381', # 30_000_001
-            'gasPrice': '0x1',
+            'gasPrice': '0x2540BE400', # 10_000_000_000
         })
 
         self.rollback_to(height)
@@ -132,7 +164,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0x1',
+            'gasPrice': '0x2540BE400', # 10_000_000_000
         })
 
         self.rollback_to(height)
@@ -148,7 +180,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': balance,
             'gas': '0x7a120',
-            'gasPrice': '0x1',
+            'gasPrice': '0x2540BE400', # 10_000_000_000
         })
         self.nodes[0].generate(1)
 
@@ -156,7 +188,7 @@ class EVMFeeTest(DefiTestFramework):
 
         # Don't consume balance as not enough to cover send value + fee.
         # Deduct only 21000 call fee
-        assert_equal(int(balance[2:], 16), 99999999999999979000)
+        assert_equal(int(balance[2:], 16), 99999790000000000000)
 
         self.rollback_to(height)
 
@@ -168,9 +200,13 @@ class EVMFeeTest(DefiTestFramework):
 
         self.test_fee_deduction()
 
+        self.test_low_gas_price()
+
         self.test_high_gas_price()
 
         self.test_max_gas_price()
+
+        self.test_low_gas_limit()
 
         self.test_gas_limit_higher_than_block_limit()
 
