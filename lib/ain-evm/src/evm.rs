@@ -300,8 +300,7 @@ impl EVMServices {
                     debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
                     return Err(anyhow!("tx gas price is lower than next block base fee").into());
                 }
-            }
-            else {
+            } else {
                 let initial_block_fees = self.block.calculate_base_fee(H256::zero());
                 let tx_gas_price = get_tx_gas_price(&signed_tx, initial_block_fees);
                 if tx_gas_price < initial_block_fees {
