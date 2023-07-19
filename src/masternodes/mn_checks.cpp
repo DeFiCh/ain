@@ -4089,12 +4089,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
     if (!IsEVMEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
-
-    if (!IsTransferDomainEnabled(height, mnview, consensus)) {
-        return DeFiErrors::TransferDomainNotEnabled();
-    }
-
+    
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
+        if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+            return DeFiErrors::TransferDomainNotEnabled();
+        }
+
         if (obj.transfers.size() != 1) {
             return DeFiErrors::TransferDomainMultipleTransfers();
         }
