@@ -27,7 +27,12 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
+             '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105',
+             '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):
@@ -114,7 +119,7 @@ class EVMTest(DefiTestFramework):
         #     nonce: 1,
         #     value: 0,
         #     data: CONTRACT_BYTECODE,
-        #     gasLimit: 3_000,
+        #     gasLimit: 500_000,
         #     gasPrice: 150_000_000_000,
         #     accessList: [
         #     {
@@ -138,7 +143,7 @@ class EVMTest(DefiTestFramework):
             'from': self.ethAddress,
             'value': '0x0',
             'data': CONTRACT_BYTECODE,
-            'gas': '0xbb8', # 3_000
+            'gas': '0x7a120', # 500_000
             'maxPriorityFeePerGas': '0x2363e7f000', # 152_000_000_000
             'maxFeePerGas': '0x22ecb25c00', # 150_000_000_000
             'type': '0x2',
@@ -154,7 +159,7 @@ class EVMTest(DefiTestFramework):
         #     maxPriorityFeePerGas: 152_000_000_000, # 152 gwei
         #     maxFeePerGas: 150_000_000_000, type: 2,
         # }
-        rawtx = '0x02f9015982046d02852363e7f0008522ecb25c00820bb88080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033c080a047375bb73a006fdfcbecaf027305e0889b49277a151763799d68cfcbd06a84c6a0255b585e390c63f8d2c501606aa6fa1e1f3dffa7a8705a431f6a0ad99a1cc7e4'
+        rawtx = '0x02f9015a82046d02852363e7f0008522ecb25c008307a1208080b8fe608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033c080a05eceb8ff0ce33c95106051d82896aaf41bc899f625189922d12edeb7ce6fd56da07c37f48b1f4dfbf89a81cbe62c93ab23eec00808f7daca0cc5cf29860d112759'
         assert_equal(f"0x{signed}", rawtx)
 
         hash = self.nodes[0].eth_sendRawTransaction(rawtx)

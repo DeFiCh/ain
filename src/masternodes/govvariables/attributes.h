@@ -24,6 +24,7 @@ enum AttributeTypes : uint8_t {
     Governance = 'g',
     Consortium = 'c',
     Transfer   = 'b',
+    EVMType    = 'e',
     Vaults     = 'v',
 };
 
@@ -41,6 +42,14 @@ enum ParamIDs : uint8_t {
 
 enum OracleIDs : uint8_t {
     Splits = 'a',
+};
+
+enum EVMIDs : uint8_t {
+    Block    = 'a',
+};
+
+enum EVMKeys : uint8_t {
+    Finalized    = 'a',
 };
 
 enum GovernanceIDs : uint8_t {
@@ -457,6 +466,7 @@ public:
     static const std::map<uint8_t, std::string> &displayConsortiumIDs();
     static const std::map<uint8_t, std::string> &displayGovernanceIDs();
     static const std::map<uint8_t, std::string> &displayTransferIDs();
+    static const std::map<uint8_t, std::string> &displayEVMIDs();
     static const std::map<uint8_t, std::string> &displayVaultIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>> &displayKeys();
 
@@ -482,6 +492,7 @@ private:
     static const std::map<std::string, uint8_t> &allowedConsortiumIDs();
     static const std::map<std::string, uint8_t> &allowedGovernanceIDs();
     static const std::map<std::string, uint8_t> &allowedTransferIDs();
+    static const std::map<std::string, uint8_t> &allowedEVMIDs();
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>

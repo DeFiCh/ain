@@ -19,7 +19,12 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80',
+             '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
+             '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
+             '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
+             '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105',
+             '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):

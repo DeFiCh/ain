@@ -23,7 +23,7 @@ class EVMProvider:
         tx = self.w3.eth.contract(abi=abi, bytecode=bytecode).constructor(constructor).build_transaction({
             'chainId': 1133,
             'nonce': nonce,
-            'gasPrice': Web3.to_wei(5, "gwei")
+            'gasPrice': Web3.to_wei(10, "gwei")
         })
 
         signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=signer.pkey)
@@ -34,7 +34,7 @@ class EVMProvider:
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(deploy_tx_hash)
         return self.w3.eth.contract(address=tx_receipt.contractAddress, abi=abi)
 
-    def sign_and_send(self, fn: ContractFunction, signer: KeyPair, gasprice: int = 5):
+    def sign_and_send(self, fn: ContractFunction, signer: KeyPair, gasprice: int = 10):
         nonce = self.w3.eth.get_transaction_count(signer.address)
         tx = fn.build_transaction({
             'chainId': self.w3.eth.chain_id,
