@@ -113,7 +113,7 @@ class EVMTest(DefiTestFramework):
     def invalid_values_dvm_evm(self):
         # Check for valid values DVM->EVM in transferdomain rpc
         assert_raises_rpc_error(-32600, "Src address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-32600, "Dst address must be an ETH address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "Dst address must be an ERC55 address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Cannot transfer inside same domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"101@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@BTC", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
@@ -148,7 +148,7 @@ class EVMTest(DefiTestFramework):
 
     def invalid_values_evm_dvm(self):
         # Check for valid values EVM->DVM in transferdomain rpc
-        assert_raises_rpc_error(-32600, "Src address must be an ETH address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, "Src address must be an ERC55 address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "Dst address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "Cannot transfer inside same domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"101@DFI", "domain": 2}}])
