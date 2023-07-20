@@ -40,9 +40,8 @@ impl TransactionQueueMap {
             // Safety check to disallow 0 as it's equivalent to no context
             if context == 0 {
                 continue;
-            }
-            let mut write_guard: std::sync::RwLockWriteGuard<'_, HashMap<u64, TransactionQueue>> =
-                self.queues.write().unwrap();
+            };
+            let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {
                 e.insert(TransactionQueue::new());
