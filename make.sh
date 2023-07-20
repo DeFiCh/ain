@@ -349,7 +349,7 @@ test() {
 
     _fold_start "functional-tests"
 
-    py_env_activate
+    py_ensure_env_active
 
     # shellcheck disable=SC2086
     python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
@@ -372,9 +372,12 @@ test_py() {
 
     _ensure_enter_dir "${build_target_dir}"
 
+    py_ensure_env_active
+
     # shellcheck disable=SC2086
     ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
 
+    py_env_deactivate
     _exit_dir
 }
 
@@ -552,6 +555,14 @@ clean_pkg_local_osx_sysroot() {
     _safe_rm_rf "$build_depends_dir/SDKs"
 }
 
+pkg_local_ensure_py_deps() {
+    local python_venv="${PYTHON_VENV_DIR}"
+    if [[ -d "${python_venv}" ]]; then 
+        return
+    fi
+    pkg_local_install_py_deps
+}
+
 pkg_local_install_py_deps() {
     _fold_start "pkg-install-py-deps"
     py_env_activate
@@ -573,6 +584,11 @@ pkg_setup_rust() {
     local rust_target
     rust_target=$(get_rust_target)
     rustup target add "${rust_target}"
+}
+
+py_ensure_env_active() {
+    pkg_local_ensure_py_deps
+    py_env_activate
 }
 
 py_env_activate() {
