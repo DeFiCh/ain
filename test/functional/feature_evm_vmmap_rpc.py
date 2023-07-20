@@ -195,12 +195,12 @@ class VMMapTests(DefiTestFramework):
             assert_equal(self.nodes[0].vmmap(str(item[1]), VMMapType.BlockNumberEVMToDVM), item[0])
 
     def vmmap_invalid_block_number_should_fail(self):
-        assert_raises_rpc_error(-8, "Invalid parameter", self.nodes[0].vmmap, "-1", VMMapType.BlockNumberDVMToEVM)
-        assert_raises_rpc_error(-8, "Invalid parameter", self.nodes[0].vmmap, "garbage", VMMapType.BlockNumberDVMToEVM)
-        assert_raises_rpc_error(-8, "Target block height 1000000000 after current tip", self.nodes[0].vmmap, "1000000000", VMMapType.BlockNumberDVMToEVM)
-        assert_raises_rpc_error(-8, "Invalid parameter", self.nodes[0].vmmap, "-1", VMMapType.BlockNumberEVMToDVM)
-        assert_raises_rpc_error(-8, "Invalid parameter", self.nodes[0].vmmap, "garbage", VMMapType.BlockNumberEVMToDVM)
-        assert_raises_rpc_error(-8, "Block not found", self.nodes[0].vmmap, "10000000", VMMapType.BlockNumberEVMToDVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "-1", VMMapType.BlockNumberDVMToEVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "garbage", VMMapType.BlockNumberDVMToEVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "1000000000", VMMapType.BlockNumberDVMToEVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "-1", VMMapType.BlockNumberEVMToDVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "garbage", VMMapType.BlockNumberEVMToDVM)
+        assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, "10000000", VMMapType.BlockNumberEVMToDVM)
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)

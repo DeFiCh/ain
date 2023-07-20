@@ -174,7 +174,7 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
     uint64_t height;
     const int current_tip = ::ChainActive().Height();
     bool success          = ParseUInt64(input, &height);
-    if (!success || height > current_tip) {
+    if (!success || height < 0 || height > current_tip) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
     }
     CBlockIndex *pindex = ::ChainActive()[height];
