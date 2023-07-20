@@ -6,14 +6,13 @@ use ain_evm::{
     transaction::{self, SignedTx},
 };
 
+use ain_evm::storage::traits::BlockStorage;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
-use ain_evm::storage::traits::BlockStorage;
 
 use crate::ffi;
-use crate::ffi::CrossBoundaryResult;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
@@ -362,7 +361,6 @@ pub fn evm_disconnect_latest_block() {
     SERVICES.evm.storage.disconnect_latest_block();
 }
 
-
 /// Return the block for a given height.
 ///
 /// # Arguments
@@ -372,7 +370,10 @@ pub fn evm_disconnect_latest_block() {
 /// # Returns
 ///
 /// Returns the blockhash associated with the given block number.
-pub fn evm_try_get_block_hash_by_number(result: &mut ffi::CrossBoundaryResult, height: u64) -> [u8; 32] {
+pub fn evm_try_get_block_hash_by_number(
+    result: &mut ffi::CrossBoundaryResult,
+    height: u64,
+) -> [u8; 32] {
     match SERVICES
         .evm
         .storage
@@ -399,7 +400,10 @@ pub fn evm_try_get_block_hash_by_number(result: &mut ffi::CrossBoundaryResult, h
 /// # Returns
 ///
 /// Returns the block number associated with the given blockhash.
-pub fn evm_try_get_block_number_by_hash(result: &mut ffi::CrossBoundaryResult, hash: [u8; 32]) -> u64 {
+pub fn evm_try_get_block_number_by_hash(
+    result: &mut ffi::CrossBoundaryResult,
+    hash: [u8; 32],
+) -> u64 {
     match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
         Some(block) => {
             result.ok = true;
