@@ -33,6 +33,7 @@ setup_vars() {
     BUILD_TARGET_DIR="${BUILD_DIR}"
     BUILD_DEPENDS_DIR=${BUILD_DEPENDS_DIR:-"${BUILD_DIR}/depends"}
     BUILD_DEPENDS_DIR="$(_canonicalize "$BUILD_DEPENDS_DIR")"
+    PYTHON_VENV_DIR=${PYTHON_VENV_DIR:-"${BUILD_DIR}/pyenv"}
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
@@ -347,10 +348,15 @@ test() {
     _fold_end
 
     _fold_start "functional-tests"
-    # shellcheck disable=SC2086
-    ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
-    _fold_end
 
+    py_ensure_env_active
+
+    # shellcheck disable=SC2086
+    python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
+
+    py_env_deactivate
+
+    _fold_end
     _exit_dir
 }
 
@@ -366,9 +372,12 @@ test_py() {
 
     _ensure_enter_dir "${build_target_dir}"
 
-    # shellcheck disable=SC2086
-    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+    py_ensure_env_active
 
+    # shellcheck disable=SC2086
+    python3 ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+
+    py_env_deactivate
     _exit_dir
 }
 
@@ -448,7 +457,7 @@ pkg_install_deps() {
     # locales: for using en-US.UTF-8 (see head of this file).
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
+        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
@@ -504,6 +513,20 @@ pkg_install_deps_osx_tools() {
     _fold_end
 }
 
+pkg_install_llvm() {
+    _fold_start "pkg-install-llvm"
+    # shellcheck disable=SC2086
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
+    _fold_end
+}
+
+pkg_install_rust() {
+    _fold_start "pkg-install-rust"
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
+        --default-toolchain="${RUST_DEFAULT_VERSION}" -y
+    _fold_end
+}
+
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
@@ -527,25 +550,34 @@ pkg_local_ensure_osx_sysroot() {
     _fold_end
 }
 
-pkg_install_llvm() {
-    _fold_start "pkg-install-llvm"
-    # shellcheck disable=SC2086
-    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s ${CLANG_DEFAULT_VERSION}
-    _fold_end
+clean_pkg_local_osx_sysroot() {
+    local build_depends_dir="${BUILD_DEPENDS_DIR}"
+    _safe_rm_rf "$build_depends_dir/SDKs"
 }
 
-pkg_install_rust() {
-    _fold_start "pkg-install-rust"
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
-        --default-toolchain="${RUST_DEFAULT_VERSION}" -y
-    _fold_end
+pkg_local_ensure_py_deps() {
+    local python_venv="${PYTHON_VENV_DIR}"
+    if [[ -d "${python_venv}" ]]; then 
+        return
+    fi
+    pkg_local_install_py_deps
 }
 
-pkg_install_web3_deps() {
-    _fold_start "pkg-install-solc"
+pkg_local_install_py_deps() {
+    _fold_start "pkg-install-py-deps"
+    py_env_activate
+
+    # install dependencies
     python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
+
+    py_env_deactivate
     _fold_end
+}
+
+clean_pkg_local_py_deps() {
+  local python_venv="${PYTHON_VENV_DIR}"
+  _safe_rm_rf "${python_venv}"
 }
 
 pkg_setup_rust() {
@@ -554,9 +586,20 @@ pkg_setup_rust() {
     rustup target add "${rust_target}"
 }
 
-clean_pkg_local_osx_sysroot() {
-    local build_depends_dir="${BUILD_DEPENDS_DIR}"
-    _safe_rm_rf "$build_depends_dir/SDKs"
+py_ensure_env_active() {
+    pkg_local_ensure_py_deps
+    py_env_activate
+}
+
+py_env_activate() {
+  local python_venv="${PYTHON_VENV_DIR}"
+  python3 -m venv "${python_venv}"
+  # shellcheck disable=SC1091
+  source "${python_venv}/bin/activate"
+}
+
+py_env_deactivate() {
+  deactivate
 }
 
 purge() {
@@ -934,7 +977,7 @@ ci_setup_deps_target() {
 }
 
 ci_setup_deps_test() {
-    pkg_install_web3_deps
+    pkg_local_install_py_deps
 }
 
 get_rust_target() {
