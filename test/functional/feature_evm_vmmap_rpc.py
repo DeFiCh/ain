@@ -198,6 +198,7 @@ class VMMapTests(DefiTestFramework):
         assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, *args)
         for x in ["-1", "garbage", "1000000000"]:
             assert_invalid(x, VMMapType.BlockNumberDVMToEVM)
+            assert_invalid(x, VMMapType.BlockNumberEVMToDVM)
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
