@@ -493,6 +493,10 @@ public:
     static Res DatabaseKeyNotFound(const std::string &key) {
         return Res::Err("Key not found: %s", key);
     }
+
+    static Res InvalidBlockNumberString(const std::string &number) {
+        return Res::Err("Invalid block number: %s", number);
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H
