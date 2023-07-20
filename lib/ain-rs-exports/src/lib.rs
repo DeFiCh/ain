@@ -80,7 +80,7 @@ pub mod ffi {
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-            call_tx: bool,
+            use_context: bool,
             context: u64,
         ) -> ValidateTxCompletion;
         fn evm_try_queue_tx(
