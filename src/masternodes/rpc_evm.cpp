@@ -150,10 +150,7 @@ UniValue evmtx(const JSONRPCRequest& request) {
 UniValue handleMapBlockNumberEVMToDVMRequest(const std::string &input) {
     uint64_t height;
     bool success = ParseUInt64(input, &height);
-    if (!success) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
-    }
-    if (height < 0) {
+    if (!success || height < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
     }
     CrossBoundaryResult result;
@@ -173,12 +170,9 @@ UniValue handleMapBlockNumberEVMToDVMRequest(const std::string &input) {
 
 UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
     uint64_t height;
-    bool success = ParseUInt64(input, &height);
-    if (!success) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
-    }
     const int current_tip = ::ChainActive().Height();
-    if (height < 0 || height > current_tip) {
+    bool success = ParseUInt64(input, &height);
+    if (!success || height > current_tip) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
     }
     CBlockIndex *pindex = ::ChainActive()[height];
