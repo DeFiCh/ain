@@ -386,7 +386,7 @@ pub fn evm_try_get_block_hash_by_number(
         None => {
             result.ok = false;
             result.reason = "Invalid block number".to_string();
-            [0; 32]
+            Default::default()
         }
     }
 }
@@ -412,7 +412,7 @@ pub fn evm_try_get_block_number_by_hash(
         None => {
             result.ok = false;
             result.reason = "Invalid block hash".to_string();
-            0
+            Default::default()
         }
     }
 }
