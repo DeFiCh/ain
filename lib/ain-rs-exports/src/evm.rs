@@ -10,6 +10,7 @@ use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
+use ain_evm::storage::traits::BlockStorage;
 
 use crate::ffi;
 
@@ -358,4 +359,55 @@ pub fn evm_try_finalize(
 
 pub fn evm_disconnect_latest_block() {
     SERVICES.evm.storage.disconnect_latest_block();
+}
+
+
+/// Return the block for a given height.
+///
+/// # Arguments
+///
+/// * `height` - The block number we want to get the blockhash from.
+///
+/// # Returns
+///
+/// Returns the blockhash associated with the given block number.
+pub fn evm_try_get_block_hash_by_number(result: &mut ffi::CrossBoundaryResult, height: u64) -> [u8; 32] {
+    match SERVICES
+        .evm
+        .storage
+        .get_block_by_number(&U256::from(height))
+    {
+        Some(block) => {
+            result.ok = true;
+            block.header.hash().to_fixed_bytes()
+        }
+        None => {
+            result.ok = false;
+            result.reason = "Block not found (Invalid block number)".parse().unwrap();
+            [0; 32]
+        }
+    }
+}
+
+/// Return the block number for a given blockhash.
+///
+/// # Arguments
+///
+/// * `hash` - The hash of the block we want to get the block number.
+///
+/// # Returns
+///
+/// Returns the block number associated with the given blockhash.
+pub fn evm_try_get_block_number_by_hash(result: &mut ffi::CrossBoundaryResult, hash: [u8; 32]) -> u64 {
+    match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
+        Some(block) => {
+            result.ok = true;
+            block.header.number.as_u64()
+        }
+        None => {
+            result.ok = false;
+            result.reason = "Block not found (Invalid hash)".parse().unwrap();
+            0
+        }
+    }
 }

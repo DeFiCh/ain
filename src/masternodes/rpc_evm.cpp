@@ -3,6 +3,7 @@
 #include <ain_rs_exports.h>
 #include <key_io.h>
 #include <util/strencodings.h>
+#include <masternodes/errors.h>
 
 enum class VMDomainRPCMapType {
     Auto,
@@ -11,10 +12,12 @@ enum class VMDomainRPCMapType {
     TxHashDVMToEVM,
     TxHashEVMToEVM,
     BlockHashDVMToEVM,
-    BlockHashEVMToDVM
+    BlockHashEVMToDVM,
+    BlockNumberDVMToEVM,
+    BlockNumberEVMToDVM,
 };
 
-static int VMDomainRPCMapTypeCount = 7;
+static int VMDomainRPCMapTypeCount = 9;
 
 enum class VMDomainIndexType {
     BlockHash,
@@ -144,13 +147,60 @@ UniValue evmtx(const JSONRPCRequest& request) {
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }
 
+UniValue handleMapBlockNumberEVMToDVMRequest(const std::string &input) {
+    uint64_t height;
+    bool success = ParseUInt64(input, &height);
+    if (!success) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
+    }
+    if (height < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
+    }
+    CrossBoundaryResult result;
+    auto evmHash = evm_try_get_block_hash_by_number(result, height);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,result.reason.c_str());
+    }
+    auto evmBlockHash = std::vector<uint8_t>(evmHash.begin(), evmHash.end());
+    std::reverse(evmBlockHash.begin(), evmBlockHash.end());
+    ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
+    if(!dvm_block) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, dvm_block.msg);
+    }
+    CBlockIndex *pindex = LookupBlockIndex(*dvm_block.val);
+    return pindex->GetBlockHeader().deprecatedHeight;
+}
+
+UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
+    uint64_t height;
+    bool success = ParseUInt64(input, &height);
+    if (!success) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
+    }
+    const int current_tip = ::ChainActive().Height();
+    if (height < 0 || height > current_tip) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, DeFiErrors::InvalidBlockNumberString(input).msg);
+    }
+    CBlockIndex *pindex = ::ChainActive()[height];
+    auto evmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(pindex->GetBlockHash().GetHex()));
+    if (!evmBlockHash.val.has_value()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, evmBlockHash.msg);
+    }
+    CrossBoundaryResult result;
+    auto blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
+    if (!result.ok) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,result.reason.c_str());
+    }
+    return blockNumber;
+}
+
 
 UniValue vmmap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
     RPCHelpMan{"vmmap",
                "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
                {
-                       {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
+                       {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
                        {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
                             1 - Address format: DFI -> ETH \n\
                             2 - Address format: ETH -> DFI \n\
@@ -161,7 +211,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
                         }
                },
                RPCResult{
-                       "\"hash\"                  (string) The hex-encoded string for address, block or transaction\n"
+                       "\"input\"                  (string) The hex-encoded string for address, block or transaction\n"
                },
                RPCExamples{
                        HelpExampleCli("vmmap", R"('"<hex>"' 1)")
@@ -179,7 +229,7 @@ UniValue vmmap(const JSONRPCRequest& request) {
         return str;
     };
 
-    const std::string hash = request.params[0].get_str();
+    const std::string input = request.params[0].get_str();
 
     const int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
@@ -188,20 +238,20 @@ UniValue vmmap(const JSONRPCRequest& request) {
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
     switch (type) {
         case VMDomainRPCMapType::AddressDVMToEVM: {
-            CTxDestination dest = DecodeDestination(hash);
+            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
                 throwInvalidParam();
             }
-            CPubKey key = AddrToPubKey(pwallet, hash);
+            CPubKey key = AddrToPubKey(pwallet, input);
             if (key.IsCompressed()) { key.Decompress(); }
             return EncodeDestination(WitnessV16EthHash(key));
         }
         case VMDomainRPCMapType::AddressEVMToDVM: {
-            CTxDestination dest = DecodeDestination(hash);
+            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV16KeyEthHashType) {
                 throwInvalidParam();
             }
-            CPubKey key = AddrToPubKey(pwallet, hash);
+            CPubKey key = AddrToPubKey(pwallet, input);
             if (!key.IsCompressed()) { key.Compress(); }
             return EncodeDestination(WitnessV0KeyHash(key));
         }
@@ -214,20 +264,26 @@ UniValue vmmap(const JSONRPCRequest& request) {
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToEVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(hash));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
             break;
+        }
+        case VMDomainRPCMapType::BlockNumberDVMToEVM: {
+            return handleMapBlockNumberDVMToEVMRequest(input);
+        }
+        case VMDomainRPCMapType::BlockNumberEVMToDVM: {
+            return handleMapBlockNumberEVMToDVMRequest(input);
         }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
@@ -296,7 +352,7 @@ static const CRPCCommand commands[] =
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"evm",         "evmtx",                    &evmtx,                 {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm",         "vmmap",                    &vmmap,                 {"hash", "type"}},
+    {"evm",         "vmmap",                    &vmmap,                 {"input", "type"}},
     {"evm",         "logvmmaps",                &logvmmaps,             {"type"}},
 };
 
