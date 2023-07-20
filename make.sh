@@ -375,7 +375,7 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+    python3 ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
 
     py_env_deactivate
     _exit_dir
