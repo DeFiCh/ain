@@ -2,6 +2,7 @@ use crate::block::BlockNumber;
 use ain_evm::bytes::Bytes;
 use ain_evm::log::LogIndex;
 use primitive_types::{H160, H256, U256};
+use serde_with::{serde_as, OneOrMany};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -32,10 +33,12 @@ impl From<LogIndex> for LogResult {
 }
 
 /// Call request
+#[serde_as]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct GetLogsRequest {
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub address: Option<Vec<H160>>,
     pub block_hash: Option<H256>,
     pub from_block: Option<BlockNumber>,
