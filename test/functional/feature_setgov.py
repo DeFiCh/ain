@@ -785,7 +785,7 @@ class GovsetTest(DefiTestFramework):
                                 {"ATTRIBUTES": {'v0/token/5/descendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov,
                                 {"ATTRIBUTES": {'v0/token/5/epitaph': '1'}})
-        assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov,
+        assert_raises_rpc_error(-5, "Amount must be a valid number", self.nodes[0].setgov,
                                 {"ATTRIBUTES": {'v0/oracles/splits/1200': '1/50,600'}})
         assert_raises_rpc_error(-5, "Two int values expected for split in id/mutliplier", self.nodes[0].setgov,
                                 {"ATTRIBUTES": {'v0/oracles/splits/1200': '1/50,5/10'}})

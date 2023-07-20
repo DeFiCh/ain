@@ -1709,7 +1709,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
             auto loanAmount = DivideAmounts(availableValue, price);
             auto amountRatio = MultiplyAmounts(DivideAmounts(loanAmount, ratio), 100);
 
-            loanBalances.Add({token->first, amountRatio});
+            loanBalances.Add({token->first, static_cast<CAmount>(amountRatio)});
             totalSplit += split;
         }
         if (totalSplit != COIN)

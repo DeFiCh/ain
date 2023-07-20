@@ -403,7 +403,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& vaultAssets
             auto chunk = DivideAmounts(batchThreshold, collateralChunkValue);
             auto loanAmount = MultiplyAmounts(maxLoanAmount, chunk);
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
-                chunk = std::min(chunk, chunks);
+                chunk = std::min(static_cast<CAmount>(chunk), chunks);
                 loanAmount = std::min(loanAmount, maxLoanAmount);
                 auto collateralChunk = MultiplyAmounts(chunk, loanChunk);
                 batches.push_back(CreateAuctionBatch({loan.nTokenId, loanAmount}, collateralChunk));
@@ -1138,8 +1138,8 @@ static void ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache
 }
 
 template<typename T>
-static inline T CalculateNewAmount(const int multiplier, const T amount) {
-    return multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
+static inline T CalculateNewAmount(CAmount multiplier, const T amount) {
+    return multiplier < 0 ? DivideAmounts(amount, std::abs(multiplier)) : MultiplyAmounts(amount, multiplier);
 }
 
 size_t RewardConsolidationWorkersCount() {
@@ -1221,7 +1221,7 @@ static Res UpdateLiquiditySplits(CCustomCSView& view, const DCT_ID oldPoolId, co
 }
 
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
-                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
+                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const CAmount multiplier) {
 
     LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
               oldTokenId.v, newTokenId.v, pindex->nHeight);
@@ -1495,7 +1495,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
     return Res::Ok();
 }
 
-static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
+static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const CAmount multiplier) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n",
               oldTokenId.v, newTokenId.v, height);
@@ -1691,7 +1691,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     return Res::Ok();
 }
 
-static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, const uint8_t key, const DCT_ID oldId, const DCT_ID newId, const int32_t multiplier, const uint8_t typeID = ParamIDs::Economy) {
+static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, const uint8_t key, const DCT_ID oldId, const DCT_ID newId, const CAmount multiplier, const uint8_t typeID = ParamIDs::Economy) {
     CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
     auto balances = attributes.GetValue(attrKey, CBalances{});
     for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
@@ -1749,8 +1749,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         cache.SetVariable(*attributes);
     }
 
-    for (const auto& [id, rawMultiplier] : splits) {
-        const int32_t multiplier = rawMultiplier / COIN;
+    for (const auto& [id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
 

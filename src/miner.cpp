@@ -331,7 +331,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
                 for (uint32_t i{0}; i < entries; ++i) {
                     CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                    metadata << i << id << (multiplier / COIN);
+                    metadata << i << id << multiplier;
 
                     CMutableTransaction mTx(txVersion);
                     mTx.vin.resize(1);

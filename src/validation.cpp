@@ -1693,7 +1693,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
-static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
+static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const CAmount multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
     bool opcodes{false};
     std::vector<unsigned char> metadata;
     uint32_t type;
@@ -2771,8 +2771,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CreationTxs creationTxs;
     auto counter_n = 1;
-    for (const auto& [id, rawMultiplier] : splits) {
-        const int32_t multiplier = rawMultiplier / COIN;
+    for (const auto& [id, multiplier] : splits) {
         LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
         id, multiplier, counter_n++, splits.size(), pindex->nHeight);
         uint256 tokenCreationTx{};

@@ -206,6 +206,10 @@ public:
         return Res::Err("Mutliplier cannot be zero");
     }
 
+    static Res GovVarVerifySplitFractional() {
+        return Res::Err("Fractional split not currently supported");
+    }
+
     static Res GovVarVerifyPair() {
         return Res::Err("Exactly two entires expected for currency pair");
     }

@@ -488,6 +488,9 @@ static ResVal<CAttributeValue> VerifySplit(const std::string &str) {
     if (value == 0) {
         return DeFiErrors::GovVarVerifyMultiplier();
     }
+    if (!fMockNetwork && !IsRegtestNetwork() && value % COIN > 0) {
+        return DeFiErrors::GovVarVerifySplitFractional();
+    }
 
     splits[*resId] = value;
 
@@ -621,6 +624,15 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
 
 static inline void rtrim(std::string &s, unsigned char remove) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
+}
+
+static inline std::string removeTrailingDecimals(const CAmount amount) {
+    auto decimalStr = GetDecimalString(amount);
+    rtrim(decimalStr, '0');
+    if (decimalStr.back() == '.') {
+        decimalStr.pop_back();
+    }
+    return decimalStr;
 }
 
 const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
@@ -1311,11 +1323,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
-                    auto decimalStr = GetDecimalString(*amount);
-                    rtrim(decimalStr, '0');
-                    if (decimalStr.back() == '.') {
-                        decimalStr.pop_back();
-                    }
+                    const auto decimalStr = removeTrailingDecimals(*amount);
                     ret.pushKV(key, decimalStr);
 
                     // Create fee_pct alias of reward_pct.
@@ -1389,7 +1397,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     if (it != splitValues->begin()) {
                         keyValue += ',';
                     }
-                    keyValue += KeyBuilder(it->first, it->second / COIN);
+                    keyValue += KeyBuilder(it->first, removeTrailingDecimals(it->second));
                 }
                 ret.pushKV(key, keyValue);
             } else if (const auto &descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
