@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, get_tx_gas_price};
+use crate::fee::{calculate_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -316,7 +316,7 @@ impl EVMServices {
         }
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -325,11 +325,15 @@ impl EVMServices {
         let signed_tx: SignedTx = tx.try_into()?;
 
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let tx_gas_price = get_tx_gas_price(&signed_tx);
-            let next_block_fees = self.block.calculate_next_block_base_fee();
-            if tx_gas_price < next_block_fees {
-                debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
-                return Err(anyhow!("tx gas price is lower than next block base fee").into());
+            let mut block_fees = self.block.calculate_base_fee(H256::zero());
+            if use_context {
+                block_fees = self.block.calculate_next_block_base_fee();
+            }
+
+            let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+            if tx_gas_price < block_fees {
+                debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+                return Err(anyhow!("tx gas price is lower than block base fee").into());
             }
         }
 

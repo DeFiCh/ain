@@ -135,7 +135,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 10000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
-        # Get miner DFI balance before transaction
+        # Send tokens to burn address
+        burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
+        self.nodes[0].importprivkey("93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ")
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['address'], burn_address)
+        self.nodes[0].accounttoaccount(address, {burn_address: "1@DFI"})
+        self.nodes[0].generate(1)
+
+        # Get burn address and miner account balance before transaction
+        burn_before = Decimal(self.nodes[0].getaccount(burn_address)[0].split('@')[0])
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         before_blockheight = self.nodes[0].getblockcount()
 
@@ -202,8 +211,10 @@ class EVMTest(DefiTestFramework):
         assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 4996564910000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 5000000000000000000)
 
-        # Check miner account balance after transfer
+        # Get burn address and miner account balance after transfer
+        burn_after = Decimal(self.nodes[0].getaccount(burn_address)[0].split('@')[0])
         miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
+        burnt_fee = burn_after - burn_before
         miner_fee = miner_after - miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -247,6 +258,11 @@ class EVMTest(DefiTestFramework):
         block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][20:84]
         assert_equal(block_hash, eth_hash)
 
+        # Check EVM burnt fee
+        opreturn_burnt_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
+        opreturn_burnt_fee_sats = Decimal(int(opreturn_burnt_fee_amount[4:6] + opreturn_burnt_fee_amount[2:4] + opreturn_burnt_fee_amount[0:2], 16)) / 100000000
+        assert_equal(opreturn_burnt_fee_sats, burnt_fee)
+
         # Check EVM miner fee
         opreturn_priority_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][100:]
         opreturn_priority_fee_sats = Decimal(int(opreturn_priority_fee_amount[4:6] + opreturn_priority_fee_amount[2:4] + opreturn_priority_fee_amount[0:2], 16)) / 100000000
@@ -276,6 +292,14 @@ class EVMTest(DefiTestFramework):
 
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(len(block_txs), 1)
+
+        # Test setting of finalized block
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/finality_count': '100'}})
+        self.nodes[0].generate(1)
+
+        # Check Gov var is present
+        attrs = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attrs['v0/evm/block/finality_count'], '100')
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])

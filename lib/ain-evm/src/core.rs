@@ -167,7 +167,7 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
-        call_tx: bool,
+        use_context: bool,
         context: u64,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
@@ -238,7 +238,7 @@ impl EVMCoreService {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        let used_gas = if call_tx {
+        let used_gas = if use_context {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
                 to: signed_tx.to(),
@@ -253,7 +253,7 @@ impl EVMCoreService {
             u64::default()
         };
 
-        if call_tx {
+        if use_context {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues

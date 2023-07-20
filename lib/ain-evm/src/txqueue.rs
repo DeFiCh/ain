@@ -38,6 +38,10 @@ impl TransactionQueueMap {
         let mut rng = rand::thread_rng();
         loop {
             let context = rng.gen();
+            // Safety check to disallow 0 as it's equivalent to no context
+            if context == 0 {
+                continue;
+            };
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {

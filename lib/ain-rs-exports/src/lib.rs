@@ -82,7 +82,7 @@ pub mod ffi {
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-            call_tx: bool,
+            use_context: bool,
             context: u64,
         ) -> ValidateTxCompletion;
         fn evm_try_queue_tx(
@@ -104,6 +104,14 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
+        fn evm_try_get_block_hash_by_number(
+            result: &mut CrossBoundaryResult,
+            height: u64,
+        ) -> [u8; 32];
+        fn evm_try_get_block_number_by_hash(
+            result: &mut CrossBoundaryResult,
+            hash: [u8; 32],
+        ) -> u64;
         fn evm_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
