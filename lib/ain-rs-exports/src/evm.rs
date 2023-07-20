@@ -17,6 +17,15 @@ use crate::ffi;
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
 
+pub fn cross_boundary_error_return<T: Default, S: Into<String>>(
+    result: &mut ffi::CrossBoundaryResult,
+    message: S,
+) -> T {
+    result.ok = false;
+    result.reason = message.into();
+    Default::default()
+}
+
 /// Creates and signs a transaction.
 ///
 /// # Arguments
@@ -64,11 +73,7 @@ pub fn evm_try_create_and_sign_tx(
             result.ok = true;
             signed.encode().into()
         }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-            Vec::new()
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -214,10 +219,7 @@ pub fn evm_try_prevalidate_raw_tx(
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            result.ok = false;
-            result.reason = e.to_string();
-
-            return ffi::ValidateTxCompletion::default();
+            return cross_boundary_error_return(result, e.to_string());
         }
     }
 
@@ -238,10 +240,7 @@ pub fn evm_try_prevalidate_raw_tx(
         }
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            result.ok = false;
-            result.reason = e.to_string();
-
-            ffi::ValidateTxCompletion::default()
+            cross_boundary_error_return(result, e.to_string())
         }
     }
 }
@@ -302,10 +301,7 @@ pub fn evm_try_queue_tx(
                 }
             }
         }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -349,11 +345,7 @@ pub fn evm_try_finalize(
                 total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
             }
         }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-            ffi::FinalizeBlockCompletion::default()
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -383,11 +375,7 @@ pub fn evm_try_get_block_hash_by_number(
             result.ok = true;
             block.header.hash().to_fixed_bytes()
         }
-        None => {
-            result.ok = false;
-            result.reason = "Invalid block number".to_string();
-            Default::default()
-        }
+        None => cross_boundary_error_return(result, "Invalid block number"),
     }
 }
 
@@ -409,10 +397,6 @@ pub fn evm_try_get_block_number_by_hash(
             result.ok = true;
             block.header.number.as_u64()
         }
-        None => {
-            result.ok = false;
-            result.reason = "Invalid block hash".to_string();
-            Default::default()
-        }
+        None => cross_boundary_error_return(result, "Invalid block hash"),
     }
 }
