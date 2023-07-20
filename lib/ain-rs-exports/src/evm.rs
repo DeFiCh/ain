@@ -15,9 +15,6 @@ use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 use crate::ffi;
 use crate::prelude::*;
 
-pub const WEI_TO_GWEI: u64 = 1_000_000_000;
-pub const GWEI_TO_SATS: u64 = 10;
-
 /// Creates and signs a transaction.
 ///
 /// # Arguments
