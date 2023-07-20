@@ -769,6 +769,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmContext;
+    bool useEvmContext;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -778,12 +779,14 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmContext)
+                          const uint64_t evmContext,
+                          const bool useEvmContext)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
-          evmContext(evmContext) {}
+          evmContext(evmContext),
+          useEvmContext(useEvmContext) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3927,7 +3930,7 @@ public:
             return Res::Err("evm tx size too large");
 
         CrossBoundaryResult result;
-        const auto prevalidateResults = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
+        const auto prevalidateResults = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), useEvmContext, evmContext);
 
         // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
@@ -4174,10 +4177,16 @@ Res CustomTxVisit(CCustomCSView &mnview,
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
+
     auto context = evmContext;
-    if (context == 0) context = evm_get_context();
+    bool useEvmContext = true;
+    if (context == 0) {
+        useEvmContext = false;
+        context = evm_get_context();
+    }
+
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, useEvmContext), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
