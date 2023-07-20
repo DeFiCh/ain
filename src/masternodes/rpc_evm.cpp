@@ -207,7 +207,9 @@ UniValue vmmap(const JSONRPCRequest& request) {
                             3 - Tx Hash: DFI -> EVM \n\
                             4 - Tx Hash: EVM -> DFI \n\
                             5 - Block Hash: DFI -> EVM \n\
-                            6 - Block Hash: EVM -> DFI"
+                            6 - Block Hash: EVM -> DFI \n\
+                            7 - Block Number: DFI -> EVM \n\
+                            8 - Block Number: EVM -> DFI"
                         }
                },
                RPCResult{
