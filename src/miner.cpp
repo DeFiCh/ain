@@ -274,10 +274,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     const auto evmContext = evm_get_context();
     std::map<uint256, CAmount> txFees;
 
+    uint32_t evmCount{};
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, evmCount);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, evmCount);
     }
 
     XVM xvm{};
@@ -288,6 +289,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         CrossBoundaryResult result;
         auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
         evm_discard_context(evmContext);
+
+        // If there are EVM TXs but the miner does not get paid then reject the block.
+        // Staking will continue once there are enough EVM TXs to pay the miner.
+        if (evmCount && blockResult.total_priority_fees == 0) {
+            return nullptr;
+        }
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
@@ -680,7 +687,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, uint32_t &evmCount)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -912,6 +919,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.tx_fees);
                     evmTXs[txResult.sender].push_back(sortedEntries[i]);
+                    ++evmCount;
                 }
 
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
@@ -1137,7 +1145,7 @@ namespace pos {
         //
         auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
         if (!pblocktemplate) {
-            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+            return Status::stakeWaiting;
         }
 
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
