@@ -153,7 +153,7 @@ impl EVMServices {
                         }
                     }
 
-                    let prepay_gas = calculate_prepay_gas(&signed_tx).unwrap();
+                    let prepay_gas = calculate_prepay_gas(&signed_tx)?;
                     let (
                         TxResponse {
                             exit_reason,
@@ -174,7 +174,7 @@ impl EVMServices {
                     }
 
                     let gas_fee =
-                        calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee).unwrap();
+                        calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
