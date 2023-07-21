@@ -15,12 +15,16 @@ pub fn calculate_prepay_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>
     
     match prepay_gas {
         Some(gas) => Ok(gas),
-        None => return Err(anyhow!("Calculate prepay gas failed from overflow").into())
+        None => Err(anyhow!("Calculate prepay gas failed from overflow").into()),
     }
 }
 
 // Gas prices are denoted in wei
-pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256, base_fee: U256) -> Result<U256, Box<dyn Error>> {
+pub fn calculate_gas_fee(
+    signed_tx: &SignedTx,
+    used_gas: U256,
+    base_fee: U256,
+) -> Result<U256, Box<dyn Error>> {
     let gas_fee = match &signed_tx.transaction {
         ethereum::TransactionV2::Legacy(tx) => used_gas.checked_mul(tx.gas_price),
         ethereum::TransactionV2::EIP2930(tx) => used_gas.checked_mul(tx.gas_price),
@@ -32,7 +36,7 @@ pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256, base_fee: U256) -
 
     match gas_fee {
         Some(fee) => Ok(fee),
-        None => return Err(anyhow!("Calculate gas fee failed from overflow").into())
+        None => Err(anyhow!("Calculate gas fee failed from overflow").into()),
     }
 }
 
