@@ -12,7 +12,7 @@ impl WeiAmount {
 
     pub fn to_satoshi(&self) -> U256 {
         self.0 / WEI_TO_GWEI / GWEI_TO_SATS
-    }    
+    }
 }
 
 pub fn from_gwei(gwei: U256) -> WeiAmount {

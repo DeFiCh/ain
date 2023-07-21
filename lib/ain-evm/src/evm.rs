@@ -173,8 +173,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee =
-                        calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 

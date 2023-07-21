@@ -84,11 +84,13 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
         .block
         .get_latest_block_hash_and_number()
         .unwrap_or_default();
-    let balance = WeiAmount(SERVICES
-        .evm
-        .core
-        .get_balance(account, latest_block_number)
-        .unwrap_or_default()); // convert to try_evm_get_balance - Default to 0 for now
+    let balance = WeiAmount(
+        SERVICES
+            .evm
+            .core
+            .get_balance(account, latest_block_number)
+            .unwrap_or_default(),
+    ); // convert to try_evm_get_balance - Default to 0 for now
     balance.to_satoshi().as_u64()
 }
 
