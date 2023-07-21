@@ -1,5 +1,5 @@
 use ain_evm::{
-    amount::Wei,
+    amount::{Amount, Satoshi, Wei},
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
     services::SERVICES,
@@ -84,12 +84,14 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
         .block
         .get_latest_block_hash_and_number()
         .unwrap_or_default();
-    let balance = Wei(SERVICES
-        .evm
-        .core
-        .get_balance(account, latest_block_number)
-        .unwrap_or_default()); // convert to try_evm_get_balance - Default to 0 for now
-    let balance = balance.to_satoshi();
+    let balance: Wei = Amount(
+        SERVICES
+            .evm
+            .core
+            .get_balance(account, latest_block_number)
+            .unwrap_or_default(), // convert to try_evm_get_balance - Default to 0 for now
+    );
+    let balance: Satoshi = balance.wei_to_satoshi();
     balance.0.as_u64()
 }
 
@@ -318,11 +320,19 @@ pub fn evm_try_finalize(
             total_priority_fees,
         }) => {
             result.ok = true;
+            let total_burnt_fees: Wei = Amount(total_burnt_fees);
+            let total_burnt_fees: Satoshi = total_burnt_fees.wei_to_satoshi();
+            let total_burnt_fees = total_burnt_fees.0.as_u64();
+
+            let total_priority_fees: Wei = Amount(total_priority_fees);
+            let total_priority_fees: Satoshi = total_priority_fees.wei_to_satoshi();
+            let total_priority_fees = total_priority_fees.0.as_u64();
+
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: Wei(total_burnt_fees).to_satoshi().0.as_u64(),
-                total_priority_fees: Wei(total_priority_fees).to_satoshi().0.as_u64(),
+                total_burnt_fees,
+                total_priority_fees,
             }
         }
         Err(e) => cross_boundary_error_return(result, e.to_string()),
