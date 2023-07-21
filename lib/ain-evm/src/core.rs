@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas;
+use crate::fee::calculate_prepay_gas_fee;
+use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
 use crate::receipt::ReceiptService;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
@@ -27,7 +28,6 @@ use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
-pub const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
 pub struct EVMCoreService {
@@ -214,21 +214,24 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_gas = calculate_prepay_gas(&signed_tx)?;
+        let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
 
         let gas_limit = signed_tx.gas_limit();
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
+            // Validate tx prepay gas
             if balance < prepay_gas {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            if gas_limit < MIN_GAS_PER_TX {
+            // Validate gas limit with tx intrinsic gas
+            let intrinsic_gas = check_tx_intrinsic_gas(&signed_tx)?;
+            if gas_limit < intrinsic_gas {
                 debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
                 return Err(anyhow!("gas limit is below the minimum gas per tx").into());
             }
-        } else if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_gas {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
