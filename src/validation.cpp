@@ -924,7 +924,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
             if (txResult.tx_fees == 0) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx does not pay a miner fee"), REJECT_INVALID, "evm-no-fee");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx does not pay a fee"), REJECT_INVALID, "evm-no-fee");
             }
             const auto sender = pool.ethTxsBySender.find(txResult.sender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {

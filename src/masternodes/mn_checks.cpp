@@ -3944,7 +3944,7 @@ public:
         }
 
         if (prevalidateResults.tx_fees == 0) {
-            return Res::Err("evm tx does not pay a miner fee");
+            return Res::Err("evm tx does not pay a fee");
         }
 
         evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), prevalidateResults.gas_used);
