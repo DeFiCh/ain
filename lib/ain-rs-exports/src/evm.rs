@@ -13,18 +13,10 @@ use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
+use crate::prelude::*;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
-
-pub fn cross_boundary_error_return<T: Default, S: Into<String>>(
-    result: &mut ffi::CrossBoundaryResult,
-    message: S,
-) -> T {
-    result.ok = false;
-    result.reason = message.into();
-    Default::default()
-}
 
 /// Creates and signs a transaction.
 ///
@@ -69,10 +61,7 @@ pub fn evm_try_create_and_sign_tx(
     // Sign
     let priv_key_h256 = H256::from(ctx.priv_key);
     match t.sign(&priv_key_h256, ctx.chain_id) {
-        Ok(signed) => {
-            result.ok = true;
-            signed.encode().into()
-        }
+        Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
@@ -228,16 +217,15 @@ pub fn evm_try_prevalidate_raw_tx(
             signed_tx,
             prepay_gas,
             used_gas,
-        }) => {
-            result.ok = true;
-
+        }) => cross_boundary_success_return(
+            result,
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 tx_fees: prepay_gas.try_into().unwrap_or_default(),
                 gas_used: used_gas,
-            }
-        }
+            },
+        ),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
             cross_boundary_error_return(result, e.to_string())
@@ -292,13 +280,8 @@ pub fn evm_try_queue_tx(
                 .evm
                 .queue_tx(context, signed_tx.into(), hash, gas_used)
             {
-                Ok(_) => {
-                    result.ok = true;
-                }
-                Err(e) => {
-                    result.ok = false;
-                    result.reason = e.to_string();
-                }
+                Ok(_) => cross_boundary_success(result),
+                Err(e) => cross_boundary_error_return(result, e.to_string()),
             }
         }
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -371,10 +354,7 @@ pub fn evm_try_get_block_hash_by_number(
         .storage
         .get_block_by_number(&U256::from(height))
     {
-        Some(block) => {
-            result.ok = true;
-            block.header.hash().to_fixed_bytes()
-        }
+        Some(block) => cross_boundary_success_return(result, block.header.hash().to_fixed_bytes()),
         None => cross_boundary_error_return(result, "Invalid block number"),
     }
 }
@@ -393,10 +373,7 @@ pub fn evm_try_get_block_number_by_hash(
     hash: [u8; 32],
 ) -> u64 {
     match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
-        Some(block) => {
-            result.ok = true;
-            block.header.number.as_u64()
-        }
+        Some(block) => cross_boundary_success_return(result, block.header.number.as_u64()),
         None => cross_boundary_error_return(result, "Invalid block hash"),
     }
 }
