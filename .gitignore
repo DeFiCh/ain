@@ -147,3 +147,6 @@ contrib/devtools/split-debug.sh
 # Rust local artifacts
 /lib/target
 *.bin
+
+/lib/ain-rs-exports/**/cache
+/lib/ain-rs-exports/**/output

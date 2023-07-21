@@ -187,6 +187,53 @@ impl EVMBackend {
             .map(|acc| acc.nonce)
             .unwrap_or_default()
     }
+
+    pub fn get_account_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
+        let account = self.get_account(&contract).unwrap_or(Account {
+            nonce: U256::zero(),
+            balance: U256::zero(),
+            storage_root: H256::zero(),
+            code_hash: H256::zero(),
+        });
+
+        let state = self
+            .trie_store
+            .trie_db
+            .trie_restore(
+                contract.clone().as_bytes(),
+                None,
+                account.storage_root.into(),
+            )
+            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
+
+        Ok(U256::from(
+            state
+                .get(storage_index.clone().as_bytes())
+                .unwrap_or_default()
+                .unwrap_or_default()
+                .as_slice(),
+        ))
+    }
+
+    pub fn deploy_contract(
+        &mut self,
+        address: &H160,
+        code: Vec<u8>,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<()> {
+        self.apply(
+            *address,
+            Basic {
+                balance: U256::zero(),
+                nonce: U256::zero(),
+            },
+            Some(code),
+            storage,
+            true,
+        )?;
+
+        Ok(())
+    }
 }
 
 impl Backend for EVMBackend {

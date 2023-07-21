@@ -17,6 +17,7 @@ use crate::txqueue::QueueTx;
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
 
+use crate::transaction::system::{DeployContractData, SystemTx};
 use anyhow::anyhow;
 use hex::FromHex;
 use log::debug;
@@ -199,6 +200,20 @@ impl EVMServices {
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
                         failed_transactions.push(hex::encode(hash));
+                    }
+                }
+                QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                    address,
+                    storage,
+                    bytecode,
+                })) => {
+                    debug!(
+                        "[finalize_block] DeployContract for address {}, storage {:#?}, bytecode {:#?}",
+                        address, storage, bytecode
+                    );
+
+                    if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
+                        debug!("[finalize_block] DeployContract failed with {e}");
                     }
                 }
             }

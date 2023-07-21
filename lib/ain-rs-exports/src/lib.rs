@@ -1,8 +1,10 @@
 mod core;
+mod counter_contract;
 mod evm;
 mod prelude;
 
 use crate::core::*;
+use crate::counter_contract::*;
 use crate::evm::*;
 
 #[cxx::bridge]
@@ -112,5 +114,6 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
+        fn evm_deploy_counter_contract(result: &mut CrossBoundaryResult, context: u64);
     }
 }

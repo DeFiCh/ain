@@ -1,4 +1,4 @@
-mod backend;
+pub mod backend;
 pub mod block;
 pub mod bytes;
 pub mod core;
@@ -16,4 +16,4 @@ pub mod storage;
 pub mod traits;
 pub mod transaction;
 mod trie;
-mod txqueue;
+pub mod txqueue;
