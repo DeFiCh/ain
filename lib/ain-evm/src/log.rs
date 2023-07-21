@@ -63,6 +63,27 @@ impl LogService {
             .for_each(|(address, logs)| self.storage.put_logs(address, logs, block_number));
     }
 
+    pub fn generate_logs_for_dst20_bridge(
+        &self,
+        contract_address: H160,
+        address: H160,
+        amount: U256,
+        block_number: U256,
+    ) {
+        let log = vec![LogIndex {
+            block_hash: Default::default(),
+            topics: vec![H256::from(hex::encode("holaholahee").into_bytes())],
+            data: format!("{amount:#x}").into_bytes(),
+            log_index: Default::default(),
+            address,
+            removed: false,
+            transaction_hash: Default::default(),
+            transaction_index: 0,
+        }];
+
+        self.storage.put_logs(contract_address, log, block_number)
+    }
+
     // get logs at a block height and filter for topics
     pub fn get_logs(
         &self,
