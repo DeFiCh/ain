@@ -218,7 +218,7 @@ private:
     /** Remove failed TransferDoamin transactions from the block */
     void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
     /** Remove specific TX from the block */
-    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
+    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters, uint32_t &evmCount);
 };
 
 /** Modify the extranonce in a block */

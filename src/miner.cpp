@@ -290,6 +290,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
         evm_discard_context(evmContext);
 
+        // Make sure that EVM TXs pay fees
+        if (evmCount && blockResult.total_priority_fees + blockResult.total_burnt_fees == 0) {
+            return nullptr;
+        }
+
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
         if (nHeight >= consensus.ChangiIntermediateHeight4) {
@@ -555,7 +560,7 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
-void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters) {
+void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters, uint32_t &evmCount) {
 
     // Make sure we only remove EVM TXs which have no descendants or TX fees.
     // Removing others TXs is more complicated and should be handled by RemoveFailedTransactions.
@@ -570,6 +575,7 @@ void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter>
         for (size_t i = 0; i < pblock->vtx.size();  ++i) {
             if (pblock->vtx[i] && pblock->vtx[i]->GetHash() == iter->GetTx().GetHash()) {
                 pblock->vtx.erase(pblock->vtx.begin() + i);
+                --evmCount;
                 break;
             }
         }
@@ -876,7 +882,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         const auto& gasFees = evmTXFees.at(evmKey);
                         if (txResult.tx_fees > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                            RemoveEVMTransactions(evmTXs[txResult.sender]);
+                            RemoveEVMTransactions(evmTXs[txResult.sender], evmCount);
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
                                 const auto& [sender, nonce] = it->first;
                                 if (sender == txResult.sender) {
