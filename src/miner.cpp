@@ -218,7 +218,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (nHeight < consensus.ChangiIntermediateHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
             }
             else {
@@ -922,7 +922,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     ++evmCount;
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
+                uint64_t totalEvmFees{};
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, totalEvmFees, pblock->nTime, nullptr, 0, evmContext);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;

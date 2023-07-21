@@ -17,7 +17,15 @@ class CCustomCSView;
 
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary);
+void ProcessDeFiEvent(const CBlock &block,
+                      const CBlockIndex* pindex,
+                      CCustomCSView& mnview,
+                      const CCoinsViewCache& view,
+                      const CChainParams& chainparams,
+                      const CreationTxs &creationTxs,
+                      const uint64_t evmContext,
+                      std::array<uint8_t, 20>& beneficiary,
+                      const uint64_t totalEvmFees);
 std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets& vaultAssets, const TAmounts& collBalances, const TAmounts& loanBalances);
 
 

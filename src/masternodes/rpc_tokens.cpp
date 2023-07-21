@@ -604,7 +604,8 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
+        uint64_t totalEvmFees{};
+        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, totalEvmFees);
         result.pushKV("valid", res.ok);
     } else {
         if (nHeight >= Params().GetConsensus().DakotaHeight) {

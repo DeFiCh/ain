@@ -770,6 +770,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint32_t txn;
     uint64_t evmContext;
     bool useEvmContext;
+    uint64_t &totalEvmFees;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -780,13 +781,15 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmContext,
-                          const bool useEvmContext)
+                          const bool useEvmContext,
+                          uint64_t &totalEvmFees)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
           evmContext(evmContext),
-          useEvmContext(useEvmContext) {}
+          useEvmContext(useEvmContext),
+          totalEvmFees(totalEvmFees) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -3950,6 +3953,8 @@ public:
             return Res::Err("evm tx failed to queue %s\n", result.reason);
         }
 
+        totalEvmFees += prevalidateResults.tx_fees;
+
         std::vector<unsigned char> evmTxHashBytes;
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
@@ -4176,6 +4181,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
+                  uint64_t &totalEvmFees,
                   uint32_t txn,
                   const uint64_t evmContext) {
     if (IsDisabledTx(height, tx, consensus)) {
@@ -4190,7 +4196,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, useEvmContext), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, useEvmContext, totalEvmFees), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4273,6 +4279,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
+                  uint64_t &totalEvmFees,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
@@ -4300,7 +4307,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, totalEvmFees, txn, evmContext);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
