@@ -12,7 +12,7 @@ pub fn calculate_prepay_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>
         ethereum::TransactionV2::EIP2930(tx) => tx.gas_limit.checked_mul(tx.gas_price),
         ethereum::TransactionV2::EIP1559(tx) => tx.gas_limit.checked_mul(tx.max_fee_per_gas),
     };
-    
+
     match prepay_gas {
         Some(gas) => Ok(gas),
         None => Err(anyhow!("Calculate prepay gas failed from overflow").into()),
