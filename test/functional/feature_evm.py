@@ -121,7 +121,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain DVM to EVM before ERC55 addresses are enabled
-        assert_raises_rpc_error(-32600, 'Dst address must be an ETH address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, 'Dst address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/dest-formats': ['erc55']}})
@@ -153,11 +153,13 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before ERC55 addresses are enabled
-        assert_raises_rpc_error(-32600, 'Src address must be an ETH address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, 'Src address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/src-formats': ['erc55']}})
         self.nodes[0].generate(1)
+
+        print(self.nodes[0].getgov('ATTRIBUTES'))
 
         # Check transferdomain EVM to DVM before P2PKH addresses are enabled
         assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])

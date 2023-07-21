@@ -625,29 +625,17 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     return {members, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyEVMAddressTypes(const UniValue &array) {
-    AllowedEVMTypes addressSet;
-    for (const auto &value : array.getValues()) {
-        if (value.getValStr() != "erc55") {
-            return Res::Err("Unrecognised address format, expected types are: erc55");
-        }
-        addressSet.insert(EVMAddressTypes::ERC55);
-    }
-    if (addressSet.empty()) {
-        return Res::Err("No values set");
-    }
-    return {addressSet, Res::Ok()};
-}
-
-static ResVal<CAttributeValue> VerifyDVMAddressTypes(const UniValue &array) {
+static ResVal<CAttributeValue> VerifyXVMAddressTypes(const UniValue &array) {
     AllowedEVMTypes addressSet;
     for (const auto &value : array.getValues()) {
         if (value.getValStr() == "bech32") {
             addressSet.insert(EVMAddressTypes::BECH32);
         } else if (value.getValStr() == "p2pkh") {
             addressSet.insert(EVMAddressTypes::PKHASH);
+        } else if (value.getValStr() == "erc55") {
+            addressSet.insert(EVMAddressTypes::ERC55);
         } else {
-            return Res::Err("Unrecognised address format, expected types are: bech32, p2pkh");
+            return Res::Err("Unrecognised address format, expected types are: bech32, erc55, p2pkh");
         }
     }
     if (addressSet.empty()) {
@@ -1083,10 +1071,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return Res::Err("Empty value");
         }
         ResVal<CAttributeValue> attribValue(AllowedEVMTypes{}, Res::Ok());
-        if (attrV0.key == TransferKeys::Dest_Formats) {
-            attribValue = VerifyDVMAddressTypes(*value);
-        } else if (attrV0.key == TransferKeys::Src_Formats) {
-            attribValue = VerifyEVMAddressTypes(*value);
+        if (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats) {
+            attribValue = VerifyXVMAddressTypes(*value);
         } else if (attrV0.key == TransferKeys::Auth_Formats) {
             attribValue = VerifyEVMAuthTypes(*value);
         }
@@ -1100,7 +1086,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
-        auto attribValue = attrV0.key == TransferKeys::Src_Formats ? VerifyDVMAddressTypes(*value) : VerifyEVMAddressTypes(*value);
+        auto attribValue = VerifyXVMAddressTypes(*value);
         if (!attribValue) {
             return std::move(attribValue);
         }

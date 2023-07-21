@@ -3999,10 +3999,14 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
 
     auto isValidDVMAddrForEVM = [&allowedDVMAddresses](const CTxDestination &a) {
         return (allowedDVMAddresses.count(EVMAddressTypes::PKHASH) && a.index() == PKHashType) ||
-               (allowedDVMAddresses.count(EVMAddressTypes::BECH32) && a.index() == WitV0KeyHashType);
+               (allowedDVMAddresses.count(EVMAddressTypes::BECH32) && a.index() == WitV0KeyHashType) ||
+               (allowedDVMAddresses.count(EVMAddressTypes::ERC55) && a.index() == WitV16KeyEthHashType);
     };
     auto isValidEVMAddr = [&allowedEVMAddresses](const CTxDestination &a) {
-        return allowedEVMAddresses.count(EVMAddressTypes::ERC55) && a.index() == WitV16KeyEthHashType; };
+        return (allowedEVMAddresses.count(EVMAddressTypes::PKHASH) && a.index() == PKHashType) ||
+               (allowedEVMAddresses.count(EVMAddressTypes::BECH32) && a.index() == WitV0KeyHashType) ||
+               (allowedEVMAddresses.count(EVMAddressTypes::ERC55) && a.index() == WitV16KeyEthHashType);
+    };
 
     if (aspect == VMDomainEdge::DVMToEVM) {
         if (!isValidDVMAddrForEVM(src)) {
