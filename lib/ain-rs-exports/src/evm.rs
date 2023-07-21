@@ -1,10 +1,10 @@
 use ain_evm::{
-    amount::WeiAmount,
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
+    weiamount::WeiAmount,
 };
 
 use ain_evm::storage::traits::BlockStorage;

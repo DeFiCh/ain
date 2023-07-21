@@ -15,7 +15,7 @@ pub fn calculate_prepay_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>
 
     match prepay_gas {
         Some(gas) => Ok(gas),
-        None => Err(anyhow!("Calculate prepay gas failed from overflow").into()),
+        None => Err(anyhow!("calculate prepay gas failed from overflow").into()),
     }
 }
 
@@ -36,7 +36,7 @@ pub fn calculate_gas_fee(
 
     match gas_fee {
         Some(fee) => Ok(fee),
-        None => Err(anyhow!("Calculate gas fee failed from overflow").into()),
+        None => Err(anyhow!("calculate gas fee failed from overflow").into()),
     }
 }
 

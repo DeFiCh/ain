@@ -1,4 +1,3 @@
-pub mod amount;
 mod backend;
 pub mod block;
 pub mod bytes;
@@ -18,3 +17,4 @@ pub mod traits;
 pub mod transaction;
 mod trie;
 mod txqueue;
+pub mod weiamount;

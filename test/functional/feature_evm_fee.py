@@ -109,7 +109,7 @@ class EVMFeeTest(DefiTestFramework):
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
         # Test fee overflow error
-        assert_raises_rpc_error(-32001, "evm tx failed to validate Calculate prepay gas failed from overflow", self.nodes[0].eth_sendTransaction, {
+        assert_raises_rpc_error(-32001, "evm tx failed to validate calculate prepay gas failed from overflow", self.nodes[0].eth_sendTransaction, {
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000
