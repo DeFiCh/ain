@@ -6,12 +6,14 @@ use ain_evm::{
     transaction::{self, SignedTx},
 };
 
+use ain_evm::storage::traits::BlockStorage;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
+use crate::prelude::*;
 
 pub const WEI_TO_GWEI: u64 = 1_000_000_000;
 pub const GWEI_TO_SATS: u64 = 10;
@@ -59,15 +61,8 @@ pub fn evm_try_create_and_sign_tx(
     // Sign
     let priv_key_h256 = H256::from(ctx.priv_key);
     match t.sign(&priv_key_h256, ctx.chain_id) {
-        Ok(signed) => {
-            result.ok = true;
-            signed.encode().into()
-        }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-            Vec::new()
-        }
+        Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -213,10 +208,7 @@ pub fn evm_try_prevalidate_raw_tx(
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            result.ok = false;
-            result.reason = e.to_string();
-
-            return ffi::ValidateTxCompletion::default();
+            return cross_boundary_error_return(result, e.to_string());
         }
     }
 
@@ -225,22 +217,18 @@ pub fn evm_try_prevalidate_raw_tx(
             signed_tx,
             prepay_gas,
             used_gas,
-        }) => {
-            result.ok = true;
-
+        }) => cross_boundary_success_return(
+            result,
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
                 tx_fees: prepay_gas.try_into().unwrap_or_default(),
                 gas_used: used_gas,
-            }
-        }
+            },
+        ),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            result.ok = false;
-            result.reason = e.to_string();
-
-            ffi::ValidateTxCompletion::default()
+            cross_boundary_error_return(result, e.to_string())
         }
     }
 }
@@ -292,19 +280,11 @@ pub fn evm_try_queue_tx(
                 .evm
                 .queue_tx(context, signed_tx.into(), hash, gas_used)
             {
-                Ok(_) => {
-                    result.ok = true;
-                }
-                Err(e) => {
-                    result.ok = false;
-                    result.reason = e.to_string();
-                }
+                Ok(_) => cross_boundary_success(result),
+                Err(e) => cross_boundary_error_return(result, e.to_string()),
             }
         }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -348,14 +328,52 @@ pub fn evm_try_finalize(
                 total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
             }
         }
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string();
-            ffi::FinalizeBlockCompletion::default()
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn evm_disconnect_latest_block() {
     SERVICES.evm.storage.disconnect_latest_block();
+}
+
+/// Return the block for a given height.
+///
+/// # Arguments
+///
+/// * `height` - The block number we want to get the blockhash from.
+///
+/// # Returns
+///
+/// Returns the blockhash associated with the given block number.
+pub fn evm_try_get_block_hash_by_number(
+    result: &mut ffi::CrossBoundaryResult,
+    height: u64,
+) -> [u8; 32] {
+    match SERVICES
+        .evm
+        .storage
+        .get_block_by_number(&U256::from(height))
+    {
+        Some(block) => cross_boundary_success_return(result, block.header.hash().to_fixed_bytes()),
+        None => cross_boundary_error_return(result, "Invalid block number"),
+    }
+}
+
+/// Return the block number for a given blockhash.
+///
+/// # Arguments
+///
+/// * `hash` - The hash of the block we want to get the block number.
+///
+/// # Returns
+///
+/// Returns the block number associated with the given blockhash.
+pub fn evm_try_get_block_number_by_hash(
+    result: &mut ffi::CrossBoundaryResult,
+    hash: [u8; 32],
+) -> u64 {
+    match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
+        Some(block) => cross_boundary_success_return(result, block.header.number.as_u64()),
+        None => cross_boundary_error_return(result, "Invalid block hash"),
+    }
 }

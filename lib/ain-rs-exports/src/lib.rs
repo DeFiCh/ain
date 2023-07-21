@@ -1,5 +1,6 @@
 mod core;
 mod evm;
+mod prelude;
 
 use crate::core::*;
 use crate::evm::*;
@@ -103,5 +104,13 @@ pub mod ffi {
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
 
+        fn evm_try_get_block_hash_by_number(
+            result: &mut CrossBoundaryResult,
+            height: u64,
+        ) -> [u8; 32];
+        fn evm_try_get_block_number_by_hash(
+            result: &mut CrossBoundaryResult,
+            hash: [u8; 32],
+        ) -> u64;
     }
 }
