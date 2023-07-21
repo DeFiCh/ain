@@ -258,13 +258,13 @@ impl EVMServices {
         let total_burnt_fees = U256::from(total_gas_used) * base_fee;
         let total_priority_fees = total_gas_fees - total_burnt_fees;
         debug!(
-                "[finalize_block] Total burnt fees : {:#?}",
-                total_burnt_fees
-            );
+            "[finalize_block] Total burnt fees : {:#?}",
+            total_burnt_fees
+        );
         debug!(
-                "[finalize_block] Total priority fees : {:#?}",
-                total_priority_fees
-            );
+            "[finalize_block] Total priority fees : {:#?}",
+            total_priority_fees
+        );
         Ok(FinalizedBlockInfo {
             block_hash: *block.header.hash().as_fixed_bytes(),
             failed_transactions,
