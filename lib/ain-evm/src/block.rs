@@ -9,7 +9,15 @@ use log::{debug, trace};
 use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
 
+use thiserror::Error;
+
 use crate::storage::{traits::BlockStorage, Storage};
+
+#[derive(Debug, Error)]
+pub enum BlockError {
+    #[error("block not found")]
+    BlockNotFound,
+}
 
 pub struct BlockService {
     storage: Arc<Storage>,

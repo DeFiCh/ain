@@ -152,6 +152,7 @@ dependencies = [
  "statrs",
  "substrate-bn",
  "tempdir",
+ "thiserror",
  "tokio",
  "vsdb_core",
  "vsdb_trie_db",

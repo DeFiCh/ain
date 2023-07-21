@@ -5,12 +5,13 @@ use std::sync::Arc;
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::bytes::Bytes;
 use ain_evm::core::EthCallArgs;
+use ain_evm::block::BlockError;
 use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
 use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::{EnvelopedEncodable, TransactionV2};
+use ethereum::{BlockAny, EnvelopedEncodable, TransactionV2};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
@@ -274,7 +275,7 @@ impl MetachainRPCModule {
         Self { handler }
     }
 
-    fn block_number_to_u256(&self, block_number: Option<BlockNumber>) -> RpcResult<U256> {
+    fn get_block(&self, block_number: Option<BlockNumber>) -> Option<BlockAny> {
         match block_number.unwrap_or_default() {
             BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
             BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
@@ -293,12 +294,17 @@ impl MetachainRPCModule {
                         .checked_sub(U256::from(finality_count))?;
                     self.handler.storage.get_block_by_number(&safe_block_number)
                 })
-            }
+            },
             // BlockNumber::Pending => todo!(),
             _ => self.handler.storage.get_latest_block(),
         }
-        .ok_or(Error::Custom(String::from("header not found")))
-        .map(|block| block.header.number)
+    }
+
+    fn try_get_block_number(&self, block_number: Option<BlockNumber>) -> Result<U256, BlockError> {
+        match self.get_block(block_number) {
+            Some(block) => Ok(block.header.number),
+            None => Err(BlockError::BlockNotFound),
+        }
     }
 }
 
@@ -337,7 +343,9 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
                 gas_limit: gas.unwrap_or(U256::from(max_gas_per_block)).as_u64(),
                 access_list: access_list.unwrap_or_default(),
-                block_number: self.block_number_to_u256(block_number)?,
+                block_number: self
+                    .try_get_block_number(block_number)
+                    .map_err(|e| Error::Custom(e.to_string()))?,
             })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
         Ok(Bytes(data))
@@ -351,7 +359,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     // State RPC
 
     fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
-        let block_number = self.block_number_to_u256(block_number)?;
+        let block_number = self
+            .try_get_block_number(block_number)
+            .map_err(|e| Error::Custom(e.to_string()))?;
         debug!(target:"rpc",
             "Getting balance for address: {:?} at block : {} ",
             address, block_number
@@ -367,7 +377,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
-        let block_number = self.block_number_to_u256(block_number)?;
+        let block_number = self
+            .try_get_block_number(block_number)
+            .map_err(|e| Error::Custom(e.to_string()))?;
 
         debug!(target:"rpc",
             "Getting code for address: {:?} at block : {}",
@@ -392,7 +404,10 @@ impl MetachainRPCServer for MetachainRPCModule {
         position: U256,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<H256> {
-        let block_number = self.block_number_to_u256(block_number)?;
+        let block_number = self
+            .try_get_block_number(block_number)
+            .map_err(|e| Error::Custom(e.to_string()))?;
+
         debug!(target:"rpc",
             "Getting storage for address: {:?}, at position {:?}, for block {}",
             address, position, block_number
@@ -413,15 +428,17 @@ impl MetachainRPCServer for MetachainRPCModule {
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
         debug!("Getting block by hash {:#x}", hash);
-        self.handler
-            .storage
-            .get_block_by_hash(&hash)
-            .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx(
-                    block,
-                    full_transactions.unwrap_or_default(),
-                )))
-            })
+        self.get_block(Some(BlockNumber::Hash {
+            hash,
+            // NOTE(canonbrother): `is_canon` is not impl yet, false by default for now
+            require_canonical: false,
+        }))
+        .map_or(Ok(None), |block| {
+            Ok(Some(RpcBlock::from_block_with_tx(
+                block,
+                full_transactions.unwrap_or_default(),
+            )))
+        })
     }
 
     fn chain_id(&self) -> RpcResult<String> {
@@ -452,11 +469,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: BlockNumber,
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
-        let block_number = self.block_number_to_u256(Some(block_number))?;
-        debug!(target:"rpc", "Getting block by number : {}", block_number);
-        self.handler
-            .storage
-            .get_block_by_number(&block_number)
+        self.get_block(Some(block_number))
             .map_or(Ok(None), |block| {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block,
@@ -542,7 +555,9 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_block_transaction_count_by_number(&self, block_number: BlockNumber) -> RpcResult<usize> {
-        let block_number = self.block_number_to_u256(Some(block_number))?;
+        let block_number = self
+            .try_get_block_number(Some(block_number))
+            .map_err(|e| Error::Custom(e.to_string()))?;
         self.handler
             .storage
             .get_block_by_number(&block_number)
@@ -689,7 +704,9 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc", "Getting transaction count for address: {:?}", address);
-        let block_number = self.block_number_to_u256(block_number)?;
+        let block_number = self
+            .try_get_block_number(block_number)
+            .map_err(|e| Error::Custom(e.to_string()))?;
         let nonce = self
             .handler
             .core
@@ -717,7 +734,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..
         } = input;
 
-        let block_number = self.block_number_to_u256(block_number)?;
+        let block_number = self
+            .try_get_block_number(block_number)
+            .map_err(|e| Error::Custom(e.to_string()))?;
         let gas_limit = self
             .handler
             .storage
@@ -848,8 +867,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_numbers = match input.block_hash {
             None => {
                 // use fromBlock-toBlock
-                let mut block_number = self.block_number_to_u256(input.from_block)?;
-                let to_block_number = self.block_number_to_u256(input.to_block)?;
+                let mut block_number = self
+                    .try_get_block_number(input.from_block)
+                    .map_err(|e| Error::Custom(e.to_string()))?;
+                let to_block_number = self
+                    .try_get_block_number(input.to_block)
+                    .map_err(|e| Error::Custom(e.to_string()))?;
                 let mut block_numbers = Vec::new();
 
                 if block_number > to_block_number {
@@ -892,8 +915,12 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
-        let from_block_number = self.block_number_to_u256(input.from_block)?;
-        let to_block_number = self.block_number_to_u256(input.to_block)?;
+        let from_block_number = self
+            .try_get_block_number(input.from_block)
+            .map_err(|e| Error::Custom(e.to_string()))?;
+        let to_block_number = self
+            .try_get_block_number(input.to_block)
+            .map_err(|e| Error::Custom(e.to_string()))?;
 
         if from_block_number > to_block_number {
             return Err(Error::Custom(format!(
