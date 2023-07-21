@@ -18,7 +18,7 @@ impl WeiAmount {
     }
 }
 
-pub fn from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
+pub fn try_from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
     let wei = gwei.checked_mul(WEI_TO_GWEI);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
@@ -26,7 +26,7 @@ pub fn from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
     }
 }
 
-pub fn from_satoshi(satoshi: U256) -> Result<WeiAmount, Box<dyn Error>> {
+pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount, Box<dyn Error>> {
     let wei = satoshi.checked_mul(WEI_TO_SATS);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
