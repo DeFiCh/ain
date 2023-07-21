@@ -4478,7 +4478,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     CTxDestination destination;
     if (height < consensusParams.NextNetworkUpgradeHeight) {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
     } else {
         destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
     }
