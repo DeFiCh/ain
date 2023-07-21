@@ -290,12 +290,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
         evm_discard_context(evmContext);
 
-        // If there are EVM TXs but the miner does not get paid then reject the block.
-        // Staking will continue once there are enough EVM TXs to pay the miner.
-        if (evmCount && blockResult.total_priority_fees == 0) {
-            return nullptr;
-        }
-
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
         if (nHeight >= consensus.ChangiIntermediateHeight4) {
