@@ -295,7 +295,7 @@ impl MetachainRPCModule {
                     self.handler.storage.get_block_by_number(&safe_block_number)
                 })
             },
-            // BlockNumber::Pending => todo!(),
+            BlockNumber::Pending => self.handler.block.get_pending_block(),
             _ => self.handler.storage.get_latest_block(),
         }
     }

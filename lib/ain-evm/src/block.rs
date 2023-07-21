@@ -3,7 +3,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use anyhow::format_err;
-use ethereum::{BlockAny, TransactionAny};
+use ethereum::{BlockAny, PartialHeader, TransactionAny};
 use keccak_hash::H256;
 use log::{debug, trace};
 use primitive_types::U256;
@@ -12,6 +12,7 @@ use statrs::statistics::{Data, OrderStatistics};
 use thiserror::Error;
 
 use crate::storage::{traits::BlockStorage, Storage};
+use crate::transaction::SignedTx;
 
 #[derive(Debug, Error)]
 pub enum BlockError {
@@ -69,6 +70,46 @@ impl BlockService {
     pub fn connect_block(&self, block: &BlockAny) {
         self.storage.put_latest_block(Some(block));
         self.storage.put_block(block);
+    }
+
+    pub fn get_pending_block(&self) -> Option<BlockAny> {
+        let raw_txs = ain_cpp_imports::get_pool_transactions().unwrap();
+        let pending_transactions: Vec<TransactionAny> = raw_txs
+            .into_iter()
+            .map(|raw_tx| SignedTx::try_from(raw_tx.as_str()))
+            .map(|signed_tx| signed_tx.unwrap().transaction)
+            .collect();
+
+        if let Some((hash, block_number)) = self.get_latest_block_hash_and_number() {
+            let pending_block = BlockAny::new(
+                PartialHeader {
+                    parent_hash: hash,
+                    number: block_number.saturating_add(U256::one()),
+                    difficulty: Default::default(), // 0x0
+                    nonce: Default::default(),      // 0x0
+
+                    // wip
+                    base_fee: Default::default(),
+                    gas_limit: Default::default(),
+                    gas_used: Default::default(),
+                    beneficiary: Default::default(),
+                    timestamp: 0,
+                    extra_data: vec![],
+
+                    // none before block mined
+                    state_root: Default::default(),
+                    receipts_root: Default::default(),
+                    logs_bloom: Default::default(),
+                    mix_hash: Default::default(),
+                },
+                pending_transactions,
+                Vec::<ethereum::Header>::new(),
+            );
+
+            Some(pending_block)
+        } else {
+            None
+        }
     }
 
     pub fn base_fee_calculation(
