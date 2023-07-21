@@ -3940,6 +3940,10 @@ public:
             }
         }
 
+        if (prevalidateResults.tx_fees == 0) {
+            return Res::Err("evm tx does not pay a miner fee");
+        }
+
         evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), prevalidateResults.gas_used);
         if (!result.ok) {
             LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);

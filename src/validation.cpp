@@ -922,6 +922,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
+            if (txResult.tx_fees == 0) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx does not pay a miner fee"), REJECT_INVALID, "evm-no-fee");
+            }
             const auto sender = pool.ethTxsBySender.find(txResult.sender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");

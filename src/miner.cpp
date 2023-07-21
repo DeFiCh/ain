@@ -865,7 +865,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     CrossBoundaryResult result;
                     const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
-                    if (!result.ok) {
+                    if (!result.ok || txResult.tx_fees == 0) {
                         customTxPassed = false;
                         break;
                     }
