@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, get_tx_max_gas_price, calculate_prepay_gas};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -153,6 +153,7 @@ impl EVMServices {
                         }
                     }
 
+                    let prepay_gas = calculate_prepay_gas(&signed_tx).unwrap();
                     let (
                         TxResponse {
                             exit_reason,
@@ -161,7 +162,7 @@ impl EVMServices {
                             ..
                         },
                         receipt,
-                    ) = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx, prepay_gas);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -172,7 +173,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee);
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee).unwrap();
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
