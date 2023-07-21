@@ -214,7 +214,7 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_gas = calculate_prepay_gas(&signed_tx);
+        let prepay_gas = calculate_prepay_gas(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
 
         let gas_limit = signed_tx.gas_limit();

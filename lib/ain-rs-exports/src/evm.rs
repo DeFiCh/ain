@@ -4,6 +4,7 @@ use ain_evm::{
     services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
+    weiamount::WeiAmount,
 };
 
 use ain_evm::storage::traits::BlockStorage;
@@ -14,9 +15,6 @@ use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
 use crate::prelude::*;
-
-pub const WEI_TO_GWEI: u64 = 1_000_000_000;
-pub const GWEI_TO_SATS: u64 = 10;
 
 /// Creates and signs a transaction.
 ///
@@ -86,14 +84,14 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
         .block
         .get_latest_block_hash_and_number()
         .unwrap_or_default();
-    let mut balance = SERVICES
-        .evm
-        .core
-        .get_balance(account, latest_block_number)
-        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
-    balance /= WEI_TO_GWEI;
-    balance /= GWEI_TO_SATS;
-    balance.as_u64()
+    let balance = WeiAmount(
+        SERVICES
+            .evm
+            .core
+            .get_balance(account, latest_block_number)
+            .unwrap_or_default(),
+    ); // convert to try_evm_get_balance - Default to 0 for now
+    balance.to_satoshi().as_u64()
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific context
@@ -324,8 +322,8 @@ pub fn evm_try_finalize(
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: total_burnt_fees / WEI_TO_GWEI / GWEI_TO_SATS,
-                total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
+                total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
+                total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
             }
         }
         Err(e) => cross_boundary_error_return(result, e.to_string()),
