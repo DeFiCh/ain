@@ -55,15 +55,6 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn pastChangiIntermediateHeight2() -> bool {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
-    pub fn pastChangiIntermediateHeight3() -> bool {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
-    pub fn pastChangiIntermediateHeight4() -> bool {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
 
     pub fn CppLogPrintf(_message: String) {
         // Intentionally left empty, so it can be used from everywhere.
@@ -143,18 +134,6 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     let current_block = ffi::getCurrentHeight();
     let highest_block = ffi::getHighestBlock();
     Ok((current_block, highest_block))
-}
-
-pub fn past_changi_intermediate_height_2_height() -> bool {
-    ffi::pastChangiIntermediateHeight2()
-}
-
-pub fn past_changi_intermediate_height_3_height() -> bool {
-    ffi::pastChangiIntermediateHeight3()
-}
-
-pub fn past_changi_intermediate_height_4_height() -> bool {
-    ffi::pastChangiIntermediateHeight4()
 }
 
 pub fn log_print(message: &str) {

@@ -146,11 +146,9 @@ impl EVMServices {
         for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-                        let nonce = executor.get_nonce(&signed_tx.sender);
-                        if signed_tx.nonce() != nonce {
-                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
-                        }
+                    let nonce = executor.get_nonce(&signed_tx.sender);
+                    if signed_tx.nonce() != nonce {
+                        return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
                     }
 
                     let (
@@ -257,31 +255,22 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
         }
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let total_burnt_fees = U256::from(total_gas_used) * base_fee;
-            let total_priority_fees = total_gas_fees - total_burnt_fees;
-            debug!(
+        let total_burnt_fees = U256::from(total_gas_used) * base_fee;
+        let total_priority_fees = total_gas_fees - total_burnt_fees;
+        debug!(
                 "[finalize_block] Total burnt fees : {:#?}",
                 total_burnt_fees
             );
-            debug!(
+        debug!(
                 "[finalize_block] Total priority fees : {:#?}",
                 total_priority_fees
             );
-            Ok(FinalizedBlockInfo {
-                block_hash: *block.header.hash().as_fixed_bytes(),
-                failed_transactions,
-                total_burnt_fees: total_burnt_fees.try_into().unwrap(),
-                total_priority_fees: total_priority_fees.try_into().unwrap(),
-            })
-        } else {
-            Ok(FinalizedBlockInfo {
-                block_hash: *block.header.hash().as_fixed_bytes(),
-                failed_transactions,
-                total_burnt_fees: total_gas_used,
-                total_priority_fees: 0u64,
-            })
-        }
+        Ok(FinalizedBlockInfo {
+            block_hash: *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            total_burnt_fees: total_burnt_fees.try_into().unwrap(),
+            total_priority_fees: total_priority_fees.try_into().unwrap(),
+        })
     }
 
     pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
@@ -292,17 +281,15 @@ impl EVMServices {
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let mut block_fees = self.block.calculate_base_fee(H256::zero());
-            if use_context {
-                block_fees = self.block.calculate_next_block_base_fee();
-            }
+        let mut block_fees = self.block.calculate_base_fee(H256::zero());
+        if use_context {
+            block_fees = self.block.calculate_next_block_base_fee();
+        }
 
-            let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-            if tx_gas_price < block_fees {
-                debug!("[verify_tx_fees] tx gas price is lower than block base fee");
-                return Err(anyhow!("tx gas price is lower than block base fee").into());
-            }
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < block_fees {
+            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+            return Err(anyhow!("tx gas price is lower than block base fee").into());
         }
 
         Ok(())

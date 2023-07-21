@@ -62,40 +62,7 @@ impl BlockService {
         self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 
-    fn pre_changi_intermediate_2_base_fee_calculation(
-        &self,
-        parent_gas_used: u64,
-        parent_gas_target: u64,
-        parent_base_fee: U256,
-        base_fee_max_change_denominator: U256,
-        initial_base_fee: U256,
-    ) -> U256 {
-        match parent_gas_used.cmp(&parent_gas_target) {
-            // TODO: incorrect calculation, remove before mainnet launch
-            Ordering::Less => parent_base_fee,
-            Ordering::Equal => {
-                let gas_used_delta = parent_gas_used - parent_gas_target;
-                let base_fee_per_gas_delta = max(
-                    parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator,
-                    U256::one(),
-                );
-
-                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
-            }
-            Ordering::Greater => {
-                let gas_used_delta = parent_gas_target - parent_gas_used;
-                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                    / parent_gas_target
-                    / base_fee_max_change_denominator;
-
-                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
-            }
-        }
-    }
-
-    pub fn post_changi_intermediate_2_base_fee_calculation(
+    pub fn base_fee_calculation(
         &self,
         parent_gas_used: u64,
         parent_gas_target: u64,
@@ -135,22 +102,13 @@ impl BlockService {
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
     ) -> U256 {
-        match ain_cpp_imports::past_changi_intermediate_height_2_height() {
-            true => self.post_changi_intermediate_2_base_fee_calculation(
-                parent_gas_used,
-                parent_gas_target,
-                parent_base_fee,
-                base_fee_max_change_denominator,
-                initial_base_fee,
-            ),
-            false => self.pre_changi_intermediate_2_base_fee_calculation(
-                parent_gas_used,
-                parent_gas_target,
-                parent_base_fee,
-                base_fee_max_change_denominator,
-                initial_base_fee,
-            ),
-        }
+        self.base_fee_calculation(
+            parent_gas_used,
+            parent_gas_target,
+            parent_base_fee,
+            base_fee_max_change_denominator,
+            initial_base_fee,
+        )
     }
 
     pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
@@ -373,7 +331,7 @@ mod tests {
         let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(20_000_000_000u64),
-            block.post_changi_intermediate_2_base_fee_calculation(
+            block.base_fee_calculation(
                 15_000_000,
                 15_000_000,
                 U256::from(20_000_000_000u64),
@@ -388,7 +346,7 @@ mod tests {
         let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(22_500_000_000u64), // should increase by 12.5%
-            block.post_changi_intermediate_2_base_fee_calculation(
+            block.base_fee_calculation(
                 30_000_000,
                 15_000_000,
                 U256::from(20_000_000_000u64),
@@ -403,7 +361,7 @@ mod tests {
         let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(20_833_333_333u64), // should increase by ~4.15%
-            block.post_changi_intermediate_2_base_fee_calculation(
+            block.base_fee_calculation(
                 20_000_000,
                 15_000_000,
                 U256::from(20_000_000_000u64),
@@ -418,7 +376,7 @@ mod tests {
         let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(17_500_000_000u64), // should decrease by 12.5%
-            block.post_changi_intermediate_2_base_fee_calculation(
+            block.base_fee_calculation(
                 0,
                 15_000_000,
                 U256::from(20_000_000_000u64),
@@ -433,7 +391,7 @@ mod tests {
         let block = BlockService::new(Arc::new(Storage::new()));
         assert_eq!(
             U256::from(19_166_666_667u64), // should increase by ~4.15%
-            block.post_changi_intermediate_2_base_fee_calculation(
+            block.base_fee_calculation(
                 10_000_000,
                 15_000_000,
                 U256::from(20_000_000_000u64),

@@ -236,7 +236,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.restart_node(0,
                           ['-gen', '-masternode_operator=' + operator_address, '-rewardaddress=' + cli_reward_address,
                            '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50',
-                           '-grandcentralheight=1', '-nextnetworkupgradeheight=510', '-changiintermediateheight=510'])
+                           '-grandcentralheight=1', '-nextnetworkupgradeheight=510'])
 
         # Mine blocks
         self.nodes[0].generate(101)

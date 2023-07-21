@@ -20,7 +20,6 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/changiintermediates.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>
@@ -218,10 +217,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (nHeight < consensus.NextNetworkUpgradeHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
-            }
-            else {
+            } else {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
             }
 
@@ -281,7 +279,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     XVM xvm{};
-    XVMChangiIntermediate xvm_changi{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
@@ -291,12 +288,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        if (nHeight >= consensus.ChangiIntermediateHeight4) {
-            xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
-        }
-        else {
-            xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
-        }
+        xvm = XVM{0,{0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
 
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
@@ -380,18 +372,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview, consensus) && (!xvm.evm.blockHash.IsNull() || !xvm_changi.evm.blockHash.IsNull())) {
+        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
 
             CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
-            if (nHeight >= consensus.ChangiIntermediateHeight4) {
-                metadata << xvm;
-            }
-            else {
-                metadata << xvm_changi;
-            }
+            metadata << xvm;
 
             CScript script;
             script << OP_RETURN << ToByteVector(metadata);

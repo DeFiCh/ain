@@ -20,8 +20,7 @@ class EVMRolllbackTest(DefiTestFramework):
              '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86',
              '-fortcanningcrunchheight=88','-fortcanningspringheight=90', '-fortcanninggreatworldheight=94',
              '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105',
-             '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105',
-             '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1'],
+             '-subsidytest=1', '-txindex=1'],
         ]
 
     def setup(self):

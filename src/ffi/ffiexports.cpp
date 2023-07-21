@@ -220,18 +220,3 @@ int getCurrentHeight() {
     LOCK(cs_main);
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
 }
-
-bool pastChangiIntermediateHeight2() {
-    LOCK(cs_main);
-    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight2;
-}
-
-bool pastChangiIntermediateHeight3() {
-    LOCK(cs_main);
-    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight3;
-}
-
-bool pastChangiIntermediateHeight4() {
-    LOCK(cs_main);
-    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight4;
-}

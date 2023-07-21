@@ -3330,7 +3330,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
             evm_try_finalize(result, evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
-            if (!result.ok && pindexNew->nHeight >= Params().GetConsensus().ChangiIntermediateHeight4) {
+            if (!result.ok) {
                 return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());
             }
 
@@ -4194,10 +4194,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
-            if (height < consensusParams.ChangiIntermediateHeight) {
+            if (height < consensusParams.NextNetworkUpgradeHeight) {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
-            }
-            else {
+            } else {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
             }
 
