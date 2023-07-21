@@ -23,7 +23,7 @@ pub fn to_word_size(size: u64) -> u64 {
 }
 
 pub fn count_storage_keys(access_list: AccessList) -> usize {
-	access_list.iter().map(|item| item.storage_keys.len()).sum()
+    access_list.iter().map(|item| item.storage_keys.len()).sum()
 }
 
 pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>> {
@@ -31,11 +31,17 @@ pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Erro
     match signed_tx.action() {
         TransactionAction::Call(_) => {
             gas += MIN_GAS_PER_TX;
-            debug!("[check_tx_intrinsic_gas] gas after adding minimum gas per tx: {:#?}", gas);
+            debug!(
+                "[check_tx_intrinsic_gas] gas after adding minimum gas per tx: {:#?}",
+                gas
+            );
         }
         TransactionAction::Create => {
             gas += MIN_GAS_PER_CONTRACT_CREATION_TX;
-            debug!("[check_tx_intrinsic_gas] gas after adding minimum gas per creation tx: {:#?}", gas);
+            debug!(
+                "[check_tx_intrinsic_gas] gas after adding minimum gas per creation tx: {:#?}",
+                gas
+            );
         }
     }
 
@@ -51,34 +57,46 @@ pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Erro
             return Err(anyhow!("gas overflow (zero gas)").into());
         }
         gas += zero_data_len * TX_DATA_ZERO_GAS;
-        debug!("[check_tx_intrinsic_gas] gas after adding zero data cost: {:#?}", gas);
+        debug!(
+            "[check_tx_intrinsic_gas] gas after adding zero data cost: {:#?}",
+            gas
+        );
 
         if ((u64::MAX - gas) / TX_DATA_NON_ZERO_GAS) < non_zero_data_len {
             debug!("[check_tx_intrinsic_gas] gas overflow (non-zero gas)");
             return Err(anyhow!("gas overflow (non-zero gas)").into());
         }
         gas += non_zero_data_len * TX_DATA_NON_ZERO_GAS;
-        debug!("[check_tx_intrinsic_gas] gas after adding non-zero data cost: {:#?}", gas);
+        debug!(
+            "[check_tx_intrinsic_gas] gas after adding non-zero data cost: {:#?}",
+            gas
+        );
 
-        match signed_tx.action() {
-            TransactionAction::Create => {
-                let len_words = to_word_size(data_len);
-                if ((u64::MAX - gas) / INIT_CODE_WORD_GAS) < len_words {
-                    debug!("[check_tx_intrinsic_gas] gas overflow (init-code cost)");
-                    return Err(anyhow!("gas overflow (init-code cost)").into());
-                }
-                gas += len_words * INIT_CODE_WORD_GAS;
-                debug!("[check_tx_intrinsic_gas] gas after adding init-code cost: {:#?}", gas);
+        if signed_tx.action() == TransactionAction::Create {
+            let len_words = to_word_size(data_len);
+            if ((u64::MAX - gas) / INIT_CODE_WORD_GAS) < len_words {
+                debug!("[check_tx_intrinsic_gas] gas overflow (init-code cost)");
+                return Err(anyhow!("gas overflow (init-code cost)").into());
             }
-            _ => (),
+            gas += len_words * INIT_CODE_WORD_GAS;
+            debug!(
+                "[check_tx_intrinsic_gas] gas after adding init-code cost: {:#?}",
+                gas
+            );
         }
 
         let access_list = signed_tx.access_list();
-        if access_list.len() > 0 {
+        if !access_list.is_empty() {
             gas += u64::try_from(access_list.len())? * TX_ACCESS_LIST_ADDRESS_GAS;
-            debug!("[check_tx_intrinsic_gas] gas after adding access list cost: {:#?}", gas);
+            debug!(
+                "[check_tx_intrinsic_gas] gas after adding access list cost: {:#?}",
+                gas
+            );
             gas += u64::try_from(count_storage_keys(access_list))? * TX_ACCESS_LIST_STORAGE_KEY_GAS;
-            debug!("[check_tx_intrinsic_gas] gas after adding storage list cost: {:#?}", gas);
+            debug!(
+                "[check_tx_intrinsic_gas] gas after adding storage list cost: {:#?}",
+                gas
+            );
         }
     }
     Ok(U256::from(gas))
