@@ -199,6 +199,7 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
+        // Validate tx nonce
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -219,13 +220,13 @@ impl EVMCoreService {
 
         let gas_limit = signed_tx.gas_limit();
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            // Validate tx prepay gas
+            // Validate tx prepay gas fees with account balance
             if balance < prepay_gas {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            // Validate gas limit with tx intrinsic gas
+            // Validate tx gas limit with intrinsic gas
             let intrinsic_gas = check_tx_intrinsic_gas(&signed_tx)?;
             if gas_limit < intrinsic_gas {
                 debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
@@ -241,6 +242,7 @@ impl EVMCoreService {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
+        // Get tx gas usage
         let used_gas = if use_context {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
@@ -256,6 +258,7 @@ impl EVMCoreService {
             u64::default()
         };
 
+        // Validate total gas usage in queued txs exceeds block size
         if use_context {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
