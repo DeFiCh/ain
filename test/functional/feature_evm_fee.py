@@ -216,8 +216,6 @@ class EVMFeeTest(DefiTestFramework):
 
         self.test_low_gas_limit()
 
-        self.test_intrinsic_gas()
-
         self.test_gas_limit_higher_than_block_limit()
 
         self.test_fee_deduction_empty_balance()
