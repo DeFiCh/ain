@@ -16,5 +16,5 @@ pub mod storage;
 pub mod traits;
 pub mod transaction;
 mod trie;
-pub mod txqueue;
+mod txqueue;
 pub mod weiamount;

@@ -148,5 +148,5 @@ contrib/devtools/split-debug.sh
 /lib/target
 *.bin
 
-/lib/ain-rs-exports/**/cache
-/lib/ain-rs-exports/**/output
+/lib/contracts/**/cache
+/lib/contracts/**/output

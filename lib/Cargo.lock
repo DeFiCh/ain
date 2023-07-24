@@ -104,6 +104,7 @@ dependencies = [
  "ain-cpp-imports",
  "anyhow",
  "bincode",
+ "contracts",
  "ethbloom",
  "ethereum",
  "ethereum-types",
@@ -188,8 +189,6 @@ dependencies = [
  "cxx",
  "cxx-gen",
  "ethereum",
- "ethers",
- "ethers-solc",
  "hex",
  "log",
  "primitive-types",
@@ -846,6 +845,19 @@ name = "constant_time_eq"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21a53c0a4d288377e7415b53dcfc3c04da5cdc2cc95c8d5ac178b58f0b861ad6"
+
+[[package]]
+name = "contracts"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethereum",
+ "ethers",
+ "ethers-solc",
+ "hex",
+ "primitive-types",
+ "serde_json",
+]
 
 [[package]]
 name = "core-foundation"
