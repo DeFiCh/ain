@@ -47,7 +47,7 @@ pub struct EthCallArgs<'a> {
 
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
-    pub prepay_gas: U256,
+    pub prepay_fee: U256,
     pub used_gas: u64,
 }
 
@@ -167,8 +167,8 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
-        use_context: bool,
         context: u64,
+        use_context: bool,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
@@ -215,13 +215,12 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
-        debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
+        let prepay_fee = calculate_prepay_gas(&signed_tx)?;
+        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         let gas_limit = signed_tx.gas_limit();
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            // Validate tx prepay gas fees with account balance
-            if balance < prepay_gas {
+            if balance < prepay_fee {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
@@ -273,7 +272,7 @@ impl EVMCoreService {
 
         Ok(ValidateTxInfo {
             signed_tx,
-            prepay_gas,
+            prepay_fee,
             used_gas,
         })
     }
