@@ -67,34 +67,32 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self, anyhow::Error> {
-        let services = if let Some(path) = ain_cpp_imports::get_state_input_json() {
+        if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
                 return Err(anyhow!(
                     "Loading a genesis from JSON file is restricted to regtest network"
                 ));
             }
             let storage = Arc::new(Storage::new());
-            Self {
+            Ok(Self {
                 core: EVMCoreService::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
                 block: BlockService::new(Arc::clone(&storage)),
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-            }
+            })
         } else {
             let storage = Arc::new(Storage::restore());
-            Self {
+            Ok(Self {
                 core: EVMCoreService::restore(Arc::clone(&storage)),
                 block: BlockService::new(Arc::clone(&storage)),
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-            }
-        };
-
-        Ok(services)
+            })
+        }
     }
 
     pub fn finalize_block(
