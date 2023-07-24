@@ -92,14 +92,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
-        # check counter contract
-        from web3 import Web3
-        w3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
-        abi = open("./lib/ain-rs-exports/counter_contract/output/abi.json", encoding="utf-8").read()
-        counter = w3.eth.contract(address="0x0000000000000000000000000000000000000301", abi=abi)
-
-        print(counter.functions.number().call())
-
         # Check error before transferdomain enabled
         assert_raises_rpc_error(-32600, "Cannot create tx, transfer domain is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 

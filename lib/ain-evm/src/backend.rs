@@ -234,6 +234,21 @@ impl EVMBackend {
 
         Ok(())
     }
+
+    pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<()> {
+        self.apply(
+            *address,
+            Basic {
+                balance: U256::zero(),
+                nonce: U256::zero(),
+            },
+            None,
+            storage,
+            false,
+        )?;
+
+        Ok(())
+    }
 }
 
 impl Backend for EVMBackend {

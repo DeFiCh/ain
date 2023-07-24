@@ -2465,14 +2465,6 @@ static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView&
     attributes->SetValue(dvm_evm, true);
 
     cache.SetVariable(*attributes);
-
-    if (pindex->nHeight == chainparams.GetConsensus().ChangiIntermediateHeight4) {
-        // deploy counter contract
-        CrossBoundaryResult result;
-        evm_deploy_counter_contract(result, evmContext);
-
-        assert(result.ok);
-    }
 }
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {

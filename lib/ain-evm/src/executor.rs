@@ -44,6 +44,14 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.deploy_contract(&address, bytecode.0, storage)
     }
 
+    pub fn update_storage(
+        &mut self,
+        address: H160,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<(), EVMBackendError> {
+        self.backend.update_storage(&address, storage)
+    }
+
     pub fn commit(&mut self) -> H256 {
         self.backend.commit()
     }

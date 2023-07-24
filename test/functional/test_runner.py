@@ -301,6 +301,7 @@ BASE_SCRIPTS = [
     'feature_evm_smart_contract.py',
     'feature_evm_transferdomain.py',
     'feature_evm.py',
+    'feature_evm_state_root_change.py',
     'feature_loan_low_interest.py',
     'feature_loan_estimatecollateral.py',
     'feature_vault_pct_check_factor.py',

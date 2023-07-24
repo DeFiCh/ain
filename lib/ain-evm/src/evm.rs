@@ -1,4 +1,4 @@
-use crate::backend::{EVMBackend, Vicinity};
+use crate::backend::{EVMBackend, EVMBackendError, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
@@ -17,6 +17,8 @@ use crate::txqueue::QueueTx;
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
 
+use crate::bytes::Bytes;
+use crate::services::SERVICES;
 use crate::transaction::system::{DeployContractData, SystemTx};
 use anyhow::anyhow;
 use hex::FromHex;
@@ -24,6 +26,7 @@ use log::debug;
 use primitive_types::H256;
 use std::error::Error;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 pub struct EVMServices {
@@ -59,32 +62,34 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self, anyhow::Error> {
-        if let Some(path) = ain_cpp_imports::get_state_input_json() {
+        let services = if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
                 return Err(anyhow!(
                     "Loading a genesis from JSON file is restricted to regtest network"
                 ));
             }
             let storage = Arc::new(Storage::new());
-            Ok(Self {
+            Self {
                 core: EVMCoreService::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
                 block: BlockService::new(Arc::clone(&storage)),
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-            })
+            }
         } else {
             let storage = Arc::new(Storage::restore());
-            Ok(Self {
+            Self {
                 core: EVMCoreService::restore(Arc::clone(&storage)),
                 block: BlockService::new(Arc::clone(&storage)),
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-            })
-        }
+            }
+        };
+
+        Ok(services)
     }
 
     pub fn finalize_block(
@@ -143,6 +148,16 @@ impl EVMServices {
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
+
+        if current_block_number == U256::zero() {
+            let (address, bytecode, storage) = EVMServices::counter_contract().unwrap();
+            executor
+                .deploy_contract(address, bytecode, storage)
+                .unwrap();
+        } else {
+            let (address, _, storage) = EVMServices::counter_contract().unwrap();
+            executor.update_storage(address, storage).unwrap();
+        }
 
         for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
             match queue_tx {
@@ -340,4 +355,60 @@ impl EVMServices {
 
         Ok(())
     }
+
+    pub fn counter_contract() -> Result<(H160, Bytes, Vec<(H256, H256)>), Box<dyn Error>> {
+        let address = H160::from_str("0x0000000000000000000000000000000000000301").unwrap();
+        let bytecode = get_bytecode(include_str!(
+            "../../ain-rs-exports/counter_contract/output/bytecode.json"
+        ))?;
+        let (_, latest_block_number) = SERVICES
+            .evm
+            .block
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
+        let count = U256::from(
+            SERVICES
+                .evm
+                .core
+                .get_storage_at(address, U256::one(), latest_block_number)?
+                .unwrap_or_default()
+                .as_slice(),
+        );
+
+        debug!("Count: {:#x}", count + U256::one());
+
+        Ok((
+            address,
+            bytecode,
+            vec![(H256::from_low_u64_be(1), u256_to_h256(count + U256::one()))],
+        ))
+    }
+}
+
+fn u256_to_h256(input: U256) -> H256 {
+    let mut bytes = [0_u8; 32];
+    input.to_big_endian(&mut bytes);
+
+    H256::from(bytes)
+}
+
+fn get_abi_encoded_string(input: &str) -> H256 {
+    let length = input.len();
+
+    let mut storage_value = H256::default();
+    storage_value.0[31] = (length * 2) as u8;
+    storage_value.0[..length].copy_from_slice(input.as_bytes());
+
+    storage_value
+}
+
+fn get_bytecode(input: &str) -> Result<Bytes, Box<dyn Error>> {
+    let bytecode_json: serde_json::Value = serde_json::from_str(input)?;
+    let bytecode_raw = bytecode_json["object"]
+        .as_str()
+        .ok_or_else(|| anyhow!("Bytecode object not available".to_string()))?;
+
+    Ok(Bytes::from(
+        hex::decode(&bytecode_raw[2..]).map_err(|e| anyhow!(e.to_string()))?,
+    ))
 }
