@@ -693,6 +693,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     typedef std::array<std::uint8_t, 20> EvmAddress;
     struct EvmMempoolTxItem {
+        EvmAddress address;
         uint64_t nonce;
         uint64_t fee;
         CTxMemPool::txiter txIter;
@@ -701,7 +702,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Ordered by nonce. Sets can only hold one item per nonce.
     struct EvmMempoolTxItemComparer {
         bool operator()(const EvmMempoolTxItem& lhs, const EvmMempoolTxItem& rhs) const {
-            return std::tie(lhs.nonce) < std::tie(rhs.nonce);
+            return std::tie(lhs.address, lhs.nonce) < std::tie(rhs.address, rhs.nonce);
         }
     };
 
@@ -879,8 +880,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     }
 
                     // To use
-                    const auto evmAddr = txResult.sender;
                     auto ctxItem = EvmMempoolTxItem {
+                        txResult.sender,
                         txResult.nonce,
                         txResult.tx_fees,
                         sortedEntries[i],
