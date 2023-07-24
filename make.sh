@@ -380,11 +380,7 @@ test_py() {
     fi
 
     if [[ "$tests_fail_fast" == "1" ]]; then
-        extra_args="--failfast ${extra_args}"
-    fi
-
-    if [[ "$tests_combined_logs" != "0" ]]; then
-        extra_args="-c ${tests_combined_logs} ${extra_args}"
+        extra_args="--failfast"
     fi
 
     _ensure_enter_dir "${build_target_dir}"
@@ -397,6 +393,7 @@ test_py() {
         --ansi \
         --configfile="${build_target_dir}/test/config.ini" \
         --jobs=${make_jobs} \
+        --combinedlogslen=${tests_combined_logs} \
         ${extra_args} ${first_arg} "$@"
 
     py_env_deactivate
