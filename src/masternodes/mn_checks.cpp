@@ -3938,13 +3938,10 @@ public:
             }
         }
         else {
-            const auto prevalidateResults = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (!result.ok) {
-                    LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-                    return Res::Err("evm tx failed to validate %s", result.reason);
-                }
+            evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
             }
         }
 
