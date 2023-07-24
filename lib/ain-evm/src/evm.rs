@@ -133,6 +133,7 @@ impl EVMServices {
         };
 
         let base_fee = self.block.calculate_base_fee(parent_hash);
+        debug!("[finalize_block] Block base fee: {}", base_fee);
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -282,13 +283,13 @@ impl EVMServices {
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
-        let mut block_fees = self.block.calculate_base_fee(H256::zero());
+        let mut block_fee = self.block.calculate_base_fee(H256::zero());
         if use_context {
-            block_fees = self.block.calculate_next_block_base_fee();
+            block_fee = self.block.calculate_next_block_base_fee();
         }
 
         let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-        if tx_gas_price < block_fees {
+        if tx_gas_price < block_fee {
             debug!("[verify_tx_fees] tx gas price is lower than block base fee");
             return Err(anyhow!("tx gas price is lower than block base fee").into());
         }
