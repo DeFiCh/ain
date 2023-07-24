@@ -157,15 +157,14 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = EVMServices::counter_contract().unwrap();
+            } = EVMServices::counter_contract()?;
             executor
-                .deploy_contract(address, bytecode, storage)
-                .unwrap();
+                .deploy_contract(address, bytecode, storage)?;
         } else {
             let CounterContractInfo {
                 address, storage, ..
-            } = EVMServices::counter_contract().unwrap();
-            executor.update_storage(address, storage).unwrap();
+            } = EVMServices::counter_contract()?;
+            executor.update_storage(address, storage)?;
         }
 
         for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
