@@ -7,6 +7,7 @@ pub mod evm;
 pub mod executor;
 mod fee;
 pub mod filters;
+mod gas;
 mod genesis;
 pub mod log;
 mod precompiles;
