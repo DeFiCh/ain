@@ -33,6 +33,5 @@ class StateRootChangeTest(DefiTestFramework):
         assert_equal(len(state_roots), NUM_BLOCKS)
 
 
-
 if __name__ == '__main__':
     StateRootChangeTest().main()
