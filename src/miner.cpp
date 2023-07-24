@@ -583,6 +583,7 @@ void BlockAssembler::RemoveTxIters(const std::vector<CTxMemPool::txiter> iters) 
                 nBlockSigOpsCost -= iter->GetSigOpCost();
                 nFees -= iter->GetFee();
                 --nBlockTx;
+                break;
             }
         }
     }
@@ -692,23 +693,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
     typedef std::array<std::uint8_t, 20> EvmAddress;
-    struct EvmMempoolTxItem {
-        EvmAddress address;
-        uint64_t nonce;
-        uint64_t fee;
-        CTxMemPool::txiter txIter;
-    };
-
-    // Ordered by nonce. Sets can only hold one item per nonce.
-    struct EvmMempoolTxItemComparer {
-        bool operator()(const EvmMempoolTxItem& lhs, const EvmMempoolTxItem& rhs) const {
-            return std::tie(lhs.address, lhs.nonce) < std::tie(rhs.address, rhs.nonce);
-        }
-    };
-
-    std::map<EvmAddress, std::set<EvmMempoolTxItem, EvmMempoolTxItemComparer>> evmMempoolTxItems;
-
-    // To remove
 
     struct EvmAddressWithNonce {
         EvmAddress address;
@@ -722,13 +706,19 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     struct EvmPackageContext {
         // Used to track EVM TXs by sender and nonce.
         std::map<EvmAddressWithNonce, uint64_t> feeMap;
-        // Used to track EVM TXs by sender
-        std::map<EvmAddress, std::vector<CTxMemPool::txiter>> addressTxsMap;
+        // Used to track EVM nonce and TXs by sender
+        std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    };
+
+    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
+        std::vector<CTxMemPool::txiter> txIters;
+        for (const auto& [nonce, it] : iterMap) {
+            txIters.push_back(it);
+        }
+        return txIters;
     };
 
     EvmPackageContext evmPackageContext;
-
-    // End -- to remove
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -879,16 +869,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    // To use
-                    auto ctxItem = EvmMempoolTxItem {
-                        txResult.sender,
-                        txResult.nonce,
-                        txResult.tx_fees,
-                        sortedEntries[i],
-                    };
-
-                    // TODO: Check or assign to contexts
-                    // End -- to use // todo
                     auto& evmFeeMap = evmPackageContext.feeMap;
                     auto& evmAddressTxsMap = evmPackageContext.addressTxsMap;
 
@@ -899,13 +879,21 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         if (txResult.tx_fees > lastFee) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
                             auto addrTxs = evmAddressTxsMap[addrKey.address];
-                            RemoveTxIters(std::vector<CTxMemPool::txiter>(addrTxs.begin(), addrTxs.end()));
-                            evmFeeMap.erase(feeEntry);
-                            // Buggy code to fix below: 
+                            RemoveTxIters(txIters(addrTxs));
+                            // Remove all fee entries relating to the address
+                            for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
+                                const auto& [sender, nonce] = it->first;
+                                if (sender == addrKey.address) {
+                                    it = evmFeeMap.erase(it);
+                                } else {
+                                    ++it;
+                                }
+                            }
+                            // Buggy code to fix below:
                             checkedTX.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
                             addrTxs[addrKey.nonce] = sortedEntries[i];
                             auto count{addrKey.nonce};
-                            for (const auto& entry : addrTxs) {
+                            for (const auto& [nonce, entry] : addrTxs) {
                                 inBlock.erase(entry);
                                 checkedTX.erase(entry->GetTx().GetHash());
                                 replaceByFee.emplace(count, entry);
@@ -930,7 +918,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     auto addrNonce = EvmAddressWithNonce { txResult.sender, txResult.nonce };
                     evmFeeMap.insert({addrNonce, txResult.tx_fees});
-                    evmAddressTxsMap[txResult.sender].push_back(sortedEntries[i]);
+                    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
