@@ -319,8 +319,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             }
         }
 
-        // assert(failedTransferDomainTxs.size() == failedTransactions.size());
-
         RemoveTxs(failedTransactions, txFees);
     }
 
