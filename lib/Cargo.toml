@@ -3,7 +3,6 @@ members = [
     "ain-*",
     "cli",
     "labs-grpc2",
-    "contracts",
 ]
 
 default-members = [

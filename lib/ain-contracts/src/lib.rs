@@ -41,14 +41,8 @@ pub enum Contracts {
 }
 
 lazy_static! {
-    pub static ref CONTRACT_ADDRESSES: HashMap<Contracts, H160> = {
-        let mut map = HashMap::new();
-
-        map.insert(
-            Contracts::CounterContract,
-            H160::from_str("0x0000000000000000000000000000000000000301").unwrap(),
-        );
-
-        map
-    };
+    pub static ref CONTRACT_ADDRESSES: HashMap<Contracts, H160> = HashMap::from([(
+        Contracts::CounterContract,
+        H160::from_str("0x0000000000000000000000000000000000000301").unwrap()
+    ),]);
 }

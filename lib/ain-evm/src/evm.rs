@@ -19,8 +19,8 @@ use ethereum_types::{Bloom, H160, H64, U256};
 
 use crate::bytes::Bytes;
 use crate::services::SERVICES;
+use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::anyhow;
-use contracts::{Contracts, CONTRACT_ADDRESSES};
 use hex::FromHex;
 use log::debug;
 use primitive_types::H256;
@@ -347,7 +347,7 @@ impl EVMServices {
             .get(&Contracts::CounterContract)
             .unwrap()
             .clone();
-        let bytecode = contracts::get_counter_bytecode()?;
+        let bytecode = ain_contracts::get_counter_bytecode()?;
         let (_, latest_block_number) = SERVICES
             .evm
             .block
@@ -369,7 +369,7 @@ impl EVMServices {
             Bytes::from(bytecode),
             vec![(
                 H256::from_low_u64_be(1),
-                contracts::u256_to_h256(count + U256::one()),
+                ain_contracts::u256_to_h256(count + U256::one()),
             )],
         ))
     }
