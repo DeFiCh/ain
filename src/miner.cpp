@@ -871,7 +871,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     CrossBoundaryResult result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
+                    const auto txResult = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmContext);
                     if (!result.ok || txResult.tx_fees == 0) {
                         customTxPassed = false;
                         break;

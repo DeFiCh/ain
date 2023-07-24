@@ -1058,9 +1058,14 @@ fi
 
 if test x$use_boost = xyes; then
 
-BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB"
-LIBS="$BOOST_LIBS $LIBS"
-CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+  dnl Prevent use of std::unary_function, which was removed in C++17
+  dnl and will generate warnings with newer compilers.
+  dnl See: https://github.com/boostorg/container_hash/issues/22.
+  BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE"
+
+  BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB"
+  LIBS="$BOOST_LIBS $LIBS"
+  CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 
 fi
 

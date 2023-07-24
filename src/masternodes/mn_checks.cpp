@@ -769,7 +769,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmContext;
-    bool useEvmContext;
+    bool prevalidateEvm;
     uint64_t &totalEvmFees;
 
 public:
@@ -781,14 +781,14 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmContext,
-                          const bool useEvmContext,
+                          const bool prevalidateEvm,
                           uint64_t &totalEvmFees)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
           evmContext(evmContext),
-          useEvmContext(useEvmContext),
+          prevalidateEvm(prevalidateEvm),
           totalEvmFees(totalEvmFees) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
@@ -3933,27 +3933,38 @@ public:
             return Res::Err("evm tx size too large");
 
         CrossBoundaryResult result;
-        const auto prevalidateResults = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), useEvmContext, evmContext);
+        if (!prevalidateEvm) {
+            const auto prevalidateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmContext);
+            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
+            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (!result.ok) {
+                    LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
+                    return Res::Err("evm tx failed to validate %s", result.reason);
+                }
+            }
+            
+            if (prevalidateResults.tx_fees == 0) {
+                return Res::Err("evm tx does not pay a fee");
+            }
 
-        // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), prevalidateResults.gas_used);
             if (!result.ok) {
-                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-                return Res::Err("evm tx failed to validate %s", result.reason);
+                LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to queue %s\n", result.reason);
+            }
+
+            totalEvmFees += prevalidateResults.tx_fees;
+        }
+        else {
+            evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
+            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (!result.ok) {
+                    LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                    return Res::Err("evm tx failed to validate %s", result.reason);
+                }
             }
         }
-
-        if (prevalidateResults.tx_fees == 0) {
-            return Res::Err("evm tx does not pay a fee");
-        }
-
-        evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), prevalidateResults.gas_used);
-        if (!result.ok) {
-            LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
-            return Res::Err("evm tx failed to queue %s\n", result.reason);
-        }
-
-        totalEvmFees += prevalidateResults.tx_fees;
 
         std::vector<unsigned char> evmTxHashBytes;
         sha3(obj.evmTx, evmTxHashBytes);
@@ -4189,14 +4200,14 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     auto context = evmContext;
-    bool useEvmContext = true;
+    bool prevalidateEvm = false;
     if (context == 0) {
-        useEvmContext = false;
+        prevalidateEvm = true;
         context = evm_get_context();
     }
 
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, useEvmContext, totalEvmFees), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, prevalidateEvm, totalEvmFees), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
