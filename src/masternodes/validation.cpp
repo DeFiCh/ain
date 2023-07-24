@@ -2378,13 +2378,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static void ProcessEVMQueue(const CBlock &block,
-                            const CBlockIndex *pindex,
-                            CCustomCSView &cache,
-                            const CChainParams& chainparams,
-                            const uint64_t evmContext,
-                            std::array<uint8_t, 20>& beneficiary,
-                            const uint64_t totalEvmFees) {
+static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return;
 
     CKeyID minter;
@@ -2450,7 +2444,6 @@ static void ProcessEVMQueue(const CBlock &block,
     if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
         cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
         cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
-        assert(blockResult.total_burnt_fees + blockResult.total_priority_fees <= totalEvmFees);
     }
     else {
         cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
@@ -2474,15 +2467,7 @@ static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView&
     cache.SetVariable(*attributes);
 }
 
-void ProcessDeFiEvent(const CBlock &block,
-                      const CBlockIndex* pindex,
-                      CCustomCSView& mnview,
-                      const CCoinsViewCache& view,
-                      const CChainParams& chainparams,
-                      const CreationTxs &creationTxs,
-                      const uint64_t evmContext,
-                      std::array<uint8_t, 20>& beneficiary,
-                      const uint64_t totalEvmFees) {
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2537,7 +2522,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessGrandCentralEvents(pindex, cache, chainparams);
 
     // Execute EVM Queue
-    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary, totalEvmFees);
+    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
 
     // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
     ProcessChangiIntermediate4(pindex, cache, chainparams);

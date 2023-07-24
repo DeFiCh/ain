@@ -274,11 +274,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     const auto evmContext = evm_get_context();
     std::map<uint256, CAmount> txFees;
 
-    uint32_t evmCount{};
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, evmCount);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, evmCount);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
     XVM xvm{};
@@ -289,11 +288,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         CrossBoundaryResult result;
         auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
         evm_discard_context(evmContext);
-
-        // Make sure that EVM TXs pay fees
-        if (evmCount && blockResult.total_priority_fees + blockResult.total_burnt_fees == 0) {
-            return nullptr;
-        }
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
@@ -560,7 +554,7 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
-void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters, uint32_t &evmCount) {
+void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters) {
 
     // Make sure we only remove EVM TXs which have no descendants or TX fees.
     // Removing others TXs is more complicated and should be handled by RemoveFailedTransactions.
@@ -575,7 +569,6 @@ void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter>
         for (size_t i = 0; i < pblock->vtx.size();  ++i) {
             if (pblock->vtx[i] && pblock->vtx[i]->GetHash() == iter->GetTx().GetHash()) {
                 pblock->vtx.erase(pblock->vtx.begin() + i);
-                --evmCount;
                 break;
             }
         }
@@ -687,7 +680,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, uint32_t &evmCount)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -872,7 +865,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     CrossBoundaryResult result;
                     const auto txResult = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmContext);
-                    if (!result.ok || txResult.tx_fees == 0) {
+                    if (!result.ok) {
                         customTxPassed = false;
                         break;
                     }
@@ -882,7 +875,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         const auto& gasFees = evmTXFees.at(evmKey);
                         if (txResult.tx_fees > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                            RemoveEVMTransactions(evmTXs[txResult.sender], evmCount);
+                            RemoveEVMTransactions(evmTXs[txResult.sender]);
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
                                 const auto& [sender, nonce] = it->first;
                                 if (sender == txResult.sender) {
@@ -919,11 +912,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
                     evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.tx_fees);
                     evmTXs[txResult.sender].push_back(sortedEntries[i]);
-                    ++evmCount;
                 }
 
-                uint64_t totalEvmFees{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, totalEvmFees, pblock->nTime, nullptr, 0, evmContext);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;

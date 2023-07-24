@@ -645,8 +645,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        uint64_t totalEvmFees{};
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, totalEvmFees, nAcceptTime);
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -922,9 +921,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
-            }
-            if (txResult.tx_fees == 0) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx does not pay a fee"), REJECT_INVALID, "evm-no-fee");
             }
             const auto sender = pool.ethTxsBySender.find(txResult.sender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
@@ -2396,9 +2392,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             mnview.CreateDFIToken();
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
-            uint64_t totalEvmFees{};
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, totalEvmFees, pindex->GetBlockTime(), nullptr, i);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2604,9 +2599,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    // Track total fees paid out from EVM TXs
-    uint64_t totalEvmFees{};
-
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2677,7 +2669,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, totalEvmFees, pindex->GetBlockTime(), nullptr, i, evmContext);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2858,7 +2850,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary, totalEvmFees);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
