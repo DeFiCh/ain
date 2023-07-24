@@ -350,19 +350,22 @@ test() {
     _fold_end
 
     _fold_start "functional-tests"
+    # shellcheck disable=SC2119
     test_py
     _fold_end
 
     _exit_dir
 }
 
+# shellcheck disable=SC2120
 test_py() {
     local build_target_dir=${BUILD_TARGET_DIR}
     local src_dir=${_SCRIPT_DIR}
     local tests_fail_fast=${TESTS_FAILFAST}
     local tests_combined_logs=${TESTS_COMBINED_LOGS}
-    local first_arg="${1:-}"
+    local make_jobs=${MAKE_JOBS}
     local extra_args=""
+    local first_arg="${1:-}"
 
     # If an argument is given as an existing file, we switch that
     # out to the last arg
@@ -390,9 +393,10 @@ test_py() {
 
     # shellcheck disable=SC2086
     python3 ${build_target_dir}/test/functional/test_runner.py \
-        --tmpdirprefix "./test_runner/" \
+        --tmpdirprefix="./test_runner/" \
         --ansi \
         --configfile="${build_target_dir}/test/config.ini" \
+        --jobs=${make_jobs} \
         ${extra_args} ${first_arg} "$@"
 
     py_env_deactivate
