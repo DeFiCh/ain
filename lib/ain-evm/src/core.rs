@@ -102,6 +102,7 @@ impl EVMCoreService {
                 nonce: genesis.nonce.unwrap_or_default(),
                 timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
                 difficulty: genesis.difficulty.unwrap_or_default(),
+                base_fee: genesis.base_fee.unwrap_or_default(),
             },
             Vec::new(),
             Vec::new(),

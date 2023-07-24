@@ -232,6 +232,7 @@ impl EVMServices {
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
                 nonce: H64::default(),
+                base_fee,
             },
             all_transactions
                 .iter()
