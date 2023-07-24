@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -36,6 +36,8 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
+    // TODO: There's no reason for this to be hex encoded and de-coded back again
+    // We can just send the array of 256 directly, same as block hash.
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
@@ -153,7 +155,7 @@ impl EVMServices {
                         }
                     }
 
-                    let prepay_gas = calculate_prepay_gas(&signed_tx)?;
+                    let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
                     let (
                         TxResponse {
                             exit_reason,

@@ -216,9 +216,9 @@ private:
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Remove failed TransferDoamin transactions from the block */
-    void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
+    void RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees);
     /** Remove specific TX from the block */
-    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
+    void RemoveTxIters(const std::vector<CTxMemPool::txiter> iters);
 };
 
 /** Modify the extranonce in a block */

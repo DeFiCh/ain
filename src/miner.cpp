@@ -298,12 +298,29 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
         }
 
-        std::vector<std::string> failedTransactions;
-        for (const auto& rust_string : blockResult.failed_transactions) {
-            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
+        std::set<uint256> failedTransactions;
+        for (const auto& txRustStr : blockResult.failed_transactions) {
+            auto txStr = std::string(txRustStr.data(), txRustStr.length());
+            failedTransactions.insert(uint256S(txStr));
         }
 
-        RemoveFailedTransactions(failedTransactions, txFees);
+        std::set<uint256> failedTransferDomainTxs;
+
+        // Get All TransferDomainTxs
+        for (const auto &hash : failedTransactions) {
+            for (const auto &tx : pblock->vtx) {
+                if (tx && tx->GetHash() == hash) {
+                    std::vector<unsigned char> metadata;
+                    const auto txType = GuessCustomTxType(*tx, metadata, false);
+                    if (txType == CustomTxType::TransferDomain) {
+                        failedTransferDomainTxs.insert(hash);
+                    }
+                    break;
+                }
+            }
+        }
+
+        RemoveTxs(failedTransactions, txFees);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -554,93 +571,56 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
     return nDescendantsUpdated;
 }
 
-void BlockAssembler::RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters) {
-
-    // Make sure we only remove EVM TXs which have no descendants or TX fees.
-    // Removing others TXs is more complicated and should be handled by RemoveFailedTransactions.
+void BlockAssembler::RemoveTxIters(const std::vector<CTxMemPool::txiter> iters) {
     for (const auto& iter : iters) {
         const auto &tx = iter->GetTx();
-        std::vector<unsigned char> metadata;
-        const auto txType = GuessCustomTxType(tx, metadata, false);
-        if (txType != CustomTxType::EvmTx) {
-            continue;
-        }
-
         for (size_t i = 0; i < pblock->vtx.size();  ++i) {
-            if (pblock->vtx[i] && pblock->vtx[i]->GetHash() == iter->GetTx().GetHash()) {
+            auto current = pblock->vtx[i];
+            if (current && current->GetHash() == tx.GetHash()) {
                 pblock->vtx.erase(pblock->vtx.begin() + i);
+                nBlockWeight -= iter->GetTxWeight();
+                nBlockSigOpsCost -= iter->GetSigOpCost();
+                nFees -= iter->GetFee();
+                --nBlockTx;
                 break;
             }
         }
-
-        nBlockWeight -= iter->GetTxWeight();
-        --nBlockTx;
     }
 }
 
-void BlockAssembler::RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees) {
-    if (failedTransactions.empty()) {
-        return;
-    }
+void BlockAssembler::RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees) {
+    if (txHashSet.empty()) { return; }
 
-    std::vector<uint256> txsToErase;
-    for (const auto &txStr : failedTransactions) {
-        const auto failedHash = uint256S(txStr);
-        for (const auto &tx : pblock->vtx) {
-            if (tx && tx->GetHash() == failedHash) {
-                std::vector<unsigned char> metadata;
-                const auto txType = GuessCustomTxType(*tx, metadata, false);
-                if (txType == CustomTxType::TransferDomain) {
-                    txsToErase.push_back(failedHash);
-                }
-            }
-        }
-    }
+    auto &blockFees = nFees;
+    auto &blockTxCount = nBlockTx;
 
-    // Get a copy of the TXs to be erased for restoring to the mempool later
-    std::vector<CTransactionRef> txsToRemove;
-    std::set<uint256> txsToEraseSet(txsToErase.begin(), txsToErase.end());
+    auto removeItem = [&txHashSet, &blockFees, &blockTxCount, &txFees](const auto &tx) {
+            auto hash = tx.get()->GetHash();
+            if (txHashSet.count(hash) < 1) return false;
+            blockFees -= txFees.at(hash);
+            --blockTxCount;
+            return true;
+    };
 
-    for (const auto &tx : pblock->vtx) {
-        if (tx && txsToEraseSet.count(tx->GetHash())) {
-            txsToRemove.push_back(tx);
-        }
-    }
-
-    // Add descendants and in turn add their descendants. This needs to
-    // be done in the order that the TXs are in the block for txsToRemove.
-    auto size = txsToErase.size();
-    for (std::vector<uint256>::size_type i{}; i < size; ++i) {
-        for (const auto &tx : pblock->vtx) {
-            if (tx) {
-                for (const auto &vin : tx->vin) {
-                    if (vin.prevout.hash == txsToErase[i] &&
-                        std::find(txsToErase.begin(), txsToErase.end(), tx->GetHash()) == txsToErase.end())
-                    {
-                        txsToRemove.push_back(tx);
-                        txsToErase.push_back(tx->GetHash());
-                        ++size;
-                    }
-                }
-            }
-        }
-    }
-
-    // Erase TXs from block
-    txsToEraseSet = std::set<uint256>(txsToErase.begin(), txsToErase.end());
     pblock->vtx.erase(
-            std::remove_if(pblock->vtx.begin(), pblock->vtx.end(),
-                           [&txsToEraseSet](const auto &tx) {
-                return tx && txsToEraseSet.count(tx.get()->GetHash());
-            }),pblock->vtx.end());
+        std::remove_if(pblock->vtx.begin(), pblock->vtx.end(), removeItem), 
+        pblock->vtx.end());
 
-    for (const auto &tx : txsToRemove) {
-        // Remove fees.
-        if (txFees.count(tx->GetHash())) {
-            nFees -= txFees.at(tx->GetHash());
+    // Add descendants
+    std::set<uint256> descendantTxsToErase;
+    for (const auto &hash : txHashSet) {
+        for (const auto &tx : pblock->vtx) {
+            if (!tx) continue;
+            for (const auto &vin : tx->vin) {
+                if (vin.prevout.hash == hash) {
+                    descendantTxsToErase.insert(hash);
+                }
+            }
         }
-        --nBlockTx;
     }
+
+    // Recursively remove descendants
+    RemoveTxs(descendantTxsToErase, txFees);
 }
 
 // Skip entries in mapTx that are already in a block or are present
@@ -687,10 +667,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     indexed_modified_transaction_set mapModifiedTx;
     // Keep track of entries that failed inclusion, to avoid duplicate work
     CTxMemPool::setEntries failedTx;
-    // Keep track of EVM entries that failed nonce check
-    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
-    // Used for replacement Eth TXs when a TX in chain pays a higher fee
-    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -711,15 +687,40 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    // Used to track EVM TXs by sender and nonce.
-    // Key: sender address, nonce
-    // Value: fee
-    std::map<std::pair<std::array<std::uint8_t, 20>, uint64_t>, uint64_t> evmTXFees;
+    typedef std::array<std::uint8_t, 20> EvmAddress;
 
-    // Used to track EVM TXs by sender
-    // Key: sender address
-    // Value: vector of mempool TX iterator
-    std::map<std::array<std::uint8_t, 20>, std::vector<CTxMemPool::txiter>> evmTXs;
+    struct EvmAddressWithNonce {
+        EvmAddress address;
+        uint64_t nonce;
+
+        bool operator<(const EvmAddressWithNonce& item) const {
+            return std::tie(address, nonce) < std::tie(item.address, item.nonce);
+        }
+    };
+
+    struct EvmPackageContext {
+        // Used to track EVM TXs by sender and nonce.
+        std::map<EvmAddressWithNonce, uint64_t> feeMap;
+        // Used to track EVM nonce and TXs by sender
+        std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+        // Keep track of EVM entries that failed nonce check
+        std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+        // Used for replacement Eth TXs when a TX in chain pays a higher fee
+        std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+    };
+
+    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
+        std::vector<CTxMemPool::txiter> txIters;
+        for (const auto& [nonce, it] : iterMap) {
+            txIters.push_back(it);
+        }
+        return txIters;
+    };
+
+    EvmPackageContext evmPackageContext;
+
+    auto& failedNonces = evmPackageContext.failedNonces;
+    auto& replaceByFee = evmPackageContext.replaceByFee;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -854,7 +855,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                if (txType == CustomTxType::EvmTx) {
+                if (txType == CustomTxType::EvmTx) {                    
                     auto txMessage = customTypeToMessage(txType);
                     if (!CustomMetadataParse(nHeight, Params().GetConsensus(), metadata, txMessage)) {
                         customTxPassed = false;
@@ -870,31 +871,38 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    const auto evmKey = std::make_pair(txResult.sender, txResult.nonce);
-                    if (evmTXFees.count(evmKey)) {
-                        const auto& gasFees = evmTXFees.at(evmKey);
-                        if (txResult.prepay_fee > gasFees) {
+                    auto& evmFeeMap = evmPackageContext.feeMap;
+                    auto& evmAddressTxsMap = evmPackageContext.addressTxsMap;
+
+                    const auto addrKey = EvmAddressWithNonce { txResult.sender, txResult.nonce }; 
+                    if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
+                        // Key already exists. We check to see if we need to prioritize higher fee tx
+                        const auto& lastFee = feeEntry->second;
+                        if (txResult.prepay_fee > lastFee) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                            RemoveEVMTransactions(evmTXs[txResult.sender]);
-                            for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
+                            auto addrTxs = evmAddressTxsMap[addrKey.address];
+                            RemoveTxIters(txIters(addrTxs));
+                            // Remove all fee entries relating to the address
+                            for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
                                 const auto& [sender, nonce] = it->first;
-                                if (sender == txResult.sender) {
-                                    it = evmTXFees.erase(it);
+                                if (sender == addrKey.address) {
+                                    it = evmFeeMap.erase(it);
                                 } else {
                                     ++it;
                                 }
                             }
-                            checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
-                            evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
-                            auto count{txResult.nonce};
-                            for (const auto& entry : evmTXs[txResult.sender]) {
+                            // Buggy code to fix below:
+                            checkedTX.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
+                            addrTxs[addrKey.nonce] = sortedEntries[i];
+                            auto count{addrKey.nonce};
+                            for (const auto& [nonce, entry] : addrTxs) {
                                 inBlock.erase(entry);
                                 checkedTX.erase(entry->GetTx().GetHash());
                                 replaceByFee.emplace(count, entry);
                                 ++count;
                             }
-                            evmTXs.erase(txResult.sender);
-                            evm_remove_txs_by_sender(evmContext, txResult.sender);
+                            evmAddressTxsMap.erase(addrKey.address);
+                            evm_remove_txs_by_sender(evmContext, addrKey.address);
                             customTxPassed = false;
                             break;
                         }
@@ -910,8 +918,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.prepay_fee);
-                    evmTXs[txResult.sender].push_back(sortedEntries[i]);
+                    auto addrNonce = EvmAddressWithNonce { txResult.sender, txResult.nonce };
+                    evmFeeMap.insert({addrNonce, txResult.prepay_fee});
+                    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);

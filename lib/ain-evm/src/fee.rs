@@ -5,8 +5,7 @@ use anyhow::anyhow;
 use std::cmp;
 use std::error::Error;
 
-// Gas prices are denoted in wei
-pub fn calculate_prepay_gas(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>> {
+pub fn calculate_prepay_gas_fee(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>> {
     let prepay_gas = match &signed_tx.transaction {
         ethereum::TransactionV2::Legacy(tx) => tx.gas_limit.checked_mul(tx.gas_price),
         ethereum::TransactionV2::EIP2930(tx) => tx.gas_limit.checked_mul(tx.gas_price),
