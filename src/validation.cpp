@@ -918,7 +918,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
-            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), false, 0u);
+            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
