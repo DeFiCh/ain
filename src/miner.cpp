@@ -668,10 +668,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     indexed_modified_transaction_set mapModifiedTx;
     // Keep track of entries that failed inclusion, to avoid duplicate work
     CTxMemPool::setEntries failedTx;
-    // Keep track of EVM entries that failed nonce check
-    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
-    // Used for replacement Eth TXs when a TX in chain pays a higher fee
-    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -708,6 +704,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::map<EvmAddressWithNonce, uint64_t> feeMap;
         // Used to track EVM nonce and TXs by sender
         std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+        // Keep track of EVM entries that failed nonce check
+        std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+        // Used for replacement Eth TXs when a TX in chain pays a higher fee
+        std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
     };
 
     auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
@@ -719,6 +719,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     };
 
     EvmPackageContext evmPackageContext;
+
+    auto& failedNonces = evmPackageContext.failedNonces;
+    auto& replaceByFee = evmPackageContext.replaceByFee;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
