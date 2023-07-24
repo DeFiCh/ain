@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use log::debug;
 use std::error::Error;
 
-// Changi intermediate constant 
+// Changi intermediate constant
 pub const MIN_GAS_PER_TX: u64 = 21_000;
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
