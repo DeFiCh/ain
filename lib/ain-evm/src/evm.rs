@@ -44,6 +44,12 @@ pub struct FinalizedBlockInfo {
     pub total_priority_fees: U256,
 }
 
+pub struct CounterContractInfo {
+    pub address: H160,
+    pub storage: Vec<(H256, H256)>,
+    pub bytecode: Bytes,
+}
+
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -149,12 +155,18 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut backend);
 
         if current_block_number == U256::zero() {
-            let (address, bytecode, storage) = EVMServices::counter_contract().unwrap();
+            let CounterContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = EVMServices::counter_contract().unwrap();
             executor
                 .deploy_contract(address, bytecode, storage)
                 .unwrap();
         } else {
-            let (address, _, storage) = EVMServices::counter_contract().unwrap();
+            let CounterContractInfo {
+                address, storage, ..
+            } = EVMServices::counter_contract().unwrap();
             executor.update_storage(address, storage).unwrap();
         }
 
@@ -342,11 +354,8 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn counter_contract() -> Result<(H160, Bytes, Vec<(H256, H256)>), Box<dyn Error>> {
-        let address = CONTRACT_ADDRESSES
-            .get(&Contracts::CounterContract)
-            .unwrap()
-            .clone();
+    pub fn counter_contract() -> Result<CounterContractInfo, Box<dyn Error>> {
+        let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
         let (_, latest_block_number) = SERVICES
             .evm
@@ -364,13 +373,13 @@ impl EVMServices {
 
         debug!("Count: {:#x}", count + U256::one());
 
-        Ok((
+        Ok(CounterContractInfo {
             address,
-            Bytes::from(bytecode),
-            vec![(
+            bytecode: Bytes::from(bytecode),
+            storage: vec![(
                 H256::from_low_u64_be(1),
                 ain_contracts::u256_to_h256(count + U256::one()),
             )],
-        ))
+        })
     }
 }
