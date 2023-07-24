@@ -315,6 +315,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                     if (txType == CustomTxType::TransferDomain) {
                         failedTransferDomainTxs.insert(hash);
                     }
+                    break;
                 }
             }
         }
