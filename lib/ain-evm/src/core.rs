@@ -215,7 +215,7 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_fee = calculate_prepay_gas(&signed_tx)?;
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         let gas_limit = signed_tx.gas_limit();
@@ -226,12 +226,8 @@ impl EVMCoreService {
             }
 
             // Validate tx gas limit with intrinsic gas
-            let intrinsic_gas = check_tx_intrinsic_gas(&signed_tx)?;
-            if gas_limit < intrinsic_gas {
-                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
-                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
-            }
-        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_gas {
+            check_tx_intrinsic_gas(&signed_tx)?;
+        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
