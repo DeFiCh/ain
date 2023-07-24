@@ -20,12 +20,12 @@ use ethereum_types::{Bloom, H160, H64, U256};
 use crate::bytes::Bytes;
 use crate::services::SERVICES;
 use anyhow::anyhow;
+use contracts::{Contracts, CONTRACT_ADDRESSES};
 use hex::FromHex;
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 pub struct EVMServices {
@@ -343,7 +343,10 @@ impl EVMServices {
     }
 
     pub fn counter_contract() -> Result<(H160, Bytes, Vec<(H256, H256)>), Box<dyn Error>> {
-        let address = H160::from_str("0x0000000000000000000000000000000000000301").unwrap();
+        let address = CONTRACT_ADDRESSES
+            .get(&Contracts::CounterContract)
+            .unwrap()
+            .clone();
         let bytecode = contracts::get_counter_bytecode()?;
         let (_, latest_block_number) = SERVICES
             .evm
