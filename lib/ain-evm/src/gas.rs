@@ -1,8 +1,8 @@
 use crate::transaction::SignedTx;
 use ethereum::TransactionAction;
 use evm::{
-    Config,
     gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost},
+    Config,
 };
 
 use anyhow::anyhow;
