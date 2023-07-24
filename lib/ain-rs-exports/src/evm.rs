@@ -4,6 +4,7 @@ use ain_evm::{
     services::SERVICES,
     storage::traits::Rollback,
     transaction::{self, SignedTx},
+    weiamount::WeiAmount,
 };
 
 use ain_evm::storage::traits::BlockStorage;
@@ -14,9 +15,6 @@ use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
 use crate::prelude::*;
-
-pub const WEI_TO_GWEI: u64 = 1_000_000_000;
-pub const GWEI_TO_SATS: u64 = 10;
 
 /// Creates and signs a transaction.
 ///
@@ -86,14 +84,14 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
         .block
         .get_latest_block_hash_and_number()
         .unwrap_or_default();
-    let mut balance = SERVICES
-        .evm
-        .core
-        .get_balance(account, latest_block_number)
-        .unwrap_or_default(); // convert to try_evm_get_balance - Default to 0 for now
-    balance /= WEI_TO_GWEI;
-    balance /= GWEI_TO_SATS;
-    balance.as_u64()
+    let balance = WeiAmount(
+        SERVICES
+            .evm
+            .core
+            .get_balance(account, latest_block_number)
+            .unwrap_or_default(),
+    ); // convert to try_evm_get_balance - Default to 0 for now
+    balance.to_satoshi().as_u64()
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific context
@@ -177,34 +175,33 @@ pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
     false
 }
 
-/// Validates a raw EVM transaction.
+/// Pre-validates a raw EVM transaction.
 ///
 /// # Arguments
 ///
 /// * `result` - Result object
 /// * `tx` - The raw transaction string.
-/// * `with_gas_usage` - Whether to calculate tx gas usage
 ///
 /// # Errors
 ///
 /// Returns an Error if:
 /// - The hex data is invalid
 /// - The EVM transaction is invalid
+/// - The EVM transaction fee is lower than initial block base fee
 /// - Could not fetch the underlying EVM account
 /// - Account's nonce does not match raw tx's nonce
-/// - Transaction gas fee is lower than the next block's base fee
+/// - The EVM transaction prepay gas is invalid
+/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce, sender address and gas used if the transaction is valid.
-/// logs and set the error reason to result object otherwise.
+/// Returns the transaction nonce, sender address and transaction fees if valid.
+/// Logs and set the error reason to result object otherwise.
 pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-    use_context: bool,
-    context: u64,
-) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, use_context) {
+) -> ffi::PreValidateTxCompletion {
+    match SERVICES.evm.verify_tx_fees(tx, false) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
@@ -212,22 +209,80 @@ pub fn evm_try_prevalidate_raw_tx(
         }
     }
 
-    match SERVICES.evm.core.validate_raw_tx(tx, use_context, context) {
+    let context = 0;
+    match SERVICES.evm.core.validate_raw_tx(tx, context, false) {
         Ok(ValidateTxInfo {
             signed_tx,
-            prepay_gas,
+            prepay_fee,
+            used_gas: _,
+        }) => cross_boundary_success_return(
+            result,
+            ffi::PreValidateTxCompletion {
+                nonce: signed_tx.nonce().as_u64(),
+                sender: signed_tx.sender.to_fixed_bytes(),
+                tx_fees: prepay_fee.try_into().unwrap_or_default(),
+            },
+        ),
+        Err(e) => {
+            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+            cross_boundary_error_return(result, e.to_string())
+        }
+    }
+}
+
+/// Validates a raw EVM transaction.
+///
+/// # Arguments
+///
+/// * `result` - Result object
+/// * `tx` - The raw transaction string.
+/// * `context` - The EVM txqueue unique key
+///
+/// # Errors
+///
+/// Returns an Error if:
+/// - The hex data is invalid
+/// - The EVM transaction is invalid
+/// - The EVM transaction fee is lower than the next block's base fee
+/// - Could not fetch the underlying EVM account
+/// - Account's nonce does not match raw tx's nonce
+/// - The EVM transaction prepay gas is invalid
+/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
+/// - The EVM transaction call failed
+///
+/// # Returns
+///
+/// Returns the transaction nonce, sender address, transaction fees and gas used
+/// if valid. Logs and set the error reason to result object otherwise.
+pub fn evm_try_validate_raw_tx(
+    result: &mut ffi::CrossBoundaryResult,
+    tx: &str,
+    context: u64,
+) -> ffi::ValidateTxCompletion {
+    match SERVICES.evm.verify_tx_fees(tx, true) {
+        Ok(_) => (),
+        Err(e) => {
+            debug!("evm_try_validate_raw_tx failed with error: {e}");
+            return cross_boundary_error_return(result, e.to_string());
+        }
+    }
+
+    match SERVICES.evm.core.validate_raw_tx(tx, context, true) {
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_fee,
             used_gas,
         }) => cross_boundary_success_return(
             result,
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: prepay_gas.try_into().unwrap_or_default(),
+                tx_fees: prepay_fee.try_into().unwrap_or_default(),
                 gas_used: used_gas,
             },
         ),
         Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+            debug!("evm_try_validate_raw_tx failed with error: {e}");
             cross_boundary_error_return(result, e.to_string())
         }
     }
@@ -324,8 +379,8 @@ pub fn evm_try_finalize(
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: total_burnt_fees / WEI_TO_GWEI / GWEI_TO_SATS,
-                total_priority_fees: total_priority_fees / WEI_TO_GWEI / GWEI_TO_SATS,
+                total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
+                total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
             }
         }
         Err(e) => cross_boundary_error_return(result, e.to_string()),

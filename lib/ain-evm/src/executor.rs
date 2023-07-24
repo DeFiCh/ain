@@ -4,7 +4,6 @@ use crate::bytes::Bytes;
 use crate::{
     backend::{EVMBackend, EVMBackendError},
     core::EVMCoreService,
-    fee::calculate_prepay_gas,
     traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
 };
@@ -109,7 +108,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
     }
 
     /// Update state
-    fn exec(&mut self, signed_tx: &SignedTx) -> (TxResponse, ReceiptV3) {
+    fn exec(&mut self, signed_tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3) {
         self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
@@ -123,8 +122,6 @@ impl<'backend> Executor for AinExecutor<'backend> {
             gas_limit: signed_tx.gas_limit().as_u64(),
             access_list: signed_tx.access_list(),
         };
-
-        let prepay_gas = calculate_prepay_gas(signed_tx);
 
         self.backend.deduct_prepay_gas(signed_tx.sender, prepay_gas);
 

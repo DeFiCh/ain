@@ -18,7 +18,7 @@ pub trait Executor {
 
     fn call(&mut self, ctx: ExecutorContext) -> TxResponse;
 
-    fn exec(&mut self, tx: &SignedTx) -> (TxResponse, ReceiptV3);
+    fn exec(&mut self, tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3);
 }
 
 pub trait BridgeBackend {

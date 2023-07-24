@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -41,8 +41,8 @@ pub struct EVMServices {
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
     pub failed_transactions: Vec<String>,
-    pub total_burnt_fees: u64,
-    pub total_priority_fees: u64,
+    pub total_burnt_fees: U256,
+    pub total_priority_fees: U256,
 }
 
 impl EVMServices {
@@ -169,6 +169,7 @@ impl EVMServices {
                         }
                     }
 
+                    let prepay_gas = calculate_prepay_gas(&signed_tx)?;
                     let (
                         TxResponse {
                             exit_reason,
@@ -177,7 +178,7 @@ impl EVMServices {
                             ..
                         },
                         receipt,
-                    ) = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx, prepay_gas);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -188,7 +189,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee);
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
@@ -301,15 +302,15 @@ impl EVMServices {
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_burnt_fees: total_burnt_fees.try_into().unwrap(),
-                total_priority_fees: total_priority_fees.try_into().unwrap(),
+                total_burnt_fees,
+                total_priority_fees,
             })
         } else {
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_burnt_fees: total_gas_used,
-                total_priority_fees: 0u64,
+                total_burnt_fees: U256::from(total_gas_used),
+                total_priority_fees: U256::zero(),
             })
         }
     }
