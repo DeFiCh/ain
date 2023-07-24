@@ -873,7 +873,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto evmKey = std::make_pair(txResult.sender, txResult.nonce);
                     if (evmTXFees.count(evmKey)) {
                         const auto& gasFees = evmTXFees.at(evmKey);
-                        if (txResult.tx_fees > gasFees) {
+                        if (txResult.prepay_fee > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
                             RemoveEVMTransactions(evmTXs[txResult.sender]);
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
@@ -910,7 +910,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.tx_fees);
+                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.prepay_fee);
                     evmTXs[txResult.sender].push_back(sortedEntries[i]);
                 }
 
