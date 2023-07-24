@@ -19,6 +19,8 @@ class VMMapType:
     TxHashEVMToEVM = 4
     BlockHashDVMToEVM = 5
     BlockHashEVMToDVM = 6
+    BlockNumberDVMToEVM = 7
+    BlockNumberEVMToDVM = 8
 
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
@@ -110,7 +112,7 @@ class VMMapTests(DefiTestFramework):
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
         eth_address = self.nodes[0].getnewaddress("", "eth")
         assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, *args)
-        assert_invalid(address, 8)
+        assert_invalid(address, 9)
         assert_invalid(address, -1)
         assert_invalid(eth_address, VMMapType.AddressDVMToEVM)
         assert_invalid(address, VMMapType.AddressEVMToDVM)
@@ -176,6 +178,27 @@ class VMMapTests(DefiTestFramework):
         for item in block_maps:
             assert_equal(self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
+
+    def vmmap_valid_block_number_should_succeed(self):
+        self.rollback_to(self.start_block_height)
+        self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+        block_maps = []
+        for i in range(5):
+            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            self.nodes[0].generate(1)
+            dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+            eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
+            block_maps.append([dfi_block['height'], int(eth_block['number'], 16)])
+        for item in block_maps:
+            assert_equal(self.nodes[0].vmmap(str(item[0]), VMMapType.BlockNumberDVMToEVM), item[1])
+            assert_equal(self.nodes[0].vmmap(str(item[1]), VMMapType.BlockNumberEVMToDVM), item[0])
+
+    def vmmap_invalid_block_number_should_fail(self):
+        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, *args)
+        for x in ["-1", "garbage", "1000000000"]:
+            assert_invalid(x, VMMapType.BlockNumberDVMToEVM)
+            assert_invalid(x, VMMapType.BlockNumberEVMToDVM)
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
@@ -246,6 +269,8 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_should_fail()
+        self.vmmap_valid_block_number_should_succeed()
+        self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
         # logvmmap tests
         self.logvmmaps_tx_exist()

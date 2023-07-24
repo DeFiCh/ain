@@ -1,5 +1,6 @@
 mod core;
 mod evm;
+mod prelude;
 
 use crate::core::*;
 use crate::evm::*;
@@ -47,6 +48,13 @@ pub mod ffi {
     }
 
     #[derive(Default)]
+    pub struct PreValidateTxCompletion {
+        pub nonce: u64,
+        pub sender: [u8; 20],
+        pub tx_fees: u64,
+    }
+
+    #[derive(Default)]
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
@@ -80,7 +88,10 @@ pub mod ffi {
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-            call_tx: bool,
+        ) -> PreValidateTxCompletion;
+        fn evm_try_validate_raw_tx(
+            result: &mut CrossBoundaryResult,
+            tx: &str,
             context: u64,
         ) -> ValidateTxCompletion;
         fn evm_try_queue_tx(
@@ -103,5 +114,13 @@ pub mod ffi {
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
 
+        fn evm_try_get_block_hash_by_number(
+            result: &mut CrossBoundaryResult,
+            height: u64,
+        ) -> [u8; 32];
+        fn evm_try_get_block_number_by_hash(
+            result: &mut CrossBoundaryResult,
+            hash: [u8; 32],
+        ) -> u64;
     }
 }

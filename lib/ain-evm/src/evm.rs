@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, get_tx_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -36,9 +36,11 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
+    // TODO: There's no reason for this to be hex encoded and de-coded back again
+    // We can just send the array of 256 directly, same as block hash.
     pub failed_transactions: Vec<String>,
-    pub total_burnt_fees: u64,
-    pub total_priority_fees: u64,
+    pub total_burnt_fees: U256,
+    pub total_priority_fees: U256,
 }
 
 impl EVMServices {
@@ -153,6 +155,7 @@ impl EVMServices {
                         }
                     }
 
+                    let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
                     let (
                         TxResponse {
                             exit_reason,
@@ -161,7 +164,7 @@ impl EVMServices {
                             ..
                         },
                         receipt,
-                    ) = executor.exec(&signed_tx);
+                    ) = executor.exec(&signed_tx, prepay_gas);
                     debug!(
                         "receipt : {:#?} for signed_tx : {:#x}",
                         receipt,
@@ -172,7 +175,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(hash));
                     }
 
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee);
+                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
@@ -271,20 +274,20 @@ impl EVMServices {
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_burnt_fees: total_burnt_fees.try_into().unwrap(),
-                total_priority_fees: total_priority_fees.try_into().unwrap(),
+                total_burnt_fees,
+                total_priority_fees,
             })
         } else {
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
-                total_burnt_fees: total_gas_used,
-                total_priority_fees: 0u64,
+                total_burnt_fees: U256::from(total_gas_used),
+                total_priority_fees: U256::zero(),
             })
         }
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
@@ -293,11 +296,15 @@ impl EVMServices {
         let signed_tx: SignedTx = tx.try_into()?;
 
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let tx_gas_price = get_tx_gas_price(&signed_tx);
-            let next_block_fees = self.block.calculate_next_block_base_fee();
-            if tx_gas_price < next_block_fees {
-                debug!("[verify_tx_fees] tx gas price is lower than next block base fee");
-                return Err(anyhow!("tx gas price is lower than next block base fee").into());
+            let mut block_fees = self.block.calculate_base_fee(H256::zero());
+            if use_context {
+                block_fees = self.block.calculate_next_block_base_fee();
+            }
+
+            let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+            if tx_gas_price < block_fees {
+                debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+                return Err(anyhow!("tx gas price is lower than block base fee").into());
             }
         }
 
