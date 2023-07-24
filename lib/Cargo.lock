@@ -97,7 +97,6 @@ dependencies = [
  "ethereum",
  "ethereum-types",
  "evm",
- "evm-gasometer",
  "hash-db 0.16.0",
  "hex",
  "hex-literal",
@@ -1106,9 +1105,7 @@ version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f1f13264b044cb66f0602180f0bc781c29accb41ff560669a3ec15858d5b606"
 dependencies = [
- "parity-scale-codec",
  "primitive-types",
- "scale-info",
  "serde",
 ]
 
@@ -1118,7 +1115,6 @@ version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d43eadc395bd1a52990787ca1495c26b0248165444912be075c28909a853b8c"
 dependencies = [
- "environmental",
  "evm-core",
  "evm-runtime",
  "primitive-types",
@@ -1131,7 +1127,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2aa5b32f59ec582a5651978004e5c784920291263b7dcb6de418047438e37f4f"
 dependencies = [
  "auto_impl",
- "environmental",
  "evm-core",
  "primitive-types",
  "sha3",

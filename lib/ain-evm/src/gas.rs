@@ -1,7 +1,9 @@
 use crate::transaction::SignedTx;
 use ethereum::TransactionAction;
-use evm::Config;
-use evm_gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost};
+use evm::{
+    Config,
+    gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost},
+};
 
 use anyhow::anyhow;
 use log::debug;
