@@ -2450,7 +2450,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     }
 }
 
-static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const uint64_t evmContext) {
+static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
     if (pindex->nHeight != chainparams.GetConsensus().ChangiIntermediateHeight4 || IsRegtestNetwork()) {
         return;
     }
@@ -2525,7 +2525,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
 
     // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
-    ProcessChangiIntermediate4(pindex, cache, chainparams, evmContext);
+    ProcessChangiIntermediate4(pindex, cache, chainparams);
 
     // construct undo
     auto& flushable = cache.GetStorage();
