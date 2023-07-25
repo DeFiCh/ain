@@ -644,6 +644,7 @@ void BlockAssembler::RemoveTxs(const std::set<uint256> &txHashSet, const std::ma
     auto &blockTxCount = nBlockTx;
 
     auto removeItem = [&txHashSet, &blockFees, &blockTxCount, &txFees](const auto &tx) {
+            if (!tx) return false;
             auto hash = tx.get()->GetHash();
             if (txHashSet.count(hash) < 1) return false;
             blockFees -= txFees.at(hash);
