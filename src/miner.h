@@ -224,6 +224,8 @@ private:
     void resetBlock();
     /** Add a tx to the block */
     void AddToBlock(CTxMemPool::txiter iter);
+    /** Remove a tx from the block */
+    void RemoveFromBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
@@ -254,7 +256,6 @@ private:
     /** Remove failed TransferDoamin transactions from the block */
     void RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees);
     /** Remove specific TX from the block */
-    void RemoveTxIters(const std::vector<CTxMemPool::txiter> iters);
     bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
 };
 
