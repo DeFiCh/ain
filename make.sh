@@ -61,6 +61,8 @@ setup_vars() {
 
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
+    TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
+    TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
 }
 
 main() {
@@ -348,26 +350,37 @@ test() {
     _fold_end
 
     _fold_start "functional-tests"
-
-    py_ensure_env_active
-
-    # shellcheck disable=SC2086
-    python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
-
-    py_env_deactivate
-
+    # shellcheck disable=SC2119
+    test_py
     _fold_end
+
     _exit_dir
 }
 
+# shellcheck disable=SC2120
 test_py() {
     local build_target_dir=${BUILD_TARGET_DIR}
+    local src_dir=${_SCRIPT_DIR}
+    local tests_fail_fast=${TESTS_FAILFAST}
+    local tests_combined_logs=${TESTS_COMBINED_LOGS}
+    local make_jobs=${MAKE_JOBS}
+    local extra_args=""
     local first_arg="${1:-}"
 
+    # If an argument is given as an existing file, we switch that
+    # out to the last arg
     if [[ -f "${first_arg}" ]]; then
       shift
-      "${first_arg}" --configfile "${build_target_dir}/test/config.ini" --tmpdirprefix "./test_runner/" --ansi "$@"
-      return
+    elif [[ -f "${src_dir}/test/functional/${first_arg}" ]]; then
+      first_arg="${src_dir}/test/functional/${first_arg}"
+      shift
+    else
+      # We don't shift, this just ends up in the $@ args    
+      first_arg=""
+    fi
+
+    if [[ "$tests_fail_fast" == "1" ]]; then
+        extra_args="--failfast"
     fi
 
     _ensure_enter_dir "${build_target_dir}"
@@ -375,7 +388,13 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    python3 ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+    python3 ${build_target_dir}/test/functional/test_runner.py \
+        --tmpdirprefix="./test_runner/" \
+        --ansi \
+        --configfile="${build_target_dir}/test/config.ini" \
+        --jobs=${make_jobs} \
+        --combinedlogslen=${tests_combined_logs} \
+        ${extra_args} ${first_arg} "$@"
 
     py_env_deactivate
     _exit_dir

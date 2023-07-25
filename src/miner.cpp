@@ -218,7 +218,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+            if (nHeight < consensus.ChangiIntermediateHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
             }
             else {
@@ -275,9 +275,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
     }
 
     XVM xvm{};
@@ -660,7 +660,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -878,7 +878,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
                         // Key already exists. We check to see if we need to prioritize higher fee tx
                         const auto& lastFee = feeEntry->second;
-                        if (txResult.tx_fees > lastFee) {
+                        if (txResult.prepay_fee > lastFee) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
                             auto addrTxs = evmAddressTxsMap[addrKey.address];
                             RemoveTxIters(txIters(addrTxs));
@@ -919,7 +919,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     }
 
                     auto addrNonce = EvmAddressWithNonce { txResult.sender, txResult.nonce };
-                    evmFeeMap.insert({addrNonce, txResult.tx_fees});
+                    evmFeeMap.insert({addrNonce, txResult.prepay_fee});
                     evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
@@ -1146,7 +1146,8 @@ namespace pos {
         //
         auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
         if (!pblocktemplate) {
-            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+            LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
+            return Status::stakeWaiting;
         }
 
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);

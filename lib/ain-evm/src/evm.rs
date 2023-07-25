@@ -209,10 +209,6 @@ impl EVMServices {
             executor.commit();
         }
 
-        if update_state {
-            self.core.tx_queues.remove(context);
-        }
-
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -272,6 +268,26 @@ impl EVMServices {
                 "[finalize_block] Total priority fees : {:#?}",
                 total_priority_fees
             );
+
+            match self.core.tx_queues.get_total_fees(context) {
+                Some(total_fees) => {
+                    if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
+                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}", total_burnt_fees, total_priority_fees).into());
+                    }
+                }
+                None => {
+                    return Err(anyhow!(
+                        "EVM block rejected because failed to get total fees from context: {}",
+                        context
+                    )
+                    .into())
+                }
+            }
+
+            if update_state {
+                self.core.tx_queues.remove(context);
+            }
+
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
@@ -279,6 +295,10 @@ impl EVMServices {
                 total_priority_fees,
             })
         } else {
+            if update_state {
+                self.core.tx_queues.remove(context);
+            }
+
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
@@ -319,9 +339,16 @@ impl EVMServices {
         hash: NativeTxHash,
         gas_used: u64,
     ) -> Result<(), EVMError> {
+        let parent_data = self.block.get_latest_block_hash_and_number();
+        let parent_hash = match parent_data {
+            Some((hash, _)) => hash,
+            None => H256::zero(),
+        };
+        let base_fee = self.block.calculate_base_fee(parent_hash);
+
         self.core
             .tx_queues
-            .queue_tx(context, tx.clone(), hash, gas_used)?;
+            .queue_tx(context, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())
