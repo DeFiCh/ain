@@ -10,6 +10,7 @@ use crate::{
     fee::calculate_gas_fee,
     transaction::{bridge::BridgeTx, SignedTx},
 };
+use crate::transaction::system::SystemTx;
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
@@ -171,6 +172,7 @@ impl TransactionQueueMap {
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
     BridgeTx(BridgeTx),
+    SystemTx(SystemTx),
 }
 
 type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
@@ -263,6 +265,7 @@ impl TransactionQueue {
             let tx_sender = match tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
+                QueueTx::SystemTx(_) => H160::zero(), // this is safe to do since we do not remove this transaction during mining
             };
             tx_sender != sender
         });

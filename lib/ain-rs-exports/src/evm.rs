@@ -1,3 +1,4 @@
+use std::error::Error;
 use ain_evm::{
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
@@ -8,9 +9,11 @@ use ain_evm::{
 };
 
 use ain_evm::storage::traits::BlockStorage;
+use ain_evm::transaction::system::{DeployContractData, DST20Data, SystemTx};
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
+use ain_evm::txqueue::QueueTx;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -431,4 +434,86 @@ pub fn evm_try_get_block_number_by_hash(
         Some(block) => cross_boundary_success_return(result, block.header.number.as_u64()),
         None => cross_boundary_error_return(result, "Invalid block hash"),
     }
+}
+
+pub fn evm_create_dst20(
+    result: &mut ffi::CrossBoundaryResult,
+    context: u64,
+    native_hash: [u8; 32],
+    name: &str,
+    symbol: &str,
+    token_id: &str,
+) {
+    match create_dst20(context, native_hash, name, symbol, token_id) {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => {
+            cross_boundary_error_return(result, e.to_string())
+        }
+    }
+}
+
+
+pub fn evm_bridge_dst20(
+    result: &mut ffi::CrossBoundaryResult,
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+    native_tx_hash: [u8; 32],
+    token_id: &str,
+    out: bool,
+) {
+    match bridge_to_dst20(
+        context,
+        address,
+        amount,
+        native_tx_hash,
+        token_id,
+        out,
+    ) {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => cross_boundary_error_return(result, e.to_string())
+    }
+}
+
+fn create_dst20(
+    context: u64,
+    native_hash: [u8; 32],
+    name: &str,
+    symbol: &str,
+    token_id: &str,
+) -> Result<(), Box<dyn Error>> {
+    let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+    debug!("Deploying to address {:#?}", address);
+
+    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+        name: String::from(name),
+        symbol: String::from(symbol),
+        address,
+    }));
+    SERVICES.evm.queue_tx(context, system_tx, native_hash, 0)?;
+
+    Ok(())
+}
+
+
+fn bridge_to_dst20(
+    context: u64,
+    address: &str,
+    amount: [u8; 32],
+    native_hash: [u8; 32],
+    token_id: &str,
+    out: bool,
+) -> Result<(), Box<dyn Error>> {
+    let address = address.parse()?;
+    let contract = ain_contracts::dst20_address_from_token_id(token_id)?;
+
+    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+        to: address,
+        contract,
+        amount: amount.into(),
+        out,
+    }));
+    SERVICES.evm.queue_tx(context, system_tx, native_hash, 0)?;
+
+    Ok(())
 }

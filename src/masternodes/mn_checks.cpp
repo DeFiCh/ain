@@ -1047,8 +1047,11 @@ public:
         CTokenImplementation token;
         static_cast<CToken &>(token) = obj;
 
-        token.symbol         = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
@@ -1060,11 +1063,25 @@ public:
         if (static_cast<int>(height) >= consensus.BayfrontHeight) {  // formal compatibility if someone cheat and create
                                                                      // LPS token on the pre-bayfront node
             if (token.IsPoolShare()) {
-                return Res::Err("Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+                return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
         }
 
-        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+
+        if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
+            CrossBoundaryResult result;
+            evm_create_dst20(result, evmContext, tx.GetHash().GetByteArray(),
+                             rust::string(tokenName.c_str()),
+                             rust::string(tokenSymbol.c_str()),
+                             tokenId->ToString());
+
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
+            }
+        }
+
+        return tokenId;
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {
@@ -3886,9 +3903,23 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
-                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+
+                if (tokenId == DCT_ID{0}) {
+                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                                         ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                        return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+                    }
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
                 }
             }
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
@@ -3904,8 +3935,21 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                if (tokenId == DCT_ID{0}) {
+                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
             }
 
             // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
@@ -4057,10 +4101,6 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     if (src.amount.nValue != dst.amount.nValue)
         return DeFiErrors::TransferDomainUnequalAmount();
-
-    // Restrict only for use with DFI token for now. Will be enabled later.
-    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-        return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {

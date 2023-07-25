@@ -412,7 +412,7 @@ impl EVMCoreService {
     pub fn get_latest_contract_storage(
         &self,
         contract: H160,
-        storage_index: U256,
+        storage_index: H256,
     ) -> Result<U256, EVMError> {
         let (_, block_number) = SERVICES
             .evm
@@ -433,12 +433,8 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
 
-        // convert U256 to H256
-        let tmp: &mut [u8; 32] = &mut [0; 32];
-        storage_index.to_big_endian(tmp);
-
         backend
-            .get_contract_storage(contract, tmp.as_slice())
+            .get_contract_storage(contract, storage_index.as_bytes())
             .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
@@ -512,6 +508,7 @@ impl EVMCoreService {
 }
 
 use std::fmt;
+use primitive_types::H256;
 
 #[derive(Debug)]
 pub enum EVMError {
