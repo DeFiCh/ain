@@ -1,10 +1,10 @@
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::EnvelopedEncodable;
+use ethereum::{AccessListItem, EnvelopedEncodable};
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H256, U256};
 
 use crate::{
-    codegen::types::EthTransactionInfo,
+    codegen::types::{EthAccessList, EthTransactionInfo},
     utils::{format_address, format_h256, format_u256},
 };
 
@@ -14,6 +14,22 @@ impl From<SignedTx> for EthTransactionInfo {
             String::from("0x")
         } else {
             format!("0x{}", hex::encode(signed_tx.data()))
+        };
+
+        let access_list = match &signed_tx.transaction {
+            TransactionV2::Legacy(_) => Vec::<EthAccessList>::new(),
+            TransactionV2::EIP2930(tx) => tx
+                .access_list
+                .clone()
+                .into_iter()
+                .map(|list| list.into())
+                .collect(),
+            TransactionV2::EIP1559(tx) => tx
+                .access_list
+                .clone()
+                .into_iter()
+                .map(|list| list.into())
+                .collect(),
         };
 
         EthTransactionInfo {
@@ -42,6 +58,21 @@ impl From<SignedTx> for EthTransactionInfo {
                 .max_priority_fee_per_gas()
                 .map(format_u256)
                 .unwrap_or_default(),
+            access_list,
+            chain_id: format!("{:#x}", ain_cpp_imports::get_chain_id().unwrap_or_default()),
+        }
+    }
+}
+
+impl From<AccessListItem> for EthAccessList {
+    fn from(access_list: AccessListItem) -> Self {
+        Self {
+            address: format_address(access_list.address),
+            storage_keys: access_list
+                .storage_keys
+                .into_iter()
+                .map(format_h256)
+                .collect(),
         }
     }
 }
