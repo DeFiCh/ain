@@ -158,8 +158,7 @@ impl EVMServices {
                 storage,
                 bytecode,
             } = EVMServices::counter_contract()?;
-            executor
-                .deploy_contract(address, bytecode, storage)?;
+            executor.deploy_contract(address, bytecode, storage)?;
         } else {
             let CounterContractInfo {
                 address, storage, ..
@@ -355,7 +354,10 @@ impl EVMServices {
     pub fn counter_contract() -> Result<CounterContractInfo, Box<dyn Error>> {
         let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
-        let count = SERVICES.evm.core.get_latest_contract_storage(address, U256::one())?;
+        let count = SERVICES
+            .evm
+            .core
+            .get_latest_contract_storage(address, U256::one())?;
 
         debug!("Count: {:#x}", count + U256::one());
 

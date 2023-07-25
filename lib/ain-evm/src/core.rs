@@ -3,6 +3,7 @@ use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas;
 use crate::receipt::ReceiptService;
+use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -13,7 +14,6 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-use crate::services::SERVICES;
 
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
@@ -409,7 +409,7 @@ impl EVMCoreService {
     pub fn get_latest_contract_storage(
         &self,
         contract: H160,
-        storage_index: U256
+        storage_index: U256,
     ) -> Result<U256, EVMError> {
         let (_, block_number) = SERVICES
             .evm
@@ -434,7 +434,9 @@ impl EVMCoreService {
         let tmp: &mut [u8; 32] = &mut [0; 32];
         storage_index.to_big_endian(tmp);
 
-        backend.get_contract_storage(contract, tmp.as_slice()).map_err(|e| EVMError::TrieError(e.to_string()))
+        backend
+            .get_contract_storage(contract, tmp.as_slice())
+            .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {

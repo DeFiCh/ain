@@ -112,7 +112,7 @@ impl EVMBackend {
                 balance: account.balance,
                 code_hash,
                 storage_root: storage_trie.commit().into(),
-            }
+            },
         };
 
         self.state
@@ -205,16 +205,12 @@ impl EVMBackend {
         let state = self
             .trie_store
             .trie_db
-            .trie_restore(
-                contract.clone().as_ref(),
-                None,
-                account.storage_root.into(),
-            )
+            .trie_restore(contract.clone().as_ref(), None, account.storage_root.into())
             .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(U256::from(
             state
-                .get(storage_index.clone())
+                .get(storage_index)
                 .unwrap_or_default()
                 .unwrap_or_default()
                 .as_slice(),
@@ -227,25 +223,13 @@ impl EVMBackend {
         code: Vec<u8>,
         storage: Vec<(H256, H256)>,
     ) -> Result<()> {
-        self.apply(
-            *address,
-            None,
-            Some(code),
-            storage,
-            true,
-        )?;
+        self.apply(*address, None, Some(code), storage, true)?;
 
         Ok(())
     }
 
     pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<()> {
-        self.apply(
-            *address,
-            None,
-            None,
-            storage,
-            false,
-        )?;
+        self.apply(*address, None, None, storage, false)?;
 
         Ok(())
     }
