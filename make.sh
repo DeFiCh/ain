@@ -601,7 +601,7 @@ clean_pkg_local_py_deps() {
 
 pkg_setup_rust() {
     local rust_target
-    # shellcheck disable=SC2120
+    # shellcheck disable=SC2119
     rust_target=$(get_rust_triplet)
     rustup target add "${rust_target}"
 }
@@ -1000,6 +1000,7 @@ ci_setup_deps_test() {
     pkg_local_install_py_deps
 }
 
+# shellcheck disable=SC2120
 get_rust_triplet() {
     # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
     # The function is called in 2 places:
