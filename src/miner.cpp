@@ -545,7 +545,7 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
 }
 
 int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded,
-        indexed_modified_transaction_set &mapModifiedTx)
+        indexed_modified_transaction_set &mapModifiedTxSet)
 {
     int nDescendantsUpdated = 0;
     for (CTxMemPool::txiter it : alreadyAdded) {
@@ -556,15 +556,15 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
             if (alreadyAdded.count(desc))
                 continue;
             ++nDescendantsUpdated;
-            modtxiter mit = mapModifiedTx.find(desc);
-            if (mit == mapModifiedTx.end()) {
+            modtxiter mit = mapModifiedTxSet.find(desc);
+            if (mit == mapModifiedTxSet.end()) {
                 CTxMemPoolModifiedEntry modEntry(desc);
                 modEntry.nSizeWithAncestors -= it->GetTxSize();
                 modEntry.nModFeesWithAncestors -= it->GetModifiedFee();
                 modEntry.nSigOpCostWithAncestors -= it->GetSigOpCost();
-                mapModifiedTx.insert(modEntry);
+                mapModifiedTxSet.insert(modEntry);
             } else {
-                mapModifiedTx.modify(mit, update_for_parent_inclusion(it));
+                mapModifiedTxSet.modify(mit, update_for_parent_inclusion(it));
             }
         }
     }
@@ -624,18 +624,18 @@ void BlockAssembler::RemoveTxs(const std::set<uint256> &txHashSet, const std::ma
 }
 
 // Skip entries in mapTx that are already in a block or are present
-// in mapModifiedTx (which implies that the mapTx ancestor state is
+// in mapModifiedTxSet (which implies that the mapTx ancestor state is
 // stale due to ancestor inclusion in the block)
 // Also skip transactions that we've already failed to add. This can happen if
-// we consider a transaction in mapModifiedTx and it fails: we can then
+// we consider a transaction in mapModifiedTxSet and it fails: we can then
 // potentially consider it again while walking mapTx.  It's currently
 // guaranteed to fail again, but as a belt-and-suspenders check we put it in
-// failedTx and avoid re-evaluation, since the re-evaluation would be using
+// failedTxSet and avoid re-evaluation, since the re-evaluation would be using
 // cached size/sigops/fee values that are not actually correct.
-bool BlockAssembler::SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTx, CTxMemPool::setEntries &failedTx)
+bool BlockAssembler::SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTxSet, CTxMemPool::setEntries &failedTxSet)
 {
     assert (it != mempool.mapTx.end());
-    return mapModifiedTx.count(it) || inBlock.count(it) || failedTx.count(it);
+    return mapModifiedTxSet.count(it) || inBlock.count(it) || failedTxSet.count(it);
 }
 
 void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::vector<CTxMemPool::txiter>& sortedEntries)
@@ -657,8 +657,8 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
     auto height = ctx.height;
     auto pkgCtx = ctx.pkgCtx;
     auto inBlock = ctx.inBlockEntries;
-    auto checkedTX = ctx.checkedTXEntries;
-    auto failedTx = ctx.failedTxEntries;
+    auto checkedDfTxHashSet = ctx.checkedTXEntries;
+    auto failedTxSet = ctx.failedTxEntries;
     auto failedNonces = ctx.pkgCtx.failedNonces;
     auto replaceByFee = ctx.pkgCtx.replaceByFee;
 
@@ -703,12 +703,12 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
                 }
             }
             // Buggy code to fix below:
-            checkedTX.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
+            checkedDfTxHashSet.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
             addrTxs[addrKey.nonce] = txIter;
             auto count{addrKey.nonce};
             for (const auto& [nonce, entry] : addrTxs) {
                 inBlock.erase(entry);
-                checkedTX.erase(entry->GetTx().GetHash());
+                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(count, entry);
                 ++count;
             }
@@ -721,7 +721,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
     const auto nonce = evm_get_next_valid_nonce_in_context(evmQueueId, txResult.sender);
     if (nonce != txResult.nonce) {
         // Only add if not already in failed TXs to prevent adding on second attempt.
-        if (!failedTx.count(txIter)) {
+        if (!failedTxSet.count(txIter)) {
             failedNonces.emplace(txResult.nonce, txIter);
         }
         return false;
@@ -747,15 +747,17 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
 template<class T>
 void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
 {
-    // mapModifiedTx will store sorted packages after they are modified
+    // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
-    indexed_modified_transaction_set mapModifiedTx;
+    indexed_modified_transaction_set mapModifiedTxSet;
     // Keep track of entries that failed inclusion, to avoid duplicate work
-    CTxMemPool::setEntries failedTx;
+    CTxMemPool::setEntries failedTxSet;
+    // Checked DfTxs hashes for tracking
+    std::set<uint256> checkedDfTxHashSet;
 
-    // Start by adding all descendants of previously added txs to mapModifiedTx
+    // Start by adding all descendants of previously added txs to mapModifiedTxSet
     // and modifying them for their already included ancestors
-    UpdatePackagesForAdded(inBlock, mapModifiedTx);
+    UpdatePackagesForAdded(inBlock, mapModifiedTxSet);
 
     auto mi = mempool.mapTx.get<T>().begin();
     CTxMemPool::txiter iter;
@@ -766,63 +768,62 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     const int64_t MAX_CONSECUTIVE_FAILURES = 1000;
     int64_t nConsecutiveFailed = 0;
 
-    // Custom TXs to undo at the end
-    std::set<uint256> checkedTX;
-
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
+    
+    // EVM related context for this package
     EvmPackageContext evmPackageContext;
 
-    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !evmPackageContext.failedNonces.empty())
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !evmPackageContext.failedNonces.empty())
     {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
-                SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
+                SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTxSet, failedTxSet)) {
             ++mi;
             continue;
         }
 
         // Now that mi is not stale, determine which transaction to evaluate:
-        // the next entry from mapTx, or the best from mapModifiedTx?
+        // the next entry from mapTx, or the best from mapModifiedTxSet?
         bool fUsingModified = false;
 
         // Check wheter we are using Eth replaceByFee
         bool usingReplaceByFee{};
 
         auto& replaceByFee = evmPackageContext.replaceByFee;
-        modtxscoreiter modit = mapModifiedTx.get<ancestor_score>().begin();
+        modtxscoreiter modit = mapModifiedTxSet.get<ancestor_score>().begin();
         if (!replaceByFee.empty()) {
             const auto it = replaceByFee.begin();
             iter = it->second;
             replaceByFee.erase(it);
             usingReplaceByFee = true;
-        } else if (mi == mempool.mapTx.get<T>().end() && mapModifiedTx.empty()) {
+        } else if (mi == mempool.mapTx.get<T>().end() && mapModifiedTxSet.empty()) {
             auto& failedNonces = evmPackageContext.failedNonces;
             const auto it = failedNonces.begin();
             iter = it->second;
             failedNonces.erase(it);
         } else if (mi == mempool.mapTx.get<T>().end()) {
-            // We're out of entries in mapTx; use the entry from mapModifiedTx
+            // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
             fUsingModified = true;
         } else {
-            // Try to compare the mapTx entry to the mapModifiedTx entry
+            // Try to compare the mapTx entry to the mapModifiedTxSet entry
             iter = mempool.mapTx.project<0>(mi);
-            if (modit != mapModifiedTx.get<ancestor_score>().end() &&
+            if (modit != mapModifiedTxSet.get<ancestor_score>().end() &&
                     CompareTxMemPoolEntryByAncestorFee()(*modit, CTxMemPoolModifiedEntry(iter))) {
-                // The best entry in mapModifiedTx has higher score
+                // The best entry in mapModifiedTxSet has higher score
                 // than the one from mapTx.
                 // Switch which transaction (package) to consider
                 iter = modit->iter;
                 fUsingModified = true;
             } else {
-                // Either no entry in mapModifiedTx, or it's worse than mapTx.
+                // Either no entry in mapModifiedTxSet, or it's worse than mapTx.
                 // Increment mi for the next loop iteration.
                 ++mi;
             }
         }
 
-        // We skip mapTx entries that are inBlock, and mapModifiedTx shouldn't
+        // We skip mapTx entries that are inBlock, and mapModifiedTxSet shouldn't
         // contain anything that is inBlock.
         assert(!inBlock.count(iter));
 
@@ -842,11 +843,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         if (!TestPackage(packageSize, packageSigOpsCost)) {
             if (fUsingModified) {
-                // Since we always look at the best entry in mapModifiedTx,
+                // Since we always look at the best entry in mapModifiedTxSet,
                 // we must erase failed entries so that we can consider the
                 // next best entry on the next loop iteration
-                mapModifiedTx.get<ancestor_score>().erase(modit);
-                failedTx.insert(iter);
+                mapModifiedTxSet.get<ancestor_score>().erase(modit);
+                failedTxSet.insert(iter);
             }
 
             ++nConsecutiveFailed;
@@ -870,8 +871,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         // Test if all tx's are Final
         if (!TestPackageTransactions(ancestors)) {
             if (fUsingModified) {
-                mapModifiedTx.get<ancestor_score>().erase(modit);
-                failedTx.insert(iter);
+                mapModifiedTxSet.get<ancestor_score>().erase(modit);
+                failedTxSet.insert(iter);
             }
             continue;
         }
@@ -891,7 +892,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             const CTransaction& tx = sortedEntries[i]->GetTx();
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
-            if (checkedTX.find(tx.GetHash()) != checkedTX.end()) {
+            if (checkedDfTxHashSet.find(tx.GetHash()) != checkedDfTxHashSet.end()) {
                 continue;
             }
 
@@ -914,9 +915,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         nHeight, 
                         evmContext, 
                         evmPackageContext,
-                        checkedTX,
+                        checkedDfTxHashSet,
                         inBlock,
-                        failedTx,
+                        failedTxSet,
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
@@ -936,7 +937,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 }
 
                 // Track checked TXs to avoid double applying
-                checkedTX.insert(tx.GetHash());
+                checkedDfTxHashSet.insert(tx.GetHash());
             }
             coins.Flush();
         }
@@ -944,13 +945,13 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         // Failed, let's move on!
         if (!customTxPassed) {
             if (fUsingModified) {
-                mapModifiedTx.get<ancestor_score>().erase(modit);
+                mapModifiedTxSet.get<ancestor_score>().erase(modit);
             }
             if (usingReplaceByFee) {
                 // TX failed in chain so remove the rest of the items
                 replaceByFee.clear();
             }
-            failedTx.insert(iter);
+            failedTxSet.insert(iter);
             continue;
         }
 
@@ -958,13 +959,13 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
-            mapModifiedTx.erase(sortedEntries[i]);
+            mapModifiedTxSet.erase(sortedEntries[i]);
         }
 
         ++nPackagesSelected;
 
         // Update transactions that depend on each of these
-        nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
+        nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTxSet);
     }
 }
 
