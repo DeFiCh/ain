@@ -94,13 +94,13 @@ impl TransactionQueueMap {
             .unwrap()
             .get(&context_id)
             .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.queue_tx((tx, hash), gas_used, base_fee))?
+            .map(|queue| queue.queue_tx(tx, hash, gas_used, base_fee))?
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
     /// provided context ID, removing them from the queue. Transactions are returned in the
     /// order they were added.
-    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxItem> {
         self.queues
             .read()
             .unwrap()
@@ -108,7 +108,7 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
-    pub fn get_cloned_vec(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+    pub fn get_cloned_vec(&self, context_id: u64) -> Vec<QueueTxItem> {
         self.queues
             .read()
             .unwrap()
@@ -173,14 +173,20 @@ pub enum QueueTx {
     BridgeTx(BridgeTx),
 }
 
-type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
+#[derive(Debug, Clone)]
+pub struct QueueTxItem {
+    pub queue_tx: QueueTx,
+    pub tx_hash: NativeTxHash,
+    pub tx_fee: u64,
+    pub gas_used: u64,
+}
 
 /// The `TransactionQueue` holds a queue of transactions and a map of account nonces.
 /// It's used to manage and process transactions for different accounts.
 ///
 #[derive(Debug, Default)]
 pub struct TransactionQueue {
-    transactions: Mutex<Vec<QueueTxWithNativeHash>>,
+    transactions: Mutex<Vec<QueueTxItem>>,
     account_nonces: Mutex<HashMap<H160, U256>>,
     total_fees: Mutex<u64>,
     total_gas_used: Mutex<u64>,
@@ -206,7 +212,7 @@ impl TransactionQueue {
         self.transactions.lock().unwrap().clear();
     }
 
-    pub fn drain_all(&self) -> Vec<QueueTxWithNativeHash> {
+    pub fn drain_all(&self) -> Vec<QueueTxItem> {
         let mut total_fees = self.total_fees.lock().unwrap();
         *total_fees = 0u64;
 
@@ -217,20 +223,22 @@ impl TransactionQueue {
             .lock()
             .unwrap()
             .drain(..)
-            .collect::<Vec<QueueTxWithNativeHash>>()
+            .collect::<Vec<QueueTxItem>>()
     }
 
-    pub fn get_cloned_vec(&self) -> Vec<QueueTxWithNativeHash> {
+    pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
         self.transactions.lock().unwrap().clone()
     }
 
     pub fn queue_tx(
         &self,
-        tx: QueueTxWithNativeHash,
+        tx: QueueTx,
+        tx_hash: NativeTxHash,
         gas_used: u64,
         base_fee: U256,
     ) -> Result<(), QueueError> {
-        if let QueueTx::SignedTx(signed_tx) = &tx.0 {
+        let mut gas_fee: u64 = 0;
+        if let QueueTx::SignedTx(signed_tx) = &tx {
             let mut account_nonces = self.account_nonces.lock().unwrap();
             if let Some(nonce) = account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
@@ -239,7 +247,7 @@ impl TransactionQueue {
             }
             account_nonces.insert(signed_tx.sender, signed_tx.nonce());
 
-            let gas_fee = match calculate_gas_fee(signed_tx, gas_used.into(), base_fee) {
+            gas_fee = match calculate_gas_fee(signed_tx, gas_used.into(), base_fee) {
                 Ok(fee) => fee.as_u64(),
                 Err(_) => return Err(QueueError::InvalidFee),
             };
@@ -250,7 +258,7 @@ impl TransactionQueue {
             let mut total_gas_used = self.total_gas_used.lock().unwrap();
             *total_gas_used += gas_used;
         }
-        self.transactions.lock().unwrap().push(tx);
+        self.transactions.lock().unwrap().push(QueueTxItem { queue_tx: tx, tx_hash, tx_fee: gas_fee, gas_used });
         Ok(())
     }
 
@@ -259,12 +267,20 @@ impl TransactionQueue {
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
-        self.transactions.lock().unwrap().retain(|(tx, _)| {
-            let tx_sender = match tx {
+        self.transactions.lock().unwrap().retain(|item| {
+            let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
-            tx_sender != sender
+            if tx_sender == sender {
+                let mut total_fees = self.total_fees.lock().unwrap();
+                *total_fees -= item.tx_fee;
+                
+                let mut total_gas_used = self.total_gas_used.lock().unwrap();
+                *total_gas_used -= item.gas_used;
+                return false;
+            }
+            true
         });
         self.account_nonces.lock().unwrap().remove(&sender);
     }
@@ -335,10 +351,10 @@ mod tests {
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
 
-        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()), 0u64, U256::zero())?;
+        queue.queue_tx(tx1, H256::from_low_u64_be(1).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx2, H256::from_low_u64_be(2).into(), 0u64, U256::zero())?;
         // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx((tx3, H256::from_low_u64_be(3).into()), 0u64, U256::zero());
+        let queued = queue.queue_tx(tx3, H256::from_low_u64_be(3).into(), 0u64, U256::zero());
         assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
         Ok(())
     }
@@ -362,11 +378,11 @@ mod tests {
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
 
-        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx3, H256::from_low_u64_be(3).into()), 0u64, U256::zero())?;
+        queue.queue_tx(tx1, H256::from_low_u64_be(1).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx2, H256::from_low_u64_be(2).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx3, H256::from_low_u64_be(3).into(), 0u64, U256::zero())?;
         // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx((tx4, H256::from_low_u64_be(4).into()), 0u64, U256::zero());
+        let queued = queue.queue_tx(tx4, H256::from_low_u64_be(4).into(), 0u64, U256::zero());
         assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
         Ok(())
     }
@@ -387,10 +403,10 @@ mod tests {
         // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
         let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
 
-        queue.queue_tx((tx1, H256::from_low_u64_be(1).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx2, H256::from_low_u64_be(2).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx3, H256::from_low_u64_be(3).into()), 0u64, U256::zero())?;
-        queue.queue_tx((tx4, H256::from_low_u64_be(4).into()), 0u64, U256::zero())?;
+        queue.queue_tx(tx1, H256::from_low_u64_be(1).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx2, H256::from_low_u64_be(2).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx3, H256::from_low_u64_be(3).into(), 0u64, U256::zero())?;
+        queue.queue_tx(tx4, H256::from_low_u64_be(4).into(), 0u64, U256::zero())?;
         Ok(())
     }
 }
