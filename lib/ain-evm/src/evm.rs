@@ -36,8 +36,6 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
-    // TODO: There's no reason for this to be hex encoded and de-coded back again
-    // We can just send the array of 256 directly, same as block hash.
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
