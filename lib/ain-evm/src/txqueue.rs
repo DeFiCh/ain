@@ -179,49 +179,55 @@ type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
 /// It's used to manage and process transactions for different accounts.
 ///
 #[derive(Debug, Default)]
+struct TransactionQueueData {
+    transactions: Vec<QueueTxWithNativeHash>,
+    account_nonces: HashMap<H160, U256>,
+    total_fees: u64,
+    total_gas_used: u64,
+}
+
+impl TransactionQueueData {
+    pub fn new() -> Self {
+        Self {
+            transactions: Vec::new(),
+            account_nonces: HashMap::new(),
+            total_fees: 0u64,
+            total_gas_used: 0u64,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct TransactionQueue {
-    transactions: Mutex<Vec<QueueTxWithNativeHash>>,
-    account_nonces: Mutex<HashMap<H160, U256>>,
-    total_fees: Mutex<u64>,
-    total_gas_used: Mutex<u64>,
+    data: Mutex<TransactionQueueData>,
 }
 
 impl TransactionQueue {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
-            transactions: Mutex::new(Vec::new()),
-            account_nonces: Mutex::new(HashMap::new()),
-            total_fees: Mutex::new(0u64),
-            total_gas_used: Mutex::new(0u64),
+            data: Mutex::new(TransactionQueueData::new()),
         }
     }
 
     pub fn clear(&self) {
-        let mut total_fees = self.total_fees.lock().unwrap();
-        *total_fees = 0u64;
-
-        let mut total_gas_used = self.total_gas_used.lock().unwrap();
-        *total_gas_used = 0u64;
-
-        self.transactions.lock().unwrap().clear();
+        let mut data = self.data.lock().unwrap();
+        data.total_fees = 0u64;
+        data.total_gas_used = 0u64;
+        data.transactions.clear();
     }
 
     pub fn drain_all(&self) -> Vec<QueueTxWithNativeHash> {
-        let mut total_fees = self.total_fees.lock().unwrap();
-        *total_fees = 0u64;
+        let mut data = self.data.lock().unwrap();
+        data.total_fees = 0u64;
+        data.total_gas_used = 0u64;
 
-        let mut total_gas_used = self.total_gas_used.lock().unwrap();
-        *total_gas_used = 0u64;
-
-        self.transactions
-            .lock()
-            .unwrap()
+        data.transactions
             .drain(..)
             .collect::<Vec<QueueTxWithNativeHash>>()
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxWithNativeHash> {
-        self.transactions.lock().unwrap().clone()
+        self.data.lock().unwrap().transactions.clone()
     }
 
     pub fn queue_tx(
@@ -230,60 +236,60 @@ impl TransactionQueue {
         gas_used: u64,
         base_fee: U256,
     ) -> Result<(), QueueError> {
+        let mut data = self.data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx.0 {
-            let mut account_nonces = self.account_nonces.lock().unwrap();
-            if let Some(nonce) = account_nonces.get(&signed_tx.sender) {
+            if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
                     return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
                 }
             }
-            account_nonces.insert(signed_tx.sender, signed_tx.nonce());
+            data.account_nonces
+                .insert(signed_tx.sender, signed_tx.nonce());
 
             let gas_fee = match calculate_gas_fee(signed_tx, gas_used.into(), base_fee) {
                 Ok(fee) => fee.as_u64(),
                 Err(_) => return Err(QueueError::InvalidFee),
             };
 
-            let mut total_fees = self.total_fees.lock().unwrap();
-            *total_fees += gas_fee;
-
-            let mut total_gas_used = self.total_gas_used.lock().unwrap();
-            *total_gas_used += gas_used;
+            data.total_fees += gas_fee;
+            data.total_gas_used += gas_used;
         }
-        self.transactions.lock().unwrap().push(tx);
+        data.transactions.push(tx);
         Ok(())
     }
 
     pub fn len(&self) -> usize {
-        self.transactions.lock().unwrap().len()
+        self.data.lock().unwrap().transactions.len()
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
-        self.transactions.lock().unwrap().retain(|(tx, _)| {
+        let mut data = self.data.lock().unwrap();
+        data.transactions.retain(|(tx, _)| {
             let tx_sender = match tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
             tx_sender != sender
         });
-        self.account_nonces.lock().unwrap().remove(&sender);
+        data.account_nonces.remove(&sender);
     }
 
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
-        self.account_nonces
+        self.data
             .lock()
             .unwrap()
+            .account_nonces
             .get(&address)
             .map(ToOwned::to_owned)
             .map(|nonce| nonce + 1)
     }
 
     pub fn get_total_fees(&self) -> u64 {
-        *self.total_fees.lock().unwrap()
+        self.data.lock().unwrap().total_fees
     }
 
     pub fn get_total_gas_used(&self) -> u64 {
-        *self.total_gas_used.lock().unwrap()
+        self.data.lock().unwrap().total_gas_used
     }
 }
 
