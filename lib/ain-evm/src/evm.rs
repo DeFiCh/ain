@@ -254,7 +254,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(block.clone(), base_fee);
+            self.block.connect_block(block.clone());
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
