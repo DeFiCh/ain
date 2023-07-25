@@ -1069,7 +1069,7 @@ public:
 
         auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
 
-        if (tokenId && IsEVMEnabled(height, mnview, consensus)) {
+        if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
             evm_create_dst20(result, evmContext, tx.GetHash().GetByteArray(),
                              rust::string(tokenName.c_str()),
