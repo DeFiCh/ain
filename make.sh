@@ -527,7 +527,7 @@ pkg_install_rust() {
     _fold_end
 }
 
-pkg_install_solc_linux() {
+pkg_install_solc() {
     _fold_start "pkg-install-solc"
     add-apt-repository ppa:ethereum/ethereum -y
     apt-get update
