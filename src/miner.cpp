@@ -69,6 +69,40 @@ struct XVM {
     }
 };
 
+typedef std::array<std::uint8_t, 20> EvmAddress;
+
+struct EvmAddressWithNonce {
+    EvmAddress address;
+    uint64_t nonce;
+
+    bool operator<(const EvmAddressWithNonce& item) const {
+        return std::tie(address, nonce) < std::tie(item.address, item.nonce);
+    }
+};
+
+struct EvmPackageContext {
+    // Used to track EVM TXs by sender and nonce.
+    std::map<EvmAddressWithNonce, uint64_t> feeMap;
+    // Used to track EVM nonce and TXs by sender
+    std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    // Keep track of EVM entries that failed nonce check
+    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+    // Used for replacement Eth TXs when a TX in chain pays a higher fee
+    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+};
+
+struct EvmTxPreApplyContext {
+    const CTransaction& tx;
+    CTxMemPool::txiter& txIter;
+    std::vector<unsigned char>& txMetadata;
+    CustomTxType txType;
+    int height;
+    uint64_t evmQueueId;
+    EvmPackageContext& pkgCtx;
+    std::set<uint256>& checkedTXEntries;
+    CTxMemPool::setEntries& failedTxEntries;
+};
+
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     int64_t nOldTime = pblock->nTime;
@@ -666,16 +700,15 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 
 bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
     auto txMessage = customTypeToMessage(ctx.txType);
-    auto txIter = ctx.txIter;
-    auto evmQueueId = ctx.evmQueueId;
-    auto metadata = ctx.txMetadata;
-    auto height = ctx.height;
-    auto pkgCtx = ctx.pkgCtx;
-    auto inBlock = ctx.inBlockEntries;
-    auto checkedDfTxHashSet = ctx.checkedTXEntries;
-    auto failedTxSet = ctx.failedTxEntries;
-    auto failedNonces = ctx.pkgCtx.failedNonces;
-    auto replaceByFee = ctx.pkgCtx.replaceByFee;
+    auto& txIter = ctx.txIter;
+    auto& evmQueueId = ctx.evmQueueId;
+    auto& metadata = ctx.txMetadata;
+    auto& height = ctx.height;
+    auto& pkgCtx = ctx.pkgCtx;
+    auto& checkedDfTxHashSet = ctx.checkedTXEntries;
+    auto& failedTxSet = ctx.failedTxEntries;
+    auto& failedNonces = ctx.pkgCtx.failedNonces;
+    auto& replaceByFee = ctx.pkgCtx.replaceByFee;
 
     auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
         std::vector<CTxMemPool::txiter> txIters;
@@ -927,12 +960,14 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             if (txType != CustomTxType::None) {
                 if (txType == CustomTxType::EvmTx) {
                     auto evmTxCtx = EvmTxPreApplyContext { 
-                        tx, sortedEntries[i], metadata, txType,
+                        tx,
+                        sortedEntries[i],
+                        metadata,
+                        txType,
                         nHeight, 
                         evmContext, 
                         evmPackageContext,
                         checkedDfTxHashSet,
-                        inBlock,
                         failedTxSet,
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
