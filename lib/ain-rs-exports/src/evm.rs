@@ -220,7 +220,7 @@ pub fn evm_try_prevalidate_raw_tx(
             ffi::PreValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: prepay_fee.try_into().unwrap_or_default(),
+                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
             },
         ),
         Err(e) => {
@@ -277,7 +277,7 @@ pub fn evm_try_validate_raw_tx(
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: prepay_fee.try_into().unwrap_or_default(),
+                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
                 gas_used: used_gas,
             },
         ),
