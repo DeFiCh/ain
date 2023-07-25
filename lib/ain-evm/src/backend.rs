@@ -65,7 +65,7 @@ impl EVMBackend {
     pub fn apply<I: IntoIterator<Item = (H256, H256)>>(
         &mut self,
         address: H160,
-        basic: Basic,
+        basic: Option<Basic>,
         code: Option<Vec<u8>>,
         storage: I,
         reset_storage: bool,
@@ -100,11 +100,19 @@ impl EVMBackend {
             code_hash
         });
 
-        let new_account = Account {
-            nonce: basic.nonce,
-            balance: basic.balance,
-            code_hash,
-            storage_root: storage_trie.commit().into(),
+        let new_account = match basic {
+            Some(basic) => Account {
+                nonce: basic.nonce,
+                balance: basic.balance,
+                code_hash,
+                storage_root: storage_trie.commit().into(),
+            },
+            None => Account {
+                nonce: account.nonce,
+                balance: account.balance,
+                code_hash,
+                storage_root: storage_trie.commit().into(),
+            }
         };
 
         self.state
@@ -145,7 +153,7 @@ impl EVMBackend {
         let balance = basic.balance.saturating_sub(prepay_gas);
         let new_basic = Basic { balance, ..basic };
 
-        self.apply(sender, new_basic, None, Vec::new(), false)
+        self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .expect("Error deducting account balance");
         self.commit();
     }
@@ -168,7 +176,7 @@ impl EVMBackend {
             ..basic
         };
 
-        self.apply(sender, new_basic, None, Vec::new(), false)
+        self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .expect("Error refunding account balance");
         self.commit();
     }
@@ -221,10 +229,7 @@ impl EVMBackend {
     ) -> Result<()> {
         self.apply(
             *address,
-            Basic {
-                balance: U256::zero(),
-                nonce: U256::zero(),
-            },
+            None,
             Some(code),
             storage,
             true,
@@ -236,10 +241,7 @@ impl EVMBackend {
     pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<()> {
         self.apply(
             *address,
-            Basic {
-                balance: U256::zero(),
-                nonce: U256::zero(),
-            },
+            None,
             None,
             storage,
             false,
@@ -364,7 +366,7 @@ impl ApplyBackend for EVMBackend {
                     );
 
                     let new_account = self
-                        .apply(address, basic, code, storage, reset_storage)
+                        .apply(address, Some(basic), code, storage, reset_storage)
                         .expect("Error applying state");
 
                     if is_empty_account(&new_account) && delete_empty {
@@ -396,7 +398,7 @@ impl BridgeBackend for EVMBackend {
             ..basic
         };
 
-        self.apply(address, new_basic, None, Vec::new(), false)?;
+        self.apply(address, Some(new_basic), None, Vec::new(), false)?;
         Ok(())
     }
 
@@ -417,7 +419,7 @@ impl BridgeBackend for EVMBackend {
                 nonce: account.nonce,
             };
 
-            self.apply(address, new_basic, None, Vec::new(), false)?;
+            self.apply(address, Some(new_basic), None, Vec::new(), false)?;
             Ok(())
         }
     }
