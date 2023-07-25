@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# Copyright (c) 2014-2019 The Bitcoin Core developers
+# Copyright (c) DeFi Blockchain Developers
+# Distributed under the MIT software license, see the accompanying
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+"""Test that EVM state root changes on every block"""
+
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal
