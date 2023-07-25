@@ -143,8 +143,8 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
-            match queue_tx {
+        for queue_item in self.core.tx_queues.get_cloned_vec(context) {
+            match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     if ain_cpp_imports::past_changi_intermediate_height_4_height() {
                         let nonce = executor.get_nonce(&signed_tx.sender);
@@ -170,7 +170,7 @@ impl EVMServices {
                     );
 
                     if !exit_reason.is_succeed() {
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
 
                     let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
@@ -188,7 +188,7 @@ impl EVMServices {
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[finalize_block] EvmIn failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
@@ -199,7 +199,7 @@ impl EVMServices {
 
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
             }
@@ -269,7 +269,7 @@ impl EVMServices {
             match self.core.tx_queues.get_total_fees(context) {
                 Some(total_fees) => {
                     if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
-                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}", total_burnt_fees, total_priority_fees).into());
+                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
                     }
                 }
                 None => {
