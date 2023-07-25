@@ -272,21 +272,29 @@ impl TransactionQueue {
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
-        self.transactions.lock().unwrap().retain(|item| {
-            let tx_sender = match &item.queue_tx {
+        let mut tx_items = self.transactions.lock().unwrap();
+        for queue_item in &*tx_items {
+            let tx_sender = match &queue_item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
             if tx_sender == sender {
                 let mut total_fees = self.total_fees.lock().unwrap();
-                *total_fees -= item.tx_fee;
+                *total_fees -= queue_item.tx_fee;
 
                 let mut total_gas_used = self.total_gas_used.lock().unwrap();
-                *total_gas_used -= item.gas_used;
-                return false;
+                *total_gas_used -= queue_item.gas_used;
             }
-            true
+        }
+
+        tx_items.retain(|item| {
+            let tx_sender = match &item.queue_tx {
+                QueueTx::SignedTx(tx) => tx.sender,
+                QueueTx::BridgeTx(tx) => tx.sender(),
+            };
+            tx_sender != sender
         });
+
         self.account_nonces.lock().unwrap().remove(&sender);
     }
 
