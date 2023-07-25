@@ -716,10 +716,18 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Value: fee
     std::map<std::pair<std::array<std::uint8_t, 20>, uint64_t>, uint64_t> evmTXFees;
 
+    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
+        std::vector<CTxMemPool::txiter> txIters;
+        for (const auto& [nonce, it] : iterMap) {
+            txIters.push_back(it);
+        }
+        return txIters;
+    };
+
     // Used to track EVM TXs by sender
     // Key: sender address
     // Value: vector of mempool TX iterator
-    std::map<std::array<std::uint8_t, 20>, std::vector<CTxMemPool::txiter>> evmTXs;
+    std::map<std::array<std::uint8_t, 20>, std::map<uint64_t, CTxMemPool::txiter>> evmTXs;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -875,7 +883,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         const auto& gasFees = evmTXFees.at(evmKey);
                         if (txResult.prepay_fee > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                            RemoveEVMTransactions(evmTXs[txResult.sender]);
+                            RemoveEVMTransactions(txIters(evmTXs[txResult.sender]));
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
                                 const auto& [sender, nonce] = it->first;
                                 if (sender == txResult.sender) {
@@ -887,7 +895,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                             checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
                             evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
                             auto count{txResult.nonce};
-                            for (const auto& entry : evmTXs[txResult.sender]) {
+                            for (const auto& [nonce, entry] : evmTXs[txResult.sender]) {
                                 inBlock.erase(entry);
                                 checkedTX.erase(entry->GetTx().GetHash());
                                 replaceByFee.emplace(count, entry);
@@ -911,7 +919,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     }
 
                     evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.prepay_fee);
-                    evmTXs[txResult.sender].push_back(sortedEntries[i]);
+                    evmTXs[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
                 const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
