@@ -1146,6 +1146,7 @@ namespace pos {
         //
         auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
         if (!pblocktemplate) {
+            LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
             return Status::stakeWaiting;
         }
 
