@@ -192,6 +192,9 @@ private:
     void AddToBlock(CTxMemPool::txiter iter);
     /** Remove a tx from the block */
     void RemoveFromBlock(CTxMemPool::txiter iter);
+    /** Remove txs along with descendants from the block */
+    void RemoveFromBlock(const CTxMemPool::setEntries txIterSet, bool removeDescendants);
+    void RemoveFromBlock(const std::set<uint256> txHashSet, bool removeDescendants);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
@@ -219,8 +222,6 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
-    /** Remove failed TransferDoamin transactions from the block */
-    void RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees);
     /** Remove specific TX from the block */
     bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
 };

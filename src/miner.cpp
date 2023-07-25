@@ -354,7 +354,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             }
         }
 
-        RemoveTxs(failedTransactions, txFees);
+        RemoveFromBlock(failedTransactions, true);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -610,6 +610,45 @@ void BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
     }
 }
 
+void BlockAssembler::RemoveFromBlock(const CTxMemPool::setEntries txIterSet, bool removeDescendants) {
+    std::set<uint256> txHashes;
+    for (auto iter: txIterSet) {
+        RemoveFromBlock(iter);
+        txHashes.insert(iter->GetTx().GetHash());
+    }
+    if (!removeDescendants) return;
+    CTxMemPool::setEntries descendantTxsToErase;
+    for (const auto &txIter: inBlock) {
+        auto& tx = txIter->GetTx();
+        for (const auto &vin : tx.vin) {
+            if (txHashes.count(vin.prevout.hash)) {
+                descendantTxsToErase.insert(txIter);
+            }
+        }
+    }
+    RemoveFromBlock(descendantTxsToErase, true);
+}
+
+void BlockAssembler::RemoveFromBlock(const std::set<uint256> txHashSet, bool removeDescendants)
+{
+    for (auto iter: inBlock) {
+        if (txHashSet.count(iter->GetTx().GetHash())) {
+            RemoveFromBlock(iter);
+        }
+    }
+    if (!removeDescendants) return;
+    std::set<uint256> descendantTxsToErase;
+    for (const auto &tx : pblock->vtx) {
+        if (!tx) continue;
+        for (const auto &vin : tx->vin) {
+            if (txHashSet.count(vin.prevout.hash)) {
+                descendantTxsToErase.insert(tx->GetHash());
+            }
+        }
+    }
+    RemoveFromBlock(descendantTxsToErase, true);
+}
+
 int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded,
         indexed_modified_transaction_set &mapModifiedTxSet)
 {
@@ -635,41 +674,6 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
         }
     }
     return nDescendantsUpdated;
-}
-
-void BlockAssembler::RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees) {
-    if (txHashSet.empty()) { return; }
-
-    auto &blockFees = nFees;
-    auto &blockTxCount = nBlockTx;
-
-    auto removeItem = [&txHashSet, &blockFees, &blockTxCount, &txFees](const auto &tx) {
-            auto hash = tx.get()->GetHash();
-            if (txHashSet.count(hash) < 1) return false;
-            blockFees -= txFees.at(hash);
-            --blockTxCount;
-            return true;
-    };
-
-    pblock->vtx.erase(
-        std::remove_if(pblock->vtx.begin(), pblock->vtx.end(), removeItem), 
-        pblock->vtx.end());
-
-    // Add descendants
-    std::set<uint256> descendantTxsToErase;
-    for (const auto &hash : txHashSet) {
-        for (const auto &tx : pblock->vtx) {
-            if (!tx) continue;
-            for (const auto &vin : tx->vin) {
-                if (vin.prevout.hash == hash) {
-                    descendantTxsToErase.insert(hash);
-                }
-            }
-        }
-    }
-
-    // Recursively remove descendants
-    RemoveTxs(descendantTxsToErase, txFees);
 }
 
 // Skip entries in mapTx that are already in a block or are present
