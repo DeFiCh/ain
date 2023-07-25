@@ -13,6 +13,7 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
+use crate::services::SERVICES;
 
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
@@ -403,6 +404,37 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
         Ok(backend.get_account(&address))
+    }
+
+    pub fn get_latest_contract_storage(
+        &self,
+        contract: H160,
+        storage_index: U256
+    ) -> Result<U256, EVMError> {
+        let (_, block_number) = SERVICES
+            .evm
+            .block
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
+        let state_root = self
+            .storage
+            .get_block_by_number(&block_number)
+            .or_else(|| self.storage.get_latest_block())
+            .map(|block| block.header.state_root)
+            .unwrap_or_default();
+
+        let backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity::default(),
+        )?;
+
+        // convert U256 to H256
+        let tmp: &mut [u8; 32] = &mut [0; 32];
+        storage_index.to_big_endian(tmp);
+
+        backend.get_contract_storage(contract, tmp.as_slice()).map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {

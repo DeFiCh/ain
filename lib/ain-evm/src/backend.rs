@@ -188,19 +188,17 @@ impl EVMBackend {
             .unwrap_or_default()
     }
 
-    pub fn get_account_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
-        let account = self.get_account(&contract).unwrap_or(Account {
-            nonce: U256::zero(),
-            balance: U256::zero(),
-            storage_root: H256::zero(),
-            code_hash: H256::zero(),
-        });
+    pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
+        let account = match self.get_account(&contract) {
+            Some(account) => account,
+            None => return Ok(U256::zero()),
+        };
 
         let state = self
             .trie_store
             .trie_db
             .trie_restore(
-                contract.clone().as_bytes(),
+                contract.clone().as_ref(),
                 None,
                 account.storage_root.into(),
             )
@@ -208,7 +206,7 @@ impl EVMBackend {
 
         Ok(U256::from(
             state
-                .get(storage_index.clone().as_bytes())
+                .get(storage_index.clone())
                 .unwrap_or_default()
                 .unwrap_or_default()
                 .as_slice(),

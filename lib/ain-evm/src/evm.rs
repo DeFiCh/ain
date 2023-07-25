@@ -351,22 +351,11 @@ impl EVMServices {
         Ok(())
     }
 
+    /// Returns address, bytecode and storage with incremented count for the counter contract
     pub fn counter_contract() -> Result<CounterContractInfo, Box<dyn Error>> {
         let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
-        let (_, latest_block_number) = SERVICES
-            .evm
-            .block
-            .get_latest_block_hash_and_number()
-            .unwrap_or_default();
-        let count = U256::from(
-            SERVICES
-                .evm
-                .core
-                .get_storage_at(address, U256::one(), latest_block_number)?
-                .unwrap_or_default()
-                .as_slice(),
-        );
+        let count = SERVICES.evm.core.get_latest_contract_storage(address, U256::one())?;
 
         debug!("Count: {:#x}", count + U256::one());
 
