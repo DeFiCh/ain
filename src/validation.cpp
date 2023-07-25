@@ -2325,7 +2325,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck, const int64_t evmContext)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck, const int64_t evmQueueId)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2669,7 +2669,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmContext);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2850,7 +2850,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmContext, beneficiary);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmQueueId, beneficiary);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -3314,11 +3314,11 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
         std::array<uint8_t, 20> beneficiary{};
-        const auto evmContext = evm_get_context();
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmContext);
+        const auto evmQueueId = evm_get_queue_id();
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
-            evm_discard_context(evmContext);
+            evm_discard_context(evmQueueId);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }
@@ -3329,7 +3329,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
-            evm_try_finalize(result, evmContext, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+            evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
             if (!result.ok && pindexNew->nHeight >= Params().GetConsensus().ChangiIntermediateHeight4) {
                 return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());
             }
