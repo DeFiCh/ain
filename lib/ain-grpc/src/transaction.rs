@@ -16,8 +16,8 @@ impl From<SignedTx> for EthTransactionInfo {
             format!("0x{}", hex::encode(signed_tx.data()))
         };
 
-        let access_list = match &signed_tx.transaction {
-            TransactionV2::Legacy(_) => Vec::<EthAccessList>::new(),
+        let access_list: Vec<EthAccessList> = match &signed_tx.transaction {
+            TransactionV2::Legacy(_) => Vec::new(),
             TransactionV2::EIP2930(tx) => tx
                 .access_list
                 .clone()
@@ -59,7 +59,7 @@ impl From<SignedTx> for EthTransactionInfo {
                 .map(format_u256)
                 .unwrap_or_default(),
             access_list,
-            chain_id: format!("{:#x}", ain_cpp_imports::get_chain_id().unwrap_or_default()),
+            chain_id: format!("{:#x}", signed_tx.chain_id()),
         }
     }
 }
