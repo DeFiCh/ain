@@ -553,8 +553,20 @@ void BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
             continue;
 
         pblock->vtx.erase(pblock->vtx.begin() + i);
-        // pblocktemplate->vTxFees.erase(iter->GetFee());
-        // pblocktemplate->vTxSigOpsCost.erase(iter->GetSigOpCost());
+        auto& vTxFees = pblocktemplate->vTxFees;
+        for (auto it = vTxFees.begin(); it != vTxFees.end(); ++it) {
+            if (*it == iter->GetFee()) {
+                vTxFees.erase(it);
+                break;
+            }
+        }
+        auto& vTxSigOpsCost = pblocktemplate->vTxSigOpsCost;
+        for (auto it = vTxSigOpsCost.begin(); it != vTxSigOpsCost.end(); ++it) {
+            if (*it == iter->GetSigOpCost()) {
+                vTxSigOpsCost.erase(it);
+                break;
+            }
+        }
         nBlockWeight -= iter->GetTxWeight();
         --nBlockTx;
         nBlockSigOpsCost -= iter->GetSigOpCost();
