@@ -47,6 +47,4 @@ class EVMProvider:
 
         self.generator(1)
 
-        print(self.w3.eth.get_transaction(tx_hash))
-
         self.w3.eth.wait_for_transaction_receipt(tx_hash)
