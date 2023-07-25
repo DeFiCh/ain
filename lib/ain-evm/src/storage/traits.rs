@@ -65,15 +65,13 @@ pub trait PersistentState {
         Self: serde::ser::Serialize,
     {
         // Automatically resolves from datadir for now
-        let path = match ain_cpp_imports::get_datadir() {
-            Ok(path) => {
-                let path = PathBuf::from(path).join("evm");
-                if !path.exists() {
-                    std::fs::create_dir(&path).expect("Error creating `evm` dir");
-                }
-                path.join(file_path)
+        let datadir = ain_cpp_imports::get_datadir();
+        let path = {
+            let path = PathBuf::from(datadir).join("evm");
+            if !path.exists() {
+                std::fs::create_dir(&path).expect("Error creating `evm` dir");
             }
-            _ => PathBuf::from(file_path),
+            path.join(file_path)
         };
 
         let serialized_state = bincode::serialize(self)?;
@@ -89,10 +87,8 @@ pub trait PersistentState {
         debug!("Restoring {} from disk", file_path);
 
         // Automatically resolves from datadir for now
-        let path = match ain_cpp_imports::get_datadir() {
-            Ok(path) => PathBuf::from(path).join("evm").join(file_path),
-            _ => PathBuf::from(file_path),
-        };
+        let datadir = ain_cpp_imports::get_datadir();
+        let path = PathBuf::from(datadir).join("evm").join(file_path);
 
         if Path::new(&path).exists() {
             let file = File::open(path)?;

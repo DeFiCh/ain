@@ -3,6 +3,7 @@ use crate::storage::traits::FlushableStorage;
 
 use anyhow::Result;
 use jsonrpsee_http_server::HttpServerHandle;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle as AsyncHandle};
@@ -16,6 +17,8 @@ use tokio::sync::mpsc::{self, Sender};
 lazy_static::lazy_static! {
     // Global services exposed by the library
     pub static ref SERVICES: Services = Services::new();
+
+    pub static ref IS_INITIALIZED: AtomicBool = AtomicBool::new(false);
 }
 
 pub struct Services {

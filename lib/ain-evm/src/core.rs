@@ -53,7 +53,7 @@ pub struct ValidateTxInfo {
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
-    let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
+    let datadir = ain_cpp_imports::get_datadir();
     let path = PathBuf::from(datadir).join("evm");
     if !path.exists() {
         std::fs::create_dir(&path).expect("Error creating `evm` dir");
