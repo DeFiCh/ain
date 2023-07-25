@@ -601,6 +601,7 @@ clean_pkg_local_py_deps() {
 
 pkg_setup_rust() {
     local rust_target
+    # shellcheck disable=SC2120
     rust_target=$(get_rust_triplet)
     rustup target add "${rust_target}"
 }
