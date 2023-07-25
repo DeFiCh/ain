@@ -258,7 +258,12 @@ impl TransactionQueue {
             let mut total_gas_used = self.total_gas_used.lock().unwrap();
             *total_gas_used += gas_used;
         }
-        self.transactions.lock().unwrap().push(QueueTxItem { queue_tx: tx, tx_hash, tx_fee: gas_fee, gas_used });
+        self.transactions.lock().unwrap().push(QueueTxItem {
+            queue_tx: tx,
+            tx_hash,
+            tx_fee: gas_fee,
+            gas_used,
+        });
         Ok(())
     }
 
@@ -275,7 +280,7 @@ impl TransactionQueue {
             if tx_sender == sender {
                 let mut total_fees = self.total_fees.lock().unwrap();
                 *total_fees -= item.tx_fee;
-                
+
                 let mut total_gas_used = self.total_gas_used.lock().unwrap();
                 *total_gas_used -= item.gas_used;
                 return false;
