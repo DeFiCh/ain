@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import (assert_equal, assert_raises_rpc_error)
 
 
 
@@ -78,7 +78,6 @@ class DST20(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         node.createtoken(
             {
@@ -97,7 +96,6 @@ class DST20(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         contract_address_btc = "0xff00000000000000000000000000000000000001"
         contract_address_eth = "0xff00000000000000000000000000000000000002"
@@ -190,6 +188,76 @@ class DST20(DefiTestFramework):
             )
         [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
         assert_equal(amountBTC, "9.50000000@BTC")
+
+        # test multiple transferdomains in the same block
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": address, "amount": "2@BTC", "domain": 2},
+                    "dst": {
+                        "address": key_pair.address,
+                        "amount": "2@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        node.generate(1)
+
+        assert_equal(
+            btc.functions.balanceOf(key_pair.address).call()
+            / math.pow(10, btc.functions.decimals().call()),
+            Decimal(3.5),
+            )
+        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        assert_equal(amountBTC, "6.50000000@BTC")
+
+        # test transferdomain for contract that does not exist
+        assert_raises_rpc_error(0, "Invalid Defi token: XYZ", self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": address, "amount": "1@XYZ", "domain": 2},
+                    "dst": {
+                        "address": key_pair.address,
+                        "amount": "1@XYZ",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+
+        # transferdomain to DST20 token address
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": address, "amount": "2@BTC", "domain": 2},
+                    "dst": {
+                        "address": contract_address_btc,
+                        "amount": "2@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        node.generate(1)
+
+        assert_equal(
+            btc.functions.balanceOf(contract_address_btc).call()
+            / math.pow(10, btc.functions.decimals().call()),
+            Decimal(2),
+        )
 
 
 if __name__ == "__main__":

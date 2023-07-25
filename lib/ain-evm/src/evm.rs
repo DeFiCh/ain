@@ -265,7 +265,7 @@ impl EVMServices {
                     );
 
                     let DST20BridgeInfo { address, storage } =
-                        EVMServices::bridge_dst20(contract, to, amount, out)?;
+                        EVMServices::bridge_dst20(&mut executor, contract, to, amount, out)?;
 
                     if let Err(e) = executor.update_storage(address, storage) {
                         debug!("[finalize_block] EvmOut failed with {e}");
@@ -469,25 +469,23 @@ impl EVMServices {
     }
 
     pub fn bridge_dst20(
+        executor: &mut AinExecutor,
         contract: H160,
         to: H160,
         amount: U256,
         out: bool,
     ) -> Result<DST20BridgeInfo, Box<dyn Error>> {
         let storage_index = ain_contracts::get_address_storage_index(to);
-        let mut balance = SERVICES
-            .evm
-            .core
-            .get_latest_contract_storage(contract, storage_index)?;
+        let balance = executor.backend.get_contract_storage(contract, storage_index.as_bytes())?;
 
-        match out {
-            true => balance -= amount,
-            false => balance += amount,
-        }
+        let new_balance = match out {
+            true => balance - amount,
+            false => balance + amount,
+        };
 
         Ok(DST20BridgeInfo {
             address: contract,
-            storage: vec![(storage_index, ain_contracts::u256_to_h256(balance))],
+            storage: vec![(storage_index, ain_contracts::u256_to_h256(new_balance))],
         })
     }
 }
