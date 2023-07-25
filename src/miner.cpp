@@ -649,6 +649,91 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByEntryTime());
 }
 
+bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
+    auto txMessage = customTypeToMessage(ctx.txType);
+    auto txIter = ctx.txIter;
+    auto evmQueueId = ctx.evmQueueId;
+    auto metadata = ctx.txMetadata;
+    auto height = ctx.height;
+    auto pkgCtx = ctx.pkgCtx;
+    auto inBlock = ctx.inBlockEntries;
+    auto checkedTX = ctx.checkedTXEntries;
+    auto failedTx = ctx.failedTxEntries;
+    auto failedNonces = ctx.pkgCtx.failedNonces;
+    auto replaceByFee = ctx.pkgCtx.replaceByFee;
+
+    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
+        std::vector<CTxMemPool::txiter> txIters;
+        for (const auto& [nonce, it] : iterMap) {
+            txIters.push_back(it);
+        }
+        return txIters;
+    };
+
+    if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
+        return false;
+    }
+
+    const auto obj = std::get<CEvmTxMessage>(txMessage);
+
+    CrossBoundaryResult result;
+    const auto txResult = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
+    if (!result.ok) {
+        return false;
+    }
+
+    auto& evmFeeMap = pkgCtx.feeMap;
+    auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
+
+    const auto addrKey = EvmAddressWithNonce { txResult.sender, txResult.nonce }; 
+    if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
+        // Key already exists. We check to see if we need to prioritize higher fee tx
+        const auto& lastFee = feeEntry->second;
+        if (txResult.prepay_fee > lastFee) {
+            // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
+            auto addrTxs = evmAddressTxsMap[addrKey.address];
+            RemoveTxIters(txIters(addrTxs));
+            // Remove all fee entries relating to the address
+            for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
+                const auto& [sender, nonce] = it->first;
+                if (sender == addrKey.address) {
+                    it = evmFeeMap.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            // Buggy code to fix below:
+            checkedTX.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
+            addrTxs[addrKey.nonce] = txIter;
+            auto count{addrKey.nonce};
+            for (const auto& [nonce, entry] : addrTxs) {
+                inBlock.erase(entry);
+                checkedTX.erase(entry->GetTx().GetHash());
+                replaceByFee.emplace(count, entry);
+                ++count;
+            }
+            evmAddressTxsMap.erase(addrKey.address);
+            evm_remove_txs_by_sender(evmQueueId, addrKey.address);
+            return false;
+        }
+    }
+
+    const auto nonce = evm_get_next_valid_nonce_in_context(evmQueueId, txResult.sender);
+    if (nonce != txResult.nonce) {
+        // Only add if not already in failed TXs to prevent adding on second attempt.
+        if (!failedTx.count(txIter)) {
+            failedNonces.emplace(txResult.nonce, txIter);
+        }
+        return false;
+    }
+
+    auto addrNonce = EvmAddressWithNonce { txResult.sender, txResult.nonce };
+    evmFeeMap.insert({addrNonce, txResult.prepay_fee});
+    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
+    return true;
+}
+
+
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 // Since we don't remove transactions from the mempool as we select them
@@ -686,127 +771,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
-
-    typedef std::array<std::uint8_t, 20> EvmAddress;
-
-    struct EvmAddressWithNonce {
-        EvmAddress address;
-        uint64_t nonce;
-
-        bool operator<(const EvmAddressWithNonce& item) const {
-            return std::tie(address, nonce) < std::tie(item.address, item.nonce);
-        }
-    };
-
-    struct EvmPackageContext {
-        // Used to track EVM TXs by sender and nonce.
-        std::map<EvmAddressWithNonce, uint64_t> feeMap;
-        // Used to track EVM nonce and TXs by sender
-        std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
-        // Keep track of EVM entries that failed nonce check
-        std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
-        // Used for replacement Eth TXs when a TX in chain pays a higher fee
-        std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
-    };
-
     EvmPackageContext evmPackageContext;
-
-    struct EvmTxPreApplyContext {
-        const CTransaction& tx;
-        CTxMemPool::txiter& txIter;
-        std::vector<unsigned char>& txMetadata;
-        CustomTxType txType;
-        int height;
-        uint64_t evmQueueId;
-        EvmPackageContext& pkgCtx;
-        std::set<uint256>& checkedTXEntries;
-        CTxMemPool::setEntries& inBlockEntries;
-        CTxMemPool::setEntries& failedTxEntries;
-    };
-
-    auto handleEvmTxPreapplyHook = [this](EvmTxPreApplyContext& ctx) {
-        auto txMessage = customTypeToMessage(ctx.txType);
-        auto txIter = ctx.txIter;
-        auto evmQueueId = ctx.evmQueueId;
-        auto metadata = ctx.txMetadata;
-        auto height = ctx.height;
-        auto pkgCtx = ctx.pkgCtx;
-        auto inBlock = ctx.inBlockEntries;
-        auto checkedTX = ctx.checkedTXEntries;
-        auto failedTx = ctx.failedTxEntries;
-        auto failedNonces = ctx.pkgCtx.failedNonces;
-        auto replaceByFee = ctx.pkgCtx.replaceByFee;
-
-        auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
-            std::vector<CTxMemPool::txiter> txIters;
-            for (const auto& [nonce, it] : iterMap) {
-                txIters.push_back(it);
-            }
-            return txIters;
-        };
-
-        if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
-            return false;
-        }
-
-        const auto obj = std::get<CEvmTxMessage>(txMessage);
-
-        CrossBoundaryResult result;
-        const auto txResult = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
-        if (!result.ok) {
-            return false;
-        }
-
-        auto& evmFeeMap = pkgCtx.feeMap;
-        auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
-
-        const auto addrKey = EvmAddressWithNonce { txResult.sender, txResult.nonce }; 
-        if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
-            // Key already exists. We check to see if we need to prioritize higher fee tx
-            const auto& lastFee = feeEntry->second;
-            if (txResult.prepay_fee > lastFee) {
-                // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                auto addrTxs = evmAddressTxsMap[addrKey.address];
-                RemoveTxIters(txIters(addrTxs));
-                // Remove all fee entries relating to the address
-                for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
-                    const auto& [sender, nonce] = it->first;
-                    if (sender == addrKey.address) {
-                        it = evmFeeMap.erase(it);
-                    } else {
-                        ++it;
-                    }
-                }
-                // Buggy code to fix below:
-                checkedTX.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
-                addrTxs[addrKey.nonce] = txIter;
-                auto count{addrKey.nonce};
-                for (const auto& [nonce, entry] : addrTxs) {
-                    inBlock.erase(entry);
-                    checkedTX.erase(entry->GetTx().GetHash());
-                    replaceByFee.emplace(count, entry);
-                    ++count;
-                }
-                evmAddressTxsMap.erase(addrKey.address);
-                evm_remove_txs_by_sender(evmQueueId, addrKey.address);
-                return false;
-            }
-        }
-
-        const auto nonce = evm_get_next_valid_nonce_in_context(evmQueueId, txResult.sender);
-        if (nonce != txResult.nonce) {
-            // Only add if not already in failed TXs to prevent adding on second attempt.
-            if (!failedTx.count(txIter)) {
-                failedNonces.emplace(txResult.nonce, txIter);
-            }
-            return false;
-        }
-
-        auto addrNonce = EvmAddressWithNonce { txResult.sender, txResult.nonce };
-        evmFeeMap.insert({addrNonce, txResult.prepay_fee});
-        evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
-        return true;
-    };
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !evmPackageContext.failedNonces.empty())
     {
@@ -953,7 +918,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         inBlock,
                         failedTx,
                     };
-                    auto res = handleEvmTxPreapplyHook(evmTxCtx);
+                    auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
                         customTxPassed = true;
                     } else {
