@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -39,6 +39,8 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
+    // TODO: There's no reason for this to be hex encoded and de-coded back again
+    // We can just send the array of 256 directly, same as block hash.
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
@@ -176,7 +178,7 @@ impl EVMServices {
                         }
                     }
 
-                    let prepay_gas = calculate_prepay_gas(&signed_tx)?;
+                    let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
                     let (
                         TxResponse {
                             exit_reason,
@@ -228,10 +230,6 @@ impl EVMServices {
             }
 
             executor.commit();
-        }
-
-        if update_state {
-            self.core.tx_queues.remove(context);
         }
 
         let block = Block::new(
@@ -292,6 +290,26 @@ impl EVMServices {
                 "[finalize_block] Total priority fees : {:#?}",
                 total_priority_fees
             );
+
+            match self.core.tx_queues.get_total_fees(context) {
+                Some(total_fees) => {
+                    if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
+                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}", total_burnt_fees, total_priority_fees).into());
+                    }
+                }
+                None => {
+                    return Err(anyhow!(
+                        "EVM block rejected because failed to get total fees from context: {}",
+                        context
+                    )
+                    .into())
+                }
+            }
+
+            if update_state {
+                self.core.tx_queues.remove(context);
+            }
+
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
@@ -299,6 +317,10 @@ impl EVMServices {
                 total_priority_fees,
             })
         } else {
+            if update_state {
+                self.core.tx_queues.remove(context);
+            }
+
             Ok(FinalizedBlockInfo {
                 block_hash: *block.header.hash().as_fixed_bytes(),
                 failed_transactions,
@@ -339,9 +361,16 @@ impl EVMServices {
         hash: NativeTxHash,
         gas_used: u64,
     ) -> Result<(), EVMError> {
+        let parent_data = self.block.get_latest_block_hash_and_number();
+        let parent_hash = match parent_data {
+            Some((hash, _)) => hash,
+            None => H256::zero(),
+        };
+        let base_fee = self.block.calculate_base_fee(parent_hash);
+
         self.core
             .tx_queues
-            .queue_tx(context, tx.clone(), hash, gas_used)?;
+            .queue_tx(context, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())

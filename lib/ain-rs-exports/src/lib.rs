@@ -51,14 +51,14 @@ pub mod ffi {
     pub struct PreValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
-        pub tx_fees: u64,
+        pub prepay_fee: u64,
     }
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
-        pub tx_fees: u64,
+        pub prepay_fee: u64,
         pub gas_used: u64,
     }
 

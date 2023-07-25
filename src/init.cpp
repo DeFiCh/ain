@@ -2419,7 +2419,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
             }
             else {
-                LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+                LogPrintf("Minting thread will start with empty coinbase address because masternode does not exist yet. Correct address will be resolved later.\n");
             }
             stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;

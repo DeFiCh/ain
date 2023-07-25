@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas;
+use crate::fee::calculate_prepay_gas_fee;
+use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
 use crate::receipt::ReceiptService;
 use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
@@ -28,7 +29,6 @@ use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
-pub const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
 pub struct EVMCoreService {
@@ -200,6 +200,7 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
+        // Validate tx nonce
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -215,7 +216,7 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_fee = calculate_prepay_gas(&signed_tx)?;
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         let gas_limit = signed_tx.gas_limit();
@@ -225,11 +226,9 @@ impl EVMCoreService {
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            if gas_limit < MIN_GAS_PER_TX {
-                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
-                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
-            }
-        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
+            // Validate tx gas limit with intrinsic gas
+            check_tx_intrinsic_gas(&signed_tx)?;
+        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
@@ -239,6 +238,7 @@ impl EVMCoreService {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
+        // Get tx gas usage
         let used_gas = if use_context {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
@@ -254,6 +254,7 @@ impl EVMCoreService {
             u64::default()
         };
 
+        // Validate total gas usage in queued txs exceeds block size
         if use_context {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
@@ -293,7 +294,8 @@ impl EVMCoreService {
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
-        self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
+        self.tx_queues
+            .queue_tx(context, queue_tx, hash, 0u64, U256::zero())?;
         Ok(())
     }
 
@@ -318,7 +320,8 @@ impl EVMCoreService {
             .into())
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
-            self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
+            self.tx_queues
+                .queue_tx(context, queue_tx, hash, 0u64, U256::zero())?;
             Ok(())
         }
     }
