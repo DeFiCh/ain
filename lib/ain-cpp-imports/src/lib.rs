@@ -91,9 +91,8 @@ pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
     Ok(accounts)
 }
 
-pub fn get_datadir() -> Result<String, Box<dyn Error>> {
-    let datadir = ffi::getDatadir();
-    Ok(datadir)
+pub fn get_datadir() -> String {
+    ffi::getDatadir()
 }
 
 pub fn get_network() -> String {

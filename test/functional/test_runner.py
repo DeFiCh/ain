@@ -304,6 +304,7 @@ BASE_SCRIPTS = [
     'feature_loan_low_interest.py',
     'feature_loan_estimatecollateral.py',
     'feature_vault_pct_check_factor.py',
+    'feature_address_map.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
@@ -379,7 +380,7 @@ def main():
                         help='the default behavior is to flush the cache directory on startup. --keepcache retains the cache from the previous testrun.')
     parser.add_argument('--quiet', '-q', action='store_true', help='only print dots, results summary and failure logs')
     parser.add_argument('--tmpdirprefix', '-t', default=tempfile.gettempdir(), help="Root directory for datadirs")
-    parser.add_argument('--failfast', action='store_true', default=True, help='stop execution after the first test failure')
+    parser.add_argument('--failfast', action='store_true', default=False, help='stop execution after the first test failure')
     parser.add_argument('--filter', help='filter scripts to run by regular expression')
 
     args, unknown_args = parser.parse_known_args()

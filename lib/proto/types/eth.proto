@@ -23,6 +23,13 @@ message EthTransactionInfo {
     string type = 15; // Transaction type
     string maxFeePerGas = 16; // Present in EIP1559 TXs
     string maxPriorityFeePerGas = 17; // Present in EIP1559 TXs
+    repeated EthAccessList accessList = 18; // Transaction access list
+    string chainId = 19; // Transaction chain ID
+}
+
+message EthAccessList {
+    string address = 1;
+    repeated string storageKeys = 2;
 }
 
 message EthChainIdResult {

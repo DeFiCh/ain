@@ -271,13 +271,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         timeOrdering = false;
     }
 
-    const auto evmContext = evm_get_context();
+    const auto evmQueueId = evm_get_queue_id();
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees, pindexPrev);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
     }
 
     XVM xvm{};
@@ -286,8 +286,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
-        auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
-        evm_discard_context(evmContext);
+        auto blockResult = evm_try_finalize(result, evmQueueId, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
+        evm_discard_context(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
@@ -680,7 +680,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmQueueId, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -690,7 +690,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
-    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+    std::multimap<uint64_t, CTxMemPool::txiter> replaceByFee;
 
     // Start by adding all descendants of previously added txs to mapModifiedTx
     // and modifying them for their already included ancestors
@@ -716,10 +716,18 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Value: fee
     std::map<std::pair<std::array<std::uint8_t, 20>, uint64_t>, uint64_t> evmTXFees;
 
+    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
+        std::vector<CTxMemPool::txiter> txIters;
+        for (const auto& [nonce, it] : iterMap) {
+            txIters.push_back(it);
+        }
+        return txIters;
+    };
+
     // Used to track EVM TXs by sender
     // Key: sender address
     // Value: vector of mempool TX iterator
-    std::map<std::array<std::uint8_t, 20>, std::vector<CTxMemPool::txiter>> evmTXs;
+    std::map<std::array<std::uint8_t, 20>, std::map<uint64_t, CTxMemPool::txiter>> evmTXs;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTx.empty() || !failedNonces.empty())
     {
@@ -864,7 +872,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     CrossBoundaryResult result;
-                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx), true, evmContext);
+                    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
                     if (!result.ok) {
                         customTxPassed = false;
                         break;
@@ -873,9 +881,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     const auto evmKey = std::make_pair(txResult.sender, txResult.nonce);
                     if (evmTXFees.count(evmKey)) {
                         const auto& gasFees = evmTXFees.at(evmKey);
-                        if (txResult.tx_fees > gasFees) {
+                        if (txResult.prepay_fee > gasFees) {
                             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-                            RemoveEVMTransactions(evmTXs[txResult.sender]);
+                            RemoveEVMTransactions(txIters(evmTXs[txResult.sender]));
                             for (auto it = evmTXFees.begin(); it != evmTXFees.end();) {
                                 const auto& [sender, nonce] = it->first;
                                 if (sender == txResult.sender) {
@@ -887,20 +895,20 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                             checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
                             evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
                             auto count{txResult.nonce};
-                            for (const auto& entry : evmTXs[txResult.sender]) {
+                            for (const auto& [nonce, entry] : evmTXs[txResult.sender]) {
                                 inBlock.erase(entry);
                                 checkedTX.erase(entry->GetTx().GetHash());
                                 replaceByFee.emplace(count, entry);
                                 ++count;
                             }
                             evmTXs.erase(txResult.sender);
-                            evm_remove_txs_by_sender(evmContext, txResult.sender);
+                            evm_remove_txs_by_sender(evmQueueId, txResult.sender);
                             customTxPassed = false;
                             break;
                         }
                     }
 
-                    const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
+                    const auto nonce = evm_get_next_valid_nonce_in_queue(evmQueueId, txResult.sender);
                     if (nonce != txResult.nonce) {
                         // Only add if not already in failed TXs to prevent adding on second attempt.
                         if (!failedTx.count(iter)) {
@@ -910,11 +918,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         break;
                     }
 
-                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.tx_fees);
-                    evmTXs[txResult.sender].push_back(sortedEntries[i]);
+                    evmTXFees.emplace(std::make_pair(txResult.sender, txResult.nonce), txResult.prepay_fee);
+                    evmTXs[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
@@ -1137,7 +1145,8 @@ namespace pos {
         //
         auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
         if (!pblocktemplate) {
-            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+            LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
+            return Status::stakeWaiting;
         }
 
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
