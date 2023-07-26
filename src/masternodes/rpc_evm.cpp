@@ -7,8 +7,6 @@
 
 enum class VMDomainRPCMapType {
     Auto,
-    AddressDVMToEVM,
-    AddressEVMToDVM,
     TxHashDVMToEVM,
     TxHashEVMToEVM,
     BlockHashDVMToEVM,
@@ -17,7 +15,14 @@ enum class VMDomainRPCMapType {
     BlockNumberEVMToDVM,
 };
 
-static int VMDomainRPCMapTypeCount = 9;
+enum class VMAddressType {
+    Auto,
+    DVMToEVMAddress,
+    EVMToDVMAddress,
+};
+
+static int VMDomainRPCMapTypeCount = 7;
+static int VMAddressTypeCount = 3;
 
 enum class VMDomainIndexType { BlockHash, TxHash };
 
@@ -192,7 +197,6 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
 }
 
 UniValue vmmap(const JSONRPCRequest &request) {
-    auto pwallet = GetWallet(request);
     RPCHelpMan{
         "vmmap",
         "Give the equivalent of an address, blockhash or transaction from EVM to DVM\n",
@@ -201,16 +205,14 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Type::NUM,
           RPCArg::Optional::NO,
           "Map types: \n\
-                            1 - Address format: DFI -> ETH \n\
-                            2 - Address format: ETH -> DFI \n\
-                            3 - Tx Hash: DFI -> EVM \n\
-                            4 - Tx Hash: EVM -> DFI \n\
-                            5 - Block Hash: DFI -> EVM \n\
-                            6 - Block Hash: EVM -> DFI \n\
-                            7 - Block Number: DFI -> EVM \n\
-                            8 - Block Number: EVM -> DFI"}},
+                            1 - Tx Hash: DFI -> EVM \n\
+                            2 - Tx Hash: EVM -> DFI \n\
+                            3 - Block Hash: DFI -> EVM \n\
+                            4 - Block Hash: EVM -> DFI \n\
+                            5 - Block Number: DFI -> EVM \n\
+                            6 - Block Number: EVM -> DFI"}},
         RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
-        RPCExamples{HelpExampleCli("vmmap", R"('"<hex>"' 1)")},
+        RPCExamples{HelpExampleCli("vmmap", R"('"<hash>"' 1)")},
     }
         .Check(request);
 
@@ -230,33 +232,6 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
     const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
-    switch (type) {
-        case VMDomainRPCMapType::AddressDVMToEVM: {
-            CTxDestination dest = DecodeDestination(input);
-            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
-                throwInvalidParam();
-            }
-            CPubKey key = AddrToPubKey(pwallet, input);
-            if (key.IsCompressed()) {
-                key.Decompress();
-            }
-            return EncodeDestination(WitnessV16EthHash(key));
-        }
-        case VMDomainRPCMapType::AddressEVMToDVM: {
-            CTxDestination dest = DecodeDestination(input);
-            if (dest.index() != WitV16KeyEthHashType) {
-                throwInvalidParam();
-            }
-            CPubKey key = AddrToPubKey(pwallet, input);
-            if (!key.IsCompressed()) {
-                key.Compress();
-            }
-            return EncodeDestination(WitnessV0KeyHash(key));
-        }
-        default:
-            break;
-    }
-
     LOCK(cs_main);
 
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
@@ -342,12 +317,68 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     return result;
 }
 
+
+UniValue vmaddressmap(const JSONRPCRequest &request) {
+    auto pwallet = GetWallet(request);
+    RPCHelpMan{
+        "vmaddressmap",
+        "Give the equivalent of an address from EVM to DVM and versa\n",
+        {
+            {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address or EVM address"},
+            {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
+                            1 - Address format: DFI -> ETH \n\
+                            2 - Address format: ETH -> DFI \n"}
+        },
+        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
+        RPCExamples{HelpExampleCli("vmaddressmap", R"('"<address>"' 1)")},
+    }
+        .Check(request);
+
+    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+
+    const std::string input = request.params[0].get_str();
+
+    const int typeInt = request.params[1].get_int();
+    if (typeInt < 0 || typeInt >= VMAddressTypeCount) {
+        throwInvalidParam();
+    }
+    const auto type = static_cast<VMAddressType>(request.params[1].get_int());
+    switch (type) {
+        case VMAddressType::DVMToEVMAddress: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, input);
+            if (key.IsCompressed()) {
+                key.Decompress();
+            }
+            return EncodeDestination(WitnessV16EthHash(key));
+        }
+        case VMAddressType::EVMToDVMAddress: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, input);
+            if (!key.IsCompressed()) {
+                key.Compress();
+            }
+            return EncodeDestination(WitnessV0KeyHash(key));
+        }
+        default:
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid address type passed");
+            break;
+    }
+}
+
 static const CRPCCommand commands[] = {
   //  category        name                         actor (function)        params
   //  --------------- ----------------------       ---------------------   ----------
-    {"evm", "evmtx",     &evmtx,     {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm", "vmmap",     &vmmap,     {"input", "type"}                                               },
-    {"evm", "logvmmaps", &logvmmaps, {"type"}                                                        },
+    {"evm", "evmtx",            &evmtx,         {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm", "vmmap",            &vmmap,         {"input", "type"}                                               },
+    {"evm", "logvmmaps",        &logvmmaps,     {"type"}                                                        },
+    {"evm", "vmaddressmap",     &vmaddressmap,  {"input", "type"}                                               },
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {

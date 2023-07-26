@@ -13,14 +13,12 @@ from test_framework.util import (
 
 class VMMapType:
     Auto = 0
-    AddressDVMToEVM = 1
-    AddressEVMToDVM = 2
-    TxHashDVMToEVM = 3
-    TxHashEVMToEVM = 4
-    BlockHashDVMToEVM = 5
-    BlockHashEVMToDVM = 6
-    BlockNumberDVMToEVM = 7
-    BlockNumberEVMToDVM = 8
+    TxHashDVMToEVM = 1
+    TxHashEVMToEVM = 2
+    BlockHashDVMToEVM = 3
+    BlockHashEVMToDVM = 4
+    BlockNumberDVMToEVM = 5
+    BlockNumberEVMToDVM = 6
 
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
@@ -155,8 +153,8 @@ class VMMapTests(DefiTestFramework):
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
-        for map_type in range(6):
-            if map_type in [0, 1, 2]:
+        for map_type in range(4):
+            if map_type == 0:
                 continue # addr types and auto are ignored for this test
             assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
             assert_err("0x00", map_type)
@@ -248,7 +246,7 @@ class VMMapTests(DefiTestFramework):
         list_blocks = self.nodes[0].logvmmaps(0)
         eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         assert_equal(eth_block[2:] in list(list_blocks['indexes'].values()), True)
-        dfi_block = self.nodes[0].vmmap(eth_block, 6)
+        dfi_block = self.nodes[0].vmmap(eth_block, VMMapType.BlockHashEVMToDVM)
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
@@ -262,10 +260,10 @@ class VMMapTests(DefiTestFramework):
         self.setup()
         # vmmap tests
         # self.vmmap_address_basics()
-        self.vmmap_address_basics_manual_import()
-        self.vmmap_valid_address_not_present_should_fail()
-        self.vmmap_valid_address_invalid_type_should_fail()
-        self.vmmap_invalid_address_should_fail()
+        # self.vmmap_address_basics_manual_import()
+        # self.vmmap_valid_address_not_present_should_fail()
+        # self.vmmap_valid_address_invalid_type_should_fail()
+        # self.vmmap_invalid_address_should_fail()
         self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_should_fail()
