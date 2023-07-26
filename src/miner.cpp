@@ -902,7 +902,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                                 ++count;
                             }
                             evmTXs.erase(txResult.sender);
-                            evm_remove_txs_by_sender(evmContext, txResult.sender);
+                            evm_remove_txs_by_sender(evmQueueId, txResult.sender);
                             customTxPassed = false;
                             break;
                         }

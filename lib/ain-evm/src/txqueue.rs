@@ -100,7 +100,7 @@ impl TransactionQueueMap {
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
     /// provided queue ID, removing them from the queue. Transactions are returned in the
     /// order they were added.
-    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxItem> {
+    pub fn drain_all(&self, queue_id: u64) -> Vec<QueueTxItem> {
         self.queues
             .read()
             .unwrap()
@@ -108,7 +108,7 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
-    pub fn get_cloned_vec(&self, context_id: u64) -> Vec<QueueTxItem> {
+    pub fn get_cloned_vec(&self, queue_id: u64) -> Vec<QueueTxItem> {
         self.queues
             .read()
             .unwrap()
@@ -222,7 +222,7 @@ impl TransactionQueue {
         data.transactions.clear();
     }
 
-    pub fn drain_all(&self) -> Vec<QueueTxWithNativeHash> {
+    pub fn drain_all(&self) -> Vec<QueueTxItem> {
         let mut data = self.data.lock().unwrap();
         data.total_fees = 0u64;
         data.total_gas_used = 0u64;
@@ -233,7 +233,7 @@ impl TransactionQueue {
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
-        self.transactions.lock().unwrap().clone()
+        self.data.lock().unwrap().transactions.clone()
     }
 
     pub fn queue_tx(
@@ -245,7 +245,7 @@ impl TransactionQueue {
     ) -> Result<(), QueueError> {
         let mut gas_fee: u64 = 0;
         let mut data = self.data.lock().unwrap();
-        if let QueueTx::SignedTx(signed_tx) = &tx.0 {
+        if let QueueTx::SignedTx(signed_tx) = &tx {
             if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
                     return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
@@ -277,21 +277,19 @@ impl TransactionQueue {
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
         let mut data = self.data.lock().unwrap();
-        for queue_item in data.transactions {
+        let queued_txs = &self.data.lock().unwrap().transactions;
+        for queue_item in queued_txs {
             let tx_sender = match &queue_item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
             if tx_sender == sender {
-                let mut total_fees = self.total_fees.lock().unwrap();
-                *total_fees -= queue_item.tx_fee;
-
-                let mut total_gas_used = self.total_gas_used.lock().unwrap();
-                *total_gas_used -= queue_item.gas_used;
+                data.total_fees -= queue_item.tx_fee;
+                data.total_gas_used -= queue_item.gas_used;
             }
         }
-        data.transactions.retain(|(tx, _)| {
-            let tx_sender = match tx {
+        data.transactions.retain(|item| {
+            let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
