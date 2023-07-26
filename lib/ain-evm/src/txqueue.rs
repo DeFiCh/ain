@@ -181,7 +181,8 @@ pub struct QueueTxItem {
     pub gas_used: u64,
 }
 
-/// The `TransactionQueue` holds a queue of transactions and a map of account nonces.
+/// The `TransactionQueueData` holds a queue of transactions with a map of the account nonces,
+/// the total gas fees and the total gas used by the transactions.
 /// It's used to manage and process transactions for different accounts.
 ///
 #[derive(Debug, Default)]
