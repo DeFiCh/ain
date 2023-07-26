@@ -194,7 +194,7 @@ private:
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
     template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmQueueId, std::map<uint256, CAmount> &txFees) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -216,9 +216,9 @@ private:
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Remove failed TransferDoamin transactions from the block */
-    void RemoveTxs(const std::set<uint256> &txHashSet, const std::map<uint256, CAmount> &txFees);
+    void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
     /** Remove specific TX from the block */
-    void RemoveTxIters(const std::vector<CTxMemPool::txiter> iters);
+    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
 };
 
 /** Modify the extranonce in a block */

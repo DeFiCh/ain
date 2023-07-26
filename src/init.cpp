@@ -1572,7 +1572,7 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 }
 
 void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
-    // Current API only allows for one ETH RPC/gRPC server to bind to one address. 
+    // Current API only allows for one ETH RPC/gRPC server to bind to one address.
     // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
@@ -1917,9 +1917,17 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
 
+                // Wipe EVM folder on reindex
+                if (fReset || fReindexChainState) {
+                    auto res = CrossBoundaryChecked(ain_rs_wipe_evm_folder(result));
+                    if (!res) {
+                        return false;
+                    }
+                }
+
                 // All DBs have been initialized. We start the rust core services to ensure that
                 // it's initialized as late as possible, but before anything can start rolling blocks
-                // back or forth. `ReplayBlocks, VerifyDB` etc. 
+                // back or forth. `ReplayBlocks, VerifyDB` etc.
                 auto res = CrossBoundaryChecked(ain_rs_init_core_services(result));
                 if (!res) return false;
 
@@ -2419,7 +2427,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
             }
             else {
-                LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+                LogPrintf("Minting thread will start with empty coinbase address because masternode does not exist yet. Correct address will be resolved later.\n");
             }
             stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;

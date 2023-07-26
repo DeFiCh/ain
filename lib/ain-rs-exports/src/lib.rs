@@ -17,6 +17,7 @@ pub mod ffi {
         fn ain_rs_preinit(result: &mut CrossBoundaryResult);
         fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
         fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
+        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
         fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
         fn ain_rs_init_network_services(
             result: &mut CrossBoundaryResult,
@@ -51,14 +52,14 @@ pub mod ffi {
     pub struct PreValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
-        pub tx_fees: u64,
+        pub prepay_fee: u64,
     }
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
-        pub tx_fees: u64,
+        pub prepay_fee: u64,
         pub gas_used: u64,
     }
 
@@ -68,17 +69,22 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64;
-        fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]);
-        fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], native_tx_hash: [u8; 32]);
+        fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64;
+        fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]);
+        fn evm_add_balance(
+            queue_id: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        );
         fn evm_sub_balance(
-            context: u64,
+            queue_id: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> bool;
-        fn evm_get_context() -> u64;
-        fn evm_discard_context(context: u64);
+        fn evm_get_queue_id() -> u64;
+        fn evm_discard_context(queue_id: u64);
         fn evm_disconnect_latest_block();
 
         // Failible functions
@@ -92,18 +98,18 @@ pub mod ffi {
         fn evm_try_validate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-            context: u64,
+            queue_id: u64,
         ) -> ValidateTxCompletion;
         fn evm_try_queue_tx(
             result: &mut CrossBoundaryResult,
-            context: u64,
+            queue_id: u64,
             raw_tx: &str,
             hash: [u8; 32],
             gas_used: u64,
         );
         fn evm_try_finalize(
             result: &mut CrossBoundaryResult,
-            context: u64,
+            queue_id: u64,
             update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],

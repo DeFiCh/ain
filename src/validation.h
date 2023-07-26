@@ -736,7 +736,7 @@ public:
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck = false, const int64_t evmContext = 0) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck = false, const int64_t evmQueueId = 0) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Apply the effects of a block disconnection on the UTXO set.
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions* disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, ::mempool.cs);

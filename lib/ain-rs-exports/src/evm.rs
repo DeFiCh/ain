@@ -94,52 +94,52 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
     balance.to_satoshi().as_u64()
 }
 
-/// Retrieves the next valid nonce of an EVM account in a specific context
+/// Retrieves the next valid nonce of an EVM account in a specific queue_id
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 ///
 /// # Returns
 ///
-/// Returns the next valid nonce of the account in a specific context as a `u64`
-pub fn evm_get_next_valid_nonce_in_context(context: u64, address: [u8; 20]) -> u64 {
+/// Returns the next valid nonce of the account in a specific queue_id as a `u64`
+pub fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64 {
     let address = H160::from(address);
     let nonce = SERVICES
         .evm
         .core
-        .get_next_valid_nonce_in_context(context, address);
+        .get_next_valid_nonce_in_queue(queue_id, address);
     nonce.as_u64()
 }
 
-/// Removes all transactions in the queue whose sender matches the provided sender address in a specific context
+/// Removes all transactions in the queue whose sender matches the provided sender address in a specific queue_id
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 ///
-pub fn evm_remove_txs_by_sender(context: u64, address: [u8; 20]) {
+pub fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]) {
     let address = H160::from(address);
-    let _ = SERVICES.evm.core.remove_txs_by_sender(context, address);
+    let _ = SERVICES.evm.core.remove_txs_by_sender(queue_id, address);
 }
 
 /// EvmIn. Send DFI to an EVM account.
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
+pub fn evm_add_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
     if let Ok(address) = address.parse() {
         let _ = SERVICES
             .evm
             .core
-            .add_balance(context, address, amount.into(), hash);
+            .add_balance(queue_id, address, amount.into(), hash);
     }
 }
 
@@ -147,7 +147,7 @@ pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 /// * `amount` - The amount to subtract as a byte array.
 /// * `hash` - The hash value as a byte array.
@@ -155,19 +155,19 @@ pub fn evm_add_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8;
 /// # Errors
 ///
 /// Returns an Error if:
-/// - the context does not match any existing queue
+/// - the queue_id does not match any existing queue
 /// - the address is not a valid EVM address
 /// - the account has insufficient balance.
 ///
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_sub_balance(context: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
+pub fn evm_sub_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
     if let Ok(address) = address.parse() {
         if let Ok(()) = SERVICES
             .evm
             .core
-            .sub_balance(context, address, amount.into(), hash)
+            .sub_balance(queue_id, address, amount.into(), hash)
         {
             return true;
         }
@@ -209,8 +209,8 @@ pub fn evm_try_prevalidate_raw_tx(
         }
     }
 
-    let context = 0;
-    match SERVICES.evm.core.validate_raw_tx(tx, context, false) {
+    let queue_id = 0;
+    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
@@ -220,7 +220,7 @@ pub fn evm_try_prevalidate_raw_tx(
             ffi::PreValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: prepay_fee.try_into().unwrap_or_default(),
+                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
             },
         ),
         Err(e) => {
@@ -236,7 +236,7 @@ pub fn evm_try_prevalidate_raw_tx(
 ///
 /// * `result` - Result object
 /// * `tx` - The raw transaction string.
-/// * `context` - The EVM txqueue unique key
+/// * `queue_id` - The EVM queue ID
 ///
 /// # Errors
 ///
@@ -257,7 +257,7 @@ pub fn evm_try_prevalidate_raw_tx(
 pub fn evm_try_validate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-    context: u64,
+    queue_id: u64,
 ) -> ffi::ValidateTxCompletion {
     match SERVICES.evm.verify_tx_fees(tx, true) {
         Ok(_) => (),
@@ -267,7 +267,7 @@ pub fn evm_try_validate_raw_tx(
         }
     }
 
-    match SERVICES.evm.core.validate_raw_tx(tx, context, true) {
+    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, true) {
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
@@ -277,7 +277,7 @@ pub fn evm_try_validate_raw_tx(
             ffi::ValidateTxCompletion {
                 nonce: signed_tx.nonce().as_u64(),
                 sender: signed_tx.sender.to_fixed_bytes(),
-                tx_fees: prepay_fee.try_into().unwrap_or_default(),
+                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
                 gas_used: used_gas,
             },
         ),
@@ -288,30 +288,30 @@ pub fn evm_try_validate_raw_tx(
     }
 }
 
-/// Retrieves the EVM context queue.
+/// Retrieves the EVM queue ID.
 ///
 /// # Returns
 ///
-/// Returns the EVM context queue number as a `u64`.
-pub fn evm_get_context() -> u64 {
-    SERVICES.evm.core.get_context()
+/// Returns the EVM queue ID as a `u64`.
+pub fn evm_get_queue_id() -> u64 {
+    SERVICES.evm.core.get_queue_id()
 }
 
-/// /// Discards an EVM context queue.
+/// /// Discards an EVM queue.
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 ///
-pub fn evm_discard_context(context: u64) {
-    SERVICES.evm.core.remove(context)
+pub fn evm_discard_context(queue_id: u64) {
+    SERVICES.evm.core.remove(queue_id)
 }
 
 /// Add an EVM transaction to a specific queue.
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `raw_tx` - The raw transaction string.
 /// * `hash` - The native transaction hash.
 ///
@@ -323,7 +323,7 @@ pub fn evm_discard_context(context: u64) {
 ///
 pub fn evm_try_queue_tx(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     raw_tx: &str,
     hash: [u8; 32],
     gas_used: u64,
@@ -333,7 +333,7 @@ pub fn evm_try_queue_tx(
         Ok(signed_tx) => {
             match SERVICES
                 .evm
-                .queue_tx(context, signed_tx.into(), hash, gas_used)
+                .queue_tx(queue_id, signed_tx.into(), hash, gas_used)
             {
                 Ok(_) => cross_boundary_success(result),
                 Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -347,7 +347,7 @@ pub fn evm_try_queue_tx(
 ///
 /// # Arguments
 ///
-/// * `context` - The context queue number.
+/// * `queue_id` - The queue ID.
 /// * `update_state` - A flag indicating whether to update the state.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
@@ -358,7 +358,7 @@ pub fn evm_try_queue_tx(
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 pub fn evm_try_finalize(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
@@ -367,7 +367,7 @@ pub fn evm_try_finalize(
     let eth_address = H160::from(miner_address);
     match SERVICES
         .evm
-        .finalize_block(context, update_state, difficulty, eth_address, timestamp)
+        .finalize_block(queue_id, update_state, difficulty, eth_address, timestamp)
     {
         Ok(FinalizedBlockInfo {
             block_hash,

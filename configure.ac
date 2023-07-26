@@ -1375,16 +1375,25 @@ AC_SUBST(PROTOC)
 AC_SUBST(PROTOC_INCLUDE_DIR)
 
 dnl If the host and build triplets are the same, we keep this empty
-if test x$host = x$build; then
-  RUST_TARGET=
-else
-  RUST_TARGET=`TARGET="$host" $ac_abs_confdir/make.sh get_rust_target`
-  if test $? != 0; then
-    AC_MSG_ERROR("unsupported host target")
-  fi
+RUST_HOST=`$ac_abs_confdir/make.sh get_rust_triplet "$build"`
+if test $? != 0; then
+AC_MSG_ERROR("unsupported build system")
 fi
+
+RUST_TARGET=`$ac_abs_confdir/make.sh get_rust_triplet "$host"`
+if test $? != 0; then
+AC_MSG_ERROR("unsupported host target")
+fi
+
+if test x$RUST_HOST = x$RUST_TARGET; then
+  RUST_TARGET=
+  RUST_HOST=
+fi
+
 AC_SUBST(RUST_TARGET)
+AC_SUBST(RUST_HOST)
 AM_CONDITIONAL([HAVE_RUST_TARGET], [test x$RUST_TARGET != x])
+AM_CONDITIONAL([HAVE_RUST_HOST], [test x$RUST_HOST != x])
 
 AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
@@ -1473,6 +1482,7 @@ echo "  CXXFLAGS            = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS 
 echo "  LDFLAGS             = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
 echo "  ARFLAGS             = $ARFLAGS"
 echo "  CARGO               = $CARGO"
+echo "  RUST_HOST           = $RUST_HOST"
 echo "  RUST_TARGET         = $RUST_TARGET"
 echo "  ENABLE_DEBUG        = $ENABLE_DEBUG"
 echo

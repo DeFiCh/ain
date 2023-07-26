@@ -82,7 +82,7 @@ rust::string getDatadir() {
     // if odd paths are used. Require testing.
     return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
 #else
-    return rust::String(GetDataDir().c_str());
+    return GetDataDir().c_str();
 #endif
 }
 
