@@ -4,7 +4,6 @@ use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
 use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
 use crate::receipt::ReceiptService;
-use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -54,7 +53,7 @@ pub struct ValidateTxInfo {
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
-    let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
+    let datadir = ain_cpp_imports::get_datadir();
     let path = PathBuf::from(datadir).join("evm");
     if !path.exists() {
         std::fs::create_dir(&path).expect("Error creating `evm` dir");
@@ -405,39 +404,6 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
         Ok(backend.get_account(&address))
-    }
-
-    pub fn get_latest_contract_storage(
-        &self,
-        contract: H160,
-        storage_index: U256,
-    ) -> Result<U256, EVMError> {
-        let (_, block_number) = SERVICES
-            .evm
-            .block
-            .get_latest_block_hash_and_number()
-            .unwrap_or_default();
-        let state_root = self
-            .storage
-            .get_block_by_number(&block_number)
-            .or_else(|| self.storage.get_latest_block())
-            .map(|block| block.header.state_root)
-            .unwrap_or_default();
-
-        let backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            Vicinity::default(),
-        )?;
-
-        // convert U256 to H256
-        let tmp: &mut [u8; 32] = &mut [0; 32];
-        storage_index.to_big_endian(tmp);
-
-        backend
-            .get_contract_storage(contract, tmp.as_slice())
-            .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {

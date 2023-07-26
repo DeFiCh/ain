@@ -147,6 +147,3 @@ contrib/devtools/split-debug.sh
 # Rust local artifacts
 /lib/target
 *.bin
-
-/lib/ain-contracts/**/cache
-/lib/ain-contracts/**/output
