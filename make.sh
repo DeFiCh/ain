@@ -38,7 +38,8 @@ setup_vars() {
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
 
-    SOLC_DIR=${SOLC_DIR:-"${BUILD_TARGET_DIR}/solc-bin"}
+    # We can use get_default_target since we want to target host architecture
+    SOLC_DIR=${SOLC_DIR:-"${BUILD_DEPENDS_DIR}/$(get_default_target)/bin"}
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
 
@@ -551,44 +552,6 @@ pkg_install_rust() {
     _fold_end
 }
 
-pkg_install_solc_linux() {
-    _fold_start "pkg-install-solc"
-
-    local solc_dir="${SOLC_DIR}"
-
-    _ensure_enter_dir "${solc_dir}"
-    wget -O solc https://github.com/ethereum/solidity/releases/download/v0.8.20/solc-static-linux
-    chmod +x solc
-    _exit_dir
-
-    _fold_end
-}
-
-pkg_install_solc_osx() {
-    _fold_start "pkg-install-solc"
-
-    local solc_dir="${SOLC_DIR}"
-
-    _ensure_enter_dir "${solc_dir}"
-    wget -o solc https://github.com/ethereum/solidity/releases/download/v0.8.20/solc-macos
-    chmod +x solc
-    _exit_dir
-
-    _fold_end
-}
-
-pkg_install_solc_windows() {
-    _fold_start "pkg-install-solc"
-
-    local solc_dir="${SOLC_DIR}"
-
-    _ensure_enter_dir "${solc_dir}"
-    wget -o solc https://github.com/ethereum/solidity/releases/download/v0.8.20/solc-windows.exe
-    _exit_dir
-
-    _fold_end
-}
-
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
@@ -1012,7 +975,6 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    DEBIAN_FRONTEND=noninteractive pkg_install_solc_linux
 }
 
 _ci_setup_deps_target() {
