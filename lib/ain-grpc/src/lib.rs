@@ -56,8 +56,8 @@ pub fn init_logging() {
 
 pub fn init_services() {
     info!("Init rs services");
-    IS_INITIALIZED.store(true, Ordering::Relaxed);
     let _ = &*SERVICES;
+    IS_INITIALIZED.store(true, Ordering::Relaxed);
 }
 
 pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
