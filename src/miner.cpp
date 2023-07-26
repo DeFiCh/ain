@@ -780,7 +780,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
         }
     }
 
-    const auto nonce = evm_get_next_valid_nonce_in_context(evmQueueId, txResult.sender);
+    const auto nonce = evm_get_next_valid_nonce_in_queue(evmQueueId, txResult.sender);
     if (nonce != txResult.nonce) {
         // Only add if not already in failed TXs to prevent adding on second attempt.
         if (!failedTxSet.count(txIter)) {
