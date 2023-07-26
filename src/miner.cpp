@@ -271,13 +271,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         timeOrdering = false;
     }
 
-    const auto evmContext = evm_get_context();
+    const auto evmQueueId = evm_get_queue_id();
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmContext, txFees);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
     }
 
     XVM xvm{};
@@ -286,8 +286,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
-        auto blockResult = evm_try_finalize(result, evmContext, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
-        evm_discard_context(evmContext);
+        auto blockResult = evm_try_finalize(result, evmQueueId, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime);
+        evm_discard_context(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
@@ -680,7 +680,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template<class T>
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmQueueId, std::map<uint256, CAmount> &txFees)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -908,7 +908,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                         }
                     }
 
-                    const auto nonce = evm_get_next_valid_nonce_in_context(evmContext, txResult.sender);
+                    const auto nonce = evm_get_next_valid_nonce_in_queue(evmQueueId, txResult.sender);
                     if (nonce != txResult.nonce) {
                         // Only add if not already in failed TXs to prevent adding on second attempt.
                         if (!failedTx.count(iter)) {
@@ -922,7 +922,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                     evmTXs[txResult.sender].emplace(txResult.nonce, sortedEntries[i]);
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmContext);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;

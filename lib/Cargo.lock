@@ -1050,8 +1050,7 @@ dependencies = [
 [[package]]
 name = "ethereum"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a89fb87a9e103f71b903b80b670200b54cc67a07578f070681f1fffb7396fb7"
+source = "git+https://github.com/defich/ethereum.git#74f937c09606b4c2b2c9ff9e3d93dc191fa6cc39"
 dependencies = [
  "bytes",
  "ethereum-types",

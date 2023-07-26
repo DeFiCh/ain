@@ -22,7 +22,6 @@ pub static LATEST_BLOCK_DATA_PATH: &str = "latest_block_data.bin";
 pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 pub static CODE_MAP_PATH: &str = "code_map.bin";
 pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
-pub static BASE_FEE_MAP_PATH: &str = "base_fee_map.bin";
 pub static ADDRESS_LOGS_MAP_PATH: &str = "address_logs_map.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
@@ -30,7 +29,6 @@ type Blocks = HashMap<U256, BlockAny>;
 type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
-type BlockHashtoBaseFee = HashMap<H256, U256>;
 type AddressToLogs = HashMap<U256, HashMap<H160, Vec<LogIndex>>>;
 
 impl PersistentState for BlockHashtoBlock {}
@@ -50,7 +48,6 @@ pub struct BlockchainDataHandler {
     block_map: RwLock<BlockHashtoBlock>,
     blocks: RwLock<Blocks>,
     latest_block_number: RwLock<Option<LatestBlockNumber>>,
-    base_fee_map: RwLock<BlockHashtoBaseFee>,
 
     code_map: RwLock<CodeHistory>,
 
@@ -77,9 +74,6 @@ impl BlockchainDataHandler {
             receipts: RwLock::new(
                 TransactionHashToReceipt::load_from_disk(RECEIPT_MAP_PATH)
                     .expect("Error loading receipts data"),
-            ),
-            base_fee_map: RwLock::new(
-                BlockHashtoBaseFee::load_from_disk(BASE_FEE_MAP_PATH).unwrap_or_default(),
             ),
             code_map: RwLock::new(CodeHistory::load_from_disk(CODE_MAP_PATH).unwrap_or_default()),
             address_logs_map: RwLock::new(
@@ -185,19 +179,6 @@ impl BlockStorage for BlockchainDataHandler {
         let mut latest_block_number = self.latest_block_number.write().unwrap();
         *latest_block_number = block.map(|b| b.header.number);
     }
-
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
-        self.base_fee_map
-            .read()
-            .unwrap()
-            .get(block_hash)
-            .map(ToOwned::to_owned)
-    }
-
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
-        let mut base_fee_map = self.base_fee_map.write().unwrap();
-        base_fee_map.insert(block_hash, base_fee);
-    }
 }
 
 impl ReceiptStorage for BlockchainDataHandler {
@@ -253,10 +234,6 @@ impl FlushableStorage for BlockchainDataHandler {
             .unwrap()
             .save_to_disk(TRANSACTION_DATA_PATH)?;
         self.code_map.write().unwrap().save_to_disk(CODE_MAP_PATH)?;
-        self.base_fee_map
-            .write()
-            .unwrap()
-            .save_to_disk(BASE_FEE_MAP_PATH)?;
         self.address_logs_map
             .write()
             .unwrap()
@@ -299,10 +276,6 @@ impl Rollback for BlockchainDataHandler {
             }
 
             self.block_map.write().unwrap().remove(&block.header.hash());
-            self.base_fee_map
-                .write()
-                .unwrap()
-                .remove(&block.header.hash());
             self.blocks.write().unwrap().remove(&block.header.number);
             self.code_map.write().unwrap().rollback(block.header.number);
 

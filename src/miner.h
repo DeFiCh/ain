@@ -194,7 +194,7 @@ private:
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
     template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmQueueId, std::map<uint256, CAmount> &txFees) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
