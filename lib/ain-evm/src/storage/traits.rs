@@ -20,9 +20,6 @@ pub trait BlockStorage {
     fn put_block(&self, block: &BlockAny);
     fn get_latest_block(&self) -> Option<BlockAny>;
     fn put_latest_block(&self, block: Option<&BlockAny>);
-
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256>;
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256);
 }
 
 pub trait TransactionStorage {
