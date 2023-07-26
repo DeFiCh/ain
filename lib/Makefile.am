@@ -31,6 +31,14 @@ CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
 
 # Export compiler flags
 export CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS AR NM RANLIB
+# Set the native compilers
+if HAVE_RUST_HOST
+export CC_$(RUST_HOST)=gcc
+export CXX_$(RUST_HOST)=g++
+export CFLAGS_$(RUST_HOST)=
+export CXXFLAGS_$(RUST_HOST)=
+endif
+
 # Export compiler support
 export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
 # Export protoc vars
@@ -38,6 +46,8 @@ export PROTOC PROTOC_INCLUDE_DIR
 
 # Ensure nested autotools calls by cargo don't end up in unexpected places 
 unexport DESTDIR
+
+export RUST_BACKTRACE=1
 
 .PHONY:
 all: build

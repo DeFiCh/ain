@@ -321,6 +321,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             value,
             data,
             input,
+            access_list,
             ..
         } = input;
         let TxResponse { data, .. } = self
@@ -338,7 +339,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
                 gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
-                access_list: vec![],
+                access_list: access_list.unwrap_or_default(),
                 block_number: self.block_number_to_u256(block_number)?,
             })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
@@ -419,10 +420,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_hash(&hash)
             .map_or(Ok(None), |block| {
-                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
+                Ok(Some(RpcBlock::from_block_with_tx(
                     block,
                     full_transactions.unwrap_or_default(),
-                    self.handler.storage.get_base_fee(&hash).unwrap_or_default(),
                 )))
             })
     }
@@ -461,14 +461,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             .storage
             .get_block_by_number(&block_number)
             .map_or(Ok(None), |block| {
-                let tx_hash = &block.header.hash();
-                Ok(Some(RpcBlock::from_block_with_tx_and_base_fee(
+                Ok(Some(RpcBlock::from_block_with_tx(
                     block,
                     full_transactions.unwrap_or_default(),
-                    self.handler
-                        .storage
-                        .get_base_fee(tx_hash)
-                        .unwrap_or_default(),
                 )))
             })
     }
@@ -721,6 +716,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             gas,
             value,
             data,
+            access_list,
             ..
         } = input;
 
@@ -734,7 +730,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 value: value.unwrap_or_default(),
                 data: &data.map(|d| d.0).unwrap_or_default(),
                 gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
-                access_list: vec![],
+                access_list: access_list.unwrap_or_default(),
                 block_number,
             })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
