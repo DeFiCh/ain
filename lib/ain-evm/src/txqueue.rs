@@ -226,10 +226,7 @@ impl TransactionQueue {
         let mut data = self.data.lock().unwrap();
         data.total_fees = 0u64;
         data.total_gas_used = 0u64;
-
-        data.transactions
-            .drain(..)
-            .collect::<Vec<QueueTxItem>>()
+        data.transactions.drain(..).collect::<Vec<QueueTxItem>>()
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
