@@ -34,7 +34,7 @@ use crate::rpc::{
 use std::sync::{atomic::Ordering, Arc};
 use std::{net::SocketAddr, path::PathBuf};
 
-use ain_evm::services::{Services, IS_INITIALIZED, SERVICES};
+use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{anyhow, Result};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
@@ -57,13 +57,11 @@ pub fn init_logging() {
 pub fn init_services() {
     info!("Init rs services");
     let _ = &*SERVICES;
-    IS_INITIALIZED.store(true, Ordering::Relaxed);
 }
 
 pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
     init_network_json_rpc_service(&SERVICES, json_addr)?;
     init_network_grpc_service(&SERVICES, grpc_addr)?;
-    IS_INITIALIZED.store(true, Ordering::Relaxed);
     Ok(())
 }
 
@@ -94,12 +92,12 @@ pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()>
     Ok(())
 }
 
-fn is_initialized() -> bool {
-    IS_INITIALIZED.load(Ordering::Relaxed)
+fn is_services_init_called() -> bool {
+    IS_SERVICES_INIT_CALL.load(Ordering::Acquire)
 }
 
 pub fn stop_network_services() -> Result<()> {
-    if is_initialized() {
+    if is_services_init_called() {
         info!("Shutdown rs network services");
         SERVICES.stop_network()?;
     }
@@ -107,7 +105,7 @@ pub fn stop_network_services() -> Result<()> {
 }
 
 pub fn stop_services() {
-    if is_initialized() {
+    if is_services_init_called() {
         info!("Shutdown rs services");
         SERVICES.stop();
     }
