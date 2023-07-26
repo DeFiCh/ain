@@ -90,15 +90,15 @@ impl EVMServices {
 
     pub fn finalize_block(
         &self,
-        context: u64,
+        queue_id: u64,
         update_state: bool,
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
-        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(context));
+        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
+        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(queue_id));
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -145,7 +145,7 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
+        for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(queue_id) {
             match queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     if ain_cpp_imports::past_changi_intermediate_height_4_height() {
@@ -185,8 +185,8 @@ impl EVMServices {
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
-                        address, amount, context
+                        "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
+                        address, amount, queue_id
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[finalize_block] EvmIn failed with {e}");
@@ -268,7 +268,7 @@ impl EVMServices {
                 total_priority_fees
             );
 
-            match self.core.tx_queues.get_total_fees(context) {
+            match self.core.tx_queues.get_total_fees(queue_id) {
                 Some(total_fees) => {
                     if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
                         return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}", total_burnt_fees, total_priority_fees).into());
@@ -276,15 +276,15 @@ impl EVMServices {
                 }
                 None => {
                     return Err(anyhow!(
-                        "EVM block rejected because failed to get total fees from context: {}",
-                        context
+                        "EVM block rejected because failed to get total fees from queue_id: {}",
+                        queue_id
                     )
                     .into())
                 }
             }
 
             if update_state {
-                self.core.tx_queues.remove(context);
+                self.core.tx_queues.remove(queue_id);
             }
 
             Ok(FinalizedBlockInfo {
@@ -295,7 +295,7 @@ impl EVMServices {
             })
         } else {
             if update_state {
-                self.core.tx_queues.remove(context);
+                self.core.tx_queues.remove(queue_id);
             }
 
             Ok(FinalizedBlockInfo {
@@ -333,7 +333,7 @@ impl EVMServices {
 
     pub fn queue_tx(
         &self,
-        context: u64,
+        queue_id: u64,
         tx: QueueTx,
         hash: NativeTxHash,
         gas_used: u64,
@@ -347,7 +347,7 @@ impl EVMServices {
 
         self.core
             .tx_queues
-            .queue_tx(context, tx.clone(), hash, gas_used, base_fee)?;
+            .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())
