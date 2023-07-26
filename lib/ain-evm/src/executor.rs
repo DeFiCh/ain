@@ -1,5 +1,6 @@
 use crate::precompiles::MetachainPrecompiles;
 
+use crate::bytes::Bytes;
 use crate::{
     backend::{EVMBackend, EVMBackendError},
     core::EVMCoreService,
@@ -31,6 +32,23 @@ impl<'backend> AinExecutor<'backend> {
 
     pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
         self.backend.sub_balance(address, amount)
+    }
+
+    pub fn deploy_contract(
+        &mut self,
+        address: H160,
+        bytecode: Bytes,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<(), EVMBackendError> {
+        self.backend.deploy_contract(&address, bytecode.0, storage)
+    }
+
+    pub fn update_storage(
+        &mut self,
+        address: H160,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<(), EVMBackendError> {
+        self.backend.update_storage(&address, storage)
     }
 
     pub fn commit(&mut self) -> H256 {
