@@ -274,16 +274,16 @@ impl TransactionQueue {
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
+        let tx_queue = self.get_cloned_vec();
         let mut data = self.data.lock().unwrap();
-        let queued_txs = &self.data.lock().unwrap().transactions;
-        for queue_item in queued_txs {
-            let tx_sender = match &queue_item.queue_tx {
+        for item in tx_queue {
+            let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
             if tx_sender == sender {
-                data.total_fees -= queue_item.tx_fee;
-                data.total_gas_used -= queue_item.gas_used;
+                data.total_fees -= item.tx_fee;
+                data.total_gas_used -= item.gas_used;
             }
         }
         data.transactions.retain(|item| {
