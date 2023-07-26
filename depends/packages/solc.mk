@@ -25,7 +25,7 @@ ifeq ($($(package)_file_name),)
 endif
 
 define $(package)_extract_cmds
-  mkdir -p $$($(package)_extract_dir) && echo "$$($(package)_sha256_hash)  $$($(package)_source)" > $$($(package)_extract_dir)/.$$($(package)_file_name).hash &&  $(build_SHA256SUM) -c $$($(package)_extract_dir)/.$$($(package)_file_name).hash && cp $$($(package)_source) .
+  mkdir -p $$($(package)_extract_dir) && echo "$$($(package)_sha256_hash)  $$($(package)_source)" > $$($(package)_extract_dir)/.$$($(package)_file_name).hash &&  $(build_SHA256SUM) -c $$($(package)_extract_dir)/.$$($(package)_file_name).hash && cp $$($(package)_source) solc
 endef
 
 define $(package)_set_vars
@@ -35,6 +35,7 @@ endef
 define $(package)_build_cmds
   mkdir -p $($(package)_ROOT) && \
   echo $(PWD) && \
-  mv $($(package)_file_name) $($(package)_ROOT)
+  chmod +x solc && \
+  mv solc $($(package)_ROOT)
 endef
 
