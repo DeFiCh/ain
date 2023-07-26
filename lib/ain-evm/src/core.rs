@@ -223,9 +223,16 @@ impl EVMCoreService {
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            // Validate tx gas limit with intrinsic gas
-            check_tx_intrinsic_gas(&signed_tx)?;
-        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_fee {
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                // Validate tx gas limit with intrinsic gas
+                check_tx_intrinsic_gas(&signed_tx)?;
+            } else {
+                if gas_limit < MIN_GAS_PER_TX {
+                    debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
+                    return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+                }
+            }
+        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }

@@ -267,18 +267,20 @@ impl EVMServices {
                 total_priority_fees
             );
 
-            match self.core.tx_queues.get_total_fees(queue_id) {
-                Some(total_fees) => {
-                    if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
-                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                match self.core.tx_queues.get_total_fees(queue_id) {
+                    Some(total_fees) => {
+                        if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
+                            return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
+                        }
                     }
-                }
-                None => {
-                    return Err(anyhow!(
-                        "EVM block rejected because failed to get total fees from queue_id: {}",
-                        queue_id
-                    )
-                    .into())
+                    None => {
+                        return Err(anyhow!(
+                            "EVM block rejected because failed to get total fees from queue_id: {}",
+                            queue_id
+                        )
+                        .into())
+                    }
                 }
             }
 
