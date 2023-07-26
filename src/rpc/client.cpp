@@ -367,7 +367,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "evmtx", 5, "value" },
     { "vmmap", 1, "type"},
     { "logvmmaps", 0, "type"},
-    { "vmaddressmap", 1, "type"},
+    { "addressmap", 1, "type"},
 };
 // clang-format on
 

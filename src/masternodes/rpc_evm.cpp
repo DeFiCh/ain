@@ -15,14 +15,7 @@ enum class VMDomainRPCMapType {
     BlockNumberEVMToDVM,
 };
 
-enum class VMAddressType {
-    Auto,
-    DVMToEVMAddress,
-    EVMToDVMAddress,
-};
-
 static int VMDomainRPCMapTypeCount = 7;
-static int VMAddressTypeCount = 3;
 
 enum class VMDomainIndexType { BlockHash, TxHash };
 
@@ -317,68 +310,12 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     return result;
 }
 
-
-UniValue vmaddressmap(const JSONRPCRequest &request) {
-    auto pwallet = GetWallet(request);
-    RPCHelpMan{
-        "vmaddressmap",
-        "Give the equivalent of an address from EVM to DVM and versa\n",
-        {
-            {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address or EVM address"},
-            {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
-                            1 - Address format: DFI -> ETH \n\
-                            2 - Address format: ETH -> DFI \n"}
-        },
-        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
-        RPCExamples{HelpExampleCli("vmaddressmap", R"('"<address>"' 1)")},
-    }
-        .Check(request);
-
-    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
-
-    const std::string input = request.params[0].get_str();
-
-    const int typeInt = request.params[1].get_int();
-    if (typeInt < 0 || typeInt >= VMAddressTypeCount) {
-        throwInvalidParam();
-    }
-    const auto type = static_cast<VMAddressType>(request.params[1].get_int());
-    switch (type) {
-        case VMAddressType::DVMToEVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
-            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
-                throwInvalidParam();
-            }
-            CPubKey key = AddrToPubKey(pwallet, input);
-            if (key.IsCompressed()) {
-                key.Decompress();
-            }
-            return EncodeDestination(WitnessV16EthHash(key));
-        }
-        case VMAddressType::EVMToDVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
-            if (dest.index() != WitV16KeyEthHashType) {
-                throwInvalidParam();
-            }
-            CPubKey key = AddrToPubKey(pwallet, input);
-            if (!key.IsCompressed()) {
-                key.Compress();
-            }
-            return EncodeDestination(WitnessV0KeyHash(key));
-        }
-        default:
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid address type passed");
-            break;
-    }
-}
-
 static const CRPCCommand commands[] = {
   //  category        name                         actor (function)        params
   //  --------------- ----------------------       ---------------------   ----------
     {"evm", "evmtx",            &evmtx,         {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
     {"evm", "vmmap",            &vmmap,         {"input", "type"}                                               },
     {"evm", "logvmmaps",        &logvmmaps,     {"type"}                                                        },
-    {"evm", "vmaddressmap",     &vmaddressmap,  {"input", "type"}                                               },
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {

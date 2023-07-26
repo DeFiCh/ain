@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test vmaddressmap behaviour"""
+"""Test addressmap behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -11,12 +11,12 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
-class VMAddressType:
+class AddressConversionType:
     Auto = 0
     DVMToEVMAddress = 1
     EVMToDVMAddress = 2
 
-class VMAddressMapTests(DefiTestFramework):
+class addressmapTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
@@ -45,7 +45,7 @@ class VMAddressMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_block_height = self.nodes[0].getblockcount()
 
-    def vmaddressmap_address_basics_manual_import(self):
+    def addressmap_address_basics_manual_import(self):
         self.rollback_to(self.start_block_height)
         # Import both keys for now.
         priv_keys = [
@@ -71,44 +71,44 @@ class VMAddressMapTests(DefiTestFramework):
             # self.nodes[0].importprivkey(wif)
             self.nodes[0].importprivkey(rawkey)
         for [dfi_addr, eth_addr] in addr_maps:
-            assert_equal(self.nodes[0].vmaddressmap(dfi_addr, VMAddressType.DVMToEVMAddress), eth_addr)
-            assert_equal(self.nodes[0].vmaddressmap(eth_addr, VMAddressType.EVMToDVMAddress), dfi_addr)
+            assert_equal(self.nodes[0].addressmap(dfi_addr, AddressConversionType.DVMToEVMAddress), eth_addr)
+            assert_equal(self.nodes[0].addressmap(eth_addr, AddressConversionType.EVMToDVMAddress), dfi_addr)
 
-    def vmaddressmap_valid_address_not_present_should_fail(self):
+    def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
         eth_address = self.nodes[1].getnewaddress("", "eth")
-        assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmaddressmap, eth_address, VMAddressType.EVMToDVMAddress)
+        assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].addressmap, eth_address, AddressConversionType.EVMToDVMAddress)
 
-    def vmaddressmap_valid_address_invalid_type_should_fail(self):
+    def addressmap_valid_address_invalid_type_should_fail(self):
         self.rollback_to(self.start_block_height)
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
         eth_address = self.nodes[0].getnewaddress("", "eth")
-        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmaddressmap, *args)
+        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, *args)
         assert_invalid(address, 9)
         assert_invalid(address, -1)
-        assert_invalid(eth_address, VMAddressType.DVMToEVMAddress)
-        assert_invalid(address, VMAddressType.EVMToDVMAddress)
-        assert_invalid(p2sh_address, VMAddressType.DVMToEVMAddress)
-        assert_invalid(p2sh_address, VMAddressType.DVMToEVMAddress)
+        assert_invalid(eth_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid(address, AddressConversionType.EVMToDVMAddress)
+        assert_invalid(p2sh_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid(p2sh_address, AddressConversionType.DVMToEVMAddress)
 
-    def vmaddressmap_invalid_address_should_fail(self):
+    def addressmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
-        # Check that vmaddressmap is failing on wrong input
+        # Check that addressmap is failing on wrong input
         eth_address = '0x0000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-5, eth_address + " does not refer to a key", self.nodes[0].vmaddressmap, eth_address, VMAddressType.EVMToDVMAddress)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmaddressmap, eth_address, VMAddressType.DVMToEVMAddress)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmaddressmap, 'test', VMAddressType.DVMToEVMAddress)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmaddressmap, 'test', VMAddressType.EVMToDVMAddress)
+        assert_raises_rpc_error(-5, eth_address + " does not refer to a key", self.nodes[0].addressmap, eth_address, AddressConversionType.EVMToDVMAddress)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, eth_address, AddressConversionType.DVMToEVMAddress)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, 'test', AddressConversionType.DVMToEVMAddress)
+        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, 'test', AddressConversionType.EVMToDVMAddress)
 
     def run_test(self):
         self.setup()
         # Address map tests
-        self.vmaddressmap_address_basics_manual_import()
-        self.vmaddressmap_valid_address_not_present_should_fail()
-        self.vmaddressmap_valid_address_invalid_type_should_fail()
-        self.vmaddressmap_invalid_address_should_fail()
+        self.addressmap_address_basics_manual_import()
+        self.addressmap_valid_address_not_present_should_fail()
+        self.addressmap_valid_address_invalid_type_should_fail()
+        self.addressmap_invalid_address_should_fail()
 
 if __name__ == '__main__':
-    VMAddressMapTests().main()
+    addressmapTests().main()
