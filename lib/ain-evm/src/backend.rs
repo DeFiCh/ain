@@ -65,7 +65,7 @@ impl EVMBackend {
     pub fn apply<I: IntoIterator<Item = (H256, H256)>>(
         &mut self,
         address: H160,
-        basic: Basic,
+        basic: Option<Basic>,
         code: Option<Vec<u8>>,
         storage: I,
         reset_storage: bool,
@@ -100,11 +100,19 @@ impl EVMBackend {
             code_hash
         });
 
-        let new_account = Account {
-            nonce: basic.nonce,
-            balance: basic.balance,
-            code_hash,
-            storage_root: storage_trie.commit().into(),
+        let new_account = match basic {
+            Some(basic) => Account {
+                nonce: basic.nonce,
+                balance: basic.balance,
+                code_hash,
+                storage_root: storage_trie.commit().into(),
+            },
+            None => Account {
+                nonce: account.nonce,
+                balance: account.balance,
+                code_hash,
+                storage_root: storage_trie.commit().into(),
+            },
         };
 
         self.state
@@ -145,7 +153,7 @@ impl EVMBackend {
         let balance = basic.balance.saturating_sub(prepay_gas);
         let new_basic = Basic { balance, ..basic };
 
-        self.apply(sender, new_basic, None, Vec::new(), false)
+        self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .expect("Error deducting account balance");
         self.commit();
     }
@@ -168,7 +176,7 @@ impl EVMBackend {
             ..basic
         };
 
-        self.apply(sender, new_basic, None, Vec::new(), false)
+        self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .expect("Error refunding account balance");
         self.commit();
     }
@@ -186,6 +194,44 @@ impl EVMBackend {
         self.get_account(address)
             .map(|acc| acc.nonce)
             .unwrap_or_default()
+    }
+
+    pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
+        let account = match self.get_account(&contract) {
+            Some(account) => account,
+            None => return Ok(U256::zero()),
+        };
+
+        let state = self
+            .trie_store
+            .trie_db
+            .trie_restore(contract.clone().as_ref(), None, account.storage_root.into())
+            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
+
+        Ok(U256::from(
+            state
+                .get(storage_index)
+                .unwrap_or_default()
+                .unwrap_or_default()
+                .as_slice(),
+        ))
+    }
+
+    pub fn deploy_contract(
+        &mut self,
+        address: &H160,
+        code: Vec<u8>,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<()> {
+        self.apply(*address, None, Some(code), storage, true)?;
+
+        Ok(())
+    }
+
+    pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<()> {
+        self.apply(*address, None, None, storage, false)?;
+
+        Ok(())
     }
 }
 
@@ -304,7 +350,7 @@ impl ApplyBackend for EVMBackend {
                     );
 
                     let new_account = self
-                        .apply(address, basic, code, storage, reset_storage)
+                        .apply(address, Some(basic), code, storage, reset_storage)
                         .expect("Error applying state");
 
                     if is_empty_account(&new_account) && delete_empty {
@@ -336,7 +382,7 @@ impl BridgeBackend for EVMBackend {
             ..basic
         };
 
-        self.apply(address, new_basic, None, Vec::new(), false)?;
+        self.apply(address, Some(new_basic), None, Vec::new(), false)?;
         Ok(())
     }
 
@@ -357,7 +403,7 @@ impl BridgeBackend for EVMBackend {
                 nonce: account.nonce,
             };
 
-            self.apply(address, new_basic, None, Vec::new(), false)?;
+            self.apply(address, Some(new_basic), None, Vec::new(), false)?;
             Ok(())
         }
     }
