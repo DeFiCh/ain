@@ -264,11 +264,17 @@ impl EVMServices {
                         to, contract, amount, out
                     );
 
-                    let DST20BridgeInfo { address, storage } =
-                        EVMServices::bridge_dst20(&mut executor, contract, to, amount, out)?;
-
-                    if let Err(e) = executor.update_storage(address, storage) {
-                        debug!("[finalize_block] EvmOut failed with {e}");
+                    match EVMServices::bridge_dst20(&mut executor, contract, to, amount, out) {
+                        Ok(DST20BridgeInfo { address, storage }) => {
+                            if let Err(e) = executor.update_storage(address, storage) {
+                                debug!("[finalize_block] EvmOut failed with {e}");
+                                failed_transactions.push(hex::encode(hash));
+                            }
+                        }
+                        Err(e) => {
+                            debug!("[finalize_block] EvmOut failed with {e}");
+                            failed_transactions.push(hex::encode(hash));
+                        }
                     }
                 }
             }
@@ -476,12 +482,15 @@ impl EVMServices {
         out: bool,
     ) -> Result<DST20BridgeInfo, Box<dyn Error>> {
         let storage_index = ain_contracts::get_address_storage_index(to);
-        let balance = executor.backend.get_contract_storage(contract, storage_index.as_bytes())?;
+        let balance = executor
+            .backend
+            .get_contract_storage(contract, storage_index.as_bytes())?;
 
         let new_balance = match out {
-            true => balance - amount,
-            false => balance + amount,
-        };
+            true => balance.checked_sub(amount),
+            false => balance.checked_add(amount),
+        }
+        .ok_or_else(|| anyhow!("Balance overflow/underflow"))?;
 
         Ok(DST20BridgeInfo {
             address: contract,

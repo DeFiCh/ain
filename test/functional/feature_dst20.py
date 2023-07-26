@@ -7,6 +7,7 @@
 
 import math
 from decimal import Decimal
+from web3 import Web3
 
 from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
@@ -42,160 +43,179 @@ class DST20(DefiTestFramework):
             ]
         ]
 
-    def run_test(self):
-        node = self.nodes[0]
-        address = node.get_genesis_keys().ownerAuthAddress
+    def test_deploy_token(self):
+        # should have no code on contract address
+        assert_equal(Web3.to_hex(self.web3.eth.get_code(self.contract_address_btc)), "0x")
 
-        # Generate chain
-        node.generate(105)
-        self.nodes[0].utxostoaccount({address: "100@DFI"})
-        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
-        self.nodes[0].generate(1)
-        node.transferdomain(
-            [
-                {
-                    "src": {"address": address, "amount": "50@DFI", "domain": 2},
-                    "dst": {
-                        "address": "0xeB4B222C3dE281d40F5EBe8B273106bFcC1C1b94",
-                        "amount": "50@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        from web3 import Web3
-
-        web3 = Web3(Web3.HTTPProvider(node.get_evm_rpc()))
-
-        node.createtoken(
+        self.node.createtoken(
             {
                 "symbol": "BTC",
                 "name": "BTC token",
                 "isDAT": True,
-                "collateralAddress": address,
+                "collateralAddress": self.address,
             }
         )
         self.nodes[0].generate(1)
 
-        node.createtoken(
+        # should have code on contract address
+        assert(Web3.to_hex(self.web3.eth.get_code(self.contract_address_btc)) != "0x")
+
+        # check contract variables
+        self.btc = self.web3.eth.contract(address=self.contract_address_btc, abi=self.abi)
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+
+    def test_deploy_multiple_tokens(self):
+        # should have no code on contract addresses
+        assert_equal(Web3.to_hex(self.web3.eth.get_code(self.contract_address_eth)), "0x")
+        assert_equal(Web3.to_hex(self.web3.eth.get_code(self.contract_address_dusd)), "0x")
+
+        self.node.createtoken(
             {
                 "symbol": "ETH",
                 "name": "ETH token",
                 "isDAT": True,
-                "collateralAddress": address,
+                "collateralAddress": self.address,
             }
         )
-        node.createtoken(
+        self.node.createtoken(
             {
                 "symbol": "DUSD",
                 "name": "DUSD token",
                 "isDAT": True,
-                "collateralAddress": address,
+                "collateralAddress": self.address,
             }
         )
-        self.nodes[0].generate(1)
+        self.node.generate(1)
 
-        contract_address_btc = "0xff00000000000000000000000000000000000001"
-        contract_address_eth = "0xff00000000000000000000000000000000000002"
-        contract_address_dusd = Web3.to_checksum_address(
-            "0xff00000000000000000000000000000000000003"
-        )
+        # should have code on contract address
+        assert(Web3.to_hex(self.web3.eth.get_code(self.contract_address_eth)) != "0x")
+        assert(Web3.to_hex(self.web3.eth.get_code(self.contract_address_dusd)) != "0x")
 
-        abi = open("./lib/ain-contracts/dst20/output/abi.json", encoding="utf-8").read()
+        # check contract variables
+        self.eth = self.web3.eth.contract(address=self.contract_address_eth, abi=self.abi)
+        assert_equal(self.eth.functions.name().call(), "ETH token")
+        assert_equal(self.eth.functions.symbol().call(), "ETH")
 
-        btc = web3.eth.contract(address=contract_address_btc, abi=abi)
-        assert_equal(btc.functions.name().call(), "BTC token")
-        assert_equal(btc.functions.symbol().call(), "BTC")
+        self.dusd = self.web3.eth.contract(address=self.contract_address_dusd, abi=self.abi)
+        assert_equal(self.dusd.functions.name().call(), "DUSD token")
+        assert_equal(self.dusd.functions.symbol().call(), "DUSD")
 
-        eth = web3.eth.contract(address=contract_address_eth, abi=abi)
-        assert_equal(eth.functions.name().call(), "ETH token")
-        assert_equal(eth.functions.symbol().call(), "ETH")
-
-        dusd = web3.eth.contract(address=contract_address_dusd, abi=abi)
-        assert_equal(dusd.functions.name().call(), "DUSD token")
-        assert_equal(dusd.functions.symbol().call(), "DUSD")
-
-        key_pair = KeyPair.from_node(node)
-
-        node.minttokens("10@BTC")
-        node.generate(1)
-
-        self.nodes[0].transferdomain(
+    def test_dst20_dvm_to_evm_bridge(self):
+        self.node.transferdomain(
             [
                 {
-                    "src": {"address": address, "amount": "1@BTC", "domain": 2},
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
                     "dst": {
-                        "address": key_pair.address,
+                        "address": self.key_pair.address,
                         "amount": "1@BTC",
                         "domain": 3,
                     },
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
         assert_equal(
-            btc.functions.balanceOf(key_pair.address).call()
-            / math.pow(10, btc.functions.decimals().call()),
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(1),
             )
 
-        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(amountBTC, "9.00000000@BTC")
 
+        # transfer again to check if state is updated instead of being overwritten by new value
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": address, "amount": "1@BTC", "domain": 2},
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
                     "dst": {
-                        "address": key_pair.address,
+                        "address": self.key_pair.address,
                         "amount": "1@BTC",
                         "domain": 3,
                     },
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
         assert_equal(
-            btc.functions.balanceOf(key_pair.address).call()
-            / math.pow(10, btc.functions.decimals().call()),
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(2),
             )
-        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(amountBTC, "8.00000000@BTC")
 
-        self.nodes[0].transferdomain(
+    def test_dst20_evm_to_dvm_bridge(self):
+        self.node.transferdomain(
             [
                 {
-                    "dst": {"address": address, "amount": "1.5@BTC", "domain": 2},
+                    "dst": {"address": self.address, "amount": "1.5@BTC", "domain": 2},
                     "src": {
-                        "address": key_pair.address,
+                        "address": self.key_pair.address,
                         "amount": "1.5@BTC",
                         "domain": 3,
                     },
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
         assert_equal(
-            btc.functions.balanceOf(key_pair.address).call()
-            / math.pow(10, btc.functions.decimals().call()),
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(0.5),
             )
-        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
+        [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(amountBTC, "9.50000000@BTC")
 
-        # test multiple transferdomains in the same block
+    def test_multiple_dvm_evm_bridge(self):
+        self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                        "dst": {
+                            "address": self.key_pair.address,
+                            "amount": "1@BTC",
+                            "domain": 3,
+                        },
+                    }
+                ]
+            )
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": address, "amount": "1@BTC", "domain": 2},
+                    "src": {"address": self.address, "amount": "2@BTC", "domain": 2},
                     "dst": {
-                        "address": key_pair.address,
+                        "address": self.key_pair.address,
+                        "amount": "2@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
+        assert_equal(
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(3.5),
+            )
+        [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
+        assert_equal(amountBTC, "6.50000000@BTC")
+
+    def test_conflicting_bridge(self):
+        [beforeAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
+
+        # should be processed in order so balance is bridged to and back in the same block
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.key_pair2.address,
                         "amount": "1@BTC",
                         "domain": 3,
                     },
@@ -205,32 +225,87 @@ class DST20(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": address, "amount": "2@BTC", "domain": 2},
-                    "dst": {
-                        "address": key_pair.address,
-                        "amount": "2@BTC",
+                    "src": {
+                        "address": self.key_pair2.address,
+                        "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "dst": {"address": self.address, "amount": "1@BTC", "domain": 2}
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
-        assert_equal(
-            btc.functions.balanceOf(key_pair.address).call()
-            / math.pow(10, btc.functions.decimals().call()),
-            Decimal(3.5),
-            )
-        [amountBTC] = [x for x in node.getaccount(address) if "BTC" in x]
-        assert_equal(amountBTC, "6.50000000@BTC")
+        [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
+        assert_equal(self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0))
+        assert_equal(beforeAmount, afterAmount)
+
+
+    def test_bridge_when_no_balance(self):
+        assert_equal(self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0))
+        [beforeAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.key_pair2.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                    "dst": {"address": self.address, "amount": "1@BTC", "domain": 2}
+                }
+            ]
+        )
+        self.node.generate(1)
+
+        assert_equal(self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0))
+        [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
+        assert_equal(beforeAmount, afterAmount)
+
+
+    def run_test(self):
+        self.node = self.nodes[0]
+        self.address = self.node.get_genesis_keys().ownerAuthAddress
+        self.web3 = Web3(Web3.HTTPProvider(self.node.get_evm_rpc()))
+
+        # Contract addresses
+        self.contract_address_btc = "0xff00000000000000000000000000000000000001"
+        self.contract_address_eth = "0xff00000000000000000000000000000000000002"
+        self.contract_address_dusd = Web3.to_checksum_address(
+            "0xff00000000000000000000000000000000000003"
+        )
+
+        # Contract ABI
+        self.abi = open("./lib/ain-contracts/dst20/output/abi.json", encoding="utf-8").read()
+
+        # Generate chain
+        self.node.generate(105)
+        self.nodes[0].utxostoaccount({self.address: "100@DFI"})
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
+        self.nodes[0].generate(1)
+
+        self.test_deploy_token()
+        self.test_deploy_multiple_tokens()
+
+        self.key_pair = KeyPair.from_node(self.node)
+        self.key_pair2 = KeyPair.from_node(self.node)
+        self.node.minttokens("10@BTC")
+        self.node.generate(1)
+
+        self.test_dst20_dvm_to_evm_bridge()
+        self.test_dst20_evm_to_dvm_bridge()
+        self.test_multiple_dvm_evm_bridge()
+        self.test_conflicting_bridge()
+        self.test_bridge_when_no_balance()
 
         # test transferdomain for contract that does not exist
         assert_raises_rpc_error(0, "Invalid Defi token: XYZ", self.nodes[0].transferdomain,
             [
                 {
-                    "src": {"address": address, "amount": "1@XYZ", "domain": 2},
+                    "src": {"address": self.address, "amount": "1@XYZ", "domain": 2},
                     "dst": {
-                        "address": key_pair.address,
+                        "address": self.key_pair.address,
                         "amount": "1@XYZ",
                         "domain": 3,
                     },
@@ -242,20 +317,20 @@ class DST20(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": address, "amount": "2@BTC", "domain": 2},
+                    "src": {"address": self.address, "amount": "2@BTC", "domain": 2},
                     "dst": {
-                        "address": contract_address_btc,
+                        "address": self.contract_address_btc,
                         "amount": "2@BTC",
                         "domain": 3,
                     },
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
         assert_equal(
-            btc.functions.balanceOf(contract_address_btc).call()
-            / math.pow(10, btc.functions.decimals().call()),
+            self.btc.functions.balanceOf(self.contract_address_btc).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(2),
         )
 
