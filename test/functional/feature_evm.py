@@ -245,7 +245,8 @@ class EVMTest(DefiTestFramework):
              'r': '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c',
              's': '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a',
              'type': '0x0',
-             'maxFeePerGas': '0x4e3b29200'}
+             'maxFeePerGas': '0x4e3b29200',
+             'chainId': '0x1'}
         ])
 
         # Try and send EVM TX a second time
