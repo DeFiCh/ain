@@ -23,7 +23,7 @@ pub static IS_SERVICES_INIT_CALL: AtomicBool = AtomicBool::new(false);
 lazy_static::lazy_static! {
     // Global services exposed by the library
     pub static ref SERVICES: Services = {
-        IS_SERVICES_INIT_CALL.store(true, Ordering::Release);
+        IS_SERVICES_INIT_CALL.store(true, Ordering::SeqCst);
         Services::new()
     };
 }

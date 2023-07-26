@@ -93,7 +93,7 @@ pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()>
 }
 
 fn is_services_init_called() -> bool {
-    IS_SERVICES_INIT_CALL.load(Ordering::Acquire)
+    IS_SERVICES_INIT_CALL.load(Ordering::SeqCst)
 }
 
 pub fn stop_network_services() -> Result<()> {
