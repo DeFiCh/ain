@@ -103,15 +103,13 @@ impl EVMCoreService {
                 nonce: genesis.nonce.unwrap_or_default(),
                 timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
                 difficulty: genesis.difficulty.unwrap_or_default(),
+                base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },
             Vec::new(),
             Vec::new(),
         );
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
-        // NOTE(canonbrother): set an initial base fee for genesis block
-        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
-        storage.set_base_fee(block.header.hash(), INITIAL_BASE_FEE);
 
         handler
     }
@@ -168,7 +166,7 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
-        context: u64,
+        queue_id: u64,
         use_context: bool,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
@@ -259,7 +257,7 @@ impl EVMCoreService {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
-                .get_total_gas_used(context)
+                .get_total_gas_used(queue_id)
                 .unwrap_or_default();
 
             if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
@@ -288,20 +286,20 @@ impl EVMCoreService {
 impl EVMCoreService {
     pub fn add_balance(
         &self,
-        context: u64,
+        queue_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(context, queue_tx, hash, 0u64, U256::zero())?;
+            .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
         Ok(())
     }
 
     pub fn sub_balance(
         &self,
-        context: u64,
+        queue_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
@@ -321,34 +319,34 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(context, queue_tx, hash, 0u64, U256::zero())?;
+                .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
             Ok(())
         }
     }
 
-    pub fn get_context(&self) -> u64 {
-        self.tx_queues.get_context()
+    pub fn get_queue_id(&self) -> u64 {
+        self.tx_queues.get_queue_id()
     }
 
-    pub fn clear(&self, context: u64) -> Result<(), EVMError> {
-        self.tx_queues.clear(context)?;
+    pub fn clear(&self, queue_id: u64) -> Result<(), EVMError> {
+        self.tx_queues.clear(queue_id)?;
         Ok(())
     }
 
-    pub fn remove(&self, context: u64) {
-        self.tx_queues.remove(context);
+    pub fn remove(&self, queue_id: u64) {
+        self.tx_queues.remove(queue_id);
     }
 
-    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<(), EVMError> {
-        self.tx_queues.remove_txs_by_sender(context, address)?;
+    pub fn remove_txs_by_sender(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
+        self.tx_queues.remove_txs_by_sender(queue_id, address)?;
         Ok(())
     }
 
-    /// Retrieves the next valid nonce for the specified account within a particular context.
+    /// Retrieves the next valid nonce for the specified account within a particular queue.
     ///
     /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// provided queue_id. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this queue_id. It falls back to retrieving the nonce from the storage at the latest
     /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
     /// the nonce is defaulted to zero.
     ///
@@ -357,16 +355,16 @@ impl EVMCoreService {
     ///
     /// # Arguments
     ///
-    /// * `context` - The context queue number.
+    /// * `queue_id` - The queue_id queue number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(context, address)
+            .get_next_valid_nonce(queue_id, address)
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
@@ -379,7 +377,7 @@ impl EVMCoreService {
             });
 
         debug!(
-            "Account {:x?} nonce {:x?} in context {context}",
+            "Account {:x?} nonce {:x?} in queue_id {queue_id}",
             address, nonce
         );
         nonce
