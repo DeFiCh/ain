@@ -1013,8 +1013,8 @@ get_rust_triplet() {
         x86_64-pc-linux-gnu) result=x86_64-unknown-linux-gnu;;
         aarch64-linux-gnu|aarch64-unknown-linux-gnu) result=aarch64-unknown-linux-gnu;;
         arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) result=armv7-unknown-linux-gnueabihf;;
-        x86_64-apple-darwin) result=x86_64-apple-darwin;;
-        aarch64-apple-darwin) result=aarch64-apple-darwin;;
+        x86_64-apple-darwin*) result=x86_64-apple-darwin;;
+        aarch64-apple-darwin*) result=aarch64-apple-darwin;;
         x86_64-w64-mingw32) result=x86_64-pc-windows-gnu;;
         *) echo "error: unsupported triplet: ${triplet}"; exit 1;;
     esac
