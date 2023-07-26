@@ -1375,19 +1375,21 @@ AC_SUBST(PROTOC)
 AC_SUBST(PROTOC_INCLUDE_DIR)
 
 dnl If the host and build triplets are the same, we keep this empty
-if test x$host = x$build; then
+RUST_HOST=`$ac_abs_confdir/make.sh get_rust_triplet "$build"`
+if test $? != 0; then
+AC_MSG_ERROR("unsupported build system")
+fi
+
+RUST_TARGET=`$ac_abs_confdir/make.sh get_rust_triplet "$host"`
+if test $? != 0; then
+AC_MSG_ERROR("unsupported host target")
+fi
+
+if test x$RUST_HOST = x$RUST_TARGET; then
   RUST_TARGET=
   RUST_HOST=
-else
-  RUST_HOST=`$ac_abs_confdir/make.sh get_rust_triplet "$build"`
-  if test $? != 0; then
-    AC_MSG_ERROR("unsupported build system")
-  fi
-  RUST_TARGET=`$ac_abs_confdir/make.sh get_rust_triplet "$host"`
-  if test $? != 0; then
-    AC_MSG_ERROR("unsupported host target")
-  fi
 fi
+
 AC_SUBST(RUST_TARGET)
 AC_SUBST(RUST_HOST)
 AM_CONDITIONAL([HAVE_RUST_TARGET], [test x$RUST_TARGET != x])
