@@ -546,6 +546,13 @@ pkg_install_rust() {
     _fold_end
 }
 
+pkg_install_solc() {
+    _fold_start "pkg-install-solc"
+    add-apt-repository ppa:ethereum/ethereum -y
+    apt-get update
+    apt-get install solc -y
+}
+
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
@@ -969,6 +976,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    DEBIAN_FRONTEND=noninteractive pkg_install_solc
 }
 
 _ci_setup_deps_target() {

@@ -17,6 +17,9 @@ use crate::txqueue::QueueTx;
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
 
+use crate::bytes::Bytes;
+use crate::services::SERVICES;
+use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::anyhow;
 use hex::FromHex;
 use log::debug;
@@ -41,6 +44,12 @@ pub struct FinalizedBlockInfo {
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
+}
+
+pub struct CounterContractInfo {
+    pub address: H160,
+    pub storage: Vec<(H256, H256)>,
+    pub bytecode: Bytes,
 }
 
 impl EVMServices {
@@ -144,6 +153,20 @@ impl EVMServices {
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
+
+        if current_block_number == U256::zero() {
+            let CounterContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = EVMServices::counter_contract()?;
+            executor.deploy_contract(address, bytecode, storage)?;
+        } else {
+            let CounterContractInfo {
+                address, storage, ..
+            } = EVMServices::counter_contract()?;
+            executor.update_storage(address, storage)?;
+        }
 
         for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(queue_id) {
             match queue_tx {
@@ -355,5 +378,26 @@ impl EVMServices {
         }
 
         Ok(())
+    }
+
+    /// Returns address, bytecode and storage with incremented count for the counter contract
+    pub fn counter_contract() -> Result<CounterContractInfo, Box<dyn Error>> {
+        let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
+        let bytecode = ain_contracts::get_counter_bytecode()?;
+        let count = SERVICES
+            .evm
+            .core
+            .get_latest_contract_storage(address, U256::one())?;
+
+        debug!("Count: {:#x}", count + U256::one());
+
+        Ok(CounterContractInfo {
+            address,
+            bytecode: Bytes::from(bytecode),
+            storage: vec![(
+                H256::from_low_u64_be(1),
+                ain_contracts::u256_to_h256(count + U256::one()),
+            )],
+        })
     }
 }
