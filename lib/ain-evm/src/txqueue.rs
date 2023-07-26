@@ -22,9 +22,9 @@ impl Default for TransactionQueueMap {
     }
 }
 
-/// Holds multiple `TransactionQueue`s, each associated with a unique context ID.
+/// Holds multiple `TransactionQueue`s, each associated with a unique queue ID.
 ///
-/// Context IDs are randomly generated and used to access distinct transaction queues.
+/// Queue IDs are randomly generated and used to access distinct transaction queues.
 impl TransactionQueueMap {
     pub fn new() -> Self {
         TransactionQueueMap {
@@ -32,43 +32,43 @@ impl TransactionQueueMap {
         }
     }
 
-    /// `get_context` generates a unique random ID, creates a new `TransactionQueue` for that ID,
+    /// `get_queue_id` generates a unique random ID, creates a new `TransactionQueue` for that ID,
     /// and then returns the ID.
-    pub fn get_context(&self) -> u64 {
+    pub fn get_queue_id(&self) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
-            let context = rng.gen();
-            // Safety check to disallow 0 as it's equivalent to no context
-            if context == 0 {
+            let queue_id = rng.gen();
+            // Safety check to disallow 0 as it's equivalent to no queue_id
+            if queue_id == 0 {
                 continue;
             };
             let mut write_guard = self.queues.write().unwrap();
 
-            if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(context) {
+            if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
                 e.insert(TransactionQueue::new());
-                return context;
+                return queue_id;
             }
         }
     }
 
     /// Try to remove and return the `TransactionQueue` associated with the provided
-    /// context ID.
-    pub fn remove(&self, context_id: u64) -> Option<TransactionQueue> {
-        self.queues.write().unwrap().remove(&context_id)
+    /// queue ID.
+    pub fn remove(&self, queue_id: u64) -> Option<TransactionQueue> {
+        self.queues.write().unwrap().remove(&queue_id)
     }
 
-    /// Clears the `TransactionQueue` vector associated with the provided context ID.
-    pub fn clear(&self, context_id: u64) -> Result<(), QueueError> {
+    /// Clears the `TransactionQueue` vector associated with the provided queue ID.
+    pub fn clear(&self, queue_id: u64) -> Result<(), QueueError> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .ok_or(QueueError::NoSuchContext)
             .map(TransactionQueue::clear)
     }
 
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the
-    /// provided context ID. If the transaction is a `SignedTx`, it also updates the
+    /// provided queue ID. If the transaction is a `SignedTx`, it also updates the
     /// corresponding account's nonce.
     /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
     /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a nonce
@@ -77,13 +77,13 @@ impl TransactionQueueMap {
     ///
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
+    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given queue ID.
     /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
     ///
     pub fn queue_tx(
         &self,
-        context_id: u64,
+        queue_id: u64,
         tx: QueueTx,
         hash: NativeTxHash,
         gas_used: u64,
@@ -92,77 +92,77 @@ impl TransactionQueueMap {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .ok_or(QueueError::NoSuchContext)
             .map(|queue| queue.queue_tx((tx, hash), gas_used, base_fee))?
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
-    /// provided context ID, removing them from the queue. Transactions are returned in the
+    /// provided queue ID, removing them from the queue. Transactions are returned in the
     /// order they were added.
-    pub fn drain_all(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+    pub fn drain_all(&self, queue_id: u64) -> Vec<QueueTxWithNativeHash> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .map_or(Vec::new(), TransactionQueue::drain_all)
     }
 
-    pub fn get_cloned_vec(&self, context_id: u64) -> Vec<QueueTxWithNativeHash> {
+    pub fn get_cloned_vec(&self, queue_id: u64) -> Vec<QueueTxWithNativeHash> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .map_or(Vec::new(), TransactionQueue::get_cloned_vec)
     }
 
-    pub fn len(&self, context_id: u64) -> usize {
+    pub fn len(&self, queue_id: u64) -> usize {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .map_or(0, TransactionQueue::len)
     }
 
     /// Removes all transactions in the queue whose sender matches the provided sender address.
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given context ID.
+    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given queue ID.
     ///
-    pub fn remove_txs_by_sender(&self, context_id: u64, sender: H160) -> Result<(), QueueError> {
+    pub fn remove_txs_by_sender(&self, queue_id: u64, sender: H160) -> Result<(), QueueError> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .ok_or(QueueError::NoSuchContext)
             .map(|queue| queue.remove_txs_by_sender(sender))
     }
 
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
-    /// in the `TransactionQueue` associated with the provided context ID. This method assumes that
+    /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
     /// and that their nonces are in increasing order.
-    pub fn get_next_valid_nonce(&self, context_id: u64, address: H160) -> Option<U256> {
+    pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Option<U256> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .and_then(|queue| queue.get_next_valid_nonce(address))
     }
 
-    pub fn get_total_gas_used(&self, context_id: u64) -> Option<u64> {
+    pub fn get_total_gas_used(&self, queue_id: u64) -> Option<u64> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .map(|queue| queue.get_total_gas_used())
     }
 
-    pub fn get_total_fees(&self, context_id: u64) -> Option<u64> {
+    pub fn get_total_fees(&self, queue_id: u64) -> Option<u64> {
         self.queues
             .read()
             .unwrap()
-            .get(&context_id)
+            .get(&queue_id)
             .map(|queue| queue.get_total_fees())
     }
 }
@@ -179,49 +179,55 @@ type QueueTxWithNativeHash = (QueueTx, NativeTxHash);
 /// It's used to manage and process transactions for different accounts.
 ///
 #[derive(Debug, Default)]
+struct TransactionQueueData {
+    transactions: Vec<QueueTxWithNativeHash>,
+    account_nonces: HashMap<H160, U256>,
+    total_fees: u64,
+    total_gas_used: u64,
+}
+
+impl TransactionQueueData {
+    pub fn new() -> Self {
+        Self {
+            transactions: Vec::new(),
+            account_nonces: HashMap::new(),
+            total_fees: 0u64,
+            total_gas_used: 0u64,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct TransactionQueue {
-    transactions: Mutex<Vec<QueueTxWithNativeHash>>,
-    account_nonces: Mutex<HashMap<H160, U256>>,
-    total_fees: Mutex<u64>,
-    total_gas_used: Mutex<u64>,
+    data: Mutex<TransactionQueueData>,
 }
 
 impl TransactionQueue {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
-            transactions: Mutex::new(Vec::new()),
-            account_nonces: Mutex::new(HashMap::new()),
-            total_fees: Mutex::new(0u64),
-            total_gas_used: Mutex::new(0u64),
+            data: Mutex::new(TransactionQueueData::new()),
         }
     }
 
     pub fn clear(&self) {
-        let mut total_fees = self.total_fees.lock().unwrap();
-        *total_fees = 0u64;
-
-        let mut total_gas_used = self.total_gas_used.lock().unwrap();
-        *total_gas_used = 0u64;
-
-        self.transactions.lock().unwrap().clear();
+        let mut data = self.data.lock().unwrap();
+        data.total_fees = 0u64;
+        data.total_gas_used = 0u64;
+        data.transactions.clear();
     }
 
     pub fn drain_all(&self) -> Vec<QueueTxWithNativeHash> {
-        let mut total_fees = self.total_fees.lock().unwrap();
-        *total_fees = 0u64;
+        let mut data = self.data.lock().unwrap();
+        data.total_fees = 0u64;
+        data.total_gas_used = 0u64;
 
-        let mut total_gas_used = self.total_gas_used.lock().unwrap();
-        *total_gas_used = 0u64;
-
-        self.transactions
-            .lock()
-            .unwrap()
+        data.transactions
             .drain(..)
             .collect::<Vec<QueueTxWithNativeHash>>()
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxWithNativeHash> {
-        self.transactions.lock().unwrap().clone()
+        self.data.lock().unwrap().transactions.clone()
     }
 
     pub fn queue_tx(
@@ -230,60 +236,60 @@ impl TransactionQueue {
         gas_used: u64,
         base_fee: U256,
     ) -> Result<(), QueueError> {
+        let mut data = self.data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx.0 {
-            let mut account_nonces = self.account_nonces.lock().unwrap();
-            if let Some(nonce) = account_nonces.get(&signed_tx.sender) {
+            if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
                     return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
                 }
             }
-            account_nonces.insert(signed_tx.sender, signed_tx.nonce());
+            data.account_nonces
+                .insert(signed_tx.sender, signed_tx.nonce());
 
             let gas_fee = match calculate_gas_fee(signed_tx, gas_used.into(), base_fee) {
                 Ok(fee) => fee.as_u64(),
                 Err(_) => return Err(QueueError::InvalidFee),
             };
 
-            let mut total_fees = self.total_fees.lock().unwrap();
-            *total_fees += gas_fee;
-
-            let mut total_gas_used = self.total_gas_used.lock().unwrap();
-            *total_gas_used += gas_used;
+            data.total_fees += gas_fee;
+            data.total_gas_used += gas_used;
         }
-        self.transactions.lock().unwrap().push(tx);
+        data.transactions.push(tx);
         Ok(())
     }
 
     pub fn len(&self) -> usize {
-        self.transactions.lock().unwrap().len()
+        self.data.lock().unwrap().transactions.len()
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
-        self.transactions.lock().unwrap().retain(|(tx, _)| {
+        let mut data = self.data.lock().unwrap();
+        data.transactions.retain(|(tx, _)| {
             let tx_sender = match tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::BridgeTx(tx) => tx.sender(),
             };
             tx_sender != sender
         });
-        self.account_nonces.lock().unwrap().remove(&sender);
+        data.account_nonces.remove(&sender);
     }
 
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
-        self.account_nonces
+        self.data
             .lock()
             .unwrap()
+            .account_nonces
             .get(&address)
             .map(ToOwned::to_owned)
             .map(|nonce| nonce + 1)
     }
 
     pub fn get_total_fees(&self) -> u64 {
-        *self.total_fees.lock().unwrap()
+        self.data.lock().unwrap().total_fees
     }
 
     pub fn get_total_gas_used(&self) -> u64 {
-        *self.total_gas_used.lock().unwrap()
+        self.data.lock().unwrap().total_gas_used
     }
 }
 
@@ -303,7 +309,7 @@ pub enum QueueError {
 impl std::fmt::Display for QueueError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            QueueError::NoSuchContext => write!(f, "No transaction queue for this context"),
+            QueueError::NoSuchContext => write!(f, "No transaction queue for this queue"),
             QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
             QueueError::InvalidFee => write!(f, "Invalid transaction fee from value overflow"),
         }

@@ -44,7 +44,7 @@ fn should_get_balance() {
     let res = EthService::Eth_GetBalance(handler.clone(), input.clone().into());
     assert_eq!(res.unwrap().balance, "0");
 
-    let ctx = handler.evm.get_context();
+    let ctx = handler.evm.get_queue_id();
 
     handler
         .evm
