@@ -38,3 +38,10 @@ pub fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult) {
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
+
+pub fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult) {
+    match ain_grpc::wipe_evm_folder() {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
