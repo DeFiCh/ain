@@ -83,6 +83,8 @@ enum EconomyKeys : uint8_t {
     ConsolidatedInterest      = 'o',  // Amount added to loan amounts after auction with no bids.
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
     Loans                     = 'q',
+    TransferDomainTotal       = 'r',
+    EVMFees                   = 's',
 };
 
 enum DFIPKeys : uint8_t {
@@ -261,6 +263,32 @@ struct CDexTokenInfo {
 
 enum FeeDirValues : uint8_t { Both, In, Out };
 
+struct CTransferDomainTotal {
+    CBalances dvmEvm;
+    CBalances evmDvm;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(dvmEvm);
+        READWRITE(evmDvm);
+    }
+};
+
+struct CEvmFees {
+    CAmount burnt;
+    CAmount paid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(burnt);
+        READWRITE(paid);
+    }
+};
+
 struct CConsortiumMember {
     static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
     static const uint16_t MIN_CONSORTIUM_MEMBERS_STRING_LENGTH = 3;
@@ -334,6 +362,8 @@ using CAttributeValue          = std::variant<bool,
                                      CDexBalances,
                                      std::set<CScript>,
                                      std::set<std::string>,
+                                     CTransferDomainTotal,
+                                     CEvmFees,
                                      CConsortiumMembers,
                                      CConsortiumMembersMinted,
                                      CConsortiumGlobalMinted,

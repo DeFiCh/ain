@@ -2441,13 +2441,23 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
+    const auto attributes = cache.GetAttributes();
+    assert(attributes);
+    CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
+    auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
+
     if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
         cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
         cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+        evmFees.paid += static_cast<CAmount>(blockResult.total_priority_fees);
+        evmFees.burnt += static_cast<CAmount>(blockResult.total_burnt_fees);
     }
     else {
         cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
     }
+
+    attributes->SetValue(evmFeesKey, evmFees);
+    cache.SetVariable(*attributes);
 }
 
 static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {

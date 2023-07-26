@@ -13,6 +13,7 @@ from test_framework.util import (
     int_to_eth_u256
 )
 
+from decimal import Decimal
 
 # pragma solidity ^0.8.2;
 # contract Multiply {
@@ -88,6 +89,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0')})
 
         tx2930 = {
             'from': self.ethAddress,

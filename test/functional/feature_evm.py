@@ -148,6 +148,10 @@ class EVMTest(DefiTestFramework):
         miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         before_blockheight = self.nodes[0].getblockcount()
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0'), 'paid': Decimal('0')})
+
         # Test EVM Tx added first in time ordering
         self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
         self.sync_mempools()
@@ -197,6 +201,10 @@ class EVMTest(DefiTestFramework):
 
         # Mint TXs
         self.nodes[0].generate(1)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0.00023100')})
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']

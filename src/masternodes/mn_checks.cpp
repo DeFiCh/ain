@@ -3871,6 +3871,11 @@ public:
             return res;
         }
 
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 transferDomainTotalKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainTotal};
+        auto transferDomainBalance = attributes->GetValue(transferDomainTotalKey, CTransferDomainTotal{});
+
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
             if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
@@ -3880,6 +3885,7 @@ public:
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
+                transferDomainBalance.dvmEvm.AddBalances(balance.balances);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
@@ -3898,6 +3904,7 @@ public:
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
+                transferDomainBalance.evmDvm.AddBalances(balance.balances);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
@@ -3917,6 +3924,9 @@ public:
                 }
             }
         }
+
+        attributes->SetValue(transferDomainTotalKey, transferDomainBalance);
+        mnview.SetVariable(*attributes);
 
         return res;
     }

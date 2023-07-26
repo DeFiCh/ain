@@ -146,6 +146,15 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
         assert_equal(self.nodes[0].getaccount(self.eth_address)[0], "100.00000000@DFI")
 
+        # Check accounting of DVM->EVM transfer
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/transfer_domain'], {'DvmEvm': ['100.00000000@DFI'], 'EvmDvm': []})
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0E-8'), 'paid': Decimal('0E-8')})
+
+
     def invalid_values_evm_dvm(self):
         # Check for valid values EVM->DVM in transferdomain rpc
         assert_raises_rpc_error(-32600, "Src address must be an ERC55 address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
@@ -183,6 +192,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(new_eth_balance, self.eth_balance)
         assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
 
+        # Check accounting of DVM->EVM transfer
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/transfer_domain'], {'DvmEvm': ['100.00000000@DFI'], 'EvmDvm': ['100.00000000@DFI']})
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0E-8'), 'paid': Decimal('0E-8')})
+
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(-5, "Incorrect authorization for " + self.address1, self.nodes[0].transferdomain, [{"src": {"address":self.address1, "amount":"1@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"1@DFI", "domain": 3}}])
         assert_raises_rpc_error(-5, "no full public key for address", self.nodes[0].transferdomain, [{"src": {"address":self.no_auth_eth_address, "amount":"1@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"1@DFI", "domain": 2}}])
@@ -219,6 +236,10 @@ class EVMTest(DefiTestFramework):
         new_eth1_balance = self.nodes[0].eth_getBalance(self.eth_address1)
         assert_equal(new_eth1_balance, int_to_eth_u256(100))
 
+        # Check accounting of EVM fees 21 Gwei * 21000 = 44100 sat, burnt 21000, paid 44100 - 21000 = 23100
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0.00023100')})
+
         dfi_balance = self.nodes[0].getaccount(self.address, {}, True)['0']
 
         # Transfer 100 DFI from EVM to DVM
@@ -240,6 +261,10 @@ class EVMTest(DefiTestFramework):
         new_eth1_balance = self.nodes[0].eth_getBalance(self.eth_address1)
         assert_equal(new_eth1_balance, "0x0")
         assert_equal(len(self.nodes[0].getaccount(self.eth_address1, {}, True)), 0)
+
+        # Check accounting of all transfers
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/transfer_domain'], {'DvmEvm': ['101.00000000@DFI'], 'EvmDvm': ['100.00000000@DFI']})
 
     def run_test(self):
         self.setup()

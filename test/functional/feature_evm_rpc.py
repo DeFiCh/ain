@@ -12,6 +12,7 @@ from test_framework.util import (
     int_to_eth_u256
 )
 
+from decimal import Decimal
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -126,6 +127,10 @@ class EVMTest(DefiTestFramework):
         # state check
         block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
         assert_equal(block, latest_block)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0.00023100')})
 
     def run_test(self):
         self.setup()

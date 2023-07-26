@@ -11,6 +11,8 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
+from decimal import Decimal
+
 class EVMFeeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -63,6 +65,10 @@ class EVMFeeTest(DefiTestFramework):
         # Deduct 50000. 29000 value + min 21000 call fee
         assert_equal(int(balance[2:], 16), 99999789999999971000)
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0')})
+
         self.rollback_to(height)
 
     def test_low_gas_price(self):
@@ -99,6 +105,10 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         # Deduct 21_000_000_029_000. 29_000 value + 21_000 * 1_000_000_000
         assert_equal(int(balance[2:], 16), 99999789999999971000)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0')})
 
         self.rollback_to(height)
 
