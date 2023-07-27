@@ -252,13 +252,11 @@ impl TransactionQueue {
             data.account_nonces
                 .insert(signed_tx.sender, signed_tx.nonce());
 
-            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
-                gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
-                    Ok(fee) => fee,
-                    Err(_) => return Err(QueueError::InvalidFee),
-                };
-                data.total_fees += gas_fee;
-            }
+            gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
+                Ok(fee) => fee,
+                Err(_) => return Err(QueueError::InvalidFee),
+            };
+            data.total_fees += gas_fee;
             data.total_gas_used += gas_used;
         }
         data.transactions.push(QueueTxItem {
