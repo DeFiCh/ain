@@ -46,31 +46,61 @@ class EVMTest(DefiTestFramework):
         node.generate(1)
 
     def run_test(self):
-
+        # Addresses and keys
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
-        eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
+        eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
         to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
 
-        # Import to_address
-        self.nodes[0].importprivkey(to_address_privkey)
+        # Import Bech32 compressed private key for:
+        # Bech32: bcrt1qu7xc8kkpwzxzamw5236j2gpvtxmgp2zmfzmc32
+        # Eth: 0x1286B92185a5d95eA7747F399e6cB1842851fAC3
+        self.nodes[0].importprivkey("cNQ9fkAkHfWCPuyi5huZS6co3vND7tkNoWL7HiR2Jck3Jcb28SYW")
+        bech32_info = self.nodes[0].getaddressinfo('bcrt1qu7xc8kkpwzxzamw5236j2gpvtxmgp2zmfzmc32')
+        assert_equal(bech32_info['ismine'], True)
+        assert_equal(bech32_info['solvable'], True)
+        assert_equal(bech32_info['pubkey'], '03451d293bef258fa768bed74a5301ce4cfee2b1a8d9f87d20bb669668d9cb75b8')
+        eth_info = self.nodes[0].getaddressinfo('0x1286B92185a5d95eA7747F399e6cB1842851fAC3')
+        assert_equal(eth_info['ismine'], True)
+        assert_equal(eth_info['solvable'], True)
+        assert_equal(eth_info['pubkey'], '04451d293bef258fa768bed74a5301ce4cfee2b1a8d9f87d20bb669668d9cb75b86e90a39bdc9cf04e708ad0b3a8589ce3d1fab3b37a6e7651e7fa9e61e442abf1')
 
-        # Import eth_address and validate Bech32 eqivilent is part of the wallet
-        self.nodes[0].importprivkey('af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23')
-        result = self.nodes[0].getaddressinfo(eth_address_bech32)
-        assert_equal(result['scriptPubKey'], '00145f4fbcf30273f770702297e8e0fc55f1bb213db3')
-        assert_equal(result['pubkey'], '021286647f7440111ab928bdea4daa42533639c4567d81eca0fff622fb6438eae3')
-        assert_equal(result['ismine'], True)
-        assert_equal(result['iswitness'], True)
+        # Import Eth private key for:
+        # Bech32: bcrt1q25m0h24ef4njmjznwwe85w99cn78k04te6w3qt
+        # Eth: 0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E
+        self.nodes[0].importprivkey("56c679ab38001e7d427e3fbc4363fcd2100e74d8ac650a2d2ff3a69254d4dae4")
+        bech32_info = self.nodes[0].getaddressinfo('bcrt1q25m0h24ef4njmjznwwe85w99cn78k04te6w3qt')
+        assert_equal(bech32_info['ismine'], True)
+        assert_equal(bech32_info['solvable'], True)
+        assert_equal(bech32_info['pubkey'], '02ed3add70f9d3fde074bc74310d5684f5e5d2836106a8286aef1324f9791658da')
+        eth_info = self.nodes[0].getaddressinfo('0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E')
+        assert_equal(eth_info['ismine'], True)
+        assert_equal(eth_info['solvable'], True)
+        assert_equal(eth_info['pubkey'], '04ed3add70f9d3fde074bc74310d5684f5e5d2836106a8286aef1324f9791658da9034d75da80783a544da73d3bb809df9f8bd50309b51b8ee3fab240d5610511c')
 
+        # Import Bech32 uncompressed private key for:
+        # Bech32: bcrt1qzm54jxk82jp34jx49v5uaxk4ye2pv03e5aknl6
+        # Eth: 0xd61Cd3F09E2C20376BFa34ed3a4FcF512341fA0E
+        self.nodes[0].importprivkey('92e6XLo5jVAVwrQKPNTs93oQco8f8sDNBcpv73Dsrs397fQtFQn')
+        bech32_info = self.nodes[0].getaddressinfo('bcrt1qzm54jxk82jp34jx49v5uaxk4ye2pv03e5aknl6')
+        assert_equal(bech32_info['ismine'], True)
+        assert_equal(bech32_info['iswitness'], True)
+        assert_equal(bech32_info['pubkey'], '02087a947bbb87f5005d25c56a10a7660694b81bffe209a9e89a6e2683a6a900b6')
+        eth_info = self.nodes[0].getaddressinfo('0xd61Cd3F09E2C20376BFa34ed3a4FcF512341fA0E')
+        assert_equal(eth_info['ismine'], True)
+        assert_equal(eth_info['solvable'], True)
+        assert_equal(eth_info['pubkey'], '04087a947bbb87f5005d25c56a10a7660694b81bffe209a9e89a6e2683a6a900b6ff3a7732eb015021deda823f265ed7a5bbec7aa7e83eb395d4cb7d5dea63d144')
+
+        # Import addresses
+        self.nodes[0].importprivkey(eth_address_privkey) # eth_address
         self.nodes[0].importprivkey(to_address_privkey) # to_address
 
         # Check export of private key
         privkey = self.nodes[0].dumpprivkey(to_address)
         assert_equal(privkey, to_address_privkey)
 
-        # Check creation and prikey dump of new Eth key
+        # Check creation and private key dump of new Eth key
         test_eth_dump = self.nodes[0].getnewaddress("", "eth")
         self.nodes[0].dumpprivkey(test_eth_dump)
 
@@ -222,7 +252,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(self.nodes[0].eth_pendingTransactions(), [
             {'blockHash': '0x0000000000000000000000000000000000000000000000000000000000000000',
              'blockNumber': 'null',
-             'from': '0x9b8a4af42140d8a4c153a822f02571a1dd037e89',
+             'from': eth_address,
              'gas': '0x5209',
              'gasPrice': '0x4e3b29200',
              'hash': '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb',

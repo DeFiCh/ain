@@ -2323,8 +2323,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         const auto time{std::time(nullptr)};
 
         auto pwallet = GetWallets()[0];
-        pwallet->SetAddressBook(dest, "", "receive");
-        pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
+        pwallet->SetAddressBook(dest, "receive", "receive");
+        pwallet->ImportPrivKeys({{keyID, key}}, time);
 
         // Create masternode
         CMasternode node;

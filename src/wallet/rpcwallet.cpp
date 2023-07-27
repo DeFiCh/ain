@@ -1131,6 +1131,12 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
     for (auto item_it = start; item_it != end; ++item_it)
     {
         const CTxDestination& address = item_it->first;
+
+        // Do not display Eth addresses
+        if (address.index() == WitV16KeyEthHashType) {
+            continue;
+        }
+
         const std::string& label = item_it->second.name;
         auto it = mapTally.find(address);
         if (it == mapTally.end() && !fIncludeEmpty)
@@ -3680,7 +3686,7 @@ public:
     {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::COMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;
@@ -3704,7 +3710,7 @@ public:
     UniValue operator()(const WitnessV16EthHash& id) const {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::UNCOMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;
