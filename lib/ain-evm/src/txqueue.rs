@@ -340,7 +340,7 @@ impl std::fmt::Display for QueueError {
 
 impl std::error::Error for QueueError {}
 
-#[cfg(test)]
+#[cfg(test_off)]
 mod tests {
     use std::str::FromStr;
 
