@@ -256,7 +256,7 @@ impl TransactionQueue {
                 Ok(fee) => match u64::try_from(fee) {
                     Ok(fee) => fee,
                     Err(_) => return Err(QueueError::InvalidFee),
-                }
+                },
                 Err(_) => return Err(QueueError::InvalidFee),
             };
 
