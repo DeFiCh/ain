@@ -765,7 +765,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
                     ++it;
                 }
             }
-            // Buggy code to fix below:
             checkedDfTxHashSet.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
             addrTxs[addrKey.nonce] = txIter;
             for (const auto& [nonce, entry] : addrTxs) {

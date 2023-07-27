@@ -18,7 +18,6 @@
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <masternodes/mn_checks.h>
 
 class CBlockIndex;
 class CChainParams;
@@ -222,7 +221,7 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
-    /** Remove specific TX from the block */
+    /** Run EVM transaction checks */
     bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
 };
 
