@@ -224,9 +224,14 @@ impl EVMCoreService {
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            // Validate tx gas limit with intrinsic gas
-            check_tx_intrinsic_gas(&signed_tx)?;
-        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_fee {
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                // Validate tx gas limit with intrinsic gas
+                check_tx_intrinsic_gas(&signed_tx)?;
+            } else if gas_limit < MIN_GAS_PER_TX {
+                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
+                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+            }
+        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
@@ -260,7 +265,7 @@ impl EVMCoreService {
                 .get_total_gas_used(queue_id)
                 .unwrap_or_default();
 
-            if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
+            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
                 return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
@@ -293,7 +298,7 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
     }
 
@@ -319,7 +324,7 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
         }
     }

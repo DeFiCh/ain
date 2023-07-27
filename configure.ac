@@ -1371,21 +1371,30 @@ AC_SUBST(HAVE_O_CLOEXEC)
 AC_SUBST(HAVE_BUILTIN_PREFETCH)
 AC_SUBST(HAVE_MM_PREFETCH)
 AC_SUBST(HAVE_STRONG_GETAUXVAL)
+
+AC_SUBST(BUILD_CC)
+AC_SUBST(BUILD_CXX)
+AC_SUBST(BUILD_AR)
+AC_SUBST(BUILD_NM)
+AC_SUBST(BUILD_RANLIB)
+
 AC_SUBST(PROTOC)
 AC_SUBST(PROTOC_INCLUDE_DIR)
+AC_SUBST(SOLC_PATH)
 
 dnl If the host and build triplets are the same, we keep this empty
 RUST_HOST=`$ac_abs_confdir/make.sh get_rust_triplet "$build"`
-if test $? != 0; then
-AC_MSG_ERROR("unsupported build system")
+if test "x$?" != "x0"; then
+  AC_MSG_ERROR("unsupported build system")
 fi
 
+dnl If the host and build triplets are the same, we keep this empty
 RUST_TARGET=`$ac_abs_confdir/make.sh get_rust_triplet "$host"`
-if test $? != 0; then
-AC_MSG_ERROR("unsupported host target")
+if test "x$?" != "x0"; then
+  AC_MSG_ERROR("unsupported target system")
 fi
 
-if test x$RUST_HOST = x$RUST_TARGET; then
+if test "x$RUST_HOST" = "x$RUST_TARGET"; then
   RUST_TARGET=
   RUST_HOST=
 fi
@@ -1455,7 +1464,8 @@ case ${OS} in
 esac
 
 echo
-echo "Options used to compile and link:"
+echo " === options === "
+echo 
 echo "  with wallet         = $enable_wallet"
 echo "  with zmq            = $use_zmq"
 echo "  with test           = $use_tests"
@@ -1474,15 +1484,36 @@ echo
 echo "  target os           = $TARGET_OS"
 echo "  build os            = $BUILD_OS"
 echo
+echo "  === target os toolchain ==== "
+echo 
 echo "  CC                  = $CC"
 echo "  CFLAGS              = $CFLAGS"
 echo "  CPPFLAGS            = $DEBUG_CPPFLAGS $HARDENED_CPPFLAGS $CPPFLAGS"
 echo "  CXX                 = $CXX"
 echo "  CXXFLAGS            = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS $NOWARN_CXXFLAGS $ERROR_CXXFLAGS $GPROF_CXXFLAGS $CXXFLAGS"
 echo "  LDFLAGS             = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
+echo "  AR                  = $AR"
 echo "  ARFLAGS             = $ARFLAGS"
+echo "  NM                  = $NM"
+echo "  RANLIB              = $RANLIB"
+echo 
+echo "  === build os toolchain ==== "
+echo 
+echo "  CC                  = $BUILD_CC"
+echo "  CXX                 = $BUILD_CXX"
+echo "  AR                  = $BUILD_AR"
+echo "  NM                  = $BUILD_NM"
+echo "  RANLIB              = $BUILD_RANLIB"
+echo 
+echo "  === mixed toolchain ==="
+echo 
 echo "  CARGO               = $CARGO"
 echo "  RUST_HOST           = $RUST_HOST"
 echo "  RUST_TARGET         = $RUST_TARGET"
 echo "  ENABLE_DEBUG        = $ENABLE_DEBUG"
-echo
+echo "  PROTOC              = $PROTOC"
+echo "  PROTOC_INCLUDE_DIR  = $PROTOC_INCLUDE_DIR"
+echo "  SOLC_PATH           = $SOLC_PATH"
+echo 
+echo "  ==="
+echo 

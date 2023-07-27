@@ -340,18 +340,20 @@ impl EVMServices {
                 total_priority_fees
             );
 
-            match self.core.tx_queues.get_total_fees(queue_id) {
-                Some(total_fees) => {
-                    if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
-                        return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                match self.core.tx_queues.get_total_fees(queue_id) {
+                    Some(total_fees) => {
+                        if (total_burnt_fees + total_priority_fees) != total_fees {
+                            return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
+                        }
                     }
-                }
-                None => {
-                    return Err(anyhow!(
-                        "EVM block rejected because failed to get total fees from queue_id: {}",
-                        queue_id
-                    )
-                    .into())
+                    None => {
+                        return Err(anyhow!(
+                            "EVM block rejected because failed to get total fees from queue_id: {}",
+                            queue_id
+                        )
+                        .into())
+                    }
                 }
             }
 
@@ -408,7 +410,7 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
         hash: NativeTxHash,
-        gas_used: u64,
+        gas_used: U256,
     ) -> Result<(), EVMError> {
         let parent_data = self.block.get_latest_block_hash_and_number();
         let parent_hash = match parent_data {
