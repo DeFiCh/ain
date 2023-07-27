@@ -21,7 +21,7 @@ pub mod ffi {
         fn pastChangiIntermediateHeight2() -> bool;
         fn pastChangiIntermediateHeight3() -> bool;
         fn pastChangiIntermediateHeight4() -> bool;
-        fn pastChangiIntermediateHeight5() -> bool;
+        fn SomethingElse() -> bool;
         fn CppLogPrintf(message: String);
     }
 }
