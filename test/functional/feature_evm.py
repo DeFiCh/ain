@@ -305,14 +305,20 @@ class EVMTest(DefiTestFramework):
         # Test multiple replacement TXs with differing fees
         self.nodes[0].evmtx(eth_address, 64, 22, 21001, to_address, 1)
         self.nodes[0].evmtx(eth_address, 64, 23, 21001, to_address, 1)
-        tx = self.nodes[0].evmtx(eth_address, 64, 25, 21001, to_address, 1)
+        tx0 = self.nodes[0].evmtx(eth_address, 64, 25, 21001, to_address, 1)
         self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
         self.nodes[0].evmtx(eth_address, 64, 24, 21001, to_address, 1)
+        self.nodes[0].evmtx(to_address, 0, 22, 21001, eth_address, 1)
+        self.nodes[0].evmtx(to_address, 0, 23, 21001, eth_address, 1)
+        tx1 = self.nodes[0].evmtx(to_address, 0, 25, 21001, eth_address, 1)
+        self.nodes[0].evmtx(to_address, 0, 21, 21001, eth_address, 1)
+        self.nodes[0].evmtx(to_address, 0, 24, 21001, eth_address, 1)
         self.nodes[0].generate(1)
 
         # Check highest paying fee TX in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
-        assert_equal(block_txs[1], tx)
+        assert_equal(block_txs[1], tx0)
+        assert_equal(block_txs[2], tx1)
 
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])
