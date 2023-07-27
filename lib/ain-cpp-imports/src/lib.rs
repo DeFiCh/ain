@@ -64,7 +64,7 @@ mod ffi {
     pub fn pastChangiIntermediateHeight4() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn SomethingElse() -> bool {
+    pub fn pastChangiIntermediateHeight5() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -160,7 +160,8 @@ pub fn past_changi_intermediate_height_4_height() -> bool {
 }
 
 pub fn past_changi_intermediate_height_5_height() -> bool {
-    ffi::SomethingElse()
+    const CHANGI_5_HEIGHT: i32 = 0;
+    ffi::getCurrentHeight() > CHANGI_5_HEIGHT
 }
 
 pub fn log_print(message: &str) {
