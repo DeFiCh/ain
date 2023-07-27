@@ -1,7 +1,6 @@
 package=solc
 $(package)_version=0.8.20
 $(package)_download_path=https://github.com/ethereum/solidity/releases/download/v$($(package)_version)/
-$(package)_file_ext=
 
 # NOTE: solc gets invoked on the BUILD OS during compile. So, we don't
 # care about HOST OS, unlike all other dependencies.
@@ -15,11 +14,6 @@ endif
 ifeq ($(build_os),darwin)
   $(package)_file_name=solc-macos
   $(package)_sha256_hash=fc329945e0068e4e955d0a7b583776dc8d25e72ab657a044618a7ce7dd0519aa
-endif
-ifeq ($(build_os),windows)
-  $(package)_file_name=solc-windows.exe
-  $(package)_sha256_hash=a0fa8eb77805c530cfb6962f400643dbe83991387d27b319efd6b89482061946
-  $(package)_file_ext=.exe
 endif
 
 ifeq ($($(package)_file_name),)
@@ -39,5 +33,5 @@ endef
 define $(package)_build_cmds
   mkdir -p $($(package)_ROOT) && \
   chmod +x $($(package)_source) && \
-  cp $($(package)_source) $($(package)_ROOT)/$(package)$($(package)_file_ext)
+  cp $($(package)_source) $($(package)_ROOT)/$(package)
 endef
