@@ -25,8 +25,9 @@ class EVMTest(DefiTestFramework):
             ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-changiintermediateheight=105', '-changiintermediate2height=105', '-changiintermediate3height=105', '-changiintermediate4height=105', '-subsidytest=1', '-txindex=1']
         ]
 
-    def test_tx_without_chainid(self, node, keypair, web3):
+    def test_tx_without_chainid(self, node, keypair):
 
+        web3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
         nonce = web3.eth.get_transaction_count(keypair.address)
 
         node.transferdomain([{"src": {"address": node.get_genesis_keys().ownerAuthAddress, "amount": "50@DFI",
@@ -51,7 +52,6 @@ class EVMTest(DefiTestFramework):
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
-        eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
         to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
         to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
 
@@ -127,12 +127,12 @@ class EVMTest(DefiTestFramework):
         # evmtx tests
 
         # Fund Eth address
-        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"10@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"10@DFI", "domain": 3}}])
+        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 10000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 100000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
         # Send tokens to burn address
@@ -179,15 +179,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
         # Create replacement for nonce 0 TX with higher fee
-        web3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
-        abi, bytecode = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
-        tx = web3.eth.contract(abi=abi, bytecode=bytecode).constructor(None).build_transaction({
-            'chainId': 1133,
-            'nonce': 0,
-            'gasPrice': Web3.to_wei(10, "gwei")
-        })
-        signed_tx = web3.eth.account.sign_transaction(tx, private_key=eth_address_privkey)
-        web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx0 = self.nodes[0].evmtx(eth_address, 0, 22, 21001, to_address, 1)
         self.sync_mempools()
 
         # Check mempools for TXs
@@ -200,16 +192,16 @@ class EVMTest(DefiTestFramework):
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
-        assert_equal(block_txs[1], 'fe0106aae2f1fd36535cf5e3d5007b5237e323633f5ee94dcc7b626c31425654')
+        assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
         assert_equal(block_txs[3], tx2)
         assert_equal(block_txs[4], tx3)
         assert_equal(block_txs[5], tx4)
         assert_equal(block_txs[6], tx5)
 
-        # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 4996564910000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 5000000000000000000)
+        # Check Eth balances after transfer
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 93997333000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 6000000000000000000)
 
         # Get burn address and miner account balance after transfer
         burn_after = Decimal(self.nodes[0].getaccount(burn_address)[0].split('@')[0])
@@ -220,7 +212,7 @@ class EVMTest(DefiTestFramework):
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
         assert_equal(block['transactions'], [
-            '0x8e0acf5ae13fccb364872d2852670f35fecdb55ed341ca9664e7cd80639bdb52',
+            '0xcffc5526b42c0defa7d90cc806e50e582a0339a3336c7e32de237fbe4d62263b',
             '0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a',
             '0x02b05a6646feb65bf9491f9551e02678263239dc2512d73c9ad6bc80dc1c13ff',
             '0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c',
@@ -274,12 +266,8 @@ class EVMTest(DefiTestFramework):
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
 
-        # Top up Eth address
-        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"65@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"65@DFI", "domain": 3}}])
-        self.nodes[0].generate(1)
-
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 75000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 100000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
         # Test max limit of TX from a specific sender
@@ -295,15 +283,16 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_txs), 64)
 
         # Check Eth balances after transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 11972217000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 36972217000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 63000000000000000000)
 
         # Try and send another TX to make sure mempool has removed entires
-        self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
+        tx = self.nodes[0].evmtx(eth_address, 63, 21, 21001, to_address, 1)
         self.nodes[0].generate(1)
 
+        # Check TX is in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
-        assert_equal(len(block_txs), 1)
+        assert_equal(block_txs[1], tx)
 
         # Test setting of finalized block
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/finality_count': '100'}})
@@ -313,9 +302,21 @@ class EVMTest(DefiTestFramework):
         attrs = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
         assert_equal(attrs['v0/evm/block/finality_count'], '100')
 
+        # Test multiple replacement TXs with differing fees
+        self.nodes[0].evmtx(eth_address, 64, 22, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 64, 23, 21001, to_address, 1)
+        tx = self.nodes[0].evmtx(eth_address, 64, 25, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
+        self.nodes[0].evmtx(eth_address, 64, 24, 21001, to_address, 1)
+        self.nodes[0].generate(1)
+
+        # Check highest paying fee TX in block
+        block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
+        assert_equal(block_txs[1], tx)
+
         # Test that node should not crash without chainId param
         key_pair = KeyPair.from_node(self.nodes[0])
-        self.test_tx_without_chainid(self.nodes[0], key_pair, web3)
+        self.test_tx_without_chainid(self.nodes[0], key_pair)
 
         # Test rollback of EVM related TXs
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
