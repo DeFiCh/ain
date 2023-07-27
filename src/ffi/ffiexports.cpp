@@ -240,3 +240,5 @@ bool pastChangiIntermediateHeight5() {
     LOCK(cs_main);
     return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight5;
 }
+
+
