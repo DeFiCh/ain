@@ -12,7 +12,6 @@ pub struct Cache {
     transactions: RwLock<LruCache<H256, TransactionV2>>,
     blocks: RwLock<LruCache<U256, BlockAny>>,
     block_hashes: RwLock<LruCache<H256, U256>>,
-    base_fee: RwLock<LruCache<H256, U256>>,
     latest_block: RwLock<Option<BlockAny>>,
 }
 
@@ -28,9 +27,6 @@ impl Cache {
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             block_hashes: RwLock::new(LruCache::new(
-                NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
-            )),
-            base_fee: RwLock::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             latest_block: RwLock::new(None),
@@ -78,19 +74,6 @@ impl BlockStorage for Cache {
     fn put_latest_block(&self, block: Option<&BlockAny>) {
         let mut cache = self.latest_block.write().unwrap();
         *cache = block.cloned();
-    }
-
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256> {
-        self.base_fee
-            .write()
-            .unwrap()
-            .get(block_hash)
-            .map(ToOwned::to_owned)
-    }
-
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256) {
-        let mut cache = self.base_fee.write().unwrap();
-        cache.put(block_hash, base_fee);
     }
 }
 

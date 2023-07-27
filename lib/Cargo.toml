@@ -15,3 +15,4 @@ lto = true
 [patch.crates-io]
 vsdb = { git = 'https://github.com/defich/vsdb.git' }
 vsdbsled = { git = 'https://github.com/defich/vsdbsled.git' }
+ethereum = { git = 'https://github.com/defich/ethereum.git' }
