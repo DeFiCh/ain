@@ -23,6 +23,7 @@ class CBlockIndex;
 class CChainParams;
 class CScript;
 class CAnchor;
+struct EvmTxPreApplyContext;
 
 namespace Consensus { struct Params; };
 
@@ -188,6 +189,10 @@ private:
     void resetBlock();
     /** Add a tx to the block */
     void AddToBlock(CTxMemPool::txiter iter);
+    /** Remove a single tx from the block */
+    void RemoveFromBlock(CTxMemPool::txiter iter);
+    /** Remove txs along with the option to remove descendants from the block */
+    void RemoveFromBlock(const CTxMemPool::setEntries &txIterSet, bool removeDescendants);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
@@ -215,10 +220,8 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
-    /** Remove failed TransferDoamin transactions from the block */
-    void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
-    /** Remove specific TX from the block */
-    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
+    /** Run EVM transaction checks */
+    bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
 };
 
 /** Modify the extranonce in a block */
