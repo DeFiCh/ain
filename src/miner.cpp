@@ -726,7 +726,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
         const auto& lastFee = feeEntry->second;
         if (txResult.prepay_fee > lastFee) {
             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-            auto addrTxs = evmAddressTxsMap[addrKey.address];
+            const auto &addrTxs = evmAddressTxsMap[addrKey.address];
             for (const auto& [nonce, entry] : addrTxs) {
                 if (RemoveFromBlock(entry)) {
                     inBlock.erase(entry);
@@ -734,6 +734,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(nonce, entry);
             }
+            replaceByFee[addrKey.nonce] = txIter;
             // Remove all fee entries relating to the address
             for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
                 const auto& [sender, nonce] = it->first;
@@ -743,7 +744,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
                     ++it;
                 }
             }
-            addrTxs[addrKey.nonce] = txIter;
             evmAddressTxsMap.erase(addrKey.address);
             evm_remove_txs_by_sender(evmQueueId, addrKey.address);
             return false;
