@@ -620,7 +620,9 @@ void BlockAssembler::RemoveFromBlock(const std::set<uint256> &txHashSet, bool re
         return;
     }
     for (auto it = inBlock.begin(); it != inBlock.end();) {
-        if (txHashSet.count((*it)->GetTx().GetHash()) && RemoveFromBlock(*it)) {
+        auto iter = *it;
+        auto hash = iter->GetTx().GetHash();
+        if (txHashSet.count(hash) && RemoveFromBlock(iter)) {
             it = inBlock.erase(it);
         } else {
             ++it;
