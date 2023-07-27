@@ -1373,6 +1373,7 @@ AC_SUBST(HAVE_MM_PREFETCH)
 AC_SUBST(HAVE_STRONG_GETAUXVAL)
 AC_SUBST(PROTOC)
 AC_SUBST(PROTOC_INCLUDE_DIR)
+AC_SUBST(SOLC_PATH)
 
 dnl If the host and build triplets are the same, we keep this empty
 RUST_HOST=`$ac_abs_confdir/make.sh get_rust_triplet "$build"`

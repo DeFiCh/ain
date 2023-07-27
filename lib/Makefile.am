@@ -43,8 +43,10 @@ endif
 export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
 # Export protoc vars
 export PROTOC PROTOC_INCLUDE_DIR
+# Export solc path
+export SOLC_PATH
 
-# Ensure nested autotools calls by cargo don't end up in unexpected places 
+# Ensure nested autotools calls by cargo don't end up in unexpected places
 unexport DESTDIR
 
 export RUST_BACKTRACE=1

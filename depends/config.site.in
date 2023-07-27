@@ -79,6 +79,6 @@ if test -n "@LDFLAGS@"; then
   LDFLAGS="@LDFLAGS@ $LDFLAGS"
 fi
 
-export SOLC=${depends_prefix}/bin/solc
+export SOLC_PATH=${depends_prefix}/bin/solc
 export PROTOC=${depends_prefix}/bin/protoc
 export PROTOC_INCLUDE_DIR=${depends_prefix}/include
