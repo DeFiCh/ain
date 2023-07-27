@@ -190,7 +190,7 @@ private:
     /** Add a tx to the block */
     void AddToBlock(CTxMemPool::txiter iter);
     /** Remove a single tx from the block */
-    bool RemoveFromBlock(CTxMemPool::txiter iter);
+    void RemoveFromBlock(CTxMemPool::txiter iter);
     /** Remove txs along with the option to remove descendants from the block */
     void RemoveFromBlock(const CTxMemPool::setEntries &txIterSet, bool removeDescendants);
 

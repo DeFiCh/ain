@@ -569,7 +569,7 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     }
 }
 
-bool BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
+void BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
 {
     const auto& tx = iter->GetTx();
     for (auto blockIt = pblock->vtx.begin(); blockIt != pblock->vtx.end(); ++blockIt) {
@@ -600,9 +600,8 @@ bool BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
         nBlockSigOpsCost -= iter->GetSigOpCost();
         nFees -= iter->GetFee();
         inBlock.erase(iter);
-        return true;
+        break;
     }
-    return false;
 }
 
 void BlockAssembler::RemoveFromBlock(const CTxMemPool::setEntries& txIterSet, bool removeDescendants)
