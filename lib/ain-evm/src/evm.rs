@@ -36,8 +36,6 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: [u8; 32],
-    // TODO: There's no reason for this to be hex encoded and de-coded back again
-    // We can just send the array of 256 directly, same as block hash.
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
@@ -90,15 +88,15 @@ impl EVMServices {
 
     pub fn finalize_block(
         &self,
-        context: u64,
+        queue_id: u64,
         update_state: bool,
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
-        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(context));
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(context));
+        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
+        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(queue_id));
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -146,8 +144,8 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        for (queue_tx, hash) in self.core.tx_queues.get_cloned_vec(context) {
-            match queue_tx {
+        for queue_item in self.core.tx_queues.get_cloned_vec(queue_id) {
+            match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
@@ -171,7 +169,7 @@ impl EVMServices {
                     );
 
                     if !exit_reason.is_succeed() {
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
 
                     let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
@@ -184,12 +182,12 @@ impl EVMServices {
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[finalize_block] EvmIn for address {:x?}, amount: {}, context {}",
-                        address, amount, context
+                        "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
+                        address, amount, queue_id
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[finalize_block] EvmIn failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
                 QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
@@ -200,7 +198,7 @@ impl EVMServices {
 
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
-                        failed_transactions.push(hex::encode(hash));
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
             }
@@ -227,6 +225,7 @@ impl EVMServices {
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
                 nonce: H64::default(),
+                base_fee,
             },
             all_transactions
                 .iter()
@@ -248,7 +247,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(block.clone(), base_fee);
+            self.block.connect_block(block.clone());
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
@@ -266,23 +265,23 @@ impl EVMServices {
             total_priority_fees
         );
 
-        match self.core.tx_queues.get_total_fees(context) {
+        match self.core.tx_queues.get_total_fees(queue_id) {
             Some(total_fees) => {
-                if (total_burnt_fees + total_priority_fees) != U256::from(total_fees) {
-                    return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}", total_burnt_fees, total_priority_fees).into());
+                if (total_burnt_fees + total_priority_fees) != total_fees {
+                    return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
                 }
             }
             None => {
                 return Err(anyhow!(
-                    "EVM block rejected because failed to get total fees from context: {}",
-                    context
+                    "EVM block rejected because failed to get total fees from queue_id: {}",
+                    queue_id
                 )
                 .into())
             }
         }
 
         if update_state {
-            self.core.tx_queues.remove(context);
+            self.core.tx_queues.remove(queue_id);
         }
 
         Ok(FinalizedBlockInfo {
@@ -317,10 +316,10 @@ impl EVMServices {
 
     pub fn queue_tx(
         &self,
-        context: u64,
+        queue_id: u64,
         tx: QueueTx,
         hash: NativeTxHash,
-        gas_used: u64,
+        gas_used: U256,
     ) -> Result<(), EVMError> {
         let parent_data = self.block.get_latest_block_hash_and_number();
         let parent_hash = match parent_data {
@@ -331,7 +330,7 @@ impl EVMServices {
 
         self.core
             .tx_queues
-            .queue_tx(context, tx.clone(), hash, gas_used, base_fee)?;
+            .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())

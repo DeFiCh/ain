@@ -1217,7 +1217,7 @@ public:
             {"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp"},
             {"bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"},
         };
-        
+
         for(size_t i = 0; i < mnkeys.size(); i+=2) {
             auto ownerPubKey = mnkeys[i].pub;
             auto operatorPubKey = mnkeys[i+1].pub;

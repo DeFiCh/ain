@@ -270,8 +270,8 @@ impl SignedTx {
 
     pub fn max_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(tx) => Some(tx.gas_price),
-            TransactionV2::EIP2930(tx) => Some(tx.gas_price),
+            TransactionV2::Legacy(_) => None,
+            TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_fee_per_gas),
         }
     }
@@ -281,6 +281,14 @@ impl SignedTx {
             TransactionV2::Legacy(_) => None,
             TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_priority_fee_per_gas),
+        }
+    }
+
+    pub fn chain_id(&self) -> u64 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.signature.chain_id().unwrap_or_default(),
+            TransactionV2::EIP2930(tx) => tx.chain_id,
+            TransactionV2::EIP1559(tx) => tx.chain_id,
         }
     }
 }

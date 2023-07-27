@@ -1568,7 +1568,7 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 }
 
 void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
-    // Current API only allows for one ETH RPC/gRPC server to bind to one address. 
+    // Current API only allows for one ETH RPC/gRPC server to bind to one address.
     // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
@@ -1913,9 +1913,17 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
 
+                // Wipe EVM folder on reindex
+                if (fReset || fReindexChainState) {
+                    auto res = CrossBoundaryChecked(ain_rs_wipe_evm_folder(result));
+                    if (!res) {
+                        return false;
+                    }
+                }
+
                 // All DBs have been initialized. We start the rust core services to ensure that
                 // it's initialized as late as possible, but before anything can start rolling blocks
-                // back or forth. `ReplayBlocks, VerifyDB` etc. 
+                // back or forth. `ReplayBlocks, VerifyDB` etc.
                 auto res = CrossBoundaryChecked(ain_rs_init_core_services(result));
                 if (!res) return false;
 
@@ -2310,8 +2318,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         const auto time{std::time(nullptr)};
 
         auto pwallet = GetWallets()[0];
-        pwallet->SetAddressBook(dest, "", "receive");
-        pwallet->ImportPrivKeys({{keyID, {key, false}}}, time);
+        pwallet->SetAddressBook(dest, "receive", "receive");
+        pwallet->ImportPrivKeys({{keyID, key}}, time);
 
         // Create masternode
         CMasternode node;

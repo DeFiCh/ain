@@ -6,6 +6,7 @@ use evm::{
 };
 
 use anyhow::anyhow;
+use ethereum_types::U256;
 use log::debug;
 use std::error::Error;
 
