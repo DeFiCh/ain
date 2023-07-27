@@ -40,16 +40,15 @@ setup_vars() {
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
 
-    local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
-        default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
+        [[ -z "${CC:-}" ]] && export CC=clang-${clang_ver}
+        [[ -z "${CXX:-}" ]] && export CXX=clang++-${clang_ver}
     fi
 
     MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
 
     MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
-    MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi

@@ -79,6 +79,17 @@ if test -n "@LDFLAGS@"; then
   LDFLAGS="@LDFLAGS@ $LDFLAGS"
 fi
 
-export SOLC=${depends_prefix}/bin/solc
-export PROTOC=${depends_prefix}/bin/protoc
-export PROTOC_INCLUDE_DIR=${depends_prefix}/include
+# Build system compilers
+# Everything that's overwritten above, we make sure to preserve
+# the native items so it can be used for the rest of the workflow
+BUILD_CC="@BUILD_CC@"
+BUILD_CXX="@BUILD_CXX@"
+BUILD_AR="@BUILD_AR@"
+BUILD_RANLIB="@BUILD_RANLIB@"
+BUILD_NM="@BUILD_NM@"
+
+# External deps
+SOLC_PATH=${depends_prefix}/bin/solc
+PROTOC=${depends_prefix}/bin/protoc
+PROTOC_INCLUDE_DIR=${depends_prefix}/include
+

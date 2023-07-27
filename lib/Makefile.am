@@ -29,20 +29,21 @@ CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
 # since compiling with `--test` fails on cross compilation
 CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
 
-# Export compiler flags
-export CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS AR NM RANLIB
-# Set the native compilers
+# Export toolchain flags
+export CC CXX AR NM RANLIB
+# Set the native toolchain flags
 if HAVE_RUST_HOST
-export CC_$(RUST_HOST)=gcc
-export CXX_$(RUST_HOST)=g++
-export CFLAGS_$(RUST_HOST)=
-export CXXFLAGS_$(RUST_HOST)=
+export CC_$(RUST_HOST)=$(BUILD_CC)
+export CXX_$(RUST_HOST)=$(BUILD_CXX)
+export AR_$(RUST_HOST)=$(BUILD_AR)
+export NM_$(RUST_HOST)=$(BUILD_NM)
+export RANLIB_$(RUST_HOST)=$(BUILD_RANLIB)
 endif
 
 # Export compiler support
 export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
-# Export protoc vars
-export PROTOC PROTOC_INCLUDE_DIR
+# Export other dep vars
+export PROTOC PROTOC_INCLUDE_DIR SOLC_PATH
 
 # Ensure nested autotools calls by cargo don't end up in unexpected places 
 unexport DESTDIR
