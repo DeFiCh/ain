@@ -225,9 +225,6 @@ impl EVMCoreService {
         // Validate tx gas limit with intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
-        // Validate tx gas limit with intrinsic gas
-        check_tx_intrinsic_gas(&signed_tx)?;
-
         if gas_limit > MAX_GAS_PER_BLOCK {
             debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
