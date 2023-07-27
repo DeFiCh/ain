@@ -4,7 +4,7 @@
 #include <key_io.h>
 #include <logging.h>
 
-// TODO: Later switch this to u8 so we skip the 
+// TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
 // Direct const* char ptr is not allowed due to CXX, but
 // we can convert ourselves and pass the final u8.
@@ -82,7 +82,7 @@ rust::string getDatadir() {
     // if odd paths are used. Require testing.
     return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
 #else
-    return rust::String(GetDataDir().c_str());
+    return GetDataDir().c_str();
 #endif
 }
 

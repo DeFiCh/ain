@@ -608,7 +608,8 @@ clean_pkg_local_py_deps() {
 
 pkg_setup_rust() {
     local rust_target
-    rust_target=$(get_rust_target)
+    # shellcheck disable=SC2119
+    rust_target=$(get_rust_triplet)
     rustup target add "${rust_target}"
 }
 
@@ -1007,24 +1008,25 @@ ci_setup_deps_test() {
     pkg_local_install_py_deps
 }
 
-get_rust_target() {
+# shellcheck disable=SC2120
+get_rust_triplet() {
     # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
     # The function is called in 2 places:
     # 1. When setting up Rust, which TARGET is passed from the environment
     # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet
     # Thus, we normalize across both to source the correct rust target.
-    local target=${TARGET}
-    local rust_target
-    case $target in
-        x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
-        aarch64-linux-gnu|aarch64-unknown-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
-        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
-        x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
-        aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
-        x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;
-        *) echo "error: unsupported target: ${target}"; exit 1;;
+    local triplet=${1:-${TARGET}}
+    local result
+    case $triplet in
+        x86_64-pc-linux-gnu) result=x86_64-unknown-linux-gnu;;
+        aarch64-linux-gnu|aarch64-unknown-linux-gnu) result=aarch64-unknown-linux-gnu;;
+        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) result=armv7-unknown-linux-gnueabihf;;
+        x86_64-apple-darwin*) result=x86_64-apple-darwin;;
+        aarch64-apple-darwin*) result=aarch64-apple-darwin;;
+        x86_64-w64-mingw32) result=x86_64-pc-windows-gnu;;
+        *) echo "error: unsupported triplet: ${triplet}"; exit 1;;
     esac
-    echo "$rust_target"
+    echo "$result"
 }
 
 _sign() {

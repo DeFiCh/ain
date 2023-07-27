@@ -10,9 +10,9 @@ use ain_evm::evm::EVMServices;
 #[test]
 fn test_finalize_block_and_do_not_update_state() {
     let handler = Handlers::new();
-    let context = handler.evm.get_context();
+    let queue_id = handler.evm.get_queue_id();
     handler.evm.add_balance(
-        context,
+        queue_id,
         "0x4a1080c5533cb89edc4b65013f08f78868e382de"
             .parse()
             .unwrap(),
@@ -20,10 +20,10 @@ fn test_finalize_block_and_do_not_update_state() {
     );
 
     let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
-    handler.evm.tx_queues.add_signed_tx(context, tx1);
+    handler.evm.tx_queues.add_signed_tx(queue_id, tx1);
 
     let old_state = handler.evm.state.read().unwrap();
-    let _ = handler.finalize_block(context, false, 0, None).unwrap();
+    let _ = handler.finalize_block(queue_id, false, 0, None).unwrap();
 
     let new_state = handler.evm.state.read().unwrap();
     assert_eq!(*new_state, *old_state);
@@ -32,9 +32,9 @@ fn test_finalize_block_and_do_not_update_state() {
 #[test]
 fn test_finalize_block_and_update_state() {
     let handler = Handlers::new();
-    let context = handler.evm.get_context();
+    let queue_id = handler.evm.get_queue_id();
     handler.evm.add_balance(
-        context,
+        queue_id,
         "0xebf9844ba89c4975bbe4e621dbaf085e6357df3f"
             .parse()
             .unwrap(),
@@ -42,26 +42,26 @@ fn test_finalize_block_and_update_state() {
     );
 
     let tx1: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a0b0842b0c78dd7fc33584ec9a81ab5104fe70169878de188ba6c11fe7605e298aa0735dc483f625f17d68d1e1fae779b7160612628e6dde9eecf087892fe60bba4e".try_into().unwrap();
-    handler.evm.tx_queues.add_signed_tx(context, tx1.clone());
+    handler.evm.tx_queues.add_signed_tx(queue_id, tx1.clone());
 
     handler.evm.add_balance(
-        context,
+        queue_id,
         "0x47b16da33f4e7e4a4ed9e52cc561b9ffcb3daf56"
             .parse()
             .unwrap(),
         U256::from_str_radix("100000000000000000000", 10).unwrap(),
     );
     let tx2: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a01465e2d999c34b22bf4b8b5c9439918e46341f4f0da1b00a6b0479c541161d4aa074abe79c51bf57086e1e84b57ee483cbb2ecf30e8222bc0472436fabfc57dda8".try_into().unwrap();
-    handler.evm.tx_queues.add_signed_tx(context, tx2.clone());
+    handler.evm.tx_queues.add_signed_tx(queue_id, tx2.clone());
 
     let tx3: SignedTx = "f86b02830186a0830186a094a8f7c4c78c36e54c3950ad58dad24ca5e0191b2989056bc75e2d631000008025a070b21a24cec13c0569099ee2f8221268103fd609646b73f7c9e85efeb7af5c8ea03d5de75bc12ce28a80f7c0401df6021cc82a334cb1c802c8b9d46223c5c8eb40".try_into().unwrap();
-    handler.evm.tx_queues.add_signed_tx(context, tx3.clone());
+    handler.evm.tx_queues.add_signed_tx(queue_id, tx3.clone());
 
-    assert_eq!(handler.evm.tx_queues.len(context), 3);
-    assert_eq!(handler.evm.tx_queues.len(handler.evm.get_context()), 0);
+    assert_eq!(handler.evm.tx_queues.len(queue_id), 3);
+    assert_eq!(handler.evm.tx_queues.len(handler.evm.get_queue_id()), 0);
 
     let FinalizedBlockInfo { block, failed_txs } =
-        handler.finalize_block(context, true, 0, None).unwrap();
+        handler.finalize_block(queue_id, true, 0, None).unwrap();
 
     assert_eq!(
         block.transactions,
@@ -119,9 +119,9 @@ fn test_deploy_and_call_smart_contract() {
     let smart_contract_address: H160 = "69762793de93f55ab919c5efdaafb63d413dcbb5".parse().unwrap();
 
     let handler = Handlers::new();
-    let context = handler.evm.get_context();
+    let queue_id = handler.evm.get_queue_id();
     handler.evm.add_balance(
-        context,
+        queue_id,
         "0x4a1080c5533cb89edc4b65013f08f78868e382de"
             .parse()
             .unwrap(),
@@ -133,13 +133,13 @@ fn test_deploy_and_call_smart_contract() {
     handler
         .evm
         .tx_queues
-        .add_signed_tx(context, create_smart_contract_tx);
+        .add_signed_tx(queue_id, create_smart_contract_tx);
 
-    handler.finalize_block(context, true, 0, None).unwrap();
+    handler.finalize_block(queue_id, true, 0, None).unwrap();
 
     // Fund caller address
     handler.evm.add_balance(
-        context,
+        queue_id,
         "0xb069baef499f992ff243300f78cf9ca1406a122e"
             .parse()
             .unwrap(),
@@ -147,14 +147,14 @@ fn test_deploy_and_call_smart_contract() {
     );
     let call_smart_contract_tx: SignedTx = "f8ca018504a817c8008302c1789469762793de93f55ab919c5efdaafb63d413dcbb580b864131a06800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20576f726c64210000000000000000000000000000000000000029a041fc9c0581885d77263dcba0603d8c6c164a9acfe803ad11188069eafa22169ca0018c1ba512639bd8ce32e76bcc2ea0759073a3f908014e47544d6c6674388b37".try_into().unwrap();
 
-    // Each block requires a new context
-    let context = handler.evm.get_context();
+    // Each block requires a new queue_id
+    let queue_id = handler.evm.get_queue_id();
     handler
         .evm
         .tx_queues
-        .add_signed_tx(context, call_smart_contract_tx);
+        .add_signed_tx(queue_id, call_smart_contract_tx);
 
-    handler.finalize_block(context, true, 0, None).unwrap();
+    handler.finalize_block(queue_id, true, 0, None).unwrap();
 
     let smart_contract_storage = handler.evm.get_storage(smart_contract_address);
     assert_eq!(

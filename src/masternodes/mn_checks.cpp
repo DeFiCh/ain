@@ -768,7 +768,7 @@ Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const {
 class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
-    uint64_t evmContext;
+    uint64_t evmQueueId;
     bool prevalidateEvm;
 
 public:
@@ -779,13 +779,13 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmContext,
+                          const uint64_t evmQueueId,
                           const bool prevalidateEvm)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
-          evmContext(evmContext),
+          evmQueueId(evmQueueId),
           prevalidateEvm(prevalidateEvm) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
@@ -1071,7 +1071,7 @@ public:
 
         if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
-            evm_create_dst20(result, evmContext, tx.GetHash().GetByteArray(),
+            evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
                              tokenId->ToString());
@@ -3907,14 +3907,14 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
 
                 if (tokenId == DCT_ID{0}) {
-                    if (!evm_sub_balance(evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                    if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                                          ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmContext, HexStr(fromAddress.begin(), fromAddress.end()),
+                    evm_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
 
                     if (!result.ok) {
@@ -3938,12 +3938,12 @@ public:
                 auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (tokenId == DCT_ID{0}) {
-                    evm_add_balance(evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmContext, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
 
                     if (!result.ok) {
@@ -3975,7 +3975,7 @@ public:
 
         CrossBoundaryResult result;
         if (!prevalidateEvm) {
-            const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmContext);
+            const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
             if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
                 if (!result.ok) {
@@ -3984,7 +3984,7 @@ public:
                 }
             }
 
-            evm_try_queue_tx(result, evmContext, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
+            evm_try_queue_tx(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
             if (!result.ok) {
                 LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to queue %s\n", result.reason);
@@ -4143,7 +4143,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
     if (!IsEVMEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
-    
+
     if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
         if (!IsTransferDomainEnabled(height, mnview, consensus)) {
             return DeFiErrors::TransferDomainNotEnabled();
@@ -4224,16 +4224,16 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   uint64_t time,
                   uint32_t txn,
-                  const uint64_t evmContext) {
+                  const uint64_t evmQueueId) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    auto context = evmContext;
+    auto context = evmQueueId;
     bool prevalidateEvm = false;
     if (context == 0) {
         prevalidateEvm = true;
-        context = evm_get_context();
+        context = evm_get_queue_id();
     }
 
     try {
@@ -4323,7 +4323,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmContext) {
+                  const uint64_t evmQueueId) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4347,7 +4347,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmContext);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
