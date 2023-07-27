@@ -894,12 +894,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                             }
                             checkedTX.erase(evmTXs[txResult.sender][txResult.nonce]->GetTx().GetHash());
                             evmTXs[txResult.sender][txResult.nonce] = sortedEntries[i];
-                            auto count{txResult.nonce};
                             for (const auto& [nonce, entry] : evmTXs[txResult.sender]) {
                                 inBlock.erase(entry);
                                 checkedTX.erase(entry->GetTx().GetHash());
-                                replaceByFee.emplace(count, entry);
-                                ++count;
+                                replaceByFee.emplace(nonce, entry);
                             }
                             evmTXs.erase(txResult.sender);
                             evm_remove_txs_by_sender(evmQueueId, txResult.sender);
