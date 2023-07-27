@@ -39,11 +39,12 @@ setup_vars() {
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
+    MAKE_USE_CLANG=${MAKE_USE_CLANG:-"$(get_default_use_clang)"}
 
-    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
+    if [[ "${MAKE_USE_CLANG}" == "1" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
-        [[ -z "${CC:-}" ]] && export CC=clang-${clang_ver}
-        [[ -z "${CXX:-}" ]] && export CXX=clang++-${clang_ver}
+        export CC=clang-${clang_ver}
+        export CXX=clang++-${clang_ver}
     fi
 
     MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
@@ -801,6 +802,20 @@ get_default_jobs() {
     else
         echo 1
     fi
+}
+
+get_default_use_clang() {
+    local target=${TARGET}
+    local cc=${CC:-}
+    local cxx=${CXX:-}
+    if [[ -z "${cc}" && -z "${cxx}" ]]; then
+        if [[ "${target}" == "x86_64-pc-linux-gnu" ]]; then
+            echo 1
+            return
+        fi
+    fi
+    echo 0
+    return
 }
 
 # Dev tools
