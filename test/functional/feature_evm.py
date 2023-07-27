@@ -107,13 +107,13 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Fund DFI address
-        txid = self.nodes[0].utxostoaccount({address: "101@DFI"})
+        txid = self.nodes[0].utxostoaccount({address: "200@DFI"})
         self.nodes[0].generate(1)
 
         # Check initial balances
         dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
         eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        assert_equal(dfi_balance, Decimal('101'))
+        assert_equal(dfi_balance, Decimal('200'))
         assert_equal(eth_balance, int_to_eth_u256(0))
         assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
 
