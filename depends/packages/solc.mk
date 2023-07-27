@@ -22,15 +22,14 @@ ifeq ($(build_os),windows)
   $(package)_file_ext=.exe
 endif
 
-$(package)_target_name=$(package)$($(package)_file_ext)
-
-
 ifeq ($($(package)_file_name),)
     $(error Unsupported build platform: $(BUILD))
 endif
 
 define $(package)_extract_cmds
-  mkdir -p $$($(package)_extract_dir) && echo "$$($(package)_sha256_hash)  $$($(package)_source)" > $$($(package)_extract_dir)/.$$($(package)_file_name).hash &&  $(build_SHA256SUM) -c $$($(package)_extract_dir)/.$$($(package)_file_name).hash && cp $$($(package)_source) $(package)
+  mkdir -p $$($(package)_extract_dir) && \
+  echo "$$($(package)_sha256_hash)  $$($(package)_source)" > $$($(package)_extract_dir)/.$$($(package)_file_name).hash && \
+  $(build_SHA256SUM) -c $$($(package)_extract_dir)/.$$($(package)_file_name).hash
 endef
 
 define $(package)_set_vars
@@ -39,7 +38,6 @@ endef
 
 define $(package)_build_cmds
   mkdir -p $($(package)_ROOT) && \
-  chmod +x $($(package)_target_name) && \
-  mv $($(package)_target_name) $($(package)_ROOT)
+  chmod +x $($(package)_source) && \
+  cp $($(package)_source) $($(package)_ROOT)/$(package)$($(package)_file_ext)
 endef
-
