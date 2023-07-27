@@ -253,7 +253,10 @@ impl TransactionQueue {
                 .insert(signed_tx.sender, signed_tx.nonce());
 
             gas_fee = match calculate_gas_fee(signed_tx, gas_used.into(), base_fee) {
-                Ok(fee) => fee.as_u64(),
+                Ok(fee) => match u64::try_from(fee) {
+                    Ok(fee) => fee,
+                    Err(_) => return Err(QueueError::InvalidFee),
+                }
                 Err(_) => return Err(QueueError::InvalidFee),
             };
 
