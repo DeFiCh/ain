@@ -109,8 +109,8 @@ class WalletLabelsTest(DefiTestFramework):
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
             address = node.getnewaddress("", "bech32")
-            eth_address = node.vmmap(address, 1)
-            bech32_address = node.vmmap(eth_address, 2)
+            eth_address = node.addressmap(address, 1)
+            bech32_address = node.addressmap(eth_address, 2)
             legacy_address = key_to_p2pkh(node.getaddressinfo(eth_address)['pubkey'])
             node.setlabel(address, label.name)
             node.setlabel(eth_address, label.name)
