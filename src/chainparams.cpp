@@ -146,6 +146,7 @@ public:
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -645,6 +646,7 @@ public:
         consensus.ChangiIntermediateHeight2 = 1717493;
         consensus.ChangiIntermediateHeight3 = 1730100;
         consensus.ChangiIntermediateHeight4 = 1775300;
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -865,6 +867,7 @@ public:
         consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1087,7 +1090,8 @@ public:
         consensus.ChangiIntermediateHeight = 10000000;
         consensus.ChangiIntermediateHeight2 = 10000000;
         consensus.ChangiIntermediateHeight3 = 10000000;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 10000000;
+        consensus.ChangiIntermediateHeight5 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1237,7 +1241,7 @@ public:
             {"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp"},
             {"bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"},
         };
-        
+
         for(size_t i = 0; i < mnkeys.size(); i+=2) {
             auto ownerPubKey = mnkeys[i].pub;
             auto operatorPubKey = mnkeys[i+1].pub;
@@ -1359,6 +1363,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Changi Intermediate2", "-changiintermediate2height", consensus.ChangiIntermediateHeight2);
     UpdateHeightValidation("Changi Intermediate3", "-changiintermediate3height", consensus.ChangiIntermediateHeight3);
     UpdateHeightValidation("Changi Intermediate4", "-changiintermediate4height", consensus.ChangiIntermediateHeight4);
+    UpdateHeightValidation("Changi Intermediate5", "-changiintermediate5height", consensus.ChangiIntermediateHeight5);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
