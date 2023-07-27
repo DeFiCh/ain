@@ -81,7 +81,7 @@ struct EvmAddressWithNonce {
 };
 
 struct EvmPackageContext {
-    // Used to track EVM TXs by sender and nonce.
+    // Used to track EVM TX fee by sender and nonce.
     std::map<EvmAddressWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
     std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
