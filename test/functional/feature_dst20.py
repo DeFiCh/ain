@@ -373,9 +373,7 @@ class DST20(DefiTestFramework):
         self.test_conflicting_bridge()
         self.test_invalid_token()
         self.test_transfer_to_token_address()
-
-        # node crashes due to miner issue, crash is fixed by https://github.com/DeFiCh/ain/pull/2221/.
-        # self.test_bridge_when_no_balance()
+        self.test_bridge_when_no_balance()
 
 if __name__ == "__main__":
     DST20().main()
