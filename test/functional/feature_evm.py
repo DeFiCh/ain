@@ -11,8 +11,6 @@ from test_framework.util import (
     assert_raises_rpc_error,
     int_to_eth_u256
 )
-from test_framework.evm_contract import EVMContract
-
 from decimal import Decimal
 from web3 import Web3
 
