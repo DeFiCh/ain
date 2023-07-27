@@ -466,7 +466,7 @@ class TestForcedRewardAddress(DefiTestFramework):
                                 self.nodes[0].updatemasternode, mn2, {'rewardAddress': script_address})
 
         # Move to fork height
-        self.nodes[0].generate(510 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(510)
 
         # Change reward address to script hash post-fork
         self.nodes[0].updatemasternode(mn2, {'rewardAddress': script_address})

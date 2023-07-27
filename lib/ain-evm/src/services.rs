@@ -3,6 +3,7 @@ use crate::storage::traits::FlushableStorage;
 
 use anyhow::Result;
 use jsonrpsee_http_server::HttpServerHandle;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle as AsyncHandle};
@@ -13,9 +14,18 @@ use tokio::sync::mpsc::{self, Sender};
 // Note: This cannot just move to rs-exports, since rs-exports cannot cannot have reverse
 // deps that depend on it.
 
+// Global flag indicating SERVICES initialization
+//
+// This AtomicBool is necessary to check if SERVICES are initialized, without
+// inadvertently initializing them. It prevents unnecessary shutdown operations on uninitialized SERVICES.
+pub static IS_SERVICES_INIT_CALL: AtomicBool = AtomicBool::new(false);
+
 lazy_static::lazy_static! {
     // Global services exposed by the library
-    pub static ref SERVICES: Services = Services::new();
+    pub static ref SERVICES: Services = {
+        IS_SERVICES_INIT_CALL.store(true, Ordering::SeqCst);
+        Services::new()
+    };
 }
 
 pub struct Services {
