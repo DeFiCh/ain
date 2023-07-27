@@ -2378,7 +2378,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
+static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return;
 
     CKeyID minter;
@@ -2422,13 +2422,13 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_finalize(result, evmContext, false, block.nBits, beneficiary, block.GetBlockTime());
+    const auto blockResult = evm_try_finalize(result, evmQueueId, false, block.nBits, beneficiary, block.GetBlockTime());
     if (!result.ok) {
         LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
     }
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
-    
+
     cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
 
@@ -2467,7 +2467,7 @@ static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView&
     cache.SetVariable(*attributes);
 }
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmContext, std::array<uint8_t, 20>& beneficiary) {
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2522,7 +2522,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessGrandCentralEvents(pindex, cache, chainparams);
 
     // Execute EVM Queue
-    ProcessEVMQueue(block, pindex, cache, chainparams, evmContext, beneficiary);
+    ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
 
     // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
     ProcessChangiIntermediate4(pindex, cache, chainparams);

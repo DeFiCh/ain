@@ -23,6 +23,7 @@ class CBlockIndex;
 class CChainParams;
 class CScript;
 class CAnchor;
+struct EvmTxPreApplyContext;
 
 namespace Consensus { struct Params; };
 
@@ -188,13 +189,17 @@ private:
     void resetBlock();
     /** Add a tx to the block */
     void AddToBlock(CTxMemPool::txiter iter);
+    /** Remove a single tx from the block */
+    void RemoveFromBlock(CTxMemPool::txiter iter);
+    /** Remove txs along with the option to remove descendants from the block */
+    void RemoveFromBlock(const CTxMemPool::setEntries &txIterSet, bool removeDescendants);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
     template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmContext, std::map<uint256, CAmount> &txFees, const CBlockIndex* pindexPrev) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, const uint64_t evmQueueId, std::map<uint256, CAmount> &txFees) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -215,10 +220,8 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
-    /** Remove failed TransferDoamin transactions from the block */
-    void RemoveFailedTransactions(const std::vector<std::string> &failedTransactions, const std::map<uint256, CAmount> &txFees);
-    /** Remove specific TX from the block */
-    void RemoveEVMTransactions(const std::vector<CTxMemPool::txiter> iters);
+    /** Run EVM transaction checks */
+    bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
 };
 
 /** Modify the extranonce in a block */

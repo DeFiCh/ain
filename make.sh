@@ -39,17 +39,17 @@ setup_vars() {
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
+    MAKE_USE_CLANG=${MAKE_USE_CLANG:-"$(get_default_use_clang)"}
 
-    local default_compiler_flags=""
-    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
+    if [[ "${MAKE_USE_CLANG}" == "1" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
-        default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
+        export CC=clang-${clang_ver}
+        export CXX=clang++-${clang_ver}
     fi
 
     MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
 
     MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
-    MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
@@ -61,6 +61,8 @@ setup_vars() {
 
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
+    TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
+    TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
 }
 
 main() {
@@ -348,26 +350,37 @@ test() {
     _fold_end
 
     _fold_start "functional-tests"
-
-    py_ensure_env_active
-
-    # shellcheck disable=SC2086
-    python3 ./test/functional/test_runner.py --ci -j$make_jobs --tmpdirprefix "./test_runner/" --ansi --combinedlogslen=10000
-
-    py_env_deactivate
-
+    # shellcheck disable=SC2119
+    test_py
     _fold_end
+
     _exit_dir
 }
 
+# shellcheck disable=SC2120
 test_py() {
     local build_target_dir=${BUILD_TARGET_DIR}
+    local src_dir=${_SCRIPT_DIR}
+    local tests_fail_fast=${TESTS_FAILFAST}
+    local tests_combined_logs=${TESTS_COMBINED_LOGS}
+    local make_jobs=${MAKE_JOBS}
+    local extra_args=""
     local first_arg="${1:-}"
 
+    # If an argument is given as an existing file, we switch that
+    # out to the last arg
     if [[ -f "${first_arg}" ]]; then
       shift
-      "${first_arg}" --configfile "${build_target_dir}/test/config.ini" --tmpdirprefix "./test_runner/" --ansi "$@"
-      return
+    elif [[ -f "${src_dir}/test/functional/${first_arg}" ]]; then
+      first_arg="${src_dir}/test/functional/${first_arg}"
+      shift
+    else
+      # We don't shift, this just ends up in the $@ args    
+      first_arg=""
+    fi
+
+    if [[ "$tests_fail_fast" == "1" ]]; then
+        extra_args="--failfast"
     fi
 
     _ensure_enter_dir "${build_target_dir}"
@@ -375,7 +388,13 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    python3 ./test/functional/test_runner.py --tmpdirprefix "./test_runner/" --ansi "$@"
+    python3 ${build_target_dir}/test/functional/test_runner.py \
+        --tmpdirprefix="./test_runner/" \
+        --ansi \
+        --configfile="${build_target_dir}/test/config.ini" \
+        --jobs=${make_jobs} \
+        --combinedlogslen=${tests_combined_logs} \
+        ${extra_args} ${first_arg} "$@"
 
     py_env_deactivate
     _exit_dir
@@ -582,7 +601,8 @@ clean_pkg_local_py_deps() {
 
 pkg_setup_rust() {
     local rust_target
-    rust_target=$(get_rust_target)
+    # shellcheck disable=SC2119
+    rust_target=$(get_rust_triplet)
     rustup target add "${rust_target}"
 }
 
@@ -784,6 +804,20 @@ get_default_jobs() {
     fi
 }
 
+get_default_use_clang() {
+    local target=${TARGET}
+    local cc=${CC:-}
+    local cxx=${CXX:-}
+    if [[ -z "${cc}" && -z "${cxx}" ]]; then
+        if [[ "${target}" == "x86_64-pc-linux-gnu" ]]; then
+            echo 1
+            return
+        fi
+    fi
+    echo 0
+    return
+}
+
 # Dev tools
 # ---
 
@@ -980,24 +1014,25 @@ ci_setup_deps_test() {
     pkg_local_install_py_deps
 }
 
-get_rust_target() {
+# shellcheck disable=SC2120
+get_rust_triplet() {
     # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
     # The function is called in 2 places:
     # 1. When setting up Rust, which TARGET is passed from the environment
     # 2. In configure, which sets TARGET with the additional unknown vendor part in the triplet
     # Thus, we normalize across both to source the correct rust target.
-    local target=${TARGET}
-    local rust_target
-    case $target in
-        x86_64-pc-linux-gnu) rust_target=x86_64-unknown-linux-gnu;;
-        aarch64-linux-gnu|aarch64-unknown-linux-gnu) rust_target=aarch64-unknown-linux-gnu;;
-        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) rust_target=armv7-unknown-linux-gnueabihf;;
-        x86_64-apple-darwin) rust_target=x86_64-apple-darwin;;
-        aarch64-apple-darwin) rust_target=aarch64-apple-darwin;;
-        x86_64-w64-mingw32) rust_target=x86_64-pc-windows-gnu;;
-        *) echo "error: unsupported target: ${target}"; exit 1;;
+    local triplet=${1:-${TARGET}}
+    local result
+    case $triplet in
+        x86_64-pc-linux-gnu) result=x86_64-unknown-linux-gnu;;
+        aarch64-linux-gnu|aarch64-unknown-linux-gnu) result=aarch64-unknown-linux-gnu;;
+        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) result=armv7-unknown-linux-gnueabihf;;
+        x86_64-apple-darwin*) result=x86_64-apple-darwin;;
+        aarch64-apple-darwin*) result=aarch64-apple-darwin;;
+        x86_64-w64-mingw32) result=x86_64-pc-windows-gnu;;
+        *) echo "error: unsupported triplet: ${triplet}"; exit 1;;
     esac
-    echo "$rust_target"
+    echo "$result"
 }
 
 _sign() {

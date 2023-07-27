@@ -20,9 +20,6 @@ pub trait BlockStorage {
     fn put_block(&self, block: &BlockAny);
     fn get_latest_block(&self) -> Option<BlockAny>;
     fn put_latest_block(&self, block: Option<&BlockAny>);
-
-    fn get_base_fee(&self, block_hash: &H256) -> Option<U256>;
-    fn set_base_fee(&self, block_hash: H256, base_fee: U256);
 }
 
 pub trait TransactionStorage {
@@ -65,15 +62,13 @@ pub trait PersistentState {
         Self: serde::ser::Serialize,
     {
         // Automatically resolves from datadir for now
-        let path = match ain_cpp_imports::get_datadir() {
-            Ok(path) => {
-                let path = PathBuf::from(path).join("evm");
-                if !path.exists() {
-                    std::fs::create_dir(&path).expect("Error creating `evm` dir");
-                }
-                path.join(file_path)
+        let datadir = ain_cpp_imports::get_datadir();
+        let path = {
+            let path = PathBuf::from(datadir).join("evm");
+            if !path.exists() {
+                std::fs::create_dir(&path).expect("Error creating `evm` dir");
             }
-            _ => PathBuf::from(file_path),
+            path.join(file_path)
         };
 
         let serialized_state = bincode::serialize(self)?;
@@ -89,10 +84,8 @@ pub trait PersistentState {
         debug!("Restoring {} from disk", file_path);
 
         // Automatically resolves from datadir for now
-        let path = match ain_cpp_imports::get_datadir() {
-            Ok(path) => PathBuf::from(path).join("evm").join(file_path),
-            _ => PathBuf::from(file_path),
-        };
+        let datadir = ain_cpp_imports::get_datadir();
+        let path = PathBuf::from(datadir).join("evm").join(file_path);
 
         if Path::new(&path).exists() {
             let file = File::open(path)?;

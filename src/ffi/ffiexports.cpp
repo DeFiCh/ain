@@ -4,7 +4,7 @@
 #include <key_io.h>
 #include <logging.h>
 
-// TODO: Later switch this to u8 so we skip the 
+// TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
 // Direct const* char ptr is not allowed due to CXX, but
 // we can convert ourselves and pass the final u8.
@@ -82,7 +82,7 @@ rust::string getDatadir() {
     // if odd paths are used. Require testing.
     return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
 #else
-    return rust::String(GetDataDir().c_str());
+    return GetDataDir().c_str();
 #endif
 }
 
@@ -198,7 +198,7 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
     CKey ethPrivKey;
     const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet: GetWallets()) {
-        if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
+        if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
             return privKeyArray;
@@ -234,4 +234,9 @@ bool pastChangiIntermediateHeight3() {
 bool pastChangiIntermediateHeight4() {
     LOCK(cs_main);
     return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight4;
+}
+
+bool pastChangiIntermediateHeight5() {
+    LOCK(cs_main);
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight5;
 }

@@ -1,7 +1,8 @@
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas;
+use crate::fee::calculate_prepay_gas_fee;
+use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
 use crate::receipt::ReceiptService;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
@@ -27,7 +28,6 @@ use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
-pub const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
 pub struct EVMCoreService {
@@ -47,13 +47,13 @@ pub struct EthCallArgs<'a> {
 
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
-    pub prepay_gas: U256,
+    pub prepay_fee: U256,
     pub used_gas: u64,
 }
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
-    let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
+    let datadir = ain_cpp_imports::get_datadir();
     let path = PathBuf::from(datadir).join("evm");
     if !path.exists() {
         std::fs::create_dir(&path).expect("Error creating `evm` dir");
@@ -102,15 +102,13 @@ impl EVMCoreService {
                 nonce: genesis.nonce.unwrap_or_default(),
                 timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
                 difficulty: genesis.difficulty.unwrap_or_default(),
+                base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },
             Vec::new(),
             Vec::new(),
         );
         storage.put_latest_block(Some(&block));
         storage.put_block(&block);
-        // NOTE(canonbrother): set an initial base fee for genesis block
-        // https://github.com/ethereum/go-ethereum/blob/46ec972c9c56a4e0d97d812f2eaf9e3657c66276/params/protocol_params.go#LL125C2-L125C16
-        storage.set_base_fee(block.header.hash(), INITIAL_BASE_FEE);
 
         handler
     }
@@ -167,8 +165,8 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
+        queue_id: u64,
         use_context: bool,
-        context: u64,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
@@ -199,6 +197,7 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
+        // Validate tx nonce
         if nonce > signed_tx.nonce() {
             return Err(anyhow!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -214,21 +213,24 @@ impl EVMCoreService {
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        let prepay_gas = calculate_prepay_gas(&signed_tx);
-        debug!("[validate_raw_tx] prepay_gas : {:x?}", prepay_gas);
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         let gas_limit = signed_tx.gas_limit();
         if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            if balance < prepay_gas {
+            if balance < prepay_fee {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            if gas_limit < MIN_GAS_PER_TX {
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                // Validate tx gas limit with intrinsic gas
+                check_tx_intrinsic_gas(&signed_tx)?;
+            } else if gas_limit < MIN_GAS_PER_TX {
                 debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
                 return Err(anyhow!("gas limit is below the minimum gas per tx").into());
             }
-        } else if balance < MIN_GAS_PER_TX || balance < prepay_gas {
+        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
@@ -238,6 +240,7 @@ impl EVMCoreService {
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
+        // Get tx gas usage
         let used_gas = if use_context {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
@@ -253,21 +256,22 @@ impl EVMCoreService {
             u64::default()
         };
 
+        // Validate total gas usage in queued txs exceeds block size
         if use_context {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
-                .get_total_gas_used(context)
+                .get_total_gas_used(queue_id)
                 .unwrap_or_default();
 
-            if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
+            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
                 return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
 
         Ok(ValidateTxInfo {
             signed_tx,
-            prepay_gas,
+            prepay_fee,
             used_gas,
         })
     }
@@ -286,19 +290,20 @@ impl EVMCoreService {
 impl EVMCoreService {
     pub fn add_balance(
         &self,
-        context: u64,
+        queue_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
-        self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
+        self.tx_queues
+            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
     }
 
     pub fn sub_balance(
         &self,
-        context: u64,
+        queue_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
@@ -317,34 +322,35 @@ impl EVMCoreService {
             .into())
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
-            self.tx_queues.queue_tx(context, queue_tx, hash, 0u64)?;
+            self.tx_queues
+                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
         }
     }
 
-    pub fn get_context(&self) -> u64 {
-        self.tx_queues.get_context()
+    pub fn get_queue_id(&self) -> u64 {
+        self.tx_queues.get_queue_id()
     }
 
-    pub fn clear(&self, context: u64) -> Result<(), EVMError> {
-        self.tx_queues.clear(context)?;
+    pub fn clear(&self, queue_id: u64) -> Result<(), EVMError> {
+        self.tx_queues.clear(queue_id)?;
         Ok(())
     }
 
-    pub fn remove(&self, context: u64) {
-        self.tx_queues.remove(context);
+    pub fn remove(&self, queue_id: u64) {
+        self.tx_queues.remove(queue_id);
     }
 
-    pub fn remove_txs_by_sender(&self, context: u64, address: H160) -> Result<(), EVMError> {
-        self.tx_queues.remove_txs_by_sender(context, address)?;
+    pub fn remove_txs_by_sender(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
+        self.tx_queues.remove_txs_by_sender(queue_id, address)?;
         Ok(())
     }
 
-    /// Retrieves the next valid nonce for the specified account within a particular context.
+    /// Retrieves the next valid nonce for the specified account within a particular queue.
     ///
     /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided context. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this context. It falls back to retrieving the nonce from the storage at the latest
+    /// provided queue_id. If no nonce is found in the transaction queue, that means that no transactions have been
+    /// queued for this account in this queue_id. It falls back to retrieving the nonce from the storage at the latest
     /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
     /// the nonce is defaulted to zero.
     ///
@@ -353,16 +359,16 @@ impl EVMCoreService {
     ///
     /// # Arguments
     ///
-    /// * `context` - The context queue number.
+    /// * `queue_id` - The queue_id queue number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_context(&self, context: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(context, address)
+            .get_next_valid_nonce(queue_id, address)
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
@@ -375,7 +381,7 @@ impl EVMCoreService {
             });
 
         debug!(
-            "Account {:x?} nonce {:x?} in context {context}",
+            "Account {:x?} nonce {:x?} in queue_id {queue_id}",
             address, nonce
         );
         nonce
