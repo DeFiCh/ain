@@ -354,7 +354,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             }
         }
 
-        RemoveFromBlock(failedTransactions);
+        RemoveFromBlock(failedTransferDomainTxs);
     }
 
     // TXs for the creationTx field in new tokens created via token split
