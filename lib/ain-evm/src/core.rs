@@ -264,7 +264,7 @@ impl EVMCoreService {
                 .get_total_gas_used(queue_id)
                 .unwrap_or_default();
 
-            if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
+            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
                 return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
@@ -297,7 +297,7 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
     }
 
@@ -323,7 +323,7 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
         }
     }
