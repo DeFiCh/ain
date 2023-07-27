@@ -1,4 +1,3 @@
-use std::error::Error;
 use ain_evm::{
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
@@ -7,13 +6,14 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
+use std::error::Error;
 
 use ain_evm::storage::traits::BlockStorage;
-use ain_evm::transaction::system::{DeployContractData, DST20Data, SystemTx};
+use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
+use ain_evm::txqueue::QueueTx;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
-use ain_evm::txqueue::QueueTx;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -446,12 +446,9 @@ pub fn evm_create_dst20(
 ) {
     match create_dst20(context, native_hash, name, symbol, token_id) {
         Ok(_) => cross_boundary_success(result),
-        Err(e) => {
-            cross_boundary_error_return(result, e.to_string())
-        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
-
 
 pub fn evm_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
@@ -462,16 +459,9 @@ pub fn evm_bridge_dst20(
     token_id: &str,
     out: bool,
 ) {
-    match bridge_to_dst20(
-        context,
-        address,
-        amount,
-        native_tx_hash,
-        token_id,
-        out,
-    ) {
+    match bridge_to_dst20(context, address, amount, native_tx_hash, token_id, out) {
         Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string())
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -494,7 +484,6 @@ fn create_dst20(
 
     Ok(())
 }
-
 
 fn bridge_to_dst20(
     context: u64,

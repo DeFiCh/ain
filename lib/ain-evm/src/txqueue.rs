@@ -5,12 +5,12 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
+use crate::transaction::system::SystemTx;
 use crate::{
     core::NativeTxHash,
     fee::calculate_gas_fee,
     transaction::{bridge::BridgeTx, SignedTx},
 };
-use crate::transaction::system::SystemTx;
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {

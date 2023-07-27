@@ -349,9 +349,7 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
-        self.abi = open(
-            "./lib/ain-contracts/dst20/output/abi.json", encoding="utf-8"
-        ).read()
+        self.abi = open("./lib/ain-contracts/dst20/output/abi.json", "r", encoding="utf8").read()
 
         # Generate chain
         self.node.generate(105)

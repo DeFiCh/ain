@@ -505,8 +505,8 @@ impl EVMCoreService {
     }
 }
 
-use std::fmt;
 use primitive_types::H256;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum EVMError {
