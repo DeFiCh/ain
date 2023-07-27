@@ -11,6 +11,7 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use thiserror::Error;
 
+use crate::core::MAX_GAS_PER_BLOCK;
 use crate::storage::{traits::BlockStorage, Storage};
 use crate::transaction::SignedTx;
 
@@ -87,10 +88,10 @@ impl BlockService {
                     number: block_number.saturating_add(U256::one()),
                     difficulty: Default::default(), // 0x0
                     nonce: Default::default(),      // 0x0
+                    gas_limit: MAX_GAS_PER_BLOCK,
 
                     // wip
                     base_fee: Default::default(),
-                    gas_limit: Default::default(),
                     gas_used: Default::default(),
                     beneficiary: Default::default(),
                     timestamp: 0,
