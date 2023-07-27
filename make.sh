@@ -63,6 +63,7 @@ setup_vars() {
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
     TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
     TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
+    CI_GROUP_LOGS=${CI_GROUP_LOGS:-"1"}
 }
 
 main() {
@@ -384,7 +385,6 @@ test_py() {
     fi
 
     _ensure_enter_dir "${build_target_dir}"
-
     py_ensure_env_active
 
     # shellcheck disable=SC2086
@@ -1053,11 +1053,15 @@ _safe_rm_rf() {
 }
 
 _fold_start() {
-    echo "::group::${*:-}"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::group::${*:-}";
+    fi
 }
 
 _fold_end() {
-    echo "::endgroup::"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::endgroup::"
+    fi
 }
 
 _ensure_enter_dir() {
