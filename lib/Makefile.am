@@ -25,12 +25,16 @@ BUILD_ARTIFACTS_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 CARGO_MANIFEST_ARG = --manifest-path "$(CARGO_MANIFEST_PATH)"
 CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
 
-# If $build == $host, we add --all-targets otherwise we skip
-# since compiling with `--test` fails on cross compilation
+
+#  We add --all-targets only on native build, i.e $build == $host
+#  otherwise things like `--test` cannot run
 CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
 
 # Export toolchain flags
-export CC CXX AR NM RANLIB
+export CC CXX AR NM RANLIB CFLAGS CXXFLAGS 
+# Not exported as these will break nested assumptions
+# CPPFLAGS LDFLAGS ARFLAGS
+
 # Set the native toolchain flags
 if HAVE_RUST_HOST
 export CC_$(RUST_HOST)=$(BUILD_CC)
