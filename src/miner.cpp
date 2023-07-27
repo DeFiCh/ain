@@ -608,7 +608,6 @@ bool BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
         --nBlockTx;
         nBlockSigOpsCost -= iter->GetSigOpCost();
         nFees -= iter->GetFee();
-        inBlock.erase(iter);
         return true;
     }
     return false;
@@ -729,7 +728,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
             auto addrTxs = evmAddressTxsMap[addrKey.address];
             for (const auto& [nonce, entry] : addrTxs) {
-                RemoveFromBlock(entry);
+                if (RemoveFromBlock(entry)) {
+                    inBlock.erase(entry);
+                }
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(nonce, entry);
             }
