@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 ain-cpp-imports = { path = "../ain-cpp-imports" }
+ain-contracts = { path = "../ain-contracts" }
 
 evm = { version = "0.39", default-features = false, features = ["with-serde"] }
 primitive-types = { version = "0.12", default-features = false, features = ["serde"] }
