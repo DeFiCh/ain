@@ -160,8 +160,7 @@ pub fn past_changi_intermediate_height_4_height() -> bool {
 }
 
 pub fn past_changi_intermediate_height_5_height() -> bool {
-    const CHANGI_5_HEIGHT: i32 = 0;
-    ffi::getCurrentHeight() > CHANGI_5_HEIGHT
+    ffi::pastChangiIntermediateHeight5()
 }
 
 pub fn log_print(message: &str) {
