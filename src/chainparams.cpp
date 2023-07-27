@@ -146,6 +146,7 @@ public:
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -645,6 +646,7 @@ public:
         consensus.ChangiIntermediateHeight2 = 1717493;
         consensus.ChangiIntermediateHeight3 = 1730100;
         consensus.ChangiIntermediateHeight4 = 1775300;
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -865,6 +867,7 @@ public:
         consensus.ChangiIntermediateHeight2 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight3 = std::numeric_limits<int>::max();
         consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight5 = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1087,7 +1090,8 @@ public:
         consensus.ChangiIntermediateHeight = 10000000;
         consensus.ChangiIntermediateHeight2 = 10000000;
         consensus.ChangiIntermediateHeight3 = 10000000;
-        consensus.ChangiIntermediateHeight4 = std::numeric_limits<int>::max();
+        consensus.ChangiIntermediateHeight4 = 10000000;
+        consensus.ChangiIntermediateHeight5 = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
