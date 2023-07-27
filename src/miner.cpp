@@ -768,11 +768,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
             // Buggy code to fix below:
             checkedDfTxHashSet.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
             addrTxs[addrKey.nonce] = txIter;
-            auto count{addrKey.nonce};
             for (const auto& [nonce, entry] : addrTxs) {
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
-                replaceByFee.emplace(count, entry);
-                ++count;
+                replaceByFee.emplace(nonce, entry);
             }
             evmAddressTxsMap.erase(addrKey.address);
             evm_remove_txs_by_sender(evmQueueId, addrKey.address);
