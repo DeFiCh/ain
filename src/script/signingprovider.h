@@ -23,7 +23,6 @@ public:
     virtual bool HaveCScript(const CScriptID &scriptid) const { return false; }
     virtual bool GetPubKey(const CKeyID &address, CPubKey& pubkey) const { return false; }
     virtual bool GetKey(const CKeyID &address, CKey& key) const { return false; }
-    virtual bool GetEthKey(const CKeyID &address, CKey &keyOut) const { return false; }
     virtual bool HaveKey(const CKeyID &address) const { return false; }
     virtual bool GetKeyOrigin(const CKeyID& keyid, KeyOriginInfo& info) const { return false; }
 };
@@ -70,20 +69,17 @@ protected:
     using ScriptMap = std::map<CScriptID, CScript>;
 
     KeyMap mapKeys GUARDED_BY(cs_KeyStore);
-    KeyMap mapEthKeys GUARDED_BY(cs_KeyStore);
     ScriptMap mapScripts GUARDED_BY(cs_KeyStore);
 
-    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, const CPubKey &compressedPubKey = {}) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
+    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
 
 public:
-    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, const CPubKey &compressedPubKey);
-    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey(), {}); }
+    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
+    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey()); }
     virtual bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const override;
     virtual bool HaveKey(const CKeyID &address) const override;
     virtual std::set<CKeyID> GetKeys() const;
-    virtual std::set<CKeyID> GetEthKeys() const;
     virtual bool GetKey(const CKeyID &address, CKey &keyOut) const override;
-    bool GetEthKey(const CKeyID &address, CKey &keyOut) const override;
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const override;
     virtual std::set<CScriptID> GetCScripts() const;

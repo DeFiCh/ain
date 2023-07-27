@@ -198,7 +198,7 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
     CKey ethPrivKey;
     const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet: GetWallets()) {
-        if (wallet->GetEthKey(ethKeyID, ethPrivKey)) {
+        if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
             return privKeyArray;
@@ -234,4 +234,9 @@ bool pastChangiIntermediateHeight3() {
 bool pastChangiIntermediateHeight4() {
     LOCK(cs_main);
     return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight4;
+}
+
+bool pastChangiIntermediateHeight5() {
+    LOCK(cs_main);
+    return ::ChainActive().Height() >= Params().GetConsensus().ChangiIntermediateHeight5;
 }

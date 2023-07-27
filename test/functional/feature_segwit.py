@@ -402,14 +402,14 @@ class SegWitTest(DefiTestFramework):
                 # P2WSH and P2SH(P2WSH) multisig with uncompressed keys are never seen
                 unseen_anytime.extend([p2wsh, p2sh_p2wsh])
             else:
-                [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk,
-                 p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
+                [_, _, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, _, p2sh_p2wsh_p2pk,
+                 _] = self.p2pkh_address_to_script(v)
                 # normal P2PKH and P2PK with uncompressed keys should always be spendable
                 spendable_anytime.extend([p2pkh, p2pk])
                 # P2SH_P2PK and P2SH_P2PKH are spendable after direct importaddress
                 spendable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh])
                 # Witness output types with uncompressed keys are never seen
-                unseen_anytime.extend([p2wpkh, p2sh_p2wpkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh])
+                unseen_anytime.extend([p2wsh_p2pk, p2sh_p2wsh_p2pk])
 
         for i in compressed_solvable_address:
             v = self.nodes[0].getaddressinfo(i)
