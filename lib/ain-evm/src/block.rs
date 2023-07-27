@@ -56,9 +56,10 @@ impl BlockService {
             .unwrap_or_default()
     }
 
-    pub fn connect_block(&self, block: BlockAny) {
+    pub fn connect_block(&self, block: BlockAny, base_fee: U256) {
         self.storage.put_latest_block(Some(&block));
         self.storage.put_block(&block);
+        self.storage.set_base_fee(block.header.hash(), base_fee);
     }
 
     fn pre_changi_intermediate_2_base_fee_calculation(
@@ -168,7 +169,10 @@ impl BlockService {
             .storage
             .get_block_by_hash(&parent_hash)
             .expect("Parent block not found");
-        let parent_base_fee = parent_block.header.base_fee;
+        let parent_base_fee = self
+            .storage
+            .get_base_fee(&parent_block.header.hash())
+            .expect("Parent base fee not found");
         let parent_gas_used = parent_block.header.gas_used.as_u64();
         let parent_gas_target =
             parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
@@ -217,7 +221,10 @@ impl BlockService {
             .iter()
             .map(|block| {
                 debug!("Processing block {}", block.header.number);
-                let base_fee = block.header.base_fee;
+                let base_fee = self
+                    .storage
+                    .get_base_fee(&block.header.hash())
+                    .unwrap_or_else(|| panic!("No base fee for block {}", block.header.number));
 
                 let gas_ratio = if block.header.gas_limit == U256::zero() {
                     f64::default() // empty block
@@ -345,12 +352,13 @@ impl BlockService {
 
     pub fn get_legacy_fee(&self) -> U256 {
         let priority_fee = self.suggested_priority_fee();
-        let base_fee = self
+        let latest_block_hash = self
             .storage
             .get_latest_block()
             .expect("Unable to get latest block")
             .header
-            .base_fee;
+            .hash();
+        let base_fee = self.storage.get_base_fee(&latest_block_hash).unwrap();
 
         base_fee + priority_fee
     }
