@@ -271,9 +271,16 @@ class EVMTest(DefiTestFramework):
 
         # Test rollback of EVM TX
         self.rollback_to(before_blockheight, self.nodes)
-        # self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(miner_before, miner_rollback)
+
+        # Top up Eth address
+        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"65@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"65@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+
+        # Check Eth balances before transfer
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 75000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
         # Test max limit of TX from a specific sender
         for i in range(63):
@@ -286,6 +293,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(len(block_txs), 64)
+
+        # Check Eth balances after transfer
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 11972217000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 63000000000000000000)
 
         # Try and send another TX to make sure mempool has removed entires
         self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
