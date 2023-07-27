@@ -32,6 +32,6 @@ endef
 
 define $(package)_build_cmds
   mkdir -p $($(package)_ROOT) && \
-  chmod +x $($(package)_source) && \
-  cp $($(package)_source) $($(package)_ROOT)/$(package)
+  cp $($(package)_source) $($(package)_ROOT)/$(package) && \
+  chmod +x $($(package)_ROOT)/$(package)
 endef
