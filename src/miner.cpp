@@ -354,7 +354,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             }
         }
 
-        RemoveFromBlock(failedTransferDomainTxs);
+        RemoveFromBlock(failedTransferDomainTxs, true);
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -588,51 +588,33 @@ bool BlockAssembler::RemoveFromBlock(CTxMemPool::txiter iter)
         }
 
         pblock->vtx.erase(blockIt);
-        auto& vTxFees = pblocktemplate->vTxFees;
-        for (auto it = vTxFees.begin(); it != vTxFees.end(); ++it) {
-            if (*it == iter->GetFee()) {
-                vTxFees.erase(it);
-                break;
+        if (pblocktemplate) {
+            auto& vTxFees = pblocktemplate->vTxFees;
+            for (auto it = vTxFees.begin(); it != vTxFees.end(); ++it) {
+                if (*it == iter->GetFee()) {
+                    vTxFees.erase(it);
+                    break;
+                }
             }
-        }
-        auto& vTxSigOpsCost = pblocktemplate->vTxSigOpsCost;
-        for (auto it = vTxSigOpsCost.begin(); it != vTxSigOpsCost.end(); ++it) {
-            if (*it == iter->GetSigOpCost()) {
-                vTxSigOpsCost.erase(it);
-                break;
+            auto& vTxSigOpsCost = pblocktemplate->vTxSigOpsCost;
+            for (auto it = vTxSigOpsCost.begin(); it != vTxSigOpsCost.end(); ++it) {
+                if (*it == iter->GetSigOpCost()) {
+                    vTxSigOpsCost.erase(it);
+                    break;
+                }
             }
         }
         nBlockWeight -= iter->GetTxWeight();
         --nBlockTx;
         nBlockSigOpsCost -= iter->GetSigOpCost();
         nFees -= iter->GetFee();
+        inBlock.erase(iter);
         return true;
     }
     return false;
 }
 
-void BlockAssembler::RemoveFromBlock(const CTxMemPool::setEntries &txIterSet) {
-    if (txIterSet.empty()) {
-        return;
-    }
-    std::set<uint256> txHashes;
-    for (auto iter: txIterSet) {
-        RemoveFromBlock(iter);
-        txHashes.insert(iter->GetTx().GetHash());
-    }
-    CTxMemPool::setEntries descendantTxsToErase;
-    for (const auto &txIter: inBlock) {
-        auto& tx = txIter->GetTx();
-        for (const auto &vin : tx.vin) {
-            if (txHashes.count(vin.prevout.hash)) {
-                descendantTxsToErase.insert(txIter);
-            }
-        }
-    }
-    RemoveFromBlock(descendantTxsToErase);
-}
-
-void BlockAssembler::RemoveFromBlock(const std::set<uint256> &txHashSet)
+void BlockAssembler::RemoveFromBlock(const std::set<uint256> &txHashSet, bool removeDescendants)
 {
     if (txHashSet.empty()) {
         return;
@@ -644,6 +626,7 @@ void BlockAssembler::RemoveFromBlock(const std::set<uint256> &txHashSet)
             ++it;
         }
     }
+    if (!removeDescendants) return;
     std::set<uint256> descendantTxsToErase;
     for (const auto &tx : pblock->vtx) {
         if (!tx) continue;
@@ -653,7 +636,7 @@ void BlockAssembler::RemoveFromBlock(const std::set<uint256> &txHashSet)
             }
         }
     }
-    RemoveFromBlock(descendantTxsToErase);
+    RemoveFromBlock(descendantTxsToErase, removeDescendants);
 }
 
 int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded,
@@ -721,14 +704,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
     auto& failedNonces = ctx.pkgCtx.failedNonces;
     auto& replaceByFee = ctx.pkgCtx.replaceByFee;
 
-    auto txIters = [](std::map<uint64_t, CTxMemPool::txiter> &iterMap) -> std::vector<CTxMemPool::txiter> {
-        std::vector<CTxMemPool::txiter> txIters;
-        for (const auto& [nonce, it] : iterMap) {
-            txIters.push_back(it);
-        }
-        return txIters;
-    };
-
     if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
         return false;
     }
@@ -751,10 +726,10 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
         if (txResult.prepay_fee > lastFee) {
             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
             auto addrTxs = evmAddressTxsMap[addrKey.address];
-            for (auto iter: txIters(addrTxs)) {
-                if (RemoveFromBlock(iter)) {
-                    inBlock.erase(iter);
-                }
+            for (const auto& [nonce, entry] : addrTxs) {
+                RemoveFromBlock(entry);
+                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
+                replaceByFee.emplace(nonce, entry);
             }
             // Remove all fee entries relating to the address
             for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
@@ -765,12 +740,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx) {
                     ++it;
                 }
             }
-            checkedDfTxHashSet.erase(addrTxs[addrKey.nonce]->GetTx().GetHash());
             addrTxs[addrKey.nonce] = txIter;
-            for (const auto& [nonce, entry] : addrTxs) {
-                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
-                replaceByFee.emplace(nonce, entry);
-            }
             evmAddressTxsMap.erase(addrKey.address);
             evm_remove_txs_by_sender(evmQueueId, addrKey.address);
             return false;

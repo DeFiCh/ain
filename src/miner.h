@@ -189,11 +189,10 @@ private:
     void resetBlock();
     /** Add a tx to the block */
     void AddToBlock(CTxMemPool::txiter iter);
-    /** Remove a tx from the block */
+    /** Remove a single tx from the block */
     bool RemoveFromBlock(CTxMemPool::txiter iter);
-    /** Remove txs along with descendants from the block */
-    void RemoveFromBlock(const CTxMemPool::setEntries &txIterSet);
-    void RemoveFromBlock(const std::set<uint256> &txHashSet);
+    /** Remove txs along with the option to remove descendants from the block */
+    void RemoveFromBlock(const std::set<uint256> &txHashSet, bool removeDescendants);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
