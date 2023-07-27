@@ -332,10 +332,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             xvm_changi = XVMChangiIntermediate{0,{0, uint256(blockHash), blockResult.total_burnt_fees}};
         }
 
-        std::set<uint256> failedTransactions;
-        for (const auto& txRustStr : blockResult.failed_transactions) {
-            auto txStr = std::string(txRustStr.data(), txRustStr.length());
-            failedTransactions.insert(uint256S(txStr));
+        std::vector<std::string> failedTransactions;
+        for (const auto& rust_string : blockResult.failed_transactions) {
+            failedTransactions.emplace_back(rust_string.data(), rust_string.length());
         }
 
         std::set<uint256> failedTransferDomainTxs;
