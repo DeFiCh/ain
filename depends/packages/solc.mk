@@ -11,6 +11,9 @@ ifeq ($(build_os)-$(build_arch),linux-x86_64)
   $(package)_file_name=solc-static-linux
   $(package)_sha256_hash=0479d44fdf9c501c25337fdc540419f1593b884a87b47f023da4f1c700fda782
 endif
+
+# Note: solc only provides binaries for darwin amd64, however since rosetta is
+# expected to be present, this should work through emulation without additional config.
 ifeq ($(build_os),darwin)
   $(package)_file_name=solc-macos
   $(package)_sha256_hash=fc329945e0068e4e955d0a7b583776dc8d25e72ab657a044618a7ce7dd0519aa
