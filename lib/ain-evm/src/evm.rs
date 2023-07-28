@@ -246,7 +246,7 @@ impl EVMServices {
                         address,
                         bytecode,
                         storage,
-                    } = EVMServices::dst20_contract(address, name, symbol)?;
+                    } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
 
                     if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
                         debug!("[finalize_block] EvmOut failed with {e}");
@@ -453,10 +453,15 @@ impl EVMServices {
     }
 
     pub fn dst20_contract(
+        executor: &mut AinExecutor,
         address: H160,
         name: String,
         symbol: String,
     ) -> Result<DeployContractInfo, Box<dyn Error>> {
+        if executor.backend.get_account(&address).is_some() {
+            return Err(anyhow!("Token address is already in use").into());
+        }
+
         let bytecode = ain_contracts::get_dst20_bytecode()?;
         let storage = vec![
             (
