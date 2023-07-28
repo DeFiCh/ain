@@ -217,6 +217,10 @@ class EVMTest(DefiTestFramework):
 
         print(self.nodes[0].getgov('ATTRIBUTES'))
 
+        # Dectivate transferdomain ERC55 address
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32']}})
+        self.nodes[0].generate(1)
+
         # Check transferdomain EVM to DVM before P2PKH addresses are enabled
         assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
 
@@ -229,6 +233,10 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32', 'p2pkh']}})
+        self.nodes[0].generate(1)
+
+        # Dectivate transferdomain ERC55 address
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/auth-formats': ['p2pkh-erc55']}})
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before Bech32 auth is enabled
@@ -246,7 +254,7 @@ class EVMTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 100000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 200000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
         # Send tokens to burn address
@@ -314,7 +322,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[6], tx5)
 
         # Check Eth balances after transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 93997333000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 193997333000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 6000000000000000000)
 
         # Get burn address and miner account balance after transfer
@@ -381,7 +389,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(miner_before, miner_rollback)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 100000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 200000000000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
 
         # Test max limit of TX from a specific sender
