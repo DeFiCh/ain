@@ -1045,8 +1045,11 @@ public:
         CTokenImplementation token;
         static_cast<CToken &>(token) = obj;
 
-        token.symbol         = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
@@ -1058,11 +1061,25 @@ public:
         if (static_cast<int>(height) >= consensus.BayfrontHeight) {  // formal compatibility if someone cheat and create
                                                                      // LPS token on the pre-bayfront node
             if (token.IsPoolShare()) {
-                return Res::Err("Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+                return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
         }
 
-        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+
+        if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
+            CrossBoundaryResult result;
+            evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+                             rust::string(tokenName.c_str()),
+                             rust::string(tokenSymbol.c_str()),
+                             tokenId->ToString());
+
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
+            }
+        }
+
+        return tokenId;
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {
@@ -3884,9 +3901,23 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
-                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+
+                if (tokenId == DCT_ID{0}) {
+                    if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                                         ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                        return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+                    }
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
                 }
             }
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
@@ -3902,8 +3933,21 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                if (tokenId == DCT_ID{0}) {
+                    evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
             }
 
             if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
@@ -4067,9 +4111,20 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nValue != dst.amount.nValue)
         return DeFiErrors::TransferDomainUnequalAmount();
 
-    // Restrict only for use with DFI token for now. Will be enabled later.
-    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-        return DeFiErrors::TransferDomainIncorrectToken();
+    if (src.amount.nTokenId != dst.amount.nTokenId)
+        return DeFiErrors::TransferDomainDifferentTokens();
+
+    if (src.amount.nTokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled)
+        return DeFiErrors::TransferDomainDVMToEVMNativeTokenNotEnabled();
+
+    if (dst.amount.nTokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled)
+        return DeFiErrors::TransferDomainEVMToDVMNativeTokenNotEnabled();
+
+    if (src.amount.nTokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled)
+        return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
+
+    if (dst.amount.nTokenId != DCT_ID{0} && !config.evmToDvmDatEnabled)
+        return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (!config.dvmToEvmEnabled) {
@@ -4123,15 +4178,15 @@ TransferDomainLiveConfig GetTransferDomainConfig(CCustomCSView &mnview) {
     TransferDomainLiveConfig config{
         attributes->GetValue(dvm_to_evm_enabled, true),
         attributes->GetValue(evm_to_dvm_enabled, true),
-        attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems { 
+        attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems {
             XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
-        attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems { 
+        attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems {
             XVmAddressFormatTypes::Erc55 }),
-        attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems { 
+        attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems {
             XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
-        attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems { 
+        attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems {
             XVmAddressFormatTypes::Erc55 }),
-        attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems { 
+        attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems {
             XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 }),
         attributes->GetValue(dvm_to_evm_native_enabled, true),
         attributes->GetValue(evm_to_dvm_native_enabled, true),

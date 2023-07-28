@@ -5,11 +5,8 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
-use crate::{
-    core::NativeTxHash,
-    fee::calculate_gas_fee,
-    transaction::{bridge::BridgeTx, SignedTx},
-};
+use crate::transaction::system::SystemTx;
+use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
@@ -170,7 +167,7 @@ impl TransactionQueueMap {
 #[derive(Debug, Clone)]
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
-    BridgeTx(BridgeTx),
+    SystemTx(SystemTx),
 }
 
 #[derive(Debug, Clone)]
@@ -272,6 +269,10 @@ impl TransactionQueue {
         self.data.lock().unwrap().transactions.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.lock().unwrap().transactions.is_empty()
+    }
+
     pub fn remove_txs_by_sender(&self, sender: H160) {
         let mut data = self.data.lock().unwrap();
         let mut fees_to_remove = U256::zero();
@@ -279,7 +280,7 @@ impl TransactionQueue {
         data.transactions.retain(|item| {
             let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
-                QueueTx::BridgeTx(tx) => tx.sender(),
+                QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
             };
             if tx_sender == sender {
                 fees_to_remove += item.tx_fee;

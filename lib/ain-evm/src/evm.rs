@@ -9,7 +9,6 @@ use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
@@ -19,6 +18,7 @@ use ethereum_types::{Bloom, H160, H64, U256};
 
 use crate::bytes::Bytes;
 use crate::services::SERVICES;
+use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::anyhow;
 use hex::FromHex;
@@ -44,10 +44,15 @@ pub struct FinalizedBlockInfo {
     pub total_priority_fees: U256,
 }
 
-pub struct CounterContractInfo {
+pub struct DeployContractInfo {
     pub address: H160,
     pub storage: Vec<(H256, H256)>,
     pub bytecode: Bytes,
+}
+
+pub struct DST20BridgeInfo {
+    pub address: H160,
+    pub storage: Vec<(H256, H256)>,
 }
 
 impl EVMServices {
@@ -153,15 +158,17 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
+        // Ensure that state root changes by updating counter contract storage
         if current_block_number == U256::zero() {
-            let CounterContractInfo {
+            // Deploy contract on the first block
+            let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
             } = EVMServices::counter_contract()?;
             executor.deploy_contract(address, bytecode, storage)?;
         } else {
-            let CounterContractInfo {
+            let DeployContractInfo {
                 address, storage, ..
             } = EVMServices::counter_contract()?;
             executor.update_storage(address, storage)?;
@@ -203,7 +210,7 @@ impl EVMServices {
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
                         address, amount, queue_id
@@ -213,7 +220,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmOut for address {}, amount: {}",
                         address, amount
@@ -222,6 +229,50 @@ impl EVMServices {
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[finalize_block] EvmOut failed with {e}");
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
+                    }
+                }
+                QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                    name,
+                    symbol,
+                    address,
+                })) => {
+                    debug!(
+                        "[finalize_block] DeployContract for address {}, name {}, symbol {}",
+                        address, name, symbol
+                    );
+
+                    let DeployContractInfo {
+                        address,
+                        bytecode,
+                        storage,
+                    } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
+
+                    if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
+                        debug!("[finalize_block] EvmOut failed with {e}");
+                    }
+                }
+                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                    to,
+                    contract,
+                    amount,
+                    out,
+                })) => {
+                    debug!(
+                        "[finalize_block] DST20Bridge for to {}, contract {}, amount {}, out {}",
+                        to, contract, amount, out
+                    );
+
+                    match EVMServices::bridge_dst20(&mut executor, contract, to, amount, out) {
+                        Ok(DST20BridgeInfo { address, storage }) => {
+                            if let Err(e) = executor.update_storage(address, storage) {
+                                debug!("[finalize_block] EvmOut failed with {e}");
+                                failed_transactions.push(hex::encode(queue_item.tx_hash));
+                            }
+                        }
+                        Err(e) => {
+                            debug!("[finalize_block] EvmOut failed with {e}");
+                            failed_transactions.push(hex::encode(queue_item.tx_hash));
+                        }
                     }
                 }
             }
@@ -363,23 +414,86 @@ impl EVMServices {
     }
 
     /// Returns address, bytecode and storage with incremented count for the counter contract
-    pub fn counter_contract() -> Result<CounterContractInfo, Box<dyn Error>> {
+    pub fn counter_contract() -> Result<DeployContractInfo, Box<dyn Error>> {
         let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
         let count = SERVICES
             .evm
             .core
-            .get_latest_contract_storage(address, U256::one())?;
+            .get_latest_contract_storage(address, ain_contracts::u256_to_h256(U256::one()))?;
 
         debug!("Count: {:#x}", count + U256::one());
 
-        Ok(CounterContractInfo {
+        Ok(DeployContractInfo {
             address,
             bytecode: Bytes::from(bytecode),
             storage: vec![(
                 H256::from_low_u64_be(1),
                 ain_contracts::u256_to_h256(count + U256::one()),
             )],
+        })
+    }
+
+    pub fn dst20_contract(
+        executor: &mut AinExecutor,
+        address: H160,
+        name: String,
+        symbol: String,
+    ) -> Result<DeployContractInfo, Box<dyn Error>> {
+        if executor.backend.get_account(&address).is_some() {
+            return Err(anyhow!("Token address is already in use").into());
+        }
+
+        let bytecode = ain_contracts::get_dst20_bytecode()?;
+        let storage = vec![
+            (
+                H256::from_low_u64_be(3),
+                ain_contracts::get_abi_encoded_string(name.as_str()),
+            ),
+            (
+                H256::from_low_u64_be(4),
+                ain_contracts::get_abi_encoded_string(symbol.as_str()),
+            ),
+        ];
+
+        Ok(DeployContractInfo {
+            address,
+            bytecode: Bytes::from(bytecode),
+            storage,
+        })
+    }
+
+    pub fn bridge_dst20(
+        executor: &mut AinExecutor,
+        contract: H160,
+        to: H160,
+        amount: U256,
+        out: bool,
+    ) -> Result<DST20BridgeInfo, Box<dyn Error>> {
+        // check if code of address matches DST20 bytecode
+        let account = executor
+            .backend
+            .get_account(&contract)
+            .ok_or_else(|| anyhow!("DST20 token address is not a contract"))?;
+
+        if account.code_hash != ain_contracts::get_dst20_codehash()? {
+            return Err(anyhow!("DST20 token code is not valid").into());
+        }
+
+        let storage_index = ain_contracts::get_address_storage_index(to);
+        let balance = executor
+            .backend
+            .get_contract_storage(contract, storage_index.as_bytes())?;
+
+        let new_balance = match out {
+            true => balance.checked_sub(amount),
+            false => balance.checked_add(amount),
+        }
+        .ok_or_else(|| anyhow!("Balance overflow/underflow"))?;
+
+        Ok(DST20BridgeInfo {
+            address: contract,
+            storage: vec![(storage_index, ain_contracts::u256_to_h256(new_balance))],
         })
     }
 }

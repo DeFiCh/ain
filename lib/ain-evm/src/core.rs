@@ -7,7 +7,7 @@ use crate::receipt::ReceiptService;
 use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
-use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
+use crate::transaction::system::{BalanceUpdate, SystemTx};
 use crate::trie::TrieDBStore;
 use crate::txqueue::{QueueError, QueueTx, TransactionQueueMap};
 use crate::{
@@ -15,6 +15,7 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
+use primitive_types::H256;
 
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
@@ -286,7 +287,7 @@ impl EVMCoreService {
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
-        let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
+        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
             .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
@@ -312,7 +313,7 @@ impl EVMCoreService {
             })
             .into())
         } else {
-            let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
+            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
                 .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
@@ -405,7 +406,7 @@ impl EVMCoreService {
     pub fn get_latest_contract_storage(
         &self,
         contract: H160,
-        storage_index: U256,
+        storage_index: H256,
     ) -> Result<U256, EVMError> {
         let (_, block_number) = SERVICES
             .evm
@@ -426,12 +427,8 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
 
-        // convert U256 to H256
-        let tmp: &mut [u8; 32] = &mut [0; 32];
-        storage_index.to_big_endian(tmp);
-
         backend
-            .get_contract_storage(contract, tmp.as_slice())
+            .get_contract_storage(contract, storage_index.as_bytes())
             .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 

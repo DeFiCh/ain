@@ -18,7 +18,7 @@ use log::trace;
 use primitive_types::{H160, H256};
 
 pub struct AinExecutor<'backend> {
-    backend: &'backend mut EVMBackend,
+    pub backend: &'backend mut EVMBackend,
 }
 
 impl<'backend> AinExecutor<'backend> {
