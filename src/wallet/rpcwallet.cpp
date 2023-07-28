@@ -10,6 +10,7 @@
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <masternodes/tokens.h>
+#include <masternodes/mn_rpc.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -4263,7 +4264,16 @@ UniValue addressmap(const JSONRPCRequest &request) {
                             1 - Address format: DFI -> ETH \n\
                             2 - Address format: ETH -> DFI \n"}
         },
-        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
+        RPCResult{
+            "{\n"
+            "    input :       \"address\",         (string) The input address to be converted\n"
+            "    type :        \"map type\"\n       (numeric) address map type indicator"
+            "    format : {\n"
+            "       bech32: \"address\"\n           (string, optional) output converted address"
+            "       erc55 : \"address\"\n           ..."
+            "    }]\n"
+            "}\n"
+        },
         RPCExamples{HelpExampleCli("addressmap", R"('"<address>"' 1)")},
     }
         .Check(request);
@@ -4276,6 +4286,11 @@ UniValue addressmap(const JSONRPCRequest &request) {
     if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
         throwInvalidParam();
     }
+
+    UniValue format(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("input", input);
+
     const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
     switch (type) {
         case AddressConversionType::DVMToEVMAddress: {
@@ -4287,7 +4302,10 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (key.IsCompressed()) {
                 key.Decompress();
             }
-            return EncodeDestination(WitnessV16EthHash(key));
+            std::string out = EncodeDestination(WitnessV16EthHash(key));
+            ret.pushKV("type", request.params[1]);
+            format.pushKV("erc55", out);
+            break;
         }
         case AddressConversionType::EVMToDVMAddress: {
             CTxDestination dest = DecodeDestination(input);
@@ -4298,12 +4316,18 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (!key.IsCompressed()) {
                 key.Compress();
             }
-            return EncodeDestination(WitnessV0KeyHash(key));
+            std::string out = EncodeDestination(WitnessV0KeyHash(key));
+            ret.pushKV("type", request.params[1]);
+            format.pushKV("bech32", out);
+            break;
         }
         default:
             throwInvalidParam();
             break;
     }
+
+    ret.pushKV("format", format);
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp

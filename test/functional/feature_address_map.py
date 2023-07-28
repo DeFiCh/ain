@@ -71,8 +71,17 @@ class addressmapTests(DefiTestFramework):
             # self.nodes[0].importprivkey(wif)
             self.nodes[0].importprivkey(rawkey)
         for [dfi_addr, eth_addr] in addr_maps:
-            assert_equal(self.nodes[0].addressmap(dfi_addr, AddressConversionType.DVMToEVMAddress), eth_addr)
-            assert_equal(self.nodes[0].addressmap(eth_addr, AddressConversionType.EVMToDVMAddress), dfi_addr)
+            # dvm -> evm
+            res = self.nodes[0].addressmap(dfi_addr, AddressConversionType.DVMToEVMAddress)
+            assert_equal(res['input'], dfi_addr)
+            assert_equal(res['type'], 1)
+            assert_equal(res['format']['erc55'], eth_addr)
+
+            # evm -> dvm
+            res = self.nodes[0].addressmap(eth_addr, AddressConversionType.EVMToDVMAddress)
+            assert_equal(res['input'], eth_addr)
+            assert_equal(res['type'], 2)
+            assert_equal(res['format']['bech32'], dfi_addr)
 
     def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
