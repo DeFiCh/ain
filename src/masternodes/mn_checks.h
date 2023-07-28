@@ -61,7 +61,7 @@ protected:
     Res IsOnChainGovernanceEnabled() const;
 };
 
-enum class AuthStrategy: uint32_t {
+enum AuthStrategy: uint32_t {
     DirectPubKeyMatch,
     Mapped,
 };
