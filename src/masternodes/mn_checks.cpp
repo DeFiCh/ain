@@ -4028,15 +4028,17 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                 if (pubkey.Decompress()) {
-                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth)
+                    const auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    const auto scriptOut = GetScriptForDestination(PKHash(pubkey));
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
             } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
+                const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth)
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
             }
@@ -4048,9 +4050,12 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
 struct TransferDomainLiveConfig {
     bool dvmToEvm;
     bool evmTodvm;
-    bool nativeToken;
-    bool datEnabled;
-    std::set<uint32_t> disallowedTokens;
+    bool dvmNativeToken;
+    bool evmNativeToken;
+    bool dvmDatEnabled;
+    bool evmDatEnabled;
+    std::set<uint32_t> dvmDisallowedTokens;
+    std::set<uint32_t> evmDisallowedTokens;
 };
 
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
@@ -4110,10 +4115,10 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nTokenId != dst.amount.nTokenId)
         return DeFiErrors::TransferDomainDifferentTokens();
 
-    if (src.amount.nTokenId == DCT_ID{0} && !transferdomainConfig.nativeToken)
+    if (src.amount.nTokenId == DCT_ID{0} && !transferdomainConfig.dvmNativeToken)
         return DeFiErrors::TransferDomainNativeNotEnabled();
 
-    if (src.amount.nTokenId != DCT_ID{0} && !transferdomainConfig.datEnabled)
+    if (src.amount.nTokenId != DCT_ID{0} && !transferdomainConfig.dvmDatEnabled)
         return DeFiErrors::TransferDomainDST20NotEnabled();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
@@ -4183,6 +4188,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
         attributes->GetValue(evm_dvm, false),
         attributes->GetValue(transferdomainNative, false),
         attributes->GetValue(dst20, false),
+        {},
         {}
     };
 
