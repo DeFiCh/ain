@@ -164,14 +164,16 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayGovernanceIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTransferIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"allowed", TransferIDs::Edges},
+            {"evm-dvm", TransferIDs::EVMToDVM},
+            {"dvm-evm", TransferIDs::DVMToEVM},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
     static const std::map<uint8_t, std::string> params{
-            {TransferIDs::Edges, "allowed"},
+            {TransferIDs::EVMToDVM, "evm-dvm"},
+            {TransferIDs::DVMToEVM, "dvm-evm"},
     };
     return params;
 }
@@ -271,8 +273,13 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {"evm-dvm", TransferKeys::EVM_DVM},
-            {"dvm-evm", TransferKeys::DVM_EVM},
+            {"enabled", TransferKeys::TransferEnabled},
+            {"src-formats", TransferKeys::SrcFormats},
+            {"dest-formats", TransferKeys::DestFormats},
+            {"auth-formats", TransferKeys::AuthFormats},
+            {"native-enabled", TransferKeys::NativeEnabled},
+            {"dat-enabled", TransferKeys::DATEnabled},
+            {"disallowed", TransferKeys::Disallowed},
          }},
         {AttributeTypes::Vaults,
         {
@@ -385,8 +392,13 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {TransferKeys::EVM_DVM, "evm-dvm"},
-            {TransferKeys::DVM_EVM, "dvm-evm"},
+            {TransferKeys::TransferEnabled, "enabled"},
+            {TransferKeys::SrcFormats, "src-formats"},
+            {TransferKeys::DestFormats, "dest-formats"},
+            {TransferKeys::AuthFormats, "auth-formats"},
+            {TransferKeys::NativeEnabled, "native-enabled"},
+            {TransferKeys::DATEnabled, "dat-enabled"},
+            {TransferKeys::Disallowed, "disallowed"},
          }},
         {AttributeTypes::Vaults,
         {
@@ -572,6 +584,14 @@ static bool VerifyToken(const CCustomCSView &view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static bool VerifyDATToken(const CCustomCSView &view, const std::string str) {
+    const auto tokenPair = view.GetToken(str);
+    if (tokenPair && tokenPair->second && tokenPair->second->IsDAT()) {
+        return true;
+    }
+    return false;
+}
+
 static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     CConsortiumMembers members;
 
@@ -625,6 +645,51 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     }
 
     return {members, Res::Ok()};
+}
+
+static Res VerifyTokenSet(const CCustomCSView &view, const std::set<std::string> &strSet) {
+    for (const auto &str : strSet) {
+        if (!VerifyDATToken(view, str)) {
+            return Res::Err("Token not found or not a DAT token");
+        }
+    }
+    return Res::Ok();
+}
+
+static ResVal<CAttributeValue> VerifyXVMAddressTypes(const UniValue &array) {
+    XVmAddressFormatItems addressSet;
+    for (const auto &value : array.getValues()) {
+        if (value.getValStr() == "bech32") {
+            addressSet.insert(XVmAddressFormatTypes::Bech32);
+        } else if (value.getValStr() == "p2pkh") {
+            addressSet.insert(XVmAddressFormatTypes::PkHash);
+        } else if (value.getValStr() == "erc55") {
+            addressSet.insert(XVmAddressFormatTypes::Erc55);
+        } else {
+            return Res::Err("Unrecognised address format, expected types are: bech32, erc55, p2pkh");
+        }
+    }
+    if (addressSet.empty()) {
+        return Res::Err("No values set");
+    }
+    return {addressSet, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyEVMAuthTypes(const UniValue &array) {
+    XVmAddressFormatItems addressSet;
+    for (const auto &value : array.getValues()) {
+        if (value.getValStr() == "bech32-erc55") {
+            addressSet.insert(XVmAddressFormatTypes::Bech32ProxyErc55);
+        } else if (value.getValStr() == "p2pkh-erc55") {
+            addressSet.insert(XVmAddressFormatTypes::PkHashProxyErc55);
+        } else {
+            return Res::Err("Unrecognised address format, expected types are: bech32-erc55, p2pkh-erc55");
+        }
+    }
+    if (addressSet.empty()) {
+        return Res::Err("No values set");
+    }
+    return {addressSet, Res::Ok()};
 }
 
 static inline void rtrim(std::string &s, unsigned char remove) {
@@ -720,8 +785,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Transfer,
              {
-                {TransferKeys::EVM_DVM, VerifyBool},
-                {TransferKeys::DVM_EVM, VerifyBool},
+                {TransferKeys::TransferEnabled, VerifyBool},
+                {TransferKeys::NativeEnabled, VerifyBool},
+                {TransferKeys::DATEnabled, VerifyBool},
              }},
             {AttributeTypes::Vaults,
             {
@@ -965,9 +1031,25 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         } else if (type == AttributeTypes::Transfer) {
-            if (typeId == TransferIDs::Edges) {
-                if (typeKey != TransferKeys::DVM_EVM && typeKey != TransferKeys::EVM_DVM)
+            if (typeId == TransferIDs::DVMToEVM) {
+                if (typeKey != TransferKeys::TransferEnabled &&
+                    typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats &&
+                    typeKey != TransferKeys::NativeEnabled &&
+                    typeKey != TransferKeys::DATEnabled &&
+                    typeKey != TransferKeys::Disallowed) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+                }
+            } else if (typeId == TransferIDs::EVMToDVM) {
+                if (typeKey != TransferKeys::TransferEnabled &&
+                    typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats &&
+                    typeKey != TransferKeys::AuthFormats &&
+                    typeKey != TransferKeys::NativeEnabled &&
+                    typeKey != TransferKeys::DATEnabled &&
+                    typeKey != TransferKeys::Disallowed) {
+                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+                }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -1005,7 +1087,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
     // Tidy into new parseValue map for UniValue
     if (attrV0.type == AttributeTypes::Consortium && attrV0.key == ConsortiumKeys::MemberValues) {
-        if (value && value->get_obj().empty()) {
+        if (value && !value->isObject() && value->get_obj().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -1016,7 +1098,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         return applyVariable(attrV0, *attribValue.val);
     } else if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::Foundation &&
                attrV0.key == DFIPKeys::Members) {
-        if (value && value->get_array().empty()) {
+        if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -1025,8 +1107,52 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::EVMToDVM &&
+               (attrV0.key == TransferKeys::DestFormats ||
+               attrV0.key == TransferKeys::SrcFormats ||
+               attrV0.key == TransferKeys::AuthFormats)) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        ResVal<CAttributeValue> attribValue(XVmAddressFormatItems{}, Res::Ok());
+        if (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats) {
+            attribValue = VerifyXVMAddressTypes(*value);
+        } else if (attrV0.key == TransferKeys::AuthFormats) {
+            attribValue = VerifyEVMAuthTypes(*value);
+        }
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::DVMToEVM &&
+               (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats)) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        auto attribValue = VerifyXVMAddressTypes(*value);
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::DVMToEVM &&
+               (attrV0.typeId == TransferIDs::DVMToEVM || attrV0.typeId == TransferIDs::EVMToDVM) &&
+               attrV0.key == TransferKeys::Disallowed) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        std::set<std::string> attribValue;
+        for (const auto &arrayValue : value->get_array().getValues()) {
+            if (!arrayValue.isStr()) {
+                return Res::Err("Values in array must be strings");
+            }
+            attribValue.insert(arrayValue.getValStr());
+        }
+        return applyVariable(attrV0, attribValue);
     } else {
-        if (value && value->get_str().empty()) {
+        if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");
         }
 
@@ -1435,6 +1561,22 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     array.push_back(member);
                 }
                 ret.pushKV(key, array);
+            } else if (const auto values = std::get_if<XVmAddressFormatItems>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &value : *values) {
+                    if (value == XVmAddressFormatTypes::Bech32) {
+                        array.push_back("bech32");
+                    } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
+                        array.push_back("bech32-erc55");
+                    } else if (value == XVmAddressFormatTypes::PkHash) {
+                        array.push_back("p2pkh");
+                    } else if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
+                        array.push_back("p2pkh-erc55");
+                    } else if (value == XVmAddressFormatTypes::Erc55) {
+                        array.push_back("erc55");
+                    }
+                }
+                ret.pushKV(key, array);
             }
         } catch (const std::out_of_range &) {
             // Should not get here, that's mean maps are mismatched
@@ -1713,6 +1855,16 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Transfer:
                 if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
+                }
+                if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
+                    attrV0->key == TransferKeys::Disallowed) {
+                    const auto strSet = std::get_if<std::set<std::string>>(&value);
+                    if (!strSet) {
+                        return DeFiErrors::GovVarUnsupportedValue();
+                    }
+                    if (auto res = VerifyTokenSet(view, *strSet); !res) {
+                        return res;
+                    }
                 }
                 break;
 

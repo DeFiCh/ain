@@ -62,9 +62,17 @@ protected:
 };
 
 enum AuthStrategy: uint32_t {
-    DirectPubKeyMatch = 0,
-    EthKeyMatch = 1,
+    DirectPubKeyMatch,
+    Mapped,
 };
+
+namespace AuthFlags {
+    enum Type: uint32_t {
+        None = 0,
+        Bech32InSource = 1 << 1,
+        PKHashInSource = 1 << 2,
+    };
+}
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
@@ -522,7 +530,7 @@ bool IsMainNetwork();
 bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
 bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch);
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch, AuthFlags::Type flags = AuthFlags::None);
 Res ValidateTransferDomain(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
