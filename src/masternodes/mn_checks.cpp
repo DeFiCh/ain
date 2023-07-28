@@ -4019,11 +4019,11 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
 struct TransferDomainLiveConfig {
     bool dvmToEvmEnabled;
     bool evmToDvmEnabled;
-    XVmAddressFormatItems srcDvmEvmAddresses;
-    XVmAddressFormatItems destDvmEvmAddresses;
-    XVmAddressFormatItems destEvmDvmAddresses;
-    XVmAddressFormatItems srcEvmDvmAddresses;
-    XVmAddressFormatItems evmAuthFormats;
+    XVmAddressFormatItems dvmToEvmSrcAddresses;
+    XVmAddressFormatItems dvmToEvmDestAddresses;
+    XVmAddressFormatItems evmToDvmDestAddresses;
+    XVmAddressFormatItems evmToDvmSrcAddresses;
+    XVmAddressFormatItems evmToDvmAuthFormats;
     bool dvmToEvmNativeTokenEnabled;
     bool evmToDvmNativeTokenEnabled;
     bool dvmToEvmDatEnabled;
@@ -4044,19 +4044,19 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     const auto destType = FromTxDestType(dest.index());
 
     if (aspect == VMDomainEdge::DVMToEVM) {
-        if (!transferdomainConfig.srcDvmEvmAddresses.count(srcType)) {
+        if (!transferdomainConfig.dvmToEvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
-        if (!transferdomainConfig.destDvmEvmAddresses.count(destType)) {
+        if (!transferdomainConfig.dvmToEvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
 
     } else if (aspect == VMDomainEdge::EVMToDVM) {
-        if (!transferdomainConfig.srcEvmDvmAddresses.count(srcType)) {
+        if (!transferdomainConfig.evmToDvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!transferdomainConfig.destEvmDvmAddresses.count(destType)) {
+        if (!transferdomainConfig.evmToDvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();
@@ -4113,7 +4113,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         if (!res) return res;
 
         auto authType = AuthFlags::None;
-        for (const auto &value : transferdomainConfig.evmAuthFormats) {
+        for (const auto &value : transferdomainConfig.evmToDvmAuthFormats) {
             if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
                 authType = static_cast<AuthFlags::Type>(authType | AuthFlags::PKHashInSource);
             } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
