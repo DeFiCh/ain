@@ -4001,7 +4001,15 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect) {
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+    bool nativeToken;
+    bool datEnabled;
+    std::set<uint32_t> disallowedTokens;
+};
+
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -4036,11 +4044,6 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
-struct TransferDomainLiveConfig {
-    bool dvmToEvm;
-    bool evmTodvm;
-};
-
 Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
@@ -4072,7 +4075,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, transferdomainConfig);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
@@ -4085,7 +4088,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, transferdomainConfig);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
@@ -4124,7 +4127,13 @@ Res ValidateTransferDomain(const CTransaction &tx,
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
-    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+    TransferDomainLiveConfig transferdomainConfig{
+        attributes->GetValue(dvm_evm, false),
+        attributes->GetValue(evm_dvm, false),
+        true,
+        true,
+        {}
+    };
 
     for (const auto &[src, dst] : obj.transfers) {
         auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
