@@ -438,6 +438,14 @@ public:
         return Res::Err("Source token and destination token must be the same");
     }
 
+    static Res TransferDomainNativeNotEnabled() {
+        return Res::Err("transferdomain for DFI is not enabled");
+    }
+
+    static Res TransferDomainDST20NotEnabled() {
+        return Res::Err("transferdomain for DST20 is not enabled");
+    }
+
     static Res TransferDomainIncorrectToken() {
         return Res::Err("For transferdomain, only DFI token is currently supported");
     }

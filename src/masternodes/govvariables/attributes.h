@@ -108,6 +108,8 @@ enum DFIPKeys : uint8_t {
     EVMEnabled           = 'u',
     ICXEnabled           = 'v',
     TransferDomain       = 'w',
+    DST20 = 'x',
+    TransferDomainDFI = 'y',
 };
 
 enum GovernanceKeys : uint8_t {
