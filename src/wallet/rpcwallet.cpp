@@ -4287,36 +4287,15 @@ UniValue addressmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
 
+    CTxDestination dest = DecodeDestination(input);
+    const auto type = static_cast<AddressConversionType>(typeInt);
+
     UniValue format(UniValue::VOBJ);
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("input", input);
+    ret.pushKV("type", typeInt);
 
-    CTxDestination dest = DecodeDestination(input);
-    const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
     switch (type) {
-        case AddressConversionType::Auto: {
-            if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
-                CPubKey key = AddrToPubKey(pwallet, input);
-                if (key.IsCompressed()) {
-                    key.Decompress();
-                }
-                std::string out = EncodeDestination(WitnessV16EthHash(key));
-                ret.pushKV("type", request.params[1]);
-                format.pushKV("erc55", out);
-                break;
-            }
-            if (dest.index() == WitV16KeyEthHashType) {
-                CPubKey key = AddrToPubKey(pwallet, input);
-                if (!key.IsCompressed()) {
-                    key.Compress();
-                }
-                std::string out = EncodeDestination(WitnessV0KeyHash(key));
-                ret.pushKV("type", request.params[1]);
-                format.pushKV("bech32", out);
-                break;
-            }
-            throwInvalidParam();
-        }
         case AddressConversionType::DVMToEVMAddress: {
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
                 throwInvalidParam();
@@ -4325,9 +4304,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (key.IsCompressed()) {
                 key.Decompress();
             }
-            std::string out = EncodeDestination(WitnessV16EthHash(key));
-            ret.pushKV("type", request.params[1]);
-            format.pushKV("erc55", out);
+            format.pushKV("erc55", EncodeDestination(WitnessV16EthHash(key)));
             break;
         }
         case AddressConversionType::EVMToDVMAddress: {
@@ -4338,12 +4315,26 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (!key.IsCompressed()) {
                 key.Compress();
             }
-            std::string out = EncodeDestination(WitnessV0KeyHash(key));
-            ret.pushKV("type", request.params[1]);
-            format.pushKV("bech32", out);
+            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
             break;
         }
         default:
+            if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
+                CPubKey key = AddrToPubKey(pwallet, input);
+                if (key.IsCompressed()) {
+                    key.Decompress();
+                }
+                format.pushKV("erc55", EncodeDestination(WitnessV16EthHash(key)));
+                break;
+            }
+            if (dest.index() == WitV16KeyEthHashType) {
+                CPubKey key = AddrToPubKey(pwallet, input);
+                if (!key.IsCompressed()) {
+                    key.Compress();
+                }
+                format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
+                break;
+            }
             throwInvalidParam();
     }
 
