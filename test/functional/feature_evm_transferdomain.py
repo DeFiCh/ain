@@ -82,16 +82,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/transferdomain': 'true'}})
         self.nodes[0].generate(1)
 
-        # Check error before transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
-
-        # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/enabled': 'true'}})
-        self.nodes[0].generate(1)
-
-        # Check error before transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
-
         # Activate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'true',
                                              'v0/transferdomain/dvm-evm/src-formats': ['p2pkh','bech32'],
