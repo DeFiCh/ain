@@ -4291,10 +4291,10 @@ UniValue addressmap(const JSONRPCRequest &request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("input", input);
 
+    CTxDestination dest = DecodeDestination(input);
     const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
     switch (type) {
         case AddressConversionType::Auto: {
-            CTxDestination dest = DecodeDestination(input);
             if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
                 CPubKey key = AddrToPubKey(pwallet, input);
                 if (key.IsCompressed()) {
@@ -4318,7 +4318,6 @@ UniValue addressmap(const JSONRPCRequest &request) {
             throwInvalidParam();
         }
         case AddressConversionType::DVMToEVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
                 throwInvalidParam();
             }
@@ -4332,7 +4331,6 @@ UniValue addressmap(const JSONRPCRequest &request) {
             break;
         }
         case AddressConversionType::EVMToDVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV16KeyEthHashType) {
                 throwInvalidParam();
             }
