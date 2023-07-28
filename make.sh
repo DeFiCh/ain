@@ -63,6 +63,7 @@ setup_vars() {
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
     TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
     TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
+    CI_GROUP_LOGS=${CI_GROUP_LOGS:-"1"}
 }
 
 main() {
@@ -384,7 +385,6 @@ test_py() {
     fi
 
     _ensure_enter_dir "${build_target_dir}"
-
     py_ensure_env_active
 
     # shellcheck disable=SC2086
@@ -544,6 +544,13 @@ pkg_install_rust() {
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
         --default-toolchain="${RUST_DEFAULT_VERSION}" -y
     _fold_end
+}
+
+pkg_install_solc() {
+    _fold_start "pkg-install-solc"
+    add-apt-repository ppa:ethereum/ethereum -y
+    apt-get update
+    apt-get install solc -y
 }
 
 pkg_local_ensure_osx_sysroot() {
@@ -983,6 +990,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    DEBIAN_FRONTEND=noninteractive pkg_install_solc
 }
 
 _ci_setup_deps_target() {
@@ -1053,11 +1061,15 @@ _safe_rm_rf() {
 }
 
 _fold_start() {
-    echo "::group::${*:-}"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::group::${*:-}";
+    fi
 }
 
 _fold_end() {
-    echo "::endgroup::"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::endgroup::"
+    fi
 }
 
 _ensure_enter_dir() {

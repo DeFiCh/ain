@@ -83,7 +83,7 @@ impl TrieDBStore {
                 backend
                     .apply(
                         address,
-                        new_basic,
+                        Some(new_basic),
                         data.code,
                         data.storage.unwrap_or_default(),
                         false,
