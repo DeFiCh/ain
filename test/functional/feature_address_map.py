@@ -83,6 +83,18 @@ class addressmapTests(DefiTestFramework):
             assert_equal(res['type'], 2)
             assert_equal(res['format']['bech32'], dfi_addr)
 
+            # auto (dvm -> evm)
+            res = self.nodes[0].addressmap(dfi_addr, AddressConversionType.Auto)
+            assert_equal(res['input'], dfi_addr)
+            assert_equal(res['type'], 0)
+            assert_equal(res['format']['erc55'], eth_addr)
+
+            # auto (evm -> dvm)
+            res = self.nodes[0].addressmap(eth_addr, AddressConversionType.Auto)
+            assert_equal(res['input'], eth_addr)
+            assert_equal(res['type'], 0)
+            assert_equal(res['format']['bech32'], dfi_addr)
+
     def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.

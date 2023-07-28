@@ -4293,6 +4293,30 @@ UniValue addressmap(const JSONRPCRequest &request) {
 
     const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
     switch (type) {
+        case AddressConversionType::Auto: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
+                CPubKey key = AddrToPubKey(pwallet, input);
+                if (key.IsCompressed()) {
+                    key.Decompress();
+                }
+                std::string out = EncodeDestination(WitnessV16EthHash(key));
+                ret.pushKV("type", request.params[1]);
+                format.pushKV("erc55", out);
+                break;
+            }
+            if (dest.index() == WitV16KeyEthHashType) {
+                CPubKey key = AddrToPubKey(pwallet, input);
+                if (!key.IsCompressed()) {
+                    key.Compress();
+                }
+                std::string out = EncodeDestination(WitnessV0KeyHash(key));
+                ret.pushKV("type", request.params[1]);
+                format.pushKV("bech32", out);
+                break;
+            }
+            throwInvalidParam();
+        }
         case AddressConversionType::DVMToEVMAddress: {
             CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
