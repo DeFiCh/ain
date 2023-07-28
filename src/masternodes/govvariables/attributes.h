@@ -58,7 +58,8 @@ enum GovernanceIDs : uint8_t {
 };
 
 enum TransferIDs : uint8_t {
-    Edges    = 'a',
+    DVMToEVM    = 'a',
+    EVMToDVM    = 'b',
 };
 
 enum VaultIDs : uint8_t {
@@ -158,8 +159,13 @@ enum PoolKeys : uint8_t {
 };
 
 enum TransferKeys : uint8_t {
-    DVM_EVM = 'a',
-    EVM_DVM = 'b',
+    TransferEnabled = 'a',
+    SrcFormats     = 'b',
+    DestFormats    = 'c',
+    AuthFormats    = 'd',
+    NativeEnabled   = 'e',
+    DATEnabled      = 'f',
+    Disallowed      = 'g',
 };
 
 enum VaultKeys : uint8_t {
@@ -314,6 +320,15 @@ struct CConsortiumDailyMinted : public CConsortiumMinted {
     }
 };
 
+enum XVmAddressFormatTypes : uint8_t {
+    None,
+    Bech32,
+    Bech32ProxyErc55,
+    PkHash,
+    PkHashProxyErc55,
+    Erc55,
+};
+
 using CDexBalances             = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits             = std::map<uint32_t, int32_t>;
 using DescendantValue          = std::pair<uint32_t, int32_t>;
@@ -321,6 +336,7 @@ using AscendantValue           = std::pair<uint32_t, std::string>;
 using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
 using CConsortiumGlobalMinted  = std::map<DCT_ID, CConsortiumMinted>;
+using XVmAddressFormatItems          = std::set<uint8_t>;
 using CAttributeType           = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue          = std::variant<bool,
                                      CAmount,
@@ -338,7 +354,8 @@ using CAttributeValue          = std::variant<bool,
                                      CConsortiumMembersMinted,
                                      CConsortiumGlobalMinted,
                                      int32_t,
-                                     uint32_t>;
+                                     uint32_t,
+                                     XVmAddressFormatItems>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
