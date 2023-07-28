@@ -163,6 +163,7 @@ enum TransferKeys : uint8_t {
     Src_Formats     = 'b',
     Dest_Formats    = 'c',
     Auth_Formats    = 'd',
+    NativeEnabled   = 'e',
 };
 
 enum VaultKeys : uint8_t {

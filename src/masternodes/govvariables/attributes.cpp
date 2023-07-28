@@ -273,6 +273,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
             {"src-formats", TransferKeys::Src_Formats},
             {"dest-formats", TransferKeys::Dest_Formats},
             {"auth-formats", TransferKeys::Auth_Formats},
+            {"native-enabled", TransferKeys::NativeEnabled},
          }},
         {AttributeTypes::Vaults,
         {
@@ -385,6 +386,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
             {TransferKeys::Src_Formats, "src-formats"},
             {TransferKeys::Dest_Formats, "dest-formats"},
             {TransferKeys::Auth_Formats, "auth-formats"},
+            {TransferKeys::NativeEnabled, "native-enabled"},
          }},
         {AttributeTypes::Vaults,
         {
@@ -751,6 +753,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             {AttributeTypes::Transfer,
              {
                 {TransferKeys::TransferEnabled, VerifyBool},
+                {TransferKeys::NativeEnabled, VerifyBool},
              }},
             {AttributeTypes::Vaults,
             {
@@ -995,14 +998,16 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             if (typeId == TransferIDs::DVMToEVM) {
                 if (typeKey != TransferKeys::TransferEnabled &&
                     typeKey != TransferKeys::Src_Formats &&
-                    typeKey != TransferKeys::Dest_Formats) {
+                    typeKey != TransferKeys::Dest_Formats &&
+                    typeKey != TransferKeys::NativeEnabled) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else if (typeId == TransferIDs::EVMToDVM) {
                 if (typeKey != TransferKeys::TransferEnabled &&
                     typeKey != TransferKeys::Src_Formats &&
                     typeKey != TransferKeys::Dest_Formats &&
-                    typeKey != TransferKeys::Auth_Formats) {
+                    typeKey != TransferKeys::Auth_Formats &&
+                    typeKey != TransferKeys::NativeEnabled) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else {
