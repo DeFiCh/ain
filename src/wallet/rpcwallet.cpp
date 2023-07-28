@@ -10,7 +10,6 @@
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <masternodes/tokens.h>
-#include <masternodes/mn_rpc.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -4350,7 +4349,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
     }
 
     ret.pushKV("format", format);
-    return GetRPCResultCache().Set(request, ret);
+    return ret;
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
