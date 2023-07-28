@@ -4014,8 +4014,20 @@ static EVMAddressTypes FromTxDestType(const size_t index) {
     }
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect,
-                                         const AllowedEVMTypes &allowedDVMAddresses, const AllowedEVMTypes &allowedEVMAddresses) {
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+    AllowedEVMTypes dvmDvmAddresses;
+    AllowedEVMTypes dvmEvmAddresses;
+    AllowedEVMTypes evmDvmAddresses;
+    AllowedEVMTypes evmEvmAddresses;
+    AllowedEVMTypes evmAuthFormats;
+    bool nativeToken;
+    bool datEnabled;
+    std::set<uint32_t> disallowedTokens;
+};
+
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -4048,16 +4060,6 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
-struct TransferDomainLiveConfig {
-    bool dvmToEvm;
-    bool evmTodvm;
-    AllowedEVMTypes dvmDvmAddresses;
-    AllowedEVMTypes dvmEvmAddresses;
-    AllowedEVMTypes evmDvmAddresses;
-    AllowedEVMTypes evmEvmAddresses;
-    AllowedEVMTypes evmAuthFormats;
-};
-
 Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
@@ -4089,11 +4091,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address,
-                                                 dst.address,
-                                                 VMDomainEdge::DVMToEVM,
-                                                 transferdomainConfig.dvmDvmAddresses,
-                                                 transferdomainConfig.dvmEvmAddresses);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, transferdomainConfig);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
@@ -4106,11 +4104,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address,
-                                                 dst.address,
-                                                 VMDomainEdge::EVMToDVM,
-                                                 transferdomainConfig.evmDvmAddresses,
-                                                 transferdomainConfig.evmEvmAddresses);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, transferdomainConfig);
         if (!res) return res;
 
         auto authType = AuthFlags::None;
@@ -4171,6 +4165,9 @@ Res ValidateTransferDomain(const CTransaction &tx,
         attributes->GetValue(evm_dvm_formats, AllowedEVMTypes{}),
         attributes->GetValue(evm_evm_formats, AllowedEVMTypes{}),
         attributes->GetValue(evm_auth_formats, AllowedEVMTypes{}),
+        true,
+        true,
+        {}
     };
 
     for (const auto &[src, dst] : obj.transfers) {
