@@ -4142,17 +4142,22 @@ TransferDomainLiveConfig GetTransferDomainConfig(CCustomCSView &mnview) {
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
     TransferDomainLiveConfig config{
-        attributes->GetValue(dvm_to_evm_enabled, false),
-        attributes->GetValue(evm_to_dvm_enabled, false),
-        attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(dvm_to_evm_enabled, true),
+        attributes->GetValue(evm_to_dvm_enabled, true),
+        attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems { 
+            XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
+        attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems { 
+            XVmAddressFormatTypes::Erc55 }),
+        attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems { 
+            XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
+        attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems { 
+            XVmAddressFormatTypes::Erc55 }),
+        attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems { 
+            XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 }),
         attributes->GetValue(dvm_to_evm_native_enabled, true),
         attributes->GetValue(evm_to_dvm_native_enabled, true),
-        attributes->GetValue(dvm_to_evm_dat_enabled, true),
-        attributes->GetValue(evm_to_dvm_dat_enabled, true),
+        attributes->GetValue(dvm_to_evm_dat_enabled, false),
+        attributes->GetValue(evm_to_dvm_dat_enabled, false),
         {},
         {}
     };
