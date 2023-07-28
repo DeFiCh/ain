@@ -245,8 +245,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
              {"transferdomain", DFIPKeys::TransferDomain},
-             {"dst20", DFIPKeys::DST20},
-             {"transferdomain-dfi", DFIPKeys::TransferDomainDFI}
+             {"dst20-dvm", DFIPKeys::DST20DVM},
+             {"dst20-evm", DFIPKeys::DST20EVM},
+             {"transferdomain-dvm", DFIPKeys::TransferDomainNativeDVM},
+             {"transferdomain-evm", DFIPKeys::TransferDomainNativeEVM}
          }},
         {AttributeTypes::EVMType,
          {
@@ -338,8 +340,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::TransferDomain, "transferdomain"},
-             {DFIPKeys::DST20, "dst20"},
-             {DFIPKeys::TransferDomainDFI, "transferdomain-dfi"},
+             {DFIPKeys::DST20DVM, "dst20-dvm"},
+             {DFIPKeys::DST20EVM, "dst20-evm"},
+             {DFIPKeys::TransferDomainNativeDVM, "transferdomain-dvm"},
+             {DFIPKeys::TransferDomainNativeEVM, "transferdomain-evm"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -682,8 +686,10 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
-                 {DFIPKeys::DST20, VerifyBool},
-                 {DFIPKeys::TransferDomainDFI, VerifyBool},
+                 {DFIPKeys::DST20DVM, VerifyBool},
+                 {DFIPKeys::DST20EVM, VerifyBool},
+                 {DFIPKeys::TransferDomainNativeDVM, VerifyBool},
+                 {DFIPKeys::TransferDomainNativeEVM, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -927,8 +933,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
                     typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
                     typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                    typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::DST20 &&
-                    typeKey != DFIPKeys::TransferDomainDFI) {
+                    typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::DST20DVM &&
+                    typeKey != DFIPKeys::DST20EVM && typeKey != DFIPKeys::TransferDomainNativeDVM &&
+                    typeKey != DFIPKeys::TransferDomainNativeEVM) {
                     return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation) {

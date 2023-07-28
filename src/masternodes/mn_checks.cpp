@@ -4116,10 +4116,16 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainDifferentTokens();
 
     if (src.amount.nTokenId == DCT_ID{0} && !transferdomainConfig.dvmNativeToken)
-        return DeFiErrors::TransferDomainNativeNotEnabled();
+        return DeFiErrors::TransferDomainDVMNativeNotEnabled();
+
+    if (dst.amount.nTokenId == DCT_ID{0} && !transferdomainConfig.evmNativeToken)
+        return DeFiErrors::TransferDomainEVMNativeNotEnabled();
 
     if (src.amount.nTokenId != DCT_ID{0} && !transferdomainConfig.dvmDatEnabled)
-        return DeFiErrors::TransferDomainDST20NotEnabled();
+        return DeFiErrors::TransferDomainDST20DVMNotEnabled();
+
+    if (dst.amount.nTokenId != DCT_ID{0} && !transferdomainConfig.evmDatEnabled)
+        return DeFiErrors::TransferDomainDST20EVMNotEnabled();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
@@ -4179,15 +4185,19 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
     CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
-    CDataStructureV0 dst20{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::DST20};
-    CDataStructureV0 transferdomainNative{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomainDFI};
+    CDataStructureV0 dst20_dvm{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::DST20DVM};
+    CDataStructureV0 dst20_evm{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::DST20EVM};
+    CDataStructureV0 transferdomainNativeDVM{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomainNativeDVM};
+    CDataStructureV0 transferdomainNativeEVM{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomainNativeEVM};
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
     TransferDomainLiveConfig transferdomainConfig{
         attributes->GetValue(dvm_evm, false),
         attributes->GetValue(evm_dvm, false),
-        attributes->GetValue(transferdomainNative, false),
-        attributes->GetValue(dst20, false),
+        attributes->GetValue(transferdomainNativeDVM, false),
+        attributes->GetValue(transferdomainNativeEVM, false),
+        attributes->GetValue(dst20_dvm, false),
+        attributes->GetValue(dst20_evm, false),
         {},
         {}
     };

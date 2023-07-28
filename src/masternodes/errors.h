@@ -438,12 +438,20 @@ public:
         return Res::Err("Source token and destination token must be the same");
     }
 
-    static Res TransferDomainNativeNotEnabled() {
-        return Res::Err("transferdomain for DFI is not enabled");
+    static Res TransferDomainDVMNativeNotEnabled() {
+        return Res::Err("transferdomain for DFI from DVM is not enabled");
     }
 
-    static Res TransferDomainDST20NotEnabled() {
-        return Res::Err("transferdomain for DST20 is not enabled");
+    static Res TransferDomainEVMNativeNotEnabled() {
+        return Res::Err("transferdomain for DFI from EVM is not enabled");
+    }
+
+    static Res TransferDomainDST20DVMNotEnabled() {
+        return Res::Err("transferdomain for DST20 from DVM is not enabled");
+    }
+
+    static Res TransferDomainDST20EVMNotEnabled() {
+        return Res::Err("transferdomain for DST20 from EVM is not enabled");
     }
 
     static Res TransferDomainIncorrectToken() {
