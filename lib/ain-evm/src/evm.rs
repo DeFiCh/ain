@@ -225,7 +225,6 @@ impl EVMServices {
                 extra_data: Vec::default(),
                 mix_hash: H256::default(),
                 nonce: H64::default(),
-                base_fee,
             },
             all_transactions
                 .iter()
@@ -247,7 +246,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(block.clone());
+            self.block.connect_block(block.clone(), base_fee);
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);

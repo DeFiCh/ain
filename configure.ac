@@ -4,7 +4,7 @@ define(_CLIENT_VERSION_MAJOR, 4)
 define(_CLIENT_VERSION_MINOR, 0)
 define(_CLIENT_VERSION_REVISION, 0)
 define(_CLIENT_VERSION_BUILD, 0)
-define(_CLIENT_VERSION_RC, 5)
+define(_CLIENT_VERSION_RC, 6)
 define(_CLIENT_VERSION_IS_RELEASE, false)
 define(_COPYRIGHT_YEAR, 2023)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
@@ -1465,7 +1465,7 @@ esac
 
 echo
 echo " === options === "
-echo 
+echo
 echo "  with wallet         = $enable_wallet"
 echo "  with zmq            = $use_zmq"
 echo "  with test           = $use_tests"
@@ -1485,7 +1485,7 @@ echo "  target os           = $TARGET_OS"
 echo "  build os            = $BUILD_OS"
 echo
 echo "  === target os toolchain ==== "
-echo 
+echo
 echo "  CC                  = $CC"
 echo "  CFLAGS              = $CFLAGS"
 echo "  CPPFLAGS            = $DEBUG_CPPFLAGS $HARDENED_CPPFLAGS $CPPFLAGS"
@@ -1496,17 +1496,17 @@ echo "  AR                  = $AR"
 echo "  ARFLAGS             = $ARFLAGS"
 echo "  NM                  = $NM"
 echo "  RANLIB              = $RANLIB"
-echo 
+echo
 echo "  === build os toolchain ==== "
-echo 
+echo
 echo "  CC                  = $BUILD_CC"
 echo "  CXX                 = $BUILD_CXX"
 echo "  AR                  = $BUILD_AR"
 echo "  NM                  = $BUILD_NM"
 echo "  RANLIB              = $BUILD_RANLIB"
-echo 
+echo
 echo "  === mixed toolchain ==="
-echo 
+echo
 echo "  CARGO               = $CARGO"
 echo "  RUST_HOST           = $RUST_HOST"
 echo "  RUST_TARGET         = $RUST_TARGET"
@@ -1514,6 +1514,6 @@ echo "  ENABLE_DEBUG        = $ENABLE_DEBUG"
 echo "  PROTOC              = $PROTOC"
 echo "  PROTOC_INCLUDE_DIR  = $PROTOC_INCLUDE_DIR"
 echo "  SOLC_PATH           = $SOLC_PATH"
-echo 
+echo
 echo "  ==="
-echo 
+echo
