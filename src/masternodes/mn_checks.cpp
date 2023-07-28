@@ -4017,19 +4017,19 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
 }
 
 struct TransferDomainLiveConfig {
-    bool dvmToEvm;
-    bool evmTodvm;
+    bool dvmToEvmEnabled;
+    bool evmToDvmEnabled;
     XVmAddressFormatItems srcDvmEvmAddresses;
     XVmAddressFormatItems destDvmEvmAddresses;
     XVmAddressFormatItems destEvmDvmAddresses;
     XVmAddressFormatItems srcEvmDvmAddresses;
     XVmAddressFormatItems evmAuthFormats;
-    bool dvmNativeToken;
-    bool evmNativeToken;
-    bool dvmDatEnabled;
-    bool evmDatEnabled;
-    std::set<uint32_t> dvmDisallowedTokens;
-    std::set<uint32_t> evmDisallowedTokens;
+    bool dvmToEvmNativeTokenEnabled;
+    bool evmToDvmNativeTokenEnabled;
+    bool dvmToEvmDatEnabled;
+    bool evmToDvmDatEnabled;
+    std::set<uint32_t> dvmToEvmDisallowedTokens;
+    std::set<uint32_t> evmToDvmDisallowedTokens;
 };
 
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
@@ -4090,7 +4090,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!transferdomainConfig.dvmToEvm) {
+            if (!transferdomainConfig.dvmToEvmEnabled) {
                 return DeFiErrors::TransferDomainDVMEVMNotEnabled();
             }
         }
@@ -4103,7 +4103,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!transferdomainConfig.evmTodvm) {
+            if (!transferdomainConfig.evmToDvmEnabled) {
                 return DeFiErrors::TransferDomainEVMDVMNotEnabled();
             }
         }
