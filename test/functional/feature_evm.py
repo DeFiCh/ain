@@ -183,8 +183,8 @@ class EVMTest(DefiTestFramework):
         dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
         eth_balance = self.nodes[0].eth_getBalance(eth_address)
         assert_equal(dfi_balance, Decimal('200'))
-        assert_equal(eth_balance, int_to_eth_u256(0))
-        assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 0)
+        assert_equal(eth_balance, int_to_eth_u256(100))
+        assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 1)
 
         # Check for invalid parameters in transferdomain rpc
         assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].createrawtransaction, [{'txid': txid, 'vout': 1}], [{eth_address: 1}])
