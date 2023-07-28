@@ -15,6 +15,7 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
+use primitive_types::H256;
 
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
@@ -510,7 +511,6 @@ impl EVMCoreService {
     }
 }
 
-use primitive_types::H256;
 use std::fmt;
 
 #[derive(Debug)]
