@@ -4265,11 +4265,12 @@ UniValue addressmap(const JSONRPCRequest &request) {
         },
         RPCResult{
             "{\n"
-            "    input :       \"address\",         (string) The input address to be converted\n"
-            "    type :        \"map type\"\n       (numeric) address map type indicator"
-            "    format : {\n"
-            "       bech32: \"address\"\n           (string, optional) output converted address"
-            "       erc55 : \"address\"\n           ..."
+            "    input :    \"address\",         (string) The input address to be converted\n"
+            "    type :     \"map type\"\n       (numeric) address map type indicator"
+            "    format : { \n"
+            "       bech32: \"address\"\n        (string, optional) output converted address"
+            "       p2pkh:  \"address\"\n        (string, optional) output converted address"
+            "       erc55 : \"address\"\n        ..."
             "    }]\n"
             "}\n"
         },
