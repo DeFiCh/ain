@@ -4039,19 +4039,19 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     const auto destType = FromTxDestType(dest.index());
 
     if (aspect == VMDomainEdge::DVMToEVM) {
-        if (!allowedDVMAddresses.count(srcType)) {
+        if (!transferdomainConfig.dvmDvmAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
-        if (!allowedEVMAddresses.count(destType)) {
+        if (!transferdomainConfig.dvmEvmAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
 
     } else if (aspect == VMDomainEdge::EVMToDVM) {
-        if (!allowedEVMAddresses.count(srcType)) {
+        if (!transferdomainConfig.evmEvmAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!allowedDVMAddresses.count(destType)) {
+        if (!transferdomainConfig.evmDvmAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();
