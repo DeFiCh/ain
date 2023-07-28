@@ -6,11 +6,7 @@ use std::{
 };
 
 use crate::transaction::system::SystemTx;
-use crate::{
-    core::NativeTxHash,
-    fee::calculate_gas_fee,
-    transaction::{bridge::BridgeTx, SignedTx},
-};
+use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
@@ -171,7 +167,6 @@ impl TransactionQueueMap {
 #[derive(Debug, Clone)]
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
-    BridgeTx(BridgeTx),
     SystemTx(SystemTx),
 }
 
@@ -288,8 +283,7 @@ impl TransactionQueue {
         data.transactions.retain(|item| {
             let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
-                QueueTx::BridgeTx(tx) => tx.sender(),
-                QueueTx::SystemTx(_) => H160::zero(), // this is safe to do since we do not remove this transaction during mining
+                QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
             };
             if tx_sender == sender {
                 fees_to_remove += item.tx_fee;

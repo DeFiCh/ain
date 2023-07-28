@@ -9,7 +9,6 @@ use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
@@ -19,7 +18,7 @@ use ethereum_types::{Bloom, H160, H64, U256};
 
 use crate::bytes::Bytes;
 use crate::services::SERVICES;
-use crate::transaction::system::{DST20Data, DeployContractData, SystemTx};
+use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::anyhow;
 use hex::FromHex;
@@ -212,7 +211,7 @@ impl EVMServices {
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
                         address, amount, queue_id
@@ -222,7 +221,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
-                QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmOut for address {}, amount: {}",
                         address, amount
