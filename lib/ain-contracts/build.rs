@@ -1,6 +1,7 @@
 use anyhow::anyhow;
-use ethers_solc::{Project, ProjectPathsConfig};
+use ethers_solc::{Project, ProjectPathsConfig, Solc};
 use std::fs;
+use std::env;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let contracts = vec![("counter_contract", "Counter"), ("dst20", "DST20")];
 
     for (file_path, contract_name) in contracts {
+        let solc = Solc::new(env::var("SOLC_PATH")?);
         let root = PathBuf::from(file_path);
         if !root.exists() {
             return Err("Project root {root:?} does not exists!".into());
@@ -20,6 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()?;
 
         let project = Project::builder()
+            .solc(solc)
             .paths(paths)
             .set_auto_detect(true)
             .no_artifacts()

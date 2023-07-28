@@ -335,6 +335,20 @@ class DST20(DefiTestFramework):
             Decimal(2),
             )
 
+    def test_negative_transfer(self):
+        assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "-1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.contract_address_btc,
+                        "amount": "-1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+
 
     def run_test(self):
         self.node = self.nodes[0]
@@ -372,6 +386,7 @@ class DST20(DefiTestFramework):
         self.test_invalid_token()
         self.test_transfer_to_token_address()
         self.test_bridge_when_no_balance()
+        self.test_negative_transfer()
 
 if __name__ == "__main__":
     DST20().main()
