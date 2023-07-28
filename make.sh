@@ -1018,10 +1018,6 @@ ci_setup_deps_target() {
     pkg_setup_rust
 }
 
-ci_setup_deps_test() {
-    pkg_local_install_py_deps
-}
-
 # shellcheck disable=SC2120
 get_rust_triplet() {
     # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
