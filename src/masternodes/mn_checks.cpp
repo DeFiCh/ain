@@ -4154,11 +4154,11 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
     CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
-    CDataStructureV0 dvm_dvm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
-    CDataStructureV0 dvm_evm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
-    CDataStructureV0 evm_evm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
-    CDataStructureV0 evm_dvm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
-    CDataStructureV0 evm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
+    CDataStructureV0 dvm_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
+    CDataStructureV0 dvm_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
+    CDataStructureV0 evm_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
     CDataStructureV0 dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
     CDataStructureV0 evm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
     CDataStructureV0 dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
@@ -4169,11 +4169,11 @@ Res ValidateTransferDomain(const CTransaction &tx,
     TransferDomainLiveConfig transferdomainConfig{
         attributes->GetValue(dvm_evm, false),
         attributes->GetValue(evm_dvm, false),
-        attributes->GetValue(dvm_dvm_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(dvm_evm_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_dvm_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_evm_formats, XVmAddressFormatItems{}),
-        attributes->GetValue(evm_auth_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(dvm_evm_src_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(dvm_evm_dest_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_dvm_dest_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_dvm_src_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_dvm_auth_formats, XVmAddressFormatItems{}),
         attributes->GetValue(dvm_native_enabled, true),
         attributes->GetValue(evm_native_enabled, true),
         attributes->GetValue(dvm_dat_enabled, true),
