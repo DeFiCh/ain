@@ -208,12 +208,12 @@ class VMMapTests(DefiTestFramework):
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
-        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        base_block_dvm = self.nodes[0].getbestblockhash()
+        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
+        base_block_dvm = self.nodes[0].getbestblockhash()
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
