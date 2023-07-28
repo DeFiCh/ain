@@ -483,6 +483,16 @@ impl EVMServices {
         amount: U256,
         out: bool,
     ) -> Result<DST20BridgeInfo, Box<dyn Error>> {
+        // check if code of address matches DST20 bytecode
+        let account = executor
+            .backend
+            .get_account(&contract)
+            .ok_or_else(|| anyhow!("DST20 token address is not a contract"))?;
+
+        if account.code_hash != ain_contracts::get_dst20_codehash()? {
+            return Err(anyhow!("DST20 token code is not valid").into());
+        }
+
         let storage_index = ain_contracts::get_address_storage_index(to);
         let balance = executor
             .backend

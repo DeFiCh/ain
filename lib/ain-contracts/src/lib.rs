@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
+use sp_core::{Blake2Hasher, Hasher};
 use std::collections::HashMap;
 use std::error::Error;
 use std::str::FromStr;
@@ -57,6 +58,11 @@ pub fn get_counter_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {
 
 pub fn get_dst20_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {
     get_bytecode(include_str!("../dst20/output/bytecode.json"))
+}
+
+pub fn get_dst20_codehash() -> Result<H256, Box<dyn Error>> {
+    let bytecode = get_bytecode(include_str!("../dst20/output/bytecode.json"))?;
+    Ok(Blake2Hasher::hash(&bytecode))
 }
 
 pub fn dst20_address_from_token_id(token_id: &str) -> Result<H160, Box<dyn Error>> {
