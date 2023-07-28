@@ -4001,6 +4001,19 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+static EVMAddressTypes FromTxDestType(const size_t index) {
+    switch (index) {
+        case PKHashType:
+            return EVMAddressTypes::PKHASH;
+        case WitV0KeyHashType:
+            return EVMAddressTypes::BECH32;
+        case WitV16KeyEthHashType:
+            return EVMAddressTypes::ERC55;
+        default:
+            return EVMAddressTypes::NONE;
+    }
+}
+
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect,
                                          const AllowedEVMTypes &allowedDVMAddresses, const AllowedEVMTypes &allowedEVMAddresses) {
     CTxDestination src, dest;
@@ -4010,31 +4023,23 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     res = ExtractDestination(destScript, dest);
     if (!res) return DeFiErrors::ScriptUnexpected(destScript);
 
-    auto isValidDVMAddrForEVM = [&allowedDVMAddresses](const CTxDestination &a) {
-        return (allowedDVMAddresses.count(EVMAddressTypes::PKHASH) && a.index() == PKHashType) ||
-               (allowedDVMAddresses.count(EVMAddressTypes::BECH32) && a.index() == WitV0KeyHashType) ||
-               (allowedDVMAddresses.count(EVMAddressTypes::ERC55) && a.index() == WitV16KeyEthHashType);
-    };
-    auto isValidEVMAddr = [&allowedEVMAddresses](const CTxDestination &a) {
-        return (allowedEVMAddresses.count(EVMAddressTypes::PKHASH) && a.index() == PKHashType) ||
-               (allowedEVMAddresses.count(EVMAddressTypes::BECH32) && a.index() == WitV0KeyHashType) ||
-               (allowedEVMAddresses.count(EVMAddressTypes::ERC55) && a.index() == WitV16KeyEthHashType);
-    };
+    const auto srcType = FromTxDestType(src.index());
+    const auto destType = FromTxDestType(dest.index());
 
     if (aspect == VMDomainEdge::DVMToEVM) {
-        if (!isValidDVMAddrForEVM(src)) {
+        if (!allowedDVMAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
-        if (!isValidEVMAddr(dest)) {
+        if (!allowedEVMAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
 
     } else if (aspect == VMDomainEdge::EVMToDVM) {
-        if (!isValidEVMAddr(src)) {
+        if (!allowedEVMAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!isValidDVMAddrForEVM(dest)) {
+        if (!allowedDVMAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();

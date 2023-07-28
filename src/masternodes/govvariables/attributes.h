@@ -318,6 +318,7 @@ struct CConsortiumDailyMinted : public CConsortiumMinted {
 };
 
 enum EVMAddressTypes : uint8_t {
+    NONE,
     BECH32,
     BECH32_ERC55,
     PKHASH,
