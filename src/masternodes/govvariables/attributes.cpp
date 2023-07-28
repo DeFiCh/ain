@@ -275,6 +275,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
             {"auth-formats", TransferKeys::Auth_Formats},
             {"native-enabled", TransferKeys::NativeEnabled},
             {"dat-enabled", TransferKeys::DATEnabled},
+            {"disallowed", TransferKeys::Disallowed},
          }},
         {AttributeTypes::Vaults,
         {
@@ -389,6 +390,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
             {TransferKeys::Auth_Formats, "auth-formats"},
             {TransferKeys::NativeEnabled, "native-enabled"},
             {TransferKeys::DATEnabled, "dat-enabled"},
+            {TransferKeys::Disallowed, "disallowed"},
          }},
         {AttributeTypes::Vaults,
         {
@@ -574,6 +576,14 @@ static bool VerifyToken(const CCustomCSView &view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static bool VerifyDATToken(const CCustomCSView &view, const std::string str) {
+    const auto tokenPair = view.GetToken(str);
+    if (tokenPair && tokenPair->second && tokenPair->second->IsDAT()) {
+        return true;
+    }
+    return false;
+}
+
 static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     CConsortiumMembers members;
 
@@ -627,6 +637,15 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
     }
 
     return {members, Res::Ok()};
+}
+
+static Res VerifyTokenSet(const CCustomCSView &view, const std::set<std::string> &strSet) {
+    for (const auto &str : strSet) {
+        if (!VerifyDATToken(view, str)) {
+            return Res::Err("Token not found or not a DAT token");
+        }
+    }
+    return Res::Ok();
 }
 
 static ResVal<CAttributeValue> VerifyXVMAddressTypes(const UniValue &array) {
@@ -1003,7 +1022,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != TransferKeys::Src_Formats &&
                     typeKey != TransferKeys::Dest_Formats &&
                     typeKey != TransferKeys::NativeEnabled &&
-                    typeKey != TransferKeys::DATEnabled) {
+                    typeKey != TransferKeys::DATEnabled &&
+                    typeKey != TransferKeys::Disallowed) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else if (typeId == TransferIDs::EVMToDVM) {
@@ -1012,7 +1032,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != TransferKeys::Dest_Formats &&
                     typeKey != TransferKeys::Auth_Formats &&
                     typeKey != TransferKeys::NativeEnabled &&
-                    typeKey != TransferKeys::DATEnabled) {
+                    typeKey != TransferKeys::DATEnabled &&
+                    typeKey != TransferKeys::Disallowed) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else {
@@ -1101,6 +1122,21 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Transfer &&
+               attrV0.typeId == TransferIDs::DVMToEVM &&
+               (attrV0.typeId == TransferIDs::DVMToEVM || attrV0.typeId == TransferIDs::EVMToDVM) &&
+               attrV0.key == TransferKeys::Disallowed) {
+        if (value && !value->isArray() && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+        std::set<std::string> attribValue;
+        for (const auto &arrayValue : value->get_array().getValues()) {
+            if (!arrayValue.isStr()) {
+                return Res::Err("Values in array must be strings");
+            }
+            attribValue.insert(arrayValue.getValStr());
+        }
+        return applyVariable(attrV0, attribValue);
     } else {
         if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");
@@ -1805,6 +1841,16 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Transfer:
                 if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
+                }
+                if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
+                    attrV0->key == TransferKeys::Disallowed) {
+                    const auto strSet = std::get_if<std::set<std::string>>(&value);
+                    if (!strSet) {
+                        return DeFiErrors::GovVarUnsupportedValue();
+                    }
+                    if (auto res = VerifyTokenSet(view, *strSet); !res) {
+                        return res;
+                    }
                 }
                 break;
 

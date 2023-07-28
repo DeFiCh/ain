@@ -165,6 +165,7 @@ enum TransferKeys : uint8_t {
     Auth_Formats    = 'd',
     NativeEnabled   = 'e',
     DATEnabled      = 'f',
+    Disallowed      = 'g',
 };
 
 enum VaultKeys : uint8_t {
