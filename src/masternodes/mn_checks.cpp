@@ -3993,14 +3993,18 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             if (solution == txnouttype::TX_PUBKEYHASH) {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
-                auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                if (script == auth)
-                    return Res::Ok();
+                if (pubkey.Decompress()) {
+                    const auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    const auto scriptOut = GetScriptForDestination(PKHash(pubkey));
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
+                        return Res::Ok();
+                }
             } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
+                const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth)
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
             }
@@ -4009,7 +4013,18 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect) {
+struct TransferDomainLiveConfig {
+    bool dvmToEvm;
+    bool evmTodvm;
+    bool dvmNativeToken;
+    bool evmNativeToken;
+    bool dvmDatEnabled;
+    bool evmDatEnabled;
+    std::set<uint32_t> dvmDisallowedTokens;
+    std::set<uint32_t> evmDisallowedTokens;
+};
+
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -4044,11 +4059,6 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     return DeFiErrors::TransferDomainUnknownEdge();
 }
 
-struct TransferDomainLiveConfig {
-    bool dvmToEvm;
-    bool evmTodvm;
-};
-
 Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    const TransferDomainLiveConfig &transferdomainConfig,
                                    uint32_t height,
@@ -4080,7 +4090,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, transferdomainConfig);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
@@ -4093,7 +4103,7 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
 
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, transferdomainConfig);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
@@ -4132,7 +4142,16 @@ Res ValidateTransferDomain(const CTransaction &tx,
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
-    TransferDomainLiveConfig transferdomainConfig{attributes->GetValue(dvm_evm, false), attributes->GetValue(evm_dvm, false)};
+    TransferDomainLiveConfig transferdomainConfig{
+        attributes->GetValue(dvm_evm, false),
+        attributes->GetValue(evm_dvm, false),
+        true,
+        true,
+        true,
+        true,
+        {},
+        {}
+    };
 
     for (const auto &[src, dst] : obj.transfers) {
         auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);

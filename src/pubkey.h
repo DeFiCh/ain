@@ -17,12 +17,21 @@
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
+enum class KeyAddressType : uint8_t {
+    DEFAULT, // Uses whatever is set in the pub / priv key
+    COMPRESSED,
+    UNCOMPRESSED
+};
+
 /** A reference to a CKey: the Hash160 of its serialized public key */
 class CKeyID : public uint160
 {
 public:
     CKeyID() : uint160() {}
     explicit CKeyID(const uint160& in) : uint160(in) {}
+    CKeyID(const uint160& in, const KeyAddressType type) : uint160(in), type(type) {}
+
+    KeyAddressType type{KeyAddressType::DEFAULT};
 
     static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
         // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
@@ -252,6 +261,17 @@ public:
 
     static bool TryRecoverSigCompat(const std::vector<unsigned char>& vchSig, std::vector<unsigned char>* sig = nullptr);
 };
+
+inline std::pair<CPubKey, CPubKey> GetBothPubkeyCompressions(const CPubKey &key) {
+    auto keyCopy = key;
+    if (key.IsCompressed()) {
+        keyCopy.Decompress();
+        return {keyCopy, key};
+    } else {
+        keyCopy.Compress();
+    }
+    return {key, keyCopy};
+}
 
 struct CExtPubKey {
     unsigned char nDepth;

@@ -64,22 +64,26 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
             return witdest;
         }
     }
-    case OutputType::ETH: return WitnessV16EthHash(key);
+    case OutputType::ETH: {
+        CPubKey pubkeyCopy = key;
+        if (pubkeyCopy.IsCompressed()) {
+            pubkeyCopy.Decompress();
+        }
+        return WitnessV16EthHash(pubkeyCopy);
+    }
     default: assert(false);
     }
 }
 
 std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 {
-    PKHash keyid(key);
-    if (key.IsCompressed()) {
-        CTxDestination segwit = WitnessV0KeyHash(keyid);
-        CTxDestination p2sh = ScriptHash(GetScriptForDestination(segwit));
-        return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit)};
-    } else {
-        CTxDestination eth = WitnessV16EthHash(key);
-        return std::vector<CTxDestination>{std::move(keyid), std::move(eth)};
-    }
+    auto [uncomp, comp] = GetBothPubkeyCompressions(key);
+    PKHash keyid(comp);
+    WitnessV0KeyHash segwit(comp);
+    ScriptHash p2sh(GetScriptForDestination(segwit));
+    PKHash uncompressedLegacy(uncomp);
+    WitnessV16EthHash eth(uncomp);
+    return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit), std::move(eth), std::move(uncompressedLegacy)};
 }
 
 CTxDestination AddAndGetDestinationForScript(FillableSigningProvider& keystore, const CScript& script, OutputType type)

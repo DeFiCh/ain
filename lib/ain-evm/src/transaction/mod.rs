@@ -1,4 +1,5 @@
 pub mod bridge;
+
 use crate::ecrecover::{public_key_to_address, recover_public_key};
 use ethereum::{
     AccessList, EnvelopedDecoderError, LegacyTransaction, TransactionAction, TransactionSignature,
@@ -270,8 +271,8 @@ impl SignedTx {
 
     pub fn max_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(tx) => Some(tx.gas_price),
-            TransactionV2::EIP2930(tx) => Some(tx.gas_price),
+            TransactionV2::Legacy(_) => None,
+            TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_fee_per_gas),
         }
     }

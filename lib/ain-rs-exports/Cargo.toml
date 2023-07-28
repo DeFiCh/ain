@@ -17,6 +17,9 @@ ethereum = "0.14.0"
 rlp = "0.5.2"
 primitive-types = "0.12.1"
 log = { version = "0.4" }
+hex = "0.4.3"
+serde_json = "1.0"
+anyhow = "1.0.71"
 
 # Build
 cxx = "1.0"

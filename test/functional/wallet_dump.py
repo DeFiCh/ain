@@ -129,12 +129,12 @@ class WalletDumpTest(DefiTestFramework):
 
         found_legacy_addr, found_p2sh_segwit_addr, found_bech32_addr, found_script_addr, found_addr_chg, found_addr_rsv, hd_master_addr_unenc = \
             read_dump(wallet_unenc_dump, addrs, [multisig_addr], None)
-        assert_equal(found_legacy_addr, test_addr_count)  # all keys must be in the dump
-        assert_equal(found_p2sh_segwit_addr, test_addr_count)  # all keys must be in the dump
-        assert_equal(found_bech32_addr, test_addr_count)  # all keys must be in the dump
+        assert_equal(found_legacy_addr, test_addr_count * 3)  # all keys must be in the dump
+        assert_equal(found_p2sh_segwit_addr, test_addr_count * 3)  # all keys must be in the dump
+        assert_equal(found_bech32_addr, test_addr_count * 3)  # all keys must be in the dump
         assert_equal(found_script_addr, 1)  # all scripts must be in the dump
         assert_equal(found_addr_chg, 0)  # 0 blocks where mined
-        assert_equal(found_addr_rsv, 90 * 2)  # 90 keys plus 100% internal keys
+        assert_equal(found_addr_rsv, 90 * 2 * 3)  # 90 keys plus 100% internal keys
 
         # encrypt wallet, restart, unlock and dump
         self.nodes[0].encryptwallet('test')
@@ -145,12 +145,12 @@ class WalletDumpTest(DefiTestFramework):
 
         found_legacy_addr, found_p2sh_segwit_addr, found_bech32_addr, found_script_addr, found_addr_chg, found_addr_rsv, _ = \
             read_dump(wallet_enc_dump, addrs, [multisig_addr], hd_master_addr_unenc)
-        assert_equal(found_legacy_addr, test_addr_count)  # all keys must be in the dump
-        assert_equal(found_p2sh_segwit_addr, test_addr_count)  # all keys must be in the dump
-        assert_equal(found_bech32_addr, test_addr_count)  # all keys must be in the dump
+        assert_equal(found_legacy_addr, test_addr_count * 3)  # all keys must be in the dump
+        assert_equal(found_p2sh_segwit_addr, test_addr_count * 3)  # all keys must be in the dump
+        assert_equal(found_bech32_addr, test_addr_count * 3)  # all keys must be in the dump
         assert_equal(found_script_addr, 1)
-        assert_equal(found_addr_chg, 90 * 2)  # old reserve keys are marked as change now
-        assert_equal(found_addr_rsv, 90 * 2)
+        assert_equal(found_addr_chg, 90 * 2 * 3)  # old reserve keys are marked as change now
+        assert_equal(found_addr_rsv, 90 * 2 * 3)
 
         # Overwriting should fail
         assert_raises_rpc_error(-8, "already exists", lambda: self.nodes[0].dumpwallet(wallet_enc_dump))

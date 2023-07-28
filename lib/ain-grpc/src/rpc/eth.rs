@@ -291,13 +291,18 @@ impl MetachainRPCModule {
                     .get_block_by_number(&U256::from(n))
                     .map(|block| block.header.number)
             }
+            BlockNumber::Earliest => {
+                self.handler
+                    .storage
+                    .get_block_by_number(&U256::zero())
+                    .map(|block| block.header.number)
+            }
             _ => {
                 self.handler
                     .storage
                     .get_latest_block()
                     .map(|block| block.header.number)
             }
-            // BlockNumber::Earliest => todo!(),
             // BlockNumber::Pending => todo!(),
             // BlockNumber::Safe => todo!(),
             // BlockNumber::Finalized => todo!(),

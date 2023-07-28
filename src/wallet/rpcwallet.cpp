@@ -1131,6 +1131,12 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
     for (auto item_it = start; item_it != end; ++item_it)
     {
         const CTxDestination& address = item_it->first;
+
+        // Do not display Eth addresses
+        if (address.index() == WitV16KeyEthHashType) {
+            continue;
+        }
+
         const std::string& label = item_it->second.name;
         auto it = mapTally.find(address);
         if (it == mapTally.end() && !fIncludeEmpty)
@@ -3680,7 +3686,7 @@ public:
     {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::COMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;
@@ -3704,7 +3710,7 @@ public:
     UniValue operator()(const WitnessV16EthHash& id) const {
         UniValue obj(UniValue::VOBJ);
         CPubKey pubkey;
-        if (pwallet && pwallet->GetPubKey(CKeyID(id), pubkey)) {
+        if (pwallet && pwallet->GetPubKey(CKeyID(id, KeyAddressType::UNCOMPRESSED), pubkey)) {
             obj.pushKV("pubkey", HexStr(pubkey));
         }
         return obj;
@@ -4236,6 +4242,70 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
+enum class AddressConversionType {
+    Auto,
+    DVMToEVMAddress,
+    EVMToDVMAddress,
+};
+
+static int AddressConversionTypeCount = 3;
+
+UniValue addressmap(const JSONRPCRequest &request) {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCHelpMan{
+        "addressmap",
+        "Give the equivalent of an address from EVM to DVM and versa\n",
+        {
+            {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address or EVM address"},
+            {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
+                            1 - Address format: DFI -> ETH \n\
+                            2 - Address format: ETH -> DFI \n"}
+        },
+        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
+        RPCExamples{HelpExampleCli("addressmap", R"('"<address>"' 1)")},
+    }
+        .Check(request);
+
+    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+
+    const std::string input = request.params[0].get_str();
+
+    const int typeInt = request.params[1].get_int();
+    if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
+        throwInvalidParam();
+    }
+    const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
+    switch (type) {
+        case AddressConversionType::DVMToEVMAddress: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, input);
+            if (key.IsCompressed()) {
+                key.Decompress();
+            }
+            return EncodeDestination(WitnessV16EthHash(key));
+        }
+        case AddressConversionType::EVMToDVMAddress: {
+            CTxDestination dest = DecodeDestination(input);
+            if (dest.index() != WitV16KeyEthHashType) {
+                throwInvalidParam();
+            }
+            CPubKey key = AddrToPubKey(pwallet, input);
+            if (!key.IsCompressed()) {
+                key.Compress();
+            }
+            return EncodeDestination(WitnessV0KeyHash(key));
+        }
+        default:
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid address type passed");
+            break;
+    }
+}
+
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importprivkey(const JSONRPCRequest& request);
@@ -4255,6 +4325,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
+    { "wallet",             "addressmap",                       &addressmap,                    {"input", "type"} },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },
     { "wallet",             "createwallet",                     &createwallet,                  {"wallet_name", "disable_private_keys", "blank", "passphrase", "avoid_reuse"} },

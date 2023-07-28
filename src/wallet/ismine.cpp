@@ -99,6 +99,7 @@ IsMineResult IsMineInner(const CWallet& keystore, const CScript& scriptPubKey, I
     case TX_PUBKEYHASH:
         keyID = CKeyID(uint160(vSolutions[0]));
         if (!PermitsUncompressed(sigversion)) {
+            keyID.type = KeyAddressType::COMPRESSED;
             CPubKey pubkey;
             if (keystore.GetPubKey(keyID, pubkey) && !pubkey.IsCompressed()) {
                 return IsMineResult::INVALID;

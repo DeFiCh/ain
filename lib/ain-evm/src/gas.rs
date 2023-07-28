@@ -6,11 +6,12 @@ use evm::{
 };
 
 use anyhow::anyhow;
+use ethereum_types::U256;
 use log::debug;
 use std::error::Error;
 
 // Changi intermediate constant
-pub const MIN_GAS_PER_TX: u64 = 21_000;
+pub const MIN_GAS_PER_TX: U256 = U256([21_000, 0, 0, 0]);
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx

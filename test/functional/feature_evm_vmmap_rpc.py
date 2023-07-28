@@ -13,14 +13,12 @@ from test_framework.util import (
 
 class VMMapType:
     Auto = 0
-    AddressDVMToEVM = 1
-    AddressEVMToDVM = 2
-    TxHashDVMToEVM = 3
-    TxHashEVMToEVM = 4
-    BlockHashDVMToEVM = 5
-    BlockHashEVMToDVM = 6
-    BlockNumberDVMToEVM = 7
-    BlockNumberEVMToDVM = 8
+    TxHashDVMToEVM = 1
+    TxHashEVMToEVM = 2
+    BlockHashDVMToEVM = 3
+    BlockHashEVMToDVM = 4
+    BlockNumberDVMToEVM = 5
+    BlockNumberEVMToDVM = 6
 
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
@@ -51,83 +49,6 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_block_height = self.nodes[0].getblockcount()
 
-    def vmmap_address_basics(self):
-        self.rollback_to(self.start_block_height)
-        # Same keys to import both formats.
-        # Currently in discussion. Tests disabled.
-        priv_keys = [
-            "cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz",
-            "cPaTadxsWhzHNgi2hAiFXXnw7foEGXBME75s27CEGFeS8S3pYf8j",
-            "cSu1eq6MKxZ2exooiXEwC7jA4W7Gd3YyfDL8BWQCm8abaDKrnDkr",
-        ]
-        addr_maps = [
-            ["bcrt1qmhpq9hxgdglwja6uruc92yne8ekxljgykrfta5", "0xfD0766e7aBe123A25c73c95f6dc3eDe26D0b7263"],
-            ["bcrt1qtqggfdte5jp8duffzmt54aqtqwlv3l8xsjdrhf", "0x4d07A76Db2a281a348d5A5a1833F4322D77799d5"],
-            ["bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5", "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7"],
-        ]
-        for x in priv_keys:
-            self.nodes[0].importprivkey(x)
-        for [dfi_addr, eth_addr] in addr_maps:
-            assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
-            assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
-
-    def vmmap_address_basics_manual_import(self):
-        self.rollback_to(self.start_block_height)
-        # Import both keys for now.
-        priv_keys = [
-            ["cNoUVyyacpVBpotBGxrnM5XXekdqV8qgnowVQfgCvDWVU9jn4gUz", "2468918553ca24474efea1e6a3641a1302bd643d15c13a6dbe89b8da38c90b3c"],
-            ["cPaTadxsWhzHNgi2hAiFXXnw7foEGXBME75s27CEGFeS8S3pYf8j", "3b8ccde96d9c78c6cf248ffcb9ed89ba8327b8c994600ca391b38f5deffa15ca"],
-            ["cSu1eq6MKxZ2exooiXEwC7jA4W7Gd3YyfDL8BWQCm8abaDKrnDkr", "9e9b4756952999af30a62ebe4f8bcd12ed251d820e5d3c8cee550685693f2688"],
-        ]
-        addr_maps = [
-            ["bcrt1qmhpq9hxgdglwja6uruc92yne8ekxljgykrfta5", "0xfD0766e7aBe123A25c73c95f6dc3eDe26D0b7263"],
-            ["bcrt1qtqggfdte5jp8duffzmt54aqtqwlv3l8xsjdrhf", "0x4d07A76Db2a281a348d5A5a1833F4322D77799d5"],
-            ["bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5", "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7"],
-        ]
-        for [wif, rawkey] in priv_keys:
-            # Adding this line will make the second rawkey import fail
-            # due to a bug in importprivkey.
-            #
-            # Context: Since we have a different ID for each import (eth and non eth),
-            # Have ID check fails resulting in https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp/#L1872-L1875
-            # failing when actually trying to insert the key
-            # However, https://github.com/defich/ain/blob/tests_vmmap/src/wallet/wallet.cpp#L1862
-            # still sets the keyid in the map, so further imports use that and succeed
-            #
-            # self.nodes[0].importprivkey(wif)
-            self.nodes[0].importprivkey(rawkey)
-        for [dfi_addr, eth_addr] in addr_maps:
-            assert_equal(self.nodes[0].vmmap(dfi_addr, 1), eth_addr)
-            assert_equal(self.nodes[0].vmmap(eth_addr, 2), dfi_addr)
-
-    def vmmap_valid_address_not_present_should_fail(self):
-        self.rollback_to(self.start_block_height)
-        # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
-        eth_address = self.nodes[1].getnewaddress("", "eth")
-        assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].vmmap, eth_address, 2)
-
-    def vmmap_valid_address_invalid_type_should_fail(self):
-        self.rollback_to(self.start_block_height)
-        address = self.nodes[0].getnewaddress("", "legacy")
-        p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
-        eth_address = self.nodes[0].getnewaddress("", "eth")
-        assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, *args)
-        assert_invalid(address, 9)
-        assert_invalid(address, -1)
-        assert_invalid(eth_address, VMMapType.AddressDVMToEVM)
-        assert_invalid(address, VMMapType.AddressEVMToDVM)
-        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
-        assert_invalid(p2sh_address, VMMapType.AddressDVMToEVM)
-
-    def vmmap_invalid_address_should_fail(self):
-        self.rollback_to(self.start_block_height)
-        # Check that vmmap is failing on wrong input
-        eth_address = '0x0000000000000000000000000000000000000000'
-        assert_raises_rpc_error(-5, eth_address + " does not refer to a key", self.nodes[0].vmmap, eth_address, 2)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, eth_address, 1)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 1)
-        assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].vmmap, 'test', 2)
-
     def vmmap_valid_tx_should_succeed(self):
         self.rollback_to(self.start_block_height)
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
@@ -155,8 +76,8 @@ class VMMapTests(DefiTestFramework):
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
-        for map_type in range(6):
-            if map_type in [0, 1, 2]:
+        for map_type in range(4):
+            if map_type == 0:
                 continue # addr types and auto are ignored for this test
             assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
             assert_err("0x00", map_type)
@@ -203,12 +124,12 @@ class VMMapTests(DefiTestFramework):
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
-        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
-        base_block_dvm = self.nodes[0].getbestblockhash()
+        base_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
+        base_block_dvm = self.nodes[0].getbestblockhash()
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
@@ -248,7 +169,7 @@ class VMMapTests(DefiTestFramework):
         list_blocks = self.nodes[0].logvmmaps(0)
         eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         assert_equal(eth_block[2:] in list(list_blocks['indexes'].values()), True)
-        dfi_block = self.nodes[0].vmmap(eth_block, 6)
+        dfi_block = self.nodes[0].vmmap(eth_block, VMMapType.BlockHashEVMToDVM)
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
@@ -261,11 +182,6 @@ class VMMapTests(DefiTestFramework):
     def run_test(self):
         self.setup()
         # vmmap tests
-        # self.vmmap_address_basics()
-        self.vmmap_address_basics_manual_import()
-        self.vmmap_valid_address_not_present_should_fail()
-        self.vmmap_valid_address_invalid_type_should_fail()
-        self.vmmap_invalid_address_should_fail()
         self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_should_fail()

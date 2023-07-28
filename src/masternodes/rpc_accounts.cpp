@@ -602,7 +602,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     });
 
     if (eth_lookup) {
-        for (const auto keyID : pwallet->GetEthKeys()) {
+        for (const auto keyID : pwallet->GetKeys()) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
             const auto evmAmount = evm_get_balance(address);

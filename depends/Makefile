@@ -131,6 +131,11 @@ $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_build_id)
 	$(AT)@mkdir -p $(@D)
 	$(AT)sed -e 's|@HOST@|$(host)|' \
+            -e 's|@BUILD_CC@|$(build_CC)|' \
+            -e 's|@BUILD_CXX@|$(build_CXX)|' \
+            -e 's|@BUILD_AR@|$(build_AR)|' \
+            -e 's|@BUILD_RANLIB@|$(build_RANLIB)|' \
+            -e 's|@BUILD_NM@|$(build_NM)|' \
             -e 's|@CC@|$(toolchain_path)$(host_CC)|' \
             -e 's|@CXX@|$(toolchain_path)$(host_CXX)|' \
             -e 's|@AR@|$(toolchain_path)$(host_AR)|' \

@@ -39,17 +39,17 @@ setup_vars() {
     RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.70"}
     
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
+    MAKE_USE_CLANG=${MAKE_USE_CLANG:-"$(get_default_use_clang)"}
 
-    local default_compiler_flags=""
-    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" ]]; then
+    if [[ "${MAKE_USE_CLANG}" == "1" ]]; then
         local clang_ver="${CLANG_DEFAULT_VERSION}"
-        default_compiler_flags="CC=clang-${clang_ver} CXX=clang++-${clang_ver}"
+        export CC=clang-${clang_ver}
+        export CXX=clang++-${clang_ver}
     fi
 
     MAKE_JOBS=${MAKE_JOBS:-"$(get_default_jobs)"}
 
     MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
-    MAKE_CONF_ARGS="${default_compiler_flags} ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
@@ -63,6 +63,7 @@ setup_vars() {
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
     TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
     TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
+    CI_GROUP_LOGS=${CI_GROUP_LOGS:-"1"}
 }
 
 main() {
@@ -384,7 +385,6 @@ test_py() {
     fi
 
     _ensure_enter_dir "${build_target_dir}"
-
     py_ensure_env_active
 
     # shellcheck disable=SC2086
@@ -544,6 +544,13 @@ pkg_install_rust() {
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
         --default-toolchain="${RUST_DEFAULT_VERSION}" -y
     _fold_end
+}
+
+pkg_install_solc() {
+    _fold_start "pkg-install-solc"
+    add-apt-repository ppa:ethereum/ethereum -y
+    apt-get update
+    apt-get install solc -y
 }
 
 pkg_local_ensure_osx_sysroot() {
@@ -804,6 +811,20 @@ get_default_jobs() {
     fi
 }
 
+get_default_use_clang() {
+    local target=${TARGET}
+    local cc=${CC:-}
+    local cxx=${CXX:-}
+    if [[ -z "${cc}" && -z "${cxx}" ]]; then
+        if [[ "${target}" == "x86_64-pc-linux-gnu" ]]; then
+            echo 1
+            return
+        fi
+    fi
+    echo 0
+    return
+}
+
 # Dev tools
 # ---
 
@@ -969,6 +990,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    DEBIAN_FRONTEND=noninteractive pkg_install_solc
 }
 
 _ci_setup_deps_target() {
@@ -994,10 +1016,6 @@ _ci_setup_deps_target() {
 ci_setup_deps_target() {
     _ci_setup_deps_target
     pkg_setup_rust
-}
-
-ci_setup_deps_test() {
-    pkg_local_install_py_deps
 }
 
 # shellcheck disable=SC2120
@@ -1039,11 +1057,15 @@ _safe_rm_rf() {
 }
 
 _fold_start() {
-    echo "::group::${*:-}"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::group::${*:-}";
+    fi
 }
 
 _fold_end() {
-    echo "::endgroup::"
+    if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
+        echo "::endgroup::"
+    fi
 }
 
 _ensure_enter_dir() {

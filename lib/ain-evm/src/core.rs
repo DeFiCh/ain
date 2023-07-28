@@ -4,6 +4,7 @@ use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
 use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
 use crate::receipt::ReceiptService;
+use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::bridge::{BalanceUpdate, BridgeTx};
@@ -53,7 +54,7 @@ pub struct ValidateTxInfo {
 
 fn init_vsdb() {
     debug!(target: "vsdb", "Initializating VSDB");
-    let datadir = ain_cpp_imports::get_datadir().expect("Could not get imported datadir");
+    let datadir = ain_cpp_imports::get_datadir();
     let path = PathBuf::from(datadir).join("evm");
     if !path.exists() {
         std::fs::create_dir(&path).expect("Error creating `evm` dir");
@@ -223,9 +224,14 @@ impl EVMCoreService {
                 return Err(anyhow!("insufficient balance to pay fees").into());
             }
 
-            // Validate tx gas limit with intrinsic gas
-            check_tx_intrinsic_gas(&signed_tx)?;
-        } else if balance < MIN_GAS_PER_TX.into() || balance < prepay_fee {
+            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
+                // Validate tx gas limit with intrinsic gas
+                check_tx_intrinsic_gas(&signed_tx)?;
+            } else if gas_limit < MIN_GAS_PER_TX {
+                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
+                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
+            }
+        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
@@ -259,7 +265,7 @@ impl EVMCoreService {
                 .get_total_gas_used(queue_id)
                 .unwrap_or_default();
 
-            if U256::from(total_current_gas_used + used_gas) > MAX_GAS_PER_BLOCK {
+            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
                 return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
@@ -292,7 +298,7 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
     }
 
@@ -318,7 +324,7 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::BridgeTx(BridgeTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(queue_id, queue_tx, hash, 0u64, U256::zero())?;
+                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
         }
     }
@@ -404,6 +410,39 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
         Ok(backend.get_account(&address))
+    }
+
+    pub fn get_latest_contract_storage(
+        &self,
+        contract: H160,
+        storage_index: U256,
+    ) -> Result<U256, EVMError> {
+        let (_, block_number) = SERVICES
+            .evm
+            .block
+            .get_latest_block_hash_and_number()
+            .unwrap_or_default();
+        let state_root = self
+            .storage
+            .get_block_by_number(&block_number)
+            .or_else(|| self.storage.get_latest_block())
+            .map(|block| block.header.state_root)
+            .unwrap_or_default();
+
+        let backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity::default(),
+        )?;
+
+        // convert U256 to H256
+        let tmp: &mut [u8; 32] = &mut [0; 32];
+        storage_index.to_big_endian(tmp);
+
+        backend
+            .get_contract_storage(contract, tmp.as_slice())
+            .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {

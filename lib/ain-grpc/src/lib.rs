@@ -22,8 +22,7 @@ mod tests;
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
 
-#[allow(unused)]
-use log::{debug, info};
+use log::info;
 use logging::CppLogTarget;
 
 use crate::rpc::{
@@ -32,11 +31,11 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
 };
 
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
+use std::{net::SocketAddr, path::PathBuf};
 
-use ain_evm::services::{Services, SERVICES};
-use anyhow::Result;
+use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
+use anyhow::{anyhow, Result};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.
@@ -93,12 +92,31 @@ pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()>
     Ok(())
 }
 
+fn is_services_init_called() -> bool {
+    IS_SERVICES_INIT_CALL.load(Ordering::SeqCst)
+}
+
 pub fn stop_network_services() -> Result<()> {
-    info!("Shutdown rs network services");
-    SERVICES.stop_network()
+    if is_services_init_called() {
+        info!("Shutdown rs network services");
+        SERVICES.stop_network()?;
+    }
+    Ok(())
 }
 
 pub fn stop_services() {
-    info!("Shutdown rs services");
-    SERVICES.stop();
+    if is_services_init_called() {
+        info!("Shutdown rs services");
+        SERVICES.stop();
+    }
+}
+
+pub fn wipe_evm_folder() -> Result<()> {
+    let datadir = ain_cpp_imports::get_datadir();
+    let path = PathBuf::from(datadir).join("evm");
+    info!("Wiping rs storage in {}", path.display());
+    if path.exists() {
+        std::fs::remove_dir_all(&path).map_err(|e| anyhow!("Error wiping evm dir: {e}"))?;
+    }
+    Ok(())
 }

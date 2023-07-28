@@ -17,6 +17,7 @@ pub mod ffi {
         fn ain_rs_preinit(result: &mut CrossBoundaryResult);
         fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
         fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
+        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
         fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
         fn ain_rs_init_network_services(
             result: &mut CrossBoundaryResult,

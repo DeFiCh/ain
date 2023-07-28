@@ -1625,9 +1625,9 @@ UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string addre
     BRTransactionAddOutput(tx, SATOSHIS, o.script, o.scriptLen);
 
     // Add Bech32 input
-    TBytes script(2 + sizeof(keyid), OP_0);
+    TBytes script(2 + 20, OP_0);
     script[1] = 0x14;
-    memcpy(script.data() + 2, keyid.begin(), sizeof(keyid));
+    memcpy(script.data() + 2, keyid.begin(), 20);
     BRTransactionAddInput(tx, toUInt256("1111111111111111111111111111111111111111111111111111111111111111"), 0,
                           SATOSHIS + 1000, script.data(), script.size(), nullptr, 0, nullptr, 0, TXIN_SEQUENCE);
 

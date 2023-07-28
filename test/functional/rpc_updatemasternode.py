@@ -462,11 +462,12 @@ class TestForcedRewardAddress(DefiTestFramework):
         script_address = self.nodes[0].getnewaddress()
 
         # Verify error on a script hash address pre-fork
-        assert_raises_rpc_error(-32600, "Reward address must be P2PKH or P2WPKH type",
-                                self.nodes[0].updatemasternode, mn2, {'rewardAddress': script_address})
+        if (self.nodes[0].getblockcount() < 510):
+            assert_raises_rpc_error(-32600, "Reward address must be P2PKH or P2WPKH type",
+                                    self.nodes[0].updatemasternode, mn2, {'rewardAddress': script_address})
 
         # Move to fork height
-        self.nodes[0].generate(510 - self.nodes[0].getblockcount())
+        self.nodes[0].generate((510 - self.nodes[0].getblockcount()) + 1)
 
         # Change reward address to script hash post-fork
         self.nodes[0].updatemasternode(mn2, {'rewardAddress': script_address})
