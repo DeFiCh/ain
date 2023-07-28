@@ -405,7 +405,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_txs), 64)
 
         # Check Eth balances after transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 36972217000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 136972217000000000000)
         assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 63000000000000000000)
 
         # Try and send another TX to make sure mempool has removed entires
