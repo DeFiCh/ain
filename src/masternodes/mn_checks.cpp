@@ -4159,6 +4159,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
     CDataStructureV0 evm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Auth_Formats};
     CDataStructureV0 dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
     CDataStructureV0 evm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
+    CDataStructureV0 evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
 
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
@@ -4172,8 +4174,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
         attributes->GetValue(evm_auth_formats, AllowedEVMTypes{}),
         attributes->GetValue(dvm_native_enabled, true),
         attributes->GetValue(evm_native_enabled, true),
-        true,
-        true,
+        attributes->GetValue(dvm_dat_enabled, true),
+        attributes->GetValue(evm_dat_enabled, true),
         {},
         {}
     };
