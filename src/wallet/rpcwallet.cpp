@@ -4301,7 +4301,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
             return EncodeDestination(WitnessV0KeyHash(key));
         }
         default:
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid address type passed");
+            throwInvalidParam();
             break;
     }
 }
