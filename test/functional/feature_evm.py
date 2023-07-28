@@ -124,15 +124,31 @@ class EVMTest(DefiTestFramework):
         # Check error before transferdomain enabled
         assert_raises_rpc_error(-32600, "Cannot create tx, transfer domain is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 
-        # Activate transferdomain DVM to EVM
+        # Activate transferdomain
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/transferdomain': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Fund DFI address
+        txid = self.nodes[0].utxostoaccount({address: "200@DFI"})
+        self.nodes[0].generate(1)
+
+        # Check ok
+        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        self.nodes[0].generate(1)
+
+        # Deactivate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/enabled': 'false'}})
         self.nodes[0].generate(1)
 
-        # Check error before transferdomain DVM to EVM is enabled
+        # Check error transferdomain DVM to EVM is enabled
         assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/enabled': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Activate transferdomain PKHash address
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/src-formats': ['bech32']}})
         self.nodes[0].generate(1)
 
         # Check transferdomain DVM to EVM before p2pkh addresses are enabled
@@ -149,6 +165,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/src-formats': ['p2pkh','bech32']}})
         self.nodes[0].generate(1)
 
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/dest-formats': ['bech32']}})
+        self.nodes[0].generate(1)
+
         # Check transferdomain DVM to EVM before ERC55 addresses are enabled
         assert_raises_rpc_error(-32600, 'Dst address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
 
@@ -157,7 +176,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Fund DFI address
-        txid = self.nodes[0].utxostoaccount({address: "200@DFI"})
+        txid = self.nodes[0].utxostoaccount({address: "100@DFI"})
         self.nodes[0].generate(1)
 
         # Check initial balances
