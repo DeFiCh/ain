@@ -2,7 +2,7 @@ use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity}
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
-use crate::gas::{check_tx_intrinsic_gas, MIN_GAS_PER_TX};
+use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
 use crate::services::SERVICES;
 use crate::storage::traits::{BlockStorage, PersistentStateError};
@@ -218,23 +218,13 @@ impl EVMCoreService {
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         let gas_limit = signed_tx.gas_limit();
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            if balance < prepay_fee {
-                debug!("[validate_raw_tx] insufficient balance to pay fees");
-                return Err(anyhow!("insufficient balance to pay fees").into());
-            }
-
-            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
-                // Validate tx gas limit with intrinsic gas
-                check_tx_intrinsic_gas(&signed_tx)?;
-            } else if gas_limit < MIN_GAS_PER_TX {
-                debug!("[validate_raw_tx] gas limit is below the minimum gas per tx");
-                return Err(anyhow!("gas limit is below the minimum gas per tx").into());
-            }
-        } else if balance < MIN_GAS_PER_TX || balance < prepay_fee {
+        if balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
+
+        // Validate tx gas limit with intrinsic gas
+        check_tx_intrinsic_gas(&signed_tx)?;
 
         if gas_limit > MAX_GAS_PER_BLOCK {
             debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");

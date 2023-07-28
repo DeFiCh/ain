@@ -8,7 +8,6 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
-#include <masternodes/changiintermediates.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -990,8 +989,7 @@ public:
                 }
                 rewardType = true;
 
-                // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
-                if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (height < static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
                     if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                         return Res::Err("Reward address must be P2PKH or P2WPKH type");
                     }
@@ -3043,7 +3041,7 @@ public:
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
         auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
-        auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
+        auto isPostNext =  static_cast<int>(height) >= consensus.NextNetworkUpgradeHeight;
 
         if(isPostNext) {
             const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};
@@ -3908,13 +3906,8 @@ public:
                 evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
             }
 
-            // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
-            // then just remove this fork guard and comment as CTransferDomainMessage is already
-            // protected by NextNetworkUpgradeHeight.
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
-                    return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
-                }
+            if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
         }
 
@@ -3933,11 +3926,9 @@ public:
         if (!prevalidateEvm) {
             const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (!result.ok) {
-                    LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
-                    return Res::Err("evm tx failed to validate %s", result.reason);
-                }
+            if (!result.ok) {
+                LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
             evm_try_queue_tx(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
@@ -3948,12 +3939,9 @@ public:
         }
         else {
             evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (!result.ok) {
-                    LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-                    return Res::Err("evm tx failed to validate %s", result.reason);
-                }
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
             }
         }
 
@@ -4073,11 +4061,6 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    CTransferDomainItem src,
                                    CTransferDomainItem dst) {
 
-    // TODO: Remove code branch on stable.
-    if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
-        return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
-    }
-
     if (src.domain == dst.domain)
         return DeFiErrors::TransferDomainSameDomain();
 
@@ -4089,10 +4072,8 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainIncorrectToken();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!config.dvmToEvmEnabled) {
-                return DeFiErrors::TransferDomainDVMEVMNotEnabled();
-            }
+        if (!config.dvmToEvmEnabled) {
+            return DeFiErrors::TransferDomainDVMEVMNotEnabled();
         }
 
         // DVM to EVM
@@ -4102,10 +4083,8 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!config.evmToDvmEnabled) {
-                return DeFiErrors::TransferDomainEVMDVMNotEnabled();
-            }
+        if (!config.evmToDvmEnabled) {
+            return DeFiErrors::TransferDomainEVMDVMNotEnabled();
         }
 
         // EVM to DVM
@@ -4177,18 +4156,16 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
-    if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (!IsTransferDomainEnabled(height, mnview, consensus)) {
-            return DeFiErrors::TransferDomainNotEnabled();
-        }
+    if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+        return DeFiErrors::TransferDomainNotEnabled();
+    }
 
-        if (obj.transfers.size() != 1) {
-            return DeFiErrors::TransferDomainMultipleTransfers();
-        }
+    if (obj.transfers.size() != 1) {
+        return DeFiErrors::TransferDomainMultipleTransfers();
+    }
 
-        if (tx.vin.size() > 1) {
-            return DeFiErrors::TransferDomainInvalid();
-        }
+    if (tx.vin.size() > 1) {
+        return DeFiErrors::TransferDomainInvalid();
     }
 
     auto config = GetTransferDomainConfig(mnview);
@@ -4496,7 +4473,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4579,7 +4556,12 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    CTxDestination destination;
+    if (height < consensusParams.NextNetworkUpgradeHeight) {
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+    } else {
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }

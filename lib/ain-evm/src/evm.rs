@@ -142,6 +142,7 @@ impl EVMServices {
         };
 
         let base_fee = self.block.calculate_base_fee(parent_hash);
+        debug!("[finalize_block] Block base fee: {}", base_fee);
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -169,11 +170,9 @@ impl EVMServices {
         for queue_item in self.core.tx_queues.get_cloned_vec(queue_id) {
             match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
-                    if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-                        let nonce = executor.get_nonce(&signed_tx.sender);
-                        if signed_tx.nonce() != nonce {
-                            return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
-                        }
+                    let nonce = executor.get_nonce(&signed_tx.sender);
+                    if signed_tx.nonce() != nonce {
+                        return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
                     }
 
                     let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
@@ -278,57 +277,42 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
         }
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let total_burnt_fees = U256::from(total_gas_used) * base_fee;
-            let total_priority_fees = total_gas_fees - total_burnt_fees;
-            debug!(
-                "[finalize_block] Total burnt fees : {:#?}",
-                total_burnt_fees
-            );
-            debug!(
-                "[finalize_block] Total priority fees : {:#?}",
-                total_priority_fees
-            );
+        let total_burnt_fees = U256::from(total_gas_used) * base_fee;
+        let total_priority_fees = total_gas_fees - total_burnt_fees;
+        debug!(
+            "[finalize_block] Total burnt fees : {:#?}",
+            total_burnt_fees
+        );
+        debug!(
+            "[finalize_block] Total priority fees : {:#?}",
+            total_priority_fees
+        );
 
-            if ain_cpp_imports::past_changi_intermediate_height_5_height() {
-                match self.core.tx_queues.get_total_fees(queue_id) {
-                    Some(total_fees) => {
-                        if (total_burnt_fees + total_priority_fees) != total_fees {
-                            return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
-                        }
-                    }
-                    None => {
-                        return Err(anyhow!(
-                            "EVM block rejected because failed to get total fees from queue_id: {}",
-                            queue_id
-                        )
-                        .into())
-                    }
+        match self.core.tx_queues.get_total_fees(queue_id) {
+            Some(total_fees) => {
+                if (total_burnt_fees + total_priority_fees) != total_fees {
+                    return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
                 }
             }
-
-            if update_state {
-                self.core.tx_queues.remove(queue_id);
+            None => {
+                return Err(anyhow!(
+                    "EVM block rejected because failed to get total fees from queue_id: {}",
+                    queue_id
+                )
+                .into())
             }
-
-            Ok(FinalizedBlockInfo {
-                block_hash: *block.header.hash().as_fixed_bytes(),
-                failed_transactions,
-                total_burnt_fees,
-                total_priority_fees,
-            })
-        } else {
-            if update_state {
-                self.core.tx_queues.remove(queue_id);
-            }
-
-            Ok(FinalizedBlockInfo {
-                block_hash: *block.header.hash().as_fixed_bytes(),
-                failed_transactions,
-                total_burnt_fees: U256::from(total_gas_used),
-                total_priority_fees: U256::zero(),
-            })
         }
+
+        if update_state {
+            self.core.tx_queues.remove(queue_id);
+        }
+
+        Ok(FinalizedBlockInfo {
+            block_hash: *block.header.hash().as_fixed_bytes(),
+            failed_transactions,
+            total_burnt_fees,
+            total_priority_fees,
+        })
     }
 
     pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
@@ -339,17 +323,15 @@ impl EVMServices {
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
-        if ain_cpp_imports::past_changi_intermediate_height_4_height() {
-            let mut block_fees = self.block.calculate_base_fee(H256::zero());
-            if use_context {
-                block_fees = self.block.calculate_next_block_base_fee();
-            }
+        let mut block_fee = self.block.calculate_base_fee(H256::zero());
+        if use_context {
+            block_fee = self.block.calculate_next_block_base_fee();
+        }
 
-            let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-            if tx_gas_price < block_fees {
-                debug!("[verify_tx_fees] tx gas price is lower than block base fee");
-                return Err(anyhow!("tx gas price is lower than block base fee").into());
-            }
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < block_fee {
+            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+            return Err(anyhow!("tx gas price is lower than block base fee").into());
         }
 
         Ok(())

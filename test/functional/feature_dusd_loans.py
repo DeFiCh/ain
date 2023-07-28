@@ -50,7 +50,6 @@ class DUSDLoanTests(DefiTestFramework):
              f'-grandcentralheight={self.grandcentralheight}',
              f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
              f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
-             f'-changiintermediate2height={self.nextnetworkupgradeheight}', # Remove this line on mainnet release
 
              '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
