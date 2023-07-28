@@ -193,11 +193,19 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendtoaddress, eth_address, 1)
         assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].accounttoaccount, address, {eth_address: "1@DFI"})
 
+        # Deactivate transferdomain DVM to EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'false'}})
+        self.nodes[0].generate(1)
+
         # Check error before transferdomain DVM to EVM is enabled
         assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Deactivate transferdomain ERC55 address
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/src-formats': ['bech32']}})
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before ERC55 addresses are enabled
