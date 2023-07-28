@@ -54,7 +54,7 @@ Res ChangiBuggyIntermediates::ValidateTransferDomainEdge2(const CTransaction &tx
                 }
             }
             return HasAuth(tx, coins, src.address, AuthStrategy::Mapped,
-                           static_cast<AuthFlags>(AuthFlags::SourceBech32 | AuthFlags::SourcePKHash));
+                           static_cast<AuthFlags::Type>(AuthFlags::Bech32InSource | AuthFlags::PKHashInSource));
         }
         return res;
     }

@@ -270,9 +270,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         {AttributeTypes::Transfer,
          {
             {"enabled", TransferKeys::TransferEnabled},
-            {"src-formats", TransferKeys::Src_Formats},
-            {"dest-formats", TransferKeys::Dest_Formats},
-            {"auth-formats", TransferKeys::Auth_Formats},
+            {"src-formats", TransferKeys::SrcFormats},
+            {"dest-formats", TransferKeys::DestFormats},
+            {"auth-formats", TransferKeys::AuthFormats},
             {"native-enabled", TransferKeys::NativeEnabled},
             {"dat-enabled", TransferKeys::DATEnabled},
             {"disallowed", TransferKeys::Disallowed},
@@ -385,9 +385,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         {AttributeTypes::Transfer,
          {
             {TransferKeys::TransferEnabled, "enabled"},
-            {TransferKeys::Src_Formats, "src-formats"},
-            {TransferKeys::Dest_Formats, "dest-formats"},
-            {TransferKeys::Auth_Formats, "auth-formats"},
+            {TransferKeys::SrcFormats, "src-formats"},
+            {TransferKeys::DestFormats, "dest-formats"},
+            {TransferKeys::AuthFormats, "auth-formats"},
             {TransferKeys::NativeEnabled, "native-enabled"},
             {TransferKeys::DATEnabled, "dat-enabled"},
             {TransferKeys::Disallowed, "disallowed"},
@@ -649,14 +649,14 @@ static Res VerifyTokenSet(const CCustomCSView &view, const std::set<std::string>
 }
 
 static ResVal<CAttributeValue> VerifyXVMAddressTypes(const UniValue &array) {
-    AllowedEVMTypes addressSet;
+    XVmAddressFormatItems addressSet;
     for (const auto &value : array.getValues()) {
         if (value.getValStr() == "bech32") {
-            addressSet.insert(EVMAddressTypes::BECH32);
+            addressSet.insert(XVmAddressFormatTypes::Bech32);
         } else if (value.getValStr() == "p2pkh") {
-            addressSet.insert(EVMAddressTypes::PKHASH);
+            addressSet.insert(XVmAddressFormatTypes::PkHash);
         } else if (value.getValStr() == "erc55") {
-            addressSet.insert(EVMAddressTypes::ERC55);
+            addressSet.insert(XVmAddressFormatTypes::Erc55);
         } else {
             return Res::Err("Unrecognised address format, expected types are: bech32, erc55, p2pkh");
         }
@@ -668,12 +668,12 @@ static ResVal<CAttributeValue> VerifyXVMAddressTypes(const UniValue &array) {
 }
 
 static ResVal<CAttributeValue> VerifyEVMAuthTypes(const UniValue &array) {
-    AllowedEVMTypes addressSet;
+    XVmAddressFormatItems addressSet;
     for (const auto &value : array.getValues()) {
         if (value.getValStr() == "bech32-erc55") {
-            addressSet.insert(EVMAddressTypes::BECH32_ERC55);
+            addressSet.insert(XVmAddressFormatTypes::Bech32ProxyErc55);
         } else if (value.getValStr() == "p2pkh-erc55") {
-            addressSet.insert(EVMAddressTypes::PKHASH_ERC55);
+            addressSet.insert(XVmAddressFormatTypes::PkHashProxyErc55);
         } else {
             return Res::Err("Unrecognised address format, expected types are: bech32-erc55, p2pkh-erc55");
         }
@@ -1019,8 +1019,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         } else if (type == AttributeTypes::Transfer) {
             if (typeId == TransferIDs::DVMToEVM) {
                 if (typeKey != TransferKeys::TransferEnabled &&
-                    typeKey != TransferKeys::Src_Formats &&
-                    typeKey != TransferKeys::Dest_Formats &&
+                    typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats &&
                     typeKey != TransferKeys::NativeEnabled &&
                     typeKey != TransferKeys::DATEnabled &&
                     typeKey != TransferKeys::Disallowed) {
@@ -1028,9 +1028,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                 }
             } else if (typeId == TransferIDs::EVMToDVM) {
                 if (typeKey != TransferKeys::TransferEnabled &&
-                    typeKey != TransferKeys::Src_Formats &&
-                    typeKey != TransferKeys::Dest_Formats &&
-                    typeKey != TransferKeys::Auth_Formats &&
+                    typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats &&
+                    typeKey != TransferKeys::AuthFormats &&
                     typeKey != TransferKeys::NativeEnabled &&
                     typeKey != TransferKeys::DATEnabled &&
                     typeKey != TransferKeys::Disallowed) {
@@ -1095,16 +1095,16 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         return applyVariable(attrV0, *attribValue.val);
     } else if (attrV0.type == AttributeTypes::Transfer &&
                attrV0.typeId == TransferIDs::EVMToDVM &&
-               (attrV0.key == TransferKeys::Dest_Formats ||
-               attrV0.key == TransferKeys::Src_Formats ||
-               attrV0.key == TransferKeys::Auth_Formats)) {
+               (attrV0.key == TransferKeys::DestFormats ||
+               attrV0.key == TransferKeys::SrcFormats ||
+               attrV0.key == TransferKeys::AuthFormats)) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
-        ResVal<CAttributeValue> attribValue(AllowedEVMTypes{}, Res::Ok());
-        if (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats) {
+        ResVal<CAttributeValue> attribValue(XVmAddressFormatItems{}, Res::Ok());
+        if (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats) {
             attribValue = VerifyXVMAddressTypes(*value);
-        } else if (attrV0.key == TransferKeys::Auth_Formats) {
+        } else if (attrV0.key == TransferKeys::AuthFormats) {
             attribValue = VerifyEVMAuthTypes(*value);
         }
         if (!attribValue) {
@@ -1113,7 +1113,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         return applyVariable(attrV0, *attribValue.val);
     } else if (attrV0.type == AttributeTypes::Transfer &&
                attrV0.typeId == TransferIDs::DVMToEVM &&
-               (attrV0.key == TransferKeys::Dest_Formats || attrV0.key == TransferKeys::Src_Formats)) {
+               (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats)) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
@@ -1547,18 +1547,18 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     array.push_back(member);
                 }
                 ret.pushKV(key, array);
-            } else if (const auto values = std::get_if<AllowedEVMTypes>(&attribute.second)) {
+            } else if (const auto values = std::get_if<XVmAddressFormatItems>(&attribute.second)) {
                 UniValue array(UniValue::VARR);
                 for (const auto &value : *values) {
-                    if (value == EVMAddressTypes::BECH32) {
+                    if (value == XVmAddressFormatTypes::Bech32) {
                         array.push_back("bech32");
-                    } else if (value == EVMAddressTypes::BECH32_ERC55) {
+                    } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
                         array.push_back("bech32-erc55");
-                    } else if (value == EVMAddressTypes::PKHASH) {
+                    } else if (value == XVmAddressFormatTypes::PkHash) {
                         array.push_back("p2pkh");
-                    } else if (value == EVMAddressTypes::PKHASH_ERC55) {
+                    } else if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
                         array.push_back("p2pkh-erc55");
-                    } else if (value == EVMAddressTypes::ERC55) {
+                    } else if (value == XVmAddressFormatTypes::Erc55) {
                         array.push_back("erc55");
                     }
                 }

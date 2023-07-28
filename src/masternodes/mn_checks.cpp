@@ -3969,7 +3969,7 @@ public:
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy, AuthFlags flags) {
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy, AuthFlags::Type flags) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
         if (coin.IsSpent()) continue;
@@ -3980,7 +3980,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
         } else if (strategy == AuthStrategy::Mapped) {
             std::vector<TBytes> vRet;
             const auto solution = Solver(coin.out.scriptPubKey, vRet);
-            if (flags & AuthFlags::SourcePKHash && solution == txnouttype::TX_PUBKEYHASH) {
+            if (flags & AuthFlags::PKHashInSource && solution == txnouttype::TX_PUBKEYHASH) {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                 if (pubkey.Decompress()) {
@@ -3988,7 +3988,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
                     if (script == auth)
                         return Res::Ok();
                 }
-            } else if (flags & AuthFlags::SourceBech32 && solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
+            } else if (flags & AuthFlags::Bech32InSource && solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
@@ -4001,27 +4001,27 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
-static EVMAddressTypes FromTxDestType(const size_t index) {
+static XVmAddressFormatTypes FromTxDestType(const size_t index) {
     switch (index) {
         case PKHashType:
-            return EVMAddressTypes::PKHASH;
+            return XVmAddressFormatTypes::PkHash;
         case WitV0KeyHashType:
-            return EVMAddressTypes::BECH32;
+            return XVmAddressFormatTypes::Bech32;
         case WitV16KeyEthHashType:
-            return EVMAddressTypes::ERC55;
+            return XVmAddressFormatTypes::Erc55;
         default:
-            return EVMAddressTypes::NONE;
+            return XVmAddressFormatTypes::None;
     }
 }
 
 struct TransferDomainLiveConfig {
     bool dvmToEvm;
     bool evmTodvm;
-    AllowedEVMTypes dvmDvmAddresses;
-    AllowedEVMTypes dvmEvmAddresses;
-    AllowedEVMTypes evmDvmAddresses;
-    AllowedEVMTypes evmEvmAddresses;
-    AllowedEVMTypes evmAuthFormats;
+    XVmAddressFormatItems srcDvmEvmAddresses;
+    XVmAddressFormatItems destDvmEvmAddresses;
+    XVmAddressFormatItems destEvmDvmAddresses;
+    XVmAddressFormatItems srcEvmDvmAddresses;
+    XVmAddressFormatItems evmAuthFormats;
     bool dvmNativeToken;
     bool evmNativeToken;
     bool dvmDatEnabled;
@@ -4042,19 +4042,19 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     const auto destType = FromTxDestType(dest.index());
 
     if (aspect == VMDomainEdge::DVMToEVM) {
-        if (!transferdomainConfig.dvmDvmAddresses.count(srcType)) {
+        if (!transferdomainConfig.srcDvmEvmAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
-        if (!transferdomainConfig.dvmEvmAddresses.count(destType)) {
+        if (!transferdomainConfig.destDvmEvmAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
 
     } else if (aspect == VMDomainEdge::EVMToDVM) {
-        if (!transferdomainConfig.evmEvmAddresses.count(srcType)) {
+        if (!transferdomainConfig.srcEvmDvmAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!transferdomainConfig.evmDvmAddresses.count(destType)) {
+        if (!transferdomainConfig.destEvmDvmAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();
@@ -4112,10 +4112,10 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
         auto authType = AuthFlags::None;
         for (const auto &value : transferdomainConfig.evmAuthFormats) {
-            if (value == EVMAddressTypes::PKHASH_ERC55) {
-                authType = static_cast<AuthFlags>(authType | AuthFlags::SourcePKHash);
-            } else if (value == EVMAddressTypes::BECH32_ERC55) {
-                authType = static_cast<AuthFlags>(authType | AuthFlags::SourceBech32);
+            if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::PKHashInSource);
+            } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::Bech32InSource);
             }
         }
         return HasAuth(tx, coins, src.address, AuthStrategy::Mapped, authType);
@@ -4152,11 +4152,11 @@ Res ValidateTransferDomain(const CTransaction &tx,
 
     CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
     CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
-    CDataStructureV0 dvm_dvm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::Src_Formats};
-    CDataStructureV0 dvm_evm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::Dest_Formats};
-    CDataStructureV0 evm_evm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Src_Formats};
-    CDataStructureV0 evm_dvm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Dest_Formats};
-    CDataStructureV0 evm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::Auth_Formats};
+    CDataStructureV0 dvm_dvm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
+    CDataStructureV0 dvm_evm_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_evm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
+    CDataStructureV0 evm_dvm_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
     CDataStructureV0 dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
     CDataStructureV0 evm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
     CDataStructureV0 dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
@@ -4167,11 +4167,11 @@ Res ValidateTransferDomain(const CTransaction &tx,
     TransferDomainLiveConfig transferdomainConfig{
         attributes->GetValue(dvm_evm, false),
         attributes->GetValue(evm_dvm, false),
-        attributes->GetValue(dvm_dvm_formats, AllowedEVMTypes{}),
-        attributes->GetValue(dvm_evm_formats, AllowedEVMTypes{}),
-        attributes->GetValue(evm_dvm_formats, AllowedEVMTypes{}),
-        attributes->GetValue(evm_evm_formats, AllowedEVMTypes{}),
-        attributes->GetValue(evm_auth_formats, AllowedEVMTypes{}),
+        attributes->GetValue(dvm_dvm_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(dvm_evm_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_dvm_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_evm_formats, XVmAddressFormatItems{}),
+        attributes->GetValue(evm_auth_formats, XVmAddressFormatItems{}),
         attributes->GetValue(dvm_native_enabled, true),
         attributes->GetValue(evm_native_enabled, true),
         attributes->GetValue(dvm_dat_enabled, true),
