@@ -4004,9 +4004,12 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
 struct TransferDomainLiveConfig {
     bool dvmToEvm;
     bool evmTodvm;
-    bool nativeToken;
-    bool datEnabled;
-    std::set<uint32_t> disallowedTokens;
+    bool dvmNativeToken;
+    bool evmNativeToken;
+    bool dvmDatEnabled;
+    bool evmDatEnabled;
+    std::set<uint32_t> dvmDisallowedTokens;
+    std::set<uint32_t> evmDisallowedTokens;
 };
 
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
@@ -4132,6 +4135,9 @@ Res ValidateTransferDomain(const CTransaction &tx,
         attributes->GetValue(evm_dvm, false),
         true,
         true,
+        true,
+        true,
+        {}
         {}
     };
 
