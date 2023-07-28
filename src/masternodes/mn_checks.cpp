@@ -3992,9 +3992,9 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH &&
                        input.scriptWitness.stack.size() == 2) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
+                const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                     if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
