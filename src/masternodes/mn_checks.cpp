@@ -3984,15 +3984,17 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                 if (pubkey.Decompress()) {
-                    auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth)
+                    const auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                    const auto scriptOut = GetScriptForDestination(PKHash(pubkey));
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
             } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
+                const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth)
+                    if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
             }
@@ -4004,9 +4006,12 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
 struct TransferDomainLiveConfig {
     bool dvmToEvm;
     bool evmTodvm;
-    bool nativeToken;
-    bool datEnabled;
-    std::set<uint32_t> disallowedTokens;
+    bool dvmNativeToken;
+    bool evmNativeToken;
+    bool dvmDatEnabled;
+    bool evmDatEnabled;
+    std::set<uint32_t> dvmDisallowedTokens;
+    std::set<uint32_t> evmDisallowedTokens;
 };
 
 static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
@@ -4132,6 +4137,9 @@ Res ValidateTransferDomain(const CTransaction &tx,
         attributes->GetValue(evm_dvm, false),
         true,
         true,
+        true,
+        true,
+        {},
         {}
     };
 
