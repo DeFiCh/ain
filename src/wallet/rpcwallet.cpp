@@ -4347,7 +4347,6 @@ UniValue addressmap(const JSONRPCRequest &request) {
         }
         default:
             throwInvalidParam();
-            break;
     }
 
     ret.pushKV("format", format);
