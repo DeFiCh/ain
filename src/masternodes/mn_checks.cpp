@@ -4104,6 +4104,9 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nValue != dst.amount.nValue)
         return DeFiErrors::TransferDomainUnequalAmount();
 
+    if (src.amount.nTokenId != dst.amount.nTokenId)
+        return DeFiErrors::TransferDomainDifferentTokens();
+
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
         if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
             if (!transferdomainConfig.dvmToEvm) {

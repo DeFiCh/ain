@@ -277,6 +277,10 @@ impl TransactionQueue {
         self.data.lock().unwrap().transactions.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.lock().unwrap().transactions.is_empty()
+    }
+
     pub fn remove_txs_by_sender(&self, sender: H160) {
         let mut data = self.data.lock().unwrap();
         let mut fees_to_remove = U256::zero();

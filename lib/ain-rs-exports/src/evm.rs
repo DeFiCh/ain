@@ -480,7 +480,9 @@ fn create_dst20(
         symbol: String::from(symbol),
         address,
     }));
-    SERVICES.evm.queue_tx(context, system_tx, native_hash, U256::zero())?;
+    SERVICES
+        .evm
+        .queue_tx(context, system_tx, native_hash, U256::zero())?;
 
     Ok(())
 }
@@ -502,7 +504,9 @@ fn bridge_to_dst20(
         amount: amount.into(),
         out,
     }));
-    SERVICES.evm.queue_tx(context, system_tx, native_hash, U256::zero())?;
+    SERVICES
+        .evm
+        .queue_tx(context, system_tx, native_hash, U256::zero())?;
 
     Ok(())
 }

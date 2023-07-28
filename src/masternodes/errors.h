@@ -434,6 +434,10 @@ public:
         return Res::Err("Source amount must be equal to destination amount");
     }
 
+    static Res TransferDomainDifferentTokens() {
+        return Res::Err("Source token and destination token must be the same");
+    }
+
     static Res TransferDomainIncorrectToken() {
         return Res::Err("For transferdomain, only DFI token is currently supported");
     }

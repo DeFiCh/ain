@@ -349,6 +349,20 @@ class DST20(DefiTestFramework):
             ]
         )
 
+    def test_different_tokens(self):
+        assert_raises_rpc_error(-32600, "Source token and destination token must be the same", self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.contract_address_btc,
+                        "amount": "1@ETH",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+
 
     def run_test(self):
         self.node = self.nodes[0]
@@ -387,6 +401,7 @@ class DST20(DefiTestFramework):
         self.test_transfer_to_token_address()
         self.test_bridge_when_no_balance()
         self.test_negative_transfer()
+        self.test_different_tokens()
 
 if __name__ == "__main__":
     DST20().main()
