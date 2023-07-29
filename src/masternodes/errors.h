@@ -438,6 +438,26 @@ public:
         return Res::Err("Source amount must be equal to destination amount");
     }
 
+    static Res TransferDomainDifferentTokens() {
+        return Res::Err("Source token and destination token must be the same");
+    }
+
+    static Res TransferDomainDVMToEVMNativeTokenNotEnabled() {
+        return Res::Err("transferdomain for DFI from DVM to EVM is not enabled");
+    }
+
+    static Res TransferDomainEVMToDVMNativeTokenNotEnabled() {
+        return Res::Err("transferdomain for DFI from EVM to DVM is not enabled");
+    }
+
+    static Res TransferDomainDVMToEVMDATNotEnabled() {
+        return Res::Err("transferdomain for DST20 from DVM to EVM is not enabled");
+    }
+
+    static Res TransferDomainEVMToDVMDATNotEnabled() {
+        return Res::Err("transferdomain for DST20 from EVM to DVM is not enabled");
+    }
+
     static Res TransferDomainIncorrectToken() {
         return Res::Err("For transferdomain, only DFI token is currently supported");
     }

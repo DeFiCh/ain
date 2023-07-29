@@ -18,7 +18,7 @@ use log::trace;
 use primitive_types::{H160, H256};
 
 pub struct AinExecutor<'backend> {
-    backend: &'backend mut EVMBackend,
+    pub backend: &'backend mut EVMBackend,
 }
 
 impl<'backend> AinExecutor<'backend> {
@@ -157,12 +157,8 @@ impl<'backend> Executor for AinExecutor<'backend> {
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 
-        let past_changi_intermediate3 = ain_cpp_imports::past_changi_intermediate_height_3_height();
-
-        if exit_reason.is_succeed() || past_changi_intermediate3 {
-            ApplyBackend::apply(self.backend, values, logs.clone(), true);
-            self.backend.commit();
-        }
+        ApplyBackend::apply(self.backend, values, logs.clone(), true);
+        self.backend.commit();
 
         self.backend.refund_unused_gas(
             signed_tx.sender,

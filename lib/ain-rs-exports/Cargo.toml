@@ -12,6 +12,7 @@ crate-type = ["staticlib"]
 [dependencies]
 ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
+ain-contracts = { path = "../ain-contracts" }
 
 ethereum = "0.14.0"
 rlp = "0.5.2"

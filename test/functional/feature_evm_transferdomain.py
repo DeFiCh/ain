@@ -17,8 +17,8 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=107', '-changiintermediateheight=107', '-changiintermediate2height=107', '-changiintermediate3height=107', '-changiintermediate4height=107', '-subsidytest=1', '-txindex=1'],
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=107', '-changiintermediateheight=107', '-changiintermediate2height=107', '-changiintermediate3height=107', '-changiintermediate4height=107', '-subsidytest=1', '-txindex=1']
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=107', '-subsidytest=1', '-txindex=1'],
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=107', '-subsidytest=1', '-txindex=1']
         ]
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -82,18 +82,13 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/transferdomain': 'true'}})
         self.nodes[0].generate(1)
 
-        # Check error before transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
-
         # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/dvm-evm': 'true'}})
-        self.nodes[0].generate(1)
-
-        # Check error before transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
-
-        # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/allowed/evm-dvm': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'true',
+                                             'v0/transferdomain/dvm-evm/src-formats': ['p2pkh','bech32'],
+                                             'v0/transferdomain/dvm-evm/dest-formats': ['erc55'],
+                                             'v0/transferdomain/evm-dvm/src-formats': ['erc55'],
+                                             'v0/transferdomain/evm-dvm/auth-formats': ['bech32-erc55'],
+                                             'v0/transferdomain/evm-dvm/dest-formats': ['p2pkh','bech32']}})
         self.nodes[0].generate(1)
 
         self.start_height = self.nodes[0].getblockcount()
@@ -116,8 +111,6 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Dst address must be an ERC55 address in case of \"EVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Cannot transfer inside same domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"101@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@BTC", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
-        assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@BTC", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Excess data set, maximum allow is 0", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2, "data": "1"}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Excess data set, maximum allow is 0", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3, "data": "1"}}])
 
@@ -152,8 +145,6 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Dst address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
         assert_raises_rpc_error(-32600, "Cannot transfer inside same domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 3}}])
         assert_raises_rpc_error(-32600, "Source amount must be equal to destination amount", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"101@DFI", "domain": 2}}])
-        assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@BTC", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
-        assert_raises_rpc_error(-32600, "For transferdomain, only DFI token is currently supported", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@BTC", "domain": 2}}])
         assert_raises_rpc_error(-32600, "TransferDomain currently only supports a single transfer per transaction", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"10@DFI", "domain": 2}},
                                            {"src": {"address":self.eth_address1, "amount":"10@DFI", "domain": 3}, "dst":{"address":self.address_2nd, "amount":"10@DFI", "domain": 2}}])
 
