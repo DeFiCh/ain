@@ -2510,7 +2510,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     // Execute EVM Queue
     auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
     if (!res) {
-        LogPrintf("ERROR: ProcessEVMQueue %s\n", res.msg);
+        LogPrintf("ERROR: ProcessEVMQueue: %s\n", res.msg);
     }
 
     // construct undo

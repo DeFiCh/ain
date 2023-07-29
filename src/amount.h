@@ -129,7 +129,7 @@ struct CTokenAmount { // simple std::pair is less informative
         return strprintf("%s@%d", GetDecimalString(nValue), nTokenId.v);
     }
 
-    Res Add(CAmount amount) {
+    NODISCARD Res Add(CAmount amount) {
         // safety checks
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimalString(amount));
@@ -145,7 +145,7 @@ struct CTokenAmount { // simple std::pair is less informative
         return Res::Ok();
     }
 
-    Res Sub(CAmount amount) {
+    NODISCARD Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimalString(amount));
@@ -159,6 +159,7 @@ struct CTokenAmount { // simple std::pair is less informative
         return Res::Ok();
     }
 
+    // TODO: Switch to ResVal of CAmount
     CAmount SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {
