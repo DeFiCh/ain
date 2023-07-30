@@ -422,24 +422,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             })
     }
 
-    fn get_block_by_hash(
-        &self,
-        hash: H256,
-        full_transactions: Option<bool>,
-    ) -> RpcResult<Option<RpcBlock>> {
-        debug!("Getting block by hash {:#x}", hash);
-        self.get_block(Some(BlockNumber::Hash {
-            hash,
-            // NOTE(canonbrother): `is_canon` is not impl yet, false by default for now
-            require_canonical: false,
-        }))
-        .map_or(Ok(None), |block| {
-            Ok(Some(RpcBlock::from_block_with_tx(
-                block,
-                full_transactions.unwrap_or_default(),
-            )))
-        })
-    }
 
     fn chain_id(&self) -> RpcResult<String> {
         let chain_id = ain_cpp_imports::get_chain_id()
@@ -476,6 +458,25 @@ impl MetachainRPCServer for MetachainRPCModule {
                     full_transactions.unwrap_or_default(),
                 )))
             })
+    }
+
+    fn get_block_by_hash(
+        &self,
+        hash: H256,
+        full_transactions: Option<bool>,
+    ) -> RpcResult<Option<RpcBlock>> {
+        debug!("Getting block by hash {:#x}", hash);
+        self.get_block(Some(BlockNumber::Hash {
+            hash,
+            // NOTE(canonbrother): `is_canon` is not impl yet, false by default for now
+            require_canonical: false,
+        }))
+        .map_or(Ok(None), |block| {
+            Ok(Some(RpcBlock::from_block_with_tx(
+                block,
+                full_transactions.unwrap_or_default(),
+            )))
+        })
     }
 
     fn mining(&self) -> RpcResult<bool> {
