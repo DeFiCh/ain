@@ -86,14 +86,11 @@ impl BlockService {
                 PartialHeader {
                     parent_hash: hash,
                     number: block_number.saturating_add(U256::one()),
-                    difficulty: Default::default(), // 0x0
-                    nonce: Default::default(),      // 0x0
+                    base_fee: self.calculate_base_fee(hash),
                     gas_limit: MAX_GAS_PER_BLOCK,
 
                     // wip
-                    base_fee: Default::default(),
                     gas_used: Default::default(),
-                    beneficiary: Default::default(),
                     timestamp: 0,
                     extra_data: vec![],
 
@@ -102,6 +99,9 @@ impl BlockService {
                     receipts_root: Default::default(),
                     logs_bloom: Default::default(),
                     mix_hash: Default::default(),
+                    difficulty: Default::default(),
+                    nonce: Default::default(),
+                    beneficiary: Default::default(),
                 },
                 pending_transactions,
                 Vec::<ethereum::Header>::new(),
