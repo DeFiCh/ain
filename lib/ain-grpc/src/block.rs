@@ -14,8 +14,8 @@ use sha3::Digest;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
-    pub hash: H256,
-    pub mix_hash: H256,
+    pub hash: Option<H256>,
+    pub mix_hash: Option<H256>,
     pub parent_hash: H256,
     pub miner: H160,
     pub state_root: H256,
@@ -39,11 +39,15 @@ pub struct RpcBlock {
 }
 
 impl RpcBlock {
-    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
+    pub fn from_block_with_tx(block: BlockAny, full_transactions: bool, id: BlockNumber) -> Self {
         let header_size = block.header.rlp_bytes().len();
+        let hash = match id {
+            BlockNumber::Pending => None,
+            _ => Some(block.header.hash()),
+        };
         RpcBlock {
-            hash: block.header.hash(),
-            mix_hash: block.header.hash(),
+            hash,
+            mix_hash: hash,
             number: block.header.number,
             parent_hash: block.header.parent_hash,
             transactions_root: block.header.transactions_root,

@@ -456,6 +456,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block,
                     full_transactions.unwrap_or_default(),
+                    block_number,
                 )))
             })
     }
@@ -468,13 +469,14 @@ impl MetachainRPCServer for MetachainRPCModule {
         debug!("Getting block by hash {:#x}", hash);
         self.get_block(Some(BlockNumber::Hash {
             hash,
-            // NOTE(canonbrother): `is_canon` is not impl yet, false by default for now
+            // TODO(canonbrother): `is_canon` is not impl yet, false by default for now
             require_canonical: false,
         }))
         .map_or(Ok(None), |block| {
             Ok(Some(RpcBlock::from_block_with_tx(
                 block,
                 full_transactions.unwrap_or_default(),
+                BlockNumber::Hash { hash, require_canonical: false },
             )))
         })
     }
