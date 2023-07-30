@@ -9,8 +9,10 @@ use serde::{
     de::{Error, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use serde_with::skip_serializing_none;
 use sha3::Digest;
 
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
