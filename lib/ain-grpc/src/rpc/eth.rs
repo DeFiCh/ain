@@ -422,7 +422,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             })
     }
 
-
     fn chain_id(&self) -> RpcResult<String> {
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
@@ -476,7 +475,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             Ok(Some(RpcBlock::from_block_with_tx(
                 block,
                 full_transactions.unwrap_or_default(),
-                BlockNumber::Hash { hash, require_canonical: false },
+                BlockNumber::Hash {
+                    hash,
+                    require_canonical: false,
+                },
             )))
         })
     }
