@@ -1069,7 +1069,7 @@ public:
 
         if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
-            evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
                              tokenId->ToString());
@@ -2657,7 +2657,7 @@ public:
 
             if (tokenId && token.IsLoanToken() && IsEVMEnabled(height, mnview, consensus)) {
                 CrossBoundaryResult result;
-                evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+                evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
                                  rust::string(tokenName.c_str()),
                                  rust::string(tokenSymbol.c_str()),
                                  tokenId->ToString());
@@ -3927,7 +3927,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
 
                     if (!result.ok) {
@@ -3956,7 +3956,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
 
                     if (!result.ok) {

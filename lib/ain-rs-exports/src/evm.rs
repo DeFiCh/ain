@@ -436,7 +436,7 @@ pub fn evm_try_get_block_number_by_hash(
     }
 }
 
-pub fn evm_create_dst20(
+pub fn evm_try_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
     native_hash: [u8; 32],
@@ -450,7 +450,7 @@ pub fn evm_create_dst20(
     }
 }
 
-pub fn evm_bridge_dst20(
+pub fn evm_try_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
     address: &str,
