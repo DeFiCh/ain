@@ -186,7 +186,7 @@ bool FillableSigningProvider::GetCScript(const CScriptID &hash, CScript& redeemS
     return false;
 }
 
-CKeyID TryGetKeyForDestination(const SigningProvider& store, const CTxDestination& dest)
+CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDestination& dest)
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,
     // P2WPKH, and P2SH-P2WPKH.
