@@ -36,21 +36,18 @@ public:
     static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
         // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
         // flags here and use bit flag logic to decode only specific destinations
-        KeyType destType = FromOrDefaultDestinationTypeToKeyType(dest.index());
-        if ((destType & filter) == KeyType::PKHashKeyType) {
-            return CKeyID(std::get<PKHash>(dest));
-        }
-        else if ((destType & filter) == KeyType::WPKHashKeyType) {
-            return CKeyID(std::get<WitnessV0KeyHash>(dest));
-        }
-        else if ((destType & filter) == KeyType::ScriptHashKeyType) {
-            return CKeyID(std::get<ScriptHash>(dest));
-        }
-        else if ((destType & filter) == KeyType::EthHashKeyType) {
-            return CKeyID(std::get<WitnessV16EthHash>(dest));
-        }
-        else {
-            return {};
+        auto destType = FromOrDefaultDestinationTypeToKeyType(dest.index()) & filter;
+        switch (destType) {
+            case KeyType::PKHashKeyType:
+                return CKeyID(std::get<PKHash>(dest));
+            case KeyType::WPKHashKeyType:
+                return CKeyID(std::get<WitnessV0KeyHash>(dest));
+            case KeyType::ScriptHashKeyType:
+                return CKeyID(std::get<ScriptHash>(dest));
+            case KeyType::EthHashKeyType:
+                return CKeyID(std::get<WitnessV16EthHash>(dest));
+            default:
+                return {};
         }
     }
 

@@ -191,23 +191,28 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
     // Only supports destinations which map to single public keys, i.e. P2PKH,
     // P2WPKH, and P2SH-P2WPKH.
     auto id = CKeyID::FromOrDefaultDestination(dest, KeyType::SigningProviderType);
-    KeyType dest_type = FromOrDefaultDestinationTypeToKeyType(dest.index());
-    if ((dest_type & KeyType::SigningProviderType) == KeyType::WPKHashKeyType) {
-        id.type = KeyAddressType::COMPRESSED;
-    }
-    else if ((dest_type & KeyType::SigningProviderType) == KeyType::EthHashKeyType) {
-        id.type = KeyAddressType::UNCOMPRESSED;
-    }
-    else if ((dest_type & KeyType::SigningProviderType) == KeyType::ScriptHashKeyType) {
-        CScript script;
-        CScriptID script_id(id);
-        CTxDestination inner_dest;
-        if (store.GetCScript(script_id, script) && ExtractDestination(script, inner_dest)) {
+    auto dest_type = FromOrDefaultDestinationTypeToKeyType(dest.index()) & KeyType::SigningProviderType;
+    switch (dest_type) {
+        case KeyType::WPKHashKeyType: {
+            id.type = KeyAddressType::COMPRESSED;
+            break;
+        }
+        case KeyType::EthHashKeyType: {
+            id.type = KeyAddressType::UNCOMPRESSED;
+            break;
+        }
+        case KeyType::ScriptHashKeyType: {
+            CScript script;
+            CScriptID script_id(id);
+            CTxDestination inner_dest;
+            if (!store.GetCScript(script_id, script) || !ExtractDestination(script, inner_dest)) {
+                return {};
+            }
             id = CKeyID::FromOrDefaultDestination(inner_dest, KeyType::WPKHashKeyType);
+            break;
         }
-        else {
-            return {};
-        }
+        default:
+            break;
     }
     return id;
 }

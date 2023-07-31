@@ -253,20 +253,18 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
 }
 
 std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter) {
-    if ((keyIdType & filter) == KeyType::PKHashKeyType) {
-        return CTxDestination(PKHash(keyId));
-    }
-    else if ((keyIdType & filter) == KeyType::WPKHashKeyType) {
-        return CTxDestination(WitnessV0KeyHash(keyId));
-    }
-    else if ((keyIdType & filter) == KeyType::ScriptHashKeyType) {
-        return CTxDestination(ScriptHash(keyId));
-    }
-    else if ((keyIdType & filter) == KeyType::EthHashKeyType) {
-        return CTxDestination(WitnessV16EthHash(keyId));
-    }
-    else {
-        return {};
+    auto type = keyIdType & filter;
+    switch (type) {
+        case KeyType::PKHashKeyType:
+            return CTxDestination(PKHash(keyId));
+        case KeyType::WPKHashKeyType:
+            return CTxDestination(WitnessV0KeyHash(keyId));
+        case KeyType::ScriptHashKeyType:
+            return CTxDestination(ScriptHash(keyId));
+        case KeyType::EthHashKeyType:
+            return CTxDestination(WitnessV16EthHash(keyId));
+        default:
+            return {};
     }
 }
 
