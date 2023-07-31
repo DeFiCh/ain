@@ -267,7 +267,11 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logvmmaps",
         "\nLogs all block or tx indexes for debugging.\n",
-        {{"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of log: 0 - Blocks, 1 - Txs"}},
+        {{"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Type of log:\n"
+                                                           "    0 - DVMToEVM Blocks\n"
+                                                           "    1 - EVMToDVM Blocks\n"
+                                                           "    2 - DVMToEVM TXs\n"
+                                                           "    3 - EVMToDVM TXs"}},
         RPCResult{"{...} (array) Json object with account balances if rpcresult is enabled."
                   "This is for debugging purposes only.\n"},
         RPCExamples{HelpExampleCli("logvmmaps", R"('"<hex>"' 1)")},
