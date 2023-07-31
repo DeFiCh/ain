@@ -1,3 +1,5 @@
+#![feature(result_flattening)]
+
 mod backend;
 pub mod block;
 pub mod bytes;

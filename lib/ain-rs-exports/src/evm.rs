@@ -107,13 +107,20 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
 /// # Returns
 ///
 /// Returns the next valid nonce of the account in a specific queue_id as a `u64`
-pub fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64 {
+pub fn evm_try_get_next_valid_nonce_in_queue(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: [u8; 20],
+) -> u64 {
     let address = H160::from(address);
-    let nonce = SERVICES
+    match SERVICES
         .evm
         .core
-        .get_next_valid_nonce_in_queue(queue_id, address);
-    nonce.as_u64()
+        .get_next_valid_nonce_in_queue(queue_id, address)
+    {
+        Ok(nonce) => cross_boundary_success_return(result, nonce.as_u64()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
 }
 
 /// Removes all transactions in the queue whose sender matches the provided sender address in a specific queue_id
@@ -123,9 +130,16 @@ pub fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u6
 /// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 ///
-pub fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]) {
+pub fn evm_try_remove_txs_by_sender(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: [u8; 20],
+) {
     let address = H160::from(address);
-    let _ = SERVICES.evm.core.remove_txs_by_sender(queue_id, address);
+    match SERVICES.evm.core.remove_txs_by_sender(queue_id, address) {
+        Ok(_) => cross_boundary_success_return(result, ()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -137,12 +151,24 @@ pub fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]) {
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-pub fn evm_add_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
-    if let Ok(address) = address.parse() {
-        let _ = SERVICES
-            .evm
-            .core
-            .add_balance(queue_id, address, amount.into(), hash);
+pub fn evm_try_add_balance(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: &str,
+    amount: [u8; 32],
+    hash: [u8; 32],
+) {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
+    match SERVICES
+        .evm
+        .core
+        .add_balance(queue_id, address, amount.into(), hash)
+    {
+        Ok(_) => cross_boundary_success_return(result, ()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -165,17 +191,25 @@ pub fn evm_add_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_sub_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
-    if let Ok(address) = address.parse() {
-        if let Ok(()) = SERVICES
-            .evm
-            .core
-            .sub_balance(queue_id, address, amount.into(), hash)
-        {
-            return true;
-        }
+pub fn evm_try_sub_balance(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: &str,
+    amount: [u8; 32],
+    hash: [u8; 32],
+) -> bool {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
+    match SERVICES
+        .evm
+        .core
+        .sub_balance(queue_id, address, amount.into(), hash)
+    {
+        Ok(_) => cross_boundary_success_return(result, true),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
-    false
 }
 
 /// Pre-validates a raw EVM transaction.
