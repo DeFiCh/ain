@@ -87,6 +87,6 @@ public:
 };
 
 /** Return the CKeyID of the key involved in a script (if there is a unique one). */
-CKeyID TryGetKeyForDestination(const SigningProvider& store, const CTxDestination& dest);
+CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDestination& dest);
 
 #endif // DEFI_SCRIPT_SIGNINGPROVIDER_H

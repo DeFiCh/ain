@@ -743,7 +743,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Defi address");
     }
-    auto keyid = TryGetKeyForDestination(*pwallet, dest);
+    auto keyid = GetKeyOrDefaultFromDestination(*pwallet, dest);
     if (keyid.IsNull()) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to a key");
     }
