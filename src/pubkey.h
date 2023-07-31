@@ -36,31 +36,22 @@ public:
     static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
         // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
         // flags here and use bit flag logic to decode only specific destinations
-        switch (dest.index()) {
-            case PKHashType:
-                if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
-                    return CKeyID(std::get<PKHash>(dest));
-                }
-                break;
-            case WitV0KeyHashType:
-                if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
-                    return CKeyID(std::get<WitnessV0KeyHash>(dest));
-                }
-                break;
-            case ScriptHashType:
-                if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
-                    return CKeyID(std::get<ScriptHash>(dest));
-                }
-                break;
-            case WitV16KeyEthHashType:
-                if ((filter & KeyType::EthHashKeyType) == KeyType::EthHashKeyType) {
-                    return CKeyID(std::get<WitnessV16EthHash>(dest));
-                }
-                break;
-            default: 
-                return {};
+        KeyType destType = FromOrDefaultDestinationTypeToKeyType(dest.index());
+        if ((destType & filter) == KeyType::PKHashKeyType) {
+            return CKeyID(std::get<PKHash>(dest));
         }
-        return {};
+        else if ((destType & filter) == KeyType::WPKHashKeyType) {
+            return CKeyID(std::get<WitnessV0KeyHash>(dest));
+        }
+        else if ((destType & filter) == KeyType::ScriptHashKeyType) {
+            return CKeyID(std::get<ScriptHash>(dest));
+        }
+        else if ((destType & filter) == KeyType::EthHashKeyType) {
+            return CKeyID(std::get<WitnessV16EthHash>(dest));
+        }
+        else {
+            return {};
+        }
     }
 
     static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
