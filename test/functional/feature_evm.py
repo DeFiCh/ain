@@ -215,8 +215,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/src-formats': ['erc55']}})
         self.nodes[0].generate(1)
 
-        print(self.nodes[0].getgov('ATTRIBUTES'))
-
         # Dectivate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32']}})
         self.nodes[0].generate(1)
@@ -318,7 +316,7 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0.00023100')})
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00126000'), 'paid': Decimal('0.00140700')})
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
@@ -444,6 +442,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(to_address, 0, 21, 21001, eth_address, 1)
         self.nodes[0].evmtx(to_address, 0, 24, 21001, eth_address, 1)
         self.nodes[0].generate(1)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.01386000'), 'paid': Decimal('0.01541400')})
 
         # Check highest paying fee TX in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']

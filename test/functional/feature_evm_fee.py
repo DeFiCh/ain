@@ -210,6 +210,10 @@ class EVMFeeTest(DefiTestFramework):
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0E-8')})
+
         # Don't consume balance as not enough to cover send value + fee.
         # Deduct only 21000 call fee
         assert_equal(int(balance[2:], 16), 99999790000000000000)

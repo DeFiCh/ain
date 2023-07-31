@@ -98,7 +98,7 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0')})
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00101605'), 'paid': Decimal('0.01422470')})
 
         tx2930 = {
             'from': self.ethAddress,
@@ -142,6 +142,10 @@ class EVMTest(DefiTestFramework):
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00207510'), 'paid': Decimal('0.02905140')})
+
         tx1559 = {
             'nonce': '0x2',
             'from': self.ethAddress,
@@ -171,6 +175,10 @@ class EVMTest(DefiTestFramework):
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00309115'), 'paid': Decimal('0.04327610')})
+
     def test_send_transaction(self):
         txLegacy = {
             'from': self.ethAddress,
@@ -183,6 +191,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00410720'), 'paid': Decimal('0.05750080')})
 
         tx2930 = {
             'from': self.ethAddress,
@@ -205,6 +217,10 @@ class EVMTest(DefiTestFramework):
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00516625'), 'paid': Decimal('0.07232750')})
+
         tx1559 = {
             'from': self.ethAddress,
             'value': '0x0',
@@ -219,14 +235,16 @@ class EVMTest(DefiTestFramework):
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00618230'), 'paid': Decimal('0.08655220')})
+
     def run_test(self):
         self.setup()
 
         self.test_sign_and_send_raw_transaction()
 
         self.test_send_transaction()
-
-
 
 if __name__ == '__main__':
     EVMTest().main()
