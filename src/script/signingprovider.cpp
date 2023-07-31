@@ -186,28 +186,29 @@ bool FillableSigningProvider::GetCScript(const CScriptID &hash, CScript& redeemS
     return false;
 }
 
-CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& dest)
+CKeyID TryGetKeyForDestination(const SigningProvider& store, const CTxDestination& dest)
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,
     // P2WPKH, and P2SH-P2WPKH.
-    if (auto id = std::get_if<PKHash>(&dest)) {
-        return CKeyID(*id);
-    }
-    if (auto witness_id = std::get_if<WitnessV0KeyHash>(&dest)) {
-        return {*witness_id, KeyAddressType::COMPRESSED};
-    }
-    if (auto witness_id = std::get_if<WitnessV16EthHash>(&dest)) {
-        return {*witness_id, KeyAddressType::UNCOMPRESSED};
-    }
-    if (auto script_hash = std::get_if<ScriptHash>(&dest)) {
-        CScript script;
-        CScriptID script_id(*script_hash);
-        CTxDestination inner_dest;
-        if (store.GetCScript(script_id, script) && ExtractDestination(script, inner_dest)) {
-            if (auto inner_witness_id = std::get_if<WitnessV0KeyHash>(&inner_dest)) {
-                return CKeyID(*inner_witness_id);
+    auto id = CKeyID::FromOrDefaultDestination(dest, KeyType::SigningProviderType);
+    switch (dest.index()) {
+        case WitV0KeyHashType:
+            id.type = KeyAddressType::COMPRESSED;
+            break;
+        case WitV16KeyEthHashType:
+            id.type = KeyAddressType::UNCOMPRESSED;
+            break;
+        case ScriptHashType: {
+            CScript script;
+            CScriptID script_id(id);
+            CTxDestination inner_dest;
+            if (store.GetCScript(script_id, script) && ExtractDestination(script, inner_dest)) {
+                id = CKeyID::FromOrDefaultDestination(inner_dest,KeyType::EthHashKeyType);
             }
+            break;
         }
+        default:
+            return {};
     }
-    return {};
+    return id;
 }

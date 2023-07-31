@@ -270,7 +270,7 @@ std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, co
             }
             break;
         case WitV16KeyEthHashType:
-            if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+            if ((filter & KeyType::EthHashKeyType) == KeyType::EthHashKeyType) {
                 return CTxDestination(WitnessV16EthHash(keyId));
             }
             break;

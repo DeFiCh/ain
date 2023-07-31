@@ -53,7 +53,7 @@ public:
                 }
                 break;
             case WitV16KeyEthHashType:
-                if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
+                if ((filter & KeyType::EthHashKeyType) == KeyType::EthHashKeyType) {
                     return CKeyID(std::get<WitnessV16EthHash>(dest));
                 }
                 break;

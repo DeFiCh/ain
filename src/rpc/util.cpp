@@ -150,7 +150,7 @@ CPubKey AddrToPubKey(FillableSigningProvider* const keystore, const std::string&
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address: " + addr_in);
     }
-    CKeyID key = GetKeyForDestination(*keystore, dest);
+    CKeyID key = TryGetKeyForDestination(*keystore, dest);
     if (key.IsNull()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("%s does not refer to a key", addr_in));
     }

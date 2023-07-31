@@ -703,7 +703,7 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
 
         }
 
-        auto keyid = GetKeyForDestination(*pwallet, dest);
+        auto keyid = TryGetKeyForDestination(*pwallet, dest);
         if (keyid.IsNull()) {
             BRTransactionFree(tx);
             throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address hash.");
@@ -1598,7 +1598,7 @@ UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string addre
     }
 
     CTxDestination dest = GetDestinationForKey(new_key, OutputType::BECH32);
-    CKeyID keyid = GetKeyForDestination(*pwallet, dest);
+    CKeyID keyid = TryGetKeyForDestination(*pwallet, dest);
     if (keyid.IsNull()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address hash.");
     }

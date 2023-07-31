@@ -163,10 +163,11 @@ enum KeyType {
     PKHashKeyType = 1 << 0,
     ScriptHashKeyType = 1 << 1,
     WPKHashKeyType = 1 << 2,
-    EthHashKey = 1 << 3,
+    EthHashKeyType = 1 << 3,
     MNOperatorKeyType = (1 << 4) | PKHashKeyType | WPKHashKeyType,
     MNOwnerKeyType = (1 << 5) | PKHashKeyType | WPKHashKeyType,
     MNRewardKeyType = (1 << 6) | PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
+    SigningProviderType = (1 << 7) | PKHashKeyType | ScriptHashKeyType | WPKHashKeyType | EthHashKeyType,
     AllKeyType = ~0,
 };
 

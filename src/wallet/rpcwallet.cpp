@@ -3827,7 +3827,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     }
     ret.pushKV("ischange", pwallet->IsChange(scriptPubKey));
     const CKeyMetadata* meta = nullptr;
-    CKeyID key_id = GetKeyForDestination(*pwallet, dest);
+    CKeyID key_id = TryGetKeyForDestination(*pwallet, dest);
     if (!key_id.IsNull()) {
         auto it = pwallet->mapKeyMetadata.find(key_id);
         if (it != pwallet->mapKeyMetadata.end()) {
