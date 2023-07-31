@@ -35,8 +35,6 @@ class DST20(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-nextnetworkupgradeheight=105",
-                "-changiintermediateheight=105",
-                "-changiintermediate3height=105",
                 "-subsidytest=1",
                 "-txindex=1",
             ]
@@ -382,7 +380,16 @@ class DST20(DefiTestFramework):
         # Generate chain
         self.node.generate(105)
         self.nodes[0].utxostoaccount({self.address: "100@DFI"})
-        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov({"ATTRIBUTES": {
+            "v0/params/feature/evm": "true",
+            "v0/params/feature/transferdomain": "true",
+            'v0/transferdomain/dvm-evm/enabled': 'true',
+            'v0/transferdomain/dvm-evm/dat-enabled': 'true',
+            'v0/transferdomain/evm-dvm/dat-enabled': 'true',
+        }})
+
         self.nodes[0].generate(1)
 
         self.test_deploy_token()
