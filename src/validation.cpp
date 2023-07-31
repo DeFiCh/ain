@@ -1752,7 +1752,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
-    mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
+    mnview.OnUndoTx(uint256(), static_cast<uint32_t>(pindex->nHeight)); // undo for "zero hash"
+    mnview.OnUndoTx(uint256S(std::string(64, '1')), static_cast<uint32_t>(pindex->nHeight)); // undo for "one hash"
 
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
@@ -2837,6 +2838,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // account changes are validated
     accountsView.Flush();
+
+    // Execute EVM Queue
+    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary);
+    if (!res.ok) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
+    }
 
     if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
         return false;
