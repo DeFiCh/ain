@@ -2378,9 +2378,8 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {    
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) 
-        return Res::Ok();
+static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return;
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
@@ -2423,34 +2422,27 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     CrossBoundaryResult result;
-    
     const auto blockResult = evm_try_finalize(result, evmQueueId, false, block.nBits, beneficiary, block.GetBlockTime());
     if (!result.ok) {
-        return Res::Err(result.reason.c_str());
+        LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
     }
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
 
-    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
-    if (!res) return res;
-
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
-    if (!res) return res;
+    cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
 
     if (!blockResult.failed_transactions.empty()) {
         std::vector<std::string> failedTransactions;
         for (const auto& rust_string : blockResult.failed_transactions) {
             failedTransactions.emplace_back(rust_string.data(), rust_string.length());
         }
+
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
-    res = cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
-    if (!res) return res;
-    res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
-    if (!res) return res;
-
-    return Res::Ok();
+    cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
 }
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
@@ -2508,10 +2500,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessGrandCentralEvents(pindex, cache, chainparams);
 
     // Execute EVM Queue
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
-    if (!res) {
-        LogPrintf("ERROR: ProcessEVMQueue: %s\n", res.msg);
-    }
+    ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
 
     // construct undo
     auto& flushable = cache.GetStorage();
