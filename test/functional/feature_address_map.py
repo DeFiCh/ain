@@ -86,13 +86,13 @@ class addressmapTests(DefiTestFramework):
             # auto (dvm -> evm)
             res = self.nodes[0].addressmap(dfi_addr, AddressConversionType.Auto)
             assert_equal(res['input'], dfi_addr)
-            assert_equal(res['type'], 0)
+            assert_equal(res['type'], 1)
             assert_equal(res['format']['erc55'], eth_addr)
 
             # auto (evm -> dvm)
             res = self.nodes[0].addressmap(eth_addr, AddressConversionType.Auto)
             assert_equal(res['input'], eth_addr)
-            assert_equal(res['type'], 0)
+            assert_equal(res['type'], 2)
             assert_equal(res['format']['bech32'], dfi_addr)
 
     def addressmap_valid_address_not_present_should_fail(self):
@@ -123,6 +123,10 @@ class addressmapTests(DefiTestFramework):
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, 'test', AddressConversionType.DVMToEVMAddress)
         assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, 'test', AddressConversionType.EVMToDVMAddress)
 
+    def addressmap_auto_invalid_address_should_fail(self):
+        self.rollback_to(self.start_block_height)
+        assert_raises_rpc_error(-8, "Unsupported type or unable to determine conversion type automatically from the input", self.nodes[0].addressmap, 'test', AddressConversionType.Auto)
+
     def run_test(self):
         self.setup()
         # Address map tests
@@ -130,6 +134,7 @@ class addressmapTests(DefiTestFramework):
         self.addressmap_valid_address_not_present_should_fail()
         self.addressmap_valid_address_invalid_type_should_fail()
         self.addressmap_invalid_address_should_fail()
+        self.addressmap_auto_invalid_address_should_fail()
 
 if __name__ == '__main__':
     addressmapTests().main()

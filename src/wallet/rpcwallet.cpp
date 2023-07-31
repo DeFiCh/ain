@@ -4282,12 +4282,24 @@ UniValue addressmap(const JSONRPCRequest &request) {
 
     const std::string input = request.params[0].get_str();
 
-    const int typeInt = request.params[1].get_int();
+    int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
         throwInvalidParam();
     }
 
     CTxDestination dest = DecodeDestination(input);
+
+    // auto infer type
+    if (typeInt == 0) {
+        if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
+            typeInt = 1;
+        } else if (dest.index() == WitV16KeyEthHashType) {
+            typeInt = 2;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+        }
+    }
+
     const auto type = static_cast<AddressConversionType>(typeInt);
 
     UniValue format(UniValue::VOBJ);
@@ -4319,22 +4331,6 @@ UniValue addressmap(const JSONRPCRequest &request) {
             break;
         }
         default:
-            if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
-                CPubKey key = AddrToPubKey(pwallet, input);
-                if (key.IsCompressed()) {
-                    key.Decompress();
-                }
-                format.pushKV("erc55", EncodeDestination(WitnessV16EthHash(key)));
-                break;
-            }
-            if (dest.index() == WitV16KeyEthHashType) {
-                CPubKey key = AddrToPubKey(pwallet, input);
-                if (!key.IsCompressed()) {
-                    key.Compress();
-                }
-                format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
-                break;
-            }
             throwInvalidParam();
     }
 
