@@ -108,9 +108,10 @@ impl EVMServices {
         beneficiary: H160,
         timestamp: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
-        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.len(queue_id));
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(self.core.tx_queues.len(queue_id));
+        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
+        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
+        let mut receipts_v3: Vec<ReceiptV3> =
+            Vec::with_capacity(self.core.tx_queues.count(queue_id));
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
