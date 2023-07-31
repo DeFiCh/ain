@@ -469,7 +469,7 @@ class GovsetTest(DefiTestFramework):
         assert_raises_rpc_error(-5, "Empty version", self.nodes[0].setgov, {"ATTRIBUTES": {'': 'true'}})
         assert_raises_rpc_error(-5, "Unsupported version", self.nodes[0].setgov,
                                 {"ATTRIBUTES": {'1/token/15/payback_dfi': 'true'}})
-        assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov,
+        assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov,
                                 {"ATTRIBUTES": {'v0/token/15/payback_dfi': ''}})
         assert_raises_rpc_error(-5,
                                 "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected",

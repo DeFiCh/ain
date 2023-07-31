@@ -2445,35 +2445,14 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     assert(attributes);
     CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
     auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
-
-    if (pindex->nHeight >= chainparams.GetConsensus().ChangiIntermediateHeight4) {
-        cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
-        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
-        evmFees.paid += static_cast<CAmount>(blockResult.total_priority_fees);
-        evmFees.burnt += static_cast<CAmount>(blockResult.total_burnt_fees);
-    }
-    else {
-        cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
-    }
-
+  
+    cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+  
+    evmFees.paid += static_cast<CAmount>(blockResult.total_priority_fees);
+    evmFees.burnt += static_cast<CAmount>(blockResult.total_burnt_fees);
+  
     attributes->SetValue(evmFeesKey, evmFees);
-    cache.SetVariable(*attributes);
-}
-
-static void ProcessChangiIntermediate4(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().ChangiIntermediateHeight4 || IsRegtestNetwork()) {
-        return;
-    }
-
-    auto attributes = cache.GetAttributes();
-    assert(attributes);
-
-    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
-    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
-
-    attributes->SetValue(evm_dvm, true);
-    attributes->SetValue(dvm_evm, true);
-
     cache.SetVariable(*attributes);
 }
 
@@ -2533,9 +2512,6 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
 
     // Execute EVM Queue
     ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
-
-    // Execute ChangiIntermediate4 Events. Delete when removing Changi forks
-    ProcessChangiIntermediate4(pindex, cache, chainparams);
 
     // construct undo
     auto& flushable = cache.GetStorage();

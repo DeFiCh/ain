@@ -100,6 +100,8 @@ dependencies = [
  "lazy_static",
  "primitive-types",
  "serde_json",
+ "sha3",
+ "sp-core 20.0.0",
 ]
 
 [[package]]
@@ -197,6 +199,7 @@ dependencies = [
 name = "ain-rs-exports"
 version = "0.1.0"
 dependencies = [
+ "ain-contracts",
  "ain-evm",
  "ain-grpc",
  "anyhow",

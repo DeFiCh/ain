@@ -8,7 +8,6 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
-#include <masternodes/changiintermediates.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -990,8 +989,7 @@ public:
                 }
                 rewardType = true;
 
-                // Change ChangiIntermediateHeight to NextNMetworkUpgradeHeight on mainnet release
-                if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
+                if (height < static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
                     if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                         return Res::Err("Reward address must be P2PKH or P2WPKH type");
                     }
@@ -1047,8 +1045,11 @@ public:
         CTokenImplementation token;
         static_cast<CToken &>(token) = obj;
 
-        token.symbol         = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
@@ -1060,11 +1061,25 @@ public:
         if (static_cast<int>(height) >= consensus.BayfrontHeight) {  // formal compatibility if someone cheat and create
                                                                      // LPS token on the pre-bayfront node
             if (token.IsPoolShare()) {
-                return Res::Err("Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+                return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
         }
 
-        return mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
+
+        if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
+            CrossBoundaryResult result;
+            evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+                             rust::string(tokenName.c_str()),
+                             rust::string(tokenSymbol.c_str()),
+                             tokenId->ToString());
+
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
+            }
+        }
+
+        return tokenId;
     }
 
     Res operator()(const CUpdateTokenPreAMKMessage &obj) const {
@@ -3043,7 +3058,7 @@ public:
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
         auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
-        auto isPostNext =  static_cast<int>(height) >= consensus.ChangiIntermediateHeight2; // Change to NextNetworkUpgradeHeight on mainnet release
+        auto isPostNext =  static_cast<int>(height) >= consensus.NextNetworkUpgradeHeight;
 
         if(isPostNext) {
             const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};
@@ -3892,9 +3907,23 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = src.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
-                    return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+
+                if (tokenId == DCT_ID{0}) {
+                    if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                                         ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                        return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+                    }
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
                 }
             }
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
@@ -3911,17 +3940,25 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
                 arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()), ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                if (tokenId == DCT_ID{0}) {
+                    evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
             }
 
-            // If you are here to change ChangiIntermediateHeight to NextNetworkUpgradeHeight
-            // then just remove this fork guard and comment as CTransferDomainMessage is already
-            // protected by NextNetworkUpgradeHeight.
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
-                    return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
-                }
+            if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
         }
 
@@ -3943,11 +3980,9 @@ public:
         if (!prevalidateEvm) {
             const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (!result.ok) {
-                    LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
-                    return Res::Err("evm tx failed to validate %s", result.reason);
-                }
+            if (!result.ok) {
+                LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
             evm_try_queue_tx(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
@@ -3958,12 +3993,9 @@ public:
         }
         else {
             evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight)) {
-                if (!result.ok) {
-                    LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-                    return Res::Err("evm tx failed to validate %s", result.reason);
-                }
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("evm tx failed to validate %s", result.reason);
             }
         }
 
@@ -3979,7 +4011,7 @@ public:
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
 };
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy) {
+Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy, AuthFlags::Type flags) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
         if (coin.IsSpent()) continue;
@@ -3987,10 +4019,10 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
             if (coin.out.scriptPubKey == auth) {
                 return Res::Ok();
             }
-        } else if (strategy == AuthStrategy::EthKeyMatch) {
+        } else if (strategy == AuthStrategy::Mapped) {
             std::vector<TBytes> vRet;
             const auto solution = Solver(coin.out.scriptPubKey, vRet);
-            if (solution == txnouttype::TX_PUBKEYHASH) {
+            if (flags & AuthFlags::PKHashInSource && solution == txnouttype::TX_PUBKEYHASH) {
                 auto it = input.scriptSig.begin();
                 CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
                 if (pubkey.Decompress()) {
@@ -3999,7 +4031,7 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
                     if (script == auth && coin.out.scriptPubKey == scriptOut)
                         return Res::Ok();
                 }
-            } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
+            } else if (flags & AuthFlags::Bech32InSource && solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
                 const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
@@ -4013,18 +4045,36 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+static XVmAddressFormatTypes FromTxDestType(const size_t index) {
+    switch (index) {
+        case PKHashType:
+            return XVmAddressFormatTypes::PkHash;
+        case WitV0KeyHashType:
+            return XVmAddressFormatTypes::Bech32;
+        case WitV16KeyEthHashType:
+            return XVmAddressFormatTypes::Erc55;
+        default:
+            return XVmAddressFormatTypes::None;
+    }
+}
+
 struct TransferDomainLiveConfig {
-    bool dvmToEvm;
-    bool evmTodvm;
-    bool dvmNativeToken;
-    bool evmNativeToken;
-    bool dvmDatEnabled;
-    bool evmDatEnabled;
-    std::set<uint32_t> dvmDisallowedTokens;
-    std::set<uint32_t> evmDisallowedTokens;
+    bool dvmToEvmEnabled;
+    bool evmToDvmEnabled;
+    XVmAddressFormatItems dvmToEvmSrcAddresses;
+    XVmAddressFormatItems dvmToEvmDestAddresses;
+    XVmAddressFormatItems evmToDvmDestAddresses;
+    XVmAddressFormatItems evmToDvmSrcAddresses;
+    XVmAddressFormatItems evmToDvmAuthFormats;
+    bool dvmToEvmNativeTokenEnabled;
+    bool evmToDvmNativeTokenEnabled;
+    bool dvmToEvmDatEnabled;
+    bool evmToDvmDatEnabled;
+    std::set<uint32_t> dvmToEvmDisallowedTokens;
+    std::set<uint32_t> evmToDvmDisallowedTokens;
 };
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge aspect, const TransferDomainLiveConfig &transferdomainConfig) {
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge edge, const TransferDomainLiveConfig &config) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -4032,25 +4082,23 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     res = ExtractDestination(destScript, dest);
     if (!res) return DeFiErrors::ScriptUnexpected(destScript);
 
-    auto isValidDVMAddrForEVM = [](const CTxDestination &a) {
-        return a.index() == PKHashType || a.index() == WitV0KeyHashType; };
-    auto isValidEVMAddr = [](const CTxDestination &a) {
-        return a.index() == WitV16KeyEthHashType; };
+    const auto srcType = FromTxDestType(src.index());
+    const auto destType = FromTxDestType(dest.index());
 
-    if (aspect == VMDomainEdge::DVMToEVM) {
-        if (!isValidDVMAddrForEVM(src)) {
+    if (edge == VMDomainEdge::DVMToEVM) {
+        if (!config.dvmToEvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
         }
-        if (!isValidEVMAddr(dest)) {
+        if (!config.dvmToEvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         return Res::Ok();
 
-    } else if (aspect == VMDomainEdge::EVMToDVM) {
-        if (!isValidEVMAddr(src)) {
+    } else if (edge == VMDomainEdge::EVMToDVM) {
+        if (!config.evmToDvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainETHSourceAddress();
         }
-        if (!isValidDVMAddrForEVM(dest)) {
+        if (!config.evmToDvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         return Res::Ok();
@@ -4060,17 +4108,12 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
 }
 
 Res ValidateTransferDomainEdge(const CTransaction &tx,
-                                   const TransferDomainLiveConfig &transferdomainConfig,
+                                   const TransferDomainLiveConfig &config,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
                                    CTransferDomainItem src,
                                    CTransferDomainItem dst) {
-
-    // TODO: Remove code branch on stable.
-    if (height < static_cast<uint32_t>(consensus.ChangiIntermediateHeight3)) {
-        return ChangiBuggyIntermediates::ValidateTransferDomainEdge2(tx, height, coins, consensus, src, dst);
-    }
 
     if (src.domain == dst.domain)
         return DeFiErrors::TransferDomainSameDomain();
@@ -4078,39 +4121,93 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nValue != dst.amount.nValue)
         return DeFiErrors::TransferDomainUnequalAmount();
 
-    // Restrict only for use with DFI token for now. Will be enabled later.
-    if (src.amount.nTokenId != DCT_ID{0} || dst.amount.nTokenId != DCT_ID{0})
-        return DeFiErrors::TransferDomainIncorrectToken();
+    if (src.amount.nTokenId != dst.amount.nTokenId)
+        return DeFiErrors::TransferDomainDifferentTokens();
+
+    if (src.amount.nTokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled)
+        return DeFiErrors::TransferDomainDVMToEVMNativeTokenNotEnabled();
+
+    if (dst.amount.nTokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled)
+        return DeFiErrors::TransferDomainEVMToDVMNativeTokenNotEnabled();
+
+    if (src.amount.nTokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled)
+        return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
+
+    if (dst.amount.nTokenId != DCT_ID{0} && !config.evmToDvmDatEnabled)
+        return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!transferdomainConfig.dvmToEvm) {
-                return DeFiErrors::TransferDomainDVMEVMNotEnabled();
-            }
+        if (!config.dvmToEvmEnabled) {
+            return DeFiErrors::TransferDomainDVMEVMNotEnabled();
         }
 
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, transferdomainConfig);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, config);
         if (!res) return res;
 
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-        if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-            if (!transferdomainConfig.evmTodvm) {
-                return DeFiErrors::TransferDomainEVMDVMNotEnabled();
-            }
+        if (!config.evmToDvmEnabled) {
+            return DeFiErrors::TransferDomainEVMDVMNotEnabled();
         }
 
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, transferdomainConfig);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, config);
         if (!res) return res;
 
-        return HasAuth(tx, coins, src.address, AuthStrategy::EthKeyMatch);
+        auto authType = AuthFlags::None;
+        for (const auto &value : config.evmToDvmAuthFormats) {
+            if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::PKHashInSource);
+            } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::Bech32InSource);
+            }
+        }
+        return HasAuth(tx, coins, src.address, AuthStrategy::Mapped, authType);
     }
 
     return DeFiErrors::TransferDomainUnknownEdge();
 }
+
+TransferDomainLiveConfig GetTransferDomainConfig(CCustomCSView &mnview) {
+    CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
+    CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
+    CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
+    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
+    CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
+
+    const auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    TransferDomainLiveConfig config{
+        attributes->GetValue(dvm_to_evm_enabled, true),
+        attributes->GetValue(evm_to_dvm_enabled, true),
+        attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems {
+            XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
+        attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems {
+            XVmAddressFormatTypes::Erc55 }),
+        attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems {
+            XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
+        attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems {
+            XVmAddressFormatTypes::Erc55 }),
+        attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems {
+            XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 }),
+        attributes->GetValue(dvm_to_evm_native_enabled, true),
+        attributes->GetValue(evm_to_dvm_native_enabled, true),
+        attributes->GetValue(dvm_to_evm_dat_enabled, false),
+        attributes->GetValue(evm_to_dvm_dat_enabled, false),
+        {},
+        {}
+    };
+    return config;
+}
+
 
 
 Res ValidateTransferDomain(const CTransaction &tx,
@@ -4124,42 +4221,28 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
-    if (height >= static_cast<uint32_t>(consensus.ChangiIntermediateHeight4)) {
-        if (!IsTransferDomainEnabled(height, mnview, consensus)) {
-            return DeFiErrors::TransferDomainNotEnabled();
-        }
-
-        if (obj.transfers.size() != 1) {
-            return DeFiErrors::TransferDomainMultipleTransfers();
-        }
-
-        if (tx.vin.size() > 1) {
-            return DeFiErrors::TransferDomainInvalid();
-        }
+    if (!IsTransferDomainEnabled(height, mnview, consensus)) {
+        return DeFiErrors::TransferDomainNotEnabled();
     }
 
-    CDataStructureV0 evm_dvm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::EVM_DVM};
-    CDataStructureV0 dvm_evm{AttributeTypes::Transfer, TransferIDs::Edges, TransferKeys::DVM_EVM};
-    const auto attributes = mnview.GetAttributes();
-    assert(attributes);
-    TransferDomainLiveConfig transferdomainConfig{
-        attributes->GetValue(dvm_evm, false),
-        attributes->GetValue(evm_dvm, false),
-        true,
-        true,
-        true,
-        true,
-        {},
-        {}
-    };
+    if (obj.transfers.size() != 1) {
+        return DeFiErrors::TransferDomainMultipleTransfers();
+    }
+
+    if (tx.vin.size() > 1) {
+        return DeFiErrors::TransferDomainInvalid();
+    }
+
+    auto config = GetTransferDomainConfig(mnview);
 
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, transferdomainConfig, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, config, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
     return Res::Ok();
 }
+
 
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,
@@ -4455,7 +4538,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4538,7 +4621,12 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             cbValues.begin()->second,
             anchorReward);
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    CTxDestination destination;
+    if (height < consensusParams.NextNetworkUpgradeHeight) {
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+    } else {
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+    }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
