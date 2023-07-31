@@ -203,7 +203,7 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
             CScriptID script_id(id);
             CTxDestination inner_dest;
             if (store.GetCScript(script_id, script) && ExtractDestination(script, inner_dest)) {
-                id = CKeyID::FromOrDefaultDestination(inner_dest,KeyType::EthHashKeyType);
+                id = CKeyID::FromOrDefaultDestination(inner_dest, KeyType::WPKHashKeyType);
             }
             break;
         }
