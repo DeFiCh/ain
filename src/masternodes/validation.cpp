@@ -2429,8 +2429,14 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
 
-    cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
-    cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    if (!res) {
+        LogPrintf("Failed to store DVMtoEVM block hash for DFI TX %s\n", block.GetHash().ToString());
+    }
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+    if (!res) {
+        LogPrintf("Failed to store EVMToDVM block hash for DFI TX %s\n", block.GetHash().ToString());
+    }
 
     if (!blockResult.failed_transactions.empty()) {
         std::vector<std::string> failedTransactions;
