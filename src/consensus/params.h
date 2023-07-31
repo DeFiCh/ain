@@ -102,6 +102,7 @@ struct Params {
     int GrandCentralHeight;
     int GrandCentralEpilogueHeight;
     int NextNetworkUpgradeHeight;
+    int ChangiIntermediateHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;

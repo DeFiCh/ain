@@ -18,6 +18,7 @@ pub mod ffi {
         fn getStateInputJSON() -> String;
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
+        fn pastChangiIntermediateHeight() -> bool;
         fn CppLogPrintf(message: String);
     }
 }
