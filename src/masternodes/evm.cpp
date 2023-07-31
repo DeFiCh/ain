@@ -31,18 +31,18 @@ ResVal<uint256> CVMDomainGraphView::GetVMDomainTxEdge(VMDomainEdge type, uint256
     return DeFiErrors::DatabaseKeyNotFound(txHashKey.GetHex());
 }
 
-void CVMDomainGraphView::ForEachVMDomainBlockEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback) {
+void CVMDomainGraphView::ForEachVMDomainBlockEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback, const std::pair<VMDomainEdge, uint256> &start) {
     ForEach<VMDomainBlockEdge, std::pair<uint8_t, uint256>, uint256>(
             [&callback](const std::pair<uint8_t, uint256> &key, uint256 val) {
                 auto k = std::make_pair(static_cast<VMDomainEdge>(key.first), key.second);
                 return callback(k, val);
-            });
+            }, std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-void CVMDomainGraphView::ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback) {
+void CVMDomainGraphView::ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback, const std::pair<VMDomainEdge, uint256> &start) {
     ForEach<VMDomainTxEdge, std::pair<uint8_t, uint256>, uint256>(
             [&callback](const std::pair<uint8_t, uint256> &key, uint256 val) {
                 auto k = std::make_pair(static_cast<VMDomainEdge>(key.first), key.second);
                 return callback(k, val);
-            });
+            }, std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }

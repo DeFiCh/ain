@@ -17,7 +17,7 @@ enum class VMDomainRPCMapType {
 
 static int VMDomainRPCMapTypeCount = 7;
 
-enum class VMDomainIndexType { BlockHash, TxHash };
+enum class VMDomainIndexType { BlockHashDVMToEVM, BlockHashEVMToDVM, TxHashDVMToEVM, TxHashEVMToDVM };
 
 UniValue evmtx(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
@@ -276,7 +276,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    size_t count{};
+    uint64_t count{};
     UniValue result{UniValue::VOBJ};
     UniValue indexesJson{UniValue::VOBJ};
     const auto type = static_cast<VMDomainIndexType>(request.params[0].get_int());
@@ -284,29 +284,54 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     // But there's no need to iterate the whole list, we can start at where we need to and
     // return false, once we hit the limit and stop the iter.
     switch (type) {
-        case VMDomainIndexType::BlockHash: {
+        case VMDomainIndexType::BlockHashDVMToEVM: {
             pcustomcsview->ForEachVMDomainBlockEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, uint256 blockHash) {
+                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
                         indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
                         ++count;
                     }
                     return true;
-                });
+                }, std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+            break;
         }
-        case VMDomainIndexType::TxHash: {
-            pcustomcsview->ForEachVMDomainTxEdges([&](const std::pair<VMDomainEdge, uint256> &index, uint256 txHash) {
+        case VMDomainIndexType::BlockHashEVMToDVM: {
+            pcustomcsview->ForEachVMDomainBlockEdges(
+                    [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
+                        if (index.first == VMDomainEdge::EVMToDVM) {
+                            indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                            ++count;
+                        }
+                        return true;
+                    }, std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+            break;
+        }
+        case VMDomainIndexType::TxHashDVMToEVM: {
+            pcustomcsview->ForEachVMDomainTxEdges([&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
                 if (index.first == VMDomainEdge::DVMToEVM) {
                     indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
                     ++count;
                 }
                 return true;
-            });
+            }, std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+            break;
         }
+        case VMDomainIndexType::TxHashEVMToDVM: {
+            pcustomcsview->ForEachVMDomainTxEdges([&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
+                if (index.first == VMDomainEdge::EVMToDVM) {
+                    indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                    ++count;
+                }
+                return true;
+            }, std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+            break;
+        }
+        default:
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "type out of range");
     }
 
     result.pushKV("indexes", indexesJson);
-    result.pushKV("count", static_cast<uint64_t>(count));
+    result.pushKV("count", count);
     return result;
 }
 
