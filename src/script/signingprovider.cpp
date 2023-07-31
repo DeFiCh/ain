@@ -205,6 +205,9 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
         if (store.GetCScript(script_id, script) && ExtractDestination(script, inner_dest)) {
             id = CKeyID::FromOrDefaultDestination(inner_dest, KeyType::WPKHashKeyType);
         }
+        else {
+            return {};
+        }
     }
     return id;
 }
