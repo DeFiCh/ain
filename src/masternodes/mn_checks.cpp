@@ -2634,8 +2634,11 @@ public:
         }
 
         CTokenImplementation token;
-        token.symbol         = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
         token.flags          = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
@@ -2651,6 +2654,18 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
+
+            if (tokenId && token.IsLoanToken() && IsEVMEnabled(height, mnview, consensus)) {
+                CrossBoundaryResult result;
+                evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+                                 rust::string(tokenName.c_str()),
+                                 rust::string(tokenSymbol.c_str()),
+                                 tokenId->ToString());
+
+                if (!result.ok) {
+                    return Res::Err("Error creating DST20 token: %s", result.reason);
+                }
+            }
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
