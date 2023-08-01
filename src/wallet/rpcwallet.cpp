@@ -4263,7 +4263,17 @@ UniValue addressmap(const JSONRPCRequest &request) {
                             1 - Address format: DFI -> ETH \n\
                             2 - Address format: ETH -> DFI \n"}
         },
-        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
+        RPCResult{
+            "{\n"
+            "    input :    \"address\",         (string) The input address to be converted\n"
+            "    type :     \"map type\"\n       (numeric) address map type indicator"
+            "    format : { \n"
+            "       bech32: \"address\"\n        (string, optional) output converted address"
+            "       p2pkh:  \"address\"\n        (string, optional) output converted address"
+            "       erc55 : \"address\"\n        ..."
+            "    }]\n"
+            "}\n"
+        },
         RPCExamples{HelpExampleCli("addressmap", R"('"<address>"' 1)")},
     }
         .Check(request);
@@ -4272,14 +4282,33 @@ UniValue addressmap(const JSONRPCRequest &request) {
 
     const std::string input = request.params[0].get_str();
 
-    const int typeInt = request.params[1].get_int();
+    int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
         throwInvalidParam();
     }
-    const auto type = static_cast<AddressConversionType>(request.params[1].get_int());
+
+    CTxDestination dest = DecodeDestination(input);
+
+    // auto infer type
+    if (typeInt == 0) {
+        if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
+            typeInt = 1;
+        } else if (dest.index() == WitV16KeyEthHashType) {
+            typeInt = 2;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+        }
+    }
+
+    const auto type = static_cast<AddressConversionType>(typeInt);
+
+    UniValue format(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("input", input);
+    ret.pushKV("type", typeInt);
+
     switch (type) {
         case AddressConversionType::DVMToEVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
                 throwInvalidParam();
             }
@@ -4287,10 +4316,10 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (key.IsCompressed()) {
                 key.Decompress();
             }
-            return EncodeDestination(WitnessV16EthHash(key));
+            format.pushKV("erc55", EncodeDestination(WitnessV16EthHash(key)));
+            break;
         }
         case AddressConversionType::EVMToDVMAddress: {
-            CTxDestination dest = DecodeDestination(input);
             if (dest.index() != WitV16KeyEthHashType) {
                 throwInvalidParam();
             }
@@ -4298,12 +4327,15 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (!key.IsCompressed()) {
                 key.Compress();
             }
-            return EncodeDestination(WitnessV0KeyHash(key));
+            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
+            break;
         }
         default:
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid address type passed");
-            break;
+            throwInvalidParam();
     }
+
+    ret.pushKV("format", format);
+    return ret;
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
