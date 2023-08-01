@@ -251,6 +251,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         {AttributeTypes::EVMType,
          {
             {"finality_count", EVMKeys::Finalized},
+            {"gas_limit", EVMKeys::GasLimit},
+            {"gas_target", EVMKeys::GasTarget},
          }},
         {AttributeTypes::Governance,
          {
@@ -347,6 +349,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         {AttributeTypes::EVMType,
          {
             {EVMKeys::Finalized, "finality_count"},
+            {EVMKeys::GasLimit, "gas_limit"},
+            {EVMKeys::GasTarget, "gas_target"},
          }},
         {AttributeTypes::Live,
          {
@@ -755,6 +759,8 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             {AttributeTypes::EVMType,
              {
                 {EVMKeys::Finalized, VerifyUInt32},
+                {EVMKeys::GasLimit, VerifyUInt32},
+                {EVMKeys::GasTarget, VerifyUInt32},
              }},
             {AttributeTypes::Governance,
              {
@@ -999,7 +1005,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::EVMType) {
             if (typeId == EVMIDs::Block) {
-                if (typeKey != EVMKeys::Finalized)
+                if (typeKey != EVMKeys::Finalized &&
+                    typeKey != EVMKeys::GasLimit &&
+                    typeKey != EVMKeys::GasTarget)
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
