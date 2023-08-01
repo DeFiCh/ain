@@ -74,6 +74,7 @@ impl TransactionQueueMap {
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
+    /// Returns `QueueError::InvalidFee` if the fee calculation overflows.
     ///
     pub fn queue_tx(
         &self,
@@ -86,7 +87,7 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| {
             queue.queue_tx(tx, hash, gas_used, base_fee)
         })
-        .flatten()
+        .and_then(|res| res)
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
@@ -100,6 +101,11 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, TransactionQueue::get_cloned_vec)
     }
 
+    /// Counts the number of transactions in the queue associated with the queue ID.
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
     pub fn count(&self, queue_id: u64) -> Result<usize> {
         self.with_transaction_queue(queue_id, TransactionQueue::len)
     }
@@ -117,7 +123,12 @@ impl TransactionQueueMap {
     /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
     /// and that their nonces are in increasing order.
-    /// Returns None whether the queue_id does not match a queue or the address does not match an account
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
+    /// Returns None when the address does not match an account or Some(nonce) with the next valid nonce (current + 1)
+    /// for the associated address
     pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
         self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
@@ -130,6 +141,10 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| queue.get_total_fees())
     }
 
+    /// Apply the closure to the queue associated with the queue ID.
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     pub fn with_transaction_queue<T, F>(&self, queue_id: u64, f: F) -> Result<T>
     where
         F: FnOnce(&TransactionQueue) -> T,
