@@ -688,9 +688,8 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
     // burn
     const auto resVal = SumAllTransfers(msg.to);
-    if (!resVal.ok) {
+    if (!resVal.ok)
         throw JSONRPCError(RPC_INVALID_PARAMETER, resVal.msg);
-    }
 
     const auto toBurn = *resVal.val;
     if (toBurn.balances.empty()) {
@@ -831,13 +830,11 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
 
     const auto resVal = SumAllTransfers(msg.to);
-      if (!resVal.ok) {
+      if (!resVal.ok)
         throw JSONRPCError(RPC_INVALID_PARAMETER, resVal.msg);
-    }
 
-    if ((*resVal.val).balances.empty()) {
+    if ((*resVal.val).balances.empty())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
-    }
 
     msg.from = DecodeScript(request.params[0].get_str());
 

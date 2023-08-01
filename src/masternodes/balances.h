@@ -74,10 +74,10 @@ struct CBalances {
         CBalances remainderBalances;
         for (const auto &kv : other) {
             auto resVal = SubWithRemainder(CTokenAmount{kv.first, kv.second});
-            Require(resVal);
             // if remainder token value is zero
             // this addition won't get any effect
-            Require(remainderBalances.Add(*resVal.val));
+            // TO DO: short circuit on failure with backward compatibility
+            auto res = remainderBalances.Add(*resVal.val);
         }
         return {remainderBalances, Res::Ok()};
     }
@@ -104,11 +104,12 @@ struct CBalances {
     }
 
     static ResVal<CBalances> Sum(const std::vector<CTokenAmount> &tokens) {
-        CBalances res;
+        CBalances out;
         for (const auto &token : tokens) {
-            Require(res.Add(token));
+            // TO DO: short circuit on failure with backward compatibility
+            const auto res = out.Add(token);
         }
-        return {res, Res::Ok()};
+        return {out, Res::Ok()};
     }
 
     friend bool operator==(const CBalances &a, const CBalances &b) { return a.balances == b.balances; }
@@ -289,7 +290,7 @@ struct CFutureSwapMessage {
 inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {
-        Require(sum.AddBalances(kv.second.balances));
+        const auto res = sum.AddBalances(kv.second.balances);
     }
     return {sum, Res::Ok()};
 }

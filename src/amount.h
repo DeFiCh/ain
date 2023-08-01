@@ -162,7 +162,8 @@ struct CTokenAmount { // simple std::pair is less informative
     NODISCARD ResVal<CAmount> SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            Require(Add(-amount));
+            const auto res = Add(-amount);
+            // TO DO: failure with backward compatibility
             return {0, Res::Ok()};
         }
         if (this->nValue < amount) {
@@ -171,7 +172,8 @@ struct CTokenAmount { // simple std::pair is less informative
             return {remainder, Res::Ok()};
         }
         // sub
-        Require(Sub(amount));
+        const auto res = Sub(amount);
+        // TO DO: failure with backward compatibility
         return {0, Res::Ok()};
     }
 
