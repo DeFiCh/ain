@@ -159,21 +159,22 @@ struct CTokenAmount { // simple std::pair is less informative
         return Res::Ok();
     }
 
-    // TODO: Switch to ResVal of CAmount
-    CAmount SubWithRemainder(CAmount amount) {
+    NODISCARD ResVal<CAmount> SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            Add(-amount);
-            return 0;
+            auto res = Add(-amount);
+            Require(res);
+            return {0, Res::Ok()};
         }
         if (this->nValue < amount) {
             CAmount remainder = amount - this->nValue;
             this->nValue = 0;
-            return remainder;
+            return {remainder, Res::Ok()};
         }
         // sub
-        this->nValue -= amount;
-        return 0;
+        auto res = Sub(amount);
+        Require(res);
+        return {0, Res::Ok()};
     }
 
     ADD_SERIALIZE_METHODS;

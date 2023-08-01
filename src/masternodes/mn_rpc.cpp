@@ -87,7 +87,12 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
             auto itTokenAmount = accountBalances.second.balances.find(tokenId);
             if (itTokenAmount != accountBalances.second.balances.end()) {
                 CTokenAmount tokenBalance{itTokenAmount->first, itTokenAmount->second};
-                auto remainder = residualBalances.SubWithRemainder(tokenBalance);
+                auto resVal = residualBalances.SubWithRemainder(tokenBalance);
+                if (!resVal.ok) {
+                    return {};
+                }
+
+                auto remainder = *resVal.val;
                 // calculate final balances by substraction account balances with remainder
                 // it is necessary to get rid of excess
                 if (remainder != tokenBalance) {
