@@ -13,7 +13,7 @@
 struct CBalances {
     TAmounts balances;
 
-    Res Add(CTokenAmount amount) {
+    NODISCARD Res Add(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
@@ -29,7 +29,7 @@ struct CBalances {
         return Res::Ok();
     }
 
-    Res Sub(CTokenAmount amount) {
+    NODISCARD Res Sub(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
@@ -46,7 +46,7 @@ struct CBalances {
         return Res::Ok();
     }
 
-    ResVal<CTokenAmount> SubWithRemainder(CTokenAmount amount) {
+    NODISCARD ResVal<CTokenAmount> SubWithRemainder(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return {{amount.nTokenId, 0}, Res::Ok()};
         }
@@ -61,7 +61,7 @@ struct CBalances {
         return {CTokenAmount{amount.nTokenId, *resVal.val}, Res::Ok()};
     }
 
-    Res SubBalances(const TAmounts &other) {
+    NODISCARD Res SubBalances(const TAmounts &other) {
         for (const auto &[tokenId, amount] : other) {
             if (auto res = Sub(CTokenAmount{tokenId, amount}); !res) {
                 return res;
@@ -70,19 +70,20 @@ struct CBalances {
         return Res::Ok();
     }
 
-    ResVal<CBalances> SubBalancesWithRemainder(const TAmounts &other) {
+    NODISCARD ResVal<CBalances> SubBalancesWithRemainder(const TAmounts &other) {
         CBalances remainderBalances;
         for (const auto &kv : other) {
             auto resVal = SubWithRemainder(CTokenAmount{kv.first, kv.second});
             Require(resVal);
             // if remainder token value is zero
             // this addition won't get any effect
-            remainderBalances.Add(*resVal.val);
+            const auto res = remainderBalances.Add(*resVal.val);
+            Require(res);
         }
         return {remainderBalances, Res::Ok()};
     }
 
-    Res AddBalances(const TAmounts &other) {
+    NODISCARD Res AddBalances(const TAmounts &other) {
         for (const auto &[tokenId, amount] : other) {
             if (auto res = Add(CTokenAmount{tokenId, amount}); !res) {
                 return res;
@@ -103,12 +104,12 @@ struct CBalances {
         return str;
     }
 
-    static CBalances Sum(const std::vector<CTokenAmount> &tokens) {
+    static ResVal<CBalances> Sum(const std::vector<CTokenAmount> &tokens) {
         CBalances res;
         for (const auto &token : tokens) {
-            res.Add(token);
+            Require(res.Add(token));
         }
-        return res;
+        return {res, Res::Ok()};
     }
 
     friend bool operator==(const CBalances &a, const CBalances &b) { return a.balances == b.balances; }
@@ -286,12 +287,12 @@ struct CFutureSwapMessage {
     }
 };
 
-inline CBalances SumAllTransfers(const CAccounts &to) {
+inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {
-        sum.AddBalances(kv.second.balances);
+        Require(sum.AddBalances(kv.second.balances));
     }
-    return sum;
+    return {sum, Res::Ok()};
 }
 
 struct BalanceKey {
