@@ -52,7 +52,8 @@ struct CBalances {
         }
         auto current   = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
         auto resVal    = current.SubWithRemainder(amount.nValue);
-        Require(resVal);
+        if (!resVal.ok)
+            return resVal;
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
