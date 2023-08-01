@@ -77,8 +77,7 @@ struct CBalances {
             Require(resVal);
             // if remainder token value is zero
             // this addition won't get any effect
-            const auto res = remainderBalances.Add(*resVal.val);
-            Require(res);
+            Require(remainderBalances.Add(*resVal.val));
         }
         return {remainderBalances, Res::Ok()};
     }

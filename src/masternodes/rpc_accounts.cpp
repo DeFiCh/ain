@@ -606,10 +606,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
             const auto evmAmount = evm_get_balance(address);
-            const auto res = totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
-            if (!res.ok) {
-                throw JSONRPCError(RPC_INTERNAL_ERROR, res.msg);
-            }
+            totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
         }
     }
 
@@ -838,8 +835,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, resVal.msg);
     }
 
-    const auto out = *resVal.val;
-    if (out.balances.empty()) {
+    if ((*resVal.val).balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
