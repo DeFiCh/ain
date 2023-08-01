@@ -13,7 +13,7 @@
 struct CBalances {
     TAmounts balances;
 
-    NODISCARD Res Add(CTokenAmount amount) {
+    Res Add(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
@@ -29,7 +29,7 @@ struct CBalances {
         return Res::Ok();
     }
 
-    NODISCARD Res Sub(CTokenAmount amount) {
+    Res Sub(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
@@ -46,7 +46,7 @@ struct CBalances {
         return Res::Ok();
     }
 
-    NODISCARD ResVal<CTokenAmount> SubWithRemainder(CTokenAmount amount) {
+    ResVal<CTokenAmount> SubWithRemainder(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return {{amount.nTokenId, 0}, Res::Ok()};
         }
@@ -61,7 +61,7 @@ struct CBalances {
         return {CTokenAmount{amount.nTokenId, *resVal.val}, Res::Ok()};
     }
 
-    NODISCARD Res SubBalances(const TAmounts &other) {
+    Res SubBalances(const TAmounts &other) {
         for (const auto &[tokenId, amount] : other) {
             if (auto res = Sub(CTokenAmount{tokenId, amount}); !res) {
                 return res;
@@ -70,7 +70,7 @@ struct CBalances {
         return Res::Ok();
     }
 
-    NODISCARD ResVal<CBalances> SubBalancesWithRemainder(const TAmounts &other) {
+    ResVal<CBalances> SubBalancesWithRemainder(const TAmounts &other) {
         CBalances remainderBalances;
         for (const auto &kv : other) {
             auto resVal = SubWithRemainder(CTokenAmount{kv.first, kv.second});
@@ -83,7 +83,7 @@ struct CBalances {
         return {remainderBalances, Res::Ok()};
     }
 
-    NODISCARD Res AddBalances(const TAmounts &other) {
+    Res AddBalances(const TAmounts &other) {
         for (const auto &[tokenId, amount] : other) {
             if (auto res = Add(CTokenAmount{tokenId, amount}); !res) {
                 return res;

@@ -606,7 +606,10 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
             const auto evmAmount = evm_get_balance(address);
-            totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+            const auto res = totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+            if (!res.ok) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, res.msg);
+            }
         }
     }
 
@@ -687,7 +690,12 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     scriptBurn << OP_RETURN;
 
     // burn
-    const auto toBurn = SumAllTransfers(msg.to);
+    const auto resVal = SumAllTransfers(msg.to);
+    if (!resVal.ok) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, resVal.msg);
+    }
+
+    const auto toBurn = *resVal.val;
     if (toBurn.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
@@ -825,7 +833,13 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     CAccountToAccountMessage msg{};
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
 
-    if (SumAllTransfers(msg.to).balances.empty()) {
+    const auto resVal = SumAllTransfers(msg.to);
+      if (!resVal.ok) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, resVal.msg);
+    }
+
+    const auto out = *resVal.val;
+    if (out.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
