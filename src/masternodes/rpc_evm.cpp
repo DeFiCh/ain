@@ -220,11 +220,39 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     const std::string input = request.params[0].get_str();
 
-    const int typeInt = request.params[1].get_int();
+    int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
         throwInvalidParam();
     }
-    const auto type = static_cast<VMDomainRPCMapType>(request.params[1].get_int());
+
+    // auto infers type
+    if (typeInt == 0) {
+        // if dvm tx hash => 1
+        // if evm tx hash => 2
+        // if dvm block hash => 3
+        // if evm block hash => 4
+
+        // block number
+        uint64_t height;
+        if (ParseUInt64(input, &height)) {
+            CrossBoundaryResult result;
+            auto evmBlockCount = evm_try_get_block_count(result);
+            if (!result.ok) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, result.reason.c_str());
+            }
+            // evm block count never greater than dvm block count
+            if (height > evmBlockCount) {
+                typeInt = 5; // BlockNumberDVMToEVM
+            } else {
+                // as dvm input always greater than evm block count after evm enabled
+                typeInt = 6; // BlockNumberEVMToDVM
+            }
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+        }
+    }
+
+    const auto type = static_cast<VMDomainRPCMapType>(typeInt);
     LOCK(cs_main);
 
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
