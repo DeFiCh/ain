@@ -11,7 +11,7 @@ use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
-use crate::txqueue::QueueTx;
+use crate::blocktemplate::BlockTx;
 
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
@@ -177,7 +177,7 @@ impl EVMServices {
 
         for queue_item in self.core.tx_queues.get_cloned_vec(queue_id) {
             match queue_item.queue_tx {
-                QueueTx::SignedTx(signed_tx) => {
+                BlockTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
                         return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
@@ -211,7 +211,7 @@ impl EVMServices {
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push(receipt);
                 }
-                QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
+                BlockTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
                         address, amount, queue_id
@@ -221,7 +221,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
-                QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
+                BlockTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
                     debug!(
                         "[finalize_block] EvmOut for address {}, amount: {}",
                         address, amount
@@ -232,7 +232,7 @@ impl EVMServices {
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
-                QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                BlockTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
                     symbol,
                     address,
@@ -252,7 +252,7 @@ impl EVMServices {
                         debug!("[finalize_block] EvmOut failed with {e}");
                     }
                 }
-                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                BlockTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                     to,
                     contract,
                     amount,
@@ -392,7 +392,7 @@ impl EVMServices {
     pub fn queue_tx(
         &self,
         queue_id: u64,
-        tx: QueueTx,
+        tx: BlockTx,
         hash: NativeTxHash,
         gas_used: U256,
     ) -> Result<(), EVMError> {
@@ -407,7 +407,7 @@ impl EVMServices {
             .tx_queues
             .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
-        if let QueueTx::SignedTx(signed_tx) = tx {
+        if let BlockTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())
         }
 

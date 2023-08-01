@@ -1,5 +1,6 @@
 mod backend;
 pub mod block;
+pub mod blocktemplate;
 pub mod bytes;
 pub mod core;
 mod ecrecover;
@@ -17,5 +18,4 @@ pub mod storage;
 pub mod traits;
 pub mod transaction;
 mod trie;
-pub mod txqueue;
 pub mod weiamount;

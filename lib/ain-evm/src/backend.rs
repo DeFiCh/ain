@@ -62,6 +62,14 @@ impl EVMBackend {
         })
     }
 
+    pub fn reset(&mut self, state_root: H256) -> Result<()> {
+        self.state = self.trie_store
+            .trie_db
+            .trie_restore(&[0], None, state_root.into())
+            .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
+        Ok(())
+    }
+
     pub fn apply<I: IntoIterator<Item = (H256, H256)>>(
         &mut self,
         address: H160,

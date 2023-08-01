@@ -10,7 +10,7 @@ use std::error::Error;
 
 use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::txqueue::QueueTx;
+use ain_evm::blocktemplate::BlockTx;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
@@ -475,7 +475,7 @@ fn create_dst20(
     let address = ain_contracts::dst20_address_from_token_id(token_id)?;
     debug!("Deploying to address {:#?}", address);
 
-    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+    let system_tx = BlockTx::SystemTx(SystemTx::DeployContract(DeployContractData {
         name: String::from(name),
         symbol: String::from(symbol),
         address,
@@ -498,7 +498,7 @@ fn bridge_to_dst20(
     let address = address.parse()?;
     let contract = ain_contracts::dst20_address_from_token_id(token_id)?;
 
-    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+    let system_tx = BlockTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         to: address,
         contract,
         amount: amount.into(),
