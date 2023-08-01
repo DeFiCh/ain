@@ -145,5 +145,12 @@ pub mod ffi {
             token_id: &str,
             out: bool,
         );
+        fn evm_try_dst20_is_deployed(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            name: &str,
+            symbol: &str,
+            token_id: &str,
+        ) -> bool;
     }
 }

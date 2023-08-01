@@ -164,13 +164,13 @@ impl TransactionQueueMap {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
     SystemTx(SystemTx),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueueTxItem {
     pub queue_tx: QueueTx,
     pub tx_hash: NativeTxHash,

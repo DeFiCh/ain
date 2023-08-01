@@ -496,4 +496,37 @@ impl EVMServices {
             storage: vec![(storage_index, ain_contracts::u256_to_h256(new_balance))],
         })
     }
+
+    pub fn dst20_is_deployed(
+        &self,
+        queue_id: u64,
+        name: &str,
+        symbol: &str,
+        token_id: &str,
+    ) -> Result<bool, Box<dyn Error>> {
+        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+        debug!("[dst20_is_deployed] Fetching address {:#?}", address);
+
+        let backend = self.core.get_latest_block_backend()?;
+        // Address already deployed
+        if backend.get_account(&address).is_some() {
+            return Ok(true);
+        }
+
+        let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            name: String::from(name),
+            symbol: String::from(symbol),
+            address,
+        }));
+
+        // Check if deployement is queued
+        let is_queued = self
+            .core
+            .tx_queues
+            .get_cloned_vec(queue_id)
+            .iter()
+            .any(|tx| tx.queue_tx == deploy_tx);
+
+        Ok(is_queued)
+    }
 }

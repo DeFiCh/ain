@@ -97,7 +97,7 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
