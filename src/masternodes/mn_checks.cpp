@@ -2744,7 +2744,6 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
-            attributes->evmQueueId = evmQueueId;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
