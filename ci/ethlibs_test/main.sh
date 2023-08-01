@@ -71,7 +71,7 @@ setup_fixtures() {
     $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"500@DFI"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
-    $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES": {"v0/params/feature/evm:"true",
+    $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES": {"v0/params/feature/evm":"true",
                                                    "v0/params/feature/transferdomain": "true",
                                                    "v0/transferdomain/dvm-evm/enabled": "true",
                                                    "v0/transferdomain/dvm-evm/src-formats": ["p2pkh","bech32"],
