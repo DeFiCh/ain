@@ -34,8 +34,6 @@ public:
     KeyAddressType type{KeyAddressType::DEFAULT};
 
     static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
-        // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
-        // flags here and use bit flag logic to decode only specific destinations
         auto destType = FromOrDefaultDestinationTypeToKeyType(dest.index()) & filter;
         switch (destType) {
             case KeyType::PKHashKeyType:
