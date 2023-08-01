@@ -61,6 +61,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
         {"transferdomain", AttributeTypes::Transfer  },
         {"evm",            AttributeTypes::EVMType   },
         {"vaults",         AttributeTypes::Vaults    },
+        {"rules",          AttributeTypes::Rules     },
     };
     return types;
 }
@@ -78,6 +79,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
         {AttributeTypes::Transfer,   "transferdomain"},
         {AttributeTypes::EVMType,    "evm"           },
         {AttributeTypes::Vaults,     "vaults"        },
+        {AttributeTypes::Rules,      "rules"         },
     };
     return types;
 }
@@ -192,6 +194,20 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayVaultIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t> &ATTRIBUTES::allowedRulesIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"tx", RulesIDs::TXRules},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayRulesIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {RulesIDs::TXRules, "tx"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {AttributeTypes::Token,
@@ -281,6 +297,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         {
              {"enabled", VaultKeys::DUSDVaultEnabled},
         }},
+        {AttributeTypes::Rules,
+         {
+            {"opreturn_size", RulesKeys::OPReturnSize},
+         }},
     };
     return keys;
 }
@@ -396,6 +416,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         {
              {VaultKeys::DUSDVaultEnabled, "enabled"},
         }},
+        {AttributeTypes::Rules,
+         {
+            {RulesKeys::OPReturnSize, "opreturn_size"},
+         }},
     };
     return keys;
 }
@@ -781,6 +805,10 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             {
                  {VaultKeys::DUSDVaultEnabled, VerifyBool},
             }},
+            {AttributeTypes::Rules,
+             {
+                {RulesKeys::OPReturnSize, VerifyUInt32},
+             }},
     };
     return parsers;
 }
@@ -918,6 +946,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("vaults", allowedVaultIDs());
         }
         typeId = id->second;
+    } else if (type == AttributeTypes::Rules) {
+        auto id = allowedRulesIDs().find(keys[2]);
+        if (id == allowedRulesIDs().end()) {
+            return DeFiErrors::GovVarVariableInvalidKey("rules", allowedRulesIDs());
+        }
+        typeId = id->second;
     }
     else {
         auto id = VerifyInt32(keys[2]);
@@ -1043,6 +1077,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             if (typeId == VaultIDs::DUSDVault) {
                 if (typeKey != VaultKeys::DUSDVaultEnabled) {
                     return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
+                }
+            } else {
+                return DeFiErrors::GovVarVariableUnsupportedGovType();
+            }
+        } else if (type == AttributeTypes::Rules) {
+            if (typeId == RulesIDs::TXRules) {
+                if (typeKey != RulesKeys::OPReturnSize) {
+                    return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
                 }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
@@ -1405,6 +1447,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayTransferIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Vaults) {
                 id = displayVaultIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::Rules) {
+                id = displayRulesIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1859,6 +1903,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
                         return Res::Err("Cannot be set before NextNetworkUpgrade");
                     }
+                }
+                break;
+
+            case AttributeTypes::Rules:
+                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 break;
 

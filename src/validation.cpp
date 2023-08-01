@@ -2597,6 +2597,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
 
+    const auto attributes = accountsView.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 opreturnKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::OPReturnSize};
+    const auto opreturnMaxSize = attributes->GetValue(opreturnKey, uint32_t{});
+
+    // Set global variable for staking nodes
+    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight && opreturnMaxSize) {
+        nMaxDatacarrierBytes = opreturnMaxSize;
+    }
+
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // Execute TXs
@@ -2726,13 +2737,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
-        // Search for burn outputs
         for (uint32_t j = 0; j < tx.vout.size(); ++j)
         {
+            // Search for burn outputs
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
                 writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
+            }
+
+            // Make sure we have no OP_RETURN outputs larger than the expected size
+            if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight && opreturnMaxSize) {
+                opcodetype opcode;
+                auto pc = tx.vout[j].scriptPubKey.begin();
+                if (tx.vout[j].scriptPubKey.GetOp(pc, opcode) && opcode == OP_RETURN && tx.vout[j].scriptPubKey.size() > opreturnMaxSize) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: OP_RETURN too large", __func__), REJECT_INVALID, "excessive-opreturn");
+                }
             }
         }
 
@@ -2761,9 +2781,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
     // Reject block without token split coinbase TX outputs.
-    const auto attributes = accountsView.GetAttributes();
-    assert(attributes);
-
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
