@@ -62,7 +62,7 @@ impl ReceiptService {
         transactions
             .iter()
             .enumerate()
-            .zip(receipts.into_iter())
+            .zip(receipts)
             .map(|((index, signed_tx), receipt)| {
                 let receipt_data = match &receipt {
                     ReceiptV3::Legacy(data)
