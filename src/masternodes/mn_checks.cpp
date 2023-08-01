@@ -1760,7 +1760,8 @@ public:
                     {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
                 for (const auto &[key, value] : userFuturesValues) {
-                    totalFutures.Add(value.source.nValue);
+                    const auto res = totalFutures.Add(value.source.nValue);
+                    Require(res);
                     mnview.EraseFuturesUserValues(key);
                 }
             } else {
@@ -1776,7 +1777,8 @@ public:
                     {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
                 for (const auto &[key, amount] : userFuturesValues) {
-                    totalFutures.Add(amount);
+                    const auto res = totalFutures.Add(amount);
+                    Require(res);
                     mnview.EraseFuturesDUSD(key);
                 }
             }

@@ -96,7 +96,10 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
                 // calculate final balances by substraction account balances with remainder
                 // it is necessary to get rid of excess
                 if (remainder != tokenBalance) {
-                    tokenBalance.Sub(remainder.nValue);
+                    auto res = tokenBalance.Sub(remainder.nValue);
+                    if (!res.ok) {
+                        return {};
+                    }
                     selectedAccountsBalances[accountBalances.first].Add(tokenBalance);
                 }
             }
