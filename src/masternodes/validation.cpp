@@ -980,7 +980,7 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
     cache.SetVariable(*attributes);
 }
 
-static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
@@ -994,6 +994,7 @@ static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, co
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
+                govVar->evmQueueId = pindex->GetBlockTime();
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -2472,7 +2473,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessFutures(pindex, cache, chainparams);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams);
+    ProcessGovEvents(pindex, cache, chainparams, evmQueueId);
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);

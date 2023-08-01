@@ -12,6 +12,8 @@
 #include <masternodes/mn_checks.h>        /// GetAggregatePrice / CustomTxType
 #include <validation.h>                   /// GetNextAccPosition
 
+#include <ain_rs_exports.h>
+
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
@@ -1631,7 +1633,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             }
                         }
                         [[fallthrough]];
-                    case TokenKeys::LoanMintingInterest:
+                    case TokenKeys::LoanMintingInterest: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
                             if (amount) {
@@ -1640,19 +1642,45 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                                 }
                             }
                         }
-                        [[fallthrough]];
+                        if (!VerifyToken(view, attrV0->typeId)) {
+                            return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                        }
+                        CDataStructureV0 intervalPriceKey{
+                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                            return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+                        break;
+                    }
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
-                        if (!VerifyToken(view, attrV0->typeId)) {
+                        const auto tokenID = DCT_ID{attrV0->typeId};
+                        const auto token = view.GetToken(tokenID);
+                        if (!token) {
                             return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                         }
                         CDataStructureV0 intervalPriceKey{
                             AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+
+                        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+                        CrossBoundaryResult result;
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight &&
+                            GetValue(enabledKey, false) &&
+                            !evm_try_dst20_is_deployed(result, evmQueueId, token->name, token->symbol, tokenID.ToString())) {
+                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
+                                                 token->name,
+                                                 token->symbol,
+                                                 tokenID.ToString());
+
+                            if (!result.ok) {
+                                return DeFiErrors::GovVarErrorCreatingDST20(result.reason.c_str());
+                            }
                         }
                         break;
                     }

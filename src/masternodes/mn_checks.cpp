@@ -1852,6 +1852,7 @@ public:
                 }
 
                 govVar->time = time;
+                govVar->evmQueueId = evmQueueId;
 
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
@@ -2654,18 +2655,7 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
-
-            if (tokenId && token.IsLoanToken() && IsEVMEnabled(height, mnview, consensus)) {
-                CrossBoundaryResult result;
-                evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
-                                 rust::string(tokenName.c_str()),
-                                 rust::string(tokenSymbol.c_str()),
-                                 tokenId->ToString());
-
-                if (!result.ok) {
-                    return Res::Err("Error creating DST20 token: %s", result.reason);
-                }
-            }
+            attributes->evmQueueId = evmQueueId;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
@@ -2754,6 +2744,7 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
+            attributes->evmQueueId = evmQueueId;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
