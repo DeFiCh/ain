@@ -301,9 +301,9 @@ def hex_to_decimal(value):
     COIN = 100000000
 
     amount = int(value, 0)
-    wei = Decimal(amount / WEI);
-    sat = Decimal(wei / GWEI);
-    decimal = Decimal(sat / COIN);
+    wei = Decimal(amount / WEI)
+    sat = Decimal(wei / GWEI)
+    decimal = Decimal(sat / COIN)
 
     return decimal
 
