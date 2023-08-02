@@ -9,7 +9,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    int_to_eth_u256
+    int_to_eth_u256,
+    hex_to_decimal
 )
 from decimal import Decimal
 from web3 import Web3
@@ -315,8 +316,30 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees
+        txLegacy = {
+            'nonce': '0x1',
+            'from': eth_address,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x4e3b29200', # 21_000_000_000,
+        }
+        txLegacy0 = {
+            'nonce': '0x0',
+            'from': eth_address,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x51F4D5C00', # 22_000_000_000,
+        }
+
+        # Check accounting of EVM fees
+        fees = self.nodes[0].debug_feeEstimate(txLegacy)
+        fees0 = self.nodes[0].debug_feeEstimate(txLegacy0)
+        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        self.burnt_fee0 = hex_to_decimal(fees0["burnt_fee"])
+        self.paid_fee = hex_to_decimal(fees["priority_fee"])
+        self.paid_fee0 = hex_to_decimal(fees0["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00126000'), 'paid': Decimal('0.00140700')})
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee * 5 + self.burnt_fee0, 'paid': self.paid_fee * 5 + self.paid_fee0})
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
@@ -403,12 +426,16 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
 
         # Test error at the 65th EVM TX
-        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 64, 21, 21001, to_address, 1)
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 63, 21, 21001, to_address, 1)
 
         # Mint a block
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(len(block_txs), 64)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee * 63, 'paid': self.paid_fee * 63})
 
         # Check Eth balances after transfer
         assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 136972217000000000000)
@@ -417,6 +444,10 @@ class EVMTest(DefiTestFramework):
         # Try and send another TX to make sure mempool has removed entires
         tx = self.nodes[0].evmtx(eth_address, 63, 21, 21001, to_address, 1)
         self.nodes[0].generate(1)
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee * 64, 'paid': self.paid_fee * 64})
 
         # Check TX is in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
@@ -444,8 +475,18 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees
+        txLegacy64 = {
+            'nonce': '0x1',
+            'from': eth_address,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x5D21DBA00', # 25_000_000_000,
+        }
+        fees64 = self.nodes[0].debug_feeEstimate(txLegacy64)
+        self.burnt_fee64 = hex_to_decimal(fees64["burnt_fee"])
+        self.paid_fee64 = hex_to_decimal(fees64["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.01386000'), 'paid': Decimal('0.01541400')})
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee * 64 + 2 * self.burnt_fee64, 'paid': self.paid_fee * 64 + 2 * self.paid_fee64})
 
         # Check highest paying fee TX in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']

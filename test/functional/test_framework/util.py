@@ -282,6 +282,30 @@ def int_to_eth_u256(value):
 
     return hex(converted_value)
 
+def hex_to_decimal(value):
+    """
+    Convert a hexadecimal string to decimal in satoshi format.
+
+    The input value is converted to int and then divided from GWEI to sat and
+    again divided by COIN to get decimals.
+
+    Args:
+        value (str): Hexadecimal string to convert.
+
+    Returns:
+        Decimal: Decimal represantation of the value in satoshis
+
+    """
+    GWEI = 1000000000
+    WEI = 10
+    COIN = 100000000
+
+    amount = int(value, 0)
+    wei = Decimal(amount / WEI);
+    sat = Decimal(wei / GWEI);
+    decimal = Decimal(sat / COIN);
+
+    return decimal
 
 # RPC/P2P connection constants and functions
 ############################################

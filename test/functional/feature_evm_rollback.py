@@ -8,7 +8,8 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    hex_to_decimal
 )
 
 class EVMRolllbackTest(DefiTestFramework):
@@ -83,6 +84,20 @@ class EVMRolllbackTest(DefiTestFramework):
             'gasPrice': '0x2540BE400',
         })
         self.nodes[0].generate(1)
+
+        # Check accounting of EVM fees
+        tx = {
+            'from': self.ethAddress,
+            'to': self.toAddress,
+            'value': '0xa',
+            'gas': '0x7a120', # 500_000
+            'gasPrice': '0x2540BE400', # 10_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(tx)
+        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        self.paid_fee = hex_to_decimal(fees["priority_fee"])
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
 
         blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
         blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(blockNumberPreInvalidation)

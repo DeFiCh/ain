@@ -9,7 +9,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    int_to_eth_u256
+    int_to_eth_u256,
+    hex_to_decimal
 )
 
 from decimal import Decimal
@@ -135,8 +136,18 @@ class EVMTest(DefiTestFramework):
         assert_equal(block, latest_block)
 
         # Check accounting of EVM fees
+        txLegacy = {
+            'nonce': '0x1',
+            'from': self.ethAddress,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x4e3b29200', # 21_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(txLegacy)
+        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        self.paid_fee = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': Decimal('0.00021000'), 'paid': Decimal('0.00023100')})
+        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
 
     def run_test(self):
         self.setup()
