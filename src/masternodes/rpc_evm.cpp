@@ -6,7 +6,8 @@
 #include <util/strencodings.h>
 
 enum class VMDomainRPCMapType {
-    Auto,
+    Unknown = -1,
+    Auto = 0,
     TxHashDVMToEVM,
     TxHashEVMToEVM,
     BlockHashDVMToEVM,
@@ -189,22 +190,6 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
     return blockNumber;
 }
 
-int autoInferHash(const uint256 input) {
-    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input)) {
-        return 1; // VMDomainRPCMapType::TxHashDVMToEVM
-    }
-    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input)) {
-        return 2; // VMDomainRPCMapType::TxHashEVMToDVM
-    }
-    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input)) {
-        return 3; // VMDomainRPCMapType::BlockHashDVMToEVM
-    }
-    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input)) {
-        return 4;// VMDomainRPCMapType::BlockHashEVMToDVM
-    }
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
-}
-
 UniValue vmmap(const JSONRPCRequest &request) {
     RPCHelpMan{
         "vmmap",
@@ -227,7 +212,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter"); };
+    auto throwUnsupportedAuto = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, "Automatic detection not viable for input"); };
 
     auto ensureEVMHashPrefixed = [](const std::string &str, const VMDomainRPCMapType type) {
         if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
@@ -243,34 +229,83 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
 
-    // auto infers type
-    if (typeInt == 0) {
-        // block number
+    auto tryResolveMapBlockOrTxResult = [](ResVal<uint256>& res, const uint256 input) {
+        res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
+        if (res) return VMDomainRPCMapType::TxHashDVMToEVM;
+        
+        res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
+        if (res) return VMDomainRPCMapType::TxHashEVMToEVM;
+
+        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
+        if (res) return VMDomainRPCMapType::BlockHashDVMToEVM;
+
+        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
+        if (res) return VMDomainRPCMapType::BlockHashEVMToDVM;
+
+        return VMDomainRPCMapType::Unknown;
+    };
+
+    auto tryResolveBlockNumberType = [&throwInvalidParam, &throwUnsupportedAuto](const std::string input) {
         uint64_t height;
-        if (ParseUInt64(input, &height)) {
-            CrossBoundaryResult result;
-            auto evmBlockCount = evm_try_get_block_count(result);
-            if (!result.ok) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, result.reason.c_str());
-            }
-            // evm block count always less than dvm block count
-            if (height > evmBlockCount) {
-                typeInt = 5; // BlockNumberDVMToEVM
-            } else {
-                // dvm input(after evm enabled) always greater than evm block count
-                typeInt = 6; // BlockNumberEVMToDVM
-            }
-        } else if (input.length() == 64 || input.length() == 66) { // hash
-            typeInt = autoInferHash(uint256S(input));
+        if (!ParseUInt64(input, &height)) {
+            return VMDomainRPCMapType::Unknown;
+        }
+        CrossBoundaryResult result;
+        auto evmBlockCount = evm_try_get_block_count(result);
+        if (!result.ok) {
+            throwInvalidParam();
+        }
+        // evm block count always less than dvm block count
+        if (height > evmBlockCount) { 
+            return VMDomainRPCMapType::BlockNumberDVMToEVM;
         } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+            // Add another else branch with
+            // (height < firstEvmBlock && height <= evmBlockCount) == EVM to DVM
+            throwUnsupportedAuto();
+            return VMDomainRPCMapType::Unknown;
+        }
+    };
+
+    auto type = static_cast<VMDomainRPCMapType>(typeInt);
+    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
+
+    auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
+        auto r = tryResolveBlockNumberType(input);
+        if (r != VMDomainRPCMapType::Unknown)
+            return { r, false };
+
+        auto inLength = input.length();
+        if (inLength == 64 || inLength == 66) {
+            r = tryResolveMapBlockOrTxResult(res, uint256S(input));
+            // We don't pass this type back on purpose
+            if (r != VMDomainRPCMapType::Unknown) {
+                return { r, true };
+            }
+        }
+        throwUnsupportedAuto();
+        return { VMDomainRPCMapType::Unknown, false };
+    };
+
+    auto finalizeResult = [&](ResVal<uint256>& res, const VMDomainRPCMapType type) {
+        if (!res) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
+        } else {
+            return ensureEVMHashPrefixed(res.val->ToString(), type);
+        }
+    };
+
+    LOCK(cs_main);
+
+
+    if (type == VMDomainRPCMapType::Auto) {
+        auto r = handleAutoInfer();
+        type = std::get<0>(r);
+        auto isResolved = std::get<1>(r);
+        if (isResolved) {
+            return finalizeResult(res, type);
         }
     }
 
-    const auto type = static_cast<VMDomainRPCMapType>(typeInt);
-    LOCK(cs_main);
-
-    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
             res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
@@ -299,11 +334,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
     }
 
-    if (!res) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
-    } else {
-        return ensureEVMHashPrefixed(res.val->ToString(), type);
-    }
+    return finalizeResult(res, type);
 }
 
 UniValue logvmmaps(const JSONRPCRequest &request) {
