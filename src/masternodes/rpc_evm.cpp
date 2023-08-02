@@ -229,11 +229,6 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     // auto infers type
     if (typeInt == 0) {
-        // if dvm tx hash => 1
-        // if evm tx hash => 2
-        // if dvm block hash => 3
-        // if evm block hash => 4
-
         // block number
         uint64_t height;
         if (ParseUInt64(input, &height)) {
@@ -248,6 +243,29 @@ UniValue vmmap(const JSONRPCRequest &request) {
             } else {
                 // dvm input(after evm enabled) always greater than evm block count
                 typeInt = 6; // BlockNumberEVMToDVM
+            }
+        } else if (input.length() == 64 || input.length() == 66) { // hash
+            ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+            if (!res) {
+                res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+                if (!res) {
+                    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+                    if (!res) {
+                        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+                        if (!res) {
+                            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+                        } else {
+                            typeInt = 4;
+                        }
+                    } else {
+                        typeInt = 3;
+                    }
+                } else {
+                    typeInt = 2;
+                }
+            } else {
+                typeInt = 1;
             }
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");

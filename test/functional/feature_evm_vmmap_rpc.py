@@ -78,6 +78,9 @@ class VMMapTests(DefiTestFramework):
             assert_equal(self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM), item[0])
 
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.Auto), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.Auto), item[0])
+
     def vmmap_invalid_should_fail(self):
         self.rollback_to(self.start_block_height)
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
@@ -106,6 +109,9 @@ class VMMapTests(DefiTestFramework):
         for item in block_maps:
             assert_equal(self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
+
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.Auto), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.Auto), item[0])
 
     def vmmap_valid_block_number_should_succeed(self):
         self.rollback_to(self.start_block_height)
