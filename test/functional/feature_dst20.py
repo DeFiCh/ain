@@ -9,6 +9,7 @@ import math
 import time
 from decimal import Decimal
 from web3 import Web3
+import os
 
 from test_framework.evm_key_pair import KeyPair
 from test_framework.test_framework import DefiTestFramework
@@ -488,7 +489,7 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
-        self.abi = open("./lib/ain-contracts/dst20/output/abi.json", "r", encoding="utf8").read()
+        self.abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/abi.json", "r", encoding="utf8").read()
 
         # Generate chain
         self.node.generate(150)
