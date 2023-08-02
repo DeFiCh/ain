@@ -367,24 +367,42 @@ impl EVMServices {
         })
     }
 
-
-    pub fn queue_tx(
+    pub fn add_tx_to_block_template(
         &self,
-        queue_id: u64,
-        tx: BlockTx,
+        template_id: u64,
+        tx: &str,
         hash: NativeTxHash,
         gas_used: U256,
-    ) -> Result<(), EVMError> {
-        let parent_data = self.block.get_latest_block_hash_and_number();
-        let parent_hash = match parent_data {
-            Some((hash, _)) => hash,
-            None => H256::zero(),
-        };
-        let base_fee = self.block.calculate_base_fee(parent_hash);
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("[add_tx_to_block_template] raw transaction : {:#?}", tx);
+        let signed_tx = SignedTx::try_from(tx).map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[add_tx_to_block_template] TransactionV2 : {:#?}", signed_tx.transaction);
+
+        // Get state root
+        let state_root = self
+            .core
+            .templates
+            .get_state_root(template_id)
+            .ok_or(Err(anyhow!("error getting state root, invalid block template id")))?;
+        debug!("[add_tx_to_block_template] state_root : {:#x}", state_root);
+
+        block_fee = self
+            .core
+            .templates
+            .get_block_base_fee(template_id)
+            .ok_or(Err(anyhow!("error getting block fee, invalid block template id")))?;
+        debug!("[add_tx_to_block_template] block fee : {:#x}", block_fee);
+
+        // Verify tx gas price with block base fee
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < block_fee {
+            debug!("[add_tx_to_block_template] tx gas price is lower than block base fee");
+            return Err(anyhow!("tx gas price is lower than block base fee").into());
+        }
 
         self.core
-            .tx_queues
-            .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
+            .templates
+            .add_tx(queue_id, signed_tx.into().clone(), hash, gas_used)?;
 
         if let BlockTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash())

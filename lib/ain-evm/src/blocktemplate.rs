@@ -95,14 +95,13 @@ impl BlockTemplateMap {
         tx: BlockTx,
         hash: NativeTxHash,
         gas_used: U256,
-        base_fee: U256,
     ) -> Result<(), TemplateError> {
         self.templates
             .read()
             .unwrap()
             .get(&template_id)
             .ok_or(TemplateError::NoSuchID)
-            .map(|template| template.add_tx(tx, hash, gas_used, base_fee))?
+            .map(|template| template.add_tx(tx, hash, gas_used))?
     }
 
     /// `drain_all` returns all transactions from the `BlockTemplate` associated with the
@@ -158,12 +157,20 @@ impl BlockTemplateMap {
             .and_then(|template| template.get_next_valid_nonce(address))
     }
 
-    pub fn get_total_gas_used(&self, template_id: u64) -> Option<U256> {
+    pub fn get_state_root(&self, template_id: u64) -> Option<H256> {
         self.templates
             .read()
             .unwrap()
             .get(&template_id)
-            .map(|template| template.get_total_gas_used())
+            .map(|template| template.get_state_root())
+    }
+
+    pub fn get_block_base_fee(&self, template_id: u64) -> Option<U256> {
+        self.templates
+            .read()
+            .unwrap()
+            .get(&template_id)
+            .map(|template| template.get_block_base_fee())
     }
 
     pub fn get_total_fees(&self, template_id: u64) -> Option<U256> {
@@ -172,6 +179,14 @@ impl BlockTemplateMap {
             .unwrap()
             .get(&template_id)
             .map(|template| template.get_total_fees())
+    }
+
+    pub fn get_total_gas_used(&self, template_id: u64) -> Option<U256> {
+        self.templates
+            .read()
+            .unwrap()
+            .get(&template_id)
+            .map(|template| template.get_total_gas_used())
     }
 }
 
@@ -289,7 +304,6 @@ impl BlockTemplate {
         tx: BlockTx,
         tx_hash: NativeTxHash,
         gas_used: U256,
-        base_fee: U256,
     ) -> Result<(), TemplateError> {
         let mut gas_fee = U256::zero();
         let mut data = self.data.lock().unwrap();
@@ -304,7 +318,7 @@ impl BlockTemplate {
                 .insert(signed_tx.sender, signed_tx.nonce());
 
             // Update block total gas used and total fees
-            gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
+            gas_fee = match calculate_gas_fee(signed_tx, gas_used, data.block_base_fee) {
                 Ok(fee) => fee,
                 Err(_) => return Err(TemplateError::InvalidFee),
             };
@@ -357,6 +371,14 @@ impl BlockTemplate {
             .get(&address)
             .map(ToOwned::to_owned)
             .map(|nonce| nonce + 1)
+    }
+
+    pub fn get_state_root(&self) -> H256 {
+        self.data.lock().unwrap().state_root
+    }
+
+    pub fn get_block_base_fee(&self) -> U256 {
+        self.data.lock().unwrap().block_base_fee
     }
 
     pub fn get_total_fees(&self) -> U256 {

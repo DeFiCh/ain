@@ -59,7 +59,7 @@ fn init_vsdb() {
     if !path.exists() {
         std::fs::create_dir(&path).expect("Error creating `evm` dir");
     }
-    let vsdb_dir_path = path.join(".vsdb");
+let vsdb_dir_path = path.join(".vsdb");
     vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
     debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
 }
@@ -163,30 +163,41 @@ impl EVMCoreService {
         }))
     }
 
+    /// Validates a raw tx.
+    /// 
+    /// The validation checks of the tx before we consider it to be valid are:
+    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 2. Gas price check: verify that the maximum gas price  is minimally of the block initial base fee.
+    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 4. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 5. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block. 
+    /// 
+    /// # Arguments
+    ///
+    /// * `tx` - The raw tx.
+    /// * `template_id` - The unique block template number.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the signed transaction and tx prepay gas fees.
     pub fn validate_raw_tx(
         &self,
         tx: &str,
         template_id: u64,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
-        let buffer = <Vec<u8>>::from_hex(tx)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
+        let signed_tx = SignedTx::try_from(tx).map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[verify_tx_fees] TransactionV2 : {:#?}", signed_tx.transaction);
 
-        let block_number = self
-            .storage
-            .get_latest_block()
-            .map(|block| block.header.number)
-            .unwrap_or_default();
+        let state_root = self
+            .templates
+            .get_state_root(template_id)
+            .ok_or(Err(anyhow!("error getting state root, invalid block template id")))?;
+        debug!("[validate_raw_tx] state_root : {:#x}", state_root);
 
-        debug!("[validate_raw_tx] block_number : {:#?}", block_number);
-
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
-            .get_nonce(signed_tx.sender, block_number)
+            .get_nonce(signed_tx.sender, state_root)
             .map_err(|e| anyhow!("Error getting nonce {e}"))?;
-
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -207,90 +218,39 @@ impl EVMCoreService {
             .into());
         }
 
+        // Validate tx gas price with initial block base fee
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < INITIAL_BASE_FEE {
+            debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
+            return Err(anyhow!("tx gas price is lower than block base fee").into());
+        }
+
         let balance = self
-            .get_balance(signed_tx.sender, block_number)
+            .get_balance(signed_tx.sender, state_root)
             .map_err(|e| anyhow!("Error getting balance {e}"))?;
-
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
-        let gas_limit = signed_tx.gas_limit();
+        // Validate tx prepay fees with account balance
         if balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(anyhow!("insufficient balance to pay fees").into());
         }
 
-        // Validate tx gas limit with intrinsic gas
+        // Validate tx intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
+        // Validate gas limit
+        let gas_limit = signed_tx.gas_limit();
         if gas_limit > MAX_GAS_PER_BLOCK {
-            debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
-            return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
+            debug!("[validate_raw_tx] gas limit higher than MAX_GAS_PER_BLOCK");
+            return Err(anyhow!("gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
-        })
-    }
-
-    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
-        debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let buffer = <Vec<u8>>::from_hex(tx)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
-        let signed_tx: SignedTx = tx.try_into()?;
-
-        let mut block_fee = self.block.calculate_base_fee(H256::zero());
-        if use_context {
-            block_fee = self.block.calculate_next_block_base_fee();
-        }
-
-        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-        if tx_gas_price < block_fee {
-            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
-            return Err(anyhow!("tx gas price is lower than block base fee").into());
-        }
-
-        Ok(())
-    }
-
-        // Get tx gas usage
-        let used_gas = if use_context {
-            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
-                caller: Some(signed_tx.sender),
-                to: signed_tx.to(),
-                value: signed_tx.value(),
-                data: signed_tx.data(),
-                gas_limit: signed_tx.gas_limit().as_u64(),
-                access_list: signed_tx.access_list(),
-                block_number,
-            })?;
-            used_gas
-        } else {
-            u64::default()
-        };
-
-        // Validate total gas usage in queued txs exceeds block size
-        if use_context {
-            debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
-            let total_current_gas_used = self
-                .tx_queues
-                .get_total_gas_used(queue_id)
-                .unwrap_or_default();
-
-            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
-                return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
-            }
-        }
-
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-            used_gas,
         })
     }
 
@@ -304,33 +264,33 @@ impl EVMCoreService {
     }
 }
 
-// Transaction queue methods
+// Block template methods
 impl EVMCoreService {
     pub fn add_balance(
         &self,
-        queue_id: u64,
+        template_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
-        let queue_tx = BlockTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
-        self.tx_queues
-            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+        let block_tx = BlockTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
+        self.templates
+            .add_tx(template_id, block_tx, hash, U256::zero())?;
         Ok(())
     }
 
     pub fn sub_balance(
         &self,
-        queue_id: u64,
+        template_id: u64,
         address: H160,
         amount: U256,
         hash: NativeTxHash,
     ) -> Result<(), EVMError> {
-        let block_number = self
-            .storage
-            .get_latest_block()
-            .map_or(U256::default(), |block| block.header.number);
-        let balance = self.get_balance(address, block_number)?;
+        let state_root = self
+            .templates
+            .get_state_root(template_id)
+            .ok_or(EVMError::TemplateError((TemplateError::NoSuchID)))?;
+        let balance = self.get_balance(address, state_root)?;
         if balance < amount {
             Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
                 address,
@@ -339,9 +299,9 @@ impl EVMCoreService {
             })
             .into())
         } else {
-            let queue_tx = BlockTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
-            self.tx_queues
-                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+            let block_tx = BlockTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
+            self.templates
+                .add_tx(template_id, block_tx, hash, U256::zero())?;
             Ok(())
         }
     }
@@ -489,7 +449,7 @@ impl EVMCoreService {
     }
 
     pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256, EVMError> {
-        let nonce = self
+        let nonce: U256 = self
             .get_account(address, state_root)?
             .map_or(U256::zero(), |account| account.nonce);
 
@@ -531,7 +491,7 @@ impl fmt::Display for EVMError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {e}"),
-            EVMError::TemplateError(e) => write!(f, "EVMError: Queue error: {e}"),
+            EVMError::TemplateError(e) => write!(f, "EVMError: Template error: {e}"),
             EVMError::NoSuchAccount(address) => {
                 write!(f, "EVMError: No such acccount for address {address:#x}")
             }
