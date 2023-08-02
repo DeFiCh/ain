@@ -1,10 +1,22 @@
-use ain_evm::evm::EVMServices;
+use crate::call_request::CallRequest;
+use ain_evm::core::MAX_GAS_PER_BLOCK;
+use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
 use ethereum::Account;
-use jsonrpsee::core::RpcResult;
+use ethereum_types::U256;
+use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use log::debug;
 use rlp::{Decodable, Rlp};
+use std::cmp;
 use std::sync::Arc;
+
+#[derive(Serialize, Deserialize)]
+pub struct FeeEstimate {
+    used_gas: U256,
+    gas_fee: U256,
+    burnt_fee: U256,
+    priority_fee: U256,
+}
 
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
@@ -18,6 +30,10 @@ pub trait MetachainDebugRPC {
     // Log accounts state
     #[method(name = "logaccountstates")]
     fn log_account_states(&self) -> RpcResult<()>;
+
+    // Get transaction fee estimate
+    #[method(name = "feeEstimate")]
+    fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate>;
 }
 
 pub struct MetachainDebugRPCModule {
@@ -64,5 +80,91 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         });
 
         Ok(())
+    }
+    fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate> {
+        let CallRequest {
+            from,
+            to,
+            gas,
+            value,
+            data,
+            access_list,
+            transaction_type,
+            gas_price,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            ..
+        } = input;
+
+        let (block_hash, block_number) = self
+            .handler
+            .block
+            .get_latest_block_hash_and_number()
+            .ok_or(Error::Custom(format!(
+                "Error fetching latest block hash and number"
+            )))?;
+        let base_fee = self.handler.block.calculate_base_fee(block_hash);
+
+        let TxResponse { used_gas, .. } = self
+            .handler
+            .core
+            .call(EthCallArgs {
+                caller: from,
+                to,
+                value: value.unwrap_or_default(),
+                data: &data.map(|d| d.0).unwrap_or_default(),
+                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                access_list: access_list.unwrap_or_default(),
+                block_number,
+            })
+            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+
+        let used_gas = U256::from(used_gas);
+        let gas_fee = match transaction_type {
+            // Legacy
+            None => {
+                let Some(gas_price) = gas_price else {
+                    return Err(Error::Custom(format!(
+                        "Cannot get Legacy TX fee estimate without gas price"
+                    )));
+                };
+                used_gas.checked_mul(gas_price)
+            }
+            // EIP2930
+            Some(typ) if typ == U256::one() => {
+                let Some(gas_price) = gas_price else {
+                    return Err(Error::Custom(format!(
+                        "Cannot get EIP2930 TX fee estimate without gas price"
+                    )));
+                };
+                used_gas.checked_mul(gas_price)
+            }
+            // EIP1559
+            Some(typ) if typ == U256::from(2) => {
+                let (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) =
+                    (max_fee_per_gas, max_priority_fee_per_gas)
+                else {
+                    return Err(Error::Custom(format!("Cannot get EIP1559 TX fee estimate without max_fee_per_gas and max_priority_fee_per_gas")));
+                };
+                let gas_fee = cmp::min(max_fee_per_gas, max_priority_fee_per_gas + base_fee);
+                used_gas.checked_mul(gas_fee)
+            }
+            _ => {
+                return Err(Error::Custom(format!(
+                    "Wrong transaction type. Should be either None, 1 or 2"
+                )))
+            }
+        }.ok_or(Error::Custom(format!(
+            "Overflow happened during fee calculation"
+        )))?;
+
+        let burnt_fee = used_gas * base_fee;
+        let priority_fee = gas_fee - burnt_fee;
+        Ok(FeeEstimate {
+            used_gas,
+            gas_fee,
+            burnt_fee,
+            priority_fee,
+        })
     }
 }
