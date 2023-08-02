@@ -3348,9 +3348,13 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             CrossBoundaryResult result;
             evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
             if (!result.ok) {
+                state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("EVM finalization failed: %s", result.reason.c_str()),
+                                         REJECT_INVALID);
+                InvalidBlockFound(pindexNew, state);
+                mnview.GetHistoryWriters().DiscardDB();
                 return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());
             }
-
         }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
