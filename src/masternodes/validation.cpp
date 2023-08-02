@@ -994,7 +994,7 @@ static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, co
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                govVar->evmQueueId = pindex->GetBlockTime();
+                govVar->evmQueueId = evmQueueId;
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
