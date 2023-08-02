@@ -66,7 +66,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
         if (m < 1 || m > n)
             return false;
     } else if (whichType == TX_NULL_DATA &&
-               (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes)) {
+               (!fAcceptDatacarrier || scriptPubKey.size() > MAX_OP_RETURN_EVM_RELAY)) { // TODO OPReturn size check moving to consensus. Remove from IsStandard post-fork.
           return false;
     }
 

@@ -178,7 +178,9 @@ enum VaultKeys : uint8_t {
 };
 
 enum RulesKeys : uint8_t {
-    OPReturnSize = 'a',
+    CoreOPReturn = 'a',
+    DVMOPReturn  = 'b',
+    EVMOPReturn  = 'c',
 };
 
 struct CDataStructureV0 {

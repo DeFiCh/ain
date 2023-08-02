@@ -2600,13 +2600,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 opreturnKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::OPReturnSize};
-    const auto opreturnMaxSize = attributes->GetValue(opreturnKey, uint32_t{});
+    CDataStructureV0 coreKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::CoreOPReturn};
+    CDataStructureV0 dvmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::DVMOPReturn};
+    CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
 
-    // Set global variable for staking nodes
-    if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight && opreturnMaxSize) {
-        nMaxDatacarrierBytes = opreturnMaxSize;
-    }
+    OPReturnValidationCtx opreturnCtx{
+        pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight,
+        attributes->GetValue(coreKey, MAX_OP_RETURN_RELAY),
+        attributes->GetValue(dvmKey, MAX_OP_RETURN_DVM_RELAY),
+        attributes->GetValue(evmKey, MAX_OP_RETURN_EVM_RELAY)};
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
@@ -2680,7 +2682,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opreturnCtx);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2737,6 +2739,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
+        std::vector<unsigned char> metadata;
         for (uint32_t j = 0; j < tx.vout.size(); ++j)
         {
             // Search for burn outputs
@@ -2744,15 +2747,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             {
                 writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
-            }
-
-            // Make sure we have no OP_RETURN outputs larger than the expected size
-            if (pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight && opreturnMaxSize) {
-                opcodetype opcode;
-                auto pc = tx.vout[j].scriptPubKey.begin();
-                if (tx.vout[j].scriptPubKey.GetOp(pc, opcode) && opcode == OP_RETURN && tx.vout[j].scriptPubKey.size() > opreturnMaxSize) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: OP_RETURN too large", __func__), REJECT_INVALID, "excessive-opreturn");
-                }
             }
         }
 

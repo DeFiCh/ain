@@ -299,7 +299,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         }},
         {AttributeTypes::Rules,
          {
-            {"opreturn_size", RulesKeys::OPReturnSize},
+            {"core_opreturn", RulesKeys::CoreOPReturn},
+            {"dvm_opreturn", RulesKeys::DVMOPReturn},
+            {"evm_opreturn", RulesKeys::EVMOPReturn},
          }},
     };
     return keys;
@@ -418,7 +420,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         }},
         {AttributeTypes::Rules,
          {
-            {RulesKeys::OPReturnSize, "opreturn_size"},
+            {RulesKeys::CoreOPReturn, "core_opreturn"},
          }},
     };
     return keys;
@@ -807,7 +809,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             }},
             {AttributeTypes::Rules,
              {
-                {RulesKeys::OPReturnSize, VerifyUInt32},
+                {RulesKeys::CoreOPReturn, VerifyUInt32},
+                {RulesKeys::DVMOPReturn, VerifyUInt32},
+                {RulesKeys::EVMOPReturn, VerifyUInt32},
              }},
     };
     return parsers;
@@ -1083,7 +1087,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::Rules) {
             if (typeId == RulesIDs::TXRules) {
-                if (typeKey != RulesKeys::OPReturnSize) {
+                if (typeKey != RulesKeys::CoreOPReturn &&
+                    typeKey != RulesKeys::DVMOPReturn &&
+                    typeKey != RulesKeys::EVMOPReturn) {
                     return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
                 }
             } else {
