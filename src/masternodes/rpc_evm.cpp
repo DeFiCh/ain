@@ -189,6 +189,26 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
     return blockNumber;
 }
 
+int autoInferHash(const std::string &input) {
+    ResVal<uint256> res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+    if (res) {
+        return 1; // VMDomainRPCMapType::TxHashDVMToEVM
+    }
+    res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+    if (res) {
+        return 2; // VMDomainRPCMapType::TxHashEVMToDVM
+    }
+    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+    if (res) {
+        return 3; // VMDomainRPCMapType::BlockHashDVMToEVM
+    }
+    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+    if (res) {
+        return 4;// VMDomainRPCMapType::BlockHashEVMToDVM
+    }
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
+}
+
 UniValue vmmap(const JSONRPCRequest &request) {
     RPCHelpMan{
         "vmmap",
@@ -245,28 +265,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 typeInt = 6; // BlockNumberEVMToDVM
             }
         } else if (input.length() == 64 || input.length() == 66) { // hash
-            ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
-            if (!res) {
-                res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
-                if (!res) {
-                    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
-                    if (!res) {
-                        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
-                        if (!res) {
-                            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
-                        } else {
-                            typeInt = 4;
-                        }
-                    } else {
-                        typeInt = 3;
-                    }
-                } else {
-                    typeInt = 2;
-                }
-            } else {
-                typeInt = 1;
-            }
+            typeInt = autoInferHash(input);
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
         }
