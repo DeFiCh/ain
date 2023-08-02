@@ -113,7 +113,7 @@ impl TransactionQueueMap {
             .map_or(Vec::new(), TransactionQueue::get_cloned_vec)
     }
 
-    pub fn len(&self, queue_id: u64) -> usize {
+    pub fn count(&self, queue_id: u64) -> usize {
         self.queues
             .read()
             .unwrap()
