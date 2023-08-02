@@ -190,20 +190,16 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
 }
 
 int autoInferHash(const std::string &input) {
-    ResVal<uint256> res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
-    if (res) {
+    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input))) {
         return 1; // VMDomainRPCMapType::TxHashDVMToEVM
     }
-    res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
-    if (res) {
+    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input))) {
         return 2; // VMDomainRPCMapType::TxHashEVMToDVM
     }
-    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
-    if (res) {
+    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input))) {
         return 3; // VMDomainRPCMapType::BlockHashDVMToEVM
     }
-    res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
-    if (res) {
+    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input))) {
         return 4;// VMDomainRPCMapType::BlockHashEVMToDVM
     }
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
