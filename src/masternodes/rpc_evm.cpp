@@ -198,13 +198,15 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Type::NUM,
           RPCArg::Optional::NO,
           "Map types: \n\
+                            0 - Auto \n\
                             1 - Tx Hash: DFI -> EVM \n\
                             2 - Tx Hash: EVM -> DFI \n\
                             3 - Block Hash: DFI -> EVM \n\
                             4 - Block Hash: EVM -> DFI \n\
                             5 - Block Number: DFI -> EVM \n\
                             6 - Block Number: EVM -> DFI"}},
-        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n"},
+        RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n\
+                                            or (number) block number\n"},
         RPCExamples{HelpExampleCli("vmmap", R"('"<hash>"' 1)")},
     }
         .Check(request);
