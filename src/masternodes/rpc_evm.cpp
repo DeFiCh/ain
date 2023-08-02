@@ -240,11 +240,11 @@ UniValue vmmap(const JSONRPCRequest &request) {
             if (!result.ok) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, result.reason.c_str());
             }
-            // evm block count never greater than dvm block count
+            // evm block count always less than dvm block count
             if (height > evmBlockCount) {
                 typeInt = 5; // BlockNumberDVMToEVM
             } else {
-                // as dvm input always greater than evm block count after evm enabled
+                // dvm input(after evm enabled) always greater than evm block count
                 typeInt = 6; // BlockNumberEVMToDVM
             }
         } else {
