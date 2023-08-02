@@ -137,6 +137,10 @@ class VMMapTests(DefiTestFramework):
             assert_invalid(x, VMMapType.BlockNumberDVMToEVM)
             assert_invalid(x, VMMapType.BlockNumberEVMToDVM)
 
+    def vmmap_auto_invalid_input_should_fail(self):
+        self.rollback_to(self.start_block_height)
+        assert_raises_rpc_error(-8, "Unsupported type or unable to determine conversion type automatically from the input", self.nodes[0].vmmap, 'test', VMMapType.Auto)
+
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
         # Check if invalidate block is working for mapping. After invalidating block, the transaction and block shouldn't be mapped anymore.
@@ -204,6 +208,7 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_block_number_should_succeed()
         self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
+        self.vmmap_auto_invalid_input_should_fail()
         # logvmmap tests
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()
