@@ -107,19 +107,18 @@ pub mod ffi {
             hash: [u8; 32],
             gas_used: u64,
         );
-        fn evm_try_finalize(
+        fn evm_try_create_block(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
         ) -> FinalizeBlockCompletion;
+        fn evm_try_finalize_block(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
-
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,

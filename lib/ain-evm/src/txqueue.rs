@@ -1,12 +1,15 @@
+use crate::core::NativeTxHash;
+use crate::fee::calculate_gas_fee;
+use crate::receipt::Receipt;
+use crate::transaction::{system::SystemTx, SignedTx};
+
+use ethereum::{Block, TransactionV2};
 use ethereum_types::{H160, U256};
 use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Mutex, RwLock},
 };
-
-use crate::transaction::system::SystemTx;
-use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
@@ -64,13 +67,12 @@ impl TransactionQueueMap {
             .map(TransactionQueue::clear)
     }
 
-    /// Attempts to add a new transaction to the `TransactionQueue` associated with the
-    /// provided queue ID. If the transaction is a `SignedTx`, it also updates the
-    /// corresponding account's nonce.
+    /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
+    /// transaction is a `SignedTx`, it also updates the corresponding account's nonce.
     /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
-    /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a nonce
-    /// that is not one more than the previous nonce is added, an error is returned. This helps to ensure the integrity
-    /// of the transaction queue and enforce correct nonce usage.
+    /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a
+    /// nonce that is not one more than the previous nonce is added, an error is returned. This helps to ensure
+    /// the integrity of the transaction queue and enforce correct nonce usage.
     ///
     /// # Errors
     ///
@@ -135,6 +137,20 @@ impl TransactionQueueMap {
             .map(|queue| queue.remove_txs_by_sender(sender))
     }
 
+    pub fn add_block_data(
+        &self,
+        queue_id: u64,
+        block: Block<TransactionV2>,
+        receipts: Vec<Receipt>,
+    ) -> Result<(), QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.add_block_data(block, receipts))
+    }
+
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
     /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
@@ -147,6 +163,14 @@ impl TransactionQueueMap {
             .and_then(|queue| queue.get_next_valid_nonce(address))
     }
 
+    pub fn get_total_fees(&self, queue_id: u64) -> Option<U256> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .map(|queue| queue.get_total_fees())
+    }
+
     pub fn get_total_gas_used(&self, queue_id: u64) -> Option<U256> {
         self.queues
             .read()
@@ -155,12 +179,12 @@ impl TransactionQueueMap {
             .map(|queue| queue.get_total_gas_used())
     }
 
-    pub fn get_total_fees(&self, queue_id: u64) -> Option<U256> {
+    pub fn get_block_data(&self, queue_id: u64) -> Option<BlockData> {
         self.queues
             .read()
             .unwrap()
             .get(&queue_id)
-            .map(|queue| queue.get_total_fees())
+            .and_then(|queue| queue.get_block_data())
     }
 }
 
@@ -201,34 +225,47 @@ impl TransactionQueueData {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug)]
+pub struct BlockData {
+    pub block: Block<TransactionV2>,
+    pub receipts: Vec<Receipt>,
+}
+
+#[derive(Debug)]
 pub struct TransactionQueue {
-    data: Mutex<TransactionQueueData>,
+    queue_data: Mutex<TransactionQueueData>,
+    block_data: Mutex<Option<BlockData>>,
 }
 
 impl TransactionQueue {
     fn new() -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new()),
+            queue_data: Mutex::new(TransactionQueueData::new()),
+            block_data: Mutex::new(None),
         }
     }
 
     pub fn clear(&self) {
-        let mut data = self.data.lock().unwrap();
-        data.total_fees = U256::zero();
-        data.total_gas_used = U256::zero();
-        data.transactions.clear();
+        let mut queue_data = self.queue_data.lock().unwrap();
+        queue_data.account_nonces.clear();
+        queue_data.total_fees = U256::zero();
+        queue_data.total_gas_used = U256::zero();
+        queue_data.transactions.clear();
     }
 
     pub fn drain_all(&self) -> Vec<QueueTxItem> {
-        let mut data = self.data.lock().unwrap();
-        data.total_fees = U256::zero();
-        data.total_gas_used = U256::zero();
-        data.transactions.drain(..).collect::<Vec<QueueTxItem>>()
+        let mut queue_data = self.queue_data.lock().unwrap();
+        queue_data.account_nonces.clear();
+        queue_data.total_fees = U256::zero();
+        queue_data.total_gas_used = U256::zero();
+        queue_data
+            .transactions
+            .drain(..)
+            .collect::<Vec<QueueTxItem>>()
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
-        self.data.lock().unwrap().transactions.clone()
+        self.queue_data.lock().unwrap().transactions.clone()
     }
 
     pub fn queue_tx(
@@ -239,24 +276,25 @@ impl TransactionQueue {
         base_fee: U256,
     ) -> Result<(), QueueError> {
         let mut gas_fee = U256::zero();
-        let mut data = self.data.lock().unwrap();
+        let mut queue_data = self.queue_data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx {
-            if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
+            if let Some(nonce) = queue_data.account_nonces.get(&signed_tx.sender) {
                 if signed_tx.nonce() != nonce + 1 {
                     return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
                 }
             }
-            data.account_nonces
+            queue_data
+                .account_nonces
                 .insert(signed_tx.sender, signed_tx.nonce());
 
             gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
                 Ok(fee) => fee,
                 Err(_) => return Err(QueueError::InvalidFee),
             };
-            data.total_fees += gas_fee;
-            data.total_gas_used += gas_used;
+            queue_data.total_fees += gas_fee;
+            queue_data.total_gas_used += gas_used;
         }
-        data.transactions.push(QueueTxItem {
+        queue_data.transactions.push(QueueTxItem {
             queue_tx: tx,
             tx_hash,
             tx_fee: gas_fee,
@@ -266,18 +304,18 @@ impl TransactionQueue {
     }
 
     pub fn len(&self) -> usize {
-        self.data.lock().unwrap().transactions.len()
+        self.queue_data.lock().unwrap().transactions.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data.lock().unwrap().transactions.is_empty()
+        self.queue_data.lock().unwrap().transactions.is_empty()
     }
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
-        let mut data = self.data.lock().unwrap();
+        let mut queue_data = self.queue_data.lock().unwrap();
         let mut fees_to_remove = U256::zero();
         let mut gas_used_to_remove = U256::zero();
-        data.transactions.retain(|item| {
+        queue_data.transactions.retain(|item| {
             let tx_sender = match &item.queue_tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
@@ -289,13 +327,18 @@ impl TransactionQueue {
             }
             true
         });
-        data.total_fees -= fees_to_remove;
-        data.total_gas_used -= gas_used_to_remove;
-        data.account_nonces.remove(&sender);
+        queue_data.total_fees -= fees_to_remove;
+        queue_data.total_gas_used -= gas_used_to_remove;
+        queue_data.account_nonces.remove(&sender);
+    }
+
+    pub fn add_block_data(&self, block: Block<TransactionV2>, receipts: Vec<Receipt>) {
+        let mut block_data = self.block_data.lock().unwrap();
+        *block_data = Some(BlockData { block, receipts });
     }
 
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
-        self.data
+        self.queue_data
             .lock()
             .unwrap()
             .account_nonces
@@ -305,11 +348,15 @@ impl TransactionQueue {
     }
 
     pub fn get_total_fees(&self) -> U256 {
-        self.data.lock().unwrap().total_fees
+        self.queue_data.lock().unwrap().total_fees
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
-        self.data.lock().unwrap().total_gas_used
+        self.queue_data.lock().unwrap().total_gas_used
+    }
+
+    pub fn get_block_data(&self) -> Option<BlockData> {
+        self.block_data.lock().unwrap().clone()
     }
 }
 

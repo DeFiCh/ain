@@ -11,9 +11,9 @@ use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
-use crate::txqueue::QueueTx;
+use crate::txqueue::{BlockData, QueueTx};
 
-use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H64, U256};
 
 use crate::bytes::Bytes;
@@ -21,7 +21,6 @@ use crate::services::SERVICES;
 use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::anyhow;
-use hex::FromHex;
 use log::debug;
 use primitive_types::H256;
 use std::error::Error;
@@ -100,10 +99,9 @@ impl EVMServices {
         }
     }
 
-    pub fn finalize_block(
+    pub fn create_block(
         &self,
         queue_id: u64,
-        update_state: bool,
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
@@ -281,54 +279,6 @@ impl EVMServices {
             executor.commit();
         }
 
-        let block = Block::new(
-            PartialHeader {
-                parent_hash,
-                beneficiary,
-                state_root: if update_state {
-                    backend.commit()
-                } else {
-                    backend.root()
-                },
-                receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
-                logs_bloom,
-                difficulty: U256::from(difficulty),
-                number: current_block_number,
-                gas_limit: MAX_GAS_PER_BLOCK,
-                gas_used: U256::from(total_gas_used),
-                timestamp,
-                extra_data: Vec::default(),
-                mix_hash: H256::default(),
-                nonce: H64::default(),
-                base_fee,
-            },
-            all_transactions
-                .iter()
-                .map(|signed_tx| signed_tx.transaction.clone())
-                .collect(),
-            Vec::new(),
-        );
-
-        let receipts = self.receipt.generate_receipts(
-            &all_transactions,
-            receipts_v3,
-            block.header.hash(),
-            block.header.number,
-        );
-
-        if update_state {
-            debug!(
-                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
-                block.header.number, block.header.state_root
-            );
-
-            self.block.connect_block(block.clone());
-            self.logs
-                .generate_logs_from_receipts(&receipts, block.header.number);
-            self.receipt.put_receipts(receipts);
-            self.filters.add_block_to_filters(block.header.hash());
-        }
-
         let total_burnt_fees = U256::from(total_gas_used) * base_fee;
         let total_priority_fees = total_gas_fees - total_burnt_fees;
         debug!(
@@ -355,10 +305,40 @@ impl EVMServices {
             }
         }
 
-        if update_state {
-            self.core.tx_queues.remove(queue_id);
-        }
+        let block = Block::new(
+            PartialHeader {
+                parent_hash,
+                beneficiary,
+                state_root: backend.commit(),
+                receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
+                logs_bloom,
+                difficulty: U256::from(difficulty),
+                number: current_block_number,
+                gas_limit: MAX_GAS_PER_BLOCK,
+                gas_used: U256::from(total_gas_used),
+                timestamp,
+                extra_data: Vec::default(),
+                mix_hash: H256::default(),
+                nonce: H64::default(),
+                base_fee,
+            },
+            all_transactions
+                .iter()
+                .map(|signed_tx| signed_tx.transaction.clone())
+                .collect(),
+            Vec::new(),
+        );
 
+        let receipts = self.receipt.generate_receipts(
+            &all_transactions,
+            receipts_v3,
+            block.header.hash(),
+            block.header.number,
+        );
+
+        self.core
+            .tx_queues
+            .add_block_data(queue_id, block.clone(), receipts)?;
         Ok(FinalizedBlockInfo {
             block_hash: *block.header.hash().as_fixed_bytes(),
             failed_transactions,
@@ -367,19 +347,37 @@ impl EVMServices {
         })
     }
 
-    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
+    pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
+        let BlockData { block, receipts } = match self.core.tx_queues.get_block_data(queue_id) {
+            Some(block_data) => block_data,
+            None => return Err(anyhow!("finalize block failed, no block in queue_id").into()),
+        };
+
+        debug!(
+            "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+            block.header.number, block.header.state_root
+        );
+
+        self.block.connect_block(block.clone());
+        self.logs
+            .generate_logs_from_receipts(&receipts, block.header.number);
+        self.receipt.put_receipts(receipts);
+        self.filters.add_block_to_filters(block.header.hash());
+        self.core.tx_queues.remove(queue_id);
+
+        Ok(())
+    }
+
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let buffer = <Vec<u8>>::from_hex(tx)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+        let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
-        let signed_tx: SignedTx = tx.try_into()?;
+        debug!(
+            "[verify_tx_fees] TransactionV2 : {:#?}",
+            signed_tx.transaction
+        );
 
-        let mut block_fee = self.block.calculate_base_fee(H256::zero());
-        if use_context {
-            block_fee = self.block.calculate_next_block_base_fee();
-        }
-
+        let block_fee = self.block.calculate_next_block_base_fee();
         let tx_gas_price = get_tx_max_gas_price(&signed_tx);
         if tx_gas_price < block_fee {
             debug!("[verify_tx_fees] tx gas price is lower than block base fee");

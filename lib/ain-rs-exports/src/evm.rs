@@ -204,14 +204,6 @@ pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
 ) -> ffi::PreValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, false) {
-        Ok(_) => (),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            return cross_boundary_error_return(result, e.to_string());
-        }
-    }
-
     let queue_id = 0;
     match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
         Ok(ValidateTxInfo {
@@ -262,7 +254,7 @@ pub fn evm_try_validate_raw_tx(
     tx: &str,
     queue_id: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, true) {
+    match SERVICES.evm.verify_tx_fees(tx) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
@@ -346,12 +338,11 @@ pub fn evm_try_queue_tx(
     }
 }
 
-/// Finalizes and mine an EVM block.
+/// Creates an EVM block.
 ///
 /// # Arguments
 ///
 /// * `queue_id` - The queue ID.
-/// * `update_state` - A flag indicating whether to update the state.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
@@ -359,10 +350,9 @@ pub fn evm_try_queue_tx(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_finalize(
+pub fn evm_try_create_block(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
@@ -370,7 +360,7 @@ pub fn evm_try_finalize(
     let eth_address = H160::from(miner_address);
     match SERVICES
         .evm
-        .finalize_block(queue_id, update_state, difficulty, eth_address, timestamp)
+        .create_block(queue_id, difficulty, eth_address, timestamp)
     {
         Ok(FinalizedBlockInfo {
             block_hash,
@@ -378,7 +368,7 @@ pub fn evm_try_finalize(
             total_burnt_fees,
             total_priority_fees,
         }) => {
-            result.ok = true;
+            cross_boundary_success(result);
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
@@ -386,6 +376,13 @@ pub fn evm_try_finalize(
                 total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
             }
         }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
+pub fn evm_try_finalize_block(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    match SERVICES.evm.finalize_block(queue_id) {
+        Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
@@ -438,13 +435,13 @@ pub fn evm_try_get_block_number_by_hash(
 
 pub fn evm_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
     token_id: &str,
 ) {
-    match create_dst20(context, native_hash, name, symbol, token_id) {
+    match create_dst20(queue_id, native_hash, name, symbol, token_id) {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -452,21 +449,21 @@ pub fn evm_create_dst20(
 
 pub fn evm_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     address: &str,
     amount: [u8; 32],
     native_tx_hash: [u8; 32],
     token_id: &str,
     out: bool,
 ) {
-    match bridge_to_dst20(context, address, amount, native_tx_hash, token_id, out) {
+    match bridge_to_dst20(queue_id, address, amount, native_tx_hash, token_id, out) {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 fn create_dst20(
-    context: u64,
+    queue_id: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
@@ -482,7 +479,7 @@ fn create_dst20(
     }));
     SERVICES
         .evm
-        .queue_tx(context, system_tx, native_hash, U256::zero())?;
+        .queue_tx(queue_id, system_tx, native_hash, U256::zero())?;
 
     Ok(())
 }
