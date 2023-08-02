@@ -1,12 +1,16 @@
-use ethereum_types::{H160, U256};
+use crate::transaction::system::SystemTx;
+use crate::backend::{EVMBackend, Vicinity};
+use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
+use crate::executor::AinExecutor;
+use crate::storage::Storage;
+use crate::trie::TrieDBStore;
+
+use ethereum_types::{H160, U256, H256};
 use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, RwLock},
 };
-
-use crate::{transaction::system::SystemTx, backend::EVMBackend, executor::AinExecutor};
-use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
 
 #[derive(Debug)]
 pub struct BlockTemplateMap {
@@ -246,6 +250,14 @@ impl BlockTemplate {
         })
     }
 
+    fn new_default() -> Self {
+        let storage = Arc::new(Storage::new());
+        let trie_store = Arc::new(TrieDBStore::new());
+        let vicinity = Vicinity {..Default::default()};
+        let state_root = H256::zero();
+        let block_base_fee = U256::zero();
+    }
+
     /// Clear the block template and reset backend state to parent state root, retaining
     /// parent state root and block base fee.
     pub fn clear(&self) {
@@ -393,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_invalid_nonce_order() -> Result<(), TemplateError> {
-        let template = BlockTemplate::new();
+        let template = BlockTemplate::new_default();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = BlockTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
@@ -429,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), TemplateError> {
-        let template = BlockTemplate::new();
+        let template = BlockTemplate::new_default();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = BlockTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
@@ -477,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_valid_nonce_order() -> Result<(), TemplateError> {
-        let template = BlockTemplate::new();
+        let template = BlockTemplate::new_default();
 
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = BlockTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));

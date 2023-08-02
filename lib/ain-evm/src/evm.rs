@@ -1,8 +1,9 @@
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
+use crate::blocktemplate::BlockTx;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -11,7 +12,6 @@ use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
-use crate::blocktemplate::BlockTx;
 
 use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H64, U256};
@@ -367,27 +367,6 @@ impl EVMServices {
         })
     }
 
-    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
-        debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let buffer = <Vec<u8>>::from_hex(tx)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
-        let signed_tx: SignedTx = tx.try_into()?;
-
-        let mut block_fee = self.block.calculate_base_fee(H256::zero());
-        if use_context {
-            block_fee = self.block.calculate_next_block_base_fee();
-        }
-
-        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-        if tx_gas_price < block_fee {
-            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
-            return Err(anyhow!("tx gas price is lower than block base fee").into());
-        }
-
-        Ok(())
-    }
 
     pub fn queue_tx(
         &self,

@@ -9,7 +9,7 @@ use crate::storage::traits::{BlockStorage, PersistentStateError};
 use crate::storage::Storage;
 use crate::transaction::system::{BalanceUpdate, SystemTx};
 use crate::trie::TrieDBStore;
-use crate::blocktemplate::{TemplateError, BlockTx, TransactionQueueMap};
+use crate::blocktemplate::{TemplateError, BlockTx, BlockTemplateMap, BlockTemplate};
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
@@ -33,7 +33,7 @@ pub type NativeTxHash = [u8; 32];
 pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
 
 pub struct EVMCoreService {
-    pub tx_queues: Arc<TransactionQueueMap>,
+    pub templates: Arc<BlockTemplateMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
 }
@@ -50,7 +50,6 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
-    pub used_gas: u64,
 }
 
 fn init_vsdb() {
@@ -70,7 +69,7 @@ impl EVMCoreService {
         init_vsdb();
 
         Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             storage,
         }
@@ -81,7 +80,7 @@ impl EVMCoreService {
         init_vsdb();
 
         let handler = Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
         };
@@ -167,8 +166,7 @@ impl EVMCoreService {
     pub fn validate_raw_tx(
         &self,
         tx: &str,
-        queue_id: u64,
-        use_context: bool,
+        template_id: u64,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
@@ -231,6 +229,34 @@ impl EVMCoreService {
             debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
             return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
+
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_fee,
+        })
+    }
+
+    pub fn verify_tx_fees(&self, tx: &str, use_context: bool) -> Result<(), Box<dyn Error>> {
+        debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
+        let buffer = <Vec<u8>>::from_hex(tx)?;
+        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+        debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
+        let signed_tx: SignedTx = tx.try_into()?;
+
+        let mut block_fee = self.block.calculate_base_fee(H256::zero());
+        if use_context {
+            block_fee = self.block.calculate_next_block_base_fee();
+        }
+
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < block_fee {
+            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+            return Err(anyhow!("tx gas price is lower than block base fee").into());
+        }
+
+        Ok(())
+    }
 
         // Get tx gas usage
         let used_gas = if use_context {
@@ -320,47 +346,55 @@ impl EVMCoreService {
         }
     }
 
-    pub fn get_queue_id(&self) -> u64 {
-        self.tx_queues.get_queue_id()
+    pub fn get_template_id(
+        &self,
+        trie_store: Arc<TrieDBStore>,
+        storage: Arc<Storage>,
+        vicinity: Vicinity,
+        state_root: H256,
+        block_base_fee: U256,
+    ) -> Result<u64> {
+        self.templates.get_template_id(trie_store, storage, vicinity, state_root, block_base_fee)
     }
 
-    pub fn clear(&self, queue_id: u64) -> Result<(), EVMError> {
-        self.tx_queues.clear(queue_id)?;
+    pub fn clear(&self, template_id: u64) -> Result<(), EVMError> {
+        self.templates.clear(template_id)?;
         Ok(())
     }
 
-    pub fn remove(&self, queue_id: u64) {
-        self.tx_queues.remove(queue_id);
+    pub fn remove(&self, template_id: u64) {
+        self.templates.remove(template_id);
     }
 
-    pub fn remove_txs_by_sender(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
-        self.tx_queues.remove_txs_by_sender(queue_id, address)?;
+    pub fn remove_txs_by_sender(&self, template_id: u64, address: H160) -> Result<(), EVMError> {
+        self.templates.remove_txs_by_sender(template_id, address)?;
         Ok(())
     }
 
-    /// Retrieves the next valid nonce for the specified account within a particular queue.
+    /// Retrieves the next valid nonce for the specified account within a particular template.
     ///
-    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided queue_id. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this queue_id. It falls back to retrieving the nonce from the storage at the latest
-    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
-    /// the nonce is defaulted to zero.
+    /// The method first attempts to retrieve the next valid nonce from the block template associated with the provided
+    /// template_id. If no nonce is found in the template, that means that no transactions have been included for this
+    /// account in this template_id. It falls back to retrieving the nonce from the storage at the latest block. If no
+    /// nonce is found in the storage (i.e., no transactions for this account have been committed yet), the nonce is
+    /// defaulted to zero.
     ///
     /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
-    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
+    /// waiting to be processed in the template and transactions that have already been processed and committed to the
+    /// storage.
     ///
     /// # Arguments
     ///
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The unique block template number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_template(&self, template_id: u64, address: H160) -> U256 {
         let nonce = self
-            .tx_queues
-            .get_next_valid_nonce(queue_id, address)
+            .templates
+            .get_next_valid_nonce(template_id, address)
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
@@ -373,7 +407,7 @@ impl EVMCoreService {
             });
 
         debug!(
-            "Account {:x?} nonce {:x?} in queue_id {queue_id}",
+            "Account {:x?} nonce {:x?} in template_id {template_id}",
             address, nonce
         );
         nonce
@@ -385,15 +419,8 @@ impl EVMCoreService {
     pub fn get_account(
         &self,
         address: H160,
-        block_number: U256,
+        state_root: H256,
     ) -> Result<Option<Account>, EVMError> {
-        let state_root = self
-            .storage
-            .get_block_by_number(&block_number)
-            .or_else(|| self.storage.get_latest_block())
-            .map(|block| block.header.state_root)
-            .unwrap_or_default();
-
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -407,19 +434,8 @@ impl EVMCoreService {
         &self,
         contract: H160,
         storage_index: H256,
+        state_root: H256,
     ) -> Result<U256, EVMError> {
-        let (_, block_number) = SERVICES
-            .evm
-            .block
-            .get_latest_block_hash_and_number()
-            .unwrap_or_default();
-        let state_root = self
-            .storage
-            .get_block_by_number(&block_number)
-            .or_else(|| self.storage.get_latest_block())
-            .map(|block| block.header.state_root)
-            .unwrap_or_default();
-
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -432,8 +448,8 @@ impl EVMCoreService {
             .map_err(|e| EVMError::TrieError(e.to_string()))
     }
 
-    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {
-        self.get_account(address, block_number).map(|opt_account| {
+    pub fn get_code(&self, address: H160, state_root: H256) -> Result<Option<Vec<u8>>, EVMError> {
+        self.get_account(address, state_root).map(|opt_account| {
             opt_account.map_or_else(
                 || None,
                 |account| self.storage.get_code_by_hash(account.code_hash),
@@ -445,9 +461,9 @@ impl EVMCoreService {
         &self,
         address: H160,
         position: U256,
-        block_number: U256,
+        state_root: H256,
     ) -> Result<Option<Vec<u8>>, EVMError> {
-        self.get_account(address, block_number)?
+        self.get_account(address, state_root)?
             .map_or(Ok(None), |account| {
                 let storage_trie = self
                     .trie_store
@@ -463,18 +479,18 @@ impl EVMCoreService {
             })
     }
 
-    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_balance(&self, address: H160, state_root: H256) -> Result<U256, EVMError> {
         let balance = self
-            .get_account(address, block_number)?
+            .get_account(address, state_root)?
             .map_or(U256::zero(), |account| account.balance);
 
         debug!("Account {:x?} balance {:x?}", address, balance);
         Ok(balance)
     }
 
-    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256, EVMError> {
         let nonce = self
-            .get_account(address, block_number)?
+            .get_account(address, state_root)?
             .map_or(U256::zero(), |account| account.nonce);
 
         debug!("Account {:x?} nonce {:x?}", address, nonce);
