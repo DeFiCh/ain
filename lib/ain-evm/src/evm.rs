@@ -370,15 +370,18 @@ impl EVMServices {
     pub fn add_tx_to_block_template(
         &self,
         template_id: u64,
-        tx: &str,
+        tx: BlockTx,
         hash: NativeTxHash,
         gas_used: U256,
     ) -> Result<(), Box<dyn Error>> {
-        debug!("[add_tx_to_block_template] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx).map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[add_tx_to_block_template] TransactionV2 : {:#?}", signed_tx.transaction);
+        self.core
+            .templates
+            .add_tx(queue_id, signed_tx.into().clone(), hash, gas_used)?;
 
-        // Get state root
+        if let BlockTx::SignedTx(signed_tx) = tx {
+            self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+        }
+
         let state_root = self
             .core
             .templates
@@ -386,26 +389,113 @@ impl EVMServices {
             .ok_or(Err(anyhow!("error getting state root, invalid block template id")))?;
         debug!("[add_tx_to_block_template] state_root : {:#x}", state_root);
 
-        block_fee = self
+        let mut backend = self
             .core
             .templates
-            .get_block_base_fee(template_id)
-            .ok_or(Err(anyhow!("error getting block fee, invalid block template id")))?;
-        debug!("[add_tx_to_block_template] block fee : {:#x}", block_fee);
+            .get_backend(template_id)
+            .ok_or(Err(anyhow!("error getting evm backend, invalid block template id")))?;
+        let mut executor = AinExecutor::new(&mut backend);
 
-        // Verify tx gas price with block base fee
-        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-        if tx_gas_price < block_fee {
-            debug!("[add_tx_to_block_template] tx gas price is lower than block base fee");
-            return Err(anyhow!("tx gas price is lower than block base fee").into());
-        }
+        match tx {
+            BlockTx::SignedTx(signed_tx) => {
+                let nonce = executor.get_nonce(&signed_tx.sender);
+                if signed_tx.nonce() != nonce {
+                    return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                }
 
-        self.core
-            .templates
-            .add_tx(queue_id, signed_tx.into().clone(), hash, gas_used)?;
+                let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
+                let (
+                    TxResponse {
+                        exit_reason,
+                        logs,
+                        used_gas,
+                        ..
+                    },
+                    receipt,
+                ) = executor.exec(&signed_tx, prepay_gas);
+                debug!(
+                    "receipt : {:#?} for signed_tx : {:#x}",
+                    receipt,
+                    signed_tx.transaction.hash()
+                );
 
-        if let BlockTx::SignedTx(signed_tx) = tx {
-            self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+                if !exit_reason.is_succeed() {
+                    failed_transactions.push(hex::encode(queue_item.tx_hash));
+                }
+
+                let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
+                total_gas_used += used_gas;
+                total_gas_fees += gas_fee;
+
+                all_transactions.push(signed_tx.clone());
+                EVMCoreService::logs_bloom(logs, &mut logs_bloom);
+                receipts_v3.push(receipt);
+            }
+            BlockTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
+                debug!(
+                    "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
+                    address, amount, queue_id
+                );
+                if let Err(e) = executor.add_balance(address, amount) {
+                    debug!("[finalize_block] EvmIn failed with {e}");
+                    failed_transactions.push(hex::encode(queue_item.tx_hash));
+                }
+            }
+            BlockTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
+                debug!(
+                    "[finalize_block] EvmOut for address {}, amount: {}",
+                    address, amount
+                );
+
+                if let Err(e) = executor.sub_balance(address, amount) {
+                    debug!("[finalize_block] EvmOut failed with {e}");
+                    failed_transactions.push(hex::encode(queue_item.tx_hash));
+                }
+            }
+            BlockTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                name,
+                symbol,
+                address,
+            })) => {
+                debug!(
+                    "[finalize_block] DeployContract for address {}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let DeployContractInfo {
+                    address,
+                    bytecode,
+                    storage,
+                } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
+
+                if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
+                    debug!("[finalize_block] EvmOut failed with {e}");
+                }
+            }
+            BlockTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                to,
+                contract,
+                amount,
+                out,
+            })) => {
+                debug!(
+                    "[finalize_block] DST20Bridge for to {}, contract {}, amount {}, out {}",
+                    to, contract, amount, out
+                );
+
+                match EVMServices::bridge_dst20(&mut executor, contract, to, amount, out) {
+                    Ok(DST20BridgeInfo { address, storage }) => {
+                        if let Err(e) = executor.update_storage(address, storage) {
+                            debug!("[finalize_block] EvmOut failed with {e}");
+                            failed_transactions.push(hex::encode(queue_item.tx_hash));
+                        }
+                    }
+                    Err(e) => {
+                        debug!("[finalize_block] EvmOut failed with {e}");
+                        failed_transactions.push(hex::encode(queue_item.tx_hash));
+                    }
+                }
+            }
         }
 
         Ok(())

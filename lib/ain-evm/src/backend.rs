@@ -148,6 +148,10 @@ impl EVMBackend {
         };
     }
 
+    pub fn update_vicinity_from_block_info(&mut self, block_vicinity: Vicinity) {
+        self.Vicinity = block_vicinity;
+    }
+
     // Read-only handle
     pub fn ro_handle(&self) -> MptRo {
         let root = self.state.root();

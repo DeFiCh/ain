@@ -2,6 +2,7 @@ use crate::transaction::system::SystemTx;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
 use crate::executor::AinExecutor;
+use crate::fee::get_tx_max_gas_price;
 use crate::storage::Storage;
 use crate::trie::TrieDBStore;
 
@@ -157,6 +158,14 @@ impl BlockTemplateMap {
             .and_then(|template| template.get_next_valid_nonce(address))
     }
 
+    pub fn get_backend(&self, template_id: u64) -> Option<&EVMBackend> {
+        self.templates
+            .read()
+            .unwrap()
+            .get(&template_id)
+            .map(|template| template.get_backend())
+    }
+
     pub fn get_state_root(&self, template_id: u64) -> Option<H256> {
         self.templates
             .read()
@@ -237,7 +246,7 @@ impl BlockTemplateData {
 
 #[derive(Debug, Default)]
 pub struct BlockTemplate {
-    backend: Arc<EVMBackend>,
+    backend: Mutex<EVMBackend>,
     data: Mutex<BlockTemplateData>,
 }
 
@@ -255,7 +264,7 @@ impl BlockTemplate {
         .map_err(|e| EVMBackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(Self {
-            backend: Arc::new(EVMBackend {
+            backend: Mutex::new(EVMBackend {
                 state,
                 trie_store,
                 storage,
@@ -317,10 +326,16 @@ impl BlockTemplate {
             data.account_nonces
                 .insert(signed_tx.sender, signed_tx.nonce());
 
+            // Validate tx gas price with block base fee
+            let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+            if tx_gas_price < data.block_base_fee {
+                return Err(TemplateError::InvalidFee);
+            }
+
             // Update block total gas used and total fees
             gas_fee = match calculate_gas_fee(signed_tx, gas_used, data.block_base_fee) {
                 Ok(fee) => fee,
-                Err(_) => return Err(TemplateError::InvalidFee),
+                Err(_) => return Err(TemplateError::AmountOverflow),
             };
             data.total_fees += gas_fee;
             data.total_gas_used += gas_used;
@@ -373,6 +388,10 @@ impl BlockTemplate {
             .map(|nonce| nonce + 1)
     }
 
+    pub fn get_backend(&self) -> &EVMBackend {
+        &*self.backend.lock().unwrap()
+    }
+
     pub fn get_state_root(&self) -> H256 {
         self.data.lock().unwrap().state_root
     }
@@ -401,6 +420,7 @@ pub enum TemplateError {
     NoSuchID,
     InvalidNonce((Box<SignedTx>, U256)),
     InvalidFee,
+    AmountOverflow,
 }
 
 impl std::fmt::Display for TemplateError {
@@ -408,7 +428,8 @@ impl std::fmt::Display for TemplateError {
         match self {
             TemplateError::NoSuchID => write!(f, "No block template for this template id"),
             TemplateError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous included nonce is {}. TXs should be included in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
-            TemplateError::InvalidFee => write!(f, "Invalid transaction fee from value overflow"),
+            TemplateError::InvalidFee => write!(f, "tx gas price is lower than block base fee"),
+            TemplateError::AmountOverflow => write!(f, "Invalid transaction fee from value overflow"),
         }
     }
 }
