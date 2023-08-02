@@ -189,17 +189,17 @@ UniValue handleMapBlockNumberDVMToEVMRequest(const std::string &input) {
     return blockNumber;
 }
 
-int autoInferHash(const std::string &input) {
-    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input))) {
+int autoInferHash(const uint256 input) {
+    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input)) {
         return 1; // VMDomainRPCMapType::TxHashDVMToEVM
     }
-    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input))) {
+    if (pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input)) {
         return 2; // VMDomainRPCMapType::TxHashEVMToDVM
     }
-    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input))) {
+    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input)) {
         return 3; // VMDomainRPCMapType::BlockHashDVMToEVM
     }
-    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input))) {
+    if (pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input)) {
         return 4;// VMDomainRPCMapType::BlockHashEVMToDVM
     }
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
@@ -261,7 +261,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 typeInt = 6; // BlockNumberEVMToDVM
             }
         } else if (input.length() == 64 || input.length() == 66) { // hash
-            typeInt = autoInferHash(input);
+            typeInt = autoInferHash(uint256S(input));
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported type or unable to determine conversion type automatically from the input");
         }
