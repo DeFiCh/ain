@@ -350,7 +350,7 @@ pub fn evm_try_queue_tx(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_create_block(
+pub fn evm_try_construct_block(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     difficulty: u32,
@@ -360,7 +360,7 @@ pub fn evm_try_create_block(
     let eth_address = H160::from(miner_address);
     match SERVICES
         .evm
-        .create_block(queue_id, difficulty, eth_address, timestamp)
+        .construct_block(queue_id, difficulty, eth_address, timestamp)
     {
         Ok(FinalizedBlockInfo {
             block_hash,

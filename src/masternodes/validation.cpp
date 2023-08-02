@@ -2422,7 +2422,7 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_create_block(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime());
+    const auto blockResult = evm_try_construct_block(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime());
     if (!result.ok) {
         LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
     }

@@ -107,7 +107,7 @@ pub mod ffi {
             hash: [u8; 32],
             gas_used: u64,
         );
-        fn evm_try_create_block(
+        fn evm_try_construct_block(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             difficulty: u32,

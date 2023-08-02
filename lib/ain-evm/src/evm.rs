@@ -99,7 +99,7 @@ impl EVMServices {
         }
     }
 
-    pub fn create_block(
+    pub fn construct_block(
         &self,
         queue_id: u64,
         difficulty: u32,
