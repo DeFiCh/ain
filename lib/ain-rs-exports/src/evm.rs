@@ -435,13 +435,13 @@ pub fn evm_try_get_block_number_by_hash(
 
 pub fn evm_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    queue_id: u64,
+    context: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
     token_id: &str,
 ) {
-    match create_dst20(queue_id, native_hash, name, symbol, token_id) {
+    match create_dst20(context, native_hash, name, symbol, token_id) {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -449,21 +449,21 @@ pub fn evm_create_dst20(
 
 pub fn evm_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    queue_id: u64,
+    context: u64,
     address: &str,
     amount: [u8; 32],
     native_tx_hash: [u8; 32],
     token_id: &str,
     out: bool,
 ) {
-    match bridge_to_dst20(queue_id, address, amount, native_tx_hash, token_id, out) {
+    match bridge_to_dst20(context, address, amount, native_tx_hash, token_id, out) {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 fn create_dst20(
-    queue_id: u64,
+    context: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
@@ -479,7 +479,7 @@ fn create_dst20(
     }));
     SERVICES
         .evm
-        .queue_tx(queue_id, system_tx, native_hash, U256::zero())?;
+        .queue_tx(context, system_tx, native_hash, U256::zero())?;
 
     Ok(())
 }
