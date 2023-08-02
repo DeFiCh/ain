@@ -23,7 +23,7 @@ CTokenAmount CAccountsView::GetBalance(const CScript &owner, DCT_ID tokenID) con
     return CTokenAmount{tokenID, 0};
 }
 
-NODISCARD Res CAccountsView::SetBalance(const CScript &owner, CTokenAmount amount) {
+[[nodiscard]] Res CAccountsView::SetBalance(const CScript &owner, CTokenAmount amount) {
     if (amount.nValue != 0) {
         WriteBy<ByBalanceKey>(BalanceKey{owner, amount.nTokenId}, amount.nValue);
     } else {
@@ -32,7 +32,7 @@ NODISCARD Res CAccountsView::SetBalance(const CScript &owner, CTokenAmount amoun
     return Res::Ok();
 }
 
-NODISCARD Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amount) {
+[[nodiscard]] Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amount) {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
@@ -43,7 +43,7 @@ NODISCARD Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amoun
     return SetBalance(owner, balance);
 }
 
-NODISCARD Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amount) {
+[[nodiscard]] Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amount) {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
@@ -54,7 +54,7 @@ NODISCARD Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amoun
     return SetBalance(owner, balance);
 }
 
-NODISCARD Res CAccountsView::AddBalances(const CScript &owner, const CBalances &balances) {
+[[nodiscard]] Res CAccountsView::AddBalances(const CScript &owner, const CBalances &balances) {
     for (const auto &kv : balances.balances) {
         auto res = AddBalance(owner, CTokenAmount{kv.first, kv.second});
         if (!res) {
@@ -65,7 +65,7 @@ NODISCARD Res CAccountsView::AddBalances(const CScript &owner, const CBalances &
     return Res::Ok();
 }
 
-NODISCARD Res CAccountsView::SubBalances(const CScript &owner, const CBalances &balances) {
+[[nodiscard]] Res CAccountsView::SubBalances(const CScript &owner, const CBalances &balances) {
     for (const auto &kv : balances.balances) {
         auto res = SubBalance(owner, CTokenAmount{kv.first, kv.second});
         if (!res) {
@@ -106,7 +106,7 @@ void CAccountsView::ForEachFuturesUserValues(
     ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }
 
-NODISCARD Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) {
+[[nodiscard]] Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) {
     auto res = EraseBy<ByFuturesSwapKey>(key);
     if (!res) {
         return DeFiErrors::AccountsFuturesErase();
@@ -114,7 +114,7 @@ NODISCARD Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) 
     return Res::Ok();
 }
 
-NODISCARD Res CAccountsView::StoreFuturesDUSD(const CFuturesUserKey &key, const CAmount &amount) {
+[[nodiscard]] Res CAccountsView::StoreFuturesDUSD(const CFuturesUserKey &key, const CAmount &amount) {
     auto res = WriteBy<ByFuturesDUSDKey>(key, amount);
     if (!res) {
         return DeFiErrors::AccountsFuturesStore();
@@ -127,7 +127,7 @@ void CAccountsView::ForEachFuturesDUSD(std::function<bool(const CFuturesUserKey 
     ForEach<ByFuturesDUSDKey, CFuturesUserKey, CAmount>(callback, start);
 }
 
-NODISCARD Res CAccountsView::EraseFuturesDUSD(const CFuturesUserKey &key) {
+[[nodiscard]] Res CAccountsView::EraseFuturesDUSD(const CFuturesUserKey &key) {
     auto res = EraseBy<ByFuturesDUSDKey>(key);
     if (!res) {
         return DeFiErrors::AccountsFuturesErase();
