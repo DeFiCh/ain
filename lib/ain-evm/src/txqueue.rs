@@ -263,10 +263,7 @@ impl TransactionQueue {
         data.account_nonces.clear();
         data.total_fees = U256::zero();
         data.total_gas_used = U256::zero();
-        data
-            .transactions
-            .drain(..)
-            .collect::<Vec<QueueTxItem>>()
+        data.transactions.drain(..).collect::<Vec<QueueTxItem>>()
     }
 
     pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
@@ -288,8 +285,7 @@ impl TransactionQueue {
                     return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
                 }
             }
-            data
-                .account_nonces
+            data.account_nonces
                 .insert(signed_tx.sender, signed_tx.nonce());
 
             gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
