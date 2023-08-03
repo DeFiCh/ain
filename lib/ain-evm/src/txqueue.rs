@@ -67,6 +67,17 @@ impl TransactionQueueMap {
             .map(TransactionQueue::clear)
     }
 
+    /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
+    /// provided queue ID, removing them from the queue. Transactions are returned in the
+    /// order they were added.
+    pub fn drain_all(&self, queue_id: u64) -> Vec<QueueTxItem> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .map_or(Vec::new(), TransactionQueue::drain_all)
+    }
+
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
     /// transaction is a `SignedTx`, it also updates the corresponding account's nonce.
     /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
@@ -96,33 +107,6 @@ impl TransactionQueueMap {
             .map(|queue| queue.queue_tx(tx, hash, gas_used, base_fee))?
     }
 
-    /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
-    /// provided queue ID, removing them from the queue. Transactions are returned in the
-    /// order they were added.
-    pub fn drain_all(&self, queue_id: u64) -> Vec<QueueTxItem> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::drain_all)
-    }
-
-    pub fn get_cloned_vec(&self, queue_id: u64) -> Vec<QueueTxItem> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::get_cloned_vec)
-    }
-
-    pub fn count(&self, queue_id: u64) -> usize {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(0, TransactionQueue::len)
-    }
-
     /// Removes all transactions in the queue whose sender matches the provided sender address.
     /// # Errors
     ///
@@ -137,6 +121,14 @@ impl TransactionQueueMap {
             .map(|queue| queue.remove_txs_by_sender(sender))
     }
 
+    pub fn count(&self, queue_id: u64) -> usize {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .map_or(0, TransactionQueue::len)
+    }
+
     pub fn add_block_data(
         &self,
         queue_id: u64,
@@ -149,6 +141,32 @@ impl TransactionQueueMap {
             .get(&queue_id)
             .ok_or(QueueError::NoSuchContext)
             .map(|queue| queue.add_block_data(block, receipts))
+    }
+
+    pub fn get_queue_data(&self, queue_id: u64) -> Result<TransactionQueueData, QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.get_queue_data())
+    }
+
+    pub fn get_block_data(&self, queue_id: u64) -> Result<Option<BlockData>, QueueError> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .ok_or(QueueError::NoSuchContext)
+            .map(|queue| queue.get_block_data())
+    }
+
+    pub fn get_tx_queue_items(&self, queue_id: u64) -> Vec<QueueTxItem> {
+        self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .map_or(Vec::new(), TransactionQueue::get_tx_queue_items)
     }
 
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
@@ -177,14 +195,6 @@ impl TransactionQueueMap {
             .unwrap()
             .get(&queue_id)
             .map(|queue| queue.get_total_gas_used())
-    }
-
-    pub fn get_block_data(&self, queue_id: u64) -> Option<BlockData> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .and_then(|queue| queue.get_block_data())
     }
 }
 
@@ -218,12 +228,12 @@ pub struct BlockData {
 /// It's used to manage and process transactions for different accounts.
 ///
 #[derive(Clone, Debug, Default)]
-struct TransactionQueueData {
-    transactions: Vec<QueueTxItem>,
-    account_nonces: HashMap<H160, U256>,
-    block_data: Option<BlockData>,
-    total_fees: U256,
-    total_gas_used: U256,
+pub struct TransactionQueueData {
+    pub transactions: Vec<QueueTxItem>,
+    pub account_nonces: HashMap<H160, U256>,
+    pub block_data: Option<BlockData>,
+    pub total_fees: U256,
+    pub total_gas_used: U256,
 }
 
 impl TransactionQueueData {
@@ -266,8 +276,12 @@ impl TransactionQueue {
         data.transactions.drain(..).collect::<Vec<QueueTxItem>>()
     }
 
-    pub fn get_cloned_vec(&self) -> Vec<QueueTxItem> {
-        self.data.lock().unwrap().transactions.clone()
+    pub fn len(&self) -> usize {
+        self.data.lock().unwrap().transactions.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.lock().unwrap().transactions.is_empty()
     }
 
     pub fn queue_tx(
@@ -304,14 +318,6 @@ impl TransactionQueue {
         Ok(())
     }
 
-    pub fn len(&self) -> usize {
-        self.data.lock().unwrap().transactions.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.data.lock().unwrap().transactions.is_empty()
-    }
-
     pub fn remove_txs_by_sender(&self, sender: H160) {
         let mut data = self.data.lock().unwrap();
         let mut fees_to_remove = U256::zero();
@@ -338,6 +344,18 @@ impl TransactionQueue {
         data.block_data = Some(BlockData { block, receipts });
     }
 
+    pub fn get_queue_data(&self) -> TransactionQueueData {
+        self.data.lock().unwrap().clone()
+    }
+
+    pub fn get_tx_queue_items(&self) -> Vec<QueueTxItem> {
+        self.data.lock().unwrap().transactions.clone()
+    }
+
+    pub fn get_block_data(&self) -> Option<BlockData> {
+        self.data.lock().unwrap().block_data.clone()
+    }
+
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
         self.data
             .lock()
@@ -354,10 +372,6 @@ impl TransactionQueue {
 
     pub fn get_total_gas_used(&self) -> U256 {
         self.data.lock().unwrap().total_gas_used
-    }
-
-    pub fn get_block_data(&self) -> Option<BlockData> {
-        self.data.lock().unwrap().block_data.clone()
     }
 }
 
