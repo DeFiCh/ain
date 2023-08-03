@@ -12,12 +12,12 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
     }
     else {
         UniValue obj(UniValue::VOBJ);
-        CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(node.ownerType, node.ownerAuthAddress, KeyType::MNOwnerKeyType);
+        CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(node.ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(node.ownerType), KeyType::MNOwnerKeyType);
         obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
-        CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(node.operatorType, node.operatorAuthAddress, KeyType::MNOperatorKeyType);
+        CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(node.operatorAuthAddress, FromOrDefaultDestinationTypeToKeyType(node.operatorType), KeyType::MNOperatorKeyType);
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
-            obj.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(node.rewardAddressType, node.rewardAddress, KeyType::MNRewardKeyType)));
+            obj.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(node.rewardAddress, FromOrDefaultDestinationTypeToKeyType(node.rewardAddressType), KeyType::MNRewardKeyType)));
         }
         else {
             obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
@@ -251,7 +251,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
 
-        ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType);
+        ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType);
         if (!nodePtr->collateralTx.IsNull()) {
             const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
             if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {

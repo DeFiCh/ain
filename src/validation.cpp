@@ -4199,9 +4199,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
             }
 
             if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {

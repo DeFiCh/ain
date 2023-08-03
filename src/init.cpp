@@ -2404,9 +2404,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType);
+                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType);
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType);
+                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType);
                 }
             }
 
