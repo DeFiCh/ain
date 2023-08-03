@@ -131,8 +131,6 @@ pub mod ffi {
 
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
 
-        fn evm_try_get_first_block_number(result: &mut CrossBoundaryResult) -> u64;
-
         fn evm_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,

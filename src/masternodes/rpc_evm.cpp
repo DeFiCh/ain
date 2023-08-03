@@ -246,15 +246,16 @@ UniValue vmmap(const JSONRPCRequest &request) {
             CrossBoundaryResult result;
             auto evmBlockCount = evm_try_get_block_count(result);
             crossBoundaryOkOrThrow(result);
-            auto evmFirstBlock = evm_try_get_first_block_number(result);
-            crossBoundaryOkOrThrow(result);
 
             // evm block count always less than dvm block count
             if (height > evmBlockCount) {
                 return VMDomainRPCMapType::BlockNumberDVMToEVM;
-            } else if (height >= evmFirstBlock && height <= evmBlockCount) {
-                return VMDomainRPCMapType::BlockNumberEVMToDVM;
             } else {
+                // auto evmFirstBlock = evm_try_get_first_block(result);
+                // crossBoundaryOkOrThrow(result);
+                // if (height >= evmFirstBlock && height <= evmBlockCount) {
+                //     return VMDomainRPCMapType::BlockNumberEVMToDVM;
+                // }
                 throwUnsupportedAuto();
                 return VMDomainRPCMapType::Unknown;
             }

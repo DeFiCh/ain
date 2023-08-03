@@ -443,10 +443,6 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     }
 }
 
-pub fn evm_try_get_first_block_number(result: &mut ffi::CrossBoundaryResult) -> u64 {
-    cross_boundary_success_return(result, SERVICES.evm.block.get_first_block_number().as_u64())
-}
-
 pub fn evm_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
     context: u64,
