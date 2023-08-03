@@ -20,7 +20,7 @@ use primitive_types::H256;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
 
-use anyhow::anyhow;
+use anyhow::format_err;
 use hex::FromHex;
 use log::debug;
 use std::error::Error;
@@ -153,7 +153,7 @@ impl EVMCoreService {
             Arc::clone(&self.storage),
             vicinity,
         )
-        .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
@@ -173,7 +173,7 @@ impl EVMCoreService {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
 
         let block_number = self
@@ -187,7 +187,7 @@ impl EVMCoreService {
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
             .get_nonce(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting nonce {e}"))?;
+            .map_err(|e| format_err!("Error getting nonce {e}"))?;
 
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
@@ -201,7 +201,7 @@ impl EVMCoreService {
 
         // Validate tx nonce
         if nonce > signed_tx.nonce() {
-            return Err(anyhow!(
+            return Err(format_err!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
                 signed_tx.nonce()
@@ -211,7 +211,7 @@ impl EVMCoreService {
 
         let balance = self
             .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+            .map_err(|e| format_err!("Error getting balance {e}"))?;
 
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
@@ -221,7 +221,7 @@ impl EVMCoreService {
         let gas_limit = signed_tx.gas_limit();
         if balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(anyhow!("insufficient balance to pay fees").into());
+            return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         // Validate tx gas limit with intrinsic gas
@@ -229,7 +229,7 @@ impl EVMCoreService {
 
         if gas_limit > MAX_GAS_PER_BLOCK {
             debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
-            return Err(anyhow!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
+            return Err(format_err!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
         // Get tx gas usage
@@ -257,7 +257,7 @@ impl EVMCoreService {
                 .unwrap_or_default();
 
             if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
-                return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
+                return Err(format_err!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
 

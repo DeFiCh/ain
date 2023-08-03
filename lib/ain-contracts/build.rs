@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::format_err;
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
 use std::env;
 use std::fs;
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for (id, artifact) in artifacts {
             if id.name == contract_name {
-                let abi = artifact.abi.ok_or_else(|| anyhow!("ABI not found"))?;
+                let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
                 let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
 
                 fs::create_dir_all(format!("{file_path}/output/"))?;
