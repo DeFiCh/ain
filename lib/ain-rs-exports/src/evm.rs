@@ -443,24 +443,23 @@ pub fn evm_create_dst20(
     symbol: &str,
     token_id: &str,
 ) {
-    let address = ain_contracts::dst20_address_from_token_id(token_id);
+    let address = match ain_contracts::dst20_address_from_token_id(token_id) {
+        Ok(address) => address,
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    };
     debug!("Deploying to address {:#?}", address);
-    match address {
-        Ok(address) => {
-            let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-                name: String::from(name),
-                symbol: String::from(symbol),
-                address,
-            }));
 
-            match SERVICES
-                .evm
-                .queue_tx(queue_id, system_tx, native_hash, U256::zero())
-            {
-                Ok(_) => cross_boundary_success(result),
-                Err(e) => cross_boundary_error_return(result, e.to_string()),
-            }
-        }
+    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+        name: String::from(name),
+        symbol: String::from(symbol),
+        address,
+    }));
+
+    match SERVICES
+        .evm
+        .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+    {
+        Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
@@ -474,24 +473,22 @@ pub fn evm_bridge_dst20(
     token_id: &str,
     out: bool,
 ) {
-    if let Ok(address) = address.parse() {
-        let contract = ain_contracts::dst20_address_from_token_id(token_id)
-            .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
+    let Ok(address) = address.parse() else { return cross_boundary_error_return(result, "Invalid address") };
+    let contract = ain_contracts::dst20_address_from_token_id(token_id)
+        .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
-        let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-            to: address,
-            contract,
-            amount: amount.into(),
-            out,
-        }));
-        match SERVICES
-            .evm
-            .queue_tx(queue_id, system_tx, native_hash, U256::zero())
-        {
-            Ok(_) => cross_boundary_success(result),
-            Err(e) => cross_boundary_error_return(result, e.to_string()),
-        }
-    } else {
-        cross_boundary_error_return(result, "Invalid address")
+    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+        to: address,
+        contract,
+        amount: amount.into(),
+        out,
+    }));
+
+    match SERVICES
+        .evm
+        .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+    {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
