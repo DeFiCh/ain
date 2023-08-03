@@ -3,8 +3,10 @@ use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 
+use anyhow::format_err;
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
+use std::error::Error;
 use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
@@ -155,16 +157,17 @@ impl BlockService {
         block_count: usize,
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
-    ) -> FeeHistoryData {
+    ) -> Result<FeeHistoryData, Box<dyn Error>> {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
 
         for _ in 0..=block_count {
-            blocks.push(
-                self.storage
-                    .get_block_by_number(&block_number)
-                    .unwrap_or_else(|| panic!("Block {} out of range", block_number)),
-            );
+            let block = match self.storage.get_block_by_number(&block_number) {
+                None => Err(format_err!("Block {} out of range", block_number)),
+                Some(block) => Ok(block),
+            }?;
+
+            blocks.push(block);
 
             block_number -= U256::one();
         }
@@ -244,12 +247,12 @@ impl BlockService {
         base_fee_per_gas.reverse();
         gas_used_ratio.reverse();
 
-        FeeHistoryData {
+        Ok(FeeHistoryData {
             oldest_block,
             base_fee_per_gas,
             gas_used_ratio,
             reward,
-        }
+        })
     }
 
     /// Returns the 60th percentile priority fee for the last 20 blocks

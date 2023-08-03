@@ -3331,9 +3331,13 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             CrossBoundaryResult result;
             evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
             if (!result.ok) {
+                state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("EVM finalization failed: %s", result.reason.c_str()),
+                                         REJECT_INVALID);
+                InvalidBlockFound(pindexNew, state);
+                mnview.GetHistoryWriters().DiscardDB();
                 return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), result.reason.c_str());
             }
-
         }
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
@@ -4195,9 +4199,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
             }
 
             if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {
