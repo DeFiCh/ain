@@ -281,6 +281,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         {
              {"enabled", VaultKeys::DUSDVaultEnabled},
         }},
+        {AttributeTypes::Oracles,
+         {
+            {"fractional_enabled", OracleKeys::FractionalSplits},
+         }},
     };
     return keys;
 }
@@ -396,6 +400,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         {
              {VaultKeys::DUSDVaultEnabled, "enabled"},
         }},
+        {AttributeTypes::Oracles,
+         {
+            {OracleKeys::FractionalSplits, "fractional_enabled"},
+         }},
     };
     return keys;
 }
@@ -482,7 +490,7 @@ static ResVal<CAttributeValue> VerifyBool(const std::string &str) {
     return {str == "true", Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifySplit(const std::string &str) {
+static ResVal<OracleSplits> VerifySplit(const std::string &str) {
     OracleSplits splits;
     const auto pairs = KeyBreaker(str);
     if (pairs.size() != 2) {
@@ -492,16 +500,13 @@ static ResVal<CAttributeValue> VerifySplit(const std::string &str) {
     if (!resId) {
         return resId;
     }
-    const auto resMultiplier = VerifyFloat(pairs[1]);
+    auto resMultiplier = VerifyFloat(pairs[1]);
     if (!resMultiplier) {
         return resMultiplier;
     }
     auto value = std::get<CAmount>(*resMultiplier.val);
     if (value == 0) {
         return DeFiErrors::GovVarVerifyMultiplier();
-    }
-    if (!fMockNetwork && !IsRegtestNetwork() && value % COIN > 0) {
-        return DeFiErrors::GovVarVerifySplitFractional();
     }
 
     splits[*resId] = value;
@@ -691,7 +696,7 @@ static inline void rtrim(std::string &s, unsigned char remove) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
 }
 
-static inline std::string removeTrailingDecimals(const CAmount amount) {
+static inline std::string GetDecimalStringNormalized(const CAmount amount) {
     auto decimalStr = GetDecimalString(amount);
     rtrim(decimalStr, '0');
     if (decimalStr.back() == '.') {
@@ -762,7 +767,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Oracles,
              {
-                 {OracleIDs::Splits, VerifySplit},
+                {OracleKeys::FractionalSplits, VerifyBool},
              }},
             {AttributeTypes::EVMType,
              {
@@ -948,9 +953,22 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
         }
     } else if (type == AttributeTypes::Oracles) {
-        typeKey = OracleIDs::Splits;
         if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            auto ikey = allowedKeys().find(type);
+            if (ikey == allowedKeys().end()) {
+                return DeFiErrors::GovVarVariableUnsupportedType(type);
+            }
+
+            itype = ikey->second.find(keys[3]);
+            if (itype == ikey->second.end()) {
+                return DeFiErrors::GovVarVariableInvalidKey("key", ikey->second);
+            }
+
+            typeKey = itype->second;
+
+            attrV0 = CDataStructureV0{type, typeId, typeKey};
         }
     } else {
         auto ikey = allowedKeys().find(type);
@@ -1149,6 +1167,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             attribValue.insert(arrayValue.getValStr());
         }
         return applyVariable(attrV0, attribValue);
+    } else if (attrV0.type == AttributeTypes::Oracles &&
+               attrV0.typeId == OracleIDs::Splits &&
+               attrV0.key != OracleKeys::FractionalSplits) {
+        auto attribValue = VerifySplit(value->getValStr());
+        if (!attribValue) return std::move(attribValue);
+        return applyVariable(attrV0, *attribValue);
     } else {
         if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");
@@ -1300,7 +1324,7 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                      (attrV0->key == TokenKeys::Ascendant || attrV0->key == TokenKeys::Descendant ||
                       attrV0->key == TokenKeys::Epitaph))) {
                     return Res::Err("Attribute cannot be set externally");
-                } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits && attrV0->key != OracleKeys::FractionalSplits) {
                     const auto splitValue = std::get_if<OracleSplits>(&value);
                     if (!splitValue) {
                         return Res::Err("Failed to get Oracle split value");
@@ -1421,7 +1445,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = KeyBuilder(attrV0->typeId);
             }
 
-            const auto v0Key = attrV0->type == AttributeTypes::Oracles || attrV0->type == AttributeTypes::Locks
+            const auto v0Key = (attrV0->type == AttributeTypes::Oracles && attrV0->key != OracleKeys::FractionalSplits) || attrV0->type == AttributeTypes::Locks
                                    ? KeyBuilder(attrV0->key)
                                    : displayKeys().at(attrV0->type).at(attrV0->key);
 
@@ -1449,7 +1473,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
-                    const auto decimalStr = removeTrailingDecimals(*amount);
+                    const auto decimalStr = GetDecimalStringNormalized(*amount);
                     ret.pushKV(key, decimalStr);
 
                     // Create fee_pct alias of reward_pct.
@@ -1523,7 +1547,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     if (it != splitValues->begin()) {
                         keyValue += ',';
                     }
-                    keyValue += KeyBuilder(it->first, removeTrailingDecimals(it->second));
+                    keyValue += KeyBuilder(it->first, GetDecimalStringNormalized(it->second));
                 }
                 ret.pushKV(key, keyValue);
             } else if (const auto &descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
@@ -1740,27 +1764,39 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     return DeFiErrors::GovVarValidateFortCanningCrunch();
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
-                    const auto splitMap = std::get_if<OracleSplits>(&value);
-                    if (!splitMap) {
-                        return DeFiErrors::GovVarUnsupportedValue();
-                    }
+                    if (attrV0->key == OracleKeys::FractionalSplits) {
+                        if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            return DeFiErrors::GovVarValidateNextNetworkUpgrade();
+                        }
+                    } else {
+                        const auto splitMap = std::get_if<OracleSplits>(&value);
+                        if (!splitMap) {
+                            return DeFiErrors::GovVarUnsupportedValue();
+                        }
 
-                    for (const auto &[tokenId, multipler] : *splitMap) {
-                        if (tokenId == 0) {
-                            return DeFiErrors::GovVarValidateSplitDFI();
-                        }
-                        if (view.HasPoolPair({tokenId})) {
-                            return DeFiErrors::GovVarValidateSplitPool();
-                        }
-                        const auto token = view.GetToken(DCT_ID{tokenId});
-                        if (!token) {
-                            return DeFiErrors::GovVarValidateTokenExist(tokenId);
-                        }
-                        if (!token->IsDAT()) {
-                            return DeFiErrors::GovVarValidateSplitDAT();
-                        }
-                        if (!view.GetLoanTokenByID({tokenId})) {
-                            return DeFiErrors::GovVarValidateLoanTokenID(tokenId);
+                        CDataStructureV0 fractionalKey{AttributeTypes::Oracles, OracleIDs::Splits, OracleKeys::FractionalSplits};
+                        const auto fractionalEnabled = GetValue(fractionalKey, bool{});
+
+                        for (const auto &[tokenId, multiplier] : *splitMap) {
+                            if (tokenId == 0) {
+                                return DeFiErrors::GovVarValidateSplitDFI();
+                            }
+                            if (view.HasPoolPair({tokenId})) {
+                                return DeFiErrors::GovVarValidateSplitPool();
+                            }
+                            const auto token = view.GetToken(DCT_ID{tokenId});
+                            if (!token) {
+                                return DeFiErrors::GovVarValidateTokenExist(tokenId);
+                            }
+                            if (!token->IsDAT()) {
+                                return DeFiErrors::GovVarValidateSplitDAT();
+                            }
+                            if (!view.GetLoanTokenByID({tokenId})) {
+                                return DeFiErrors::GovVarValidateLoanTokenID(tokenId);
+                            }
+                            if (!fractionalEnabled && multiplier % COIN != 0) {
+                                return DeFiErrors::GovVarVerifySplitFractional();
+                            }
                         }
                     }
                 } else {
@@ -1842,13 +1878,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
 
             case AttributeTypes::EVMType:
                 if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
-                    return Res::Err("Cannot be set before NextNetworkUpgrade");
+                    return DeFiErrors::GovVarValidateNextNetworkUpgrade();
                 }
                 break;
 
             case AttributeTypes::Transfer:
                 if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
-                    return Res::Err("Cannot be set before NextNetworkUpgrade");
+                    return DeFiErrors::GovVarValidateNextNetworkUpgrade();
                 }
                 if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
                     attrV0->key == TransferKeys::Disallowed) {
@@ -1865,7 +1901,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Vaults:
                 if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
                     if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
-                        return Res::Err("Cannot be set before NextNetworkUpgrade");
+                        return DeFiErrors::GovVarValidateNextNetworkUpgrade();
                     }
                 }
                 break;
@@ -2075,7 +2111,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                 }
             }
 
-        } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+        } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits && attrV0->key != OracleKeys::FractionalSplits) {
             const auto value = std::get_if<OracleSplits>(&attribute.second);
             if (!value) {
                 return DeFiErrors::GovVarUnsupportedValue();

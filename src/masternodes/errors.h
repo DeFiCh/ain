@@ -306,6 +306,10 @@ public:
         return Res::Err("Cannot be set before FortCanningCrunch");
     }
 
+    static Res GovVarValidateNextNetworkUpgrade() {
+        return Res::Err("Cannot be set before NextNetworkUpgrade");
+    }
+
     static Res GovVarValidateFortCanningSpring() {
         return Res::Err("Cannot be set before FortCanningSpringHeight");
     }

@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
+    assert_raises_rpc_error,
     truncate,
 )
 
@@ -23,10 +24,12 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.extra_args = [
             ['-vaultindex=1', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1',
              '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1',
-             '-fortcanningroadheight=1', f'-fortcanningcrunchheight=1', '-subsidytest=1']]
+             '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-nextnetworkupgradeheight=350',
+             '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
+        self.setup_and_check_govvars()
         self.token_split()
 
     def setup_test_tokens(self):
@@ -145,6 +148,23 @@ class TokenFractionalSplitTest(DefiTestFramework):
         result = self.nodes[0].getaccount(self.address)
         for val in result:
             assert_equal(val.find(f'{token_symbol}{token_suffix}'), -1)
+
+    def setup_and_check_govvars(self):
+
+        # Try and enable fractional split before the fork
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov,
+                                {"ATTRIBUTES": {'v0/oracles/splits/fractional_enabled': 'true'}})
+
+        # Move to fork
+        self.nodes[0].generate(350 - self.nodes[0].getblockcount())
+
+        # Try and create a fractional split before the fork
+        assert_raises_rpc_error(-32600, "Fractional split not currently supported", self.nodes[0].setgov,
+                                {"ATTRIBUTES": {f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}': f'{self.idTSLA}/-2.5'}})
+
+        # Enable fractional split
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/oracles/splits/fractional_enabled': 'true'}})
+        self.nodes[0].generate(1)
 
     def token_split(self):
 

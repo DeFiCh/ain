@@ -172,6 +172,10 @@ enum VaultKeys : uint8_t {
     DUSDVaultEnabled = 'w',
 };
 
+enum OracleKeys : uint8_t {
+    FractionalSplits = 0,
+};
+
 struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
