@@ -16,6 +16,19 @@ enum class VMDomainRPCMapType {
     TxHashEVMToEVM,
 };
 
+const char* GetVMDomainRPCMapType(VMDomainRPCMapType t) {
+  switch (t) {
+    case VMDomainRPCMapType::Unknown: return "Unknown";
+    case VMDomainRPCMapType::Auto: return "Auto";
+    case VMDomainRPCMapType::BlockNumberDVMToEVM: return "BlockNumberDVMToEVM";
+    case VMDomainRPCMapType::BlockNumberEVMToDVM: return "BlockNumberEVMToDVM";
+    case VMDomainRPCMapType::BlockHashDVMToEVM: return "BlockHashDVMToEVM";
+    case VMDomainRPCMapType::BlockHashEVMToDVM: return "BlockHashEVMToDVM";
+    case VMDomainRPCMapType::TxHashDVMToEVM: return "TxHashDVMToEVM";
+    case VMDomainRPCMapType::TxHashEVMToEVM: return "TxHashEVMToEVM";
+  }
+}
+
 static int VMDomainRPCMapTypeCount = 7;
 
 enum class VMDomainIndexType { BlockHashDVMToEVM, BlockHashEVMToDVM, TxHashDVMToEVM, TxHashEVMToDVM };
@@ -252,15 +265,27 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return {VMDomainRPCMapType::Unknown, false};
     };
 
-    auto finalizeResult = [&](ResVal<uint256> &res, const VMDomainRPCMapType type) {
+    auto finalizeResult = [&](ResVal<uint256> &res, const VMDomainRPCMapType type, const std::string input) {
         if (!res) {
             throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
         } else {
-            return ensureEVMHashPrefixed(res.val->ToString(), type);
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV("input", input);
+            ret.pushKV("type", GetVMDomainRPCMapType(type));
+            ret.pushKV("output", ensureEVMHashPrefixed(res.val->ToString(), type));
+            return ret;
         }
     };
 
-    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam](const std::string &input) -> UniValue {
+    auto finalizeBlockNumberResult = [&](uint64_t &number, const VMDomainRPCMapType type, const uint64_t input) {
+        UniValue ret(UniValue::VOBJ);
+        ret.pushKV("input", input);
+        ret.pushKV("type", GetVMDomainRPCMapType(type));
+        ret.pushKV("output", number);
+        return ret;
+    };
+
+    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam, &finalizeBlockNumberResult](const std::string &input) -> UniValue {
         uint64_t height;
         bool success = ParseUInt64(input, &height);
         if (!success || height < 0) {
@@ -278,10 +303,11 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(dvm_block.msg);
         }
         CBlockIndex *pindex = LookupBlockIndex(*dvm_block.val);
-        return pindex->GetBlockHeader().deprecatedHeight;
+        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
+        return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberEVMToDVM, height);
     };
 
-    auto handleMapBlockNumberDVMToEVMRequest = [&throwInvalidParam](const std::string &input) -> UniValue {
+    auto handleMapBlockNumberDVMToEVMRequest = [&throwInvalidParam, &finalizeBlockNumberResult](const std::string &input) -> UniValue {
         uint64_t height;
         const int current_tip = ::ChainActive().Height();
         bool success          = ParseUInt64(input, &height);
@@ -295,11 +321,11 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(evmBlockHash.msg);
         }
         CrossBoundaryResult result;
-        auto blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
         if (!result.ok) {
             throwInvalidParam(result.reason.c_str());
         }
-        return blockNumber;
+        return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
 
     LOCK(cs_main);
@@ -307,7 +333,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();
         if (isResolved) {
-            return finalizeResult(res, mapType);
+            return finalizeResult(res, mapType, input);
         }
         type = mapType;
     }
@@ -340,7 +366,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
     }
 
-    return finalizeResult(res, type);
+    return finalizeResult(res, type, input);
 }
 
 UniValue logvmmaps(const JSONRPCRequest &request) {
