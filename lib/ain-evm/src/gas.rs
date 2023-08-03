@@ -5,7 +5,7 @@ use evm::{
     Config,
 };
 
-use anyhow::anyhow;
+use anyhow::format_err;
 use log::debug;
 use std::error::Error;
 
@@ -30,7 +30,7 @@ pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<(), Box<dyn Error>
     match gasometer.record_transaction(tx_cost) {
         Err(_) => {
             debug!("[check_tx_intrinsic_gas] gas limit is below the minimum gas per tx");
-            Err(anyhow!("gas limit is below the minimum gas per tx").into())
+            Err(format_err!("gas limit is below the minimum gas per tx").into())
         }
         _ => Ok(()),
     }

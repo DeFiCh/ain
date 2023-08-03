@@ -3,7 +3,7 @@ use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
 
-use anyhow::anyhow;
+use anyhow::format_err;
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
 use std::error::Error;
@@ -163,7 +163,7 @@ impl BlockService {
 
         for _ in 0..=block_count {
             let block = match self.storage.get_block_by_number(&block_number) {
-                None => Err(anyhow!("Block {} out of range", block_number)),
+                None => Err(format_err!("Block {} out of range", block_number)),
                 Some(block) => Ok(block),
             }?;
 
