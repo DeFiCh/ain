@@ -309,6 +309,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         if (isResolved) {
             return finalizeResult(res, mapType);
         }
+        type = mapType;
     }
 
     switch (type) {
