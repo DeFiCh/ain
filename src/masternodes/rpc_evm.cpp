@@ -8,12 +8,12 @@
 enum class VMDomainRPCMapType {
     Unknown = -1,
     Auto = 0,
-    TxHashDVMToEVM,
-    TxHashEVMToEVM,
-    BlockHashDVMToEVM,
-    BlockHashEVMToDVM,
     BlockNumberDVMToEVM,
     BlockNumberEVMToDVM,
+    BlockHashDVMToEVM,
+    BlockHashEVMToDVM,
+    TxHashDVMToEVM,
+    TxHashEVMToEVM,
 };
 
 static int VMDomainRPCMapTypeCount = 7;
@@ -200,12 +200,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Optional::NO,
           "Map types: \n\
                             0 - Auto \n\
-                            1 - Tx Hash: DFI -> EVM \n\
-                            2 - Tx Hash: EVM -> DFI \n\
-                            3 - Block Hash: DFI -> EVM \n\
-                            4 - Block Hash: EVM -> DFI \n\
-                            5 - Block Number: DFI -> EVM \n\
-                            6 - Block Number: EVM -> DFI"}},
+                            5 1 - Block Number: DFI -> EVM \n\
+                            6 2 - Block Number: EVM -> DFI \n\
+                            3 3 - Block Hash: DFI -> EVM \n\
+                            4 4 - Block Hash: EVM -> DFI \n\
+                            1 5 - Tx Hash: DFI -> EVM \n\
+                            2 6 - Tx Hash: EVM -> DFI \n"}},
         RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n\
                                             or (number) block number\n"},
         RPCExamples{HelpExampleCli("vmmap", R"('"<hash>"' 1)")},

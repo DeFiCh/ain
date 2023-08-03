@@ -13,12 +13,13 @@ from test_framework.util import (
 
 class VMMapType:
     Auto = 0
-    TxHashDVMToEVM = 1
-    TxHashEVMToEVM = 2
+    BlockNumberDVMToEVM = 1
+    BlockNumberEVMToDVM = 2
     BlockHashDVMToEVM = 3
     BlockHashEVMToDVM = 4
-    BlockNumberDVMToEVM = 5
-    BlockNumberEVMToDVM = 6
+    TxHashDVMToEVM = 5
+    TxHashEVMToEVM = 6
+
 
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
@@ -85,9 +86,9 @@ class VMMapTests(DefiTestFramework):
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
-        for map_type in range(4):
-            if map_type == 0:
-                continue # addr types and auto are ignored for this test
+        for map_type in range(7):
+            if map_type in [0,1,2]:
+                continue # auto and num are ignored for this test
             assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
             assert_err("0x00", map_type)
             assert_err("garbage", map_type)
