@@ -774,11 +774,13 @@ impl MetachainRPCServer for MetachainRPCModule {
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
-        Ok(RpcFeeHistory::from(self.handler.block.fee_history(
-            block_count.as_usize(),
-            first_block,
-            priority_fee_percentile,
-        )))
+        let fee_history = self
+            .handler
+            .block
+            .fee_history(block_count.as_usize(), first_block, priority_fee_percentile)
+            .map_err(|e| Error::Custom(format!("{e:?}")))?;
+
+        Ok(RpcFeeHistory::from(fee_history))
     }
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {

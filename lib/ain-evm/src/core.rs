@@ -20,7 +20,7 @@ use primitive_types::H256;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
 
-use anyhow::anyhow;
+use anyhow::format_err;
 use log::debug;
 use std::error::Error;
 use std::path::PathBuf;
@@ -152,7 +152,7 @@ impl EVMCoreService {
             Arc::clone(&self.storage),
             vicinity,
         )
-        .map_err(|e| anyhow!("------ Could not restore backend {}", e))?;
+        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
@@ -189,7 +189,7 @@ impl EVMCoreService {
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!(
             "[validate_raw_tx] TransactionV2 : {:#?}",
             signed_tx.transaction
@@ -205,7 +205,7 @@ impl EVMCoreService {
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
             .get_nonce(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting nonce {e}"))?;
+            .map_err(|e| format_err!("Error getting nonce {e}"))?;
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -218,7 +218,7 @@ impl EVMCoreService {
 
         // Validate tx nonce
         if nonce > signed_tx.nonce() {
-            return Err(anyhow!(
+            return Err(format_err!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
                 signed_tx.nonce()
@@ -230,12 +230,12 @@ impl EVMCoreService {
         let tx_gas_price = get_tx_max_gas_price(&signed_tx);
         if tx_gas_price < INITIAL_BASE_FEE {
             debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
-            return Err(anyhow!("tx gas price is lower than initial block base fee").into());
+            return Err(format_err!("tx gas price is lower than initial block base fee").into());
         }
 
         let balance = self
             .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| anyhow!("Error getting balance {e}"))?;
+            .map_err(|e| format_err!("Error getting balance {e}"))?;
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
@@ -243,7 +243,7 @@ impl EVMCoreService {
         // Validate tx prepay fees with account balance
         if balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(anyhow!("insufficient balance to pay fees").into());
+            return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         // Validate tx gas limit with intrinsic gas
@@ -253,7 +253,7 @@ impl EVMCoreService {
         let gas_limit = signed_tx.gas_limit();
         if gas_limit > MAX_GAS_PER_BLOCK {
             debug!("[validate_raw_tx] gas limit higher than MAX_GAS_PER_BLOCK");
-            return Err(anyhow!("gas limit higher than MAX_GAS_PER_BLOCK").into());
+            return Err(format_err!("gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
         let used_gas = if use_context {
@@ -280,7 +280,7 @@ impl EVMCoreService {
                 .unwrap_or_default();
 
             if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
-                return Err(anyhow!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
+                return Err(format_err!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
             }
         }
 

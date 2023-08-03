@@ -2231,9 +2231,9 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddressType, mn->rewardAddress, KeyType::MNRewardKeyType));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddress, FromOrDefaultDestinationTypeToKeyType(mn->rewardAddressType), KeyType::MNRewardKeyType));
                 } else {
-                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerType, mn->ownerAuthAddress, KeyType::MNOwnerKeyType));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(mn->ownerType), KeyType::MNOwnerKeyType));
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
@@ -2378,8 +2378,8 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return;
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
@@ -2424,13 +2424,16 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
     CrossBoundaryResult result;
     const auto blockResult = evm_try_construct_block(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime());
     if (!result.ok) {
-        LogPrintf("ERROR: EVM try finalize failed: %s\n", result.reason.c_str());
+        return Res::Err(result.reason.c_str());
     }
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
 
-    cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
-    cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    if (!res) return res;
+
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+    if (!res) return res;
 
     if (!blockResult.failed_transactions.empty()) {
         std::vector<std::string> failedTransactions;
@@ -2441,8 +2444,37 @@ static void ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCus
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
-    cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
-    cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+    res = cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
+    if (!res) return res;
+    res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
+    if (!res) return res;
+
+    return Res::Ok();
+}
+
+static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
+    // construct undo
+    auto& flushable = cache.GetStorage();
+    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
+    // flush changes to underlying view
+    cache.Flush();
+    // write undo
+    if (!undo.before.empty()) {
+        mnview.SetUndo(UndoKey{static_cast<uint32_t>(pindex->nHeight), hash }, undo);
+    }
+}
+
+Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+    CCustomCSView cache(mnview);
+
+    // Process EVM block
+    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
+    if (!res) return res;
+
+    // Construct undo
+    FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
+
+    return Res::Ok();
 }
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
@@ -2499,16 +2531,6 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     // Migrate foundation members to attributes
     ProcessGrandCentralEvents(pindex, cache, chainparams);
 
-    // Execute EVM Queue
-    ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
-
     // construct undo
-    auto& flushable = cache.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-    // flush changes to underlying view
-    cache.Flush();
-    // write undo
-    if (!undo.before.empty()) {
-        mnview.SetUndo(UndoKey{static_cast<uint32_t>(pindex->nHeight), uint256() }, undo); // "zero hash"
-    }
+    FlushCacheCreateUndo(pindex, mnview, cache, uint256());
 }
