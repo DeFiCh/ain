@@ -253,9 +253,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             CTxDestination destination;
             if (nHeight < consensus.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
             }
 
             if (IsValidDestination(destination)) {
@@ -1065,9 +1065,9 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         if (args.coinbaseScript.empty()) {
             // this is safe because MN was found
             if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddressType, nodePtr->rewardAddress, KeyType::MNRewardKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
             } else {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerType, nodePtr->ownerAuthAddress, KeyType::MNOwnerKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
             }
         } else {
             scriptPubKey = args.coinbaseScript;

@@ -13,12 +13,13 @@ from test_framework.util import (
 
 class VMMapType:
     Auto = 0
-    TxHashDVMToEVM = 1
-    TxHashEVMToEVM = 2
+    BlockNumberDVMToEVM = 1
+    BlockNumberEVMToDVM = 2
     BlockHashDVMToEVM = 3
     BlockHashEVMToDVM = 4
-    BlockNumberDVMToEVM = 5
-    BlockNumberEVMToDVM = 6
+    TxHashDVMToEVM = 5
+    TxHashEVMToEVM = 6
+
 
 class VMMapTests(DefiTestFramework):
     def set_test_params(self):
@@ -77,15 +78,17 @@ class VMMapTests(DefiTestFramework):
         for item in tx_maps:
             assert_equal(self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM), item[0])
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.Auto), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.Auto), item[0])
 
     def vmmap_invalid_should_fail(self):
         self.rollback_to(self.start_block_height)
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         fake_evm_tx = '0x0000000000000000000000000000000000000000000000000000000000000000'
         assert_err = lambda *args: assert_raises_rpc_error(-32600, None, self.nodes[0].vmmap, *args)
-        for map_type in range(4):
-            if map_type == 0:
-                continue # addr types and auto are ignored for this test
+        for map_type in range(7):
+            if map_type in [0,1,2]:
+                continue # auto and num are ignored for this test
             assert_raises_rpc_error(-32600, "Key not found: " + fake_evm_tx[2:], self.nodes[0].vmmap, fake_evm_tx, map_type)
             assert_err("0x00", map_type)
             assert_err("garbage", map_type)
@@ -107,6 +110,9 @@ class VMMapTests(DefiTestFramework):
             assert_equal(self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(item[1], VMMapType.BlockHashEVMToDVM), item[0])
 
+            assert_equal(self.nodes[0].vmmap(item[0], VMMapType.Auto), item[1])
+            assert_equal(self.nodes[0].vmmap(item[1], VMMapType.Auto), item[0])
+
     def vmmap_valid_block_number_should_succeed(self):
         self.rollback_to(self.start_block_height)
         self.nodes[0].transferdomain([{"src": {"address": self.address, "amount": "100@DFI", "domain": 2}, "dst": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3}}])
@@ -122,11 +128,18 @@ class VMMapTests(DefiTestFramework):
             assert_equal(self.nodes[0].vmmap(str(item[0]), VMMapType.BlockNumberDVMToEVM), item[1])
             assert_equal(self.nodes[0].vmmap(str(item[1]), VMMapType.BlockNumberEVMToDVM), item[0])
 
+            assert_equal(self.nodes[0].vmmap(str(item[0]), VMMapType.Auto), item[1])
+            # assert_equal(self.nodes[0].vmmap(str(item[1]), VMMapType.Auto), item[0])
+
     def vmmap_invalid_block_number_should_fail(self):
         assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, *args)
         for x in ["-1", "garbage", "1000000000"]:
             assert_invalid(x, VMMapType.BlockNumberDVMToEVM)
             assert_invalid(x, VMMapType.BlockNumberEVMToDVM)
+
+    def vmmap_auto_invalid_input_should_fail(self):
+        self.rollback_to(self.start_block_height)
+        assert_raises_rpc_error(-8, "Automatic detection not viable for input", self.nodes[0].vmmap, 'test', VMMapType.Auto)
 
     def vmmap_rollback_should_succeed(self):
         self.rollback_to(self.start_block_height)
@@ -140,7 +153,7 @@ class VMMapTests(DefiTestFramework):
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         list_tx = list(list_tx['indexes'].keys())
         assert_equal(base_block[2:] in list_blocks, True)
         assert_equal(new_block[2:] in list_blocks, True)
@@ -148,7 +161,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].invalidateblock(base_block_dvm)
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         list_tx = list(list_tx['indexes'].keys())
         assert_equal(base_block[2:] in list_blocks, True)
         assert_equal(new_block[2:] in list_blocks, False)
@@ -160,13 +173,13 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
         assert_equal(eth_tx[2:] in list(list_tx['indexes'].values()), True)
         assert_equal(tx in list(list_tx['indexes'].keys()), True)
 
     def logvmmaps_invalid_tx_should_fail(self):
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
         assert_equal("garbage" not in list(list_tx['indexes'].values()), True)
@@ -180,7 +193,7 @@ class VMMapTests(DefiTestFramework):
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
-        list_block = self.nodes[0].logvmmaps(1)
+        list_block = self.nodes[0].logvmmaps(2)
         assert_equal("invalid tx" not in list(list_block['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_block['indexes'].values()), True)
         assert_equal("garbage" not in list(list_block['indexes'].values()), True)
@@ -195,6 +208,7 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_block_number_should_succeed()
         self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
+        self.vmmap_auto_invalid_input_should_fail()
         # logvmmap tests
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()

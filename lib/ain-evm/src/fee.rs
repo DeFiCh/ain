@@ -1,7 +1,7 @@
 use crate::transaction::SignedTx;
 use ethereum_types::U256;
 
-use anyhow::anyhow;
+use anyhow::format_err;
 use std::cmp;
 use std::error::Error;
 
@@ -14,7 +14,7 @@ pub fn calculate_prepay_gas_fee(signed_tx: &SignedTx) -> Result<U256, Box<dyn Er
 
     match prepay_gas {
         Some(gas) => Ok(gas),
-        None => Err(anyhow!("calculate prepay gas failed from overflow").into()),
+        None => Err(format_err!("calculate prepay gas failed from overflow").into()),
     }
 }
 
@@ -35,7 +35,7 @@ pub fn calculate_gas_fee(
 
     match gas_fee {
         Some(fee) => Ok(fee),
-        None => Err(anyhow!("calculate gas fee failed from overflow").into()),
+        None => Err(format_err!("calculate gas fee failed from overflow").into()),
     }
 }
 

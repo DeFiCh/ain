@@ -20,7 +20,7 @@ use crate::bytes::Bytes;
 use crate::services::SERVICES;
 use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
-use anyhow::anyhow;
+use anyhow::format_err;
 use hex::FromHex;
 use log::debug;
 use primitive_types::H256;
@@ -74,7 +74,7 @@ impl EVMServices {
     pub fn new() -> Result<Self, anyhow::Error> {
         if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
-                return Err(anyhow!(
+                return Err(format_err!(
                     "Loading a genesis from JSON file is restricted to regtest network"
                 ));
             }
@@ -180,7 +180,7 @@ impl EVMServices {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
-                        return Err(anyhow!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
+                        return Err(format_err!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
                     }
 
                     let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
@@ -342,7 +342,7 @@ impl EVMServices {
 
         let total_fees = self.core.tx_queues.get_total_fees(queue_id)?;
         if (total_burnt_fees + total_priority_fees) != total_fees {
-            return Err(anyhow!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
+            return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
         }
 
         if update_state {
@@ -361,7 +361,7 @@ impl EVMServices {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let buffer = <Vec<u8>>::from_hex(tx)?;
         let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
-            .map_err(|_| anyhow!("Error: decoding raw tx to TransactionV2"))?;
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!("[verify_tx_fees] TransactionV2 : {:#?}", tx);
         let signed_tx: SignedTx = tx.try_into()?;
 
@@ -373,7 +373,7 @@ impl EVMServices {
         let tx_gas_price = get_tx_max_gas_price(&signed_tx);
         if tx_gas_price < block_fee {
             debug!("[verify_tx_fees] tx gas price is lower than block base fee");
-            return Err(anyhow!("tx gas price is lower than block base fee").into());
+            return Err(format_err!("tx gas price is lower than block base fee").into());
         }
 
         Ok(())
@@ -432,7 +432,7 @@ impl EVMServices {
         symbol: String,
     ) -> Result<DeployContractInfo, Box<dyn Error>> {
         if executor.backend.get_account(&address).is_some() {
-            return Err(anyhow!("Token address is already in use").into());
+            return Err(format_err!("Token address is already in use").into());
         }
 
         let bytecode = ain_contracts::get_dst20_bytecode()?;
@@ -465,10 +465,10 @@ impl EVMServices {
         let account = executor
             .backend
             .get_account(&contract)
-            .ok_or_else(|| anyhow!("DST20 token address is not a contract"))?;
+            .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
         if account.code_hash != ain_contracts::get_dst20_codehash()? {
-            return Err(anyhow!("DST20 token code is not valid").into());
+            return Err(format_err!("DST20 token code is not valid").into());
         }
 
         let storage_index = ain_contracts::get_address_storage_index(to);
@@ -480,7 +480,7 @@ impl EVMServices {
             true => balance.checked_sub(amount),
             false => balance.checked_add(amount),
         }
-        .ok_or_else(|| anyhow!("Balance overflow/underflow"))?;
+        .ok_or_else(|| format_err!("Balance overflow/underflow"))?;
 
         Ok(DST20BridgeInfo {
             address: contract,
