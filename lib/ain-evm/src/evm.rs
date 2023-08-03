@@ -348,10 +348,11 @@ impl EVMServices {
     }
 
     pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
-        let BlockData { block, receipts } = match self.core.tx_queues.get_block_data(queue_id) {
-            Some(block_data) => block_data,
-            None => return Err(format_err!("finalize block failed, no block in queue_id").into()),
-        };
+        let BlockData { block, receipts } = self
+            .core
+            .tx_queues
+            .get_block_data(queue_id)
+            .ok_or_else(|| format_err!("finalize block failed, no block in queue_id"))?;
 
         debug!(
             "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
