@@ -3993,8 +3993,14 @@ public:
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
-        mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
-        mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+        auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        if (!res) {
+            LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash.ToString());
+        }
+        res = mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+        if (!res) {
+            LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash.ToString());
+        }
         return Res::Ok();
     }
 
