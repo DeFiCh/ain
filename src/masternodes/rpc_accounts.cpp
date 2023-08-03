@@ -164,7 +164,7 @@ static void onPoolRewards(CCustomCSView &view,
                     firstHeight = height;
                 }
                 if (height >= eunosHeight || firstHeight != height) {
-                    mnview.AddBalance(owner, amount); // update owner liquidity
+                    auto res = mnview.AddBalance(owner, amount); // update owner liquidity
                 }
             }
         );
@@ -1024,14 +1024,14 @@ public:
             auto token = view.GetToken(balance.first);
             auto IsPoolShare = token && token->IsPoolShare();
             if (amount > 0) {
-                view.AddBalance(owner, {balance.first, amount});
+                auto res = view.AddBalance(owner, {balance.first, amount});
                 if (IsPoolShare) {
                     if (view.GetBalance(owner, balance.first).nValue == amount) {
                         view.SetShare(balance.first, owner, 0);
                     }
                 }
             } else {
-                view.SubBalance(owner, {balance.first, -amount});
+                auto res = view.SubBalance(owner, {balance.first, -amount});
                 if (IsPoolShare) {
                     if (view.GetBalance(owner, balance.first).nValue == 0) {
                         view.DelShare(balance.first, owner);
@@ -2343,10 +2343,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         totalResult->burntDFI += r->burntDFI;
         totalResult->burntFee += r->burntFee;
         totalResult->auctionFee += r->auctionFee;
-        totalResult->burntTokens.AddBalances(r->burntTokens.balances);
-        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
-        totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
-        totalResult->paybackFee.AddBalances(r->paybackFee.balances);
+        auto res = totalResult->burntTokens.AddBalances(r->burntTokens.balances);
+        res = totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
+        res = totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
+        res = totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
 
     GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
@@ -2357,11 +2357,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     for (const auto &token : totalResult->nonConsortiumTokens.balances) {
         TAmounts amount;
         amount[token.first] = balances[token.first].burnt;
-        consortiumTokens.AddBalances(amount);
+        auto res = consortiumTokens.AddBalances(amount);
     }
 
-    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
+    auto res = totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
+    res = totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));

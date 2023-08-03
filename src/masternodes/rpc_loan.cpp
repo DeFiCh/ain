@@ -1241,7 +1241,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     if (fromStr == "*") {
         CBalances balances;
         for (const auto& amounts : loans)
-            balances.AddBalances(amounts.second.balances);
+            auto res = balances.AddBalances(amounts.second.balances);
 
         if (loans.empty())
             balances = amounts;
