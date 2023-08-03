@@ -141,7 +141,7 @@ pub mod ffi {
             context: u64,
             address: &str,
             amount: [u8; 32],
-            native_tx_hash: [u8; 32],
+            native_hash: [u8; 32],
             token_id: &str,
             out: bool,
         );

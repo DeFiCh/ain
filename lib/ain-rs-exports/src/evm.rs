@@ -6,7 +6,6 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
-use std::error::Error;
 
 use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
@@ -438,75 +437,61 @@ pub fn evm_try_get_block_number_by_hash(
 
 pub fn evm_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
     token_id: &str,
 ) {
-    match create_dst20(context, native_hash, name, symbol, token_id) {
-        Ok(_) => cross_boundary_success(result),
+    let address = ain_contracts::dst20_address_from_token_id(token_id);
+    debug!("Deploying to address {:#?}", address);
+    match address {
+        Ok(address) => {
+            let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                name: String::from(name),
+                symbol: String::from(symbol),
+                address,
+            }));
+
+            match SERVICES
+                .evm
+                .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+            {
+                Ok(_) => cross_boundary_success(result),
+                Err(e) => cross_boundary_error_return(result, e.to_string()),
+            }
+        }
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn evm_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     address: &str,
     amount: [u8; 32],
-    native_tx_hash: [u8; 32],
+    native_hash: [u8; 32],
     token_id: &str,
     out: bool,
 ) {
-    match bridge_to_dst20(context, address, amount, native_tx_hash, token_id, out) {
-        Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    if let Ok(address) = address.parse() {
+        let contract = ain_contracts::dst20_address_from_token_id(token_id)
+            .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
+
+        let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+            to: address,
+            contract,
+            amount: amount.into(),
+            out,
+        }));
+        match SERVICES
+            .evm
+            .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+        {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    } else {
+        cross_boundary_error_return(result, "Invalid address")
     }
-}
-
-fn create_dst20(
-    context: u64,
-    native_hash: [u8; 32],
-    name: &str,
-    symbol: &str,
-    token_id: &str,
-) -> Result<(), Box<dyn Error>> {
-    let address = ain_contracts::dst20_address_from_token_id(token_id)?;
-    debug!("Deploying to address {:#?}", address);
-
-    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-        name: String::from(name),
-        symbol: String::from(symbol),
-        address,
-    }));
-    SERVICES
-        .evm
-        .queue_tx(context, system_tx, native_hash, U256::zero())?;
-
-    Ok(())
-}
-
-fn bridge_to_dst20(
-    context: u64,
-    address: &str,
-    amount: [u8; 32],
-    native_hash: [u8; 32],
-    token_id: &str,
-    out: bool,
-) -> Result<(), Box<dyn Error>> {
-    let address = address.parse()?;
-    let contract = ain_contracts::dst20_address_from_token_id(token_id)?;
-
-    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-        to: address,
-        contract,
-        amount: amount.into(),
-        out,
-    }));
-    SERVICES
-        .evm
-        .queue_tx(context, system_tx, native_hash, U256::zero())?;
-
-    Ok(())
 }
