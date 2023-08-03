@@ -236,16 +236,16 @@ UniValue vmmap(const JSONRPCRequest &request) {
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
-        auto r = tryResolveBlockNumberType(input);
-        if (r != VMDomainRPCMapType::Unknown)
-            return {r, false};
+        auto mapType = tryResolveBlockNumberType(input);
+        if (mapType != VMDomainRPCMapType::Unknown)
+            return {mapType, false};
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
-            r = tryResolveMapBlockOrTxResult(res, uint256S(input));
+            mapType = tryResolveMapBlockOrTxResult(res, uint256S(input));
             // We don't pass this type back on purpose
-            if (r != VMDomainRPCMapType::Unknown) {
-                return {r, true};
+            if (mapType != VMDomainRPCMapType::Unknown) {
+                return {mapType, true};
             }
         }
         throwUnsupportedAuto();
@@ -305,11 +305,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
     LOCK(cs_main);
 
     if (type == VMDomainRPCMapType::Auto) {
-        auto r          = handleAutoInfer();
-        type            = std::get<0>(r);
-        auto isResolved = std::get<1>(r);
+        auto [mapType, isResolved] = handleAutoInfer();
         if (isResolved) {
-            return finalizeResult(res, type);
+            return finalizeResult(res, mapType);
         }
     }
 
