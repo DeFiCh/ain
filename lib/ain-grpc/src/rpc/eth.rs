@@ -806,7 +806,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|block| block.header.number)
                     .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
 
-                let starting_block = self.handler.block.get_first_block_number();
+                let starting_block = self.handler.block.get_starting_block_number();
 
                 let highest_block = current_block + (highest_native_block - current_native_height);
                 debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");

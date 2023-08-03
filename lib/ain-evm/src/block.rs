@@ -13,7 +13,7 @@ use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockService {
     storage: Arc<Storage>,
-    first_block_number: U256,
+    starting_block_number: U256,
 }
 
 pub struct FeeHistoryData {
@@ -29,20 +29,20 @@ impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Self {
         let mut block_handler = Self {
             storage,
-            first_block_number: U256::zero(),
+            starting_block_number: U256::zero(),
         };
         let (_, block_number) = block_handler
             .get_latest_block_hash_and_number()
             .unwrap_or_default();
 
-        block_handler.first_block_number = block_number;
+        block_handler.starting_block_number = block_number;
         debug!("Current block number is {:#?}", block_number);
 
         block_handler
     }
 
-    pub fn get_first_block_number(&self) -> U256 {
-        self.first_block_number
+    pub fn get_starting_block_number(&self) -> U256 {
+        self.starting_block_number
     }
 
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
