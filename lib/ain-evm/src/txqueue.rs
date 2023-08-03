@@ -340,7 +340,7 @@ impl TransactionQueue {
     }
 
     pub fn add_block_data(&self, block: Block<TransactionV2>, receipts: Vec<Receipt>) {
-        let mut data: std::sync::MutexGuard<'_, TransactionQueueData> = self.data.lock().unwrap();
+        let mut data = self.data.lock().unwrap();
         data.block_data = Some(BlockData { block, receipts });
     }
 
