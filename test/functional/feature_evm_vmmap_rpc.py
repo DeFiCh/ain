@@ -140,7 +140,7 @@ class VMMapTests(DefiTestFramework):
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         list_tx = list(list_tx['indexes'].keys())
         assert_equal(base_block[2:] in list_blocks, True)
         assert_equal(new_block[2:] in list_blocks, True)
@@ -148,7 +148,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].invalidateblock(base_block_dvm)
         list_blocks = self.nodes[0].logvmmaps(0)
         list_blocks = list(list_blocks['indexes'].values())
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         list_tx = list(list_tx['indexes'].keys())
         assert_equal(base_block[2:] in list_blocks, True)
         assert_equal(new_block[2:] in list_blocks, False)
@@ -160,13 +160,13 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)['transactions'][0]
         assert_equal(eth_tx[2:] in list(list_tx['indexes'].values()), True)
         assert_equal(tx in list(list_tx['indexes'].keys()), True)
 
     def logvmmaps_invalid_tx_should_fail(self):
-        list_tx = self.nodes[0].logvmmaps(1)
+        list_tx = self.nodes[0].logvmmaps(2)
         assert_equal("invalid tx" not in list(list_tx['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_tx['indexes'].values()), True)
         assert_equal("garbage" not in list(list_tx['indexes'].values()), True)
@@ -180,7 +180,7 @@ class VMMapTests(DefiTestFramework):
         assert_equal(dfi_block in list(list_blocks['indexes'].keys()), True)
 
     def logvmmaps_invalid_block_should_fail(self):
-        list_block = self.nodes[0].logvmmaps(1)
+        list_block = self.nodes[0].logvmmaps(2)
         assert_equal("invalid tx" not in list(list_block['indexes'].values()), True)
         assert_equal("0x0000000000000000000000000000000000000000000000000000000000000000" not in list(list_block['indexes'].values()), True)
         assert_equal("garbage" not in list(list_block['indexes'].values()), True)
