@@ -35,7 +35,7 @@ use std::sync::{atomic::Ordering, Arc};
 use std::{net::SocketAddr, path::PathBuf};
 
 use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
-use anyhow::{anyhow, Result};
+use anyhow::{format_err, Result};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.
@@ -116,7 +116,7 @@ pub fn wipe_evm_folder() -> Result<()> {
     let path = PathBuf::from(datadir).join("evm");
     info!("Wiping rs storage in {}", path.display());
     if path.exists() {
-        std::fs::remove_dir_all(&path).map_err(|e| anyhow!("Error wiping evm dir: {e}"))?;
+        std::fs::remove_dir_all(&path).map_err(|e| format_err!("Error wiping evm dir: {e}"))?;
     }
     Ok(())
 }
