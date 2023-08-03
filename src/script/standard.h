@@ -163,12 +163,28 @@ enum KeyType {
     PKHashKeyType = 1 << 0,
     ScriptHashKeyType = 1 << 1,
     WPKHashKeyType = 1 << 2,
-    EthHashKey = 1 << 3,
-    MNOperatorKeyType = (1 << 4) | PKHashKeyType | WPKHashKeyType,
-    MNOwnerKeyType = (1 << 5) | PKHashKeyType | WPKHashKeyType,
-    MNRewardKeyType = (1 << 6) | PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
+    EthHashKeyType = 1 << 3,
+    MNOperatorKeyType = PKHashKeyType | WPKHashKeyType,
+    MNOwnerKeyType = PKHashKeyType | WPKHashKeyType,
+    MNRewardKeyType = PKHashKeyType | ScriptHashKeyType | WPKHashKeyType,
+    SigningProviderType = PKHashKeyType | ScriptHashKeyType | WPKHashKeyType | EthHashKeyType,
     AllKeyType = ~0,
 };
+
+inline KeyType FromOrDefaultDestinationTypeToKeyType(const size_t index) {
+    switch (index) {
+        case PKHashType:
+            return KeyType::PKHashKeyType;
+        case ScriptHashType:
+            return KeyType::ScriptHashKeyType;
+        case WitV0KeyHashType:
+            return KeyType::WPKHashKeyType;
+        case WitV16KeyEthHashType:
+            return KeyType::EthHashKeyType;
+        default:
+            return KeyType::UnknownKeyType;
+    }
+}
 
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);
@@ -189,10 +205,10 @@ const char* GetTxnOutputType(txnouttype t);
 txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned char>>& vSolutionsRet);
 
 /** Try to get the destination address from the keyID type. */
-std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter=KeyType::UnknownKeyType);
+std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter=KeyType::UnknownKeyType);
 
 /** Get the destination address (or default) from the keyID type. */
-CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter=KeyType::UnknownKeyType);
+CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter=KeyType::UnknownKeyType);
 
 /**
  * Parse a standard scriptPubKey for the destination address. Assigns result to
