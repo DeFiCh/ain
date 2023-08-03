@@ -168,7 +168,11 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res['input'], item[0])
             assert_equal(res['type'], 'BlockNumberDVMToEVM')
             assert_equal(res['output'], item[1])
-            # assert_equal(self.nodes[0].vmmap(str(item[1]), VMMapType.Auto), item[0])
+
+            res = self.nodes[0].vmmap(str(item[1]), VMMapType.Auto)
+            assert_equal(res['input'], item[1])
+            assert_equal(res['type'], 'BlockNumberEVMToDVM')
+            assert_equal(res['output'], item[0])
 
     def vmmap_invalid_block_number_should_fail(self):
         assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid block number", self.nodes[0].vmmap, *args)

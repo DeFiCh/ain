@@ -237,9 +237,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
         // evm block count always less than dvm block count
         if (height > evmBlockCount) {
             return VMDomainRPCMapType::BlockNumberDVMToEVM;
+        } else if (height >= evm_get_first_block_number() && height <= evmBlockCount) {
+            return VMDomainRPCMapType::BlockNumberEVMToDVM;
         } else {
-            // Add another else branch with
-            // (height < firstEvmBlock && height <= evmBlockCount) == EVM to DVM
             throwUnsupportedAuto();
             return VMDomainRPCMapType::Unknown;
         }
