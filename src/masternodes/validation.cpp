@@ -2419,7 +2419,7 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
     return Res::Ok();
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabled) {
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
 
     CKeyID minter;
@@ -2470,7 +2470,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
 
-    if (evmEnabled) {
+    if (evmEnabledOnBlockHead) {
         if (block.vtx[0]->vout.size() < 2) {
             return Res::Err("Not enough outputs in coinbase TX");
         }
@@ -2514,11 +2514,11 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabled) {
+Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     CCustomCSView cache(mnview);
 
     // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabled);
+    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
     if (!res) return res;
 
     // Construct undo
