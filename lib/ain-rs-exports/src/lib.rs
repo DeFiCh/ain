@@ -139,6 +139,7 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         );
+
         fn evm_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,

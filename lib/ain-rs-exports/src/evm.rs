@@ -438,7 +438,7 @@ pub fn evm_try_get_block_number_by_hash(
 
 pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     match SERVICES.evm.block.get_latest_block_hash_and_number() {
-        Some((_ , number)) => cross_boundary_success_return(result, number.as_u64()),
+        Some((_, number)) => cross_boundary_success_return(result, number.as_u64()),
         None => cross_boundary_error_return(result, "Unable to get block count"),
     }
 }
