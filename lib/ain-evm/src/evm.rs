@@ -107,6 +107,7 @@ impl EVMServices {
         difficulty: u32,
         beneficiary: H160,
         timestamp: u64,
+        dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
         let mut all_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
         let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
@@ -166,12 +167,12 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = EVMServices::counter_contract()?;
+            } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.deploy_contract(address, bytecode, storage)?;
         } else {
             let DeployContractInfo {
                 address, storage, ..
-            } = EVMServices::counter_contract()?;
+            } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
 
@@ -415,7 +416,10 @@ impl EVMServices {
     }
 
     /// Returns address, bytecode and storage with incremented count for the counter contract
-    pub fn counter_contract() -> Result<DeployContractInfo, Box<dyn Error>> {
+    pub fn counter_contract(
+        dvm_block_number: u64,
+        evm_block_number: U256,
+    ) -> Result<DeployContractInfo, Box<dyn Error>> {
         let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
         let count = SERVICES
@@ -428,10 +432,20 @@ impl EVMServices {
         Ok(DeployContractInfo {
             address,
             bytecode: Bytes::from(bytecode),
-            storage: vec![(
-                H256::from_low_u64_be(1),
-                ain_contracts::u256_to_h256(count + U256::one()),
-            )],
+            storage: vec![
+                (
+                    H256::from_low_u64_be(0),
+                    ain_contracts::u256_to_h256(U256::one()),
+                ),
+                (
+                    H256::from_low_u64_be(1),
+                    ain_contracts::u256_to_h256(evm_block_number),
+                ),
+                (
+                    H256::from_low_u64_be(2),
+                    ain_contracts::u256_to_h256(U256::from(dvm_block_number)),
+                ),
+            ],
         })
     }
 
