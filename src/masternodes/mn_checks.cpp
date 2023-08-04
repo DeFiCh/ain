@@ -3903,11 +3903,14 @@ public:
                 arith_uint256 balanceIn = src.amount.nValue;
                 auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-
                 if (tokenId == DCT_ID{0}) {
-                    if (!evm_sub_balance(evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
-                                         ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                    CrossBoundaryResult result;
+                    if (!evm_try_sub_balance(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                            ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+                    }
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DFI: %s", result.reason);
                     }
                 }
                 else {
@@ -3935,9 +3938,13 @@ public:
                 arith_uint256 balanceIn = dst.amount.nValue;
                 auto tokenId = dst.amount.nTokenId;
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_add_balance(evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_try_add_balance(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DFI: %s", result.reason);
+                    }
                 }
                 else {
                     CrossBoundaryResult result;

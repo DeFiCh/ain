@@ -109,10 +109,10 @@ impl EVMServices {
         timestamp: u64,
         dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
-        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
-        let mut receipts_v3: Vec<ReceiptV3> =
-            Vec::with_capacity(self.core.tx_queues.count(queue_id));
+        let queue_len = self.core.tx_queues.count(queue_id)?;
+        let mut all_transactions = Vec::with_capacity(queue_len);
+        let mut failed_transactions = Vec::with_capacity(queue_len);
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_len);
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -176,7 +176,7 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
-        for queue_item in self.core.tx_queues.get_cloned_vec(queue_id) {
+        for queue_item in self.core.tx_queues.get_cloned_vec(queue_id)? {
             match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -341,19 +341,9 @@ impl EVMServices {
             total_priority_fees
         );
 
-        match self.core.tx_queues.get_total_fees(queue_id) {
-            Some(total_fees) => {
-                if (total_burnt_fees + total_priority_fees) != total_fees {
-                    return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
-                }
-            }
-            None => {
-                return Err(format_err!(
-                    "EVM block rejected because failed to get total fees from queue_id: {}",
-                    queue_id
-                )
-                .into())
-            }
+        let total_fees = self.core.tx_queues.get_total_fees(queue_id)?;
+        if (total_burnt_fees + total_priority_fees) != total_fees {
+            return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
         }
 
         if update_state {

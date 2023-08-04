@@ -721,12 +721,20 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 }
             }
             evmAddressTxsMap.erase(addrKey.address);
-            evm_remove_txs_by_sender(evmQueueId, addrKey.address);
+            evm_try_remove_txs_by_sender(result, evmQueueId, addrKey.address);
+            // TODO handle missing evmQueueId error
+            if (!result.ok) {
+                return false;
+            }
+
             return false;
         }
     }
 
-    const auto nonce = evm_get_next_valid_nonce_in_queue(evmQueueId, txResult.sender);
+    const auto nonce = evm_try_get_next_valid_nonce_in_queue(result, evmQueueId, txResult.sender);
+    if (!result.ok) {
+        return false;
+    }
     if (nonce != txResult.nonce) {
         // Only add if not already in failed TXs to prevent adding on second attempt.
         if (!failedTxSet.count(txIter)) {
