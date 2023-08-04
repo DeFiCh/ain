@@ -877,6 +877,35 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
+static void AddDefaultVars(ATTRIBUTES &govvar) {
+    // TransferDomain keys
+    CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
+    CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
+    CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
+    CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
+    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
+    CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
+
+    const auto config = TransferDomainLiveConfig::FromGovVarsOrDefault(*pcustomcsview);
+
+    if (!govvar.CheckKey(dvm_to_evm_enabled)) govvar.SetValue(dvm_to_evm_enabled, config.dvmToEvmEnabled);
+    if (!govvar.CheckKey(evm_to_dvm_enabled)) govvar.SetValue(evm_to_dvm_enabled, config.evmToDvmEnabled);
+    if (!govvar.CheckKey(dvm_to_evm_src_formats)) govvar.SetValue(dvm_to_evm_src_formats, config.dvmToEvmSrcAddresses);
+    if (!govvar.CheckKey(evm_to_dvm_dest_formats)) govvar.SetValue(evm_to_dvm_dest_formats, config.evmToDvmDestAddresses);
+    if (!govvar.CheckKey(dvm_to_evm_dest_formats)) govvar.SetValue(dvm_to_evm_dest_formats, config.dvmToEvmDestAddresses);
+    if (!govvar.CheckKey(evm_to_dvm_src_formats)) govvar.SetValue(evm_to_dvm_src_formats, config.evmToDvmSrcAddresses);
+    if (!govvar.CheckKey(evm_to_dvm_auth_formats)) govvar.SetValue(evm_to_dvm_auth_formats, config.evmToDvmAuthFormats);
+    if (!govvar.CheckKey(dvm_to_evm_native_enabled)) govvar.SetValue(dvm_to_evm_native_enabled, config.dvmToEvmNativeTokenEnabled);
+    if (!govvar.CheckKey(evm_to_dvm_native_enabled)) govvar.SetValue(evm_to_dvm_native_enabled, config.evmToDvmNativeTokenEnabled);
+    if (!govvar.CheckKey(dvm_to_evm_dat_enabled)) govvar.SetValue(dvm_to_evm_dat_enabled, config.dvmToEvmDatEnabled);
+    if (!govvar.CheckKey(evm_to_dvm_dat_enabled)) govvar.SetValue(evm_to_dvm_dat_enabled, config.evmToDvmDatEnabled);
+}
+
 UniValue listgovs(const JSONRPCRequest& request) {
     RPCHelpMan{"listgovs",
                "\nReturns information about all governance variables including pending changes\n",
@@ -938,6 +967,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
 
     // Get all stored Gov var changes
     auto pending = pcustomcsview->GetAllStoredVariables();
+    const auto height = pcustomcsview->GetLastHeight();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {
@@ -952,6 +982,11 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
+                    if (height >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                        if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
+                            AddDefaultVars(*attributes);
+                        }
+                    }
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                     val = a->ExportFiltered(mode, prefix);
                 }

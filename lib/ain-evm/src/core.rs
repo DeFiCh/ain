@@ -380,10 +380,14 @@ impl EVMCoreService {
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_queue(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<U256, QueueError> {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(queue_id, address)
+            .get_next_valid_nonce(queue_id, address)?
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
@@ -399,7 +403,7 @@ impl EVMCoreService {
             "Account {:x?} nonce {:x?} in queue_id {queue_id}",
             address, nonce
         );
-        nonce
+        Ok(nonce)
     }
 }
 

@@ -69,20 +69,6 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64;
-        fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]);
-        fn evm_add_balance(
-            queue_id: u64,
-            address: &str,
-            amount: [u8; 32],
-            native_tx_hash: [u8; 32],
-        );
-        fn evm_sub_balance(
-            queue_id: u64,
-            address: &str,
-            amount: [u8; 32],
-            native_tx_hash: [u8; 32],
-        ) -> bool;
         fn evm_get_queue_id() -> u64;
         fn evm_discard_context(queue_id: u64);
         fn evm_disconnect_latest_block();
@@ -90,7 +76,30 @@ pub mod ffi {
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
-
+        fn evm_try_get_next_valid_nonce_in_queue(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: [u8; 20],
+        ) -> u64;
+        fn evm_try_remove_txs_by_sender(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: [u8; 20],
+        );
+        fn evm_try_add_balance(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        );
+        fn evm_try_sub_balance(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        ) -> bool;
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
