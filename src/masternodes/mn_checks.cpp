@@ -4054,41 +4054,55 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
     }
 }
 
+TransferDomainLiveConfig TransferDomainLiveConfig::Default() {
+    return TransferDomainLiveConfig{
+        true,
+        true,
+        { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
+        { XVmAddressFormatTypes::Erc55 },
+        { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
+        { XVmAddressFormatTypes::Erc55 },
+        { XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 },
+        true, 
+        true, 
+        false, 
+        false,
+        {},
+        {}
+    };
+}
+
 TransferDomainLiveConfig TransferDomainLiveConfig::FromGovVarsOrDefault(const CCustomCSView &mnview) {
     CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
-    CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
     CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
     CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
+    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
     CDataStructureV0 evm_to_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
     CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
     CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
-    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
     CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
-    CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
     CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
-
+    
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
-    TransferDomainLiveConfig config{
-            attributes->GetValue(dvm_to_evm_enabled, true),
-            attributes->GetValue(evm_to_dvm_enabled, true),
-            attributes->GetValue(dvm_to_evm_src_formats, XVmAddressFormatItems {
-                    XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
-            attributes->GetValue(dvm_to_evm_dest_formats, XVmAddressFormatItems {
-                    XVmAddressFormatTypes::Erc55 }),
-            attributes->GetValue(evm_to_dvm_dest_formats, XVmAddressFormatItems {
-                    XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash }),
-            attributes->GetValue(evm_to_dvm_src_formats, XVmAddressFormatItems {
-                    XVmAddressFormatTypes::Erc55 }),
-            attributes->GetValue(evm_to_dvm_auth_formats, XVmAddressFormatItems {
-                    XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 }),
-            attributes->GetValue(dvm_to_evm_native_enabled, true),
-            attributes->GetValue(evm_to_dvm_native_enabled, true),
-            attributes->GetValue(dvm_to_evm_dat_enabled, false),
-            attributes->GetValue(evm_to_dvm_dat_enabled, false),
-            {},
-            {}
-    };
+
+    auto config = TransferDomainLiveConfig::Default();
+
+    config.dvmToEvmEnabled = attributes->GetValue(dvm_to_evm_enabled, config.dvmToEvmEnabled);
+    config.dvmToEvmSrcAddresses = attributes->GetValue(dvm_to_evm_src_formats, config.dvmToEvmSrcAddresses);
+    config.dvmToEvmDestAddresses = attributes->GetValue(dvm_to_evm_dest_formats, config.dvmToEvmDestAddresses);
+    config.dvmToEvmNativeTokenEnabled = attributes->GetValue(dvm_to_evm_native_enabled, config.dvmToEvmNativeTokenEnabled);
+    config.dvmToEvmDatEnabled = attributes->GetValue(dvm_to_evm_dat_enabled, config.dvmToEvmDatEnabled);
+
+    config.evmToDvmEnabled = attributes->GetValue(evm_to_dvm_enabled, config.evmToDvmEnabled);
+    config.evmToDvmSrcAddresses = attributes->GetValue(evm_to_dvm_src_formats, config.evmToDvmSrcAddresses);
+    config.evmToDvmDestAddresses = attributes->GetValue(evm_to_dvm_dest_formats, config.evmToDvmDestAddresses);
+    config.evmToDvmAuthFormats = attributes->GetValue(evm_to_dvm_auth_formats, config.evmToDvmAuthFormats);
+    config.evmToDvmNativeTokenEnabled = attributes->GetValue(evm_to_dvm_native_enabled, config.evmToDvmNativeTokenEnabled);
+    config.evmToDvmDatEnabled = attributes->GetValue(evm_to_dvm_dat_enabled, config.evmToDvmDatEnabled);
+
     return config;
 }
 

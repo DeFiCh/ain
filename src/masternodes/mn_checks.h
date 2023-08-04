@@ -43,6 +43,7 @@ struct TransferDomainLiveConfig {
     std::set<uint32_t> dvmToEvmDisallowedTokens;
     std::set<uint32_t> evmToDvmDisallowedTokens;
 
+    static TransferDomainLiveConfig Default();
     static TransferDomainLiveConfig FromGovVarsOrDefault(const CCustomCSView &mnview);
 };
 
