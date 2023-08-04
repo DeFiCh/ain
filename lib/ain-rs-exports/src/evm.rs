@@ -519,7 +519,9 @@ pub fn evm_try_bridge_dst20(
     token_id: &str,
     out: bool,
 ) {
-    let Ok(address) = address.parse() else { return cross_boundary_error_return(result, "Invalid address") };
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
     let contract = ain_contracts::dst20_address_from_token_id(token_id)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
