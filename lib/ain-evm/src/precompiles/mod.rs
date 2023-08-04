@@ -84,10 +84,6 @@ pub struct MetachainPrecompiles;
 // Ethereum precompiles available as of shangai fork :
 // Ref: Ethereum Yellow Paper (https://ethereum.github.io/yellowpaper/paper.pdf) Page 12
 impl MetachainPrecompiles {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn used_addresses() -> [H160; 9] {
         [
             hash(1),
