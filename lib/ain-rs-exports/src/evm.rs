@@ -450,7 +450,7 @@ pub fn evm_try_create_dst20(
     }
 }
 
-pub fn evm_try_dst20_is_deployed(
+pub fn evm_try_is_dst20_deployed_or_queued(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     name: &str,
@@ -459,7 +459,7 @@ pub fn evm_try_dst20_is_deployed(
 ) -> bool {
     match SERVICES
         .evm
-        .dst20_is_deployed(queue_id, name, symbol, token_id)
+        .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
     {
         Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
         Err(e) => cross_boundary_error_return(result, e.to_string()),

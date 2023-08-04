@@ -1679,7 +1679,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight &&
                             GetValue(enabledKey, false) &&
                             evmQueueId &&
-                            !evm_try_dst20_is_deployed(result, evmQueueId, token->name, token->symbol,
+                            !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
                                                        tokenID.ToString())) {
                             evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
                                                  token->name,

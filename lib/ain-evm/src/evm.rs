@@ -498,7 +498,7 @@ impl EVMServices {
         })
     }
 
-    pub fn dst20_is_deployed(
+    pub fn is_dst20_deployed_or_queued(
         &self,
         queue_id: u64,
         name: &str,
@@ -506,7 +506,10 @@ impl EVMServices {
         token_id: &str,
     ) -> Result<bool, Box<dyn Error>> {
         let address = ain_contracts::dst20_address_from_token_id(token_id)?;
-        debug!("[dst20_is_deployed] Fetching address {:#?}", address);
+        debug!(
+            "[is_dst20_deployed_or_queued] Fetching address {:#?}",
+            address
+        );
 
         let backend = self.core.get_latest_block_backend()?;
         // Address already deployed
