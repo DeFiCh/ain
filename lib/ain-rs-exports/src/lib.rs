@@ -114,6 +114,7 @@ pub mod ffi {
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
+            dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,

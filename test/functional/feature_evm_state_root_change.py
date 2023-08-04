@@ -5,6 +5,8 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test that EVM state root changes on every block"""
 
+import os
+
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal
@@ -23,21 +25,34 @@ class StateRootChangeTest(DefiTestFramework):
         node.generate(105)
 
         # Activate EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
-        self.nodes[0].generate(1)
+        node.setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        node.generate(1)
 
         # check counter contract
         from web3 import Web3
         w3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
+        abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/counter_contract/output/abi.json", "r", encoding="utf8").read()
+        counter_contract = w3.eth.contract(
+            address="0x0000000000000000000000000000000000000301", abi=abi
+        )
 
-        NUM_BLOCKS = 5
+        num_blocks = 5
         state_roots = set()
-        for i in range(NUM_BLOCKS):
+        for i in range(num_blocks):
             node.generate(1)
             block = w3.eth.get_block('latest')
             state_roots.add(Web3.to_hex(block["stateRoot"]))
 
-        assert_equal(len(state_roots), NUM_BLOCKS)
+            # check evmBlockCount variable
+            assert_equal(counter_contract.functions.evmBlockCount().call(), w3.eth.get_block_number())
+
+            # check version variable
+            assert_equal(counter_contract.functions.version().call(), 1)
+
+            # check dvmBlockCount variable
+            assert_equal(counter_contract.functions.dvmBlockCount().call(), node.getblockcount())
+
+        assert_equal(len(state_roots), num_blocks)
 
 
 if __name__ == '__main__':
