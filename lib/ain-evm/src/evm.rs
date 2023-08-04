@@ -343,7 +343,7 @@ impl EVMServices {
 
     pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
-            let tx_queue: Arc<crate::txqueue::TransactionQueue> = self.core.tx_queues.get_queue(queue_id)?;
+            let tx_queue = self.core.tx_queues.get_queue(queue_id)?;
             let queue = tx_queue.data.lock().unwrap();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else { return Err(format_err!("no constructed EVM block exist in queue id").into()) };
 
