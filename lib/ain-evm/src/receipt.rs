@@ -1,13 +1,14 @@
-use crate::storage::{traits::ReceiptStorage, Storage};
-use crate::transaction::SignedTx;
-use ethereum::{EnvelopedEncodable, ReceiptV3};
-use primitive_types::{H160, H256, U256};
+use std::sync::Arc;
 
 use ethereum::util::ordered_trie_root;
+use ethereum::{EnvelopedEncodable, ReceiptV3};
 use keccak_hash::keccak;
+use primitive_types::{H160, H256, U256};
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::storage::{traits::ReceiptStorage, Storage};
+use crate::transaction::SignedTx;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Receipt {
@@ -62,7 +63,7 @@ impl ReceiptService {
         transactions
             .iter()
             .enumerate()
-            .zip(receipts.into_iter())
+            .zip(receipts)
             .map(|((index, signed_tx), receipt)| {
                 let receipt_data = match &receipt {
                     ReceiptV3::Legacy(data)
@@ -100,9 +101,11 @@ impl ReceiptService {
 
 #[cfg(test)]
 mod test {
-    use crate::receipt::get_contract_address;
-    use primitive_types::{H160, U256};
     use std::str::FromStr;
+
+    use primitive_types::{H160, U256};
+
+    use crate::receipt::get_contract_address;
 
     #[test]
     pub fn test_contract_address() {

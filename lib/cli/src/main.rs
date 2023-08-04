@@ -4,7 +4,6 @@ mod params;
 mod result;
 mod structs;
 
-use crate::structs::CallRequest;
 use ain_grpc::block::BlockNumber;
 use command::execute_cli_command;
 use format::Format;
@@ -12,6 +11,8 @@ use jsonrpsee::http_client::HttpClientBuilder;
 use params::{BaseChainParams, Chain};
 use primitive_types::{H160, H256, U256};
 use structopt::StructOpt;
+
+use crate::structs::CallRequest;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "metachain-cli", about = "Metachain JSON-RPC CLI")]

@@ -3,13 +3,10 @@ mod code;
 mod data_handler;
 pub mod traits;
 
-use crate::log::LogIndex;
-use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H160, H256, U256};
 use std::collections::HashMap;
 
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
+use ethereum::{BlockAny, TransactionV2};
+use primitive_types::{H160, H256, U256};
 
 use self::{
     cache::Cache,
@@ -19,6 +16,9 @@ use self::{
         TransactionStorage,
     },
 };
+use crate::log::LogIndex;
+use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
 
 #[derive(Debug)]
 pub struct Storage {

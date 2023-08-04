@@ -1,32 +1,32 @@
+use std::error::Error;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
+use anyhow::format_err;
+use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
+use ethereum_types::{Bloom, H160, H64, U256};
+use hex::FromHex;
+use log::debug;
+use primitive_types::H256;
+
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
+use crate::bytes::Bytes;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
+use crate::services::SERVICES;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
+use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::QueueTx;
-
-use ethereum::{Block, PartialHeader, ReceiptV3, TransactionV2};
-use ethereum_types::{Bloom, H160, H64, U256};
-
-use crate::bytes::Bytes;
-use crate::services::SERVICES;
-use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
-use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
-use anyhow::format_err;
-use hex::FromHex;
-use log::debug;
-use primitive_types::H256;
-use std::error::Error;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -109,10 +109,10 @@ impl EVMServices {
         timestamp: u64,
         dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let mut all_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
-        let mut failed_transactions = Vec::with_capacity(self.core.tx_queues.count(queue_id));
-        let mut receipts_v3: Vec<ReceiptV3> =
-            Vec::with_capacity(self.core.tx_queues.count(queue_id));
+        let queue_len = self.core.tx_queues.count(queue_id)?;
+        let mut all_transactions = Vec::with_capacity(queue_len);
+        let mut failed_transactions = Vec::with_capacity(queue_len);
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_len);
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -176,7 +176,7 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
-        for queue_item in self.core.tx_queues.get_cloned_vec(queue_id) {
+        for queue_item in self.core.tx_queues.get_cloned_vec(queue_id)? {
             match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -323,7 +323,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(block.clone());
+            self.block.connect_block(&block);
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
@@ -341,19 +341,9 @@ impl EVMServices {
             total_priority_fees
         );
 
-        match self.core.tx_queues.get_total_fees(queue_id) {
-            Some(total_fees) => {
-                if (total_burnt_fees + total_priority_fees) != total_fees {
-                    return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
-                }
-            }
-            None => {
-                return Err(format_err!(
-                    "EVM block rejected because failed to get total fees from queue_id: {}",
-                    queue_id
-                )
-                .into())
-            }
+        let total_fees = self.core.tx_queues.get_total_fees(queue_id)?;
+        if (total_burnt_fees + total_priority_fees) != total_fees {
+            return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, total_fees).into());
         }
 
         if update_state {
@@ -409,7 +399,7 @@ impl EVMServices {
             .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
-            self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+            self.filters.add_tx_to_filters(signed_tx.transaction.hash());
         }
 
         Ok(())
@@ -500,9 +490,10 @@ impl EVMServices {
             .backend
             .get_contract_storage(contract, storage_index.as_bytes())?;
 
-        let new_balance = match out {
-            true => balance.checked_sub(amount),
-            false => balance.checked_add(amount),
+        let new_balance = if out {
+            balance.checked_sub(amount)
+        } else {
+            balance.checked_add(amount)
         }
         .ok_or_else(|| format_err!("Balance overflow/underflow"))?;
 

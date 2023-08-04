@@ -19,9 +19,13 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
+use std::sync::{atomic::Ordering, Arc};
+use std::{net::SocketAddr, path::PathBuf};
+
+use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
+use anyhow::{format_err, Result};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee::http_server::HttpServerBuilder;
-
 use log::info;
 use logging::CppLogTarget;
 
@@ -30,12 +34,6 @@ use crate::rpc::{
     eth::{MetachainRPCModule, MetachainRPCServer},
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
 };
-
-use std::sync::{atomic::Ordering, Arc};
-use std::{net::SocketAddr, path::PathBuf};
-
-use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
-use anyhow::{format_err, Result};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.

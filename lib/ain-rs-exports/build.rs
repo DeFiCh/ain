@@ -1,9 +1,9 @@
-use proc_macro2::TokenStream;
-
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+
+use proc_macro2::TokenStream;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pkg_name = env::var("CARGO_PKG_NAME")?;

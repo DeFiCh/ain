@@ -1,12 +1,15 @@
-use ethereum_types::{H160, U256};
-use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Mutex, RwLock},
 };
 
+use ethereum_types::{H160, U256};
+use rand::Rng;
+
 use crate::transaction::system::SystemTx;
 use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
+
+type Result<T> = std::result::Result<T, QueueError>;
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
@@ -55,13 +58,8 @@ impl TransactionQueueMap {
     }
 
     /// Clears the `TransactionQueue` vector associated with the provided queue ID.
-    pub fn clear(&self, queue_id: u64) -> Result<(), QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(TransactionQueue::clear)
+    pub fn clear(&self, queue_id: u64) -> Result<()> {
+        self.with_transaction_queue(queue_id, TransactionQueue::clear)
     }
 
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the
@@ -74,9 +72,10 @@ impl TransactionQueueMap {
     ///
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given queue ID.
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
+    /// Returns `QueueError::InvalidFee` if the fee calculation overflows.
     ///
     pub fn queue_tx(
         &self,
@@ -85,82 +84,76 @@ impl TransactionQueueMap {
         hash: NativeTxHash,
         gas_used: U256,
         base_fee: U256,
-    ) -> Result<(), QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.queue_tx(tx, hash, gas_used, base_fee))?
+    ) -> Result<()> {
+        self.with_transaction_queue(queue_id, |queue| {
+            queue.queue_tx(tx, hash, gas_used, base_fee)
+        })
+        .and_then(|res| res)
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
     /// provided queue ID, removing them from the queue. Transactions are returned in the
     /// order they were added.
-    pub fn drain_all(&self, queue_id: u64) -> Vec<QueueTxItem> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::drain_all)
+    pub fn drain_all(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
+        self.with_transaction_queue(queue_id, TransactionQueue::drain_all)
     }
 
-    pub fn get_cloned_vec(&self, queue_id: u64) -> Vec<QueueTxItem> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::get_cloned_vec)
+    pub fn get_cloned_vec(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
+        self.with_transaction_queue(queue_id, TransactionQueue::get_cloned_vec)
     }
 
-    pub fn count(&self, queue_id: u64) -> usize {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map_or(0, TransactionQueue::len)
+    /// Counts the number of transactions in the queue associated with the queue ID.
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
+    pub fn count(&self, queue_id: u64) -> Result<usize> {
+        self.with_transaction_queue(queue_id, TransactionQueue::len)
     }
 
     /// Removes all transactions in the queue whose sender matches the provided sender address.
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchContext` if no queue is associated with the given queue ID.
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    pub fn remove_txs_by_sender(&self, queue_id: u64, sender: H160) -> Result<(), QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.remove_txs_by_sender(sender))
+    pub fn remove_txs_by_sender(&self, queue_id: u64, sender: H160) -> Result<()> {
+        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
     }
 
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
     /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
     /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
     /// and that their nonces are in increasing order.
-    pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Option<U256> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .and_then(|queue| queue.get_next_valid_nonce(address))
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
+    /// Returns None when the address does not match an account or Some(nonce) with the next valid nonce (current + 1)
+    /// for the associated address
+    pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
+        self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
 
-    pub fn get_total_gas_used(&self, queue_id: u64) -> Option<U256> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map(|queue| queue.get_total_gas_used())
+    pub fn get_total_gas_used(&self, queue_id: u64) -> Result<U256> {
+        self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
     }
 
-    pub fn get_total_fees(&self, queue_id: u64) -> Option<U256> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map(|queue| queue.get_total_fees())
+    pub fn get_total_fees(&self, queue_id: u64) -> Result<U256> {
+        self.with_transaction_queue(queue_id, |queue| queue.get_total_fees())
+    }
+
+    /// Apply the closure to the queue associated with the queue ID.
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    pub fn with_transaction_queue<T, F>(&self, queue_id: u64, f: F) -> Result<T>
+    where
+        F: FnOnce(&TransactionQueue) -> T,
+    {
+        match self.queues.read().unwrap().get(&queue_id) {
+            Some(queue) => Ok(f(queue)),
+            None => Err(QueueError::NoSuchQueue),
+        }
     }
 }
 
@@ -237,7 +230,7 @@ impl TransactionQueue {
         tx_hash: NativeTxHash,
         gas_used: U256,
         base_fee: U256,
-    ) -> Result<(), QueueError> {
+    ) -> Result<()> {
         let mut gas_fee = U256::zero();
         let mut data = self.data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx {
@@ -321,7 +314,7 @@ impl From<SignedTx> for QueueTx {
 
 #[derive(Debug)]
 pub enum QueueError {
-    NoSuchContext,
+    NoSuchQueue,
     InvalidNonce((Box<SignedTx>, U256)),
     InvalidFee,
 }
@@ -329,7 +322,7 @@ pub enum QueueError {
 impl std::fmt::Display for QueueError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            QueueError::NoSuchContext => write!(f, "No transaction queue for this queue"),
+            QueueError::NoSuchQueue => write!(f, "No transaction queue for this queue"),
             QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
             QueueError::InvalidFee => write!(f, "Invalid transaction fee from value overflow"),
         }
@@ -344,9 +337,8 @@ mod tests {
 
     use ethereum_types::{H256, U256};
 
-    use crate::transaction::bridge::BalanceUpdate;
-
     use super::*;
+    use crate::transaction::bridge::BalanceUpdate;
 
     #[test]
     fn test_invalid_nonce_order() -> Result<(), QueueError> {

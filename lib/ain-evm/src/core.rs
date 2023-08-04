@@ -1,3 +1,15 @@
+use std::error::Error;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use anyhow::format_err;
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum_types::{Bloom, BloomInput, H160, U256};
+use hex::FromHex;
+use log::debug;
+use primitive_types::H256;
+use vsdb_core::vsdb_set_base_dir;
+
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
@@ -15,18 +27,6 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-use primitive_types::H256;
-
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
-
-use anyhow::format_err;
-use hex::FromHex;
-use log::debug;
-use std::error::Error;
-use std::path::PathBuf;
-use std::sync::Arc;
-use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
@@ -93,10 +93,10 @@ impl EVMCoreService {
             PartialHeader {
                 state_root,
                 number: U256::zero(),
-                beneficiary: Default::default(),
+                beneficiary: H160::default(),
                 receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
-                logs_bloom: Default::default(),
-                gas_used: Default::default(),
+                logs_bloom: Bloom::default(),
+                gas_used: U256::default(),
                 gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
@@ -357,16 +357,19 @@ impl EVMCoreService {
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_queue(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<U256, QueueError> {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(queue_id, address)
+            .get_next_valid_nonce(queue_id, address)?
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
                     .get_latest_block()
-                    .map(|b| b.header.number)
-                    .unwrap_or_else(U256::zero);
+                    .map_or_else(U256::zero, |b| b.header.number);
 
                 self.get_nonce(address, latest_block)
                     .unwrap_or_else(|_| U256::zero())
@@ -376,7 +379,7 @@ impl EVMCoreService {
             "Account {:x?} nonce {:x?} in queue_id {queue_id}",
             address, nonce
         );
-        nonce
+        Ok(nonce)
     }
 }
 
@@ -496,7 +499,7 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Default::default(),
+            Vicinity::default(),
         )
     }
 }

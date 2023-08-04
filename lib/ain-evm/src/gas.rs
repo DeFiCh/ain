@@ -1,13 +1,14 @@
-use crate::transaction::SignedTx;
+use std::error::Error;
+
+use anyhow::format_err;
 use ethereum::TransactionAction;
 use evm::{
     gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost},
     Config,
 };
-
-use anyhow::format_err;
 use log::debug;
-use std::error::Error;
+
+use crate::transaction::SignedTx;
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx
