@@ -1,6 +1,7 @@
+use std::error::Error;
+
 use anyhow::format_err;
 use primitive_types::U256;
-use std::error::Error;
 
 pub struct WeiAmount(pub U256);
 

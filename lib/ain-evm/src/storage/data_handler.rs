@@ -1,12 +1,8 @@
+use std::borrow::ToOwned;
 use std::{collections::HashMap, sync::RwLock};
 
-use crate::log::LogIndex;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
-use std::borrow::ToOwned;
-
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
 
 use super::{
     code::CodeHistory,
@@ -15,6 +11,9 @@ use super::{
         Rollback, TransactionStorage,
     },
 };
+use crate::log::LogIndex;
+use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";

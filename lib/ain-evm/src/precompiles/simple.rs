@@ -17,8 +17,9 @@
 
 use core::cmp::min;
 
-use crate::precompiles::LinearCostPrecompile;
 use evm::{executor::stack::PrecompileFailure, ExitError, ExitSucceed};
+
+use crate::precompiles::LinearCostPrecompile;
 
 /// The identity precompile.
 pub struct Identity;

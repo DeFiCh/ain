@@ -1,7 +1,9 @@
-use crate::bytes::Bytes;
+use std::collections::HashMap;
+
 use ethereum_types::{H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+use crate::bytes::Bytes;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {

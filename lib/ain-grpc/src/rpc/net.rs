@@ -1,7 +1,8 @@
+use std::sync::Arc;
+
 use ain_evm::evm::EVMServices;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
-use std::sync::Arc;
 
 #[rpc(server, client, namespace = "net")]
 pub trait MetachainNetRPC {

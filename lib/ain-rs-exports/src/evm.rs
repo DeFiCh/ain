@@ -1,3 +1,6 @@
+use ain_evm::storage::traits::BlockStorage;
+use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
+use ain_evm::txqueue::QueueTx;
 use ain_evm::{
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
@@ -6,10 +9,6 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
-
-use ain_evm::storage::traits::BlockStorage;
-use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::txqueue::QueueTx;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
@@ -515,7 +514,9 @@ pub fn evm_try_bridge_dst20(
     token_id: &str,
     out: bool,
 ) {
-    let Ok(address) = address.parse() else { return cross_boundary_error_return(result, "Invalid address") };
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
     let contract = ain_contracts::dst20_address_from_token_id(token_id)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 

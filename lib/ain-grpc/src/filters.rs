@@ -1,8 +1,9 @@
-use crate::block::BlockNumber;
-use crate::transaction_log::LogResult;
 use primitive_types::{H160, H256};
 use serde::{Serialize, Serializer};
 use serde_with::{serde_as, OneOrMany};
+
+use crate::block::BlockNumber;
+use crate::transaction_log::LogResult;
 
 #[serde_as]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]

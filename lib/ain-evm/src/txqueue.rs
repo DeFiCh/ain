@@ -1,15 +1,16 @@
-use crate::core::NativeTxHash;
-use crate::fee::calculate_gas_fee;
-use crate::receipt::Receipt;
-use crate::transaction::{system::SystemTx, SignedTx};
-
-use ethereum::{Block, TransactionV2};
-use ethereum_types::{H160, U256};
-use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, RwLock},
 };
+
+use ethereum::{Block, TransactionV2};
+use ethereum_types::{H160, U256};
+use rand::Rng;
+
+use crate::core::NativeTxHash;
+use crate::fee::calculate_gas_fee;
+use crate::receipt::Receipt;
+use crate::transaction::{system::SystemTx, SignedTx};
 
 type Result<T> = std::result::Result<T, QueueError>;
 
@@ -320,9 +321,8 @@ mod tests {
 
     use ethereum_types::{H256, U256};
 
-    use crate::transaction::bridge::BalanceUpdate;
-
     use super::*;
+    use crate::transaction::bridge::BalanceUpdate;
 
     #[test]
     fn test_invalid_nonce_order() -> Result<(), QueueError> {
