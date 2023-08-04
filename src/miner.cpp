@@ -38,38 +38,6 @@
 #include <random>
 #include <utility>
 
-struct EVM {
-    uint32_t version;
-    uint256 blockHash;
-    uint64_t burntFee;
-    uint64_t priorityFee;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(version);
-        READWRITE(blockHash);
-        READWRITE(burntFee);
-        READWRITE(priorityFee);
-    }
-};
-
-struct XVM {
-    uint32_t version;
-    EVM evm;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(version);
-        READWRITE(evm);
-    }
-};
-
 typedef std::array<std::uint8_t, 20> EvmAddress;
 
 struct EvmAddressWithNonce {
