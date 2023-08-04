@@ -2422,7 +2422,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_finalize(result, evmQueueId, false, block.nBits, beneficiary, block.GetBlockTime());
+    const auto blockResult = evm_try_finalize(result, evmQueueId, false, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }

@@ -366,12 +366,17 @@ pub fn evm_try_finalize(
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
+    dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES
-        .evm
-        .finalize_block(queue_id, update_state, difficulty, eth_address, timestamp)
-    {
+    match SERVICES.evm.finalize_block(
+        queue_id,
+        update_state,
+        difficulty,
+        eth_address,
+        timestamp,
+        dvm_block_number,
+    ) {
         Ok(FinalizedBlockInfo {
             block_hash,
             failed_transactions,
