@@ -368,6 +368,41 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "vmmap", 1, "type"},
     { "logvmmaps", 0, "type"},
     { "addressmap", 1, "type"},
+
+    { "eth_getBlockByHash", 1, "type"},
+    { "eth_getBlockByNumber", 0, "tag"},
+    { "eth_getBlockByNumber", 1, "type"},
+    { "eth_getBlockTransactionCountByNumber", 0, "blockNumber"},
+    { "eth_getUncleCountByBlockNumber", 0, "blockNumber"},
+
+    { "eth_call", 0, "tx"},
+    { "eth_call", 1, "tag"},
+    { "eth_estimateGas", 0, "tx"},
+    { "eth_estimateGas", 1, "tag"},
+    { "eth_createAccessList", 0, "tx"},
+    { "eth_createAccessList", 1, "tag"},
+
+    { "eth_newFilter", 0, "filter"},
+    { "eth_uninstallFilter", 0, "filterId"},
+    { "eth_getFilterChanges", 0, "filterId"},
+    { "eth_getFilterLogs", 0, "filterId"},
+    { "eth_getLogs", 0, "filter"},
+
+    { "eth_sign", 1, "data"},
+    { "eth_signTransaction", 0, "tx"},
+
+    { "eth_getBalance", 1, "tag"},
+    { "eth_getStorageAt", 1, "storagePos"},
+    { "eth_getStorageAt", 2, "tag"},
+    { "eth_getTransactionCount", 1, "tag"},
+    { "eth_getCode", 1, "tag"},
+    { "eth_getProof", 1, "storagePos"},
+    { "eth_getProof", 2, "tag"},
+
+    { "eth_sendTransaction", 0, "tx"},
+    { "eth_getTransactionByBlockHashAndIndex", 1, "txIndex"},
+    { "eth_getTransactionByBlockNumberAndIndex", 0, "tag"},
+    { "eth_getTransactionByBlockNumberAndIndex", 1, "txIndex"},
 };
 // clang-format on
 
