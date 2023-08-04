@@ -2476,7 +2476,6 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         }
 
         auto res = ValidateCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey, blockResult);
-        LogPrintf("XXX err %s\n", res.msg);
         if (!res) return res;
     }
 
