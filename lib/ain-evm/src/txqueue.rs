@@ -13,7 +13,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct TransactionQueueMap {
-    queues: RwLock<HashMap<u64, TransactionQueue>>,
+    queues: RwLock<HashMap<u64, Arc<TransactionQueue>>>,
 }
 
 impl Default for TransactionQueueMap {
@@ -45,7 +45,7 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(TransactionQueue::new());
+                e.insert(Arc::new(TransactionQueue::new()));
                 return queue_id;
             }
         }
@@ -53,7 +53,7 @@ impl TransactionQueueMap {
 
     /// Try to remove and return the `TransactionQueue` associated with the provided
     /// queue ID.
-    pub fn remove(&self, queue_id: u64) -> Option<TransactionQueue> {
+    pub fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
         self.queues.write().unwrap().remove(&queue_id)
     }
 
@@ -64,7 +64,7 @@ impl TransactionQueueMap {
             .unwrap()
             .get(&queue_id)
             .ok_or(QueueError::NoSuchContext)
-            .map(TransactionQueue::clear)
+            .map(|queue| queue.clear())
     }
 
     /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
@@ -75,7 +75,7 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::drain_all)
+            .map_or(Vec::new(), |queue| queue.drain_all())
     }
 
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
@@ -126,19 +126,15 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&queue_id)
-            .map_or(0, TransactionQueue::len)
+            .map_or(0, |queue| queue.len())
     }
 
-    pub fn get_queue(&self, queue_id: u64) -> Result<Arc<Mutex<TransactionQueueData>>, QueueError> {
-        Ok(Arc::clone(
-            &self
-                .queues
-                .read()
-                .unwrap()
-                .get(&queue_id)
-                .ok_or(QueueError::NoSuchContext)?
-                .data,
-        ))
+    pub fn get_queue(&self, queue_id: u64) -> Result<Arc::<TransactionQueue>, QueueError> {
+        Ok(Arc::clone(self.queues
+            .read()
+            .unwrap()
+            .get(&queue_id)
+            .ok_or(QueueError::NoSuchContext)?))
     }
 
     pub fn get_tx_queue_items(&self, queue_id: u64) -> Vec<QueueTxItem> {
@@ -146,7 +142,7 @@ impl TransactionQueueMap {
             .read()
             .unwrap()
             .get(&queue_id)
-            .map_or(Vec::new(), TransactionQueue::get_tx_queue_items)
+            .map_or(Vec::new(), |queue| queue.get_tx_queue_items())
     }
 
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
@@ -222,13 +218,13 @@ impl TransactionQueueData {
 
 #[derive(Debug)]
 pub struct TransactionQueue {
-    data: Arc<Mutex<TransactionQueueData>>,
+    pub data: Mutex<TransactionQueueData>,
 }
 
 impl TransactionQueue {
     fn new() -> Self {
         Self {
-            data: Arc::new(Mutex::new(TransactionQueueData::new())),
+            data: Mutex::new(TransactionQueueData::new()),
         }
     }
 

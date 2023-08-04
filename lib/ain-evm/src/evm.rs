@@ -107,8 +107,8 @@ impl EVMServices {
         timestamp: u64,
         dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let queue_mutex = self.core.tx_queues.get_queue(queue_id)?;
-        let mut queue = queue_mutex.lock().unwrap();
+        let tx_queue = self.core.tx_queues.get_queue(queue_id)?;
+        let mut queue = tx_queue.data.lock().unwrap();
         let queue_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_len);
         let mut failed_transactions = Vec::with_capacity(queue_len);
@@ -343,8 +343,8 @@ impl EVMServices {
 
     pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
-            let queue_mutex = self.core.tx_queues.get_queue(queue_id)?;
-            let queue = queue_mutex.lock().unwrap();
+            let tx_queue: Arc<crate::txqueue::TransactionQueue> = self.core.tx_queues.get_queue(queue_id)?;
+            let queue = tx_queue.data.lock().unwrap();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else { return Err(format_err!("no constructed EVM block exist in queue id").into()) };
 
             debug!(
