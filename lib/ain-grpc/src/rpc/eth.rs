@@ -774,11 +774,13 @@ impl MetachainRPCServer for MetachainRPCModule {
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
-        Ok(RpcFeeHistory::from(self.handler.block.fee_history(
-            block_count.as_usize(),
-            first_block,
-            priority_fee_percentile,
-        )))
+        let fee_history = self
+            .handler
+            .block
+            .fee_history(block_count.as_usize(), first_block, priority_fee_percentile)
+            .map_err(|e| Error::Custom(format!("{e:?}")))?;
+
+        Ok(RpcFeeHistory::from(fee_history))
     }
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
@@ -804,7 +806,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|block| block.header.number)
                     .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
 
-                let starting_block = self.handler.block.get_first_block_number();
+                let starting_block = self.handler.block.get_starting_block_number();
 
                 let highest_block = current_block + (highest_native_block - current_native_height);
                 debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");

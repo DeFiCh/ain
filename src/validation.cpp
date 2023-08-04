@@ -1752,7 +1752,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
-    mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
+    mnview.OnUndoTx(uint256(), static_cast<uint32_t>(pindex->nHeight)); // undo for "zero hash"
+    mnview.OnUndoTx(uint256S(std::string(64, '1')), static_cast<uint32_t>(pindex->nHeight)); // undo for "one hash"
 
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
@@ -2849,6 +2850,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // account changes are validated
     accountsView.Flush();
 
+    // Execute EVM Queue
+    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary);
+    if (!res.ok) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
+    }
+
     if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
         return false;
 
@@ -3340,7 +3347,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
-            evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime());
+            evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime(), pindexNew->nHeight);
             if (!result.ok) {
                 state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("EVM finalization failed: %s", result.reason.c_str()),
@@ -4210,9 +4217,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddressType, node->rewardAddress, KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
             }
 
             if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {
