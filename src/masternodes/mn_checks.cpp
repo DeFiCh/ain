@@ -1069,7 +1069,7 @@ public:
 
         if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
             CrossBoundaryResult result;
-            evm_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
                              tokenId->ToString());
@@ -3912,7 +3912,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
 
                     if (!result.ok) {
@@ -3941,7 +3941,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                      ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
 
                     if (!result.ok) {
@@ -4391,7 +4391,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId) {
+                  const uint64_t evmQueueId,
+                  const OPReturnValidationCtx &opreturnCtx) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4399,7 +4400,30 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
 
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+
+    // Check OP_RETURN sizes
+    if (opreturnCtx.checkOPReturn) {
+        // Check core OP_RETURN size on vout[0]
+        if (txType == CustomTxType::EvmTx) {
+            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.evmOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
+            }
+        } else if (txType != CustomTxType::None) {
+            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.dvmOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
+            }
+        } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+        }
+        // Check core OP_RETURN size on vout[1] and higher outputs
+        for (size_t i{1}; i < tx.vout.size(); ++i) {
+            if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            }
+        }
+    }
+
     if (txType == CustomTxType::None) {
         return res;
     }

@@ -27,19 +27,18 @@ public:
 };
 
 /**
- * Default setting for nMaxDatacarrierBytes. 19,997 bytes of data, +1 for OP_RETURN,
+ * Default setting for nMaxDatacarrierBytes. 83 bytes of data, +1 for OP_RETURN,
  * +2 for the pushdata opcodes.
  */
-static const unsigned int MAX_OP_RETURN_RELAY = 20000;
+static const uint32_t MAX_OP_RETURN_RELAY = 83;
+static const uint32_t MAX_OP_RETURN_DVM_RELAY = 523;
+static const uint32_t MAX_OP_RETURN_EVM_RELAY = 20000;
 
 /**
  * A data carrying output is an unspendable output containing data. The script
  * type is designated as TX_NULL_DATA.
  */
 extern bool fAcceptDatacarrier;
-
-/** Maximum size of TX_NULL_DATA scripts that this node considers standard. */
-extern unsigned nMaxDatacarrierBytes;
 
 /**
  * Mandatory script verification flags that all new blocks must comply with for
