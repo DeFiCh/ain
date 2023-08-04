@@ -1,13 +1,13 @@
+use std::cmp::{max, Ordering};
+use std::error::Error;
+use std::sync::Arc;
+
+use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
-
-use anyhow::format_err;
 use statrs::statistics::{Data, OrderStatistics};
-use std::cmp::{max, Ordering};
-use std::error::Error;
-use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
 

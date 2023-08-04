@@ -1,7 +1,8 @@
-use crate::{backend::EVMBackendError, executor::TxResponse, transaction::SignedTx};
 use ethereum::{AccessList, ReceiptV3};
 use evm::Config;
 use primitive_types::{H160, U256};
+
+use crate::{backend::EVMBackendError, executor::TxResponse, transaction::SignedTx};
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {

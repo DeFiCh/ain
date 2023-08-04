@@ -1,13 +1,14 @@
-use crate::evm::EVMServices;
-use crate::storage::traits::FlushableStorage;
-
-use anyhow::Result;
-use jsonrpsee_http_server::HttpServerHandle;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+
+use anyhow::Result;
+use jsonrpsee_http_server::HttpServerHandle;
 use tokio::runtime::{Builder, Handle as AsyncHandle};
 use tokio::sync::mpsc::{self, Sender};
+
+use crate::evm::EVMServices;
+use crate::storage::traits::FlushableStorage;
 
 // TODO: SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to evm

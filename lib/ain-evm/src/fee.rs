@@ -1,9 +1,10 @@
-use crate::transaction::SignedTx;
-use ethereum_types::U256;
-
-use anyhow::format_err;
 use std::cmp;
 use std::error::Error;
+
+use anyhow::format_err;
+use ethereum_types::U256;
+
+use crate::transaction::SignedTx;
 
 pub fn calculate_prepay_gas_fee(signed_tx: &SignedTx) -> Result<U256, Box<dyn Error>> {
     let prepay_gas = match &signed_tx.transaction {
