@@ -107,7 +107,8 @@ impl EVMServices {
         timestamp: u64,
         dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let queue = self.core.tx_queues.get_queue_data(queue_id)?;
+        let queue_mutex = self.core.tx_queues.get_queue(queue_id)?;
+        let mut queue = queue_mutex.lock().unwrap();
         let queue_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_len);
         let mut failed_transactions = Vec::with_capacity(queue_len);
@@ -148,7 +149,7 @@ impl EVMServices {
         };
 
         let base_fee = self.block.calculate_base_fee(parent_hash);
-        debug!("[finalize_block] Block base fee: {}", base_fee);
+        debug!("[construct_block] Block base fee: {}", base_fee);
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -175,7 +176,8 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
-        for queue_item in queue.transactions {
+        let queue_items = queue.transactions.clone();
+        for queue_item in queue_items {
             match queue_item.queue_tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -213,22 +215,22 @@ impl EVMServices {
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[finalize_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
+                        "[construct_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
                         address, amount, queue_id
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
-                        debug!("[finalize_block] EvmIn failed with {e}");
+                        debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
                 QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[finalize_block] EvmOut for address {}, amount: {}",
+                        "[construct_block] EvmOut for address {}, amount: {}",
                         address, amount
                     );
 
                     if let Err(e) = executor.sub_balance(address, amount) {
-                        debug!("[finalize_block] EvmOut failed with {e}");
+                        debug!("[construct_block] EvmOut failed with {e}");
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
                 }
@@ -238,7 +240,7 @@ impl EVMServices {
                     address,
                 })) => {
                     debug!(
-                        "[finalize_block] DeployContract for address {}, name {}, symbol {}",
+                        "[construct_block] DeployContract for address {}, name {}, symbol {}",
                         address, name, symbol
                     );
 
@@ -249,7 +251,7 @@ impl EVMServices {
                     } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
 
                     if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
-                        debug!("[finalize_block] EvmOut failed with {e}");
+                        debug!("[construct_block] EvmOut failed with {e}");
                     }
                 }
                 QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
@@ -259,19 +261,19 @@ impl EVMServices {
                     out,
                 })) => {
                     debug!(
-                        "[finalize_block] DST20Bridge for to {}, contract {}, amount {}, out {}",
+                        "[construct_block] DST20Bridge for to {}, contract {}, amount {}, out {}",
                         to, contract, amount, out
                     );
 
                     match EVMServices::bridge_dst20(&mut executor, contract, to, amount, out) {
                         Ok(DST20BridgeInfo { address, storage }) => {
                             if let Err(e) = executor.update_storage(address, storage) {
-                                debug!("[finalize_block] EvmOut failed with {e}");
+                                debug!("[construct_block] EvmOut failed with {e}");
                                 failed_transactions.push(hex::encode(queue_item.tx_hash));
                             }
                         }
                         Err(e) => {
-                            debug!("[finalize_block] EvmOut failed with {e}");
+                            debug!("[construct_block] EvmOut failed with {e}");
                             failed_transactions.push(hex::encode(queue_item.tx_hash));
                         }
                     }
@@ -284,11 +286,11 @@ impl EVMServices {
         let total_burnt_fees = U256::from(total_gas_used) * base_fee;
         let total_priority_fees = total_gas_fees - total_burnt_fees;
         debug!(
-            "[finalize_block] Total burnt fees : {:#?}",
+            "[construct_block] Total burnt fees : {:#?}",
             total_burnt_fees
         );
         debug!(
-            "[finalize_block] Total priority fees : {:#?}",
+            "[construct_block] Total priority fees : {:#?}",
             total_priority_fees
         );
 
@@ -326,10 +328,8 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
         );
+        queue.block_data = Some(BlockData { block: block.clone(), receipts });
 
-        self.core
-            .tx_queues
-            .add_block_data(queue_id, block.clone(), receipts)?;
         Ok(FinalizedBlockInfo {
             block_hash: *block.header.hash().as_fixed_bytes(),
             failed_transactions,
@@ -339,22 +339,22 @@ impl EVMServices {
     }
 
     pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
-        let BlockData { block, receipts } = self
-            .core
-            .tx_queues
-            .get_block_data(queue_id)?
-            .ok_or_else(|| format_err!("finalize block failed, no block in tx queue"))?;
+        {
+            let queue_mutex = self.core.tx_queues.get_queue(queue_id)?;
+            let queue = queue_mutex.lock().unwrap();
+            let Some(BlockData { block, receipts }) = queue.block_data.clone() else { return Err(format_err!("no constructed EVM block exist in queue id").into()) };
 
-        debug!(
-            "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
-            block.header.number, block.header.state_root
-        );
+            debug!(
+                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+                block.header.number, block.header.state_root
+            );
 
-        self.block.connect_block(block.clone());
-        self.logs
-            .generate_logs_from_receipts(&receipts, block.header.number);
-        self.receipt.put_receipts(receipts);
-        self.filters.add_block_to_filters(block.header.hash());
+            self.block.connect_block(block.clone());
+            self.logs
+                .generate_logs_from_receipts(&receipts, block.header.number);
+            self.receipt.put_receipts(receipts);
+            self.filters.add_block_to_filters(block.header.hash());
+        }
         self.core.tx_queues.remove(queue_id);
 
         Ok(())

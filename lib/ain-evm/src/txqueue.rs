@@ -8,7 +8,7 @@ use ethereum_types::{H160, U256};
 use rand::Rng;
 use std::{
     collections::HashMap,
-    sync::{Mutex, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 #[derive(Debug)]
@@ -129,36 +129,13 @@ impl TransactionQueueMap {
             .map_or(0, TransactionQueue::len)
     }
 
-    pub fn add_block_data(
-        &self,
-        queue_id: u64,
-        block: Block<TransactionV2>,
-        receipts: Vec<Receipt>,
-    ) -> Result<(), QueueError> {
-        self.queues
+    pub fn get_queue(&self, queue_id: u64) -> Result<Arc<Mutex<TransactionQueueData>>, QueueError> {
+        Ok(Arc::clone(&self.queues
             .read()
             .unwrap()
             .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.add_block_data(block, receipts))
-    }
-
-    pub fn get_queue_data(&self, queue_id: u64) -> Result<TransactionQueueData, QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.get_queue_data())
-    }
-
-    pub fn get_block_data(&self, queue_id: u64) -> Result<Option<BlockData>, QueueError> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)
-            .map(|queue| queue.get_block_data())
+            .ok_or(QueueError::NoSuchContext)?
+            .data))
     }
 
     pub fn get_tx_queue_items(&self, queue_id: u64) -> Vec<QueueTxItem> {
@@ -179,14 +156,6 @@ impl TransactionQueueMap {
             .unwrap()
             .get(&queue_id)
             .and_then(|queue| queue.get_next_valid_nonce(address))
-    }
-
-    pub fn get_total_fees(&self, queue_id: u64) -> Option<U256> {
-        self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .map(|queue| queue.get_total_fees())
     }
 
     pub fn get_total_gas_used(&self, queue_id: u64) -> Option<U256> {
@@ -250,13 +219,13 @@ impl TransactionQueueData {
 
 #[derive(Debug)]
 pub struct TransactionQueue {
-    data: Mutex<TransactionQueueData>,
+    data: Arc<Mutex<TransactionQueueData>>,
 }
 
 impl TransactionQueue {
     fn new() -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new()),
+            data: Arc::new(Mutex::new(TransactionQueueData::new())),
         }
     }
 
@@ -339,21 +308,8 @@ impl TransactionQueue {
         data.account_nonces.remove(&sender);
     }
 
-    pub fn add_block_data(&self, block: Block<TransactionV2>, receipts: Vec<Receipt>) {
-        let mut data = self.data.lock().unwrap();
-        data.block_data = Some(BlockData { block, receipts });
-    }
-
-    pub fn get_queue_data(&self) -> TransactionQueueData {
-        self.data.lock().unwrap().clone()
-    }
-
     pub fn get_tx_queue_items(&self) -> Vec<QueueTxItem> {
         self.data.lock().unwrap().transactions.clone()
-    }
-
-    pub fn get_block_data(&self) -> Option<BlockData> {
-        self.data.lock().unwrap().block_data.clone()
     }
 
     pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
@@ -364,10 +320,6 @@ impl TransactionQueue {
             .get(&address)
             .map(ToOwned::to_owned)
             .map(|nonce| nonce + 1)
-    }
-
-    pub fn get_total_fees(&self) -> U256 {
-        self.data.lock().unwrap().total_fees
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
