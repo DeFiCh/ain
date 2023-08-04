@@ -328,7 +328,10 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
         );
-        queue.block_data = Some(BlockData { block: block.clone(), receipts });
+        queue.block_data = Some(BlockData {
+            block: block.clone(),
+            receipts,
+        });
 
         Ok(FinalizedBlockInfo {
             block_hash: *block.header.hash().as_fixed_bytes(),

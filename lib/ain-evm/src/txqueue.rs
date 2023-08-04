@@ -130,12 +130,15 @@ impl TransactionQueueMap {
     }
 
     pub fn get_queue(&self, queue_id: u64) -> Result<Arc<Mutex<TransactionQueueData>>, QueueError> {
-        Ok(Arc::clone(&self.queues
-            .read()
-            .unwrap()
-            .get(&queue_id)
-            .ok_or(QueueError::NoSuchContext)?
-            .data))
+        Ok(Arc::clone(
+            &self
+                .queues
+                .read()
+                .unwrap()
+                .get(&queue_id)
+                .ok_or(QueueError::NoSuchContext)?
+                .data,
+        ))
     }
 
     pub fn get_tx_queue_items(&self, queue_id: u64) -> Vec<QueueTxItem> {
