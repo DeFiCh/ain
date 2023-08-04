@@ -3,15 +3,17 @@ use keccak_hash::H256;
 use log::{debug, trace};
 use primitive_types::U256;
 
+use anyhow::format_err;
 use statrs::statistics::{Data, OrderStatistics};
 use std::cmp::{max, Ordering};
+use std::error::Error;
 use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
 
 pub struct BlockService {
     storage: Arc<Storage>,
-    first_block_number: U256,
+    starting_block_number: U256,
 }
 
 pub struct FeeHistoryData {
@@ -27,20 +29,20 @@ impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Self {
         let mut block_handler = Self {
             storage,
-            first_block_number: U256::zero(),
+            starting_block_number: U256::zero(),
         };
         let (_, block_number) = block_handler
             .get_latest_block_hash_and_number()
             .unwrap_or_default();
 
-        block_handler.first_block_number = block_number;
+        block_handler.starting_block_number = block_number;
         debug!("Current block number is {:#?}", block_number);
 
         block_handler
     }
 
-    pub fn get_first_block_number(&self) -> U256 {
-        self.first_block_number
+    pub fn get_starting_block_number(&self) -> U256 {
+        self.starting_block_number
     }
 
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
@@ -155,16 +157,17 @@ impl BlockService {
         block_count: usize,
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
-    ) -> FeeHistoryData {
+    ) -> Result<FeeHistoryData, Box<dyn Error>> {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
 
         for _ in 0..=block_count {
-            blocks.push(
-                self.storage
-                    .get_block_by_number(&block_number)
-                    .unwrap_or_else(|| panic!("Block {} out of range", block_number)),
-            );
+            let block = match self.storage.get_block_by_number(&block_number) {
+                None => Err(format_err!("Block {} out of range", block_number)),
+                Some(block) => Ok(block),
+            }?;
+
+            blocks.push(block);
 
             block_number -= U256::one();
         }
@@ -244,12 +247,12 @@ impl BlockService {
         base_fee_per_gas.reverse();
         gas_used_ratio.reverse();
 
-        FeeHistoryData {
+        Ok(FeeHistoryData {
             oldest_block,
             base_fee_per_gas,
             gas_used_ratio,
             reward,
-        }
+        })
     }
 
     /// Returns the 60th percentile priority fee for the last 20 blocks

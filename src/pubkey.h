@@ -34,33 +34,19 @@ public:
     KeyAddressType type{KeyAddressType::DEFAULT};
 
     static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
-        // Explore switching TxDestType to a flag type. Then, we can easily take an allowed
-        // flags here and use bit flag logic to decode only specific destinations
-        switch (dest.index()) {
-            case PKHashType:
-                if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
-                    return CKeyID(std::get<PKHash>(dest));
-                }
-                break;
-            case WitV0KeyHashType:
-                if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
-                    return CKeyID(std::get<WitnessV0KeyHash>(dest));
-                }
-                break;
-            case ScriptHashType:
-                if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
-                    return CKeyID(std::get<ScriptHash>(dest));
-                }
-                break;
-            case WitV16KeyEthHashType:
-                if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
-                    return CKeyID(std::get<WitnessV16EthHash>(dest));
-                }
-                break;
-            default: 
+        auto destType = FromOrDefaultDestinationTypeToKeyType(dest.index()) & filter;
+        switch (destType) {
+            case KeyType::PKHashKeyType:
+                return CKeyID(std::get<PKHash>(dest));
+            case KeyType::WPKHashKeyType:
+                return CKeyID(std::get<WitnessV0KeyHash>(dest));
+            case KeyType::ScriptHashKeyType:
+                return CKeyID(std::get<ScriptHash>(dest));
+            case KeyType::EthHashKeyType:
+                return CKeyID(std::get<WitnessV16EthHash>(dest));
+            default:
                 return {};
         }
-        return {};
     }
 
     static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {

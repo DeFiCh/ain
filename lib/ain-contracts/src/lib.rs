@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::format_err;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
@@ -47,13 +47,13 @@ pub fn get_bytecode(input: &str) -> Result<Vec<u8>, Box<dyn Error>> {
     let bytecode_json: serde_json::Value = serde_json::from_str(input)?;
     let bytecode_raw = bytecode_json["object"]
         .as_str()
-        .ok_or_else(|| anyhow!("Bytecode object not available".to_string()))?;
+        .ok_or_else(|| format_err!("Bytecode object not available".to_string()))?;
 
-    Ok(hex::decode(&bytecode_raw[2..]).map_err(|e| anyhow!(e.to_string()))?)
+    Ok(hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))?)
 }
 
 pub fn get_counter_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {
-    get_bytecode(include_str!("../counter_contract/output/bytecode.json"))
+    get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
 }
 
 pub fn get_dst20_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {

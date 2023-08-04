@@ -108,10 +108,26 @@ class EVMTest(DefiTestFramework):
         # Generate chain
         self.nodes[0].generate(101)
 
+        # Check setting vars before height
         assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/evm_op_return_max_size_bytes': 20000}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
 
         # Move to fork height
         self.nodes[0].generate(4)
+
+        # Set OP_RETURN
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000,
+                                             'v0/rules/tx/evm_op_return_max_size_bytes': 20000,
+                                             'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
+        self.nodes[0].generate(1)
+
+        # Check OP_RETURN set
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/rules/tx/core_op_return_max_size_bytes'], '20000')
+        assert_equal(result['v0/rules/tx/evm_op_return_max_size_bytes'], '20000')
+        assert_equal(result['v0/rules/tx/dvm_op_return_max_size_bytes'], '20000')
 
         # Check error before EVM enabled
         assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
@@ -396,8 +412,8 @@ class EVMTest(DefiTestFramework):
         for i in range(63):
             self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
 
-        # Test error at the 65th EVM TX
-        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 64, 21, 21001, to_address, 1)
+        # Test error at the 64th EVM TX
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 63, 21, 21001, to_address, 1)
 
         # Mint a block
         self.nodes[0].generate(1)

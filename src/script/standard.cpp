@@ -12,7 +12,6 @@
 typedef std::vector<unsigned char> valtype;
 
 bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
-unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
@@ -252,36 +251,24 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     return true;
 }
 
-std::optional<CTxDestination> TryFromKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
-    switch (keyIdType) {
-        case PKHashType:
-            if ((filter & KeyType::PKHashKeyType) == KeyType::PKHashKeyType) {
-                return CTxDestination(PKHash(keyId));
-            }
-            break;
-        case WitV0KeyHashType:
-            if ((filter & KeyType::WPKHashKeyType) == KeyType::WPKHashKeyType) {
-                return CTxDestination(WitnessV0KeyHash(keyId));
-            }
-            break;
-        case ScriptHashType:
-            if ((filter & KeyType::ScriptHashKeyType) == KeyType::ScriptHashKeyType) {
-                return CTxDestination(ScriptHash(keyId));
-            }
-            break;
-        case WitV16KeyEthHashType:
-            if ((filter & KeyType::EthHashKey) == KeyType::EthHashKey) {
-                return CTxDestination(WitnessV16EthHash(keyId));
-            }
-            break;
+std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter) {
+    auto type = keyIdType & filter;
+    switch (type) {
+        case KeyType::PKHashKeyType:
+            return CTxDestination(PKHash(keyId));
+        case KeyType::WPKHashKeyType:
+            return CTxDestination(WitnessV0KeyHash(keyId));
+        case KeyType::ScriptHashKeyType:
+            return CTxDestination(ScriptHash(keyId));
+        case KeyType::EthHashKeyType:
+            return CTxDestination(WitnessV16EthHash(keyId));
         default:
             return {};
     }
-    return {};
 }
 
-CTxDestination FromOrDefaultKeyIDToDestination(const char keyIdType, const CKeyID &keyId, KeyType filter) {
-    auto dest = TryFromKeyIDToDestination(keyIdType, keyId, filter);
+CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter) {
+    auto dest = TryFromKeyIDToDestination(keyId, keyIdType, filter);
     if (dest) {
         return *dest;
     }

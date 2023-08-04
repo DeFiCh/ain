@@ -1013,7 +1013,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(addressType, keyID, KeyType::MNRewardKeyType));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, FromOrDefaultDestinationTypeToKeyType(addressType), KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -3860,7 +3860,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerType, node->ownerAuthAddress, KeyType::MNOwnerKeyType);
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
@@ -3998,8 +3998,14 @@ public:
         sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
-        mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
-        mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+        auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+        if (!res) {
+            LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash.ToString());
+        }
+        res = mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+        if (!res) {
+            LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash.ToString());
+        }
         return Res::Ok();
     }
 
@@ -4390,7 +4396,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId) {
+                  const uint64_t evmQueueId,
+                  const OPReturnValidationCtx &opreturnCtx) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4398,7 +4405,30 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
 
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+
+    // Check OP_RETURN sizes
+    if (opreturnCtx.checkOPReturn) {
+        // Check core OP_RETURN size on vout[0]
+        if (txType == CustomTxType::EvmTx) {
+            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.evmOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
+            }
+        } else if (txType != CustomTxType::None) {
+            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.dvmOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
+            }
+        } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+        }
+        // Check core OP_RETURN size on vout[1] and higher outputs
+        for (size_t i{1}; i < tx.vout.size(); ++i) {
+            if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
+                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            }
+        }
+    }
+
     if (txType == CustomTxType::None) {
         return res;
     }
@@ -4533,7 +4563,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4618,9 +4648,9 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     CTxDestination destination;
     if (height < consensusParams.NextNetworkUpgradeHeight) {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNOwnerKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyType, finMsg.rewardKeyID, KeyType::MNRewardKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
     }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
