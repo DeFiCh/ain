@@ -4054,7 +4054,7 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
     }
 }
 
-TransferDomainLiveConfig TransferDomainLiveConfig::Default(const CCustomCSView &mnview) {
+TransferDomainLiveConfig TransferDomainLiveConfig::FromGovVarsOrDefault(const CCustomCSView &mnview) {
     CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
     CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
     CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
@@ -4213,7 +4213,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainInvalid();
     }
 
-    auto config = TransferDomainLiveConfig::Default(mnview);
+    auto config = TransferDomainLiveConfig::FromGovVarsOrDefault(mnview);
 
     for (const auto &[src, dst] : obj.transfers) {
         auto res = ValidateTransferDomainEdge(tx, config, height, coins, consensus, src, dst);

@@ -891,7 +891,7 @@ static void AddDefaultVars(ATTRIBUTES &govvar) {
     CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
     CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
 
-    const auto config = TransferDomainLiveConfig::Default(*pcustomcsview);
+    const auto config = TransferDomainLiveConfig::FromGovVarsOrDefault(*pcustomcsview);
 
     if (!govvar.CheckKey(dvm_to_evm_enabled)) govvar.SetValue(dvm_to_evm_enabled, config.dvmToEvmEnabled);
     if (!govvar.CheckKey(evm_to_dvm_enabled)) govvar.SetValue(evm_to_dvm_enabled, config.evmToDvmEnabled);
