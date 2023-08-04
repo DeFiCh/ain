@@ -299,9 +299,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         }},
         {AttributeTypes::Rules,
          {
-            {"core_opreturn", RulesKeys::CoreOPReturn},
-            {"dvm_opreturn", RulesKeys::DVMOPReturn},
-            {"evm_opreturn", RulesKeys::EVMOPReturn},
+            {"core_op_return_max_size_bytes", RulesKeys::CoreOPReturn},
+            {"dvm_op_return_max_size_bytes", RulesKeys::DVMOPReturn},
+            {"evm_op_return_max_size_bytes", RulesKeys::EVMOPReturn},
          }},
     };
     return keys;
@@ -420,7 +420,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         }},
         {AttributeTypes::Rules,
          {
-            {RulesKeys::CoreOPReturn, "core_opreturn"},
+            {RulesKeys::CoreOPReturn, "core_op_return_max_size_bytes"},
+            {RulesKeys::DVMOPReturn, "dvm_op_return_max_size_bytes"},
+            {RulesKeys::EVMOPReturn, "evm_op_return_max_size_bytes"},
          }},
     };
     return keys;
