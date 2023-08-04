@@ -358,10 +358,13 @@ pub fn evm_try_construct_block(
     dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES
-        .evm
-        .construct_block(queue_id, difficulty, eth_address, timestamp, dvm_block_number)
-    {
+    match SERVICES.evm.construct_block(
+        queue_id,
+        difficulty,
+        eth_address,
+        timestamp,
+        dvm_block_number,
+    ) {
         Ok(FinalizedBlockInfo {
             block_hash,
             failed_transactions,
