@@ -53,7 +53,7 @@ pub fn get_bytecode(input: &str) -> Result<Vec<u8>, Box<dyn Error>> {
 }
 
 pub fn get_counter_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {
-    get_bytecode(include_str!("../counter_contract/output/bytecode.json"))
+    get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
 }
 
 pub fn get_dst20_bytecode() -> Result<Vec<u8>, Box<dyn Error>> {
