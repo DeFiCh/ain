@@ -214,7 +214,7 @@ impl TransactionQueueData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TransactionQueue {
     pub data: Mutex<TransactionQueueData>,
 }
