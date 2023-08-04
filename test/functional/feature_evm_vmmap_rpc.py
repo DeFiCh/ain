@@ -248,8 +248,8 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_should_fail()
-        self.vmmap_valid_block_number_should_succeed()
-        self.vmmap_invalid_block_number_should_fail()
+        # self.vmmap_valid_block_number_should_succeed()
+        # self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
         self.vmmap_auto_invalid_input_should_fail()
         # logvmmap tests

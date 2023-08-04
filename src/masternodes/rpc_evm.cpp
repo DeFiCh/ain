@@ -179,8 +179,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Optional::NO,
           "Map types: \n\
                             0 - Auto \n\
-                            1 - Block Number: DFI -> EVM \n\
-                            2 - Block Number: EVM -> DFI \n\
+                            1 - Block Number: DFI -> EVM (Unsupported yet) \n\
+                            2 - Block Number: EVM -> DFI (Unsupported yet) \n\
                             3 - Block Hash: DFI -> EVM \n\
                             4 - Block Hash: EVM -> DFI \n\
                             5 - Tx Hash: DFI -> EVM \n\
@@ -265,13 +265,13 @@ UniValue vmmap(const JSONRPCRequest &request) {
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
-        auto mapType = tryResolveBlockNumberType(input);
-        if (mapType != VMDomainRPCMapType::Unknown)
-            return {mapType, false};
+        // auto mapType = tryResolveBlockNumberType(input);
+        // if (mapType != VMDomainRPCMapType::Unknown)
+        //     return {mapType, false};
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
-            mapType = tryResolveMapBlockOrTxResult(res, uint256S(input));
+            auto mapType = tryResolveMapBlockOrTxResult(res, uint256S(input));
             // We don't pass this type back on purpose
             if (mapType != VMDomainRPCMapType::Unknown) {
                 return {mapType, true};
@@ -371,12 +371,13 @@ UniValue vmmap(const JSONRPCRequest &request) {
             res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
             break;
         }
-        case VMDomainRPCMapType::BlockNumberDVMToEVM: {
-            return handleMapBlockNumberDVMToEVMRequest(input);
-        }
-        case VMDomainRPCMapType::BlockNumberEVMToDVM: {
-            return handleMapBlockNumberEVMToDVMRequest(input);
-        }
+        // TODO(canonbrother): disable for release, more investigation needed
+        // case VMDomainRPCMapType::BlockNumberDVMToEVM: {
+        //     return handleMapBlockNumberDVMToEVMRequest(input);
+        // }
+        // case VMDomainRPCMapType::BlockNumberEVMToDVM: {
+        //     return handleMapBlockNumberEVMToDVMRequest(input);
+        // }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
