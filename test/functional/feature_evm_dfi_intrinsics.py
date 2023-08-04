@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test that EVM state root changes on every block"""
+"""Test DFI intrinsics contract"""
 
 import os
 
@@ -12,7 +12,7 @@ from test_framework.util import (
     assert_equal
 )
 
-class StateRootChangeTest(DefiTestFramework):
+class DFIIntrinsicsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -56,4 +56,4 @@ class StateRootChangeTest(DefiTestFramework):
 
 
 if __name__ == '__main__':
-    StateRootChangeTest().main()
+    DFIIntrinsicsTest().main()
