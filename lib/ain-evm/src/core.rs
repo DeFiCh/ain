@@ -92,10 +92,10 @@ impl EVMCoreService {
             PartialHeader {
                 state_root,
                 number: U256::zero(),
-                beneficiary: Default::default(),
+                beneficiary: H160::default(),
                 receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
-                logs_bloom: Default::default(),
-                gas_used: Default::default(),
+                logs_bloom: Bloom::default(),
+                gas_used: U256::default(),
                 gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
@@ -387,8 +387,7 @@ impl EVMCoreService {
                 let latest_block = self
                     .storage
                     .get_latest_block()
-                    .map(|b| b.header.number)
-                    .unwrap_or_else(U256::zero);
+                    .map_or_else(U256::zero, |b| b.header.number);
 
                 self.get_nonce(address, latest_block)
                     .unwrap_or_else(|_| U256::zero())
@@ -518,7 +517,7 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Default::default(),
+            Vicinity::default(),
         )
     }
 }

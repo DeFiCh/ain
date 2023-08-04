@@ -58,9 +58,9 @@ impl BlockService {
             .unwrap_or_default()
     }
 
-    pub fn connect_block(&self, block: BlockAny) {
-        self.storage.put_latest_block(Some(&block));
-        self.storage.put_block(&block);
+    pub fn connect_block(&self, block: &BlockAny) {
+        self.storage.put_latest_block(Some(block));
+        self.storage.put_block(block);
     }
 
     pub fn base_fee_calculation(
@@ -233,7 +233,7 @@ impl BlockService {
                     .collect::<Vec<f64>>();
                 let mut data = Data::new(priority_fees);
 
-                for pct in priority_fee_percentile.iter() {
+                for pct in &priority_fee_percentile {
                     block_rewards.push(U256::from(data.percentile(*pct).ceil() as u64));
                 }
 

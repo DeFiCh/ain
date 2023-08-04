@@ -353,7 +353,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(block.clone());
+            self.block.connect_block(&block);
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number);
             self.receipt.put_receipts(receipts);
@@ -402,7 +402,7 @@ impl EVMServices {
             .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
-            self.filters.add_tx_to_filters(signed_tx.transaction.hash())
+            self.filters.add_tx_to_filters(signed_tx.transaction.hash());
         }
 
         Ok(())
@@ -493,9 +493,10 @@ impl EVMServices {
             .backend
             .get_contract_storage(contract, storage_index.as_bytes())?;
 
-        let new_balance = match out {
-            true => balance.checked_sub(amount),
-            false => balance.checked_add(amount),
+        let new_balance = if out {
+            balance.checked_sub(amount)
+        } else {
+            balance.checked_add(amount)
         }
         .ok_or_else(|| format_err!("Balance overflow/underflow"))?;
 

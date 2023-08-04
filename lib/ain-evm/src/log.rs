@@ -37,9 +37,7 @@ impl LogService {
         let mut log_index = 0; // log index is a block level index
         for receipt in receipts {
             let logs = match &receipt.receipt {
-                ReceiptV3::Legacy(r) => &r.logs,
-                ReceiptV3::EIP2930(r) => &r.logs,
-                ReceiptV3::EIP1559(r) => &r.logs,
+                ReceiptV3::Legacy(r) | ReceiptV3::EIP2930(r) | ReceiptV3::EIP1559(r) => &r.logs,
             };
 
             for log in logs {
