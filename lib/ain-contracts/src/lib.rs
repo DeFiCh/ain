@@ -67,8 +67,8 @@ pub fn get_dst20_codehash() -> Result<H256, Box<dyn Error>> {
 
 pub fn dst20_address_from_token_id(token_id: &str) -> Result<H160, Box<dyn Error>> {
     let number_str = format!("{:x}", token_id.parse::<u64>()?);
-    let padded_number_str = format!("{:0>38}", number_str);
-    let final_str = format!("ff{}", padded_number_str);
+    let padded_number_str = format!("{number_str:0>38}");
+    let final_str = format!("ff{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)
 }

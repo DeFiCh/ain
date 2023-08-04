@@ -78,7 +78,7 @@ fn should_get_block_by_hash() {
         Vec::new(),
         Vec::new(),
     );
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let block = handler
@@ -122,7 +122,7 @@ fn should_get_transaction_by_hash() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByHashInput {
@@ -174,7 +174,7 @@ fn should_get_transaction_by_block_hash_and_index() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByBlockHashAndIndexInput {
@@ -229,7 +229,7 @@ fn should_get_transaction_by_block_number_and_index() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByBlockNumberAndIndexInput {
