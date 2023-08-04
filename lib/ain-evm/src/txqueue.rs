@@ -63,6 +63,11 @@ impl TransactionQueueMap {
     /// Note that the `TransactionQueue` instance contains the mutex of the `TransactionQueueData`, and this method
     /// should be used if multiple read/write operations on the tx queue is required within the pipeline. This is to
     /// ensure the atomicity and functionality of the client, and to maintain the integrity of the transaction queue.
+    ///
+    /// # Errors
+    ///
+    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
     pub fn get_queue(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
         Ok(Arc::clone(
             self.queues
