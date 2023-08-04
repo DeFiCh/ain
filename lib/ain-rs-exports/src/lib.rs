@@ -132,7 +132,7 @@ pub mod ffi {
 
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
 
-        fn evm_create_dst20(
+        fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             native_hash: [u8; 32],
@@ -141,7 +141,7 @@ pub mod ffi {
             token_id: &str,
         );
 
-        fn evm_bridge_dst20(
+        fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             address: &str,

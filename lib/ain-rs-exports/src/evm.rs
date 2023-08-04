@@ -447,7 +447,7 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     }
 }
 
-pub fn evm_create_dst20(
+pub fn evm_try_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     native_hash: [u8; 32],
@@ -476,7 +476,7 @@ pub fn evm_create_dst20(
     }
 }
 
-pub fn evm_bridge_dst20(
+pub fn evm_try_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
