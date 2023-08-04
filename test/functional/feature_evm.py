@@ -115,7 +115,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
 
         # Check that a transferdomain default is not present in listgovs
-        assert('v0/transferdomain/dvm-evm/enabled' not in self.nodes[0].listgovs()[8][0]['ATTRIBUTES'])
+        assert ('v0/transferdomain/dvm-evm/enabled' not in self.nodes[0].listgovs()[8][0]['ATTRIBUTES'])
 
         # Move to fork height
         self.nodes[0].generate(4)
