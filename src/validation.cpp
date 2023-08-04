@@ -2613,6 +2613,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
+    // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
+    const auto evmEnabled = IsEVMEnabled(pindex->nHeight, mnview, chainparams.GetConsensus());
+
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2851,7 +2854,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary);
+    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary, evmEnabled);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }

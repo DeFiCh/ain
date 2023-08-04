@@ -231,8 +231,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/src-formats': ['erc55']}})
         self.nodes[0].generate(1)
 
-        print(self.nodes[0].getgov('ATTRIBUTES'))
-
         # Dectivate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32']}})
         self.nodes[0].generate(1)

@@ -2378,7 +2378,48 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const FinalizeBlockCompletion &blockResult) {
+    const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
+
+    // Mine does not add output on null block
+    if (coinbaseBlockHash.IsNull()) return Res::Ok();
+
+    opcodetype opcode;
+    auto pc = scriptPubKey.begin();
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return Res::Err("Coinbase output does not contain OP_RETURN as expected");
+    }
+
+    std::vector<unsigned char> metadata;
+    if (!scriptPubKey.GetOp(pc, opcode, metadata)
+        || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
+        return Res::Err("Coinbase OP_RETURN output missing push data");
+    }
+
+    XVM obj;
+    try {
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        ss >> obj;
+    } catch (...) {
+        return Res::Err("Failed to deserialize coinbase output");
+    }
+
+    if (obj.evm.blockHash != coinbaseBlockHash) {
+        return Res::Err("Incorrect EVM block hash in coinbase output");
+    }
+
+    if (obj.evm.burntFee != blockResult.total_burnt_fees) {
+        return Res::Err("Incorrect EVM burnt fee in coinbase output");
+    }
+
+    if (obj.evm.priorityFee != blockResult.total_priority_fees) {
+        return Res::Err("Incorrect EVM priority fee in coinbase output");
+    }
+
+    return Res::Ok();
+}
+
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabled) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
 
     CKeyID minter;
@@ -2429,6 +2470,16 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
 
+    if (evmEnabled) {
+        if (block.vtx[0]->vout.size() < 2) {
+            return Res::Err("Not enough outputs in coinbase TX");
+        }
+
+        auto res = ValidateCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey, blockResult);
+        LogPrintf("XXX err %s\n", res.msg);
+        if (!res) return res;
+    }
+
     auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
 
@@ -2464,11 +2515,11 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabled) {
     CCustomCSView cache(mnview);
 
     // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
+    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabled);
     if (!res) return res;
 
     // Construct undo
