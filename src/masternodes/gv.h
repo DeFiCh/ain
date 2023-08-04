@@ -13,6 +13,8 @@
 class ATTRIBUTES;
 class CCustomCSView;
 
+using XVmAddressFormatItems          = std::set<uint8_t>;
+
 template <typename T>
 class GvOptional : public std::optional<T> {
 public:

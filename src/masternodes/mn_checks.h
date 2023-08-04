@@ -28,6 +28,25 @@ struct OPReturnValidationCtx {
     uint32_t evmOPReturnSize{};
 };
 
+struct TransferDomainLiveConfig {
+    bool dvmToEvmEnabled;
+    bool evmToDvmEnabled;
+    XVmAddressFormatItems dvmToEvmSrcAddresses;
+    XVmAddressFormatItems dvmToEvmDestAddresses;
+    XVmAddressFormatItems evmToDvmDestAddresses;
+    XVmAddressFormatItems evmToDvmSrcAddresses;
+    XVmAddressFormatItems evmToDvmAuthFormats;
+    bool dvmToEvmNativeTokenEnabled;
+    bool evmToDvmNativeTokenEnabled;
+    bool dvmToEvmDatEnabled;
+    bool evmToDvmDatEnabled;
+    std::set<uint32_t> dvmToEvmDisallowedTokens;
+    std::set<uint32_t> evmToDvmDisallowedTokens;
+
+    static TransferDomainLiveConfig Default();
+    static TransferDomainLiveConfig FromGovVarsOrDefault(const CCustomCSView &mnview);
+};
+
 class CCustomTxVisitor {
 protected:
     uint32_t height;
