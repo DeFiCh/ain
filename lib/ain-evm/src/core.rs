@@ -1,3 +1,15 @@
+use std::error::Error;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use anyhow::format_err;
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum_types::{Bloom, BloomInput, H160, U256};
+use hex::FromHex;
+use log::debug;
+use primitive_types::H256;
+use vsdb_core::vsdb_set_base_dir;
+
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
@@ -15,18 +27,6 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-use primitive_types::H256;
-
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
-
-use anyhow::format_err;
-use hex::FromHex;
-use log::debug;
-use std::error::Error;
-use std::path::PathBuf;
-use std::sync::Arc;
-use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 

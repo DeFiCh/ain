@@ -1,11 +1,12 @@
+use std::collections::HashMap;
+use std::error::Error;
+use std::str::FromStr;
+
 use anyhow::format_err;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
 use sp_core::{Blake2Hasher, Hasher};
-use std::collections::HashMap;
-use std::error::Error;
-use std::str::FromStr;
 
 pub fn u256_to_h256(input: U256) -> H256 {
     let mut bytes = [0_u8; 32];

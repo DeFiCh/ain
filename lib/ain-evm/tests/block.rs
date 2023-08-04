@@ -2,10 +2,9 @@
 
 use std::str::FromStr;
 
+use ain_evm::evm::EVMServices;
 use ain_evm::transaction::SignedTx;
 use primitive_types::{H160, H256, U256};
-
-use ain_evm::evm::EVMServices;
 
 #[test]
 fn test_finalize_block_and_do_not_update_state() {

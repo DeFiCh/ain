@@ -1,9 +1,10 @@
-use ethereum_types::{H160, U256};
-use rand::Rng;
 use std::{
     collections::HashMap,
     sync::{Mutex, RwLock},
 };
+
+use ethereum_types::{H160, U256};
+use rand::Rng;
 
 use crate::transaction::system::SystemTx;
 use crate::{core::NativeTxHash, fee::calculate_gas_fee, transaction::SignedTx};
@@ -336,9 +337,8 @@ mod tests {
 
     use ethereum_types::{H256, U256};
 
-    use crate::transaction::bridge::BalanceUpdate;
-
     use super::*;
+    use crate::transaction::bridge::BalanceUpdate;
 
     #[test]
     fn test_invalid_nonce_order() -> Result<(), QueueError> {
