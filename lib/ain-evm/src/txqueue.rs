@@ -59,6 +59,20 @@ impl TransactionQueueMap {
         self.queues.write().unwrap().remove(&queue_id)
     }
 
+    /// Returns an atomic reference counting pointer of the `TransactionQueue` associated with the provided queue ID.
+    /// Note that the `TransactionQueue` instance contains the mutex of the `TransactionQueueData`, and this method
+    /// should be used if multiple read/write operations on the tx queue is required within the pipeline. This is to
+    /// ensure the atomicity and functionality of the client, and to maintain the integrity of the transaction queue.
+    pub fn get_queue(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
+        Ok(Arc::clone(
+            self.queues
+                .read()
+                .unwrap()
+                .get(&queue_id)
+                .ok_or(QueueError::NoSuchQueue)?,
+        ))
+    }
+
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
     /// transaction is a `SignedTx`, it also updates the corresponding account's nonce.
     /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
@@ -94,16 +108,6 @@ impl TransactionQueueMap {
     ///
     pub fn remove_txs_by_sender(&self, queue_id: u64, sender: H160) -> Result<()> {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
-    }
-
-    pub fn get_queue(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
-        Ok(Arc::clone(
-            self.queues
-                .read()
-                .unwrap()
-                .get(&queue_id)
-                .ok_or(QueueError::NoSuchQueue)?,
-        ))
     }
 
     pub fn get_tx_queue_items(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
