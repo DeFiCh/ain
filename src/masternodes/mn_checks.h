@@ -20,6 +20,14 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
+
+struct OPReturnValidationCtx {
+    bool checkOPReturn{};
+    uint32_t coreOPReturnSize{};
+    uint32_t dvmOPReturnSize{};
+    uint32_t evmOPReturnSize{};
+};
+
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -483,7 +491,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const uint64_t evmQueueId = 0);
+                  const uint64_t evmQueueId = 0,
+                  const OPReturnValidationCtx &opreturnCtx = {});
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -548,6 +557,15 @@ inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &price
         return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
     });
     return found;
+}
+
+inline bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize) {
+    opcodetype opcode;
+    auto pc = scriptPubKey.begin();
+    if (scriptPubKey.GetOp(pc, opcode) && opcode == OP_RETURN && scriptPubKey.size() > opreturnSize) {
+        return false;
+    }
+    return true;
 }
 
 /*

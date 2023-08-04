@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile solidity project
     // configure `root` as our project root
-    let contracts = vec![("counter_contract", "Counter"), ("dst20", "DST20")];
+    let contracts = vec![("dfi_intrinsics", "DFIIntrinsics"), ("dst20", "DST20")];
 
     for (file_path, contract_name) in contracts {
         let solc = Solc::new(env::var("SOLC_PATH")?);

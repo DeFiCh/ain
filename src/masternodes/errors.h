@@ -270,6 +270,10 @@ public:
         return Res::Err("Unsupported key for Vaults {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedRulesType(const unsigned char type) {
+        return Res::Err("Unsupported key for Rules {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() {
         return Res::Err("Unsupported Param ID");
     }

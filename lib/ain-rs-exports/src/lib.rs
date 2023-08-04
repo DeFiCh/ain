@@ -123,6 +123,7 @@ pub mod ffi {
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
+            dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
@@ -139,7 +140,7 @@ pub mod ffi {
 
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
 
-        fn evm_create_dst20(
+        fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             native_hash: [u8; 32],
@@ -147,12 +148,13 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         );
-        fn evm_bridge_dst20(
+
+        fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             address: &str,
             amount: [u8; 32],
-            native_tx_hash: [u8; 32],
+            native_hash: [u8; 32],
             token_id: &str,
             out: bool,
         );
