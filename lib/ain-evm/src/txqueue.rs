@@ -59,27 +59,6 @@ impl TransactionQueueMap {
         self.queues.write().unwrap().remove(&queue_id)
     }
 
-    /// Clears the `TransactionQueue` vector associated with the provided queue ID.
-    pub fn clear(&self, queue_id: u64) -> Result<()> {
-        self.with_transaction_queue(queue_id, TransactionQueue::clear)
-    }
-
-    /// `drain_all` returns all transactions from the `TransactionQueue` associated with the
-    /// provided queue ID, removing them from the queue. Transactions are returned in the
-    /// order they were added.
-    pub fn drain_all(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
-        self.with_transaction_queue(queue_id, TransactionQueue::drain_all)
-    }
-
-    /// Counts the number of transactions in the queue associated with the queue ID.
-    /// # Errors
-    ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    ///
-    pub fn count(&self, queue_id: u64) -> Result<usize> {
-        self.with_transaction_queue(queue_id, TransactionQueue::len)
-    }
-
     /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
     /// transaction is a `SignedTx`, it also updates the corresponding account's nonce.
     /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
@@ -139,8 +118,9 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    /// Returns None when the address does not match an account or Some(nonce) with the next valid nonce (current + 1)
-    /// for the associated address
+    /// Returns None when the address does not have any transaction queued or
+    /// Some(nonce) with the next valid nonce (current + 1) for the associated address
+    ///
     pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
         self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
@@ -224,30 +204,6 @@ impl TransactionQueue {
         Self {
             data: Mutex::new(TransactionQueueData::new()),
         }
-    }
-
-    pub fn clear(&self) {
-        let mut data = self.data.lock().unwrap();
-        data.account_nonces.clear();
-        data.total_fees = U256::zero();
-        data.total_gas_used = U256::zero();
-        data.transactions.clear();
-    }
-
-    pub fn drain_all(&self) -> Vec<QueueTxItem> {
-        let mut data = self.data.lock().unwrap();
-        data.account_nonces.clear();
-        data.total_fees = U256::zero();
-        data.total_gas_used = U256::zero();
-        data.transactions.drain(..).collect::<Vec<QueueTxItem>>()
-    }
-
-    pub fn len(&self) -> usize {
-        self.data.lock().unwrap().transactions.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.data.lock().unwrap().transactions.is_empty()
     }
 
     pub fn queue_tx(

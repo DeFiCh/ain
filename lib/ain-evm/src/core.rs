@@ -347,11 +347,6 @@ impl EVMCoreService {
         self.tx_queues.get_queue_id()
     }
 
-    pub fn clear(&self, queue_id: u64) -> Result<(), EVMError> {
-        self.tx_queues.clear(queue_id)?;
-        Ok(())
-    }
-
     pub fn remove(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }
