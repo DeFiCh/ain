@@ -205,9 +205,7 @@ impl LogStorage for BlockchainDataHandler {
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
         let mut address_logs_map = self.address_logs_map.write().unwrap();
 
-        let address_map = address_logs_map
-            .entry(block_number)
-            .or_insert(HashMap::new());
+        let address_map = address_logs_map.entry(block_number).or_default();
         address_map.insert(address, logs);
     }
 }

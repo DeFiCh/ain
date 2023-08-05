@@ -41,7 +41,7 @@ impl LogService {
             };
 
             for log in logs {
-                let map = logs_map.entry(log.address).or_insert(Vec::new());
+                let map = logs_map.entry(log.address).or_default();
 
                 map.push(LogIndex {
                     block_hash: receipt.block_hash,
