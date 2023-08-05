@@ -9,6 +9,8 @@ default-members = [
     "ain-*",
 ]
 
+resolver = "2"
+
 [profile.release]
 lto = true
 

@@ -286,7 +286,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
-        auto blockResult = evm_try_finalize(result, evmQueueId, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
+        auto blockResult = evm_try_construct_block(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
         evm_discard_context(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());

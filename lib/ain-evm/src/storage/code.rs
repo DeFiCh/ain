@@ -26,7 +26,7 @@ impl CodeHistory {
         self.code_map.insert(code_hash, code);
         self.history
             .entry(block_number)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(code_hash);
     }
 

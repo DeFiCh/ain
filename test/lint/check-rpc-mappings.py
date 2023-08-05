@@ -135,6 +135,9 @@ def main():
     errors = 0
     for (cmdname, argidx, argname) in mapping:
         try:
+            # Ignore eth_ forwarding commands
+            if cmdname.startswith('eth_'):
+                continue
             rargnames = cmds_by_name[cmdname].args[argidx].names
         except IndexError:
             print('ERROR: %s argument %i (named %s in vRPCConvertParams) is not defined in dispatch table' % (
