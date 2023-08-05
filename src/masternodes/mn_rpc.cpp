@@ -877,10 +877,10 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
-static void AddDefaultVars(ATTRIBUTES &attrs) {
+static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs) {
     // OpReturnLimits
-
-    // TODO: 
+    const auto opReturnLimits = OpReturnLimits::From(height, params, attrs);
+    opReturnLimits.SetToAttributesIfNotExists(attrs);
 
     // TransferDomainConfig
     const auto tdConfig = TransferDomainConfig::From(*pcustomcsview);
@@ -965,7 +965,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 } else {
                     if (height >= Params().GetConsensus().NextNetworkUpgradeHeight) {
                         if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
-                            AddDefaultVars(*attributes);
+                            AddDefaultVars(height, Params(), *attributes);
                         }
                     }
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);

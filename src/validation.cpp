@@ -2601,7 +2601,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    auto opReturnLimits = OpReturnLimits::From(pindex->nHeight, chainparams, attributes);
+    auto opReturnLimits = OpReturnLimits::From(pindex->nHeight, chainparams, *attributes);
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.

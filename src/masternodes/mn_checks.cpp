@@ -5244,13 +5244,13 @@ struct OpReturnLimitsKeys {
     CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
 };
 
-OpReturnLimits OpReturnLimits::From(const uint64_t height, const CChainParams& chainparams, const std::shared_ptr<ATTRIBUTES> attributes) {
+OpReturnLimits OpReturnLimits::From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
     item.shouldEnforce = height >= chainparams.GetConsensus().NextNetworkUpgradeHeight;
-    item.coreSizeBytes = attributes->GetValue(k.coreKey, item.coreSizeBytes);
-    item.dvmSizeBytes = attributes->GetValue(k.dvmKey, item.dvmSizeBytes);
-    item.evmSizeBytes = attributes->GetValue(k.evmKey, item.evmSizeBytes);
+    item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
+    item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
+    item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);
     return item;
 }
 
