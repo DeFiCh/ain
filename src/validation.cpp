@@ -3341,7 +3341,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
-            evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime(), pindexNew->nHeight);
+            evm_try_finalize_block(result, evmQueueId);
             if (!result.ok) {
                 state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("EVM finalization failed: %s", result.reason.c_str()),

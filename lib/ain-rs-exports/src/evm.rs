@@ -236,14 +236,6 @@ pub fn evm_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
 ) -> ffi::PreValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, false) {
-        Ok(_) => (),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            return cross_boundary_error_return(result, e.to_string());
-        }
-    }
-
     let queue_id = 0;
     match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
         Ok(ValidateTxInfo {
@@ -294,7 +286,7 @@ pub fn evm_try_validate_raw_tx(
     tx: &str,
     queue_id: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, true) {
+    match SERVICES.evm.verify_tx_fees(tx) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
@@ -378,12 +370,11 @@ pub fn evm_try_queue_tx(
     }
 }
 
-/// Finalizes and mine an EVM block.
+/// Creates an EVM block.
 ///
 /// # Arguments
 ///
 /// * `queue_id` - The queue ID.
-/// * `update_state` - A flag indicating whether to update the state.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
@@ -391,19 +382,17 @@ pub fn evm_try_queue_tx(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_finalize(
+pub fn evm_try_construct_block(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
     dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES.evm.finalize_block(
+    match SERVICES.evm.construct_block(
         queue_id,
-        update_state,
         difficulty,
         eth_address,
         timestamp,
@@ -415,7 +404,7 @@ pub fn evm_try_finalize(
             total_burnt_fees,
             total_priority_fees,
         }) => {
-            result.ok = true;
+            cross_boundary_success(result);
             ffi::FinalizeBlockCompletion {
                 block_hash,
                 failed_transactions,
@@ -423,6 +412,13 @@ pub fn evm_try_finalize(
                 total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
             }
         }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
+pub fn evm_try_finalize_block(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    match SERVICES.evm.finalize_block(queue_id) {
+        Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
