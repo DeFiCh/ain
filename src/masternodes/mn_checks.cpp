@@ -4356,7 +4356,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     // Check OP_RETURN sizes
     if (opReturnLimits.shouldEnforce) {
-        if (auto r = opReturnLimits.Validate(tx, txType); !res) {
+        if (auto r = opReturnLimits.Validate(tx, txType); !r) {
             return r;
         }
     }
@@ -5234,7 +5234,6 @@ OpReturnLimits OpReturnLimits::Default() {
         MAX_OP_RETURN_CORE_ACCEPT,
         MAX_OP_RETURN_DVM_ACCEPT,
         MAX_OP_RETURN_EVM_ACCEPT,
-        MAX_OP_RETURN_RELAY,
     };
 }
 

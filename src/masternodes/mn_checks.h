@@ -290,16 +290,16 @@ inline void Unserialize(Stream &s, CustomTxType &txType) {
 
 struct OpReturnLimits {
     bool shouldEnforce{};
-    uint32_t coreSizeBytes{};
-    uint32_t dvmSizeBytes{};
-    uint32_t evmSizeBytes{};
-    uint32_t maxSizeBytes{};
+    uint64_t coreSizeBytes{};
+    uint64_t dvmSizeBytes{};
+    uint64_t evmSizeBytes{};
 
     static OpReturnLimits Default();
     static OpReturnLimits From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes);
 
     void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
     Res Validate(const CTransaction& tx, const CustomTxType txType) const;
+    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); } 
 };
 
 struct TransferDomainConfig {

@@ -365,6 +365,7 @@ using CAttributeValue          = std::variant<bool,
                                      CConsortiumGlobalMinted,
                                      int32_t,
                                      uint32_t,
+                                     uint64_t,
                                      XVmAddressFormatItems>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
