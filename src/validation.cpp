@@ -2601,16 +2601,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 coreKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::CoreOPReturn};
-    CDataStructureV0 dvmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::DVMOPReturn};
-    CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
-
-    OPReturnValidationCtx opreturnCtx{
-        pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight,
-        attributes->GetValue(coreKey, MAX_OP_RETURN_RELAY),
-        attributes->GetValue(dvmKey, MAX_OP_RETURN_DVM_RELAY),
-        attributes->GetValue(evmKey, MAX_OP_RETURN_EVM_RELAY)};
-
+    auto opReturnLimits = OpReturnLimits::From(pindex->nHeight, chainparams, attributes);
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
@@ -2686,7 +2677,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opreturnCtx);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opReturnLimits);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

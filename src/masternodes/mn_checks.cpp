@@ -4061,8 +4061,8 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
     }
 }
 
-TransferDomainLiveConfig TransferDomainLiveConfig::Default() {
-    return TransferDomainLiveConfig{
+TransferDomainConfig TransferDomainConfig::Default() {
+    return TransferDomainConfig{
         true,
         true,
         { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
@@ -4079,7 +4079,7 @@ TransferDomainLiveConfig TransferDomainLiveConfig::Default() {
     };
 }
 
-TransferDomainLiveConfig TransferDomainLiveConfig::FromGovVarsOrDefault(const CCustomCSView &mnview) {
+TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
     CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
     CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
@@ -4095,7 +4095,7 @@ TransferDomainLiveConfig TransferDomainLiveConfig::FromGovVarsOrDefault(const CC
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
 
-    auto config = TransferDomainLiveConfig::Default();
+    auto config = TransferDomainConfig::Default();
 
     config.dvmToEvmEnabled = attributes->GetValue(dvm_to_evm_enabled, config.dvmToEvmEnabled);
     config.dvmToEvmSrcAddresses = attributes->GetValue(dvm_to_evm_src_formats, config.dvmToEvmSrcAddresses);
@@ -4113,7 +4113,7 @@ TransferDomainLiveConfig TransferDomainLiveConfig::FromGovVarsOrDefault(const CC
     return config;
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge edge, const TransferDomainLiveConfig &config) {
+static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge edge, const TransferDomainConfig &config) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -4147,7 +4147,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
 }
 
 Res ValidateTransferDomainEdge(const CTransaction &tx,
-                                   const TransferDomainLiveConfig &config,
+                                   const TransferDomainConfig &config,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
@@ -4234,7 +4234,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
         return DeFiErrors::TransferDomainInvalid();
     }
 
-    auto config = TransferDomainLiveConfig::FromGovVarsOrDefault(mnview);
+    auto config = TransferDomainConfig::From(mnview);
 
     for (const auto &[src, dst] : obj.transfers) {
         auto res = ValidateTransferDomainEdge(tx, config, height, coins, consensus, src, dst);
@@ -4388,6 +4388,52 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
+OpReturnLimits OpReturnLimits::Default() {
+    return OpReturnLimits {
+        true,
+        MAX_OP_RETURN_CORE_RELAY,
+        MAX_OP_RETURN_DVM_RELAY,
+        MAX_OP_RETURN_EVM_RELAY,
+        MAX_OP_RETURN_RELAY,
+    };
+}
+
+OpReturnLimits OpReturnLimits::From(const uint64_t height, const CChainParams& chainparams, const std::shared_ptr<ATTRIBUTES> attributes) {
+    CDataStructureV0 coreKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::CoreOPReturn};
+    CDataStructureV0 dvmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::DVMOPReturn};
+    CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
+
+    auto item = OpReturnLimits::Default();
+    item.shouldEnforce = height >= chainparams.GetConsensus().NextNetworkUpgradeHeight;
+    item.coreSizeBytes = attributes->GetValue(coreKey, item.coreSizeBytes);
+    item.dvmSizeBytes = attributes->GetValue(dvmKey, item.dvmSizeBytes);
+    item.evmSizeBytes = attributes->GetValue(evmKey, item.evmSizeBytes);
+    return item;
+}
+
+Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) const {
+    // Check core OP_RETURN size on vout[0]
+    if (txType == CustomTxType::EvmTx) {
+        if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, evmSizeBytes)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
+        }
+    } else if (txType != CustomTxType::None) {
+        if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, dvmSizeBytes)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
+        }
+    } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, coreSizeBytes)) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+    }
+    // Check core OP_RETURN size on vout[1] and higher outputs
+    for (size_t i{1}; i < tx.vout.size(); ++i) {
+        if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, coreSizeBytes)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+        }
+    }
+    return Res::Ok();
+}
+
+
 Res ApplyCustomTx(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -4397,35 +4443,19 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint256 *canSpend,
                   uint32_t txn,
                   const uint64_t evmQueueId,
-                  const OPReturnValidationCtx &opreturnCtx) {
+                  const OpReturnLimits &opReturnLimits) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
-
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
     // Check OP_RETURN sizes
-    if (opreturnCtx.checkOPReturn) {
-        // Check core OP_RETURN size on vout[0]
-        if (txType == CustomTxType::EvmTx) {
-            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.evmOPReturnSize)) {
-                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
-            }
-        } else if (txType != CustomTxType::None) {
-            if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.dvmOPReturnSize)) {
-                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
-            }
-        } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
-        }
-        // Check core OP_RETURN size on vout[1] and higher outputs
-        for (size_t i{1}; i < tx.vout.size(); ++i) {
-            if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, opreturnCtx.coreOPReturnSize)) {
-                return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
-            }
+    if (opReturnLimits.shouldEnforce) {
+        if (auto r = opReturnLimits.Validate(tx, txType); !res) {
+            return r;
         }
     }
 

@@ -53,33 +53,6 @@ struct XVM {
     }
 };
 
-
-struct OPReturnValidationCtx {
-    bool checkOPReturn{};
-    uint32_t coreOPReturnSize{};
-    uint32_t dvmOPReturnSize{};
-    uint32_t evmOPReturnSize{};
-};
-
-struct TransferDomainLiveConfig {
-    bool dvmToEvmEnabled;
-    bool evmToDvmEnabled;
-    XVmAddressFormatItems dvmToEvmSrcAddresses;
-    XVmAddressFormatItems dvmToEvmDestAddresses;
-    XVmAddressFormatItems evmToDvmDestAddresses;
-    XVmAddressFormatItems evmToDvmSrcAddresses;
-    XVmAddressFormatItems evmToDvmAuthFormats;
-    bool dvmToEvmNativeTokenEnabled;
-    bool evmToDvmNativeTokenEnabled;
-    bool dvmToEvmDatEnabled;
-    bool evmToDvmDatEnabled;
-    std::set<uint32_t> dvmToEvmDisallowedTokens;
-    std::set<uint32_t> evmToDvmDisallowedTokens;
-
-    static TransferDomainLiveConfig Default();
-    static TransferDomainLiveConfig FromGovVarsOrDefault(const CCustomCSView &mnview);
-};
-
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -315,6 +288,38 @@ inline void Unserialize(Stream &s, CustomTxType &txType) {
     txType = CustomTxCodeToType(ch);
 }
 
+struct OpReturnLimits {
+    bool shouldEnforce{};
+    uint32_t coreSizeBytes{};
+    uint32_t dvmSizeBytes{};
+    uint32_t evmSizeBytes{};
+    uint32_t maxSizeBytes{};
+
+    static OpReturnLimits Default();
+    static OpReturnLimits From(const uint64_t height, const CChainParams& chainparams, const std::shared_ptr<ATTRIBUTES> attributes);
+
+    Res Validate(const CTransaction& tx, const CustomTxType txType) const;
+};
+
+struct TransferDomainConfig {
+    bool dvmToEvmEnabled;
+    bool evmToDvmEnabled;
+    XVmAddressFormatItems dvmToEvmSrcAddresses;
+    XVmAddressFormatItems dvmToEvmDestAddresses;
+    XVmAddressFormatItems evmToDvmDestAddresses;
+    XVmAddressFormatItems evmToDvmSrcAddresses;
+    XVmAddressFormatItems evmToDvmAuthFormats;
+    bool dvmToEvmNativeTokenEnabled;
+    bool evmToDvmNativeTokenEnabled;
+    bool dvmToEvmDatEnabled;
+    bool evmToDvmDatEnabled;
+    std::set<uint32_t> dvmToEvmDisallowedTokens;
+    std::set<uint32_t> evmToDvmDisallowedTokens;
+
+    static TransferDomainConfig Default();
+    static TransferDomainConfig From(const CCustomCSView &mnview);
+};
+
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
@@ -544,7 +549,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
                   const uint64_t evmQueueId = 0,
-                  const OPReturnValidationCtx &opreturnCtx = {});
+                  const OpReturnLimits &opReturnLimits = OpReturnLimits::Default());
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
