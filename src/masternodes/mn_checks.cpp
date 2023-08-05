@@ -5246,7 +5246,7 @@ struct OpReturnLimitsKeys {
 OpReturnLimits OpReturnLimits::From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
-    item.shouldEnforce = height >= chainparams.GetConsensus().NextNetworkUpgradeHeight;
+    item.shouldEnforce = height >= static_cast<uint64_t>(chainparams.GetConsensus().NextNetworkUpgradeHeight);
     item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
     item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
     item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);
