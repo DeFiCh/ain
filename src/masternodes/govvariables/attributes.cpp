@@ -452,6 +452,15 @@ static ResVal<CAttributeValue> VerifyUInt32(const std::string &str) {
     return {uint32, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
+    uint64_t x;
+    if (!ParseUInt64(str, &x)) {
+        return DeFiErrors::GovVarVerifyInt();
+    }
+    return {x, Res::Ok()};
+}
+
+
 static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
     CAmount int64;
     if (!ParseInt64(str, &int64) || int64 < 0) {
@@ -811,9 +820,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             }},
             {AttributeTypes::Rules,
              {
-                {RulesKeys::CoreOPReturn, VerifyUInt32},
-                {RulesKeys::DVMOPReturn, VerifyUInt32},
-                {RulesKeys::EVMOPReturn, VerifyUInt32},
+                {RulesKeys::CoreOPReturn, VerifyUInt64},
+                {RulesKeys::DVMOPReturn, VerifyUInt64},
+                {RulesKeys::EVMOPReturn, VerifyUInt64},
              }},
     };
     return parsers;

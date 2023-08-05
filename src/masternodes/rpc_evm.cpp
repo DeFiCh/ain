@@ -16,10 +16,8 @@ enum class VMDomainRPCMapType {
     TxHashEVMToEVM,
 };
 
-const char *GetVMDomainRPCMapType(VMDomainRPCMapType t) {
+std::string GetVMDomainRPCMapType(VMDomainRPCMapType t) {
     switch (t) {
-        case VMDomainRPCMapType::Unknown:
-            return "Unknown";
         case VMDomainRPCMapType::Auto:
             return "Auto";
         case VMDomainRPCMapType::BlockNumberDVMToEVM:
@@ -34,6 +32,8 @@ const char *GetVMDomainRPCMapType(VMDomainRPCMapType t) {
             return "TxHashDVMToEVM";
         case VMDomainRPCMapType::TxHashEVMToEVM:
             return "TxHashEVMToEVM";
+        default:
+            return "Unknown";
     }
 }
 
@@ -197,11 +197,6 @@ UniValue vmmap(const JSONRPCRequest &request) {
     auto throwUnsupportedAuto = [&throwInvalidParam]() {
         throwInvalidParam("Automatic detection not viable for input");
     };
-    auto crossBoundaryOkOrThrow = [&throwInvalidParam](CrossBoundaryResult &result) {
-        if (!result.ok) {
-            throwInvalidParam(result.reason.c_str());
-        }
-    };
 
     auto ensureEVMHashPrefixed = [](const std::string &str, const VMDomainRPCMapType type) {
         if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
@@ -236,6 +231,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         return VMDomainRPCMapType::Unknown;
     };
+/*
+    auto crossBoundaryOkOrThrow = [&throwInvalidParam](CrossBoundaryResult &result) {
+        if (!result.ok) {
+            throwInvalidParam(result.reason.c_str());
+        }
+    };
 
     auto tryResolveBlockNumberType =
         [&throwUnsupportedAuto, &crossBoundaryOkOrThrow](const std::string input) {
@@ -260,7 +261,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 return VMDomainRPCMapType::Unknown;
             }
         };
-
+*/
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
     ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
 
@@ -292,7 +293,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             return ret;
         }
     };
-
+/*
     auto finalizeBlockNumberResult = [&](uint64_t &number, const VMDomainRPCMapType type, const uint64_t input) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV("input", input);
@@ -343,7 +344,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
-
+*/
     LOCK(cs_main);
 
     if (type == VMDomainRPCMapType::Auto) {
