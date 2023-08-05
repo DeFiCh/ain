@@ -26,25 +26,29 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
-/**
- * Default setting for nMaxDatacarrierBytes.
- * Min target: 83 bytes of data, +1 for OP_RETURN +2 for the pushdata opcodes
- */
-static const uint32_t MAX_OP_RETURN_CORE_RELAY = 83;
-static const uint32_t MAX_OP_RETURN_DVM_RELAY = 523;
-static const uint32_t MAX_OP_RETURN_EVM_RELAY = 20000;
+// While the relay options are free for interpretation to
+// each node, the accept values are enforced on validation
+
+static const uint32_t MAX_OP_RETURN_CORE_ACCEPT = 2000;
+static const uint32_t MAX_OP_RETURN_DVM_ACCEPT = 4000;
+static const uint32_t MAX_OP_RETURN_EVM_ACCEPT = 20000;
 
 /**
  * This is the check used for IsStandardChecks to allow all of the 3 above
  * However each domain is restricted to their allowed sizes
+ * Also used as default for nMaxDatacarrierBytes. 
+ * Actual data size = N - 3 // 1 for OP_RETURN, 2 for pushdata opcodes.
  */
-static constexpr uint32_t MAX_OP_RETURN_RELAY = std::max({MAX_OP_RETURN_CORE_RELAY, MAX_OP_RETURN_DVM_RELAY, MAX_OP_RETURN_EVM_RELAY});
+static constexpr uint32_t MAX_OP_RETURN_RELAY = std::max({MAX_OP_RETURN_CORE_ACCEPT, MAX_OP_RETURN_DVM_ACCEPT, MAX_OP_RETURN_EVM_ACCEPT});
 
 /**
  * A data carrying output is an unspendable output containing data. The script
  * type is designated as TX_NULL_DATA.
  */
 extern bool fAcceptDatacarrier;
+
+/** Maximum size of TX_NULL_DATA scripts that this node considers standard. */
+extern unsigned nMaxDatacarrierBytes;
 
 /**
  * Mandatory script verification flags that all new blocks must comply with for

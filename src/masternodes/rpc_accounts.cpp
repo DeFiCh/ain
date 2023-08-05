@@ -1944,6 +1944,12 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
+    if (scriptMeta.size() > nMaxDatacarrierBytes) {
+        throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
+                                                "It may happened because too many \"from\" or \"to\" accounts balances."
+                                                "If you use autoselection, you can try to use \"pie\" selection mode for decreasing accounts count.");
+    }
+
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
