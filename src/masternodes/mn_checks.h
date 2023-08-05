@@ -298,6 +298,7 @@ struct OpReturnLimits {
     static OpReturnLimits Default();
     static OpReturnLimits From(const uint64_t height, const CChainParams& chainparams, const std::shared_ptr<ATTRIBUTES> attributes);
 
+    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
     Res Validate(const CTransaction& tx, const CustomTxType txType) const;
 };
 
@@ -318,6 +319,8 @@ struct TransferDomainConfig {
 
     static TransferDomainConfig Default();
     static TransferDomainConfig From(const CCustomCSView &mnview);
+
+    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
 };
 
 struct CCreateMasterNodeMessage {

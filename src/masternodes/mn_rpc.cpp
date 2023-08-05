@@ -877,33 +877,14 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
-static void AddDefaultVars(ATTRIBUTES &govvar) {
-    // TransferDomain keys
-    CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
-    CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
-    CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
-    CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
-    CDataStructureV0 evm_to_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
-    CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
-    CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
-    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
-    CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
-    CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
-    CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
+static void AddDefaultVars(ATTRIBUTES &attrs) {
+    // OpReturnLimits
 
-    const auto config = TransferDomainConfig::From(*pcustomcsview);
+    // TODO: 
 
-    if (!govvar.CheckKey(dvm_to_evm_enabled)) govvar.SetValue(dvm_to_evm_enabled, config.dvmToEvmEnabled);
-    if (!govvar.CheckKey(evm_to_dvm_enabled)) govvar.SetValue(evm_to_dvm_enabled, config.evmToDvmEnabled);
-    if (!govvar.CheckKey(dvm_to_evm_src_formats)) govvar.SetValue(dvm_to_evm_src_formats, config.dvmToEvmSrcAddresses);
-    if (!govvar.CheckKey(evm_to_dvm_dest_formats)) govvar.SetValue(evm_to_dvm_dest_formats, config.evmToDvmDestAddresses);
-    if (!govvar.CheckKey(dvm_to_evm_dest_formats)) govvar.SetValue(dvm_to_evm_dest_formats, config.dvmToEvmDestAddresses);
-    if (!govvar.CheckKey(evm_to_dvm_src_formats)) govvar.SetValue(evm_to_dvm_src_formats, config.evmToDvmSrcAddresses);
-    if (!govvar.CheckKey(evm_to_dvm_auth_formats)) govvar.SetValue(evm_to_dvm_auth_formats, config.evmToDvmAuthFormats);
-    if (!govvar.CheckKey(dvm_to_evm_native_enabled)) govvar.SetValue(dvm_to_evm_native_enabled, config.dvmToEvmNativeTokenEnabled);
-    if (!govvar.CheckKey(evm_to_dvm_native_enabled)) govvar.SetValue(evm_to_dvm_native_enabled, config.evmToDvmNativeTokenEnabled);
-    if (!govvar.CheckKey(dvm_to_evm_dat_enabled)) govvar.SetValue(dvm_to_evm_dat_enabled, config.dvmToEvmDatEnabled);
-    if (!govvar.CheckKey(evm_to_dvm_dat_enabled)) govvar.SetValue(evm_to_dvm_dat_enabled, config.evmToDvmDatEnabled);
+    // TransferDomainConfig
+    const auto tdConfig = TransferDomainConfig::From(*pcustomcsview);
+    tdConfig.SetToAttributesIfNotExists(attrs);
 }
 
 UniValue listgovs(const JSONRPCRequest& request) {
