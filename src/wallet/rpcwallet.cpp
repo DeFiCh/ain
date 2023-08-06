@@ -421,7 +421,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    RejectEthAddress(GetScriptForDestination(dest));
+    RejectErc55Address(GetScriptForDestination(dest));
 
     // Amount
     CTokenAmount const tokenAmount = DecodeAmount(pwallet->chain(), request.params[1], request.params[0].get_str()); // don't support multiple tokens due to "SendMoney()" compatibility
@@ -924,7 +924,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     for (auto const & scriptBalances : recip) {
 
-        RejectEthAddress(scriptBalances.first);
+        RejectErc55Address(scriptBalances.first);
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
@@ -1131,11 +1131,6 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
     for (auto item_it = start; item_it != end; ++item_it)
     {
         const CTxDestination& address = item_it->first;
-
-        // Do not display Eth addresses
-        if (address.index() == WitV16KeyEthHashType) {
-            continue;
-        }
 
         const std::string& label = item_it->second.name;
         auto it = mapTally.find(address);
@@ -4260,8 +4255,8 @@ UniValue addressmap(const JSONRPCRequest &request) {
         {
             {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address or EVM address"},
             {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
-                            1 - Address format: DFI -> ETH \n\
-                            2 - Address format: ETH -> DFI \n"}
+                            1 - Address format: DFI -> ERC55 \n\
+                            2 - Address format: ERC55 -> DFI \n"}
         },
         RPCResult{
             "{\n"

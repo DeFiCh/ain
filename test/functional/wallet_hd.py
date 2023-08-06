@@ -185,7 +185,7 @@ class WalletHDTest(DefiTestFramework):
         assert_equal(result['labels'][0]['purpose'], 'eth')
 
         # Make sure TX to Eth address are not valid
-        assert_raises_rpc_error(-5, 'Eth type addresses are not valid', self.nodes[0].sendtoaddress, eth_addr, 1)
+        assert_raises_rpc_error(-5, 'ERC55 addresses not supported', self.nodes[0].sendtoaddress, eth_addr, 1)
 
         # Dump and import address into node 1
         priv_key = self.nodes[0].dumpprivkey(eth_addr)

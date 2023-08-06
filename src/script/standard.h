@@ -148,7 +148,7 @@ struct WitnessUnknown {
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
- *  * WitnessV16EthHash: Eth address type. Not a valid destination, here for address support anly.
+ *  * WitnessV16EthHash: ERC55 address type. Not a valid destination, here for address support anly.
  *  A CTxDestination is the internal data type encoded in a DFI address
  */
 using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, WitnessV16EthHash>;
