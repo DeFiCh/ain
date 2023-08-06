@@ -32,9 +32,9 @@ std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
 int GetMnActivationDelay(int height) {
     // Restore previous activation delay on testnet after FC
-    if (height < Params().GetConsensus().EunosHeight ||
+    if (height < Params().GetConsensus().DF8EunosHeight ||
        (IsTestNetwork() &&
-       height >= Params().GetConsensus().FortCanningHeight)) {
+       height >= Params().GetConsensus().DF11FortCanningHeight)) {
         return Params().GetConsensus().mn.activationDelay;
     }
 
@@ -43,9 +43,9 @@ int GetMnActivationDelay(int height) {
 
 int GetMnResignDelay(int height) {
     // Restore previous activation delay on testnet after FC
-    if (height < Params().GetConsensus().EunosHeight ||
+    if (height < Params().GetConsensus().DF8EunosHeight ||
        (IsTestNetwork() &&
-       height >= Params().GetConsensus().FortCanningHeight)) {
+       height >= Params().GetConsensus().DF11FortCanningHeight)) {
         return Params().GetConsensus().mn.resignDelay;
     }
 
@@ -57,7 +57,7 @@ int GetMnResignDelay(int height) {
 
 CAmount GetMnCollateralAmount(int height) {
     auto &consensus = Params().GetConsensus();
-    if (height < consensus.DakotaHeight) {
+    if (height < consensus.DF6DakotaHeight) {
         return consensus.mn.collateralAmount;
     } else {
         return consensus.mn.collateralAmountDakota;
@@ -119,7 +119,7 @@ CMasternode::CMasternode()
       collateralTx() {}
 
 CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnview) const {
-    int EunosPayaHeight = Params().GetConsensus().EunosPayaHeight;
+    int DF10EunosPayaHeight = Params().GetConsensus().DF10EunosPayaHeight;
 
     if (height < creationHeight) {
         return State::UNKNOWN;
@@ -143,7 +143,7 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
     if (resignHeight == -1 || height < resignHeight) {  // enabled or pre-enabled
         // Special case for genesis block
         int activationDelay =
-            height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
+            height < DF10EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {
             return State::ENABLED;
         }
@@ -151,7 +151,7 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
     }
 
     if (resignHeight != -1) {  // pre-resigned or resigned
-        int resignDelay = height < EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
+        int resignDelay = height < DF10EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
         if (height < resignHeight + resignDelay) {
             return State::PRE_RESIGNED;
         }
@@ -162,7 +162,7 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
 
 bool CMasternode::IsActive(int height, const CMasternodesView &mnview) const {
     State state = GetState(height, mnview);
-    if (height >= Params().GetConsensus().EunosPayaHeight) {
+    if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
         return state == ENABLED;
     }
     return state == ENABLED || state == PRE_RESIGNED;
@@ -316,7 +316,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
     auto state = node.GetState(height, *this);
-    if (height >= Params().GetConsensus().EunosPayaHeight) {
+    if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
         Require(state == CMasternode::ENABLED, [=]{ return strprintf("node %s state is not 'ENABLED'", nodeId.ToString()); });
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
@@ -494,7 +494,7 @@ std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID &minter
     for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
         ForEachSubNode(
             [&](const SubNodeBlockTimeKey &key, int64_t blockTime) {
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF11FortCanningHeight)) {
                     if (key.masternodeID == nodeId && key.subnode == i) {
                         times[i] = blockTime;
                     }
@@ -566,7 +566,7 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID &keyID,
     // Get last block time for non-subnode staking
     std::optional<int64_t> stakerBlockTime = GetMasternodeLastBlockTime(keyID, blockHeight);
 
-    // Get times for sub nodes, defaults to {0, 0, 0, 0} for MNs created before EunosPayaHeight
+    // Get times for sub nodes, defaults to {0, 0, 0, 0} for MNs created before DF10EunosPayaHeight
     std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(keyID, blockHeight);
 
     // Set first entry to previous accrued multiplier.
@@ -574,10 +574,10 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID &keyID,
         subNodesBlockTime[0] = *stakerBlockTime;
     }
 
-    if (auto block = ::ChainActive()[Params().GetConsensus().EunosPayaHeight]) {
-        if (creationHeight < Params().GetConsensus().DakotaCrescentHeight && !stakerBlockTime &&
+    if (auto block = ::ChainActive()[Params().GetConsensus().DF10EunosPayaHeight]) {
+        if (creationHeight < Params().GetConsensus().DF7DakotaCrescentHeight && !stakerBlockTime &&
             !subNodesBlockTime[0]) {
-            if (auto dakotaBlock = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+            if (auto dakotaBlock = ::ChainActive()[Params().GetConsensus().DF7DakotaCrescentHeight]) {
                 subNodesBlockTime[0] = dakotaBlock->GetBlockTime();
             }
         }
@@ -641,11 +641,11 @@ CTeamView::CTeam CTeamView::GetCurrentTeam() const {
 
 void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, const int height) {
     // Called after fork height
-    if (height < Params().GetConsensus().DakotaHeight) {
+    if (height < Params().GetConsensus().DF6DakotaHeight) {
         LogPrint(BCLog::ANCHORING,
                  "%s: Called below fork. Fork: %d Arg height: %d\n",
                  __func__,
-                 Params().GetConsensus().DakotaHeight,
+                 Params().GetConsensus().DF6DakotaHeight,
                  height);
         return;
     }

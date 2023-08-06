@@ -1637,7 +1637,7 @@ UniValue ATTRIBUTES::Export() const {
 }
 
 Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
-    if (view.GetLastHeight() < Params().GetConsensus().FortCanningHillHeight) {
+    if (view.GetLastHeight() < Params().GetConsensus().DF14FortCanningHillHeight) {
         return DeFiErrors::GovVarValidateFortCanningHill();
     }
 
@@ -1650,7 +1650,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Token:
                 switch (attrV0->key) {
                     case TokenKeys::LoanPaybackCollateral:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF19FortCanningEpilogueHeight) {
                             return DeFiErrors::GovVarValidateFortCanningEpilogue();
                         }
 
@@ -1663,7 +1663,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         break;
                     case TokenKeys::LoanPayback:
                     case TokenKeys::LoanPaybackFeePCT:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                             return DeFiErrors::GovVarValidateFortCanningRoad();
                         }
                         if (!view.GetLoanTokenByID({attrV0->typeId})) {
@@ -1675,7 +1675,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         break;
                     case TokenKeys::DexInFeePct:
                     case TokenKeys::DexOutFeePct:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                             return DeFiErrors::GovVarValidateFortCanningRoad();
                         }
                         if (!view.GetToken(DCT_ID{attrV0->typeId})) {
@@ -1683,7 +1683,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         break;
                     case TokenKeys::LoanCollateralFactor:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF19FortCanningEpilogueHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
                             if (amount) {
                                 if (*amount > COIN) {
@@ -1693,7 +1693,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
                             if (amount) {
                                 if (*amount < 0) {
@@ -1704,7 +1704,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanMintingEnabled: {
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF16FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
                         if (!VerifyToken(view, attrV0->typeId)) {
@@ -1718,7 +1718,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         break;
                     }
                     case TokenKeys::FixedIntervalPriceId:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF16FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
                         if (!VerifyToken(view, attrV0->typeId)) {
@@ -1726,7 +1726,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         break;
                     case TokenKeys::DFIP2203Enabled:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                             return DeFiErrors::GovVarValidateFortCanningRoad();
                         }
                         if (!view.GetLoanTokenByID({attrV0->typeId})) {
@@ -1745,7 +1745,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
                     case ConsortiumKeys::MemberValues: {
-                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight)
                             return Res::Err("Cannot be set before GrandCentral");
 
                         if (!view.GetToken(DCT_ID{attrV0->typeId}))
@@ -1777,7 +1777,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     }
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:
-                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight)
                             return Res::Err("Cannot be set before GrandCentral");
 
                         if (!view.GetToken(DCT_ID{attrV0->typeId}))
@@ -1789,7 +1789,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Oracles:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF16FortCanningCrunchHeight) {
                     return DeFiErrors::GovVarValidateFortCanningCrunch();
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
@@ -1831,7 +1831,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         break;
                     case PoolKeys::TokenAFeeDir:
                     case PoolKeys::TokenBFeeDir:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF17FortCanningSpringHeight) {
                             return DeFiErrors::GovVarValidateFortCanningSpring();
                         }
                         if (!view.GetPoolPair({attrV0->typeId})) {
@@ -1845,25 +1845,25 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
 
             case AttributeTypes::Param:
                 if (attrV0->typeId == ParamIDs::Feature && attrV0->key == DFIPKeys::MintTokens) {
-                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralEpilogueHeight) {
-                        return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
+                    if (view.GetLastHeight() < Params().GetConsensus().DF21GrandCentralEpilogueHeight) {
+                        return Res::Err("Cannot be set before DF21GrandCentralEpilogueHeight");
                     }
                 } else if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
                     attrV0->key == DFIPKeys::Members) {
-                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
-                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
+                        return Res::Err("Cannot be set before DF20GrandCentralHeight");
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
-                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
-                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
+                        return Res::Err("Cannot be set before DF20GrandCentralHeight");
                     }
                 } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock ||
                            attrV0->typeId == ParamIDs::DFIP2206A) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
-                        return Res::Err("Cannot be set before FortCanningSpringHeight");
+                    if (view.GetLastHeight() < Params().GetConsensus().DF17FortCanningSpringHeight) {
+                        return Res::Err("Cannot be set before DF17FortCanningSpringHeight");
                     }
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                         return DeFiErrors::GovVarValidateFortCanningRoad();
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
@@ -1876,7 +1876,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Locks:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF16FortCanningCrunchHeight) {
                     return Res::Err("Cannot be set before FortCanningCrunch");
                 }
                 if (attrV0->typeId != ParamIDs::TokenID) {
@@ -1888,19 +1888,19 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Governance:
-                if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
                     return Res::Err("Cannot be set before GrandCentral");
                 }
                 break;
 
             case AttributeTypes::EVMType:
-                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 break;
 
             case AttributeTypes::Transfer:
-                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
@@ -1917,14 +1917,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
 
             case AttributeTypes::Vaults:
                 if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
-                    if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
                         return Res::Err("Cannot be set before NextNetworkUpgrade");
                     }
                 }
                 break;
 
             case AttributeTypes::Rules:
-                if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
                     return Res::Err("Cannot be set before NextNetworkUpgrade");
                 }
                 break;
@@ -2024,7 +2024,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     return res;
                 }
             } else if (attrV0->key == TokenKeys::LoanMintingInterest) {
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight) &&
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF18FortCanningGreatWorldHeight) &&
                     interestTokens.count(attrV0->typeId)) {
                     const auto tokenInterest = std::get_if<CAmount>(&attribute.second);
                     if (!tokenInterest) {
@@ -2050,7 +2050,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     }
                 }
             } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF19FortCanningEpilogueHeight)) {
                     // Skip on if skip collateral check is passed
                     if (Params().NetworkIDString() == CBaseChainParams::REGTEST &&
                         gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {

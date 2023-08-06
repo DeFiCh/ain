@@ -81,7 +81,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
             },
             id);
         if (id == DCT_ID_START) {
-            // asserted before BayfrontHeight, keep it for strict sameness
+            // asserted before DF2BayfrontHeight, keep it for strict sameness
             Require(
                 !isPreBayfront,
                 []{ return "Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"; });
@@ -238,7 +238,7 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const {
 inline Res CTokenImplementation::IsValidSymbol() const {
     Require(!symbol.empty() && !IsDigit(symbol[0]), []{ return "token symbol should be non-empty and starts with a letter"; });
     Require(symbol.find('#') == std::string::npos, []{ return "token symbol should not contain '#'"; });
-    if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
+    if (creationHeight >= Params().GetConsensus().DF16FortCanningCrunchHeight) {
         Require(symbol.find('/') == std::string::npos, []{ return "token symbol should not contain '/'"; });
     }
     return Res::Ok();

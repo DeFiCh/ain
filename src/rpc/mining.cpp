@@ -303,7 +303,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             // Get block times
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
-            if (height >= Params().GetConsensus().EunosPayaHeight) {
+            if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
                 const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {

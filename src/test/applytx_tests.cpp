@@ -82,7 +82,7 @@ CScript CreateMetaA2A(CAccountToAccountMessage const & msg) {
 BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 {
     Consensus::Params amkCheated = Params().GetConsensus();
-    amkCheated.AMKHeight = 0;
+    amkCheated.DF1AMKHeight = 0;
 
 
     CCustomCSView mnview(*pcustomcsview);

@@ -271,7 +271,7 @@ CustomTxType FromString(const std::string &str);
 
 // it's disabled after Dakota height
 inline bool NotAllowedToFail(CustomTxType txType, int height) {
-    return (height < Params().GetConsensus().DakotaHeight &&
+    return (height < Params().GetConsensus().DF6DakotaHeight &&
             (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }
 

@@ -307,7 +307,7 @@ public:
     }
 
     static Res GovVarValidateFortCanningSpring() {
-        return Res::Err("Cannot be set before FortCanningSpringHeight");
+        return Res::Err("Cannot be set before DF17FortCanningSpringHeight");
     }
 
     static Res GovVarValidateToken(const uint32_t token) {

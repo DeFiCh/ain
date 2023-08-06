@@ -178,10 +178,10 @@ namespace {
                             totalInterests += interestCalculation;
                         }
                         if (verbose) {
-                            if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
+                            if (height >= Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
                                 interestsPerBlockValueHighPrecision = InterestAddition(interestsPerBlockValueHighPrecision, {rate->interestPerBlock.negative, static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
                                 interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
-                            } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                            } else if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
                                 interestsPerBlockValueHighPrecision.amount += static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;
                                 interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
                             } else {
@@ -232,7 +232,7 @@ namespace {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
-            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+            if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
                 if(isVaultTokenLocked){
                     result.pushKV("interestPerBlockValue", -1);
                 } else {

@@ -659,7 +659,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    const auto symbolLength = targetHeight >= Params().GetConsensus().FortCanningHeight
+    const auto symbolLength = targetHeight >= Params().GetConsensus().DF11FortCanningHeight
                                   ? CToken::MAX_TOKEN_POOLPAIR_LENGTH
                                   : CToken::MAX_TOKEN_SYMBOL_LENGTH;
     if (pairSymbol.length() > symbolLength) {
@@ -674,7 +674,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     poolPairMsg.ownerAddress = ownerAddress;
     poolPairMsg.pairSymbol = pairSymbol;
 
-    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+    if (targetHeight >= Params().GetConsensus().DF5ClarkeQuayHeight) {
         poolPairMsg.rewards = rewards;
     }
 
@@ -835,7 +835,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
              // serialize poolId as raw integer
              << poolId.v << status << commission << ownerAddress;
 
-    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+    if (targetHeight >= Params().GetConsensus().DF5ClarkeQuayHeight) {
         metadata << rewards;
     }
 
@@ -1050,7 +1050,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
+    if (targetHeight < Params().GetConsensus().DF11FortCanningHeight) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
 

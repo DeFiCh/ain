@@ -48,7 +48,7 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
             // Get block times with next block as height
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
 
-            if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
+            if (currentHeight >= Params().GetConsensus().DF10EunosPayaHeight) {
                 const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
@@ -135,7 +135,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     bool eunosPaya;
     {
         LOCK(cs_main);
-        eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
+        eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().DF10EunosPayaHeight;
     }
 
     // Get timelock if any
@@ -680,7 +680,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
-    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight) - 1];
+    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DF7DakotaCrescentHeight) - 1];
 
     for (; tip && tip->nHeight > creationHeight && tip->nHeight > startBlock; tip = tip->pprev) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());

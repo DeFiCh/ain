@@ -178,7 +178,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     std::vector<unsigned char> dummy;
     const auto txType = GuessCustomTxType(tx, dummy);
 
-    if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
+    if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().DF20GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
