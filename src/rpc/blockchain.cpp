@@ -271,9 +271,36 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
 
-    auto txVmInfo = [](const CTransaction& tx) -> std::optional<UniValue> {
+    auto coinbaseXVMToUniValue = [](XVM &obj) {
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("version", static_cast<uint64_t>(obj.version));
+        UniValue evm(UniValue::VOBJ);
+        evm.pushKV("version", static_cast<uint64_t>(obj.evm.version));
+        evm.pushKV("blockHash", "0x" + obj.evm.blockHash.GetHex());
+        evm.pushKV("priorityFee", obj.evm.priorityFee);
+        evm.pushKV("burntFee", obj.evm.burntFee);
+        result.pushKV("evm", evm);
+        return result;
+    };
+
+    auto txVmInfo = [&coinbaseXVMToUniValue](const CTransaction& tx) -> std::optional<UniValue> {
         CustomTxType guess;
         UniValue txResults(UniValue::VOBJ);
+        if (tx.IsCoinBase()) {
+            if (tx.vout.size() < 2) {
+                // TODO: Decode vout 0 to dvm
+                return {};
+            }
+            auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
+            if (tx1ScriptPubKey.size() == 0) return {};
+            auto res = XVM::TryFrom(tx1ScriptPubKey);
+            if (!res) return {};
+            UniValue result(UniValue::VOBJ);
+            result.pushKV("vmtype", "coinbase");
+            result.pushKV("txtype", "coinbase");
+            result.pushKV("msg", coinbaseXVMToUniValue(*res));
+            return result;
+        }
         auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
         if (guess == CustomTxType::None) {
             return {};
@@ -295,7 +322,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         {
             if (txDetails) {
                 UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
+                TxToUniv(*tx, uint256(), objTx, false, RPCSerializationFlags());
                 if (v2) { 
                     if (auto r = txVmInfo(*tx); r) {
                         objTx.pushKV("vm", *r);

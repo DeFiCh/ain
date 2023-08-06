@@ -185,7 +185,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
 
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
 {
-    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int txindex) {
+    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int txindex, bool include_hex) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -194,7 +194,9 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
-            o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            if (include_hex) {
+                o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            }
             in.pushKV("scriptSig", o);
             if (!tx.vin[txindex].scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
@@ -208,12 +210,12 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         return in;
     };
 
-    const auto txOutToUniValue = [](const CTransaction& tx, const CTxOut& txout, const unsigned int txindex) {
+    const auto txOutToUniValue = [](const CTransaction& tx, const CTxOut& txout, const unsigned int txindex, bool include_hex) {
         UniValue out(UniValue::VOBJ);
         out.pushKV("value", ValueFromAmount(txout.nValue));
         out.pushKV("n", (int64_t)txindex);
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex);
         out.pushKV("scriptPubKey", o);
         // Start to print tokenId start from version TOKENS_MIN_VERSION
         if (tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
@@ -232,13 +234,13 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        vin.push_back(txInToUniValue(tx, tx.vin[i], i));
+        vin.push_back(txInToUniValue(tx, tx.vin[i], i, include_hex));
     }
     entry.pushKV("vin", vin);
 
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        vout.push_back(txOutToUniValue(tx, tx.vout[i], i));
+        vout.push_back(txOutToUniValue(tx, tx.vout[i], i, include_hex));
     }
     entry.pushKV("vout", vout);
 

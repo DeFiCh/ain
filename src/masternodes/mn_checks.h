@@ -51,6 +51,8 @@ struct XVM {
         READWRITE(version);
         READWRITE(evm);
     }
+
+    static ResVal<XVM> TryFrom(const CScript &scriptPubKey);
 };
 
 class CCustomTxVisitor {

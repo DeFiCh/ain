@@ -5227,6 +5227,29 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
     return attributes->GetValue(enabledKey, false);
 }
 
+ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
+    opcodetype opcode;
+    auto pc = scriptPubKey.begin();
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return Res::Err("Coinbase output does not contain OP_RETURN as expected");
+    }
+
+    std::vector<unsigned char> metadata;
+    if (!scriptPubKey.GetOp(pc, opcode, metadata)
+        || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
+        return Res::Err("Coinbase OP_RETURN output missing push data");
+    }
+
+    XVM obj;
+    try {
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        ss >> obj;
+    } catch (...) {
+        return Res::Err("Failed to deserialize coinbase output");
+    }
+    return { obj, Res::Ok() };
+}
+
 
 OpReturnLimits OpReturnLimits::Default() {
     return OpReturnLimits {

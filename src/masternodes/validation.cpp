@@ -2380,29 +2380,13 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 
 static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const FinalizeBlockCompletion &blockResult) {
     const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
-
-    // Mine does not add output on null block
+    // Miner does not add output on null block
     if (coinbaseBlockHash.IsNull()) return Res::Ok();
 
-    opcodetype opcode;
-    auto pc = scriptPubKey.begin();
-    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN) {
-        return Res::Err("Coinbase output does not contain OP_RETURN as expected");
-    }
-
-    std::vector<unsigned char> metadata;
-    if (!scriptPubKey.GetOp(pc, opcode, metadata)
-        || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
-        return Res::Err("Coinbase OP_RETURN output missing push data");
-    }
-
-    XVM obj;
-    try {
-        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-        ss >> obj;
-    } catch (...) {
-        return Res::Err("Failed to deserialize coinbase output");
-    }
+    auto res = XVM::TryFrom(scriptPubKey);
+    if (!res.ok) return res;
+    
+    auto obj = *res;
 
     if (obj.evm.blockHash != coinbaseBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
