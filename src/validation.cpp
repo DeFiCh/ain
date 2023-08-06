@@ -2051,216 +2051,203 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
+    auto finalCheckAndReturn = [&]() {
+        if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
+            return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
+        return Res::Ok();
+    };
 
-    if (height >= consensus.AMKHeight)
-    {
-        CAmount foundationReward{0};
-        if (height >= consensus.GrandCentralHeight)
-        {
-            // no foundation utxo reward check anymore
-        }
-        else if (height >= consensus.EunosHeight)
-        {
-            foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        }
-        else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1)
-        {
-            foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
-        }
+    auto logAccountChange = [](const CTransaction& tx, const CAmount subsidy, const std::string account) {
+        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", 
+            tx.GetHash().ToString(), 
+            account, 
+            (CBalances{{{{0}, subsidy}}}.ToString()));
+    };
 
-        if (foundationReward)
-        {
-            bool foundationsRewardfound = false;
-            for (auto& txout : tx.vout)
-            {
-                if (txout.scriptPubKey == consensus.foundationShareScript)
-                {
-                    if (txout.nValue < foundationReward)
-                    {
-                        return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d", txout.nValue, foundationReward);
-                    }
+    auto isUnusedEmissionFundEnabled = [](const ATTRIBUTES& attrs) {
+        CDataStructureV0 k{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
+        return attrs.GetValue(k, false);
+    };
 
-                    foundationsRewardfound = true;
-                    break;
-                }
-            }
+    auto isGovernanceEnabled = [](const ATTRIBUTES& attrs) {
+        CDataStructureV0 k{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+        return attrs.GetValue(k, false);
+    };
 
-            if (!foundationsRewardfound)
-            {
-                return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay foundation reward!");
-            }
-        }
-
-        // count and subtract for non-UTXO community rewards
-        CAmount nonUtxoTotal = 0;
-        if (height >= consensus.EunosHeight)
-        {
-            CAmount subsidy;
-            for (const auto& kv : consensus.newNonUTXOSubsidies)
-            {
-                if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < consensus.GrandCentralHeight) {
-                        continue;
-                    }
-                }
-
-                subsidy = CalculateCoinbaseReward(blockReward, kv.second);
-
-                Res res = Res::Ok();
-
-                // Loan below FC and Options are unused and all go to Unallocated (burnt) pot.
-                if ((height < consensus.FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
-                {
-                    res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
-                    if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
-                }
-                else
-                {
-                    if (height >= consensus.GrandCentralHeight)
-                    {
-                        const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
-
-                        if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
-
-                            if (!attributes->GetValue(enabledKey, false))
-                            {
-                                res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
-                                         tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
-                                         (CBalances{{{{0}, subsidy}}}.ToString()));
-                                nonUtxoTotal += subsidy;
-
-                                continue;
-                            }
-                        } else if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::Options) {
-                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
-
-                            if (attributes->GetValue(enabledKey, false)) {
-                                res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
-                                if (res) {
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n",
-                                             tx.GetHash().ToString(), ScriptToString(consensus.unusedEmission),
-                                             (CBalances{{{{0}, subsidy}}}.ToString()));
-                                }
-                            } else {
-                                // Previous behaviour was for Options and Unallocated to go to Unallocated
-                                res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
-                                if (res)
-                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
-                            }
-
-                            nonUtxoTotal += subsidy;
-
-                            continue;
-                        }
-                    }
-
-                    res = mnview.AddCommunityBalance(kv.first, subsidy);
-                    if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
-                }
-
-                if (!res.ok)
-                {
-                    return Res::ErrDbg("bad-cb-community-rewards", "Cannot take non-UTXO community share from coinbase");
-                }
-
-                nonUtxoTotal += subsidy;
-            }
-        }
-        else
-        {
-            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
-                CAmount subsidy = blockReward * kv.second / COIN;
-                Res res = mnview.AddCommunityBalance(kv.first, subsidy);
-                if (!res.ok) {
-                    return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
-                } else {
-                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: hash=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
-                }
-                nonUtxoTotal += subsidy;
-            }
-        }
-
-        blockReward -= nonUtxoTotal;
+    if (height < consensus.AMKHeight) {
+        return finalCheckAndReturn();
     }
 
-    // pre-AMK logic, compatible after prev blockReward mod:
-    if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
-        return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
+    // TODO(legacy-cleanup): Clean up the rest of the method with proper structures
+    // and a more comprehensible flow
 
-    return Res::Ok();
+    CAmount foundationReward{0};
+    if (height >= consensus.GrandCentralHeight) {
+        // no foundation utxo reward check anymore
+    }
+    else if (height >= consensus.EunosHeight) {
+        foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+    }
+    else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1) {
+        foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
+    }
+
+    if (foundationReward) {
+        bool foundationsRewardfound = false;
+        for (auto& txout : tx.vout) {
+            if (txout.scriptPubKey == consensus.foundationShareScript) {
+                if (txout.nValue < foundationReward) {
+                    return Res::ErrDbg("bad-cb-foundation-reward", 
+                        "coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d", txout.nValue, foundationReward);
+                }
+                foundationsRewardfound = true;
+                break;
+            }
+        }
+
+        if (!foundationsRewardfound) {
+            return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay foundation reward!");
+        }
+    }
+
+    // count and subtract for non-UTXO community rewards
+    CAmount nonUtxoTotal = 0;
+
+    if (height < consensus.EunosHeight) {
+        for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies) {
+            CAmount subsidy = blockReward * accountVal / COIN;
+            Res res = mnview.AddCommunityBalance(accountType, subsidy);
+            if (!res.ok) {
+                return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
+            } else {
+                logAccountChange(tx, subsidy, GetCommunityAccountName(accountType));
+            }
+            nonUtxoTotal += subsidy;
+        }
+        blockReward -= nonUtxoTotal;
+        return finalCheckAndReturn();
+    }
+
+    CAmount subsidy;
+    for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies) {
+        if (accountType == CommunityAccountType::CommunityDevFunds) {
+            if (height < consensus.GrandCentralHeight) {
+                continue;
+            }
+        }
+
+        subsidy = CalculateCoinbaseReward(blockReward, accountVal);
+        Res res = Res::Ok();
+
+        // Loan below FC and Options are unused and all go to Unallocated (burnt) pot.
+        if ((height < consensus.FortCanningHeight && accountType == CommunityAccountType::Loan) ||
+            (height < consensus.GrandCentralHeight && accountType == CommunityAccountType::Options)) {
+            res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+            if (res) {
+                logAccountChange(tx, subsidy, GetCommunityAccountName(CommunityAccountType::Unallocated));
+            }
+        } else {
+            if (height >= consensus.GrandCentralHeight) {
+                const auto attributes = mnview.GetAttributes();
+                assert(attributes);
+                if (accountType == CommunityAccountType::CommunityDevFunds) {
+                    if (!isGovernanceEnabled(*attributes)) {
+                        continue;
+                    } else {
+                        res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                        // TODO: Result check missed; check full sync and add checks
+                        logAccountChange(tx, subsidy, ScriptToString(consensus.foundationShareScript));
+                        nonUtxoTotal += subsidy;
+                        continue;
+                    }
+                } else if (accountType == CommunityAccountType::Unallocated || accountType == CommunityAccountType::Options) {
+                    if (isUnusedEmissionFundEnabled(*attributes)) {
+                        res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                        if (res) { logAccountChange(tx, subsidy, ScriptToString(consensus.unusedEmission)); }
+                    } else {
+                        // Previous behaviour was for Options and Unallocated to go to Unallocated
+                        res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                        if (res) { logAccountChange(tx, subsidy, GetCommunityAccountName(CommunityAccountType::Unallocated)); }
+                    }
+                    nonUtxoTotal += subsidy;
+                    continue;
+                }
+            }
+
+            res = mnview.AddCommunityBalance(accountType, subsidy);
+            if (res) {
+                logAccountChange(tx, subsidy, GetCommunityAccountName(accountType));
+            }
+        }
+
+        if (!res.ok) {
+            return Res::ErrDbg("bad-cb-community-rewards", "Cannot take non-UTXO community share from coinbase");
+        }
+
+        nonUtxoTotal += subsidy;
+    }
+
+    blockReward -= nonUtxoTotal;
+    return finalCheckAndReturn();
 }
 
 
 void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus)
 {
-    CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
+    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    
+    if (height < consensus.AMKHeight) {
+        return;
+    }
 
-    if (height >= Params().GetConsensus().AMKHeight)
-    {
-        if (height >= Params().GetConsensus().EunosHeight)
-        {
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
-            {
-                if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < Params().GetConsensus().GrandCentralHeight) {
-                        continue;
-                    }
-                }
+    // TODO(legacy-cleanup): Use proper structures
 
-                CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
+    if (height < consensus.EunosHeight) {
+        for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies) {
+            CAmount subsidy = blockReward * accountVal / COIN;
+            mnview.SubCommunityBalance(accountType, subsidy);
+        }
+        return;
+    }
 
-                // Remove Loan and Options balances from Unallocated
-                if ((height < Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
-                {
-                    mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
-                }
-                else
-                {
-                    if (height >= consensus.GrandCentralHeight)
-                    {
-                        const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
-
-                        if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
-
-                            if (!attributes->GetValue(enabledKey, false))
-                            {
-                                mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-
-                                continue;
-                            }
-                        } else if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::Options) {
-                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
-
-                            if (attributes->GetValue(enabledKey, false)) {
-                                mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
-                            } else {
-                                mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
-                            }
-
-                            continue;
-                        }
-                    }
-
-                    mnview.SubCommunityBalance(kv.first, subsidy);
-                }
+    for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies) {
+        if (accountType == CommunityAccountType::CommunityDevFunds) {
+            if (height < consensus.GrandCentralHeight) {
+                continue;
             }
         }
-        else
-        {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
-            {
-                CAmount subsidy = blockReward * kv.second / COIN;
-                mnview.SubCommunityBalance(kv.first, subsidy);
+
+        CAmount subsidy = CalculateCoinbaseReward(blockReward, accountVal);
+
+        // Remove Loan and Options balances from Unallocated
+        if ((height < consensus.FortCanningHeight && accountType == CommunityAccountType::Loan) ||
+            (height < consensus.GrandCentralHeight && accountType == CommunityAccountType::Options)) {
+            mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+        } else {
+            if (height >= consensus.GrandCentralHeight) {
+                const auto attributes = mnview.GetAttributes();
+                assert(attributes);
+
+                if (accountType == CommunityAccountType::CommunityDevFunds) {
+                    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+                    if (!attributes->GetValue(enabledKey, false))
+                    {
+                        mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                        continue;
+                    }
+                } else if (accountType == CommunityAccountType::Unallocated || accountType == CommunityAccountType::Options) {
+                    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
+
+                    if (attributes->GetValue(enabledKey, false)) {
+                        mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                    } else {
+                        mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                    }
+                    continue;
+                }
             }
+            mnview.SubCommunityBalance(accountType, subsidy);
         }
     }
 }
