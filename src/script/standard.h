@@ -29,9 +29,9 @@ public:
 // While the relay options are free for interpretation to
 // each node, the accept values are enforced on validation
 
-static const uint64_t MAX_OP_RETURN_CORE_ACCEPT = 1024;
-static const uint64_t MAX_OP_RETURN_DVM_ACCEPT = 4096;
-static const uint64_t MAX_OP_RETURN_EVM_ACCEPT = 65536;
+static const uint32_t MAX_OP_RETURN_CORE_ACCEPT = 2000;
+static const uint32_t MAX_OP_RETURN_DVM_ACCEPT = 4000;
+static const uint32_t MAX_OP_RETURN_EVM_ACCEPT = 20000;
 
 /**
  * This is the check used for IsStandardChecks to allow all of the 3 above
@@ -39,7 +39,7 @@ static const uint64_t MAX_OP_RETURN_EVM_ACCEPT = 65536;
  * Also used as default for nMaxDatacarrierBytes. 
  * Actual data size = N - 3 // 1 for OP_RETURN, 2 for pushdata opcodes.
  */
-static constexpr uint64_t MAX_OP_RETURN_RELAY = std::max({MAX_OP_RETURN_CORE_ACCEPT, MAX_OP_RETURN_DVM_ACCEPT, MAX_OP_RETURN_EVM_ACCEPT});
+static constexpr uint32_t MAX_OP_RETURN_RELAY = std::max({MAX_OP_RETURN_CORE_ACCEPT, MAX_OP_RETURN_DVM_ACCEPT, MAX_OP_RETURN_EVM_ACCEPT});
 
 /**
  * A data carrying output is an unspendable output containing data. The script
