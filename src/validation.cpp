@@ -2196,6 +2196,16 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
 {
     CAmount blockReward = GetBlockSubsidy(height, consensus);
     
+    auto isUnusedEmissionFundEnabled = [](const ATTRIBUTES& attrs) {
+        CDataStructureV0 k{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
+        return attrs.GetValue(k, false);
+    };
+
+    auto isGovernanceEnabled = [](const ATTRIBUTES& attrs) {
+        CDataStructureV0 k{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+        return attrs.GetValue(k, false);
+    };
+
     if (height < consensus.AMKHeight) {
         return;
     }
@@ -2229,17 +2239,12 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                 assert(attributes);
 
                 if (accountType == CommunityAccountType::CommunityDevFunds) {
-                    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
-
-                    if (!attributes->GetValue(enabledKey, false))
-                    {
+                    if (!isGovernanceEnabled(*attributes)) {
                         mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
                         continue;
                     }
                 } else if (accountType == CommunityAccountType::Unallocated || accountType == CommunityAccountType::Options) {
-                    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
-
-                    if (attributes->GetValue(enabledKey, false)) {
+                    if (isUnusedEmissionFundEnabled(*attributes)) {
                         mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
                     } else {
                         mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
