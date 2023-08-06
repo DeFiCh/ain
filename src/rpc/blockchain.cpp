@@ -142,7 +142,7 @@ struct MinterInfo {
         return result;
     }
 
-    void PushToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -151,6 +151,19 @@ struct MinterInfo {
         if (!OperatorAddress.empty()) result.pushKV("minter", OperatorAddress);
         result.pushKV("mintedBlocks", MintedBlocks);
         result.pushKV("stakeModifier", StakeModifier.ToString());
+    }
+
+    UniValue ToUniValue() {
+        // Note that this breaks compatibility with the legacy version. 
+        // Do not use this with existing RPCs
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("id", Id);
+        result.pushKV("owner", OwnerAddress);
+        result.pushKV("operator", OperatorAddress);
+        result.pushKV("rewardAddress", RewardAddress);
+        result.pushKV("totalMinted", MintedBlocks);
+        result.pushKV("stakeModifier", StakeModifier.ToString());
+        return result;
     }
 };
 
@@ -209,7 +222,7 @@ struct RewardInfo {
         return result;
     }
 
-    void PushToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -229,12 +242,34 @@ struct RewardInfo {
         rewards.push_back(obj);
         result.pushKV("nonutxo", rewards);
     }
+
+    UniValue ToUniValue() {
+        // Note that this breaks compatibility with the legacy version. 
+        // Do not use this with existing RPCs
+        UniValue obj(UniValue::VOBJ);
+
+        auto& r = TokenRewards;
+        auto items = std::vector<std::pair<CommunityAccountType, CAmount>>{ 
+                    { CommunityAccountType::AnchorReward, r.AnchorReward },
+                    { CommunityAccountType::CommunityDevFunds, r.CommunityDevFunds },
+                    { CommunityAccountType::IncentiveFunding, r.IncentiveFunding },
+                    { CommunityAccountType::Loan, r.Loan },
+                    { CommunityAccountType::Options, r.Options },
+                    { CommunityAccountType::Unallocated, r.Burnt }};
+
+        obj.pushKV("block", ValueFromAmount(BlockReward));
+        for (const auto& [accountName, val]: items) {
+            obj.pushKV(GetCommunityAccountName(accountName), ValueFromAmount(val));
+        }
+        return obj;
+    }
 };
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, bool xVmDetails)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
+    const auto consensus = Params().GetConsensus();
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -250,7 +285,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // We'll add all these later.
     if (!xVmDetails) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
-        if (minterInfo) { minterInfo->PushToUniValueLegacy(result); }
+        if (minterInfo) { minterInfo->ToUniValueLegacy(result); }
     }
     
     result.pushKV("version", block.nVersion);
@@ -258,23 +293,21 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
 
     if (!xVmDetails) {
-        auto rewardInfo = RewardInfo::TryFrom(block, blockindex, Params().GetConsensus());
-        if (rewardInfo) { rewardInfo->PushToUniValueLegacy(result); }
-    }
-    
-    UniValue txs(UniValue::VARR);
-    for(const auto& tx : block.vtx)
-    {
-        if(txDetails)
+        auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
+        if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
+        UniValue txs(UniValue::VARR);
+        for(const auto& tx : block.vtx)
         {
-            UniValue objTx(UniValue::VOBJ);
-            TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
-            txs.push_back(objTx);
+            if (txDetails) {
+                UniValue objTx(UniValue::VOBJ);
+                TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
+                txs.push_back(objTx);
+            } else {
+                txs.push_back(tx->GetHash().GetHex());
+            }
         }
-        else
-            txs.push_back(tx->GetHash().GetHex());
+        result.pushKV("tx", txs);
     }
-    result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("bits", strprintf("%08x", block.nBits));
@@ -288,8 +321,17 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
     if (xVmDetails) {
-        // TODO: Add xVM details here
+        auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
+        if (minterInfo) { 
+            result.pushKV("minter", minterInfo->ToUniValue());
+        }
+        auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
+        if (rewardInfo) {
+            result.pushKV("rewards", rewardInfo->ToUniValue());
+        }
+        // TODO: Tx
     }
+
     return result;
 }
 
