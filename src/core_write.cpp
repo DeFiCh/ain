@@ -185,17 +185,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
 
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
 {
-    entry.pushKV("txid", tx.GetHash().GetHex());
-    entry.pushKV("hash", tx.GetWitnessHash().GetHex());
-    entry.pushKV("version", tx.nVersion);
-    entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
-    entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
-    entry.pushKV("weight", GetTransactionWeight(tx));
-    entry.pushKV("locktime", (int64_t)tx.nLockTime);
-
-    UniValue vin(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        const CTxIn& txin = tx.vin[i];
+    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int txindex) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -206,28 +196,22 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
-            if (!tx.vin[i].scriptWitness.IsNull()) {
+            if (!tx.vin[txindex].scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
-                for (const auto& item : tx.vin[i].scriptWitness.stack) {
+                for (const auto& item : tx.vin[txindex].scriptWitness.stack) {
                     txinwitness.push_back(HexStr(item.begin(), item.end()));
                 }
                 in.pushKV("txinwitness", txinwitness);
             }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
-        vin.push_back(in);
-    }
-    entry.pushKV("vin", vin);
+        return in;
+    };
 
-    UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        const CTxOut& txout = tx.vout[i];
-
+    const auto txOutToUniValue = [](const CTransaction& tx, const CTxOut& txout, const unsigned int txindex) {
         UniValue out(UniValue::VOBJ);
-
         out.pushKV("value", ValueFromAmount(txout.nValue));
-        out.pushKV("n", (int64_t)i);
-
+        out.pushKV("n", (int64_t)txindex);
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
@@ -235,7 +219,26 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         if (tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
             out.pushKV("tokenId", (uint64_t)txout.nTokenId.v);
         }
-        vout.push_back(out);
+        return out;
+    };
+
+    entry.pushKV("txid", tx.GetHash().GetHex());
+    entry.pushKV("hash", tx.GetWitnessHash().GetHex());
+    entry.pushKV("version", tx.nVersion);
+    entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
+    entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
+    entry.pushKV("weight", GetTransactionWeight(tx));
+    entry.pushKV("locktime", (int64_t)tx.nLockTime);
+
+    UniValue vin(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        vin.push_back(txInToUniValue(tx, tx.vin[i], i));
+    }
+    entry.pushKV("vin", vin);
+
+    UniValue vout(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        vout.push_back(txOutToUniValue(tx, tx.vout[i], i));
     }
     entry.pushKV("vout", vout);
 

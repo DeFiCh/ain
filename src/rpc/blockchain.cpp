@@ -265,11 +265,49 @@ struct RewardInfo {
     }
 };
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, bool xVmDetails)
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, bool v2)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
+
+    auto txVmInfo = [](const CTransaction& tx) -> std::optional<UniValue> {
+        CustomTxType guess;
+        UniValue txResults(UniValue::VOBJ);
+        auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
+        if (guess == CustomTxType::None) {
+            return {};
+        }
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("vmtype", guess == CustomTxType::EvmTx ? "evm" : "dvm");
+        result.pushKV("txtype", ToString(guess));
+        if (!res.ok) {
+            result.pushKV("error", res.msg);
+        } else {
+            result.pushKV("msg", txResults);
+        }
+        return result;
+    };
+
+    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, bool v2) {
+        UniValue txs(UniValue::VARR);
+        for(const auto& tx : block.vtx)
+        {
+            if (txDetails) {
+                UniValue objTx(UniValue::VOBJ);
+                TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
+                if (v2) { 
+                    if (auto r = txVmInfo(*tx); r) {
+                        objTx.pushKV("vm", *r);
+                    }
+                }
+                txs.push_back(objTx);
+            } else {
+                txs.push_back(tx->GetHash().GetHex());
+            }
+        }
+        return txs;
+    };
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -281,9 +319,9 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
 
-    // For xVMDetails, we fix the past mistakes and don't just modify existing root schema.
+    // For v2, we fix the past mistakes and don't just modify existing root schema.
     // We'll add all these later.
-    if (!xVmDetails) {
+    if (!v2) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
         if (minterInfo) { minterInfo->ToUniValueLegacy(result); }
     }
@@ -292,21 +330,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
 
-    if (!xVmDetails) {
+    if (!v2) {
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
-        UniValue txs(UniValue::VARR);
-        for(const auto& tx : block.vtx)
-        {
-            if (txDetails) {
-                UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
-                txs.push_back(objTx);
-            } else {
-                txs.push_back(tx->GetHash().GetHex());
-            }
-        }
-        result.pushKV("tx", txs);
+        result.pushKV("tx", txsToUniValue(block, txDetails, v2));
     }
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
@@ -320,7 +347,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
-    if (xVmDetails) {
+    if (v2) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
         if (minterInfo) { 
             result.pushKV("minter", minterInfo->ToUniValue());
@@ -329,7 +356,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
-        // TODO: Tx
+        result.pushKV("tx", txsToUniValue(block, txDetails, v2));
     }
 
     return result;
