@@ -142,7 +142,7 @@ struct MinterInfo {
         return result;
     }
 
-    void ToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) const {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -153,7 +153,7 @@ struct MinterInfo {
         result.pushKV("stakeModifier", StakeModifier.ToString());
     }
 
-    UniValue ToUniValue() {
+    UniValue ToUniValue() const {
         // Note that this breaks compatibility with the legacy version. 
         // Do not use this with existing RPCs
         UniValue result(UniValue::VOBJ);
@@ -222,7 +222,7 @@ struct RewardInfo {
         return result;
     }
 
-    void ToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) const {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -243,7 +243,7 @@ struct RewardInfo {
         result.pushKV("nonutxo", rewards);
     }
 
-    UniValue ToUniValue() {
+    UniValue ToUniValue() const {
         // Note that this breaks compatibility with the legacy version. 
         // Do not use this with existing RPCs
         UniValue obj(UniValue::VOBJ);
@@ -271,19 +271,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
 
-    auto coinbaseXVMToUniValue = [](XVM &obj) {
-        UniValue result(UniValue::VOBJ);
-        result.pushKV("version", static_cast<uint64_t>(obj.version));
-        UniValue evm(UniValue::VOBJ);
-        evm.pushKV("version", static_cast<uint64_t>(obj.evm.version));
-        evm.pushKV("blockHash", "0x" + obj.evm.blockHash.GetHex());
-        evm.pushKV("priorityFee", obj.evm.priorityFee);
-        evm.pushKV("burntFee", obj.evm.burntFee);
-        result.pushKV("evm", evm);
-        return result;
-    };
-
-    auto txVmInfo = [&coinbaseXVMToUniValue](const CTransaction& tx) -> std::optional<UniValue> {
+    auto txVmInfo = [](const CTransaction& tx) -> std::optional<UniValue> {
         CustomTxType guess;
         UniValue txResults(UniValue::VOBJ);
         if (tx.IsCoinBase()) {
@@ -298,7 +286,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             UniValue result(UniValue::VOBJ);
             result.pushKV("vmtype", "coinbase");
             result.pushKV("txtype", "coinbase");
-            result.pushKV("msg", coinbaseXVMToUniValue(*res));
+            result.pushKV("msg", res->ToUniValue());
             return result;
         }
         auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);

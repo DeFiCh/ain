@@ -5227,17 +5227,33 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
     return attributes->GetValue(enabledKey, false);
 }
 
+UniValue EVM::ToUniValue() const {
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("version", static_cast<uint64_t>(version));
+    obj.pushKV("blockHash", "0x" + blockHash.GetHex());
+    obj.pushKV("burntFee", burntFee);
+    obj.pushKV("priorityFee", priorityFee);
+    return obj;
+}
+
+UniValue XVM::ToUniValue() const {
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("version", static_cast<uint64_t>(version));
+    obj.pushKV("evm", evm.ToUniValue());
+    return obj;
+}
+
 ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
     opcodetype opcode;
     auto pc = scriptPubKey.begin();
     if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN) {
-        return Res::Err("Coinbase output does not contain OP_RETURN as expected");
+        return Res::Err("Coinbase XVM: OP_RETURN expected");
     }
 
     std::vector<unsigned char> metadata;
     if (!scriptPubKey.GetOp(pc, opcode, metadata)
         || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
-        return Res::Err("Coinbase OP_RETURN output missing push data");
+        return Res::Err("Coinbase XVM: OP_PUSHDATA expected");
     }
 
     XVM obj;
@@ -5245,7 +5261,7 @@ ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
         ss >> obj;
     } catch (...) {
-        return Res::Err("Failed to deserialize coinbase output");
+        return Res::Err("Coinbase XVM: Deserialization failed");
     }
     return { obj, Res::Ok() };
 }

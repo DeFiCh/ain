@@ -37,6 +37,8 @@ struct EVM {
         READWRITE(burntFee);
         READWRITE(priorityFee);
     }
+
+    UniValue ToUniValue() const;
 };
 
 struct XVM {
@@ -53,6 +55,8 @@ struct XVM {
     }
 
     static ResVal<XVM> TryFrom(const CScript &scriptPubKey);
+    UniValue ToUniValue() const;
+
 };
 
 class CCustomTxVisitor {
