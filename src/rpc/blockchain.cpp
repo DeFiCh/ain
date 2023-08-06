@@ -265,7 +265,7 @@ struct RewardInfo {
     }
 };
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, bool v2)
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int verbosity)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
@@ -316,14 +316,14 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return result;
     };
 
-    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, bool v2) {
+    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int verbosity) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx)
         {
             if (txDetails) {
                 UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, false, RPCSerializationFlags());
-                if (v2) { 
+                TxToUniv(*tx, uint256(), objTx, verbosity > 3, RPCSerializationFlags());
+                if (verbosity > 2) { 
                     if (auto r = txVmInfo(*tx); r) {
                         objTx.pushKV("vm", *r);
                     }
@@ -336,6 +336,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return txs;
     };
 
+    auto v3plus = verbosity > 2;
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     const CBlockIndex* pnext;
@@ -346,9 +348,9 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
 
-    // For v2, we fix the past mistakes and don't just modify existing root schema.
+    // For v3+, we fix the past mistakes and don't just modify existing root schema.
     // We'll add all these later.
-    if (!v2) {
+    if (!v3plus) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
         if (minterInfo) { minterInfo->ToUniValueLegacy(result); }
     }
@@ -357,10 +359,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
 
-    if (!v2) {
+    if (!v3plus) {
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
-        result.pushKV("tx", txsToUniValue(block, txDetails, v2));
+        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
     }
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
@@ -374,7 +376,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
-    if (v2) {
+    if (v3plus) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
         if (minterInfo) { 
             result.pushKV("minter", minterInfo->ToUniValue());
@@ -383,7 +385,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
-        result.pushKV("tx", txsToUniValue(block, txDetails, v2));
+        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
     }
 
     return result;
@@ -1139,7 +1141,7 @@ static UniValue getblock(const JSONRPCRequest& request)
         return strHex;
     }
 
-    return blockToJSON(block, tip, pblockindex, verbosity >= 2, verbosity >= 3);
+    return blockToJSON(block, tip, pblockindex, verbosity >= 2, verbosity);
 }
 
 static UniValue pruneblockchain(const JSONRPCRequest& request)
