@@ -5300,22 +5300,26 @@ void OpReturnLimits::SetToAttributesIfNotExists(ATTRIBUTES& attrs) const {
 }
 
 Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) const {
+    auto err = [](const std::string area, const int voutIndex) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "OP_RETURN size check: vout[%d] %s failure", voutIndex, area);
+    };
+    
     // Check core OP_RETURN size on vout[0]
     if (txType == CustomTxType::EvmTx) {
         if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, evmSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
+            return err("EVM", 0);
         }
     } else if (txType != CustomTxType::None) {
         if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, dvmSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
+            return err("DVM", 0);
         }
     } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, coreSizeBytes)) {
-        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            return err("Core", 0);
     }
     // Check core OP_RETURN size on vout[1] and higher outputs
     for (size_t i{1}; i < tx.vout.size(); ++i) {
         if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, coreSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            return err("Core", i);
         }
     }
     return Res::Ok();
