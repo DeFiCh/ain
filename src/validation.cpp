@@ -2077,15 +2077,13 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return attrs.GetValue(k, false);
     };
 
-    auto tryVerifyUtxoRewards = [](CTransaction const & tx, const CAmount blockReward, int height, const Consensus::Params& consensus) {
+    auto tryVerifyUtxoRewards = [](const CTransaction& tx, const CAmount blockReward, int height, const Consensus::Params& consensus) {
         CAmount foundationReward{0};
         if (height >= consensus.GrandCentralHeight) {
             // no foundation utxo reward check anymore
-        }
-        else if (height >= consensus.EunosHeight) {
+        } else if (height >= consensus.EunosHeight) {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        }
-        else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1) {
+        } else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1) {
             foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
         }
 
@@ -2109,7 +2107,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return Res::Ok();
     };
 
-    auto handleLegacyTokenRewards = [&finalCheckAndReturn, &logAccountChange](CTransaction const & tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus) {
+    auto handleLegacyTokenRewards = [&finalCheckAndReturn, &logAccountChange](const CTransaction& tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus) {
         CAmount nonUtxoTotal = 0;
         for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy) {
             CAmount subsidy = blockReward * accountVal / COIN;
@@ -2125,7 +2123,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return finalCheckAndReturn();
     };
 
-    auto handleCurrentTokenRewards = [&finalCheckAndReturn, &logAccountChange, &isGovernanceEnabled, &isUnusedEmissionFundEnabled](CTransaction const & tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus, int height) {
+    auto handleCurrentTokenRewards = [&finalCheckAndReturn, &logAccountChange, &isGovernanceEnabled, &isUnusedEmissionFundEnabled](const CTransaction& tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus, int height) {
         CAmount nonUtxoTotal = 0;
         CAmount subsidy;
 
