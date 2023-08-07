@@ -388,8 +388,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
-             {EconomyKeys::TransferDomainTotal, "transfer_domain"},
-             {EconomyKeys::EVMFees, "evm_fees"},
+             {EconomyKeys::TransferDomainDVMEVM, "transferdomain_dvm_evm"},
+             {EconomyKeys::TransferDomainEVMDVM, "transferdomain_evm_dvm"},
+             {EconomyKeys::EVMFeesBurnt, "evm_fees_burnt"},
+             {EconomyKeys::EVMFeesPaid, "evm_fees_paid"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1533,16 +1535,6 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
-            } else if (auto transferDomain = std::get_if<CTransferDomainTotal>(&attribute.second)) {
-                UniValue result(UniValue::VOBJ);
-                result.pushKV("DvmEvm", AmountsToJSON(transferDomain->dvmEvm.balances));
-                result.pushKV("EvmDvm", AmountsToJSON(transferDomain->evmDvm.balances));
-                ret.pushKV(key, result);
-            } else if (auto evmFees = std::get_if<CEvmFees>(&attribute.second)) {
-                UniValue result(UniValue::VOBJ);
-                result.pushKV("burnt", ValueFromAmount(evmFees->burnt));
-                result.pushKV("paid", ValueFromAmount(evmFees->paid));
-                ret.pushKV(key, result);
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {

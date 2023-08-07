@@ -12,6 +12,8 @@ from test_framework.util import (
     hex_to_decimal
 )
 
+from decimal import Decimal
+
 class EVMRolllbackTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -97,7 +99,8 @@ class EVMRolllbackTest(DefiTestFramework):
         self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
         self.paid_fee = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
         blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
         blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(blockNumberPreInvalidation)

@@ -3888,8 +3888,10 @@ public:
 
         const auto attributes = mnview.GetAttributes();
         assert(attributes);
-        CDataStructureV0 transferDomainTotalKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainTotal};
-        auto transferDomainBalance = attributes->GetValue(transferDomainTotalKey, CTransferDomainTotal{});
+        CDataStructureV0 transferDomainDVMEVMKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainDVMEVM};
+        auto transferDomainDVMEVM = attributes->GetValue(transferDomainDVMEVMKey, CBalances{});
+        CDataStructureV0 transferDomainEVMDVMKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainEVMDVM};
+        auto transferDomainEVMDVM = attributes->GetValue(transferDomainEVMDVMKey, CBalances{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
@@ -3900,7 +3902,7 @@ public:
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-                transferDomainBalance.dvmEvm.AddBalances(balance.balances);
+                transferDomainDVMEVM.AddBalances(balance.balances);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
@@ -3936,7 +3938,7 @@ public:
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-                transferDomainBalance.evmDvm.AddBalances(balance.balances);
+                transferDomainEVMDVM.AddBalances(balance.balances);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
@@ -3969,7 +3971,8 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainTotalKey, transferDomainBalance);
+        attributes->SetValue(transferDomainDVMEVMKey, transferDomainDVMEVM);
+        attributes->SetValue(transferDomainEVMDVMKey, transferDomainEVMDVM);
         mnview.SetVariable(*attributes);
 
         return res;
@@ -5302,9 +5305,9 @@ TransferDomainConfig TransferDomainConfig::Default() {
         { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
         { XVmAddressFormatTypes::Erc55 },
         { XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 },
-        true, 
-        true, 
-        false, 
+        true,
+        true,
+        false,
         false,
         {},
         {}
@@ -5343,7 +5346,7 @@ TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     r.evmToDvmAuthFormats = attributes->GetValue(k.evm_to_dvm_auth_formats, r.evmToDvmAuthFormats);
     r.evmToDvmNativeTokenEnabled = attributes->GetValue(k.evm_to_dvm_native_enabled, r.evmToDvmNativeTokenEnabled);
     r.evmToDvmDatEnabled = attributes->GetValue(k.evm_to_dvm_dat_enabled, r.evmToDvmDatEnabled);
-    
+
     return r;
 }
 

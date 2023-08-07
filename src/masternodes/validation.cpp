@@ -2496,18 +2496,21 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
 
     const auto attributes = cache.GetAttributes();
     assert(attributes);
-    CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
-    auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
-  
+    CDataStructureV0 evmFeesBurntKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFeesBurnt};
+    CDataStructureV0 evmFeesPaidKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFeesPaid};
+    auto evmFeesBurnt = attributes->GetValue(evmFeesBurntKey, CAmount{});
+    auto evmFeesPaid = attributes->GetValue(evmFeesPaidKey, CAmount{});
+
     res = cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
     if (!res) return res;
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
-  
-    evmFees.paid += static_cast<CAmount>(blockResult.total_priority_fees);
-    evmFees.burnt += static_cast<CAmount>(blockResult.total_burnt_fees);
-  
-    attributes->SetValue(evmFeesKey, evmFees);
+
+    evmFeesBurnt += static_cast<CAmount>(blockResult.total_burnt_fees);
+    evmFeesPaid += static_cast<CAmount>(blockResult.total_priority_fees);
+
+    attributes->SetValue(evmFeesBurntKey, evmFeesBurnt);
+    attributes->SetValue(evmFeesPaidKey, evmFeesPaid);
     cache.SetVariable(*attributes);
 
     return Res::Ok();

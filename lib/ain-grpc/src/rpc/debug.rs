@@ -1,7 +1,6 @@
 use crate::call_request::CallRequest;
 use ain_evm::core::MAX_GAS_PER_BLOCK;
 use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
-use ain_evm::evm::EVMServices;
 
 use ethereum::Account;
 use ethereum_types::U256;
@@ -102,9 +101,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .handler
             .block
             .get_latest_block_hash_and_number()
-            .ok_or(Error::Custom(format!(
-                "Error fetching latest block hash and number"
-            )))?;
+            .ok_or(Error::Custom(
+                "Error fetching latest block hash and number".to_string(),
+            ))?;
         let base_fee = self.handler.block.calculate_base_fee(block_hash);
 
         let TxResponse { used_gas, .. } = self
@@ -126,18 +125,18 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             // Legacy
             None => {
                 let Some(gas_price) = gas_price else {
-                    return Err(Error::Custom(format!(
-                        "Cannot get Legacy TX fee estimate without gas price"
-                    )));
+                    return Err(Error::Custom(
+                        "Cannot get Legacy TX fee estimate without gas price".to_string()
+                    ));
                 };
                 used_gas.checked_mul(gas_price)
             }
             // EIP2930
             Some(typ) if typ == U256::one() => {
                 let Some(gas_price) = gas_price else {
-                    return Err(Error::Custom(format!(
-                        "Cannot get EIP2930 TX fee estimate without gas price"
-                    )));
+                    return Err(Error::Custom(
+                        "Cannot get EIP2930 TX fee estimate without gas price".to_string()
+                    ));
                 };
                 used_gas.checked_mul(gas_price)
             }
@@ -146,19 +145,19 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 let (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) =
                     (max_fee_per_gas, max_priority_fee_per_gas)
                 else {
-                    return Err(Error::Custom(format!("Cannot get EIP1559 TX fee estimate without max_fee_per_gas and max_priority_fee_per_gas")));
+                    return Err(Error::Custom("Cannot get EIP1559 TX fee estimate without max_fee_per_gas and max_priority_fee_per_gas".to_string()));
                 };
                 let gas_fee = cmp::min(max_fee_per_gas, max_priority_fee_per_gas + base_fee);
                 used_gas.checked_mul(gas_fee)
             }
             _ => {
-                return Err(Error::Custom(format!(
-                    "Wrong transaction type. Should be either None, 1 or 2"
-                )))
+                return Err(Error::Custom(
+                    "Wrong transaction type. Should be either None, 1 or 2".to_string()
+                ))
             }
-        }.ok_or(Error::Custom(format!(
-            "Overflow happened during fee calculation"
-        )))?;
+        }.ok_or(Error::Custom(
+            "Overflow happened during fee calculation".to_string()
+        ))?;
 
         let burnt_fee = used_gas * base_fee;
         let priority_fee = gas_fee - burnt_fee;

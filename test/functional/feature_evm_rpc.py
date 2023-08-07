@@ -12,6 +12,7 @@ from test_framework.util import (
     int_to_eth_u256,
     hex_to_decimal
 )
+from decimal import Decimal
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -145,7 +146,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
         self.paid_fee = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
     def run_test(self):
         self.setup()

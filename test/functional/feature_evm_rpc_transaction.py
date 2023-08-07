@@ -14,6 +14,8 @@ from test_framework.util import (
     hex_to_decimal
 )
 
+from decimal import Decimal
+
 # pragma solidity ^0.8.2;
 # contract Multiply {
 #     function multiply(uint a, uint b) public pure returns (uint) {
@@ -100,7 +102,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
         self.paid_fee = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -149,7 +152,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
         tx1559 = {
             'nonce': '0x2',
@@ -185,7 +189,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
     def test_send_transaction(self):
         txLegacy = {
@@ -205,7 +210,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -233,7 +239,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
         tx1559 = {
             'from': self.ethAddress,
@@ -254,7 +261,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees'], {'burnt': self.burnt_fee, 'paid': self.paid_fee})
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees_paid']), self.paid_fee)
 
     def run_test(self):
         self.setup()

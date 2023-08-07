@@ -295,14 +295,19 @@ def hex_to_decimal(value):
     Returns:
         Decimal: Decimal represantation of the value in satoshis
 
+    Raises:
+        ValueError: If the input value is equal zero.
     """
-    GWEI = 1000000000
-    WEI = 10
+    WEI = 1000000000
+    GWEI = 10
     COIN = 100000000
 
+    if value == 0:
+        raise ValueError(f"Value must be non zero")
+
     amount = int(value, 0)
-    wei = Decimal(amount / WEI)
-    sat = Decimal(wei / GWEI)
+    gwei = Decimal(amount / GWEI)
+    sat = Decimal(gwei / WEI)
     decimal = Decimal(sat / COIN)
 
     return decimal
