@@ -153,7 +153,7 @@ pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-pub fn evm_try_add_balance_in_q(
+pub fn evm_unsafe_try_add_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
@@ -193,7 +193,7 @@ pub fn evm_try_add_balance_in_q(
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_try_sub_balance_in_q(
+pub fn evm_unsafe_try_sub_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
@@ -368,7 +368,7 @@ pub fn evm_try_push_tx_in_q(
         Ok(signed_tx) => {
             match SERVICES
                 .evm
-                .queue_tx(queue_id, signed_tx.into(), hash, U256::from(gas_used))
+                .push_tx_in_queue(queue_id, signed_tx.into(), hash, U256::from(gas_used))
             {
                 Ok(_) => cross_boundary_success(result),
                 Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -399,7 +399,7 @@ pub fn evm_try_construct_block_in_q(
     dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES.evm.construct_block(
+    match SERVICES.evm.construct_block_in_queue(
         queue_id,
         difficulty,
         eth_address,
@@ -506,7 +506,7 @@ pub fn evm_try_create_dst20(
 
     match SERVICES
         .evm
-        .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+        .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
     {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -537,7 +537,7 @@ pub fn evm_try_bridge_dst20(
 
     match SERVICES
         .evm
-        .queue_tx(queue_id, system_tx, native_hash, U256::zero())
+        .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
     {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),

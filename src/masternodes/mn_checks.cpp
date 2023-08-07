@@ -3905,7 +3905,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                             ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
@@ -3940,7 +3940,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);

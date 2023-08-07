@@ -86,14 +86,14 @@ pub mod ffi {
             queue_id: u64,
             address: [u8; 20],
         );
-        fn evm_try_add_balance_in_q(
+        fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         );
-        fn evm_try_sub_balance_in_q(
+        fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,

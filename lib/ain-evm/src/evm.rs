@@ -99,7 +99,7 @@ impl EVMServices {
         }
     }
 
-    pub fn construct_block(
+    pub fn construct_block_in_queue(
         &self,
         queue_id: u64,
         difficulty: u32,
@@ -383,7 +383,7 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn queue_tx(
+    pub fn push_tx_in_queue(
         &self,
         queue_id: u64,
         tx: QueueTx,
