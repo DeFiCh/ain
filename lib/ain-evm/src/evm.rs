@@ -340,7 +340,7 @@ impl EVMServices {
         })
     }
 
-    pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
+    pub fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
             let queue = tx_queue.data.lock().unwrap();

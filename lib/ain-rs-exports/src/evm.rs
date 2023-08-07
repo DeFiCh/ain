@@ -356,7 +356,7 @@ pub fn evm_remove_queue(queue_id: u64) {
 /// - The `raw_tx` is in invalid format
 /// - The queue does not exists.
 ///
-pub fn evm_try_queue_tx(
+pub fn evm_try_push_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
@@ -390,7 +390,7 @@ pub fn evm_try_queue_tx(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_construct_block(
+pub fn evm_try_construct_block_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     difficulty: u32,
@@ -424,8 +424,8 @@ pub fn evm_try_construct_block(
     }
 }
 
-pub fn evm_try_finalize_block(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
-    match SERVICES.evm.finalize_block(queue_id) {
+pub fn evm_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    match SERVICES.evm.commit_queue(queue_id) {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }

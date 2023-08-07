@@ -3982,9 +3982,9 @@ public:
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
-            evm_try_queue_tx(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
+            evm_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
             if (!result.ok) {
-                LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+                LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to queue %s\n", result.reason);
             }
         }

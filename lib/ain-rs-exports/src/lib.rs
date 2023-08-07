@@ -109,14 +109,14 @@ pub mod ffi {
             tx: &str,
             queue_id: u64,
         ) -> ValidateTxCompletion;
-        fn evm_try_queue_tx(
+        fn evm_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             hash: [u8; 32],
             gas_used: u64,
         );
-        fn evm_try_construct_block(
+        fn evm_try_construct_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             difficulty: u32,
@@ -124,7 +124,7 @@ pub mod ffi {
             timestamp: u64,
             dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
-        fn evm_try_finalize_block(result: &mut CrossBoundaryResult, queue_id: u64);
+        fn evm_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
