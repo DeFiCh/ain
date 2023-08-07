@@ -185,7 +185,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
 
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, int version)
 {
-    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int index, bool include_hex) {
+    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int index, bool include_hex, int version) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -194,7 +194,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
-            if (include_hex) {
+            if (include_hex || version <= 2) {
                 o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             }
             in.pushKV("scriptSig", o);
@@ -215,7 +215,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         out.pushKV("value", ValueFromAmount(txout.nValue));
         out.pushKV("n", (int64_t)index);
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex || version <= 2);
         out.pushKV("scriptPubKey", o);
         // We skip this for v3+ as we tokenId field is unused.
         if (version <= 2 && tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
@@ -235,7 +235,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        vin.push_back(txInToUniValue(tx, tx.vin[i], i, include_hex));
+        vin.push_back(txInToUniValue(tx, tx.vin[i], i, include_hex, version));
     }
     entry.pushKV("vin", vin);
 
