@@ -879,7 +879,7 @@ UniValue getgov(const JSONRPCRequest& request) {
 
 static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs) {
     // OpReturnLimits
-    const auto opReturnLimits = OpReturnLimits::From(height, params, attrs);
+    const auto opReturnLimits = OpReturnLimits::From(height, params.GetConsensus(), attrs);
     opReturnLimits.SetToAttributesIfNotExists(attrs);
 
     // TransferDomainConfig
