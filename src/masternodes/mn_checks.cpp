@@ -4254,7 +4254,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool prevalidateEvm = false;
     if (q == 0) {
         prevalidateEvm = true;
-        q = evm_create_queue();
+        q = evm_unsafe_try_create_queue();
     }
 
     try {

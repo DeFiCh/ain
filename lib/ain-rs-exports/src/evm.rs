@@ -164,13 +164,15 @@ pub fn evm_unsafe_try_add_balance_in_q(
         return cross_boundary_error_return(result, "Invalid address");
     };
 
-    match SERVICES
+    unsafe {
+        match SERVICES
         .evm
         .core
         .add_balance(queue_id, address, amount.into(), hash)
-    {
-        Ok(_) => cross_boundary_success_return(result, ()),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+        {
+            Ok(_) => cross_boundary_success_return(result, ()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -204,13 +206,15 @@ pub fn evm_unsafe_try_sub_balance_in_q(
         return cross_boundary_error_return(result, "Invalid address");
     };
 
-    match SERVICES
+    unsafe {
+        match SERVICES
         .evm
         .core
         .sub_balance(queue_id, address, amount.into(), hash)
     {
         Ok(_) => cross_boundary_success_return(result, true),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
     }
 }
 
@@ -327,8 +331,10 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 /// # Returns
 ///
 /// Returns the EVM queue ID as a `u64`.
-pub fn evm_create_queue() -> u64 {
-    SERVICES.evm.core.create_queue()
+pub fn evm_unsafe_try_create_queue() -> u64 {
+    unsafe {
+        SERVICES.evm.core.create_queue()
+    }
 }
 
 /// /// Discards an EVM queue.
@@ -337,8 +343,10 @@ pub fn evm_create_queue() -> u64 {
 ///
 /// * `queue_id` - The queue ID.
 ///
-pub fn evm_remove_queue(queue_id: u64) {
-    SERVICES.evm.core.remove_queue(queue_id)
+pub fn evm_unsafe_try_remove_queue(queue_id: u64) {
+    unsafe {
+        SERVICES.evm.core.remove_queue(queue_id)
+    }
 }
 
 /// Add an EVM transaction to a specific queue.
@@ -363,19 +371,21 @@ pub fn evm_try_push_tx_in_q(
     gas_used: u64,
 ) {
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
-    match signed_tx {
-        Ok(signed_tx) => {
-            match SERVICES.evm.push_tx_in_queue(
-                queue_id,
-                signed_tx.into(),
-                hash,
-                U256::from(gas_used),
-            ) {
-                Ok(_) => cross_boundary_success(result),
-                Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match signed_tx {
+            Ok(signed_tx) => {
+                match SERVICES.evm.push_tx_in_queue(
+                    queue_id,
+                    signed_tx.into(),
+                    hash,
+                    U256::from(gas_used),
+                ) {
+                    Ok(_) => cross_boundary_success(result),
+                    Err(e) => cross_boundary_error_return(result, e.to_string()),
+                }
             }
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -400,35 +410,39 @@ pub fn evm_try_construct_block_in_q(
     dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES.evm.construct_block_in_queue(
-        queue_id,
-        difficulty,
-        eth_address,
-        timestamp,
-        dvm_block_number,
-    ) {
-        Ok(FinalizedBlockInfo {
-            block_hash,
-            failed_transactions,
-            total_burnt_fees,
-            total_priority_fees,
-        }) => {
-            cross_boundary_success(result);
-            ffi::FinalizeBlockCompletion {
+    unsafe {
+        match SERVICES.evm.construct_block_in_queue(
+            queue_id,
+            difficulty,
+            eth_address,
+            timestamp,
+            dvm_block_number,
+        ) {
+            Ok(FinalizedBlockInfo {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
-                total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                total_burnt_fees,
+                total_priority_fees,
+            }) => {
+                cross_boundary_success(result);
+                ffi::FinalizeBlockCompletion {
+                    block_hash,
+                    failed_transactions,
+                    total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
+                    total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                }
             }
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn evm_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
-    match SERVICES.evm.commit_queue(queue_id) {
-        Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match SERVICES.evm.commit_queue(queue_id) {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -505,12 +519,14 @@ pub fn evm_try_create_dst20(
         address,
     }));
 
-    match SERVICES
+    unsafe {
+        match SERVICES
         .evm
         .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
     {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
     }
 }
 
@@ -536,11 +552,13 @@ pub fn evm_try_bridge_dst20(
         out,
     }));
 
-    match SERVICES
+    unsafe {
+        match SERVICES
         .evm
         .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
     {
         Ok(_) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
     }
 }

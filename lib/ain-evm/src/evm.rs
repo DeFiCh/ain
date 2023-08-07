@@ -99,7 +99,7 @@ impl EVMServices {
         }
     }
 
-    pub fn construct_block_in_queue(
+    pub unsafe fn construct_block_in_queue(
         &self,
         queue_id: u64,
         difficulty: u32,
@@ -340,7 +340,7 @@ impl EVMServices {
         })
     }
 
-    pub fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
+    pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
             let queue = tx_queue.data.lock().unwrap();
@@ -383,7 +383,7 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn push_tx_in_queue(
+    pub unsafe fn push_tx_in_queue(
         &self,
         queue_id: u64,
         tx: QueueTx,

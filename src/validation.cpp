@@ -3333,11 +3333,11 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
         std::array<uint8_t, 20> beneficiary{};
-        const auto evmQueueId = evm_create_queue();
+        const auto evmQueueId = evm_unsafe_try_create_queue();
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
-            evm_remove_queue(evmQueueId);
+            evm_unsafe_try_remove_queue(evmQueueId);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }

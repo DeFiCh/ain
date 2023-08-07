@@ -272,7 +272,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         timeOrdering = false;
     }
 
-    const auto evmQueueId = evm_create_queue();
+    const auto evmQueueId = evm_unsafe_try_create_queue();
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
@@ -287,7 +287,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
         auto blockResult = evm_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
-        evm_remove_queue(evmQueueId);
+        evm_unsafe_try_remove_queue(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 

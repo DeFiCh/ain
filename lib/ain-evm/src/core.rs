@@ -309,7 +309,7 @@ impl EVMCoreService {
 
 // Transaction queue methods
 impl EVMCoreService {
-    pub fn add_balance(
+    pub unsafe fn add_balance(
         &self,
         queue_id: u64,
         address: H160,
@@ -322,7 +322,7 @@ impl EVMCoreService {
         Ok(())
     }
 
-    pub fn sub_balance(
+    pub unsafe fn sub_balance(
         &self,
         queue_id: u64,
         address: H160,
@@ -349,11 +349,11 @@ impl EVMCoreService {
         }
     }
 
-    pub fn create_queue(&self) -> u64 {
+    pub unsafe fn create_queue(&self) -> u64 {
         self.tx_queues.create()
     }
 
-    pub fn remove_queue(&self, queue_id: u64) {
+    pub unsafe fn remove_queue(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }
 
