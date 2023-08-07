@@ -5,6 +5,7 @@
 #include <masternodes/validation.h>
 #include <masternodes/threadpool.h>
 #include <boost/asio.hpp>
+#include <ffi/ffihelpers.h>
 
 std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
@@ -478,7 +479,9 @@ UniValue getaccount(const JSONRPCRequest& request) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
         std::array<uint8_t, 20> address{};
         std::copy(keyID.begin(), keyID.end(), address.begin());
-        if (const auto balance = evm_get_balance(address)) {
+        auto r = CrossBoundaryResVal(evm_try_get_balance(result, address));
+        if (!r) throw JSONRPCError(RPC_MISC_ERROR, r.msg);
+        if (const auto balance = *r) {
             balances[DCT_ID{}] = balance;
         }
     }
@@ -605,8 +608,13 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         for (const auto keyID : pwallet->GetKeys()) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
-            const auto evmAmount = evm_get_balance(address);
-            totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+            auto res = CrossBoundaryResVal(evm_try_get_balance(result, address));
+            if (res) {
+                auto evmAmount = *res;
+                totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
+            } else {
+                throw JSONRPCError(RPC_MISC_ERROR, res.msg);
+            }
         }
     }
 
