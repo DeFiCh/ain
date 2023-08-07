@@ -2096,7 +2096,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         if (height >= consensus.EunosHeight)
         {
             CAmount subsidy;
-            for (const auto& kv : consensus.newNonUTXOSubsidies)
+            for (const auto& kv : consensus.blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < consensus.GrandCentralHeight) {
@@ -2174,7 +2174,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else
         {
-            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+            for (const auto& kv : consensus.blockTokenRewardsLegacy) {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
@@ -2205,7 +2205,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
     {
         if (height >= Params().GetConsensus().EunosHeight)
         {
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < Params().GetConsensus().GrandCentralHeight) {
@@ -2256,7 +2256,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
         }
         else
         {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 mnview.SubCommunityBalance(kv.first, subsidy);
