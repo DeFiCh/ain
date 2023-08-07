@@ -55,7 +55,7 @@
 #include <util/validation.h>
 #include <validationinterface.h>
 #include <warnings.h>
-
+#include <ffi/ffihelpers.h>
 #include <wallet/wallet.h>
 #include <net_processing.h>
 
@@ -918,7 +918,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
-            const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            const auto txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
@@ -3182,7 +3182,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
-        evm_disconnect_latest_block();
+        CrossBoundaryChecked(evm_disconnect_latest_block(result));
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
@@ -3325,11 +3325,13 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
         std::array<uint8_t, 20> beneficiary{};
-        const auto evmQueueId = evm_get_queue_id();
+        uint64_t evmQueueId{};
+        auto r = CrossBoundaryResValChecked(evm_unsafe_try_create_queue(result));
+        if (r) { evmQueueId = *r; }
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
-            evm_discard_context(evmQueueId);
+            CrossBoundaryChecked(evm_unsafe_try_remove_queue(result, evmQueueId));
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }
@@ -3340,7 +3342,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
-            evm_try_finalize_block(result, evmQueueId);
+            CrossBoundaryChecked(evm_unsafe_try_commit_queue(result, evmQueueId));
             if (!result.ok) {
                 state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("EVM finalization failed: %s", result.reason.c_str()),

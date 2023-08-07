@@ -99,7 +99,13 @@ impl EVMServices {
         }
     }
 
-    pub fn construct_block(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn construct_block_in_queue(
         &self,
         queue_id: u64,
         difficulty: u32,
@@ -107,12 +113,12 @@ impl EVMServices {
         timestamp: u64,
         dvm_block_number: u64,
     ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
-        let tx_queue = self.core.tx_queues.get_queue(queue_id)?;
+        let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
-        let queue_len = queue.transactions.len();
-        let mut all_transactions = Vec::with_capacity(queue_len);
-        let mut failed_transactions = Vec::with_capacity(queue_len);
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_len);
+        let queue_txs_len = queue.transactions.len();
+        let mut all_transactions = Vec::with_capacity(queue_txs_len);
+        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
+        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -340,9 +346,15 @@ impl EVMServices {
         })
     }
 
-    pub fn finalize_block(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
-            let tx_queue = self.core.tx_queues.get_queue(queue_id)?;
+            let tx_queue = self.core.tx_queues.get(queue_id)?;
             let queue = tx_queue.data.lock().unwrap();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else {
                 return Err(format_err!("no constructed EVM block exist in queue id").into());
@@ -383,7 +395,13 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn queue_tx(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn push_tx_in_queue(
         &self,
         queue_id: u64,
         tx: QueueTx,
@@ -399,7 +417,7 @@ impl EVMServices {
 
         self.core
             .tx_queues
-            .queue_tx(queue_id, tx.clone(), hash, gas_used, base_fee)?;
+            .push_in(queue_id, tx.clone(), hash, gas_used, base_fee)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash());

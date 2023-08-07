@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
+#include <ffi/ffihelpers.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -3910,7 +3911,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_try_sub_balance(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                             ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
@@ -3945,7 +3946,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_try_add_balance(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
@@ -3980,21 +3981,21 @@ public:
 
         CrossBoundaryResult result;
         if (!prevalidateEvm) {
-            const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
+            const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
             if (!result.ok) {
                 LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
-            evm_try_queue_tx(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
+            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
             if (!result.ok) {
-                LogPrintf("[evm_try_queue_tx] failed, reason : %s\n", result.reason);
+                LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to queue %s\n", result.reason);
             }
         }
         else {
-            evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);
@@ -4255,15 +4256,16 @@ Res CustomTxVisit(CCustomCSView &mnview,
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    auto context = evmQueueId;
+    auto q = evmQueueId;
     bool prevalidateEvm = false;
-    if (context == 0) {
+    if (q == 0) {
         prevalidateEvm = true;
-        context = evm_get_queue_id();
+        auto r = CrossBoundaryResVal(evm_unsafe_try_create_queue(result));
+        if (r) { q = *r; } else { return r; }
     }
 
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, prevalidateEvm), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {

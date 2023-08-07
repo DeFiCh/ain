@@ -68,55 +68,55 @@ pub mod ffi {
         //
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
-        fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_queue_id() -> u64;
-        fn evm_discard_context(queue_id: u64);
-        fn evm_disconnect_latest_block();
+        fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: [u8; 20]) -> u64;
+        fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
+        fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
+        fn evm_disconnect_latest_block(result: &mut CrossBoundaryResult);
 
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
-        fn evm_try_get_next_valid_nonce_in_queue(
+        fn evm_unsafe_try_get_next_valid_nonce_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: [u8; 20],
         ) -> u64;
-        fn evm_try_remove_txs_by_sender(
+        fn evm_unsafe_try_remove_txs_by_sender_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: [u8; 20],
         );
-        fn evm_try_add_balance(
+        fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         );
-        fn evm_try_sub_balance(
+        fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> bool;
-        fn evm_try_prevalidate_raw_tx(
+        fn evm_unsafe_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
         ) -> PreValidateTxCompletion;
-        fn evm_try_validate_raw_tx(
+        fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
             tx: &str,
             queue_id: u64,
         ) -> ValidateTxCompletion;
-        fn evm_try_queue_tx(
+        fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             hash: [u8; 32],
             gas_used: u64,
         );
-        fn evm_try_construct_block(
+        fn evm_unsafe_try_construct_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             difficulty: u32,
@@ -124,7 +124,7 @@ pub mod ffi {
             timestamp: u64,
             dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
-        fn evm_try_finalize_block(result: &mut CrossBoundaryResult, queue_id: u64);
+        fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
