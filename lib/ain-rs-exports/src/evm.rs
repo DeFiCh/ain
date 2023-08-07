@@ -78,7 +78,7 @@ pub fn evm_try_create_and_sign_tx(
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_get_balance(address: [u8; 20]) -> u64 {
+pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 20]) -> u64 {
     let account = H160::from(address);
     let (_, latest_block_number) = SERVICES
         .evm
@@ -91,7 +91,8 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
             .core
             .get_balance(account, latest_block_number)
             .unwrap_or_default(),
-    ); // convert to try_evm_get_balance - Default to 0 for now
+    ); // convert to evm_try_get_balance - Default to 0 for now
+    cross_boundary_success(result);
     balance.to_satoshi().as_u64()
 }
 
@@ -166,9 +167,9 @@ pub fn evm_unsafe_try_add_balance_in_q(
 
     unsafe {
         match SERVICES
-        .evm
-        .core
-        .add_balance(queue_id, address, amount.into(), hash)
+            .evm
+            .core
+            .add_balance(queue_id, address, amount.into(), hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -208,13 +209,13 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 
     unsafe {
         match SERVICES
-        .evm
-        .core
-        .sub_balance(queue_id, address, amount.into(), hash)
-    {
-        Ok(_) => cross_boundary_success_return(result, true),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+            .evm
+            .core
+            .sub_balance(queue_id, address, amount.into(), hash)
+        {
+            Ok(_) => cross_boundary_success_return(result, true),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -331,10 +332,11 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 /// # Returns
 ///
 /// Returns the EVM queue ID as a `u64`.
-pub fn evm_unsafe_try_create_queue() -> u64 {
-    unsafe {
-        SERVICES.evm.core.create_queue()
-    }
+pub fn evm_unsafe_try_create_queue(result: &mut ffi::CrossBoundaryResult) -> u64 {
+    let q;
+    unsafe { q = SERVICES.evm.core.create_queue() }
+    cross_boundary_success(result);
+    q
 }
 
 /// /// Discards an EVM queue.
@@ -343,10 +345,9 @@ pub fn evm_unsafe_try_create_queue() -> u64 {
 ///
 /// * `queue_id` - The queue ID.
 ///
-pub fn evm_unsafe_try_remove_queue(queue_id: u64) {
-    unsafe {
-        SERVICES.evm.core.remove_queue(queue_id)
-    }
+pub fn evm_unsafe_try_remove_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    unsafe { SERVICES.evm.core.remove_queue(queue_id) }
+    cross_boundary_success(result);
 }
 
 /// Add an EVM transaction to a specific queue.
@@ -363,7 +364,7 @@ pub fn evm_unsafe_try_remove_queue(queue_id: u64) {
 /// - The `raw_tx` is in invalid format
 /// - The queue does not exists.
 ///
-pub fn evm_try_push_tx_in_q(
+pub fn evm_unsafe_try_push_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
@@ -401,7 +402,7 @@ pub fn evm_try_push_tx_in_q(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_construct_block_in_q(
+pub fn evm_unsafe_try_construct_block_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     difficulty: u32,
@@ -437,7 +438,7 @@ pub fn evm_try_construct_block_in_q(
     }
 }
 
-pub fn evm_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
     unsafe {
         match SERVICES.evm.commit_queue(queue_id) {
             Ok(_) => cross_boundary_success(result),
@@ -446,8 +447,9 @@ pub fn evm_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64
     }
 }
 
-pub fn evm_disconnect_latest_block() {
+pub fn evm_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     SERVICES.evm.storage.disconnect_latest_block();
+    cross_boundary_success(result);
 }
 
 /// Return the block for a given height.
@@ -521,12 +523,12 @@ pub fn evm_try_create_dst20(
 
     unsafe {
         match SERVICES
-        .evm
-        .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
-    {
-        Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
+        {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -554,11 +556,11 @@ pub fn evm_try_bridge_dst20(
 
     unsafe {
         match SERVICES
-        .evm
-        .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
-    {
-        Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
+        {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }

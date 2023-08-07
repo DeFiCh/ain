@@ -112,11 +112,11 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    /// # Safety 
-    /// 
+    /// # Safety
+    ///
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
-    /// 
+    ///
     pub unsafe fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
     }
@@ -136,11 +136,11 @@ impl TransactionQueueMap {
     /// Returns None when the address does not have any transaction queued or
     /// Some(nonce) with the next valid nonce (current + 1) for the associated address
     ///
-    /// # Safety 
-    /// 
+    /// # Safety
+    ///
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
-    /// 
+    ///
     pub unsafe fn get_next_valid_nonce_in(
         &self,
         queue_id: u64,
@@ -149,11 +149,11 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
 
-    /// # Safety 
-    /// 
+    /// # Safety
+    ///
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
-    /// 
+    ///
     pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
         self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
     }

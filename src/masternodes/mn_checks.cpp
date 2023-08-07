@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
+#include <ffi/ffihelpers.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -3982,7 +3983,7 @@ public:
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
-            evm_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
+            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
             if (!result.ok) {
                 LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to queue %s\n", result.reason);
@@ -4254,7 +4255,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool prevalidateEvm = false;
     if (q == 0) {
         prevalidateEvm = true;
-        q = evm_unsafe_try_create_queue();
+        auto r = CrossBoundaryResVal(evm_unsafe_try_create_queue(result));
+        if (r) { q = *r; } else { return r; }
     }
 
     try {
