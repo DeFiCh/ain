@@ -3888,10 +3888,8 @@ public:
 
         const auto attributes = mnview.GetAttributes();
         assert(attributes);
-        CDataStructureV0 transferDomainDVMEVMKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainDVMEVM};
-        auto transferDomainDVMEVM = attributes->GetValue(transferDomainDVMEVMKey, CBalances{});
-        CDataStructureV0 transferDomainEVMDVMKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainEVMDVM};
-        auto transferDomainEVMDVM = attributes->GetValue(transferDomainEVMDVMKey, CBalances{});
+        CDataStructureV0 transferDomainBalancesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
+        auto transferDomainBalances = attributes->GetValue(transferDomainBalancesKey, CTransferDomainAccounting{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
@@ -3902,7 +3900,7 @@ public:
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-                transferDomainDVMEVM.AddBalances(balance.balances);
+                transferDomainBalances.dvmEvm.AddBalances(balance.balances);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
@@ -3938,7 +3936,7 @@ public:
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-                transferDomainEVMDVM.AddBalances(balance.balances);
+                transferDomainBalances.evmDvm.AddBalances(balance.balances);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
@@ -3971,8 +3969,7 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainDVMEVMKey, transferDomainDVMEVM);
-        attributes->SetValue(transferDomainEVMDVMKey, transferDomainEVMDVM);
+        attributes->SetValue(transferDomainBalancesKey, transferDomainBalances);
         mnview.SetVariable(*attributes);
 
         return res;
@@ -5319,7 +5316,7 @@ Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) 
     auto err = [](const std::string area, const int voutIndex) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "OP_RETURN size check: vout[%d] %s failure", voutIndex, area);
     };
-    
+
     // Check core OP_RETURN size on vout[0]
     if (txType == CustomTxType::EvmTx) {
         if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, evmSizeBytes)) {

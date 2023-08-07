@@ -141,13 +141,13 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain_dvm_evm'], ['100.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain_evm_dvm'], [])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['100.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], [])
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], '0')
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], '0')
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], Decimal('0E-8'))
 
 
     def invalid_values_evm_dvm(self):
@@ -187,13 +187,13 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain_dvm_evm'], ['100.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain_evm_dvm'], ['100.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['100.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], ['100.00000000@DFI'])
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], '0')
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], '0')
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], Decimal('0E-8'))
 
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(-5, "Incorrect authorization for " + self.address1, self.nodes[0].transferdomain, [{"src": {"address":self.address1, "amount":"1@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"1@DFI", "domain": 3}}])
@@ -226,8 +226,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of all transfers
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain_dvm_evm'], ['101.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain_evm_dvm'], [])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['101.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], [])
 
         # Move from one EVM address to another
         self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, self.eth_address1, 100)
@@ -238,8 +238,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees 21 Gwei * 21000 = 44100 sat, burnt 21000, paid 44100 - 21000 = 23100
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], '0.00021')
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], '0.000231')
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], Decimal('0.00021000'))
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], Decimal('0.00023100'))
 
         dfi_balance = self.nodes[0].getaccount(self.address, {}, True)['0']
 
@@ -265,8 +265,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of all transfers
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain_dvm_evm'], ['101.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain_evm_dvm'], ['100.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['101.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], ['100.00000000@DFI'])
 
     def run_test(self):
         self.setup()

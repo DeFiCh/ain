@@ -89,10 +89,8 @@ enum EconomyKeys : uint8_t {
     ConsolidatedInterest      = 'o',  // Amount added to loan amounts after auction with no bids.
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
     Loans                     = 'q',
-    TransferDomainDVMEVM      = 'r',
-    TransferDomainEVMDVM      = 's',
-    EVMFeesBurnt              = 't',
-    EVMFeesPaid               = 'u',
+    TransferDomainLive        = 'r',
+    EVMFees                   = 's',
 };
 
 enum DFIPKeys : uint8_t {
@@ -282,6 +280,19 @@ struct CDexTokenInfo {
 
 enum FeeDirValues : uint8_t { Both, In, Out };
 
+struct CTransferDomainAccounting {
+    CBalances dvmEvm;
+    CBalances evmDvm;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(dvmEvm);
+        READWRITE(evmDvm);
+    }
+};
+
 struct CEvmFees {
     CAmount burnt;
     CAmount paid;
@@ -375,6 +386,8 @@ using CAttributeValue          = std::variant<bool,
                                      AscendantValue,
                                      CFeeDir,
                                      CDexBalances,
+                                     CTransferDomainAccounting,
+                                     CEvmFees,
                                      std::set<CScript>,
                                      std::set<std::string>,
                                      CConsortiumMembers,

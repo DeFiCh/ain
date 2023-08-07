@@ -304,8 +304,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], Decimal('0E-8'))
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], Decimal('0E-8'))
 
         # Test EVM Tx added first in time ordering
         self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
@@ -373,8 +373,8 @@ class EVMTest(DefiTestFramework):
         self.paid_fee = hex_to_decimal(fees["priority_fee"])
         self.paid_fee0 = hex_to_decimal(fees0["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], self.burnt_fee * 5 + self.burnt_fee0)
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], self.paid_fee * 5 + self.paid_fee0)
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], self.burnt_fee * 5 + self.burnt_fee0)
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], self.paid_fee * 5 + self.paid_fee0)
 
         # Check TXs in block in correct order
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
@@ -470,8 +470,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], self.burnt_fee * 63)
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], self.paid_fee * 63)
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], self.burnt_fee * 63)
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], self.paid_fee * 63)
 
         # Check Eth balances after transfer
         assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 136972217000000000000)
@@ -483,8 +483,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], self.burnt_fee * 64)
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], self.paid_fee * 64)
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], self.burnt_fee * 64)
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], self.paid_fee * 64)
 
         # Check TX is in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
@@ -523,8 +523,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee64 = hex_to_decimal(fees64["burnt_fee"])
         self.paid_fee64 = hex_to_decimal(fees64["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees_burnt'], self.burnt_fee * 64 + 2 * self.burnt_fee64)
-        assert_equal(attributes['v0/live/economy/evm_fees_paid'], self.paid_fee * 64 + 2 * self.paid_fee64)
+        assert_equal(attributes['v0/live/economy/evm_fees/burnt'], self.burnt_fee * 64 + 2 * self.burnt_fee64)
+        assert_equal(attributes['v0/live/economy/evm_fees/paid'], self.paid_fee * 64 + 2 * self.paid_fee64)
 
         # Check highest paying fee TX in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']

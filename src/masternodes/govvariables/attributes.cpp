@@ -388,10 +388,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
-             {EconomyKeys::TransferDomainDVMEVM, "transferdomain_dvm_evm"},
-             {EconomyKeys::TransferDomainEVMDVM, "transferdomain_evm_dvm"},
-             {EconomyKeys::EVMFeesBurnt, "evm_fees_burnt"},
-             {EconomyKeys::EVMFeesPaid, "evm_fees_paid"},
+             {EconomyKeys::TransferDomainLive, "transferdomain"},
+             {EconomyKeys::EVMFees, "evm_fees"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1630,6 +1628,16 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                 }
                 ret.pushKV(key, array);
+            } else if (const auto balances = std::get_if<CTransferDomainAccounting>(&attribute.second)) {
+                    auto dvmEvmKey    = KeyBuilder(key, "dvm->evm");
+                    auto evmDvmKey    = KeyBuilder(key, "evm->dvm");
+                    ret.pushKV(dvmEvmKey, AmountsToJSON(balances->dvmEvm.balances));
+                    ret.pushKV(evmDvmKey, AmountsToJSON(balances->evmDvm.balances));
+            } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
+                    auto burntKey    = KeyBuilder(key, "burnt");
+                    auto paidKey    = KeyBuilder(key, "paid");
+                    ret.pushKV(burntKey, ValueFromAmount(amounts->burnt));
+                    ret.pushKV(paidKey, ValueFromAmount(amounts->paid));
             }
         } catch (const std::out_of_range &) {
             // Should not get here, that's mean maps are mismatched
