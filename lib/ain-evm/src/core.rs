@@ -309,6 +309,12 @@ impl EVMCoreService {
 
 // Transaction queue methods
 impl EVMCoreService {
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn add_balance(
         &self,
         queue_id: u64,
@@ -322,6 +328,12 @@ impl EVMCoreService {
         Ok(())
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn sub_balance(
         &self,
         queue_id: u64,
@@ -349,10 +361,22 @@ impl EVMCoreService {
         }
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn create_queue(&self) -> u64 {
         self.tx_queues.create()
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn remove_queue(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }

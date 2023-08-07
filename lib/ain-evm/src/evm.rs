@@ -99,6 +99,12 @@ impl EVMServices {
         }
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn construct_block_in_queue(
         &self,
         queue_id: u64,
@@ -340,6 +346,12 @@ impl EVMServices {
         })
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
@@ -383,6 +395,12 @@ impl EVMServices {
         Ok(())
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn push_tx_in_queue(
         &self,
         queue_id: u64,

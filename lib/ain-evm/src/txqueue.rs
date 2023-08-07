@@ -37,6 +37,12 @@ impl TransactionQueueMap {
 
     /// `get_queue_id` generates a unique random ID, creates a new `TransactionQueue` for that ID,
     /// and then returns the ID.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn create(&self) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
@@ -56,6 +62,12 @@ impl TransactionQueueMap {
 
     /// Try to remove and return the `TransactionQueue` associated with the provided
     /// queue ID.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
         self.queues.write().unwrap().remove(&queue_id)
     }
@@ -68,6 +80,11 @@ impl TransactionQueueMap {
     /// # Errors
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
         Ok(Arc::clone(
@@ -92,6 +109,11 @@ impl TransactionQueueMap {
     /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
     /// Returns `QueueError::InvalidFee` if the fee calculation overflows.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn push_in(
         &self,
@@ -121,6 +143,12 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn get_txs_cloned_in(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
         self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
     }
