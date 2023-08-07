@@ -2054,8 +2054,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
-    auto finalCheckAndReturn = [&](const CAmount reward) {
-        if (cbValues.at(DCT_ID{0}) > reward + nFees)
+    auto finalCheckAndReturn = [&](const CAmount totalBlockReward) {
+        if (cbValues.at(DCT_ID{0}) > totalBlockReward + nFees)
             return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
         return Res::Ok();
     };
@@ -2109,7 +2109,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
     auto handleLegacyTokenRewards = [&finalCheckAndReturn, &logAccountChange](const CTransaction& tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus) {
         CAmount nonUtxoTotal = 0;
-        for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies) {
+        for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy) {
             CAmount subsidy = blockReward * accountVal / COIN;
             Res res = view.AddCommunityBalance(accountType, subsidy);
             if (!res.ok) {
@@ -2127,7 +2127,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         CAmount nonUtxoTotal = 0;
         CAmount subsidy;
 
-        for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies) {
+        for (const auto& [accountType, accountVal] : consensus.blockTokenRewards) {
             if (accountType == CommunityAccountType::CommunityDevFunds) {
                 if (height < consensus.GrandCentralHeight) {
                     continue;
@@ -2228,14 +2228,14 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
     // TODO(legacy-cleanup): Use proper structures
 
     if (height < consensus.EunosHeight) {
-        for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies) {
+        for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy) {
             CAmount subsidy = blockReward * accountVal / COIN;
             mnview.SubCommunityBalance(accountType, subsidy);
         }
         return;
     }
 
-    for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies) {
+    for (const auto& [accountType, accountVal] : consensus.blockTokenRewards) {
         if (accountType == CommunityAccountType::CommunityDevFunds) {
             if (height < consensus.GrandCentralHeight) {
                 continue;
