@@ -136,7 +136,7 @@ pub fn evm_try_remove_txs_by_sender(
     address: [u8; 20],
 ) {
     let address = H160::from(address);
-    match SERVICES.evm.core.remove_txs_by_sender(queue_id, address) {
+    match SERVICES.evm.core.remove_by_sender_in(queue_id, address) {
         Ok(_) => cross_boundary_success_return(result, ()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -326,8 +326,8 @@ pub fn evm_unsafe_try_validate_raw_tx(
 /// # Returns
 ///
 /// Returns the EVM queue ID as a `u64`.
-pub fn evm_get_queue_id() -> u64 {
-    SERVICES.evm.core.get_queue_id()
+pub fn evm_create_queue() -> u64 {
+    SERVICES.evm.core.create_queue()
 }
 
 /// /// Discards an EVM queue.
@@ -336,8 +336,8 @@ pub fn evm_get_queue_id() -> u64 {
 ///
 /// * `queue_id` - The queue ID.
 ///
-pub fn evm_discard_context(queue_id: u64) {
-    SERVICES.evm.core.remove(queue_id)
+pub fn evm_destroy_queue(queue_id: u64) {
+    SERVICES.evm.core.remove_queue(queue_id)
 }
 
 /// Add an EVM transaction to a specific queue.

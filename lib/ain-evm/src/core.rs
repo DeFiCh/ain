@@ -343,15 +343,15 @@ impl EVMCoreService {
         }
     }
 
-    pub fn get_queue_id(&self) -> u64 {
+    pub fn create_queue(&self) -> u64 {
         self.tx_queues.create()
     }
 
-    pub fn remove(&self, queue_id: u64) {
+    pub fn remove_queue(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }
 
-    pub fn remove_txs_by_sender(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
+    pub fn remove_by_sender_in(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
         self.tx_queues.remove_by_sender_in(queue_id, address)?;
         Ok(())
     }

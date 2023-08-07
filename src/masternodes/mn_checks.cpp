@@ -4250,15 +4250,15 @@ Res CustomTxVisit(CCustomCSView &mnview,
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    auto context = evmQueueId;
+    auto q = evmQueueId;
     bool prevalidateEvm = false;
-    if (context == 0) {
+    if (q == 0) {
         prevalidateEvm = true;
-        context = evm_get_queue_id();
+        q = evm_create_queue();
     }
 
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, context, prevalidateEvm), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm), txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {

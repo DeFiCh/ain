@@ -69,8 +69,8 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_queue_id() -> u64;
-        fn evm_discard_context(queue_id: u64);
+        fn evm_create_queue() -> u64;
+        fn evm_destroy_queue(queue_id: u64);
         fn evm_disconnect_latest_block();
 
         // Failible functions
