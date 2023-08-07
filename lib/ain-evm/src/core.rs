@@ -229,7 +229,8 @@ impl EVMCoreService {
         }
 
         // Validate tx gas price with initial block base fee
-        if signed_tx.gas_price() < INITIAL_BASE_FEE {
+        let tx_gas_price = signed_tx.gas_price();
+        if tx_gas_price < INITIAL_BASE_FEE {
             debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
             return Err(format_err!("tx gas price is lower than initial block base fee").into());
         }
