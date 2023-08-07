@@ -5230,7 +5230,7 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
 
 OpReturnLimits OpReturnLimits::Default() {
     return OpReturnLimits {
-        true,
+        false,
         MAX_OP_RETURN_CORE_ACCEPT,
         MAX_OP_RETURN_DVM_ACCEPT,
         MAX_OP_RETURN_EVM_ACCEPT,
