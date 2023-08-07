@@ -2601,7 +2601,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    auto opReturnLimits = OpReturnLimits::From(pindex->nHeight, chainparams, *attributes);
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
@@ -2677,7 +2676,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opReturnLimits);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

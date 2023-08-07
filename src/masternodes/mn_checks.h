@@ -301,7 +301,7 @@ struct OpReturnLimits {
     uint64_t evmSizeBytes{};
 
     static OpReturnLimits Default();
-    static OpReturnLimits From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes);
+    static OpReturnLimits From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes);
 
     void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
     Res Validate(const CTransaction& tx, const CustomTxType txType) const;
@@ -557,8 +557,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const uint64_t evmQueueId = 0,
-                  const OpReturnLimits &opReturnLimits = OpReturnLimits::Default());
+                  const uint64_t evmQueueId = 0);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
