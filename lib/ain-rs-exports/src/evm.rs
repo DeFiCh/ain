@@ -105,7 +105,7 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
 /// # Returns
 ///
 /// Returns the next valid nonce of the account in a specific queue_id as a `u64`
-pub fn evm_try_get_next_valid_nonce_in_queue(
+pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: [u8; 20],
@@ -130,15 +130,17 @@ pub fn evm_try_get_next_valid_nonce_in_queue(
 /// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 ///
-pub fn evm_try_remove_txs_by_sender(
+pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: [u8; 20],
 ) {
     let address = H160::from(address);
-    match SERVICES.evm.core.remove_by_sender_in(queue_id, address) {
-        Ok(_) => cross_boundary_success_return(result, ()),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match SERVICES.evm.core.remove_txs_by_sender_in(queue_id, address) {
+            Ok(_) => cross_boundary_success_return(result, ()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -151,7 +153,7 @@ pub fn evm_try_remove_txs_by_sender(
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-pub fn evm_try_add_balance(
+pub fn evm_try_add_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
@@ -191,7 +193,7 @@ pub fn evm_try_add_balance(
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_try_sub_balance(
+pub fn evm_try_sub_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
@@ -240,7 +242,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 ) -> ffi::PreValidateTxCompletion {
     let queue_id = 0;
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
@@ -285,7 +287,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 ///
 /// Returns the transaction nonce, sender address, transaction fees and gas used
 /// if valid. Logs and set the error reason to result object otherwise.
-pub fn evm_unsafe_try_validate_raw_tx(
+pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
     queue_id: u64,
@@ -298,7 +300,7 @@ pub fn evm_unsafe_try_validate_raw_tx(
         }
     }
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(tx, queue_id, true) {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
@@ -336,7 +338,7 @@ pub fn evm_create_queue() -> u64 {
 ///
 /// * `queue_id` - The queue ID.
 ///
-pub fn evm_destroy_queue(queue_id: u64) {
+pub fn evm_remove_queue(queue_id: u64) {
     SERVICES.evm.core.remove_queue(queue_id)
 }
 

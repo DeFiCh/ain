@@ -3905,7 +3905,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_try_sub_balance(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
+                    if (!evm_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
                             ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
@@ -3940,7 +3940,7 @@ public:
                 balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_try_add_balance(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                    evm_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
@@ -3975,7 +3975,7 @@ public:
 
         CrossBoundaryResult result;
         if (!prevalidateEvm) {
-            const auto validateResults = evm_unsafe_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
+            const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
             if (!result.ok) {
                 LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);

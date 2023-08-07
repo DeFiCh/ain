@@ -112,7 +112,7 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    pub fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
+    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
     }
 

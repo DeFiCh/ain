@@ -185,7 +185,6 @@ impl EVMCoreService {
         &self,
         tx: &str,
         queue_id: u64,
-        use_context: bool,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
@@ -256,7 +255,8 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        let used_gas = if use_context {
+        let use_queue = queue_id != 0;
+        let used_gas = if use_queue {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
                 to: signed_tx.to(),
@@ -272,7 +272,7 @@ impl EVMCoreService {
         };
 
         // Validate total gas usage in queued txs exceeds block size
-        if use_context {
+        if use_queue {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
@@ -351,7 +351,7 @@ impl EVMCoreService {
         self.tx_queues.remove(queue_id);
     }
 
-    pub fn remove_by_sender_in(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
+    pub unsafe fn remove_txs_by_sender_in(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
         self.tx_queues.remove_by_sender_in(queue_id, address)?;
         Ok(())
     }

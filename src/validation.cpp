@@ -3337,7 +3337,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
-            evm_destroy_queue(evmQueueId);
+            evm_remove_queue(evmQueueId);
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
             }

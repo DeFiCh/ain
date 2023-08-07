@@ -287,7 +287,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
         auto blockResult = evm_try_construct_block(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
-        evm_destroy_queue(evmQueueId);
+        evm_remove_queue(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
@@ -689,7 +689,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 }
             }
             evmAddressTxsMap.erase(addrKey.address);
-            evm_try_remove_txs_by_sender(result, evmQueueId, addrKey.address);
+            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address);
             // TODO handle missing evmQueueId error
             if (!result.ok) {
                 return false;
@@ -699,7 +699,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
     }
 
-    const auto nonce = evm_try_get_next_valid_nonce_in_queue(result, evmQueueId, txResult.sender);
+    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
     if (!result.ok) {
         return false;
     }
