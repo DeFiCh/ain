@@ -658,7 +658,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
     CrossBoundaryResult result;
-    const auto txResult = evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+    const auto txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
     if (!result.ok) {
         return false;
     }

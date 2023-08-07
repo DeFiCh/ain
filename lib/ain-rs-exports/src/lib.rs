@@ -100,11 +100,11 @@ pub mod ffi {
             amount: [u8; 32],
             native_tx_hash: [u8; 32],
         ) -> bool;
-        fn evm_try_prevalidate_raw_tx(
+        fn evm_unsafe_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
         ) -> PreValidateTxCompletion;
-        fn evm_try_validate_raw_tx(
+        fn evm_unsafe_try_validate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
             queue_id: u64,

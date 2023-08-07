@@ -3975,7 +3975,7 @@ public:
 
         CrossBoundaryResult result;
         if (!prevalidateEvm) {
-            const auto validateResults = evm_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
+            const auto validateResults = evm_unsafe_try_validate_raw_tx(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
             if (!result.ok) {
                 LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
@@ -3989,7 +3989,7 @@ public:
             }
         }
         else {
-            evm_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);

@@ -111,13 +111,15 @@ pub fn evm_try_get_next_valid_nonce_in_queue(
     address: [u8; 20],
 ) -> u64 {
     let address = H160::from(address);
-    match SERVICES
-        .evm
-        .core
-        .get_next_valid_nonce_in_queue(queue_id, address)
-    {
-        Ok(nonce) => cross_boundary_success_return(result, nonce.as_u64()),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match SERVICES
+            .evm
+            .core
+            .get_next_valid_nonce_in_queue(queue_id, address)
+        {
+            Ok(nonce) => cross_boundary_success_return(result, nonce.as_u64()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -232,27 +234,29 @@ pub fn evm_try_sub_balance(
 ///
 /// Returns the transaction nonce, sender address and transaction fees if valid.
 /// Logs and set the error reason to result object otherwise.
-pub fn evm_try_prevalidate_raw_tx(
+pub fn evm_unsafe_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
 ) -> ffi::PreValidateTxCompletion {
     let queue_id = 0;
-    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-            used_gas: _,
-        }) => cross_boundary_success_return(
-            result,
-            ffi::PreValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
-                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-            },
-        ),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            cross_boundary_error_return(result, e.to_string())
+    unsafe {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                used_gas: _,
+            }) => cross_boundary_success_return(
+                result,
+                ffi::PreValidateTxCompletion {
+                    nonce: signed_tx.nonce().as_u64(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
+                },
+            ),
+            Err(e) => {
+                debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
         }
     }
 }
@@ -281,7 +285,7 @@ pub fn evm_try_prevalidate_raw_tx(
 ///
 /// Returns the transaction nonce, sender address, transaction fees and gas used
 /// if valid. Logs and set the error reason to result object otherwise.
-pub fn evm_try_validate_raw_tx(
+pub fn evm_unsafe_try_validate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
     queue_id: u64,
@@ -293,26 +297,28 @@ pub fn evm_try_validate_raw_tx(
             return cross_boundary_error_return(result, e.to_string());
         }
     }
-
-    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, true) {
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-            used_gas,
-        }) => cross_boundary_success_return(
-            result,
-            ffi::ValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
-                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-                gas_used: used_gas,
-            },
-        ),
-        Err(e) => {
-            debug!("evm_try_validate_raw_tx failed with error: {e}");
-            cross_boundary_error_return(result, e.to_string())
+    unsafe {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id, true) {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                used_gas,
+            }) => cross_boundary_success_return(
+                result,
+                ffi::ValidateTxCompletion {
+                    nonce: signed_tx.nonce().as_u64(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
+                    gas_used: used_gas,
+                },
+            ),
+            Err(e) => {
+                debug!("evm_try_validate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
         }
     }
+
 }
 
 /// Retrieves the EVM queue ID.

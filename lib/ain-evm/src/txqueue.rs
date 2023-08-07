@@ -37,7 +37,7 @@ impl TransactionQueueMap {
 
     /// `get_queue_id` generates a unique random ID, creates a new `TransactionQueue` for that ID,
     /// and then returns the ID.
-    pub fn get_queue_id(&self) -> u64 {
+    pub fn create(&self) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -69,7 +69,7 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    pub fn get_queue(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
+    pub fn get(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
         Ok(Arc::clone(
             self.queues
                 .read()
@@ -93,7 +93,7 @@ impl TransactionQueueMap {
     /// previous nonce of transactions from the same sender in the queue.
     /// Returns `QueueError::InvalidFee` if the fee calculation overflows.
     ///
-    pub fn queue_tx(
+    pub fn push_in(
         &self,
         queue_id: u64,
         tx: QueueTx,
@@ -112,12 +112,12 @@ impl TransactionQueueMap {
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     ///
-    pub fn remove_txs_by_sender(&self, queue_id: u64, sender: H160) -> Result<()> {
+    pub fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
     }
 
-    pub fn get_tx_queue_items(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_tx_queue_items)
+    pub fn get_txs_cloned_in(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
+        self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
     }
 
     /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
@@ -131,11 +131,11 @@ impl TransactionQueueMap {
     /// Returns None when the address does not have any transaction queued or
     /// Some(nonce) with the next valid nonce (current + 1) for the associated address
     ///
-    pub fn get_next_valid_nonce(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
+    pub unsafe fn get_next_valid_nonce_in(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
         self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
 
-    pub fn get_total_gas_used(&self, queue_id: u64) -> Result<U256> {
+    pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
         self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
     }
 
@@ -143,7 +143,7 @@ impl TransactionQueueMap {
     /// # Errors
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    pub fn with_transaction_queue<T, F>(&self, queue_id: u64, f: F) -> Result<T>
+    fn with_transaction_queue<T, F>(&self, queue_id: u64, f: F) -> Result<T>
     where
         F: FnOnce(&TransactionQueue) -> T,
     {
@@ -271,7 +271,7 @@ impl TransactionQueue {
         data.account_nonces.remove(&sender);
     }
 
-    pub fn get_tx_queue_items(&self) -> Vec<QueueTxItem> {
+    pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
         self.data.lock().unwrap().transactions.clone()
     }
 
