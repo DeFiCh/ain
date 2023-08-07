@@ -2447,7 +2447,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_construct_block(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
+    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }

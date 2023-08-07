@@ -31,7 +31,8 @@ class DFIIntrinsicsTest(DefiTestFramework):
         # check counter contract
         from web3 import Web3
         w3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
-        abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/counter_contract/output/abi.json", "r", encoding="utf8").read()
+        # Temp. workaround
+        abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json", "r", encoding="utf8").read()
         counter_contract = w3.eth.contract(
             address="0x0000000000000000000000000000000000000301", abi=abi
         )
