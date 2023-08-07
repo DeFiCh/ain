@@ -265,7 +265,7 @@ struct RewardInfo {
     }
 };
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int verbosity)
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
@@ -304,14 +304,14 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return result;
     };
 
-    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int verbosity) {
+    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx)
         {
             if (txDetails) {
                 UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, verbosity > 3, RPCSerializationFlags());
-                if (verbosity > 2) { 
+                TxToUniv(*tx, uint256(), objTx, version > 3, RPCSerializationFlags(), version);
+                if (version > 2) { 
                     if (auto r = txVmInfo(*tx); r) {
                         objTx.pushKV("vm", *r);
                     }
@@ -324,7 +324,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return txs;
     };
 
-    auto v3plus = verbosity > 2;
+    auto v3plus = version > 2;
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -350,7 +350,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     if (!v3plus) {
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
-        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
+        result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
@@ -373,7 +373,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
-        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
+        result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
 
     return result;
@@ -1038,7 +1038,9 @@ static UniValue getblock(const JSONRPCRequest& request)
     RPCHelpMan{"getblock",
                 "\nIf verbosity is 0, returns a string that is serialized, hex-encoded data for block 'hash'.\n"
                 "If verbosity is 1, returns an Object with information about block <hash>.\n"
-                "If verbosity is 2, returns an Object with information about block <hash> and information about each transaction. \n",
+                "If verbosity is 2, returns an Object with information about block <hash> and information about each transaction. \n"
+                "If verbosity is 3, returns an Object with version 2 API (DVM, EVM, etc). \n"
+                "If verbosity is 4, returns an Object with version 2 API (DVM, EVM, etc with Hex) \n",
                 {
                     {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
                     {"verbosity", RPCArg::Type::NUM, /* default */ "1", "0 for hex-encoded data, 1 for a json object, and 2 for json object with transaction data"},
