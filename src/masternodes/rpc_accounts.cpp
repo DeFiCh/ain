@@ -574,9 +574,9 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     if (request.params.size() > 2) {
         symbol_lookup = request.params[2].getBool();
     }
-    auto evm_dfi = false;
+    auto evm_dfi_lookup = false;
     if (request.params.size() > 3) {
-        evm_dfi = request.params[3].getBool();
+        evm_dfi_lookup = request.params[3].getBool();
     }
 
     UniValue ret(UniValue::VARR);
@@ -601,7 +601,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         return true;
     });
 
-    if (evm_dfi) {
+    if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
