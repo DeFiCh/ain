@@ -1830,7 +1830,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CAmount burnt{0};
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+    for (const auto& kv : Params().GetConsensus().blockTokenRewards)
     {
         // Skip these as any unused balance will be burnt.
         if (kv.first == CommunityAccountType::Options) {
@@ -2218,7 +2218,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
 
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+    for (const auto& kv : Params().GetConsensus().blockTokenRewards) {
         if (kv.first == CommunityAccountType::Unallocated ||
             kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {

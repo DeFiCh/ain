@@ -207,8 +207,8 @@ public:
         consensus.props.emergencyPeriod = 8640;
         consensus.props.feeBurnPct = COIN / 2;
 
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
         // New coinbase reward distribution
         consensus.dist.masternode = 3333; // 33.33%
@@ -219,12 +219,12 @@ public:
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
         consensus.evmChainId = 1130; // ETH main chain ID
@@ -483,8 +483,8 @@ public:
         consensus.props.feeBurnPct = COIN / 2;
 
 
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
         // New coinbase reward distribution
         consensus.dist.masternode = 3333; // 33.33%
@@ -495,12 +495,12 @@ public:
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
         consensus.evmChainId = 1131; // test chain ID
@@ -698,8 +698,8 @@ public:
         consensus.props.emergencyPeriod = 8640;
         consensus.props.feeBurnPct = COIN / 2;
 
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
         // New coinbase reward distribution
         consensus.dist.masternode = 3333; // 33.33%
@@ -710,12 +710,12 @@ public:
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
         consensus.evmChainId = 1133; // changi chain ID
@@ -914,8 +914,8 @@ public:
         consensus.props.emergencyPeriod = 8640;
         consensus.props.feeBurnPct = COIN / 2;
 
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
         // New coinbase reward distribution
         consensus.dist.masternode = 3333; // 33.33%
@@ -926,12 +926,12 @@ public:
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
         consensus.evmChainId = 1132; // dev chain ID
@@ -1133,8 +1133,8 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
+        consensus.blockTokenRewardsLegacy.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
 
         // New coinbase reward distribution
         consensus.dist.masternode = 3333; // 33.33%
@@ -1145,12 +1145,12 @@ public:
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Loan, consensus.dist.loan);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.blockTokenRewards.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         // EVM chain id
         consensus.evmChainId = 1133; // regtest chain ID

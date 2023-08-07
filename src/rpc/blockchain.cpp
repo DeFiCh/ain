@@ -142,7 +142,7 @@ struct MinterInfo {
         return result;
     }
 
-    void ToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) const {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -153,7 +153,7 @@ struct MinterInfo {
         result.pushKV("stakeModifier", StakeModifier.ToString());
     }
 
-    UniValue ToUniValue() {
+    UniValue ToUniValue() const {
         // Note that this breaks compatibility with the legacy version. 
         // Do not use this with existing RPCs
         UniValue result(UniValue::VOBJ);
@@ -190,11 +190,11 @@ struct RewardInfo {
         result.BlockReward = blockReward;
 
         if (blockindex->nHeight < consensus.EunosHeight) {
-            for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies)
+            for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * accountVal / COIN;
                 switch (accountType) {
-                    // CommunityDevFunds, Loan, Options don't exist in nonUtxoBlockSubsidies here
+                    // CommunityDevFunds, Loan, Options don't exist in blockTokenRewardsLegacy here
                     case CommunityAccountType::AnchorReward:{ tokenRewards.AnchorReward = subsidy; break; }
                     case CommunityAccountType::IncentiveFunding: { tokenRewards.IncentiveFunding = subsidy; break; }
                     default: { tokenRewards.Burnt += subsidy; }
@@ -203,7 +203,7 @@ struct RewardInfo {
             return result;
         }
 
-        for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies)
+        for (const auto& [accountType, accountVal] : consensus.blockTokenRewards)
         {
             if (blockindex->nHeight < consensus.GrandCentralHeight 
             && accountType == CommunityAccountType::CommunityDevFunds) {
@@ -222,7 +222,7 @@ struct RewardInfo {
         return result;
     }
 
-    void ToUniValueLegacy(UniValue& result) {
+    void ToUniValueLegacy(UniValue& result) const {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
@@ -243,7 +243,7 @@ struct RewardInfo {
         result.pushKV("nonutxo", rewards);
     }
 
-    UniValue ToUniValue() {
+    UniValue ToUniValue() const {
         // Note that this breaks compatibility with the legacy version. 
         // Do not use this with existing RPCs
         UniValue obj(UniValue::VOBJ);
@@ -265,25 +265,13 @@ struct RewardInfo {
     }
 };
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int verbosity)
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
 
-    auto coinbaseXVMToUniValue = [](XVM &obj) {
-        UniValue result(UniValue::VOBJ);
-        result.pushKV("version", static_cast<uint64_t>(obj.version));
-        UniValue evm(UniValue::VOBJ);
-        evm.pushKV("version", static_cast<uint64_t>(obj.evm.version));
-        evm.pushKV("blockHash", "0x" + obj.evm.blockHash.GetHex());
-        evm.pushKV("priorityFee", obj.evm.priorityFee);
-        evm.pushKV("burntFee", obj.evm.burntFee);
-        result.pushKV("evm", evm);
-        return result;
-    };
-
-    auto txVmInfo = [&coinbaseXVMToUniValue](const CTransaction& tx) -> std::optional<UniValue> {
+    auto txVmInfo = [](const CTransaction& tx) -> std::optional<UniValue> {
         CustomTxType guess;
         UniValue txResults(UniValue::VOBJ);
         if (tx.IsCoinBase()) {
@@ -298,7 +286,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             UniValue result(UniValue::VOBJ);
             result.pushKV("vmtype", "coinbase");
             result.pushKV("txtype", "coinbase");
-            result.pushKV("msg", coinbaseXVMToUniValue(*res));
+            result.pushKV("msg", res->ToUniValue());
             return result;
         }
         auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
@@ -316,14 +304,14 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return result;
     };
 
-    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int verbosity) {
+    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx)
         {
             if (txDetails) {
                 UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, verbosity > 3, RPCSerializationFlags());
-                if (verbosity > 2) { 
+                TxToUniv(*tx, uint256(), objTx, version > 3, RPCSerializationFlags(), version);
+                if (version > 2) { 
                     if (auto r = txVmInfo(*tx); r) {
                         objTx.pushKV("vm", *r);
                     }
@@ -336,7 +324,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         return txs;
     };
 
-    auto v3plus = verbosity > 2;
+    auto v3plus = version > 2;
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -362,7 +350,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     if (!v3plus) {
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
-        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
+        result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
@@ -385,7 +373,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
-        result.pushKV("tx", txsToUniValue(block, txDetails, verbosity));
+        result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
 
     return result;
@@ -1050,7 +1038,9 @@ static UniValue getblock(const JSONRPCRequest& request)
     RPCHelpMan{"getblock",
                 "\nIf verbosity is 0, returns a string that is serialized, hex-encoded data for block 'hash'.\n"
                 "If verbosity is 1, returns an Object with information about block <hash>.\n"
-                "If verbosity is 2, returns an Object with information about block <hash> and information about each transaction. \n",
+                "If verbosity is 2, returns an Object with information about block <hash> and information about each transaction. \n"
+                "If verbosity is 3, returns an Object with version 2 API (DVM, EVM, etc). \n"
+                "If verbosity is 4, returns an Object with version 2 API (DVM, EVM, etc with Hex) \n",
                 {
                     {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
                     {"verbosity", RPCArg::Type::NUM, /* default */ "1", "0 for hex-encoded data, 1 for a json object, and 2 for json object with transaction data"},
