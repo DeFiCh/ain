@@ -1,6 +1,7 @@
-use anyhow::anyhow;
-use primitive_types::U256;
 use std::error::Error;
+
+use anyhow::format_err;
+use primitive_types::U256;
 
 pub struct WeiAmount(pub U256);
 
@@ -22,7 +23,7 @@ pub fn try_from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
     let wei = gwei.checked_mul(WEI_TO_GWEI);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
-        None => Err(anyhow!("convert gwei to wei failed from overflow").into()),
+        None => Err(format_err!("convert gwei to wei failed from overflow").into()),
     }
 }
 
@@ -30,6 +31,6 @@ pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount, Box<dyn Error>> {
     let wei = satoshi.checked_mul(WEI_TO_SATS);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
-        None => Err(anyhow!("convert gwei to wei failed from overflow").into()),
+        None => Err(format_err!("convert gwei to wei failed from overflow").into()),
     }
 }

@@ -1,13 +1,14 @@
-use crate::transaction::SignedTx;
+use std::error::Error;
+
+use anyhow::format_err;
 use ethereum::TransactionAction;
 use evm::{
     gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost},
     Config,
 };
-
-use anyhow::anyhow;
 use log::debug;
-use std::error::Error;
+
+use crate::transaction::SignedTx;
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx
@@ -30,7 +31,7 @@ pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<(), Box<dyn Error>
     match gasometer.record_transaction(tx_cost) {
         Err(_) => {
             debug!("[check_tx_intrinsic_gas] gas limit is below the minimum gas per tx");
-            Err(anyhow!("gas limit is below the minimum gas per tx").into())
+            Err(format_err!("gas limit is below the minimum gas per tx").into())
         }
         _ => Ok(()),
     }

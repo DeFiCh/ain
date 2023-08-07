@@ -20,6 +20,39 @@ class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
+
+struct EVM {
+    uint32_t version;
+    uint256 blockHash;
+    uint64_t burntFee;
+    uint64_t priorityFee;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(version);
+        READWRITE(blockHash);
+        READWRITE(burntFee);
+        READWRITE(priorityFee);
+    }
+};
+
+struct XVM {
+    uint32_t version;
+    EVM evm;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(version);
+        READWRITE(evm);
+    }
+};
+
 class CCustomTxVisitor {
 protected:
     uint32_t height;
@@ -255,6 +288,41 @@ inline void Unserialize(Stream &s, CustomTxType &txType) {
     txType = CustomTxCodeToType(ch);
 }
 
+struct OpReturnLimits {
+    bool shouldEnforce{};
+    uint64_t coreSizeBytes{};
+    uint64_t dvmSizeBytes{};
+    uint64_t evmSizeBytes{};
+
+    static OpReturnLimits Default();
+    static OpReturnLimits From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes);
+
+    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
+    Res Validate(const CTransaction& tx, const CustomTxType txType) const;
+    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); } 
+};
+
+struct TransferDomainConfig {
+    bool dvmToEvmEnabled;
+    bool evmToDvmEnabled;
+    XVmAddressFormatItems dvmToEvmSrcAddresses;
+    XVmAddressFormatItems dvmToEvmDestAddresses;
+    XVmAddressFormatItems evmToDvmDestAddresses;
+    XVmAddressFormatItems evmToDvmSrcAddresses;
+    XVmAddressFormatItems evmToDvmAuthFormats;
+    bool dvmToEvmNativeTokenEnabled;
+    bool evmToDvmNativeTokenEnabled;
+    bool dvmToEvmDatEnabled;
+    bool evmToDvmDatEnabled;
+    std::set<uint32_t> dvmToEvmDisallowedTokens;
+    std::set<uint32_t> evmToDvmDisallowedTokens;
+
+    static TransferDomainConfig Default();
+    static TransferDomainConfig From(const CCustomCSView &mnview);
+
+    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
+};
+
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
@@ -483,7 +551,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time            = 0,
                   uint256 *canSpend        = nullptr,
                   uint32_t txn             = 0,
-                  const uint64_t evmQueueId = 0);
+                  const uint64_t evmQueueId = 0,
+                  const OpReturnLimits &opReturnLimits = OpReturnLimits::Default());
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
@@ -548,6 +617,15 @@ inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &price
         return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
     });
     return found;
+}
+
+inline bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize) {
+    opcodetype opcode;
+    auto pc = scriptPubKey.begin();
+    if (scriptPubKey.GetOp(pc, opcode) && opcode == OP_RETURN && scriptPubKey.size() > opreturnSize) {
+        return false;
+    }
+    return true;
 }
 
 /*

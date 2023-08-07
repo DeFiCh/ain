@@ -1,7 +1,7 @@
-use crate::{result::RpcResult, MetachainCLI};
-
 use ain_grpc::rpc::MetachainRPCClient;
 use jsonrpsee::http_client::HttpClient;
+
+use crate::{result::RpcResult, MetachainCLI};
 
 pub async fn execute_cli_command(
     cmd: MetachainCLI,

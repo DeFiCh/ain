@@ -1,12 +1,11 @@
 use core::cmp::max;
 use std::cmp::Ordering;
 
-use num::{BigUint, FromPrimitive, Integer, One, ToPrimitive, Zero};
-
 use evm::{
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput},
     ExitError, ExitSucceed,
 };
+use num::{BigUint, FromPrimitive, Integer, One, ToPrimitive, Zero};
 
 use crate::precompiles::{Precompile, PrecompileResult};
 pub struct Modexp;
@@ -224,8 +223,9 @@ impl Precompile for Modexp {
 mod tests {
     use super::*;
     extern crate hex;
-    use crate::precompiles::test_vector_support::{test_precompile_test_vectors, MockHandle};
     use evm::Context;
+
+    use crate::precompiles::test_vector_support::{test_precompile_test_vectors, MockHandle};
 
     #[test]
     fn process_consensus_tests() -> Result<(), String> {

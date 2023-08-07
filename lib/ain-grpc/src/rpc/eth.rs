@@ -1,19 +1,12 @@
-use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
-use crate::call_request::CallRequest;
-use crate::codegen::types::EthTransactionInfo;
-use ain_evm::bytes::Bytes;
+use std::convert::Into;
+use std::str::FromStr;
+use std::sync::Arc;
 
-use crate::receipt::ReceiptResult;
-use crate::transaction_request::{TransactionMessage, TransactionRequest};
-use crate::utils::{format_h256, format_u256};
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::bytes::Bytes;
 use ain_evm::core::{EthCallArgs, MAX_GAS_PER_BLOCK};
 use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
-
-use crate::filters::{GetFilterChangesResult, NewFilterRequest};
-use crate::sync::{SyncInfo, SyncState};
-use crate::transaction_log::{GetLogsRequest, LogResult};
 use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::{SignedTx, TransactionError};
@@ -23,9 +16,16 @@ use jsonrpsee::proc_macros::rpc;
 use libsecp256k1::SecretKey;
 use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
-use std::convert::Into;
-use std::str::FromStr;
-use std::sync::Arc;
+
+use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
+use crate::call_request::CallRequest;
+use crate::codegen::types::EthTransactionInfo;
+use crate::filters::{GetFilterChangesResult, NewFilterRequest};
+use crate::receipt::ReceiptResult;
+use crate::sync::{SyncInfo, SyncState};
+use crate::transaction_log::{GetLogsRequest, LogResult};
+use crate::transaction_request::{TransactionMessage, TransactionRequest};
+use crate::utils::{format_h256, format_u256};
 
 #[rpc(server, client, namespace = "eth")]
 pub trait MetachainRPC {
@@ -774,11 +774,13 @@ impl MetachainRPCServer for MetachainRPCModule {
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
-        Ok(RpcFeeHistory::from(self.handler.block.fee_history(
-            block_count.as_usize(),
-            first_block,
-            priority_fee_percentile,
-        )))
+        let fee_history = self
+            .handler
+            .block
+            .fee_history(block_count.as_usize(), first_block, priority_fee_percentile)
+            .map_err(|e| Error::Custom(format!("{e:?}")))?;
+
+        Ok(RpcFeeHistory::from(fee_history))
     }
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
@@ -804,7 +806,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|block| block.header.number)
                     .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
 
-                let starting_block = self.handler.block.get_first_block_number();
+                let starting_block = self.handler.block.get_starting_block_number();
 
                 let highest_block = current_block + (highest_native_block - current_native_height);
                 debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");

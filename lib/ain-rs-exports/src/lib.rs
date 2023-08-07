@@ -69,20 +69,6 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_get_balance(address: [u8; 20]) -> u64;
-        fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64;
-        fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]);
-        fn evm_add_balance(
-            queue_id: u64,
-            address: &str,
-            amount: [u8; 32],
-            native_tx_hash: [u8; 32],
-        );
-        fn evm_sub_balance(
-            queue_id: u64,
-            address: &str,
-            amount: [u8; 32],
-            native_tx_hash: [u8; 32],
-        ) -> bool;
         fn evm_get_queue_id() -> u64;
         fn evm_discard_context(queue_id: u64);
         fn evm_disconnect_latest_block();
@@ -90,7 +76,30 @@ pub mod ffi {
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
-
+        fn evm_try_get_next_valid_nonce_in_queue(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: [u8; 20],
+        ) -> u64;
+        fn evm_try_remove_txs_by_sender(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: [u8; 20],
+        );
+        fn evm_try_add_balance(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        );
+        fn evm_try_sub_balance(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: &str,
+            amount: [u8; 32],
+            native_tx_hash: [u8; 32],
+        ) -> bool;
         fn evm_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
@@ -107,19 +116,19 @@ pub mod ffi {
             hash: [u8; 32],
             gas_used: u64,
         );
-        fn evm_try_finalize(
+        fn evm_try_construct_block(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            update_state: bool,
             difficulty: u32,
             miner_address: [u8; 20],
             timestamp: u64,
+            dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
+        fn evm_try_finalize_block(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
-
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,
@@ -128,7 +137,10 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
-        fn evm_create_dst20(
+
+        fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
+
+        fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             native_hash: [u8; 32],
@@ -136,12 +148,13 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         );
-        fn evm_bridge_dst20(
+
+        fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
             address: &str,
             amount: [u8; 32],
-            native_tx_hash: [u8; 32],
+            native_hash: [u8; 32],
             token_id: &str,
             out: bool,
         );

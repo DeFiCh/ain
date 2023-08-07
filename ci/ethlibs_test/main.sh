@@ -26,6 +26,7 @@ setup_vars() {
 start_node() {
     $DEFID_BIN -regtest \
         -debug=rpc \
+        -daemon \
         -printtoconsole \
         -rpcallowip=0.0.0.0/0 \
         -rpcbind=0.0.0.0 \
@@ -83,42 +84,12 @@ setup_fixtures() {
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     
-    curl http://localhost:19551 \
-    -H 'content-type:application/json' \
-    --data-binary \
-    '{
-        "jsonrpc":"2.0",
-        "id":"fixture",
-        "method":"eth_sendTransaction",
-        "params":[{
-        "from":"'"$ALICE"'",
-        "data":"'"$CONTRACT_COUNTER"'",
-        "value":"0x00",
-        "gas":"0x7a120",
-        "gasPrice": "0x22ecb25c00"
-        }]
-    }'
-
+    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTER"'", "value":"'"0x00"'", "gas":"'"0x7a120"'", "gasPrice": "'"0x22ecb25c00"'"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     # contract address
     # 0x966aaec51a95a737d086d21f015a6991dd5559ae
 
-    curl http://localhost:19551 \
-    -H 'content-type:application/json' \
-    --data-binary \
-    '{
-        "jsonrpc":"2.0",
-        "id":"fixture",
-        "method":"eth_sendTransaction",
-        "params":[{
-        "from":"'"$ALICE"'",
-        "data":"'"$CONTRACT_COUNTERCALLER"'",
-        "value":"0x00",
-        "gas":"0x7a120",
-        "gasPrice": "0x22ecb25c00"
-        }]
-    }'
-
+    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTERCALLER"'", "value":"'"0x00"'", "gas":"'"0x7a120"'", "gasPrice": "'"0x22ecb25c00"'"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     # contract address
     # 0x007138e9d5bdb3f0b7f3abf2d46ad4f9184ef99d

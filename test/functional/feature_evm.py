@@ -109,10 +109,43 @@ class EVMTest(DefiTestFramework):
         # Generate chain
         self.nodes[0].generate(101)
 
+        # Check setting vars before height
         assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/evm_op_return_max_size_bytes': 20000}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
+
+        # Check that a transferdomain default is not present in listgovs
+        assert ('v0/transferdomain/dvm-evm/enabled' not in self.nodes[0].listgovs()[8][0]['ATTRIBUTES'])
 
         # Move to fork height
         self.nodes[0].generate(4)
+
+        # Check that all transferdomain defaults are now present in listgovs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/transferdomain/dvm-evm/enabled'], 'true')
+        assert_equal(result['v0/transferdomain/dvm-evm/src-formats'], ['bech32', 'p2pkh'])
+        assert_equal(result['v0/transferdomain/dvm-evm/dest-formats'], ['erc55'])
+        assert_equal(result['v0/transferdomain/dvm-evm/native-enabled'], 'true')
+        assert_equal(result['v0/transferdomain/dvm-evm/dat-enabled'], 'false')
+        assert_equal(result['v0/transferdomain/evm-dvm/enabled'], 'true')
+        assert_equal(result['v0/transferdomain/evm-dvm/src-formats'], ['erc55'])
+        assert_equal(result['v0/transferdomain/evm-dvm/dest-formats'], ['bech32', 'p2pkh'])
+        assert_equal(result['v0/transferdomain/evm-dvm/auth-formats'], ['bech32-erc55', 'p2pkh-erc55'])
+        assert_equal(result['v0/transferdomain/evm-dvm/native-enabled'], 'true')
+        assert_equal(result['v0/transferdomain/evm-dvm/dat-enabled'], 'false')
+
+        # Set OP_RETURN
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000,
+                                             'v0/rules/tx/evm_op_return_max_size_bytes': 20000,
+                                             'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
+        self.nodes[0].generate(1)
+
+        # Check OP_RETURN set
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/rules/tx/core_op_return_max_size_bytes'], '20000')
+        assert_equal(result['v0/rules/tx/evm_op_return_max_size_bytes'], '20000')
+        assert_equal(result['v0/rules/tx/dvm_op_return_max_size_bytes'], '20000')
 
         # Check error before EVM enabled
         assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
@@ -425,7 +458,7 @@ class EVMTest(DefiTestFramework):
         for i in range(63):
             self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
 
-        # Test error at the 65th EVM TX
+        # Test error at the 64th EVM TX
         assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 63, 21, 21001, to_address, 1)
 
         # Mint a block

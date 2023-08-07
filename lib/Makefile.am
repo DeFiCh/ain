@@ -74,9 +74,12 @@ test:
 clippy:
 	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS) -- -Dwarnings
 
+# We ignore unstable warnings for fmt to enable the use of backward
+# compatible nightly features. Stricly backward compatible only, or will
+# cause conflicts across toolchains
 .PHONY: fmt-check
 fmt-check:
-	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check 2> >(grep -v -E 'group_imports|unstable_features')
 
 .PHONY: fmt
 fmt:

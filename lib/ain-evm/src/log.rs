@@ -1,13 +1,15 @@
-use crate::filters::LogsFilter;
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
-use crate::storage::Storage;
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use ethereum::ReceiptV3;
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
+
+use crate::filters::LogsFilter;
+use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
+use crate::storage::Storage;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {
@@ -35,13 +37,11 @@ impl LogService {
         let mut log_index = 0; // log index is a block level index
         for receipt in receipts {
             let logs = match &receipt.receipt {
-                ReceiptV3::Legacy(r) => &r.logs,
-                ReceiptV3::EIP2930(r) => &r.logs,
-                ReceiptV3::EIP1559(r) => &r.logs,
+                ReceiptV3::Legacy(r) | ReceiptV3::EIP2930(r) | ReceiptV3::EIP1559(r) => &r.logs,
             };
 
             for log in logs {
-                let map = logs_map.entry(log.address).or_insert(Vec::new());
+                let map = logs_map.entry(log.address).or_default();
 
                 map.push(LogIndex {
                     block_hash: receipt.block_hash,

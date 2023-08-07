@@ -26,6 +26,7 @@ enum AttributeTypes : uint8_t {
     Transfer   = 'b',
     EVMType    = 'e',
     Vaults     = 'v',
+    Rules      = 'r',
 };
 
 enum ParamIDs : uint8_t {
@@ -64,6 +65,10 @@ enum TransferIDs : uint8_t {
 
 enum VaultIDs : uint8_t {
     DUSDVault = 'a',
+};
+
+enum RulesIDs : uint8_t {
+    TXRules = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -172,6 +177,12 @@ enum TransferKeys : uint8_t {
 
 enum VaultKeys : uint8_t {
     DUSDVaultEnabled = 'w',
+};
+
+enum RulesKeys : uint8_t {
+    CoreOPReturn = 'a',
+    DVMOPReturn  = 'b',
+    EVMOPReturn  = 'c',
 };
 
 struct CDataStructureV0 {
@@ -364,7 +375,6 @@ using AscendantValue           = std::pair<uint32_t, std::string>;
 using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
 using CConsortiumGlobalMinted  = std::map<DCT_ID, CConsortiumMinted>;
-using XVmAddressFormatItems          = std::set<uint8_t>;
 using CAttributeType           = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue          = std::variant<bool,
                                      CAmount,
@@ -385,6 +395,7 @@ using CAttributeValue          = std::variant<bool,
                                      CConsortiumGlobalMinted,
                                      int32_t,
                                      uint32_t,
+                                     uint64_t,
                                      XVmAddressFormatItems>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
@@ -502,6 +513,7 @@ public:
     static const std::map<uint8_t, std::string> &displayTransferIDs();
     static const std::map<uint8_t, std::string> &displayEVMIDs();
     static const std::map<uint8_t, std::string> &displayVaultIDs();
+    static const std::map<uint8_t, std::string> &displayRulesIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>> &displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview,
@@ -528,6 +540,7 @@ private:
     static const std::map<std::string, uint8_t> &allowedTransferIDs();
     static const std::map<std::string, uint8_t> &allowedEVMIDs();
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
+    static const std::map<std::string, uint8_t> &allowedRulesIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
         &parseValue();
