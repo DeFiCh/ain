@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         CAmount const baseSubsidy = GetBlockSubsidy(height, consensus);
         tx.vout[1].nValue = baseSubsidy * consensus.foundationShareDFIP1 / COIN;
         tx.vout[0].nValue -= tx.vout[1].nValue;
-        tx.vout[0].nValue -= baseSubsidy * consensus.nonUtxoBlockSubsidies.at(CommunityAccountType::IncentiveFunding) / COIN;
-        tx.vout[0].nValue -= baseSubsidy * consensus.nonUtxoBlockSubsidies.at(CommunityAccountType::AnchorReward) / COIN;
+        tx.vout[0].nValue -= baseSubsidy * consensus.blockTokenRewardsLegacy.at(CommunityAccountType::IncentiveFunding) / COIN;
+        tx.vout[0].nValue -= baseSubsidy * consensus.blockTokenRewardsLegacy.at(CommunityAccountType::AnchorReward) / COIN;
 
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
         BOOST_CHECK(res.ok);

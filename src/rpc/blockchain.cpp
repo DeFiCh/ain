@@ -190,11 +190,11 @@ struct RewardInfo {
         result.BlockReward = blockReward;
 
         if (blockindex->nHeight < consensus.EunosHeight) {
-            for (const auto& [accountType, accountVal] : consensus.nonUtxoBlockSubsidies)
+            for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * accountVal / COIN;
                 switch (accountType) {
-                    // CommunityDevFunds, Loan, Options don't exist in nonUtxoBlockSubsidies here
+                    // CommunityDevFunds, Loan, Options don't exist in blockTokenRewardsLegacy here
                     case CommunityAccountType::AnchorReward:{ tokenRewards.AnchorReward = subsidy; break; }
                     case CommunityAccountType::IncentiveFunding: { tokenRewards.IncentiveFunding = subsidy; break; }
                     default: { tokenRewards.Burnt += subsidy; }
@@ -203,7 +203,7 @@ struct RewardInfo {
             return result;
         }
 
-        for (const auto& [accountType, accountVal] : consensus.newNonUTXOSubsidies)
+        for (const auto& [accountType, accountVal] : consensus.blockTokenRewards)
         {
             if (blockindex->nHeight < consensus.GrandCentralHeight 
             && accountType == CommunityAccountType::CommunityDevFunds) {

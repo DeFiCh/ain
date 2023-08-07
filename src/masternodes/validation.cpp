@@ -25,7 +25,7 @@
 
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
-    if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
+    if (incentivePair != Params().GetConsensus().blockTokenRewards.end())
     {
         CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
         subsidy *= Params().GetConsensus().blocksPerDay();
@@ -48,14 +48,14 @@ static void ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& cache,
     // Hard coded LP_DAILY_DFI_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
+        const auto& incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
         UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
     // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+        const auto& incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::Loan);
         UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
