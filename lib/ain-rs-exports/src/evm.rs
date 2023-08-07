@@ -320,7 +320,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
             }
         }
     }
-
 }
 
 /// Retrieves the EVM queue ID.
@@ -366,10 +365,12 @@ pub fn evm_try_push_tx_in_q(
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
     match signed_tx {
         Ok(signed_tx) => {
-            match SERVICES
-                .evm
-                .push_tx_in_queue(queue_id, signed_tx.into(), hash, U256::from(gas_used))
-            {
+            match SERVICES.evm.push_tx_in_queue(
+                queue_id,
+                signed_tx.into(),
+                hash,
+                U256::from(gas_used),
+            ) {
                 Ok(_) => cross_boundary_success(result),
                 Err(e) => cross_boundary_error_return(result, e.to_string()),
             }

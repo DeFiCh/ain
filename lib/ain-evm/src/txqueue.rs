@@ -131,7 +131,11 @@ impl TransactionQueueMap {
     /// Returns None when the address does not have any transaction queued or
     /// Some(nonce) with the next valid nonce (current + 1) for the associated address
     ///
-    pub unsafe fn get_next_valid_nonce_in(&self, queue_id: u64, address: H160) -> Result<Option<U256>> {
+    pub unsafe fn get_next_valid_nonce_in(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<Option<U256>> {
         self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
     }
 
