@@ -1,18 +1,19 @@
-use crate::receipt::Receipt;
+use std::collections::HashMap;
+use std::fmt;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
+
 use ethereum::BlockAny;
 use ethereum::TransactionV2;
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::{H160, U256};
-use std::collections::HashMap;
-use std::fs::File;
 
 use crate::log::LogIndex;
-use std::fmt;
-use std::io;
-use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
+use crate::receipt::Receipt;
 
 pub trait BlockStorage {
     fn get_block_by_number(&self, number: &U256) -> Option<BlockAny>;

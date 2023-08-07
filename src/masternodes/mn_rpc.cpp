@@ -877,6 +877,16 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
+static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs) {
+    // OpReturnLimits
+    const auto opReturnLimits = OpReturnLimits::From(height, params.GetConsensus(), attrs);
+    opReturnLimits.SetToAttributesIfNotExists(attrs);
+
+    // TransferDomainConfig
+    const auto tdConfig = TransferDomainConfig::From(*pcustomcsview);
+    tdConfig.SetToAttributesIfNotExists(attrs);
+}
+
 UniValue listgovs(const JSONRPCRequest& request) {
     RPCHelpMan{"listgovs",
                "\nReturns information about all governance variables including pending changes\n",
@@ -938,6 +948,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
 
     // Get all stored Gov var changes
     auto pending = pcustomcsview->GetAllStoredVariables();
+    const auto height = pcustomcsview->GetLastHeight();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {
@@ -952,6 +963,11 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
+                    if (height >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                        if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
+                            AddDefaultVars(height, Params(), *attributes);
+                        }
+                    }
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                     val = a->ExportFiltered(mode, prefix);
                 }

@@ -454,6 +454,15 @@ static ResVal<CAttributeValue> VerifyUInt32(const std::string &str) {
     return {uint32, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
+    uint64_t x;
+    if (!ParseUInt64(str, &x)) {
+        return DeFiErrors::GovVarVerifyInt();
+    }
+    return {x, Res::Ok()};
+}
+
+
 static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
     CAmount int64;
     if (!ParseInt64(str, &int64) || int64 < 0) {
@@ -813,9 +822,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             }},
             {AttributeTypes::Rules,
              {
-                {RulesKeys::CoreOPReturn, VerifyUInt32},
-                {RulesKeys::DVMOPReturn, VerifyUInt32},
-                {RulesKeys::EVMOPReturn, VerifyUInt32},
+                {RulesKeys::CoreOPReturn, VerifyUInt64},
+                {RulesKeys::DVMOPReturn, VerifyUInt64},
+                {RulesKeys::EVMOPReturn, VerifyUInt64},
              }},
     };
     return parsers;
@@ -1484,6 +1493,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto number = std::get_if<int32_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto number = std::get_if<uint32_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
+            } else if (const auto number = std::get_if<uint64_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&

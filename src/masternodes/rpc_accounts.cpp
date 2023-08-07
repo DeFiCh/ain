@@ -1830,7 +1830,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CAmount burnt{0};
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+    for (const auto& kv : Params().GetConsensus().blockTokenRewards)
     {
         // Skip these as any unused balance will be burnt.
         if (kv.first == CommunityAccountType::Options) {
@@ -1943,6 +1943,12 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    if (scriptMeta.size() > nMaxDatacarrierBytes) {
+        throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
+                                                "It may happened because too many \"from\" or \"to\" accounts balances."
+                                                "If you use autoselection, you can try to use \"pie\" selection mode for decreasing accounts count.");
+    }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -2212,7 +2218,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
 
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+    for (const auto& kv : Params().GetConsensus().blockTokenRewards) {
         if (kv.first == CommunityAccountType::Unallocated ||
             kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {

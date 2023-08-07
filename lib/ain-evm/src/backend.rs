@@ -197,9 +197,8 @@ impl EVMBackend {
     }
 
     pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
-        let account = match self.get_account(&contract) {
-            Some(account) => account,
-            None => return Ok(U256::zero()),
+        let Some(account) = self.get_account(&contract) else {
+            return Ok(U256::zero());
         };
 
         let state = self
@@ -438,11 +437,7 @@ impl fmt::Display for EVMBackendError {
             }
             EVMBackendError::TrieError(e) => write!(f, "EVMBackendError: Trie error {e}"),
             EVMBackendError::NoSuchAccount(address) => {
-                write!(
-                    f,
-                    "EVMBackendError: No such acccount for address {}",
-                    address
-                )
+                write!(f, "EVMBackendError: No such acccount for address {address}")
             }
             EVMBackendError::InsufficientBalance(InsufficientBalance {
                 address,

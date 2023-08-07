@@ -1,8 +1,8 @@
-use crate::proto;
 use async_trait::async_trait;
+use proto::eth::*;
 use tonic::{Request, Response, Status};
 
-use proto::eth::*;
+use crate::proto;
 
 struct ApiImpl {}
 

@@ -2096,7 +2096,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         if (height >= consensus.EunosHeight)
         {
             CAmount subsidy;
-            for (const auto& kv : consensus.newNonUTXOSubsidies)
+            for (const auto& kv : consensus.blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < consensus.GrandCentralHeight) {
@@ -2174,7 +2174,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else
         {
-            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+            for (const auto& kv : consensus.blockTokenRewardsLegacy) {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
@@ -2205,7 +2205,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
     {
         if (height >= Params().GetConsensus().EunosHeight)
         {
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < Params().GetConsensus().GrandCentralHeight) {
@@ -2256,7 +2256,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
         }
         else
         {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 mnview.SubCommunityBalance(kv.first, subsidy);
@@ -2601,17 +2601,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 coreKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::CoreOPReturn};
-    CDataStructureV0 dvmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::DVMOPReturn};
-    CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
-
-    OPReturnValidationCtx opreturnCtx{
-        pindex->nHeight >= chainparams.GetConsensus().NextNetworkUpgradeHeight,
-        attributes->GetValue(coreKey, MAX_OP_RETURN_RELAY),
-        attributes->GetValue(dvmKey, MAX_OP_RETURN_DVM_RELAY),
-        attributes->GetValue(evmKey, MAX_OP_RETURN_EVM_RELAY)};
-
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
+
+    // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
+    const auto evmEnabledOnBlockHead = IsEVMEnabled(pindex->nHeight, mnview, chainparams.GetConsensus());
 
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -2683,7 +2676,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opreturnCtx);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2851,7 +2844,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary);
+    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -3347,7 +3340,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         if (IsEVMEnabled(pindexNew->nHeight, mnview, chainparams.GetConsensus())) {
             CrossBoundaryResult result;
-            evm_try_finalize(result, evmQueueId, true, blockConnecting.nBits, beneficiary, blockConnecting.GetBlockTime(), pindexNew->nHeight);
+            evm_try_finalize_block(result, evmQueueId);
             if (!result.ok) {
                 state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("EVM finalization failed: %s", result.reason.c_str()),

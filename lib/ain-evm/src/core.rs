@@ -1,7 +1,18 @@
+use std::error::Error;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use anyhow::format_err;
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum_types::{Bloom, BloomInput, H160, U256};
+use log::debug;
+use primitive_types::H256;
+use vsdb_core::vsdb_set_base_dir;
+
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas_fee;
+use crate::fee::{calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
 use crate::services::SERVICES;
@@ -15,18 +26,6 @@ use crate::{
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
 };
-use primitive_types::H256;
-
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
-
-use anyhow::format_err;
-use hex::FromHex;
-use log::debug;
-use std::error::Error;
-use std::path::PathBuf;
-use std::sync::Arc;
-use vsdb_core::vsdb_set_base_dir;
 
 pub type NativeTxHash = [u8; 32];
 
@@ -93,10 +92,10 @@ impl EVMCoreService {
             PartialHeader {
                 state_root,
                 number: U256::zero(),
-                beneficiary: Default::default(),
+                beneficiary: H160::default(),
                 receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
-                logs_bloom: Default::default(),
-                gas_used: Default::default(),
+                logs_bloom: Bloom::default(),
+                gas_used: U256::default(),
                 gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
@@ -164,6 +163,24 @@ impl EVMCoreService {
         }))
     }
 
+    /// Validates a raw tx.
+    ///
+    /// The validation checks of the tx before we consider it to be valid are:
+    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 2. Gas price check: verify that the maximum gas price  is minimally of the block initial base fee.
+    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 4. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 5. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    ///
+    /// # Arguments
+    ///
+    /// * `tx` - The raw tx.
+    /// * `queue_id` - The queue_id queue number.
+    /// * `use_context` - Flag to call tx with stack executor.
+    ///
+    /// # Returns
+    ///
+    /// Returns the signed tx, tx prepay gas fees and the gas used to call the tx.
     pub fn validate_raw_tx(
         &self,
         tx: &str,
@@ -171,24 +188,24 @@ impl EVMCoreService {
         use_context: bool,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
-        let buffer = <Vec<u8>>::from_hex(tx)?;
-        let tx: TransactionV2 = ethereum::EnvelopedDecodable::decode(&buffer)
+        let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[validate_raw_tx] TransactionV2 : {:#?}", tx);
+        debug!(
+            "[validate_raw_tx] TransactionV2 : {:#?}",
+            signed_tx.transaction
+        );
 
         let block_number = self
             .storage
             .get_latest_block()
             .map(|block| block.header.number)
             .unwrap_or_default();
-
         debug!("[validate_raw_tx] block_number : {:#?}", block_number);
 
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = self
             .get_nonce(signed_tx.sender, block_number)
             .map_err(|e| format_err!("Error getting nonce {e}"))?;
-
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -209,16 +226,21 @@ impl EVMCoreService {
             .into());
         }
 
+        // Validate tx gas price with initial block base fee
+        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        if tx_gas_price < INITIAL_BASE_FEE {
+            debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
+            return Err(format_err!("tx gas price is lower than initial block base fee").into());
+        }
+
         let balance = self
             .get_balance(signed_tx.sender, block_number)
             .map_err(|e| format_err!("Error getting balance {e}"))?;
-
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
-        let gas_limit = signed_tx.gas_limit();
+        // Validate tx prepay fees with account balance
         if balance < prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(format_err!("insufficient balance to pay fees").into());
@@ -227,12 +249,13 @@ impl EVMCoreService {
         // Validate tx gas limit with intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
+        // Validate gas limit
+        let gas_limit = signed_tx.gas_limit();
         if gas_limit > MAX_GAS_PER_BLOCK {
-            debug!("[validate_raw_tx] Gas limit higher than MAX_GAS_PER_BLOCK");
-            return Err(format_err!("Gas limit higher than MAX_GAS_PER_BLOCK").into());
+            debug!("[validate_raw_tx] gas limit higher than MAX_GAS_PER_BLOCK");
+            return Err(format_err!("gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        // Get tx gas usage
         let used_gas = if use_context {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
@@ -324,11 +347,6 @@ impl EVMCoreService {
         self.tx_queues.get_queue_id()
     }
 
-    pub fn clear(&self, queue_id: u64) -> Result<(), EVMError> {
-        self.tx_queues.clear(queue_id)?;
-        Ok(())
-    }
-
     pub fn remove(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }
@@ -357,16 +375,19 @@ impl EVMCoreService {
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_queue(&self, queue_id: u64, address: H160) -> U256 {
+    pub fn get_next_valid_nonce_in_queue(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<U256, QueueError> {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(queue_id, address)
+            .get_next_valid_nonce(queue_id, address)?
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
                     .get_latest_block()
-                    .map(|b| b.header.number)
-                    .unwrap_or_else(U256::zero);
+                    .map_or_else(U256::zero, |b| b.header.number);
 
                 self.get_nonce(address, latest_block)
                     .unwrap_or_else(|_| U256::zero())
@@ -376,7 +397,7 @@ impl EVMCoreService {
             "Account {:x?} nonce {:x?} in queue_id {queue_id}",
             address, nonce
         );
-        nonce
+        Ok(nonce)
     }
 }
 
@@ -496,7 +517,7 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Default::default(),
+            Vicinity::default(),
         )
     }
 }

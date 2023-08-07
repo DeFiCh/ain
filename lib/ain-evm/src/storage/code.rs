@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::traits::PersistentState;
 
@@ -25,7 +26,7 @@ impl CodeHistory {
         self.code_map.insert(code_hash, code);
         self.history
             .entry(block_number)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(code_hash);
     }
 

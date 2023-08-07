@@ -25,7 +25,7 @@
 
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
-    if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
+    if (incentivePair != Params().GetConsensus().blockTokenRewards.end())
     {
         CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
         subsidy *= Params().GetConsensus().blocksPerDay();
@@ -48,14 +48,14 @@ static void ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& cache,
     // Hard coded LP_DAILY_DFI_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
+        const auto& incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
         UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
     // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
     if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
     {
-        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+        const auto& incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::Loan);
         UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
@@ -2379,7 +2379,32 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const FinalizeBlockCompletion &blockResult) {
+    const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
+    // Miner does not add output on null block
+    if (coinbaseBlockHash.IsNull()) return Res::Ok();
+
+    auto res = XVM::TryFrom(scriptPubKey);
+    if (!res.ok) return res;
+    
+    auto obj = *res;
+
+    if (obj.evm.blockHash != coinbaseBlockHash) {
+        return Res::Err("Incorrect EVM block hash in coinbase output");
+    }
+
+    if (obj.evm.burntFee != blockResult.total_burnt_fees) {
+        return Res::Err("Incorrect EVM burnt fee in coinbase output");
+    }
+
+    if (obj.evm.priorityFee != blockResult.total_priority_fees) {
+        return Res::Err("Incorrect EVM priority fee in coinbase output");
+    }
+
+    return Res::Ok();
+}
+
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
 
     CKeyID minter;
@@ -2423,12 +2448,21 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_finalize(result, evmQueueId, false, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
+    const auto blockResult = evm_try_construct_block(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
     auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
     auto evmBlockHash = uint256(evmBlockHashData);
+
+    if (evmEnabledOnBlockHead) {
+        if (block.vtx[0]->vout.size() < 2) {
+            return Res::Err("Not enough outputs in coinbase TX");
+        }
+
+        auto res = ValidateCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey, blockResult);
+        if (!res) return res;
+    }
 
     auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
@@ -2465,11 +2499,11 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     CCustomCSView cache(mnview);
 
     // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary);
+    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
     if (!res) return res;
 
     // Construct undo

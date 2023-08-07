@@ -347,7 +347,6 @@ using AscendantValue           = std::pair<uint32_t, std::string>;
 using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
 using CConsortiumGlobalMinted  = std::map<DCT_ID, CConsortiumMinted>;
-using XVmAddressFormatItems          = std::set<uint8_t>;
 using CAttributeType           = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue          = std::variant<bool,
                                      CAmount,
@@ -366,6 +365,7 @@ using CAttributeValue          = std::variant<bool,
                                      CConsortiumGlobalMinted,
                                      int32_t,
                                      uint32_t,
+                                     uint64_t,
                                      XVmAddressFormatItems>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);

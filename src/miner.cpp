@@ -38,38 +38,6 @@
 #include <random>
 #include <utility>
 
-struct EVM {
-    uint32_t version;
-    uint256 blockHash;
-    uint64_t burntFee;
-    uint64_t priorityFee;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(version);
-        READWRITE(blockHash);
-        READWRITE(burntFee);
-        READWRITE(priorityFee);
-    }
-};
-
-struct XVM {
-    uint32_t version;
-    EVM evm;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(version);
-        READWRITE(evm);
-    }
-};
-
 typedef std::array<std::uint8_t, 20> EvmAddress;
 
 struct EvmAddressWithNonce {
@@ -318,7 +286,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         std::array<uint8_t, 20> beneficiary{};
         std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
-        auto blockResult = evm_try_finalize(result, evmQueueId, false, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
+        auto blockResult = evm_try_construct_block(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
         evm_discard_context(evmQueueId);
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
@@ -439,7 +407,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
     } else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
-        for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+        for (const auto& kv : consensus.blockTokenRewardsLegacy) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
         }
         // Pinch off foundation share
@@ -721,12 +689,20 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 }
             }
             evmAddressTxsMap.erase(addrKey.address);
-            evm_remove_txs_by_sender(evmQueueId, addrKey.address);
+            evm_try_remove_txs_by_sender(result, evmQueueId, addrKey.address);
+            // TODO handle missing evmQueueId error
+            if (!result.ok) {
+                return false;
+            }
+
             return false;
         }
     }
 
-    const auto nonce = evm_get_next_valid_nonce_in_queue(evmQueueId, txResult.sender);
+    const auto nonce = evm_try_get_next_valid_nonce_in_queue(result, evmQueueId, txResult.sender);
+    if (!result.ok) {
+        return false;
+    }
     if (nonce != txResult.nonce) {
         // Only add if not already in failed TXs to prevent adding on second attempt.
         if (!failedTxSet.count(txIter)) {
