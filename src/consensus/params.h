@@ -221,8 +221,8 @@ struct Params {
     };
     CProposalParams props;
 
-    std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
-    std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
+    std::map<CommunityAccountType, CAmount> blockTokenRewardsLegacy;
+    std::map<CommunityAccountType, uint32_t> blockTokenRewards;
 
     uint64_t evmChainId;
 };

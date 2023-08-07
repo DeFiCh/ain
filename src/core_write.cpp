@@ -183,8 +183,48 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("addresses", a);
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, int version)
 {
+    const auto txInToUniValue = [](const CTransaction& tx, const CTxIn& txin, const unsigned int index, bool include_hex) {
+        UniValue in(UniValue::VOBJ);
+        if (tx.IsCoinBase())
+            in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+        else {
+            in.pushKV("txid", txin.prevout.hash.GetHex());
+            in.pushKV("vout", (int64_t)txin.prevout.n);
+            UniValue o(UniValue::VOBJ);
+            o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
+            if (include_hex) {
+                o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            }
+            in.pushKV("scriptSig", o);
+            if (!tx.vin[index].scriptWitness.IsNull()) {
+                UniValue txinwitness(UniValue::VARR);
+                for (const auto& item : tx.vin[index].scriptWitness.stack) {
+                    txinwitness.push_back(HexStr(item.begin(), item.end()));
+                }
+                in.pushKV("txinwitness", txinwitness);
+            }
+        }
+        in.pushKV("sequence", (int64_t)txin.nSequence);
+        return in;
+    };
+
+    const auto txOutToUniValue = [](const CTransaction& tx, const CTxOut& txout, const unsigned int index, bool include_hex, int version) {
+        UniValue out(UniValue::VOBJ);
+        out.pushKV("value", ValueFromAmount(txout.nValue));
+        out.pushKV("n", (int64_t)index);
+        UniValue o(UniValue::VOBJ);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex);
+        out.pushKV("scriptPubKey", o);
+        // We skip this for v3+ as we tokenId field is unused.
+        if (version <= 2 && tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
+            // Start to print tokenId start from version TOKENS_MIN_VERSION
+            out.pushKV("tokenId", (uint64_t)txout.nTokenId.v);
+        }
+        return out;
+    };
+
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
     entry.pushKV("version", tx.nVersion);
@@ -195,47 +235,13 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        const CTxIn& txin = tx.vin[i];
-        UniValue in(UniValue::VOBJ);
-        if (tx.IsCoinBase())
-            in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
-        else {
-            in.pushKV("txid", txin.prevout.hash.GetHex());
-            in.pushKV("vout", (int64_t)txin.prevout.n);
-            UniValue o(UniValue::VOBJ);
-            o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
-            o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
-            in.pushKV("scriptSig", o);
-            if (!tx.vin[i].scriptWitness.IsNull()) {
-                UniValue txinwitness(UniValue::VARR);
-                for (const auto& item : tx.vin[i].scriptWitness.stack) {
-                    txinwitness.push_back(HexStr(item.begin(), item.end()));
-                }
-                in.pushKV("txinwitness", txinwitness);
-            }
-        }
-        in.pushKV("sequence", (int64_t)txin.nSequence);
-        vin.push_back(in);
+        vin.push_back(txInToUniValue(tx, tx.vin[i], i, include_hex));
     }
     entry.pushKV("vin", vin);
 
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        const CTxOut& txout = tx.vout[i];
-
-        UniValue out(UniValue::VOBJ);
-
-        out.pushKV("value", ValueFromAmount(txout.nValue));
-        out.pushKV("n", (int64_t)i);
-
-        UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
-        out.pushKV("scriptPubKey", o);
-        // Start to print tokenId start from version TOKENS_MIN_VERSION
-        if (tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
-            out.pushKV("tokenId", (uint64_t)txout.nTokenId.v);
-        }
-        vout.push_back(out);
+        vout.push_back(txOutToUniValue(tx, tx.vout[i], i, include_hex, version));
     }
     entry.pushKV("vout", vout);
 

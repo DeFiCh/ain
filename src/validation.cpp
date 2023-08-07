@@ -2096,7 +2096,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         if (height >= consensus.EunosHeight)
         {
             CAmount subsidy;
-            for (const auto& kv : consensus.newNonUTXOSubsidies)
+            for (const auto& kv : consensus.blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < consensus.GrandCentralHeight) {
@@ -2174,7 +2174,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else
         {
-            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+            for (const auto& kv : consensus.blockTokenRewardsLegacy) {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
@@ -2205,7 +2205,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
     {
         if (height >= Params().GetConsensus().EunosHeight)
         {
-            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
                     if (height < Params().GetConsensus().GrandCentralHeight) {
@@ -2256,7 +2256,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
         }
         else
         {
-            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : Params().GetConsensus().blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 mnview.SubCommunityBalance(kv.first, subsidy);
@@ -2601,7 +2601,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    auto opReturnLimits = OpReturnLimits::From(pindex->nHeight, chainparams, *attributes);
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
@@ -2677,7 +2676,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, opReturnLimits);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

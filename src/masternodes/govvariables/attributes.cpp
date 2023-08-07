@@ -1496,6 +1496,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto number = std::get_if<uint32_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
+            } else if (const auto number = std::get_if<uint64_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
