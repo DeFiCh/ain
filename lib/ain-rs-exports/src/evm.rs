@@ -245,8 +245,23 @@ pub fn evm_try_prevalidate_raw_tx(
         }) => cross_boundary_success_return(
             result,
             ffi::PreValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
+                tx_info: ffi::EVMTransaction {
+                    hash: signed_tx.hash().to_fixed_bytes(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    nonce: signed_tx.nonce().try_into().unwrap_or_default(),
+                    gas_price: WeiAmount(signed_tx.gas_price()).to_satoshi().into(),
+                    gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
+                    create_tx: match signed_tx.action() {
+                        TransactionAction::Call(_) => false,
+                        TransactionAction::Create => true,
+                    },
+                    to: match signed_tx.to() {
+                        Some(to) => to.to_fixed_bytes(),
+                        None => H160::zero().to_fixed_bytes(),
+                    },
+                    value: WeiAmount(signed_tx.value()).to_satoshi().into(),
+                    data: signed_tx.data().to_vec().clone(),
+                },
                 prepay_fee: prepay_fee.try_into().unwrap_or_default(),
             },
         ),
@@ -302,8 +317,23 @@ pub fn evm_try_validate_raw_tx(
         }) => cross_boundary_success_return(
             result,
             ffi::ValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
+                tx_info: ffi::EVMTransaction {
+                    hash: signed_tx.hash().to_fixed_bytes(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    nonce: signed_tx.nonce().try_into().unwrap_or_default(),
+                    gas_price: WeiAmount(signed_tx.gas_price()).to_satoshi().into(),
+                    gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
+                    create_tx: match signed_tx.action() {
+                        TransactionAction::Call(_) => false,
+                        TransactionAction::Create => true,
+                    },
+                    to: match signed_tx.to() {
+                        Some(to) => to.to_fixed_bytes(),
+                        None => H160::zero().to_fixed_bytes(),
+                    },
+                    value: WeiAmount(signed_tx.value()).to_satoshi().into(),
+                    data: signed_tx.data().to_vec().clone(),
+                },
                 prepay_fee: prepay_fee.try_into().unwrap_or_default(),
                 gas_used: used_gas,
             },

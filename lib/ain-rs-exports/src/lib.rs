@@ -7,6 +7,20 @@ use crate::evm::*;
 
 #[cxx::bridge]
 pub mod ffi {
+    // ========== Transaction ==========
+    #[derive(Default)]
+    pub struct EVMTransaction {
+        pub hash: [u8; 32],
+        pub sender: [u8; 20],
+        pub nonce: u64,
+        pub gas_price: [u8; 32],
+        pub gas_limit: u64,
+        pub create_tx: bool,
+        pub to: [u8; 20],
+        pub value: [u8; 32],
+        pub data: Vec<u8>,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -50,15 +64,13 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct PreValidateTxCompletion {
-        pub nonce: u64,
-        pub sender: [u8; 20],
+        pub tx_info: EVMTransaction,
         pub prepay_fee: u64,
     }
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
-        pub nonce: u64,
-        pub sender: [u8; 20],
+        pub tx_info: EVMTransaction,
         pub prepay_fee: u64,
         pub gas_used: u64,
     }
