@@ -18,7 +18,7 @@ inline CommunityAccountType CommunityAccountCodeToType(unsigned char ch) {
         return CommunityAccountType::None;
 }
 
-inline const char *GetCommunityAccountName(CommunityAccountType t) {
+inline const std::string GetCommunityAccountName(const CommunityAccountType t) {
     switch (t) {
         case CommunityAccountType::IncentiveFunding:
             return "IncentiveFunding";

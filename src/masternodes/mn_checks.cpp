@@ -5230,6 +5230,45 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
     return attributes->GetValue(enabledKey, false);
 }
 
+UniValue EVM::ToUniValue() const {
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("version", static_cast<uint64_t>(version));
+    obj.pushKV("blockHash", "0x" + blockHash.GetHex());
+    obj.pushKV("burntFee", burntFee);
+    obj.pushKV("priorityFee", priorityFee);
+    return obj;
+}
+
+UniValue XVM::ToUniValue() const {
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("version", static_cast<uint64_t>(version));
+    obj.pushKV("evm", evm.ToUniValue());
+    return obj;
+}
+
+ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
+    opcodetype opcode;
+    auto pc = scriptPubKey.begin();
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return Res::Err("Coinbase XVM: OP_RETURN expected");
+    }
+
+    std::vector<unsigned char> metadata;
+    if (!scriptPubKey.GetOp(pc, opcode, metadata)
+        || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
+        return Res::Err("Coinbase XVM: OP_PUSHDATA expected");
+    }
+
+    XVM obj;
+    try {
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        ss >> obj;
+    } catch (...) {
+        return Res::Err("Coinbase XVM: Deserialization failed");
+    }
+    return { obj, Res::Ok() };
+}
+
 
 OpReturnLimits OpReturnLimits::Default() {
     return OpReturnLimits {
@@ -5264,22 +5303,26 @@ void OpReturnLimits::SetToAttributesIfNotExists(ATTRIBUTES& attrs) const {
 }
 
 Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) const {
+    auto err = [](const std::string area, const int voutIndex) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "OP_RETURN size check: vout[%d] %s failure", voutIndex, area);
+    };
+    
     // Check core OP_RETURN size on vout[0]
     if (txType == CustomTxType::EvmTx) {
         if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, evmSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid EVM OP_RETURN data size");
+            return err("EVM", 0);
         }
     } else if (txType != CustomTxType::None) {
         if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, dvmSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid DVM OP_RETURN data size");
+            return err("DVM", 0);
         }
     } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, coreSizeBytes)) {
-        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            return err("Core", 0);
     }
     // Check core OP_RETURN size on vout[1] and higher outputs
     for (size_t i{1}; i < tx.vout.size(); ++i) {
         if (!CheckOPReturnSize(tx.vout[i].scriptPubKey, coreSizeBytes)) {
-            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid core OP_RETURN data size");
+            return err("Core", i);
         }
     }
     return Res::Ok();
