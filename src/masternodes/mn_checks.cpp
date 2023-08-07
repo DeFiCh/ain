@@ -4344,8 +4344,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId,
-                  const OpReturnLimits &opReturnLimits) {
+                  const uint64_t evmQueueId) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4354,7 +4353,11 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+
     // Check OP_RETURN sizes
+    const auto opReturnLimits = OpReturnLimits::From(height, consensus, *attributes);
     if (opReturnLimits.shouldEnforce) {
         if (auto r = opReturnLimits.Validate(tx, txType); !r) {
             return r;
@@ -5230,7 +5233,7 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
 
 OpReturnLimits OpReturnLimits::Default() {
     return OpReturnLimits {
-        true,
+        false,
         MAX_OP_RETURN_CORE_ACCEPT,
         MAX_OP_RETURN_DVM_ACCEPT,
         MAX_OP_RETURN_EVM_ACCEPT,
@@ -5243,10 +5246,10 @@ struct OpReturnLimitsKeys {
     CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
 };
 
-OpReturnLimits OpReturnLimits::From(const uint64_t height, const CChainParams& chainparams, const ATTRIBUTES& attributes) {
+OpReturnLimits OpReturnLimits::From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
-    item.shouldEnforce = height >= static_cast<uint64_t>(chainparams.GetConsensus().NextNetworkUpgradeHeight);
+    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.NextNetworkUpgradeHeight);
     item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
     item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
     item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);
