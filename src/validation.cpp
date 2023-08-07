@@ -2054,8 +2054,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
-    auto finalCheckAndReturn = [&]() {
-        if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
+    auto finalCheckAndReturn = [&](const CAmount reward) {
+        if (cbValues.at(DCT_ID{0}) > reward + nFees)
             return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
         return Res::Ok();
     };
@@ -2120,7 +2120,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             nonUtxoTotal += subsidy;
         }
         blockReward -= nonUtxoTotal;
-        return finalCheckAndReturn();
+        return finalCheckAndReturn(blockReward);
     };
 
     auto handleCurrentTokenRewards = [&finalCheckAndReturn, &logAccountChange, &isGovernanceEnabled, &isUnusedEmissionFundEnabled](const CTransaction& tx, CAmount blockReward, CCustomCSView& view, const Consensus::Params& consensus, int height) {
@@ -2186,13 +2186,13 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
 
         blockReward -= nonUtxoTotal;
-        return finalCheckAndReturn();
+        return finalCheckAndReturn(blockReward);
     };
 
     // Actual logic starts here
 
     if (height < consensus.AMKHeight) {
-        return finalCheckAndReturn();
+        return finalCheckAndReturn(blockReward);
     }
 
     if (auto r = tryVerifyUtxoRewards(tx, blockReward, height, consensus); !r) {
