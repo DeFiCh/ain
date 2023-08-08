@@ -1853,6 +1853,7 @@ public:
                 }
 
                 govVar->time = time;
+                govVar->evmQueueId = evmQueueId;
 
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
