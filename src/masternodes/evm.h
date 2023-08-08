@@ -26,6 +26,33 @@ struct CEvmTxMessage {
     }
 };
 
+struct CEVMTxInfo {
+    uint256 hash;
+    std::string sender;
+    uint64_t nonce;
+    uint64_t gasPrice;
+    uint64_t gasLimit;
+    bool createTx;
+    std::string to;
+    uint64_t value;
+    std::vector<uint8_t> data;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(hash);
+        READWRITE(sender);
+        READWRITE(nonce);
+        READWRITE(gasPrice);
+        READWRITE(gasLimit);
+        READWRITE(createTx);
+        READWRITE(to);
+        READWRITE(value);
+        READWRITE(data);
+    }
+};
+
 class CVMDomainGraphView : public virtual CStorageView {
 public:
     Res SetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey, uint256 blockHash);
@@ -36,12 +63,19 @@ public:
     ResVal<uint256> GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const;
     void ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback, const std::pair<VMDomainEdge, uint256> &start = {});
 
+    Res SetEVMTxInformation(uint256 txHashKey, CEVMTxInfo txInfo);
+    ResVal<CEVMTxInfo> GetEVMTxInformation(uint256 txHashKey);
+
     struct VMDomainBlockEdge {
         static constexpr uint8_t prefix() { return 'N'; }
     };
 
     struct VMDomainTxEdge {
         static constexpr uint8_t prefix() { return 'e'; }
+    };
+
+    struct EVMTxInfo {
+        static constexpr uint8_t prefix() { return 'h'; }
     };
 };
 
