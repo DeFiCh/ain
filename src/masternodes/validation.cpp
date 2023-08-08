@@ -17,6 +17,7 @@
 #include <masternodes/validation.h>
 #include <masternodes/threadpool.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/errors.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
@@ -2404,8 +2405,8 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
     return Res::Ok();
 }
 
-static ResVal<uint64_t> ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return {std::numeric_limits<uint64_t>::max(), Res::Ok()};
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return {Res::Ok()};
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
@@ -2484,30 +2485,47 @@ static ResVal<uint64_t> ProcessEVMQueue(const CBlock &block, const CBlockIndex *
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
 
-    return {blockResult.block_number, Res::Ok()};
+    return Res::Ok();
 }
-
 
 static Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
+
+    CrossBoundaryResult result;
+    auto evmTargetBlock = evm_unsafe_try_get_target_block_in_q(result, evmQueueId);
+    if (!result.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+    if (evmTargetBlock > 0) return Res::Ok();
+
     auto time = GetTimeMillis();
     LogPrintf("DST20 migration ...\n");
 
-    CrossBoundaryResult result;
-    cache.ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, loanToken.name, loanToken.symbol, key.ToString())) {
+    cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
+        if (token.IsPoolShare()) return true;
+        if (!token.IsDAT()) return true;
+
+        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString())) {
+            return result.ok;
+        }
+
+        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
+                token.name, token.symbol, id.ToString());
+        return result.ok;
+    }, DCT_ID{1});  // start from non-DFI
+    if (!result.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+
+    cache.ForEachLoanToken([&](DCT_ID const & id, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, loanToken.name, loanToken.symbol, id.ToString())) {
             return result.ok;
         }
 
         evm_try_create_dst20(result, evmQueueId, loanToken.creationTx.GetByteArray(),
-                    loanToken.name, loanToken.symbol, key.ToString());
+                    loanToken.name, loanToken.symbol, id.ToString());
         return result.ok;
     });
+
     LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
-    return result.ok ? Res::Ok() : Res::Err("Error migrating DST20 token: %s", result.reason.c_str());
+    return result.ok ? Res::Ok() : DeFiErrors::DST20MigrationFailure(result.reason.c_str());
 }
-
-
 
 static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
     // construct undo
@@ -2524,15 +2542,13 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
 Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     CCustomCSView cache(mnview);
 
-    // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
     if (!res) return res;
 
-    auto isEVMGenesisBlock = *res.val == 0;
-    if (isEVMGenesisBlock) {
-        auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
-        if (!res) return res;
-    }
+    // Process EVM block
+    res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    if (!res) return res;
+
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
