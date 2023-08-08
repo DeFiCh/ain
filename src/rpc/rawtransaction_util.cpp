@@ -86,10 +86,10 @@ CScript DecodeScript(std::string const& str)
     return GetScriptForDestination(dest);
 }
 
-void RejectEthAddress(const CScript &address) {
+void RejectErc55Address(const CScript &address) {
     CTxDestination dest;
     if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Eth type addresses are not valid");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "ERC55 addresses not supported");
     }
 }
 
@@ -262,7 +262,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             }
             CScript scriptPubKey = GetScriptForDestination(destination);
 
-            RejectEthAddress(scriptPubKey);
+            RejectErc55Address(scriptPubKey);
 
             auto amounts = DecodeAmounts(chain, outputs[name_], name_);
             for (auto const & kv : amounts.balances) {

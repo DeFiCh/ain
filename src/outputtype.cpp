@@ -18,7 +18,6 @@ static const std::string OUTPUT_TYPE_STRING_LEGACY = "legacy";
 static const std::string OUTPUT_TYPE_STRING_P2SH_SEGWIT = "p2sh-segwit";
 static const std::string OUTPUT_TYPE_STRING_BECH32 = "bech32";
 static const std::string OUTPUT_TYPE_STRING_ERC55 = "erc55";
-static const std::string OUTPUT_TYPE_STRING_ETH = "eth";
 
 bool ParseOutputType(const std::string& type, OutputType& output_type)
 {
@@ -31,8 +30,8 @@ bool ParseOutputType(const std::string& type, OutputType& output_type)
     } else if (type == OUTPUT_TYPE_STRING_BECH32) {
         output_type = OutputType::BECH32;
         return true;
-    } else if (type == OUTPUT_TYPE_STRING_ERC55 || type == OUTPUT_TYPE_STRING_ETH) {
-        output_type = OutputType::ETH;
+    } else if (type == OUTPUT_TYPE_STRING_ERC55) {
+        output_type = OutputType::ERC55;
         return true;
     }
     return false;
@@ -44,7 +43,7 @@ const std::string& FormatOutputType(OutputType type)
     case OutputType::LEGACY: return OUTPUT_TYPE_STRING_LEGACY;
     case OutputType::P2SH_SEGWIT: return OUTPUT_TYPE_STRING_P2SH_SEGWIT;
     case OutputType::BECH32: return OUTPUT_TYPE_STRING_BECH32;
-    case OutputType::ETH: return OUTPUT_TYPE_STRING_ETH;
+    case OutputType::ERC55: return OUTPUT_TYPE_STRING_ERC55;
     default: assert(false);
     }
 }
@@ -64,7 +63,7 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
             return witdest;
         }
     }
-    case OutputType::ETH: {
+    case OutputType::ERC55: {
         CPubKey pubkeyCopy = key;
         if (pubkeyCopy.IsCompressed()) {
             pubkeyCopy.Decompress();
