@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 CARGO := $(if $(CARGO),$(CARGO),cargo)
 
 # ENABLE_DEBUG is set from configure. We respect DEBUG too if set
