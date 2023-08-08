@@ -165,5 +165,10 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         ) -> bool;
+
+        fn evm_unsafe_try_get_target_block_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+        ) -> u64;
     }
 }

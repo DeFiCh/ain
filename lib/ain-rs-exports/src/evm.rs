@@ -584,3 +584,24 @@ pub fn evm_try_bridge_dst20(
         }
     }
 }
+
+/// Retrieves the queue target block
+///
+/// # Arguments
+///
+/// * `queue_id` - The queue ID.
+///
+/// # Returns
+///
+/// Returns the target block for a specific queue_id as a `u64`
+pub fn evm_unsafe_try_get_target_block_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+) -> u64 {
+    unsafe {
+        match SERVICES.evm.core.get_target_block_in(queue_id) {
+            Ok(target_block) => cross_boundary_success_return(result, target_block.as_u64()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
+}

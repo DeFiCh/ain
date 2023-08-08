@@ -368,7 +368,11 @@ impl EVMCoreService {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn create_queue(&self) -> u64 {
-        self.tx_queues.create()
+        let target_block = match self.storage.get_latest_block() {
+            None => U256::zero(), // Genesis queue
+            Some(block) => block.header.number + 1,
+        };
+        self.tx_queues.create(target_block)
     }
 
     ///
@@ -394,6 +398,17 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         self.tx_queues.remove_by_sender_in(queue_id, address)?;
         Ok(())
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256, EVMError> {
+        let target_block = self.tx_queues.get_target_block_in(queue_id)?;
+        Ok(target_block)
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular queue.
