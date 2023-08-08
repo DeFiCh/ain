@@ -1133,6 +1133,11 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
         const CTxDestination& address = item_it->first;
 
         // Do not display Eth addresses
+        // 
+        // This is ok since it's not allowed on mainnet due as these
+        // will be non-standard TX.
+        // TODO: flag it later to optionally display later.
+
         if (address.index() == WitV16KeyEthHashType) {
             continue;
         }
