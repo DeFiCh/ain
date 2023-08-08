@@ -2488,7 +2488,7 @@ static ResVal<uint64_t> ProcessEVMQueue(const CBlock &block, const CBlockIndex *
 }
 
 
-static Res ProcessDST20Migration(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
+static Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
     if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
     auto time = GetTimeMillis();
     LogPrintf("DST20 migration ...\n");
@@ -2530,7 +2530,7 @@ Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustom
 
     auto isEVMGenesisBlock = *res.val == 0;
     if (isEVMGenesisBlock) {
-        auto res = ProcessDST20Migration(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+        auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
         if (!res) return res;
     }
 
