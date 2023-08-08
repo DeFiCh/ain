@@ -479,7 +479,7 @@ class CCustomCSView : public CMasternodesView,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
             CSettingsView           ::  KVSettings,
             CProposalView           ::  ByType, ByCycle, ByMnVote, ByStatus,
-            CVMDomainGraphView      ::  VMDomainBlockEdge, VMDomainTxEdge, EVMTxInfo
+            CVMDomainGraphView      ::  VMDomainBlockEdge, VMDomainTxEdge, EVMTransaction
         >();
     }
     // clang-format on

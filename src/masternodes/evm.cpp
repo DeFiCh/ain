@@ -47,14 +47,14 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(std::function<bool(const std::pa
             }, std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-Res CVMDomainGraphView::SetEVMTxInformation(uint256 txHashKey, CEVMTxInfo txInfo) {
-    return WriteBy<EVMTxInfo>(txHashKey, txInfo)
+Res CVMDomainGraphView::SetEVMTransaction(uint256 txHashKey, CEVMTransaction txInfo) {
+    return WriteBy<EVMTransaction>(txHashKey, txInfo)
         ? Res::Ok() : DeFiErrors::DatabaseRWFailure(txHashKey.GetHex());
 }
 
-ResVal<CEVMTxInfo> CVMDomainGraphView::GetEVMTxInformation(uint256 txHashKey) {
-    CEVMTxInfo evmTxInfo;
-    if (ReadBy<EVMTxInfo>(txHashKey, evmTxInfo))
-        return ResVal<CEVMTxInfo>(evmTxInfo, Res::Ok());
+ResVal<CEVMTransaction> CVMDomainGraphView::GetEVMTransaction(uint256 txHashKey) {
+    CEVMTransaction evmTxInfo;
+    if (ReadBy<EVMTransaction>(txHashKey, evmTxInfo))
+        return ResVal<CEVMTransaction>(evmTxInfo, Res::Ok());
     return DeFiErrors::DatabaseKeyNotFound(txHashKey.GetHex());
 }

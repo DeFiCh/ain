@@ -26,7 +26,7 @@ struct CEvmTxMessage {
     }
 };
 
-struct CEVMTxInfo {
+struct CEVMTransaction {
     uint256 hash;
     std::string sender;
     uint64_t nonce;
@@ -63,8 +63,8 @@ public:
     ResVal<uint256> GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const;
     void ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback, const std::pair<VMDomainEdge, uint256> &start = {});
 
-    Res SetEVMTxInformation(uint256 txHashKey, CEVMTxInfo txInfo);
-    ResVal<CEVMTxInfo> GetEVMTxInformation(uint256 txHashKey);
+    Res SetEVMTransaction(uint256 txHashKey, CEVMTransaction txInfo);
+    ResVal<CEVMTransaction> GetEVMTransaction(uint256 txHashKey);
 
     struct VMDomainBlockEdge {
         static constexpr uint8_t prefix() { return 'N'; }
@@ -74,7 +74,7 @@ public:
         static constexpr uint8_t prefix() { return 'e'; }
     };
 
-    struct EVMTxInfo {
+    struct EVMTransaction {
         static constexpr uint8_t prefix() { return 'h'; }
     };
 };

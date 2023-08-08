@@ -576,7 +576,16 @@ public:
     }
 
     void operator()(const CEvmTxMessage &obj) const {
-        rpcInfo.pushKV("evmTx", HexStr(obj.evmTx.begin(),obj.evmTx.end()));
+        auto txHash = tx.GetHash();
+        if (auto evmTx =  mnview.GetEVMTransaction(txHash)) {
+            rpcInfo.pushKV("hash", evmTx->hash.ToString());
+            rpcInfo.pushKV("sender", evmTx->sender);
+            rpcInfo.pushKV("gasPrice", evmTx->gasPrice);
+            rpcInfo.pushKV("gasLimit", evmTx->gasLimit);
+            rpcInfo.pushKV("createTx", evmTx->createTx);
+            rpcInfo.pushKV("to", evmTx->to);
+            rpcInfo.pushKV("value", evmTx->value);
+        }
     }
 
     void operator()(const CCustomTxMessageNone &) const {}
