@@ -490,7 +490,6 @@ class DST20(DefiTestFramework):
 
         # Contract ABI
         # Temp. workaround
-        import os
         self.abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/abi.json", "r", encoding="utf8").read()
 
         # Generate chain
