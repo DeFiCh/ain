@@ -63,7 +63,7 @@ public:
     ResVal<uint256> GetVMDomainTxEdge(VMDomainEdge type, uint256 txHashKey) const;
     void ForEachVMDomainTxEdges(std::function<bool(const std::pair<VMDomainEdge, uint256> &, const uint256 &)> callback, const std::pair<VMDomainEdge, uint256> &start = {});
 
-    Res SetEVMTransaction(uint256 txHashKey, CEVMTransaction txInfo);
+    Res SetEVMTransaction(uint256 txHashKey, CEVMTransaction evmTx);
     ResVal<CEVMTransaction> GetEVMTransaction(uint256 txHashKey);
 
     struct VMDomainBlockEdge {

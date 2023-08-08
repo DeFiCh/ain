@@ -13,7 +13,7 @@ enum class VMDomainRPCMapType {
     BlockHashDVMToEVM,
     BlockHashEVMToDVM,
     TxHashDVMToEVM,
-    TxHashEVMToEVM,
+    TxHashEVMToDVM,
 };
 
 std::string GetVMDomainRPCMapType(VMDomainRPCMapType t) {
@@ -30,8 +30,8 @@ std::string GetVMDomainRPCMapType(VMDomainRPCMapType t) {
             return "BlockHashEVMToDVM";
         case VMDomainRPCMapType::TxHashDVMToEVM:
             return "TxHashDVMToEVM";
-        case VMDomainRPCMapType::TxHashEVMToEVM:
-            return "TxHashEVMToEVM";
+        case VMDomainRPCMapType::TxHashEVMToDVM:
+            return "TxHashEVMToDVM";
         default:
             return "Unknown";
     }
@@ -219,7 +219,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
         if (res)
-            return VMDomainRPCMapType::TxHashEVMToEVM;
+            return VMDomainRPCMapType::TxHashEVMToDVM;
 
         res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
         if (res)
@@ -360,7 +360,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
             break;
         }
-        case VMDomainRPCMapType::TxHashEVMToEVM: {
+        case VMDomainRPCMapType::TxHashEVMToDVM: {
             res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
             break;
         }
