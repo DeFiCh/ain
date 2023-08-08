@@ -848,7 +848,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
-Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
+Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview, const CTransaction &tx, const int height, const CAmount nFees, const Consensus::Params &consensus);
 void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus);
 
 inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t percentage)

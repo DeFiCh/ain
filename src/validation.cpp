@@ -2044,7 +2044,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     return flags;
 }
 
-Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
+Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview, const CTransaction &tx, const int height, const CAmount nFees, const Consensus::Params& consensus)
 {
     // TODO(legacy-cleanup): Clean up the rest of the method with proper structures
     // and a more comprehensible flow
@@ -2077,7 +2077,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return attrs.GetValue(k, false);
     };
 
-    auto tryVerifyUtxoRewards = [](const CTransaction& tx, const CAmount blockReward, int height, const Consensus::Params& consensus) {
+    auto tryVerifyUtxoRewards = [](const CTransaction &tx, const CAmount blockReward, const int height, const Consensus::Params &consensus) {
         CAmount foundationReward{0};
         if (height >= consensus.GrandCentralHeight) {
             // no foundation utxo reward check anymore
@@ -2089,7 +2089,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
         if (foundationReward) {
             bool foundationsRewardfound = false;
-            for (auto& txout : tx.vout) {
+            for (const auto &txout : tx.vout) {
                 if (txout.scriptPubKey == consensus.foundationShareScript) {
                     if (txout.nValue < foundationReward) {
                         return Res::ErrDbg("bad-cb-foundation-reward",
@@ -2150,8 +2150,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                     assert(attributes);
                     if (accountType == CommunityAccountType::CommunityDevFunds) {
                         if (!isGovernanceEnabled(*attributes)) {
-                            continue;
-                        } else {
                             res = view.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
                             // TODO: Result check missed; check full sync and add checks
                             logAccountChange(tx, subsidy, ScriptToString(consensus.foundationShareScript));
