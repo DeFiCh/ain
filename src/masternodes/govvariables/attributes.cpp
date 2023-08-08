@@ -617,9 +617,17 @@ static bool VerifyToken(const CCustomCSView &view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
-static bool VerifyDATToken(const CCustomCSView &view, const std::string str) {
+static bool VerifyDATToken(const CCustomCSView &view, const std::string &str) {
     const auto tokenPair = view.GetToken(str);
     if (tokenPair && tokenPair->second && tokenPair->second->IsDAT()) {
+        return true;
+    }
+    return false;
+}
+
+static bool VerifyDATToken(const CCustomCSView &view, const uint32_t id) {
+    const auto token = view.GetToken(DCT_ID{id});
+    if (token && token->IsDAT()) {
         return true;
     }
     return false;
@@ -1717,8 +1725,16 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
-                        if (!VerifyToken(view, attrV0->typeId)) {
-                            return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                        // Post fork remove this guard as long as there were no non-DAT loan tokens before
+                        // the fork. A full sync test on the removal of this guard will tell.
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            if (!VerifyDATToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        } else {
+                            if (!VerifyToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
                         }
                         CDataStructureV0 intervalPriceKey{
                             AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
