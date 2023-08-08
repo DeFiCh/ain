@@ -3887,13 +3887,14 @@ public:
             return res;
         }
 
-        const auto attributes = mnview.GetAttributes();
+        auto attributes = mnview.GetAttributes();
         assert(attributes);
-        CDataStructureV0 transferDomainBalancesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
-        auto transferDomainBalances = attributes->GetValue(transferDomainBalancesKey, CTransferDomainAccounting{});
+        CDataStructureV0 transferDomainAccountingKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
+        auto transferDomainAccounting = attributes->GetValue(transferDomainAccountingKey, CTransferDomainAccounting{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
+            // Source parsing
             if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from DFI address
                 CBalances balance;
@@ -3901,7 +3902,9 @@ public:
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-                transferDomainBalances.dvmEvm.AddBalances(balance.balances);
+                transferDomainAccounting.dvmEvmTotal.AddBalances(balance.balances);
+                transferDomainAccounting.dvmOut.AddBalances(balance.balances);
+                transferDomainAccounting.dvmCurrent.balances[src.amount.nTokenId] -= src.amount.nValue;
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ETH address
                 CTxDestination dest;
@@ -3929,7 +3932,11 @@ public:
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
                 }
+                auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
+                transferDomainAccounting.evmOut.Add(tokenAmount);
+                transferDomainAccounting.evmCurrent.balances[tokenId] -= src.amount.nValue;
             }
+            // Destination parsing
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Add balance to DFI address
                 CBalances balance;
@@ -3937,7 +3944,9 @@ public:
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-                transferDomainBalances.evmDvm.AddBalances(balance.balances);
+                transferDomainAccounting.evmDvmTotal.AddBalances(balance.balances);
+                transferDomainAccounting.dvmIn.AddBalances(balance.balances);
+                transferDomainAccounting.dvmCurrent.AddBalances(balance.balances);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ETH address
                 CTxDestination dest;
@@ -3963,6 +3972,9 @@ public:
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
                 }
+                auto tokenAmount = CTokenAmount{tokenId, dst.amount.nValue};
+                transferDomainAccounting.evmIn.Add(tokenAmount);
+                transferDomainAccounting.evmCurrent.Add(tokenAmount);
             }
 
             if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
@@ -3970,10 +3982,8 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainBalancesKey, transferDomainBalances);
-        mnview.SetVariable(*attributes);
-
-        return res;
+        attributes->SetValue(transferDomainAccountingKey, transferDomainAccounting);
+        return mnview.SetVariable(*attributes);
     }
 
     Res operator()(const CEvmTxMessage &obj) const {

@@ -141,8 +141,11 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['100.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], [])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm-evm/0/total'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/current'], Decimal('-100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/out'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm/0/current'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm/0/in'], Decimal('100.00000000'))
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
@@ -164,10 +167,14 @@ class EVMTest(DefiTestFramework):
 
         # Transfer 100 DFI from DVM to EVM
         self.valid_transfer_dvm_evm()
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        print(attributes)
 
         # Transfer 100 DFI from EVM to DVM
         tx = self.nodes[0].transferdomain([{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
         self.nodes[0].generate(1)
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        print(attributes)
 
         # Check tx fields
         result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
@@ -187,8 +194,14 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/transferdomain/dvm->evm'], ['100.00000000@DFI'])
-        assert_equal(attributes['v0/live/economy/transferdomain/evm->dvm'], ['100.00000000@DFI'])
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm-evm/0/total'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/current'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/out'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/in'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm-dvm/0/total'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm/0/current'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm/0/in'], Decimal('100.00000000'))
+        assert_equal(attributes['v0/live/economy/transferdomain/evm/0/out'], Decimal('100.00000000'))
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']

@@ -1535,6 +1535,33 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
+            }  else if (const auto accounting = std::get_if<CTransferDomainAccounting>(&attribute.second)) {
+                std::cout << accounting->dvmEvmTotal.balances.size() << "|" << accounting->evmDvmTotal.balances.size() << std::endl;
+                    auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
+                    auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
+                    auto dvmDomain    = KeyBuilder(key, "dvm");
+                    auto evmDomain    = KeyBuilder(key, "evm");
+                    for (const auto &[id, value] : accounting->dvmEvmTotal.balances)
+                        ret.pushKV(KeyBuilder(dvmEvmEdge, id.v, "total"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->evmDvmTotal.balances)
+                        ret.pushKV(KeyBuilder(evmDvmEdge, id.v, "total"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->dvmCurrent.balances)
+                        ret.pushKV(KeyBuilder(dvmDomain, id.v, "current"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->dvmIn.balances)
+                        ret.pushKV(KeyBuilder(dvmDomain, id.v, "in"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->dvmOut.balances)
+                        ret.pushKV(KeyBuilder(dvmDomain, id.v, "out"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->evmCurrent.balances)
+                        ret.pushKV(KeyBuilder(evmDomain, id.v, "current"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->evmIn.balances)
+                        ret.pushKV(KeyBuilder(evmDomain, id.v, "in"), ValueFromAmount(value));
+                    for (const auto &[id, value] : accounting->evmOut.balances)
+                        ret.pushKV(KeyBuilder(evmDomain, id.v, "out"), ValueFromAmount(value));
+            } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
+                    auto burntKey    = KeyBuilder(key, "burnt");
+                    auto paidKey    = KeyBuilder(key, "paid");
+                    ret.pushKV(burntKey, ValueFromAmount(amounts->burnt));
+                    ret.pushKV(paidKey, ValueFromAmount(amounts->paid));
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
@@ -1628,16 +1655,6 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                 }
                 ret.pushKV(key, array);
-            } else if (const auto balances = std::get_if<CTransferDomainAccounting>(&attribute.second)) {
-                    auto dvmEvmKey    = KeyBuilder(key, "dvm->evm");
-                    auto evmDvmKey    = KeyBuilder(key, "evm->dvm");
-                    ret.pushKV(dvmEvmKey, AmountsToJSON(balances->dvmEvm.balances));
-                    ret.pushKV(evmDvmKey, AmountsToJSON(balances->evmDvm.balances));
-            } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
-                    auto burntKey    = KeyBuilder(key, "burnt");
-                    auto paidKey    = KeyBuilder(key, "paid");
-                    ret.pushKV(burntKey, ValueFromAmount(amounts->burnt));
-                    ret.pushKV(paidKey, ValueFromAmount(amounts->paid));
             }
         } catch (const std::out_of_range &) {
             // Should not get here, that's mean maps are mismatched

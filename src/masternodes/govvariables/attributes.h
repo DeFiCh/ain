@@ -281,15 +281,27 @@ struct CDexTokenInfo {
 enum FeeDirValues : uint8_t { Both, In, Out };
 
 struct CTransferDomainAccounting {
-    CBalances dvmEvm;
-    CBalances evmDvm;
+    CBalances dvmEvmTotal;
+    CBalances evmDvmTotal;
+    CBalances dvmIn;
+    CBalances evmIn;
+    CBalances dvmOut;
+    CBalances evmOut;
+    CBalances dvmCurrent;
+    CBalances evmCurrent;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(dvmEvm);
-        READWRITE(evmDvm);
+        READWRITE(dvmEvmTotal);
+        READWRITE(evmDvmTotal);
+        READWRITE(dvmIn);
+        READWRITE(evmIn);
+        READWRITE(dvmOut);
+        READWRITE(evmOut);
+        READWRITE(dvmCurrent);
+        READWRITE(evmCurrent);
     }
 };
 
