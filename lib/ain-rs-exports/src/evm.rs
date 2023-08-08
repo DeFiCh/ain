@@ -449,9 +449,9 @@ pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_
 
 pub fn evm_try_set_attribute(
     result: &mut ffi::CrossBoundaryResult,
-    queue_id: u64,
-    attribute_type: u32,
-    value: u64,
+    _queue_id: u64,
+    _attribute_type: u32,
+    _value: u64,
 ) -> bool {
     cross_boundary_success_return(result, true)
 }
