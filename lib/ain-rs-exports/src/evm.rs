@@ -259,7 +259,10 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                         hash: signed_tx.hash().to_fixed_bytes(),
                         sender: signed_tx.sender.to_fixed_bytes(),
                         nonce: signed_tx.nonce().try_into().unwrap_or_default(),
-                        gas_price: WeiAmount(signed_tx.gas_price()).to_satoshi().try_into().unwrap_or_default(),
+                        gas_price: WeiAmount(signed_tx.gas_price())
+                            .to_satoshi()
+                            .try_into()
+                            .unwrap_or_default(),
                         gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
                         create_tx: match signed_tx.action() {
                             TransactionAction::Call(_) => false,
@@ -269,7 +272,10 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                             Some(to) => to.to_fixed_bytes(),
                             None => H160::zero().to_fixed_bytes(),
                         },
-                        value: WeiAmount(signed_tx.value()).to_satoshi().try_into().unwrap_or_default(),
+                        value: WeiAmount(signed_tx.value())
+                            .to_satoshi()
+                            .try_into()
+                            .unwrap_or_default(),
                         data: signed_tx.data().to_vec(),
                     },
                     prepay_fee: prepay_fee.try_into().unwrap_or_default(),
@@ -332,7 +338,10 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         hash: signed_tx.hash().to_fixed_bytes(),
                         sender: signed_tx.sender.to_fixed_bytes(),
                         nonce: signed_tx.nonce().try_into().unwrap_or_default(),
-                        gas_price: WeiAmount(signed_tx.gas_price()).to_satoshi().try_into().unwrap_or_default(),
+                        gas_price: WeiAmount(signed_tx.gas_price())
+                            .to_satoshi()
+                            .try_into()
+                            .unwrap_or_default(),
                         gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
                         create_tx: match signed_tx.action() {
                             TransactionAction::Call(_) => false,
@@ -342,7 +351,10 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                             Some(to) => to.to_fixed_bytes(),
                             None => H160::zero().to_fixed_bytes(),
                         },
-                        value: WeiAmount(signed_tx.value()).to_satoshi().try_into().unwrap_or_default(),
+                        value: WeiAmount(signed_tx.value())
+                            .to_satoshi()
+                            .try_into()
+                            .unwrap_or_default(),
                         data: signed_tx.data().to_vec(),
                     },
                     prepay_fee: prepay_fee.try_into().unwrap_or_default(),

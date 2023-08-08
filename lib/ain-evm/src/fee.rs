@@ -39,4 +39,3 @@ pub fn calculate_gas_fee(
         None => Err(format_err!("calculate gas fee failed from overflow").into()),
     }
 }
-
