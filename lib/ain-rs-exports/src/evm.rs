@@ -424,6 +424,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 failed_transactions,
                 total_burnt_fees,
                 total_priority_fees,
+                block_number,
             }) => {
                 cross_boundary_success(result);
                 ffi::FinalizeBlockCompletion {
@@ -431,6 +432,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                     failed_transactions,
                     total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
                     total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                    block_number: block_number.as_u64(),
                 }
             }
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -508,12 +510,14 @@ pub fn evm_try_is_dst20_deployed_or_queued(
     symbol: &str,
     token_id: &str,
 ) -> bool {
-    match SERVICES
-        .evm
-        .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
-    {
-        Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match SERVICES
+            .evm
+            .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
+        {
+            Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 

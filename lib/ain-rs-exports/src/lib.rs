@@ -46,6 +46,7 @@ pub mod ffi {
         pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
+        pub block_number: u64,
     }
 
     #[derive(Default)]

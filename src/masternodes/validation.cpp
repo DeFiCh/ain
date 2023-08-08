@@ -2386,7 +2386,7 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
 
     auto res = XVM::TryFrom(scriptPubKey);
     if (!res.ok) return res;
-    
+
     auto obj = *res;
 
     if (obj.evm.blockHash != coinbaseBlockHash) {
@@ -2404,8 +2404,8 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
     return Res::Ok();
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
+static ResVal<uint64_t> ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return {std::numeric_limits<uint64_t>::max(), Res::Ok()};
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
@@ -2484,8 +2484,30 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
 
-    return Res::Ok();
+    return {blockResult.block_number, Res::Ok()};
 }
+
+
+static Res ProcessDST20Migration(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
+    auto time = GetTimeMillis();
+    LogPrintf("DST20 migration ...\n");
+
+    CrossBoundaryResult result;
+    cache.ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, loanToken.name, loanToken.symbol, key.ToString())) {
+            return result.ok;
+        }
+
+        evm_try_create_dst20(result, evmQueueId, loanToken.creationTx.GetByteArray(),
+                    loanToken.name, loanToken.symbol, key.ToString());
+        return result.ok;
+    });
+    LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
+    return result.ok ? Res::Ok() : Res::Err("Error migrating DST20 token: %s", result.reason.c_str());
+}
+
+
 
 static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
     // construct undo
@@ -2505,6 +2527,12 @@ Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustom
     // Process EVM block
     auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
     if (!res) return res;
+
+    auto isEVMGenesisBlock = *res.val == 0;
+    if (isEVMGenesisBlock) {
+        auto res = ProcessDST20Migration(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+        if (!res) return res;
+    }
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));

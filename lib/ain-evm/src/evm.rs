@@ -41,6 +41,7 @@ pub struct FinalizedBlockInfo {
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
+    pub block_number: U256,
 }
 
 pub struct DeployContractInfo {
@@ -343,6 +344,7 @@ impl EVMServices {
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
+            block_number: current_block_number,
         })
     }
 
@@ -524,7 +526,7 @@ impl EVMServices {
         })
     }
 
-    pub fn is_dst20_deployed_or_queued(
+    pub unsafe fn is_dst20_deployed_or_queued(
         &self,
         queue_id: u64,
         name: &str,
@@ -549,11 +551,7 @@ impl EVMServices {
             address,
         }));
 
-        let is_queued = self
-            .core
-            .tx_queues
-            .get_queue(queue_id)?
-            .is_queued(deploy_tx);
+        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
 
         Ok(is_queued)
     }
