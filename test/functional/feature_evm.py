@@ -220,11 +220,11 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 1)
 
         # Check for invalid parameters in transferdomain rpc
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].createrawtransaction, [{'txid': txid, 'vout': 1}], [{eth_address: 1}])
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendmany, "", {eth_address: 1})
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendmany, "", {eth_address: 1})
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].sendtoaddress, eth_address, 1)
-        assert_raises_rpc_error(-5, "Eth type addresses are not valid", self.nodes[0].accounttoaccount, address, {eth_address: "1@DFI"})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].createrawtransaction, [{'txid': txid, 'vout': 1}], [{eth_address: 1}])
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {eth_address: 1})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {eth_address: 1})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendtoaddress, eth_address, 1)
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].accounttoaccount, address, {eth_address: "1@DFI"})
 
         # Deactivate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'false'}})

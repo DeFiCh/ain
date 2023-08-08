@@ -403,9 +403,9 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     msg.shareAddress = DecodeScript(request.params[1].get_str());
 
     for (const auto& [from, balance] : msg.from) {
-        RejectEthAddress(from);
+        RejectErc55Address(from);
     }
-    RejectEthAddress(msg.shareAddress);
+    RejectErc55Address(msg.shareAddress);
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -500,7 +500,7 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
     msg.from   = DecodeScript(from);
     msg.amount = DecodeAmount(pwallet->chain(), amount, from);
 
-    RejectEthAddress(msg.from);
+    RejectErc55Address(msg.from);
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -641,7 +641,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     if (!metadataObj["customRewards"].isNull()) {
         rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
-    RejectEthAddress(ownerAddress);
+    RejectErc55Address(ownerAddress);
 
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
@@ -821,7 +821,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                                                                std::numeric_limits<CAmount>::max()));
         }
     }
-    RejectEthAddress(ownerAddress);
+    RejectErc55Address(ownerAddress);
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -939,8 +939,8 @@ UniValue poolswap(const JSONRPCRequest &request) {
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    RejectEthAddress(poolSwapMsg.from);
-    RejectEthAddress(poolSwapMsg.to);
+    RejectErc55Address(poolSwapMsg.from);
+    RejectErc55Address(poolSwapMsg.to);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap);
@@ -1060,8 +1060,8 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     CPoolSwapMessage &poolSwapMsg = poolSwapMsgV2.swapInfo;
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
-    RejectEthAddress(poolSwapMsg.from);
-    RejectEthAddress(poolSwapMsg.to);
+    RejectErc55Address(poolSwapMsg.from);
+    RejectErc55Address(poolSwapMsg.to);
 
     {
         LOCK(cs_main);
