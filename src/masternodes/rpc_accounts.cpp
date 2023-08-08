@@ -531,8 +531,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                         "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
                     {"symbol_lookup", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Use token symbols in output (default = false)"},
-                    {"include_eth", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Whether to include Eth balances in output (default = false)"},
+                    {"evm", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Include DFI balances in the EVM layer (default = false): Note: This does not include DST20 tokens"},
                 },
                 RPCResult{
                        "{...}     (array) Json object with balances information\n"
@@ -577,9 +577,9 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     if (request.params.size() > 2) {
         symbol_lookup = request.params[2].getBool();
     }
-    auto eth_lookup = false;
+    auto evm_dfi_lookup = false;
     if (request.params.size() > 3) {
-        eth_lookup = request.params[3].getBool();
+        evm_dfi_lookup = request.params[3].getBool();
     }
 
     UniValue ret(UniValue::VARR);
@@ -604,7 +604,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         return true;
     });
 
-    if (eth_lookup) {
+    if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
             std::array<uint8_t, 20> address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
@@ -682,7 +682,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj());
 
     for (const auto& [to, amount] : msg.to) {
-        RejectEthAddress(to);
+        RejectErc55Address(to);
     }
 
     // encode
@@ -840,9 +840,9 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     msg.from = DecodeScript(request.params[0].get_str());
 
     for (const auto& [to, amount] : msg.to) {
-        RejectEthAddress(to);
+        RejectErc55Address(to);
     }
-    RejectEthAddress(msg.from);
+    RejectErc55Address(msg.from);
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -930,7 +930,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // decode sender and recipients
     CAccountToUtxosMessage msg{};
     msg.from = DecodeScript(request.params[0].get_str());
-    RejectEthAddress(msg.from);
+    RejectErc55Address(msg.from);
     const auto to = DecodeRecipients(pwallet->chain(), request.params[1]);
     msg.balances = SumAllTransfers(to);
     if (msg.balances.balances.empty()) {
@@ -1939,10 +1939,10 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     }
 
     for (const auto& [to, amount] : msg.to) {
-        RejectEthAddress(to);
+        RejectErc55Address(to);
     }
     for (const auto& [from, amount] : msg.from) {
-        RejectEthAddress(from);
+        RejectErc55Address(from);
     }
 
     // encode
@@ -1999,7 +1999,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
     // TODO: Add support for non-JSON parameteric input that's human friendly and intuitive
     RPCHelpMan{"transferdomain",
-                "Creates (and submits to local node and network) a tx to transfer balance from DFI/ETH address to DFI/ETH address.\n" +
+                "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to DVM, etc.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"array", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of src and dst json objects",
@@ -2083,7 +2083,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                     const auto auth = GetScriptForDestination(WitnessV0KeyHash(key.GetID()));
                     auths.insert(auth);
                 } else {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Failed to get compressed address for Bech32 equivilent of Eth address"));
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Failed to get compressed address for Bech32 equivilent of ERC55 address"));
                 }
             } else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Invalid parameters, src argument \"domain\" must be either %d (DFI token to EVM) or %d (EVM to DFI token)", static_cast<uint8_t>(VMDomain::DVM), static_cast<uint8_t>(VMDomain::EVM)));
@@ -2435,7 +2435,7 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
     const auto script = GetScriptForDestination(dest);
-    RejectEthAddress(script);
+    RejectErc55Address(script);
 
     CSmartContractMessage msg{};
     msg.name = contractPair.first;
@@ -2577,7 +2577,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
     msg.owner = GetScriptForDestination(dest);
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
 
-    RejectEthAddress(msg.owner);
+    RejectErc55Address(msg.owner);
 
     if (!request.params[2].isNull()) {
         DCT_ID destTokenID{};
@@ -2681,7 +2681,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
         msg.destination = destTokenID.v;
     }
 
-    RejectEthAddress(msg.owner);
+    RejectErc55Address(msg.owner);
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

@@ -3850,7 +3850,7 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
     SetAddressBook(dest, label, "receive");
 
     auto [uncomp, comp] = GetBothPubkeyCompressions(new_key);
-    SetAddressBook(GetDestinationForKey(uncomp, OutputType::ETH), label, "receive");
+    SetAddressBook(GetDestinationForKey(uncomp, OutputType::ERC55), label, "receive");
     SetAddressBook(GetDestinationForKey(uncomp, OutputType::LEGACY), label, "receive");
     SetAddressBook(GetDestinationForKey(comp, OutputType::BECH32), label, "receive");
 
@@ -4808,7 +4808,7 @@ void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
         // Make sure the resulting program is solvable.
         assert(IsSolvable(*this, witprog));
         AddCScript(witprog);
-    } else if (!key.IsCompressed() && type == OutputType::ETH) {
+    } else if (!key.IsCompressed() && type == OutputType::ERC55) {
         CScript script = GetScriptForDestination(WitnessV16EthHash(key));
         AddCScript(script);
     }

@@ -3906,7 +3906,7 @@ public:
                 transferDomainAccounting.dvmOut.AddBalances(balance.balances);
                 transferDomainAccounting.dvmCurrent.balances[src.amount.nTokenId] -= src.amount.nValue;
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Subtract balance from ETH address
+                // Subtract balance from ERC55 address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
@@ -3948,7 +3948,7 @@ public:
                 transferDomainAccounting.dvmIn.AddBalances(balance.balances);
                 transferDomainAccounting.dvmCurrent.AddBalances(balance.balances);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Add balance to ETH address
+                // Add balance to ERC55 address
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);

@@ -269,7 +269,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     pm.contextHash = contextHash;
     pm.options     = 0;
 
-    RejectEthAddress(pm.address);
+    RejectErc55Address(pm.address);
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
