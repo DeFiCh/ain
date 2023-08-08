@@ -306,15 +306,15 @@ struct CTransferDomainAccounting {
 };
 
 struct CEvmFees {
-    CAmount burnt;
-    CAmount paid;
+    CAmount feeBurnt;
+    CAmount feePriority;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(burnt);
-        READWRITE(paid);
+        READWRITE(feeBurnt);
+        READWRITE(feePriority);
     }
 };
 

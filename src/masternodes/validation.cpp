@@ -2488,8 +2488,8 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
 
-    evmFees.burnt += static_cast<CAmount>(blockResult.total_burnt_fees);
-    evmFees.paid += static_cast<CAmount>(blockResult.total_priority_fees);
+    evmFees.feeBurnt += static_cast<CAmount>(blockResult.total_burnt_fees);
+    evmFees.feePriority += static_cast<CAmount>(blockResult.total_priority_fees);
 
     attributes->SetValue(evmFeesKey, evmFees);
     cache.SetVariable(*attributes);

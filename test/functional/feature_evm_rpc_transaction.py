@@ -102,8 +102,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
         self.paid_fee = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -152,8 +152,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
         tx1559 = {
             'nonce': '0x2',
@@ -189,8 +189,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
     def test_send_transaction(self):
         txLegacy = {
@@ -210,8 +210,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -239,8 +239,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
         tx1559 = {
             'from': self.ethAddress,
@@ -261,8 +261,8 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
         self.paid_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/paid']), self.paid_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
+        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
 
     def run_test(self):
         self.setup()

@@ -1558,10 +1558,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     for (const auto &[id, value] : accounting->evmOut.balances)
                         ret.pushKV(KeyBuilder(evmDomain, id.v, "out"), ValueFromAmount(value));
             } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
-                    auto burntKey    = KeyBuilder(key, "burnt");
-                    auto paidKey    = KeyBuilder(key, "paid");
-                    ret.pushKV(burntKey, ValueFromAmount(amounts->burnt));
-                    ret.pushKV(paidKey, ValueFromAmount(amounts->paid));
+                    auto evmFeesBlockKey     = KeyBuilder(key, "block");
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt"), ValueFromAmount(amounts->feeBurnt));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority"), ValueFromAmount(amounts->feePriority));
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
