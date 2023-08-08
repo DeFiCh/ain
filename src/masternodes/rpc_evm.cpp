@@ -49,7 +49,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         "Creates (and submits to local node and network) a tx to send DFI token to EVM address.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-                          {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "From Eth address"},
+                          {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "From ERC55 address"},
                           {"nonce", RPCArg::Type::NUM, RPCArg::Optional::NO, "Transaction nonce"},
                           {"gasPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas Price in Gwei"},
                           {"gasLimit", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas limit"},
