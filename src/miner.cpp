@@ -670,7 +670,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
 
-    const auto addrKey = EvmAddressWithNonce{txResult.tx_info.sender, txResult.tx_info.nonce};
+    const auto addrKey = EvmAddressWithNonce{txResult.sender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
@@ -703,21 +703,21 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
     }
 
-    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.tx_info.sender);
+    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
     if (!result.ok) {
         return false;
     }
-    if (nonce != txResult.tx_info.nonce) {
+    if (nonce != txResult.nonce) {
         // Only add if not already in failed TXs to prevent adding on second attempt.
         if (!failedTxSet.count(txIter)) {
-            failedNonces.emplace(txResult.tx_info.nonce, txIter);
+            failedNonces.emplace(txResult.nonce, txIter);
         }
         return false;
     }
 
-    auto addrNonce = EvmAddressWithNonce{txResult.tx_info.sender, txResult.tx_info.nonce};
+    auto addrNonce = EvmAddressWithNonce{txResult.sender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
-    evmAddressTxsMap[txResult.tx_info.sender].emplace(txResult.tx_info.nonce, txIter);
+    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
     return true;
 }
 

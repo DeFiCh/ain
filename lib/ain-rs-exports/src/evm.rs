@@ -6,6 +6,7 @@ use ain_evm::{
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
+    storage::traits::TransactionStorage,
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
@@ -255,29 +256,8 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
             }) => cross_boundary_success_return(
                 result,
                 ffi::PreValidateTxCompletion {
-                    tx_info: ffi::EVMTransaction {
-                        hash: signed_tx.hash().to_fixed_bytes(),
-                        sender: signed_tx.sender.to_fixed_bytes(),
-                        nonce: signed_tx.nonce().try_into().unwrap_or_default(),
-                        gas_price: WeiAmount(signed_tx.gas_price())
-                            .to_satoshi()
-                            .try_into()
-                            .unwrap_or_default(),
-                        gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
-                        create_tx: match signed_tx.action() {
-                            TransactionAction::Call(_) => false,
-                            TransactionAction::Create => true,
-                        },
-                        to: match signed_tx.to() {
-                            Some(to) => to.to_fixed_bytes(),
-                            None => H160::zero().to_fixed_bytes(),
-                        },
-                        value: WeiAmount(signed_tx.value())
-                            .to_satoshi()
-                            .try_into()
-                            .unwrap_or_default(),
-                        data: signed_tx.data().to_vec(),
-                    },
+                    nonce: signed_tx.nonce().try_into().unwrap_or_default(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
                     prepay_fee: prepay_fee.try_into().unwrap_or_default(),
                 },
             ),
@@ -334,29 +314,9 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
             }) => cross_boundary_success_return(
                 result,
                 ffi::ValidateTxCompletion {
-                    tx_info: ffi::EVMTransaction {
-                        hash: signed_tx.hash().to_fixed_bytes(),
-                        sender: signed_tx.sender.to_fixed_bytes(),
-                        nonce: signed_tx.nonce().try_into().unwrap_or_default(),
-                        gas_price: WeiAmount(signed_tx.gas_price())
-                            .to_satoshi()
-                            .try_into()
-                            .unwrap_or_default(),
-                        gas_limit: signed_tx.gas_limit().try_into().unwrap_or_default(),
-                        create_tx: match signed_tx.action() {
-                            TransactionAction::Call(_) => false,
-                            TransactionAction::Create => true,
-                        },
-                        to: match signed_tx.to() {
-                            Some(to) => to.to_fixed_bytes(),
-                            None => H160::zero().to_fixed_bytes(),
-                        },
-                        value: WeiAmount(signed_tx.value())
-                            .to_satoshi()
-                            .try_into()
-                            .unwrap_or_default(),
-                        data: signed_tx.data().to_vec(),
-                    },
+                    nonce: signed_tx.nonce().try_into().unwrap_or_default(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    tx_hash: signed_tx.hash().to_fixed_bytes(),
                     prepay_fee: prepay_fee.try_into().unwrap_or_default(),
                     gas_used: used_gas,
                 },
@@ -540,6 +500,46 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     match SERVICES.evm.block.get_latest_block_hash_and_number() {
         Some((_, number)) => cross_boundary_success_return(result, number.as_u64()),
         None => cross_boundary_error_return(result, "Unable to get block count"),
+    }
+}
+
+pub fn evm_try_get_tx_by_hash(
+    result: &mut ffi::CrossBoundaryResult,
+    tx_hash: [u8; 32],
+) -> ffi::EVMTransaction {
+    match SERVICES.evm.storage.get_transaction_by_hash(&H256::from(tx_hash)) {
+        Some(tx) => {
+            let Ok(tx) = SignedTx::try_from(tx) else {
+                return cross_boundary_error_return(result, "Unable to get tx from tx hash");
+            };
+
+            let out = ffi::EVMTransaction {
+                hash: tx.hash().to_fixed_bytes(),
+                sender: tx.sender.to_fixed_bytes(),
+                nonce: tx.nonce().try_into().unwrap_or_default(),
+                gas_price: WeiAmount(tx.gas_price())
+                    .to_satoshi()
+                    .try_into()
+                    .unwrap_or_default(),
+                gas_limit: tx.gas_limit().try_into().unwrap_or_default(),
+                create_tx: match tx.action() {
+                    TransactionAction::Call(_) => false,
+                    TransactionAction::Create => true,
+                },
+                to: match tx.to() {
+                    Some(to) => to.to_fixed_bytes(),
+                    None => H160::zero().to_fixed_bytes(),
+                },
+                value: WeiAmount(tx.value())
+                    .to_satoshi()
+                    .try_into()
+                    .unwrap_or_default(),
+                data: tx.data().to_vec(),
+            };
+            cross_boundary_success_return(result, out)
+        }
+        None => cross_boundary_error_return(result, "Unable to get evm tx from tx hash"),
+
     }
 }
 

@@ -64,13 +64,16 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct PreValidateTxCompletion {
-        pub tx_info: EVMTransaction,
+        pub nonce: u64,
+        pub sender: [u8; 20],
         pub prepay_fee: u64,
     }
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
-        pub tx_info: EVMTransaction,
+        pub nonce: u64,
+        pub sender: [u8; 20],
+        pub tx_hash: [u8; 32],
         pub prepay_fee: u64,
         pub gas_used: u64,
     }
@@ -149,8 +152,11 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
-
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
+        fn evm_try_get_tx_by_hash(
+            result: &mut CrossBoundaryResult,
+            tx_hash: [u8; 32],
+        ) -> EVMTransaction;
 
         fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,

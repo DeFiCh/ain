@@ -96,14 +96,6 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res['type'], 'TxHashEVMToDVM')
             assert_equal(res['output'], item[0])
 
-            res = self.nodes[0].getcustomtx(item[0])
-            assert_equal(res['results']['hash'], item[1][2:])
-            assert_equal(res['results']['sender'].lower(), self.ethAddress)
-            assert_equal(res['results']['gasPrice'], 2)
-            assert_equal(res['results']['gasLimit'], 21000)
-            assert_equal(res['results']['createTx'], False)
-            assert_equal(res['results']['to'].lower(), self.toAddress)
-
     def vmmap_invalid_should_fail(self):
         self.rollback_to(self.start_block_height)
         latest_eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)['hash']

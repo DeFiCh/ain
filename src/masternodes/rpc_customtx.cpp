@@ -1,4 +1,4 @@
-
+#include <ain_rs_exports.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <masternodes/mn_checks.h>
@@ -577,14 +577,27 @@ public:
 
     void operator()(const CEvmTxMessage &obj) const {
         auto txHash = tx.GetHash();
-        if (auto evmTx =  mnview.GetEVMTransaction(txHash)) {
-            rpcInfo.pushKV("hash", evmTx->hash.ToString());
-            rpcInfo.pushKV("sender", evmTx->sender);
-            rpcInfo.pushKV("gasPrice", evmTx->gasPrice);
-            rpcInfo.pushKV("gasLimit", evmTx->gasLimit);
-            rpcInfo.pushKV("createTx", evmTx->createTx);
-            rpcInfo.pushKV("to", evmTx->to);
-            rpcInfo.pushKV("value", evmTx->value);
+        if (auto evmTxHash =  mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
+            CrossBoundaryResult result;
+            auto txInfo = evm_try_get_tx_by_hash(result, evmTxHash->GetByteArray());
+            if (result.ok) {
+                auto senderBytes = std::vector<uint8_t>(txInfo.sender.begin(), txInfo.sender.end());
+                auto sender = CTxDestination(WitnessV16EthHash(uint160(senderBytes)));
+                rpcInfo.pushKV("hash", evmTxHash->ToString());
+                rpcInfo.pushKV("nonce", txInfo.nonce);
+                rpcInfo.pushKV("sender", EncodeDestination(sender));
+                rpcInfo.pushKV("gasPrice", txInfo.gas_price);
+                rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
+                rpcInfo.pushKV("createTx", txInfo.create_tx);
+
+                std::string to = "";
+                if (!txInfo.create_tx) {
+                    auto toBytes = std::vector<uint8_t>(txInfo.to.begin(), txInfo.to.end());
+                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160(toBytes))));
+                }
+                rpcInfo.pushKV("to", to);
+                rpcInfo.pushKV("value", txInfo.value);
+            }
         }
     }
 

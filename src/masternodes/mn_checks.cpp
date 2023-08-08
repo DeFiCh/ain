@@ -3998,10 +3998,8 @@ public:
             }
         }
 
-        LogPrintf("here");
-        const auto &evmTxInfo = validateResults.tx_info;
         auto txHash = tx.GetHash();
-        auto evmTxHashBytes = std::vector<uint8_t>(evmTxInfo.hash.begin(), evmTxInfo.hash.end());
+        auto evmTxHashBytes = std::vector<uint8_t>(validateResults.tx_hash.begin(), validateResults.tx_hash.end());
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
@@ -4010,30 +4008,6 @@ public:
         res = mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         if (!res) {
             LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash.ToString());
-        }
-
-        CEVMTransaction evmTx{};
-        auto senderBytes = std::vector<uint8_t>(evmTxInfo.sender.begin(), evmTxInfo.sender.end());
-        LogPrintf("%i", int(senderBytes.size()));
-        auto sender = CTxDestination(WitnessV16EthHash(uint160(senderBytes)));
-        evmTx.sender = EncodeDestination(sender);
-
-        if (!evmTxInfo.to.empty()) {
-            auto toBytes = std::vector<uint8_t>(evmTxInfo.to.begin(), evmTxInfo.to.end());
-            auto to = CTxDestination(WitnessV16EthHash(uint160(toBytes)));
-            evmTx.to = EncodeDestination(to);
-        }
-
-        evmTx.hash = evmTxHash;
-        evmTx.nonce = evmTxInfo.nonce;
-        evmTx.gasPrice = evmTxInfo.gas_price;
-        evmTx.gasLimit = evmTxInfo.gas_limit;
-        evmTx.createTx = evmTxInfo.create_tx;
-        evmTx.value = evmTxInfo.value;
-        evmTx.data.insert(evmTx.data.end(), evmTxInfo.data.begin(), evmTxInfo.data.end());
-        res = mnview.SetEVMTransaction(txHash, evmTx);
-        if (!res) {
-            LogPrintf("Failed to store EVM TX for DFI TX %s\n", txHash.ToString());
         }
         return Res::Ok();
     }
