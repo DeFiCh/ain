@@ -1,3 +1,6 @@
+use ain_evm::storage::traits::BlockStorage;
+use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
+use ain_evm::txqueue::QueueTx;
 use ain_evm::{
     core::ValidateTxInfo,
     evm::FinalizedBlockInfo,
@@ -6,11 +9,6 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
-use std::error::Error;
-
-use ain_evm::storage::traits::BlockStorage;
-use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::txqueue::QueueTx;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
 use log::debug;
 use primitive_types::{H160, H256, U256};
@@ -80,7 +78,7 @@ pub fn evm_try_create_and_sign_tx(
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_get_balance(address: [u8; 20]) -> u64 {
+pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 20]) -> u64 {
     let account = H160::from(address);
     let (_, latest_block_number) = SERVICES
         .evm
@@ -93,7 +91,8 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
             .core
             .get_balance(account, latest_block_number)
             .unwrap_or_default(),
-    ); // convert to try_evm_get_balance - Default to 0 for now
+    ); // convert to evm_try_get_balance - Default to 0 for now
+    cross_boundary_success(result);
     balance.to_satoshi().as_u64()
 }
 
@@ -107,13 +106,22 @@ pub fn evm_get_balance(address: [u8; 20]) -> u64 {
 /// # Returns
 ///
 /// Returns the next valid nonce of the account in a specific queue_id as a `u64`
-pub fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u64 {
+pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: [u8; 20],
+) -> u64 {
     let address = H160::from(address);
-    let nonce = SERVICES
-        .evm
-        .core
-        .get_next_valid_nonce_in_queue(queue_id, address);
-    nonce.as_u64()
+    unsafe {
+        match SERVICES
+            .evm
+            .core
+            .get_next_valid_nonce_in_queue(queue_id, address)
+        {
+            Ok(nonce) => cross_boundary_success_return(result, nonce.as_u64()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
 }
 
 /// Removes all transactions in the queue whose sender matches the provided sender address in a specific queue_id
@@ -123,9 +131,18 @@ pub fn evm_get_next_valid_nonce_in_queue(queue_id: u64, address: [u8; 20]) -> u6
 /// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 ///
-pub fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]) {
+pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: [u8; 20],
+) {
     let address = H160::from(address);
-    let _ = SERVICES.evm.core.remove_txs_by_sender(queue_id, address);
+    unsafe {
+        match SERVICES.evm.core.remove_txs_by_sender_in(queue_id, address) {
+            Ok(_) => cross_boundary_success_return(result, ()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
 }
 
 /// EvmIn. Send DFI to an EVM account.
@@ -137,12 +154,26 @@ pub fn evm_remove_txs_by_sender(queue_id: u64, address: [u8; 20]) {
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 ///
-pub fn evm_add_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) {
-    if let Ok(address) = address.parse() {
-        let _ = SERVICES
+pub fn evm_unsafe_try_add_balance_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: &str,
+    amount: [u8; 32],
+    hash: [u8; 32],
+) {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
+    unsafe {
+        match SERVICES
             .evm
             .core
-            .add_balance(queue_id, address, amount.into(), hash);
+            .add_balance(queue_id, address, amount.into(), hash)
+        {
+            Ok(_) => cross_boundary_success_return(result, ()),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -165,17 +196,27 @@ pub fn evm_add_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8
 /// # Returns
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
-pub fn evm_sub_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8; 32]) -> bool {
-    if let Ok(address) = address.parse() {
-        if let Ok(()) = SERVICES
+pub fn evm_unsafe_try_sub_balance_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    address: &str,
+    amount: [u8; 32],
+    hash: [u8; 32],
+) -> bool {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
+    unsafe {
+        match SERVICES
             .evm
             .core
             .sub_balance(queue_id, address, amount.into(), hash)
         {
-            return true;
+            Ok(_) => cross_boundary_success_return(result, true),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
-    false
 }
 
 /// Pre-validates a raw EVM transaction.
@@ -200,35 +241,29 @@ pub fn evm_sub_balance(queue_id: u64, address: &str, amount: [u8; 32], hash: [u8
 ///
 /// Returns the transaction nonce, sender address and transaction fees if valid.
 /// Logs and set the error reason to result object otherwise.
-pub fn evm_try_prevalidate_raw_tx(
+pub fn evm_unsafe_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
 ) -> ffi::PreValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, false) {
-        Ok(_) => (),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            return cross_boundary_error_return(result, e.to_string());
-        }
-    }
-
     let queue_id = 0;
-    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-            used_gas: _,
-        }) => cross_boundary_success_return(
-            result,
-            ffi::PreValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
-                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-            },
-        ),
-        Err(e) => {
-            debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-            cross_boundary_error_return(result, e.to_string())
+    unsafe {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                used_gas: _,
+            }) => cross_boundary_success_return(
+                result,
+                ffi::PreValidateTxCompletion {
+                    nonce: signed_tx.nonce().as_u64(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
+                },
+            ),
+            Err(e) => {
+                debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
         }
     }
 }
@@ -257,36 +292,37 @@ pub fn evm_try_prevalidate_raw_tx(
 ///
 /// Returns the transaction nonce, sender address, transaction fees and gas used
 /// if valid. Logs and set the error reason to result object otherwise.
-pub fn evm_try_validate_raw_tx(
+pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
     queue_id: u64,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx, true) {
+    match SERVICES.evm.verify_tx_fees(tx) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
             return cross_boundary_error_return(result, e.to_string());
         }
     }
-
-    match SERVICES.evm.core.validate_raw_tx(tx, queue_id, true) {
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-            used_gas,
-        }) => cross_boundary_success_return(
-            result,
-            ffi::ValidateTxCompletion {
-                nonce: signed_tx.nonce().as_u64(),
-                sender: signed_tx.sender.to_fixed_bytes(),
-                prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-                gas_used: used_gas,
-            },
-        ),
-        Err(e) => {
-            debug!("evm_try_validate_raw_tx failed with error: {e}");
-            cross_boundary_error_return(result, e.to_string())
+    unsafe {
+        match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                used_gas,
+            }) => cross_boundary_success_return(
+                result,
+                ffi::ValidateTxCompletion {
+                    nonce: signed_tx.nonce().as_u64(),
+                    sender: signed_tx.sender.to_fixed_bytes(),
+                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
+                    gas_used: used_gas,
+                },
+            ),
+            Err(e) => {
+                debug!("evm_try_validate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
         }
     }
 }
@@ -296,8 +332,11 @@ pub fn evm_try_validate_raw_tx(
 /// # Returns
 ///
 /// Returns the EVM queue ID as a `u64`.
-pub fn evm_get_queue_id() -> u64 {
-    SERVICES.evm.core.get_queue_id()
+pub fn evm_unsafe_try_create_queue(result: &mut ffi::CrossBoundaryResult) -> u64 {
+    let q;
+    unsafe { q = SERVICES.evm.core.create_queue() }
+    cross_boundary_success(result);
+    q
 }
 
 /// /// Discards an EVM queue.
@@ -306,8 +345,9 @@ pub fn evm_get_queue_id() -> u64 {
 ///
 /// * `queue_id` - The queue ID.
 ///
-pub fn evm_discard_context(queue_id: u64) {
-    SERVICES.evm.core.remove(queue_id)
+pub fn evm_unsafe_try_remove_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    unsafe { SERVICES.evm.core.remove_queue(queue_id) }
+    cross_boundary_success(result);
 }
 
 /// Add an EVM transaction to a specific queue.
@@ -324,7 +364,7 @@ pub fn evm_discard_context(queue_id: u64) {
 /// - The `raw_tx` is in invalid format
 /// - The queue does not exists.
 ///
-pub fn evm_try_queue_tx(
+pub fn evm_unsafe_try_push_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
@@ -332,26 +372,29 @@ pub fn evm_try_queue_tx(
     gas_used: u64,
 ) {
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
-    match signed_tx {
-        Ok(signed_tx) => {
-            match SERVICES
-                .evm
-                .queue_tx(queue_id, signed_tx.into(), hash, U256::from(gas_used))
-            {
-                Ok(_) => cross_boundary_success(result),
-                Err(e) => cross_boundary_error_return(result, e.to_string()),
+    unsafe {
+        match signed_tx {
+            Ok(signed_tx) => {
+                match SERVICES.evm.push_tx_in_queue(
+                    queue_id,
+                    signed_tx.into(),
+                    hash,
+                    U256::from(gas_used),
+                ) {
+                    Ok(_) => cross_boundary_success(result),
+                    Err(e) => cross_boundary_error_return(result, e.to_string()),
+                }
             }
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
-/// Finalizes and mine an EVM block.
+/// Creates an EVM block.
 ///
 /// # Arguments
 ///
 /// * `queue_id` - The queue ID.
-/// * `update_state` - A flag indicating whether to update the state.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
@@ -359,44 +402,54 @@ pub fn evm_try_queue_tx(
 /// # Returns
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
-pub fn evm_try_finalize(
+pub fn evm_unsafe_try_construct_block_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    update_state: bool,
     difficulty: u32,
     miner_address: [u8; 20],
     timestamp: u64,
     dvm_block_number: u64,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
-    match SERVICES.evm.finalize_block(
-        queue_id,
-        update_state,
-        difficulty,
-        eth_address,
-        timestamp,
-        dvm_block_number,
-    ) {
-        Ok(FinalizedBlockInfo {
-            block_hash,
-            failed_transactions,
-            total_burnt_fees,
-            total_priority_fees,
-        }) => {
-            result.ok = true;
-            ffi::FinalizeBlockCompletion {
+    unsafe {
+        match SERVICES.evm.construct_block_in_queue(
+            queue_id,
+            difficulty,
+            eth_address,
+            timestamp,
+            dvm_block_number,
+        ) {
+            Ok(FinalizedBlockInfo {
                 block_hash,
                 failed_transactions,
-                total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
-                total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                total_burnt_fees,
+                total_priority_fees,
+            }) => {
+                cross_boundary_success(result);
+                ffi::FinalizeBlockCompletion {
+                    block_hash,
+                    failed_transactions,
+                    total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
+                    total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                }
             }
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
-pub fn evm_disconnect_latest_block() {
+pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
+    unsafe {
+        match SERVICES.evm.commit_queue(queue_id) {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
+}
+
+pub fn evm_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     SERVICES.evm.storage.disconnect_latest_block();
+    cross_boundary_success(result);
 }
 
 /// Return the block for a given height.
@@ -448,43 +501,18 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     }
 }
 
-pub fn evm_create_dst20(
+pub fn evm_try_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
-    context: u64,
+    queue_id: u64,
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
     token_id: &str,
 ) {
-    match create_dst20(context, native_hash, name, symbol, token_id) {
-        Ok(_) => cross_boundary_success(result),
+    let address = match ain_contracts::dst20_address_from_token_id(token_id) {
+        Ok(address) => address,
         Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
-}
-
-pub fn evm_bridge_dst20(
-    result: &mut ffi::CrossBoundaryResult,
-    context: u64,
-    address: &str,
-    amount: [u8; 32],
-    native_tx_hash: [u8; 32],
-    token_id: &str,
-    out: bool,
-) {
-    match bridge_to_dst20(context, address, amount, native_tx_hash, token_id, out) {
-        Ok(_) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
-}
-
-fn create_dst20(
-    context: u64,
-    native_hash: [u8; 32],
-    name: &str,
-    symbol: &str,
-    token_id: &str,
-) -> Result<(), Box<dyn Error>> {
-    let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+    };
     debug!("Deploying to address {:#?}", address);
 
     let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
@@ -492,23 +520,32 @@ fn create_dst20(
         symbol: String::from(symbol),
         address,
     }));
-    SERVICES
-        .evm
-        .queue_tx(context, system_tx, native_hash, U256::zero())?;
 
-    Ok(())
+    unsafe {
+        match SERVICES
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
+        {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
 }
 
-fn bridge_to_dst20(
-    context: u64,
+pub fn evm_try_bridge_dst20(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
     address: &str,
     amount: [u8; 32],
     native_hash: [u8; 32],
     token_id: &str,
     out: bool,
-) -> Result<(), Box<dyn Error>> {
-    let address = address.parse()?;
-    let contract = ain_contracts::dst20_address_from_token_id(token_id)?;
+) {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+    let contract = ain_contracts::dst20_address_from_token_id(token_id)
+        .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         to: address,
@@ -516,9 +553,14 @@ fn bridge_to_dst20(
         amount: amount.into(),
         out,
     }));
-    SERVICES
-        .evm
-        .queue_tx(context, system_tx, native_hash, U256::zero())?;
 
-    Ok(())
+    unsafe {
+        match SERVICES
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
+        {
+            Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
 }

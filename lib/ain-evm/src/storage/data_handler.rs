@@ -1,12 +1,8 @@
+use std::borrow::ToOwned;
 use std::{collections::HashMap, sync::RwLock};
 
-use crate::log::LogIndex;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
-use std::borrow::ToOwned;
-
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
 
 use super::{
     code::CodeHistory,
@@ -15,6 +11,9 @@ use super::{
         Rollback, TransactionStorage,
     },
 };
+use crate::log::LogIndex;
+use crate::receipt::Receipt;
+use crate::storage::traits::LogStorage;
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
@@ -206,9 +205,7 @@ impl LogStorage for BlockchainDataHandler {
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
         let mut address_logs_map = self.address_logs_map.write().unwrap();
 
-        let address_map = address_logs_map
-            .entry(block_number)
-            .or_insert(HashMap::new());
+        let address_map = address_logs_map.entry(block_number).or_default();
         address_map.insert(address, logs);
     }
 }

@@ -724,14 +724,13 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(!IsStandardTx(CTransaction(t), reason));
 
     // MAX_OP_RETURN_RELAY-byte TX_NULL_DATA (standard)
-    const auto customTx{"04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38"};
-    const auto zeros = std::string(39832, '0');
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(customTx + zeros);
+    const auto maxDataSize = MAX_OP_RETURN_RELAY - (2 + 2); // op_ret + push op
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << std::vector<unsigned char>(maxDataSize, '0');
     BOOST_CHECK_EQUAL(MAX_OP_RETURN_RELAY, t.vout[0].scriptPubKey.size());
     BOOST_CHECK(IsStandardTx(CTransaction(t), reason));
 
     // MAX_OP_RETURN_RELAY+1-byte TX_NULL_DATA (non-standard)
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex(customTx + zeros + "00");
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << std::vector<unsigned char>(maxDataSize + 1, '0');
     BOOST_CHECK_EQUAL(MAX_OP_RETURN_RELAY + 1, t.vout[0].scriptPubKey.size());
     BOOST_CHECK(!IsStandardTx(CTransaction(t), reason));
 

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use ain_evm::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::H64;
@@ -8,7 +10,6 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use sha3::Digest;
-use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -256,8 +257,9 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
     }
 }
 
-use ain_evm::block::FeeHistoryData;
 use std::str::FromStr;
+
+use ain_evm::block::FeeHistoryData;
 
 use crate::codegen::types::EthTransactionInfo;
 

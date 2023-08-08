@@ -1,13 +1,13 @@
+use std::cmp::{max, Ordering};
+use std::error::Error;
+use std::sync::Arc;
+
+use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
 use log::debug;
 use primitive_types::U256;
-
-use anyhow::format_err;
 use statrs::statistics::{Data, OrderStatistics};
-use std::cmp::{max, Ordering};
-use std::error::Error;
-use std::sync::Arc;
 
 use crate::storage::{traits::BlockStorage, Storage};
 
@@ -58,9 +58,9 @@ impl BlockService {
             .unwrap_or_default()
     }
 
-    pub fn connect_block(&self, block: BlockAny) {
-        self.storage.put_latest_block(Some(&block));
-        self.storage.put_block(&block);
+    pub fn connect_block(&self, block: &BlockAny) {
+        self.storage.put_latest_block(Some(block));
+        self.storage.put_block(block);
     }
 
     pub fn base_fee_calculation(
@@ -233,7 +233,7 @@ impl BlockService {
                     .collect::<Vec<f64>>();
                 let mut data = Data::new(priority_fees);
 
-                for pct in priority_fee_percentile.iter() {
+                for pct in &priority_fee_percentile {
                     block_rewards.push(U256::from(data.percentile(*pct).ceil() as u64));
                 }
 

@@ -1,9 +1,9 @@
+use std::borrow::ToOwned;
 use std::{num::NonZeroUsize, sync::RwLock};
 
 use ethereum::{BlockAny, TransactionV2};
 use lru::LruCache;
 use primitive_types::{H256, U256};
-use std::borrow::ToOwned;
 
 use super::traits::{BlockStorage, Rollback, TransactionStorage};
 

@@ -1,10 +1,3 @@
-use anyhow::{format_err, Result};
-use proc_macro2::{Span, TokenStream};
-use prost_build::{Config, Service, ServiceGenerator};
-use quote::{quote, ToTokens};
-use regex::Regex;
-use syn::{Attribute, Fields, GenericArgument, Ident, Item, ItemStruct, PathArguments, Type};
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::{DirEntry, File};
@@ -12,6 +5,13 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
+
+use anyhow::{format_err, Result};
+use proc_macro2::{Span, TokenStream};
+use prost_build::{Config, Service, ServiceGenerator};
+use quote::{quote, ToTokens};
+use regex::Regex;
+use syn::{Attribute, Fields, GenericArgument, Ident, Item, ItemStruct, PathArguments, Type};
 
 fn main() -> Result<()> {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);

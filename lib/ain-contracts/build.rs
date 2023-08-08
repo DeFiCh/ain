@@ -1,8 +1,9 @@
-use anyhow::format_err;
-use ethers_solc::{Project, ProjectPathsConfig, Solc};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::format_err;
+use ethers_solc::{Project, ProjectPathsConfig, Solc};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile solidity project

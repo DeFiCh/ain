@@ -1,6 +1,7 @@
-use anyhow::{format_err, Result};
 use std::env;
 use std::path::PathBuf;
+
+use anyhow::{format_err, Result};
 
 fn main() -> Result<()> {
     let pkg_name = env::var("CARGO_PKG_NAME")?;

@@ -31,7 +31,6 @@ pub fn public_key_to_address(pubkey: &PublicKey) -> H160 {
 #[cfg(test)]
 mod tests {
     use hex_literal::hex;
-
     use primitive_types::H256;
 
     use super::{public_key_to_address, recover_public_key};
