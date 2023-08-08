@@ -310,7 +310,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         {
             if (txDetails) {
                 UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, version > 3, RPCSerializationFlags(), version);
+                TxToUniv(*tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
                 if (version > 2) { 
                     if (auto r = txVmInfo(*tx); r) {
                         objTx.pushKV("vm", *r);

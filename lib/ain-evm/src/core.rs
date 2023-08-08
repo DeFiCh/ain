@@ -183,11 +183,16 @@ impl EVMCoreService {
     /// # Returns
     ///
     /// Returns the signed tx, tx prepay gas fees and the gas used to call the tx.
-    pub fn validate_raw_tx(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn validate_raw_tx(
         &self,
         tx: &str,
         queue_id: u64,
-        use_context: bool,
     ) -> Result<ValidateTxInfo, Box<dyn Error>> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
@@ -264,7 +269,8 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than MAX_GAS_PER_BLOCK").into());
         }
 
-        let used_gas = if use_context {
+        let use_queue = queue_id != 0;
+        let used_gas = if use_queue {
             let TxResponse { used_gas, .. } = self.call(EthCallArgs {
                 caller: Some(signed_tx.sender),
                 to: signed_tx.to(),
@@ -280,11 +286,11 @@ impl EVMCoreService {
         };
 
         // Validate total gas usage in queued txs exceeds block size
-        if use_context {
+        if use_queue {
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
-                .get_total_gas_used(queue_id)
+                .get_total_gas_used_in(queue_id)
                 .unwrap_or_default();
 
             if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
@@ -311,7 +317,13 @@ impl EVMCoreService {
 
 // Transaction queue methods
 impl EVMCoreService {
-    pub fn add_balance(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn add_balance(
         &self,
         queue_id: u64,
         address: H160,
@@ -320,11 +332,17 @@ impl EVMCoreService {
     ) -> Result<(), EVMError> {
         let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+            .push_in(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
         Ok(())
     }
 
-    pub fn sub_balance(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn sub_balance(
         &self,
         queue_id: u64,
         address: H160,
@@ -346,21 +364,43 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .queue_tx(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+                .push_in(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
             Ok(())
         }
     }
 
-    pub fn get_queue_id(&self) -> u64 {
-        self.tx_queues.get_queue_id()
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn create_queue(&self) -> u64 {
+        self.tx_queues.create()
     }
 
-    pub fn remove(&self, queue_id: u64) {
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn remove_queue(&self, queue_id: u64) {
         self.tx_queues.remove(queue_id);
     }
 
-    pub fn remove_txs_by_sender(&self, queue_id: u64, address: H160) -> Result<(), EVMError> {
-        self.tx_queues.remove_txs_by_sender(queue_id, address)?;
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn remove_txs_by_sender_in(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<(), EVMError> {
+        self.tx_queues.remove_by_sender_in(queue_id, address)?;
         Ok(())
     }
 
@@ -383,14 +423,20 @@ impl EVMCoreService {
     /// # Returns
     ///
     /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    pub fn get_next_valid_nonce_in_queue(
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_next_valid_nonce_in_queue(
         &self,
         queue_id: u64,
         address: H160,
     ) -> Result<U256, QueueError> {
         let nonce = self
             .tx_queues
-            .get_next_valid_nonce(queue_id, address)?
+            .get_next_valid_nonce_in(queue_id, address)?
             .unwrap_or_else(|| {
                 let latest_block = self
                     .storage
