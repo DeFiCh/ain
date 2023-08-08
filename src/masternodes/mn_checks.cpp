@@ -3999,7 +3999,6 @@ public:
 
         auto txHash = tx.GetHash();
         auto evmTxHashBytes = std::vector<uint8_t>(validateResults.tx_info.hash.begin(), validateResults.tx_info.hash.end());
-        std::reverse(evmTxHashBytes.begin(), evmTxHashBytes.end());
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
