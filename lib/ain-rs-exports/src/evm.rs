@@ -507,7 +507,11 @@ pub fn evm_try_get_tx_by_hash(
     result: &mut ffi::CrossBoundaryResult,
     tx_hash: [u8; 32],
 ) -> ffi::EVMTransaction {
-    match SERVICES.evm.storage.get_transaction_by_hash(&H256::from(tx_hash)) {
+    match SERVICES
+        .evm
+        .storage
+        .get_transaction_by_hash(&H256::from(tx_hash))
+    {
         Some(tx) => {
             let Ok(tx) = SignedTx::try_from(tx) else {
                 return cross_boundary_error_return(result, "Unable to get tx from tx hash");
@@ -539,7 +543,6 @@ pub fn evm_try_get_tx_by_hash(
             cross_boundary_success_return(result, out)
         }
         None => cross_boundary_error_return(result, "Unable to get evm tx from tx hash"),
-
     }
 }
 
