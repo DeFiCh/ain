@@ -51,7 +51,10 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
             if (foundTokenAmount != accountBalances.end()) {
                 tokenIds.insert(foundTokenAmount->first);
                 // add token amount to selected balances from current account
-                selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
+                const auto res = selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
+                if (!res.ok) {
+                    return {};
+                }
             }
         }
         if (!selectedBalances.balances.empty()) {
@@ -87,12 +90,20 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
             auto itTokenAmount = accountBalances.second.balances.find(tokenId);
             if (itTokenAmount != accountBalances.second.balances.end()) {
                 CTokenAmount tokenBalance{itTokenAmount->first, itTokenAmount->second};
-                auto remainder = residualBalances.SubWithRemainder(tokenBalance);
+                auto resVal = residualBalances.SubWithRemainder(tokenBalance);
+                if (!resVal.ok)
+                    return {};
+
+                auto remainder = *resVal.val;
                 // calculate final balances by substraction account balances with remainder
                 // it is necessary to get rid of excess
                 if (remainder != tokenBalance) {
-                    tokenBalance.Sub(remainder.nValue);
-                    selectedAccountsBalances[accountBalances.first].Add(tokenBalance);
+                    const auto sub = tokenBalance.Sub(remainder.nValue);
+                    if (!sub.ok)
+                        return {};
+                    const auto add = selectedAccountsBalances[accountBalances.first].Add(tokenBalance);
+                    if (!add.ok)
+                        return {};
                 }
             }
         }

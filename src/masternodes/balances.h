@@ -46,18 +46,20 @@ struct CBalances {
         return Res::Ok();
     }
 
-    CTokenAmount SubWithRemainder(CTokenAmount amount) {
+    ResVal<CTokenAmount> SubWithRemainder(CTokenAmount amount) {
         if (amount.nValue == 0) {
-            return CTokenAmount{amount.nTokenId, 0};
+            return {{amount.nTokenId, 0}, Res::Ok()};
         }
         auto current   = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        auto remainder = current.SubWithRemainder(amount.nValue);
+        auto resVal    = current.SubWithRemainder(amount.nValue);
+        if (!resVal.ok)
+            return resVal;
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
             balances[amount.nTokenId] = current.nValue;
         }
-        return CTokenAmount{amount.nTokenId, remainder};
+        return {CTokenAmount{amount.nTokenId, *resVal.val}, Res::Ok()};
     }
 
     Res SubBalances(const TAmounts &other) {
@@ -69,15 +71,16 @@ struct CBalances {
         return Res::Ok();
     }
 
-    CBalances SubBalancesWithRemainder(const TAmounts &other) {
+    ResVal<CBalances> SubBalancesWithRemainder(const TAmounts &other) {
         CBalances remainderBalances;
         for (const auto &kv : other) {
-            CTokenAmount remainder = SubWithRemainder(CTokenAmount{kv.first, kv.second});
+            auto resVal = SubWithRemainder(CTokenAmount{kv.first, kv.second});
             // if remainder token value is zero
             // this addition won't get any effect
-            remainderBalances.Add(remainder);
+            // TO DO: short circuit on failure with backward compatibility
+            auto res = remainderBalances.Add(*resVal.val);
         }
-        return remainderBalances;
+        return {remainderBalances, Res::Ok()};
     }
 
     Res AddBalances(const TAmounts &other) {
@@ -101,12 +104,13 @@ struct CBalances {
         return str;
     }
 
-    static CBalances Sum(const std::vector<CTokenAmount> &tokens) {
-        CBalances res;
+    static ResVal<CBalances> Sum(const std::vector<CTokenAmount> &tokens) {
+        CBalances out;
         for (const auto &token : tokens) {
-            res.Add(token);
+            // TO DO: short circuit on failure with backward compatibility
+            const auto res = out.Add(token);
         }
-        return res;
+        return {out, Res::Ok()};
     }
 
     friend bool operator==(const CBalances &a, const CBalances &b) { return a.balances == b.balances; }
@@ -284,12 +288,12 @@ struct CFutureSwapMessage {
     }
 };
 
-inline CBalances SumAllTransfers(const CAccounts &to) {
+inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {
-        sum.AddBalances(kv.second.balances);
+        const auto res = sum.AddBalances(kv.second.balances);
     }
-    return sum;
+    return {sum, Res::Ok()};
 }
 
 struct BalanceKey {

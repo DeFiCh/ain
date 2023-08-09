@@ -2233,7 +2233,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
 
                             if (!attributes->GetValue(enabledKey, false))
                             {
-                                mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                                auto res = mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
 
                                 continue;
                             }
@@ -2241,7 +2241,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
                             if (attributes->GetValue(enabledKey, false)) {
-                                mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                                auto res = mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
                             } else {
                                 mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                             }

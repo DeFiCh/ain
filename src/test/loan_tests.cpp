@@ -516,8 +516,10 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
         BOOST_CHECK_EQUAL(batches.size(), 2);
         CBalances cbalances, lbalances;
         for (auto& batch : batches) {
-            cbalances.AddBalances(batch.collaterals.balances);
-            lbalances.Add(batch.loanAmount);
+            auto add_balance = cbalances.AddBalances(batch.collaterals.balances);
+            BOOST_REQUIRE(add_balance.ok);
+            auto add = lbalances.Add(batch.loanAmount);
+            BOOST_REQUIRE(add.ok);
         }
         BOOST_CHECK_EQUAL(lbalances.balances.size(), 1);
         BOOST_CHECK_EQUAL(lbalances.balances[DCT_ID{1}], value6);

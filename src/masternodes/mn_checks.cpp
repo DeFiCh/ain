@@ -1551,9 +1551,11 @@ public:
         Require(burnt);
 
         const auto mustBeBurnt = SumAllTransfers(obj.to);
+        if (!mustBeBurnt.ok)
+            return mustBeBurnt;
         Require(*burnt.val == mustBeBurnt,
                 "transfer tokens mismatch burnt tokens: (%s) != (%s)",
-                mustBeBurnt.ToString(),
+                (*mustBeBurnt.val).ToString(),
                 burnt.val->ToString());
 
         // transfer
@@ -1761,7 +1763,9 @@ public:
                     {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
                 for (const auto &[key, value] : userFuturesValues) {
-                    totalFutures.Add(value.source.nValue);
+                    const auto res = totalFutures.Add(value.source.nValue);
+                    if (!res.ok)
+                        return res;
                     mnview.EraseFuturesUserValues(key);
                 }
             } else {
@@ -1777,7 +1781,9 @@ public:
                     {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
                 for (const auto &[key, amount] : userFuturesValues) {
-                    totalFutures.Add(amount);
+                    const auto res = totalFutures.Add(amount);
+                    if (!res.ok)
+                        return res;
                     mnview.EraseFuturesDUSD(key);
                 }
             }
@@ -1804,7 +1810,9 @@ public:
             } else {
                 Require(mnview.StoreFuturesDUSD({height, obj.owner, txn}, obj.source.nValue));
             }
-            balances.Add(obj.source);
+            const auto res = balances.Add(obj.source);
+            if (!res.ok)
+                return res;
         }
 
         attributes->SetValue(liveKey, balances);
@@ -1823,8 +1831,12 @@ public:
         // compare
         const auto sumFrom = SumAllTransfers(obj.from);
         const auto sumTo   = SumAllTransfers(obj.to);
+        if (!sumFrom.ok)
+            return sumFrom;
+        if (!sumTo.ok)
+            return sumTo;
 
-        Require(sumFrom == sumTo, "sum of inputs (from) != sum of outputs (to)");
+        Require(*sumFrom.val == *sumTo.val, "sum of inputs (from) != sum of outputs (to)");
 
         // transfer
         // substraction
@@ -3422,7 +3434,9 @@ public:
             } else
                 loan = &loans[id];
 
-            loan->Add({id, amount});
+            const auto res = loan->Add({id, amount});
+            if (!res.ok)
+                return res;
         }
         return (*this)(CLoanPaybackLoanV2Message{obj.vaultId, obj.from, loans});
     }
@@ -3656,17 +3670,24 @@ public:
 
                     auto penalty = MultiplyAmounts(subInToken, COIN - penaltyPct);
 
+                    Res res = {};
                     if (paybackTokenId == DCT_ID{0}) {
                         CDataStructureV0 liveKey{
                             AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                         auto balances = attributes->GetValue(liveKey, CBalances{});
-                        balances.Add({loanTokenId, subAmount});
-                        balances.Add({paybackTokenId, penalty});
+                        res = balances.Add({loanTokenId, subAmount});
+                        if (!res.ok)
+                            return res;
+                        res = balances.Add({paybackTokenId, penalty});
+                        if (!res.ok)
+                            return res;
                         attributes->SetValue(liveKey, balances);
 
                         liveKey.key = EconomyKeys::PaybackDFITokensPrincipal;
                         balances    = attributes->GetValue(liveKey, CBalances{});
-                        balances.Add({loanTokenId, subLoan});
+                        res = balances.Add({loanTokenId, subLoan});
+                        if (!res.ok)
+                            return res;
                         attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN,
@@ -3685,8 +3706,12 @@ public:
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
                         auto balances = attributes->GetValue(liveKey, CTokenPayback{});
 
-                        balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
-                        balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
+                        res = balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
+                        if (!res.ok)
+                            return res;
+                        res = balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
+                        if (!res.ok)
+                            return res;
                         attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN,
@@ -3892,7 +3917,9 @@ public:
             if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from DFI address
                 CBalances balance;
-                balance.Add(src.amount);
+                res = balance.Add(src.amount);
+                if (!res)
+                    return res;
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
@@ -3927,7 +3954,9 @@ public:
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Add balance to DFI address
                 CBalances balance;
-                balance.Add(dst.amount);
+                res = balance.Add(dst.amount);
+                if (!res)
+                    return res;
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;

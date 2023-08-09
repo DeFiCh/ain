@@ -129,7 +129,7 @@ struct CTokenAmount { // simple std::pair is less informative
         return strprintf("%s@%d", GetDecimalString(nValue), nTokenId.v);
     }
 
-    Res Add(CAmount amount) {
+    [[nodiscard]] Res Add(CAmount amount) {
         // safety checks
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimalString(amount));
@@ -145,7 +145,7 @@ struct CTokenAmount { // simple std::pair is less informative
         return Res::Ok();
     }
 
-    Res Sub(CAmount amount) {
+    [[nodiscard]] Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimalString(amount));
@@ -159,20 +159,22 @@ struct CTokenAmount { // simple std::pair is less informative
         return Res::Ok();
     }
 
-    CAmount SubWithRemainder(CAmount amount) {
+    [[nodiscard]] ResVal<CAmount> SubWithRemainder(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            Add(-amount);
-            return 0;
+            const auto res = Add(-amount);
+            // TO DO: failure with backward compatibility
+            return {0, Res::Ok()};
         }
         if (this->nValue < amount) {
             CAmount remainder = amount - this->nValue;
             this->nValue = 0;
-            return remainder;
+            return {remainder, Res::Ok()};
         }
         // sub
-        this->nValue -= amount;
-        return 0;
+        const auto res = Sub(amount);
+        // TO DO: failure with backward compatibility
+        return {0, Res::Ok()};
     }
 
     ADD_SERIALIZE_METHODS;
