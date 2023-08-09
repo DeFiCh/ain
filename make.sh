@@ -327,16 +327,101 @@ _docker_clean() {
         --force 2>/dev/null || true
 }
 
+# Python helpers
+# ---
+
+py_ensure_env_active() {
+    pkg_local_ensure_py_deps
+    py_env_activate
+}
+
+py_env_activate() {
+  local python_venv="${PYTHON_VENV_DIR}"
+  python3 -m venv "${python_venv}"
+  # shellcheck disable=SC1091
+  source "${python_venv}/bin/activate"
+}
+
+py_env_deactivate() {
+  deactivate
+}
+
 # -------------- Misc -----------------
 
-debug_env() {
-    (set -o posix ; set)
-    (set -x +e
-    uname -a
-    gcc -v
-    "clang-${CLANG_DEFAULT_VERSION}" -v
-    rustup show)
+
+# check
+# ---
+
+check() {
+    check_git_dirty
+    check_rs
+    check_py
+    # check_lints
 }
+
+check_git_dirty() {
+    if [[ $(git status -s) ]]; then
+        echo "error: Git tree dirty. Please commit or stash first"
+        exit 1
+    fi
+}
+
+check_py() {
+    _exec_black 1
+    # TODO Add flake as well 
+}
+
+check_rs() {
+    lib clippy 1
+    lib fmt-check 1
+}
+
+check_lints() {
+    py_ensure_env_active
+    _fold_start "check-doc"
+    test/lint/check-doc.py
+    _fold_end
+
+    _fold_start "check-rpc-mappings"
+    test/lint/check-rpc-mappings.py .
+    _fold_end
+
+    test/lint/lint-all.sh
+    py_env_deactivate
+}
+
+check_enter_build_rs_dir() {
+    local build_dir="${BUILD_DIR}"
+    _ensure_enter_dir "$build_dir/lib" || { 
+        echo "Please configure first";
+        exit 1; }
+}
+
+
+# fmt
+# ---
+
+fmt() {
+    fmt_py
+    fmt_lib
+}
+
+fmt_py() {
+    _exec_black
+}
+
+fmt_rs() {
+    fmt_lib
+}
+
+fmt_lib() {
+    check_enter_build_rs_dir
+    lib fmt
+    _exit_dir
+}
+
+# tests
+# ---
 
 test() {
     local make_jobs=${MAKE_JOBS}
@@ -398,6 +483,17 @@ test_py() {
 
     py_env_deactivate
     _exit_dir
+}
+
+# Others
+
+debug_env() {
+    (set -o posix ; set)
+    (set -x +e
+    uname -a
+    gcc -v
+    "clang-${CLANG_DEFAULT_VERSION}" -v
+    rustup show)
 }
 
 exec() {
@@ -474,6 +570,7 @@ pkg_install_deps() {
 
     # gcc-multilib: for cross compilations
     # locales: for using en-US.UTF-8 (see head of this file).
+    # python3-venv for settings up all python deps
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
@@ -593,7 +690,10 @@ pkg_local_install_py_deps() {
     _fold_start "pkg-install-py-deps"
     py_env_activate
 
-    # install dependencies
+    # lints, fmt, checks deps
+    python3 -m pip install black shellcheck-py codespell==2.2.4 flake8==6.0.0 vulture==2.7
+
+    # test deps
     python3 -m pip install py-solc-x web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
@@ -613,21 +713,8 @@ pkg_setup_rust() {
     rustup target add "${rust_target}"
 }
 
-py_ensure_env_active() {
-    pkg_local_ensure_py_deps
-    py_env_activate
-}
-
-py_env_activate() {
-  local python_venv="${PYTHON_VENV_DIR}"
-  python3 -m venv "${python_venv}"
-  # shellcheck disable=SC1091
-  source "${python_venv}/bin/activate"
-}
-
-py_env_deactivate() {
-  deactivate
-}
+# Clean
+# ---
 
 purge() {
     local build_dir="${BUILD_DIR}"
@@ -724,7 +811,7 @@ clean() {
 }
 
 # ========
-# Internal Support methods
+# Support methods
 # ========
 
 # Defaults
@@ -848,59 +935,8 @@ END
     chmod +x "$file"
 }
 
-check() {
-    check_git_dirty
-    check_rs
-}
 
-check_git_dirty() {
-    if [[ $(git status -s) ]]; then
-        echo "error: Git tree dirty. Please commit or stash first"
-        exit 1
-    fi
-}
-
-check_rs() {
-    check_enter_build_rs_dir
-    lib clippy 1
-    lib fmt-check 1
-    _exit_dir
-}
-
-check_enter_build_rs_dir() {
-    local build_dir="${BUILD_DIR}"
-    _ensure_enter_dir "$build_dir/lib" || { 
-        echo "Please configure first";
-        exit 1; }
-}
-
-lib() {
-    local cmd="${1-}"
-    local exit_on_err="${2:-0}"
-    local jobs="$MAKE_JOBS"
-    
-    check_enter_build_rs_dir
-    # shellcheck disable=SC2086
-    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
-        echo "Error: Please resolve all checks"; 
-        exit 1;
-        fi; }
-    _exit_dir
-}
-
-rust_analyzer_check() {
-    lib "check CARGO_EXTRA_ARGS=--all-targets --workspace --message-format=json"
-}
-
-compiledb() {
-    _platform_init_intercept_build
-    clean 2> /dev/null || true
-    build_deps
-    build_conf
-    _intercept_build ./make.sh build_make
-}
-
-# Platform specifics
+# Platform helpers
 # ---
 
 _platform_init() {
@@ -973,7 +1009,7 @@ _nproc() {
     fi
 }
 
-# Misc
+# CI
 # ---
 
 ci_export_vars() {
@@ -1018,6 +1054,35 @@ ci_setup_deps_target() {
     pkg_setup_rust
 }
 
+# Public helpers
+# ---
+
+lib() {
+    local cmd="${1-}"
+    local exit_on_err="${2:-0}"
+    local jobs="$MAKE_JOBS"
+    
+    check_enter_build_rs_dir
+    # shellcheck disable=SC2086
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
+        echo "Error: Please resolve all checks"; 
+        exit 1;
+        fi; }
+    _exit_dir
+}
+
+rust_analyzer_check() {
+    lib "check CARGO_EXTRA_ARGS=--all-targets --workspace --message-format=json"
+}
+
+compiledb() {
+    _platform_init_intercept_build
+    clean 2> /dev/null || true
+    build_deps
+    build_conf
+    _intercept_build ./make.sh build_make
+}
+
 # shellcheck disable=SC2120
 get_rust_triplet() {
     # Note: https://github.com/llvm/llvm-project/blob/master/llvm/lib/TargetParser/Triple.cpp
@@ -1042,6 +1107,20 @@ get_rust_triplet() {
 _sign() {
     # TODO: generate sha sums and sign
     :
+}
+
+# Internal misc helpers
+# ---
+
+_exec_black() {
+    local is_check=${1:-0}
+    local black_args="--extend-exclude 'build.*'"
+    if [[ "${is_check}" == "1" ]]; then
+        black_args="${black_args} --check"
+    fi
+    py_ensure_env_active
+    python3 -m black ${black_args} .
+    py_env_deactivate
 }
 
 _safe_rm_rf() {
