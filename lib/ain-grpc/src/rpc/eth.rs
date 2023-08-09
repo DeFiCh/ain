@@ -276,38 +276,29 @@ impl MetachainRPCModule {
 
     fn block_number_to_u256(&self, block_number: Option<BlockNumber>) -> RpcResult<U256> {
         match block_number.unwrap_or_default() {
-            BlockNumber::Hash {
-                hash,
-                ..
-            } => {
-                self.handler
-                    .storage
-                    .get_block_by_hash(&hash)
-                    .map(|block| block.header.number)
-            }
-            BlockNumber::Num(n) => {
-                self.handler
-                    .storage
-                    .get_block_by_number(&U256::from(n))
-                    .map(|block| block.header.number)
-            }
-            BlockNumber::Earliest => {
-                self.handler
-                    .storage
-                    .get_block_by_number(&U256::zero())
-                    .map(|block| block.header.number)
-            }
-            _ => {
-                self.handler
-                    .storage
-                    .get_latest_block()
-                    .map(|block| block.header.number)
+            BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
+            BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
+            BlockNumber::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
+            BlockNumber::Safe | BlockNumber::Finalized => {
+                self.handler.storage.get_latest_block().and_then(|block| {
+                    let finality_count = self
+                        .handler
+                        .storage
+                        .get_attributes_or_default()
+                        .finality_count;
+
+                    let safe_block_number = block
+                        .header
+                        .number
+                        .checked_sub(U256::from(finality_count))?;
+                    self.handler.storage.get_block_by_number(&safe_block_number)
+                })
             }
             // BlockNumber::Pending => todo!(),
-            // BlockNumber::Safe => todo!(),
-            // BlockNumber::Finalized => todo!(),
+            _ => self.handler.storage.get_latest_block(),
         }
         .ok_or(Error::Custom(String::from("header not found")))
+        .map(|block| block.header.number)
     }
 }
 
