@@ -50,6 +50,9 @@ class EVMTest(DefiTestFramework):
 
         # Test that node should not crash without chainId param
         self.test_tx_without_chainid(self.nodes[0])
+
+        # Toggle EVM
+        self.toggle_evm_enablement()
         
     def test_tx_without_chainid(self, node):
 
@@ -492,6 +495,19 @@ class EVMTest(DefiTestFramework):
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
+
+    def toggle_evm_enablement(self):
+
+        # Get block before disablement
+        pre_block = self.nodes[0].eth_getBlockByNumber('latest')
+
+        # Deactivate EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'false'}})
+        self.nodes[0].generate(1)
+
+        # Make sure the block is the same after disablement
+        post_block = self.nodes[0].eth_getBlockByNumber('latest')
+        assert_equal(pre_block, post_block)
 
 
 if __name__ == '__main__':
