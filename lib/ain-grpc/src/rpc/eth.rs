@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::bytes::Bytes;
-use ain_evm::core::{EthCallArgs, MAX_GAS_PER_BLOCK};
+use ain_evm::core::EthCallArgs;
 use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
 use ain_evm::filters::Filter;
@@ -324,6 +324,12 @@ impl MetachainRPCServer for MetachainRPCModule {
             access_list,
             ..
         } = input;
+
+        let max_gas_per_block = self
+            .handler
+            .storage
+            .get_attributes_or_default()
+            .block_gas_limit;
         let TxResponse { data, .. } = self
             .handler
             .core
@@ -338,7 +344,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 data: &input
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
-                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                gas_limit: gas.unwrap_or(U256::from(max_gas_per_block)).as_u64(),
                 access_list: access_list.unwrap_or_default(),
                 block_number: self.block_number_to_u256(block_number)?,
             })
@@ -721,6 +727,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = input;
 
         let block_number = self.block_number_to_u256(block_number)?;
+        let gas_limit = self
+            .handler
+            .storage
+            .get_attributes_or_default()
+            .block_gas_limit;
         let TxResponse { used_gas, .. } = self
             .handler
             .core
@@ -729,7 +740,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value: value.unwrap_or_default(),
                 data: &data.map(|d| d.0).unwrap_or_default(),
-                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                gas_limit: gas.unwrap_or(U256::from(gas_limit)).as_u64(),
                 access_list: access_list.unwrap_or_default(),
                 block_number,
             })

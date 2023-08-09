@@ -9,9 +9,9 @@ use bridge::ffi;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
-    pub struct AttributeDefaults {
-        pub gas_target: u64,
-        pub gas_limit: u64,
+    pub struct Attributes {
+        pub block_gas_target: u64,
+        pub block_gas_limit: u64,
         pub finality_count: u64,
     }
 
@@ -61,7 +61,7 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getAttributeDefaults() -> AttributeDefaults {
+    pub fn getAttributeDefaults() -> Attributes {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -70,6 +70,8 @@ mod ffi {
         // Just the logs are skipped.
     }
 }
+
+pub use ffi::Attributes;
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
@@ -144,9 +146,8 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block, highest_block))
 }
 
-pub fn get_attribute_defaults() -> Result<ffi::AttributeDefaults, Box<dyn Error>> {
-    let attribute_defaults = ffi::getAttributeDefaults();
-    Ok(attribute_defaults)
+pub fn get_attribute_defaults() -> ffi::Attributes {
+    ffi::getAttributeDefaults()
 }
 
 pub fn log_print(message: &str) {

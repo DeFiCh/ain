@@ -12,7 +12,7 @@ use primitive_types::H256;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
-use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
+use crate::core::{EVMCoreService, EVMError, NativeTxHash};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
 use crate::filters::FilterService;
@@ -302,7 +302,7 @@ impl EVMServices {
         if (total_burnt_fees + total_priority_fees) != queue.total_fees {
             return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, queue.total_fees).into());
         }
-
+        let gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -312,7 +312,7 @@ impl EVMServices {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: MAX_GAS_PER_BLOCK,
+                gas_limit: U256::from(gas_limit),
                 gas_used: U256::from(total_gas_used),
                 timestamp,
                 extra_data: Vec::default(),

@@ -156,7 +156,7 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
-        assert_raises_rpc_error(-32001, "evm tx failed to validate gas limit higher than MAX_GAS_PER_BLOCK", self.nodes[0].eth_sendTransaction, {
+        assert_raises_rpc_error(-32001, "evm tx failed to validate gas limit higher than max_gas_per_block", self.nodes[0].eth_sendTransaction, {
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000
@@ -169,7 +169,7 @@ class EVMFeeTest(DefiTestFramework):
     def test_fee_deduction_empty_balance(self):
         height = self.nodes[0].getblockcount()
 
-        emptyAddress = self.nodes[0].getnewaddress("", "eth")
+        emptyAddress = self.nodes[0].getnewaddress("", "erc55")
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
 

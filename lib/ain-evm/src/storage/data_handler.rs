@@ -1,9 +1,11 @@
 use std::borrow::ToOwned;
 use std::{collections::HashMap, sync::RwLock};
 
+use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 
+use super::traits::AttributesStorage;
 use super::{
     code::CodeHistory,
     traits::{
@@ -22,6 +24,7 @@ pub static RECEIPT_MAP_PATH: &str = "receipt_map.bin";
 pub static CODE_MAP_PATH: &str = "code_map.bin";
 pub static TRANSACTION_DATA_PATH: &str = "transaction_data.bin";
 pub static ADDRESS_LOGS_MAP_PATH: &str = "address_logs_map.bin";
+pub static ATTRIBUTES_DATA_PATH: &str = "attributes_data.bin";
 
 type BlockHashtoBlock = HashMap<H256, U256>;
 type Blocks = HashMap<U256, BlockAny>;
@@ -29,6 +32,7 @@ type TxHashToTx = HashMap<H256, TransactionV2>;
 type LatestBlockNumber = U256;
 type TransactionHashToReceipt = HashMap<H256, Receipt>;
 type AddressToLogs = HashMap<U256, HashMap<H160, Vec<LogIndex>>>;
+type OptionalAttributes = Option<Attributes>;
 
 impl PersistentState for BlockHashtoBlock {}
 impl PersistentState for Blocks {}
@@ -36,6 +40,7 @@ impl PersistentState for LatestBlockNumber {}
 impl PersistentState for TransactionHashToReceipt {}
 impl PersistentState for TxHashToTx {}
 impl PersistentState for AddressToLogs {}
+impl PersistentState for OptionalAttributes {}
 
 #[derive(Debug, Default)]
 pub struct BlockchainDataHandler {
@@ -51,6 +56,7 @@ pub struct BlockchainDataHandler {
     code_map: RwLock<CodeHistory>,
 
     address_logs_map: RwLock<AddressToLogs>,
+    attributes: RwLock<Option<Attributes>>,
 }
 
 impl BlockchainDataHandler {
@@ -77,6 +83,10 @@ impl BlockchainDataHandler {
             code_map: RwLock::new(CodeHistory::load_from_disk(CODE_MAP_PATH).unwrap_or_default()),
             address_logs_map: RwLock::new(
                 AddressToLogs::load_from_disk(ADDRESS_LOGS_MAP_PATH).unwrap_or_default(),
+            ),
+            attributes: RwLock::new(
+                OptionalAttributes::load_from_disk(ATTRIBUTES_DATA_PATH)
+                    .expect("Error loading attributes data"),
             ),
         }
     }
@@ -278,5 +288,16 @@ impl Rollback for BlockchainDataHandler {
 
             self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
         }
+    }
+}
+
+impl AttributesStorage for BlockchainDataHandler {
+    fn put_attributes(&self, attr: Option<&Attributes>) {
+        let mut attributes = self.attributes.write().unwrap();
+        *attributes = attr.cloned();
+    }
+
+    fn get_attributes(&self) -> Option<Attributes> {
+        self.attributes.read().unwrap().as_ref().cloned()
     }
 }

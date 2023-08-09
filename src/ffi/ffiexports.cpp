@@ -221,6 +221,6 @@ int getCurrentHeight() {
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
 }
 
-AttributeDefaults getAttributeDefaults() {
-    return AttributeDefaults::Default();
+Attributes getAttributeDefaults() {
+    return Attributes::Default();
 }

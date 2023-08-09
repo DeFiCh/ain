@@ -5,19 +5,19 @@
 #include <ffi/cxx.h>
 
 // Defaults for attributes relating to EVM functionality
-static constexpr uint64_t DEFAULT_EVM_GAS_TARGET = 15000000;
-static constexpr uint64_t DEFAULT_EVM_GAS_LIMIT = 30000000;
+static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
+static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
 
-struct AttributeDefaults {
-    uint64_t gasTarget;
-    uint64_t gasLimit;
+struct Attributes {
+    uint64_t blockGasTarget;
+    uint64_t blockGasLimit;
     uint64_t finalityCount;
 
-    static AttributeDefaults Default() {
-        return AttributeDefaults {
-                DEFAULT_EVM_GAS_TARGET,
-                DEFAULT_EVM_GAS_LIMIT,
+    static Attributes Default() {
+        return Attributes {
+                DEFAULT_EVM_BLOCK_GAS_TARGET,
+                DEFAULT_EVM_BLOCK_GAS_LIMIT,
                 DEFAULT_EVM_FINALITY_COUNT,
         };
     }
@@ -38,7 +38,7 @@ std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID);
 rust::string getStateInputJSON();
 int getHighestBlock();
 int getCurrentHeight();
-AttributeDefaults getAttributeDefaults();
+Attributes getAttributeDefaults();
 void CppLogPrintf(rust::string message);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

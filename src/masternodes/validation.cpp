@@ -2386,7 +2386,7 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
 
     auto res = XVM::TryFrom(scriptPubKey);
     if (!res.ok) return res;
-    
+
     auto obj = *res;
 
     if (obj.evm.blockHash != coinbaseBlockHash) {

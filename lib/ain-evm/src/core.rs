@@ -29,8 +29,6 @@ use crate::{
 
 pub type NativeTxHash = [u8; 32];
 
-pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
-
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
@@ -88,6 +86,7 @@ impl EVMCoreService {
             TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
                 .expect("Error getting genesis state root from json");
 
+        let gas_limit = storage.get_attributes_or_default().block_gas_limit;
         let block: Block<TransactionV2> = Block::new(
             PartialHeader {
                 state_root,
@@ -96,7 +95,7 @@ impl EVMCoreService {
                 receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
                 logs_bloom: Bloom::default(),
                 gas_used: U256::default(),
-                gas_limit: genesis.gas_limit.unwrap_or(MAX_GAS_PER_BLOCK),
+                gas_limit: genesis.gas_limit.unwrap_or(U256::from(gas_limit)),
                 extra_data: genesis.extra_data.unwrap_or_default().into(),
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
@@ -256,9 +255,10 @@ impl EVMCoreService {
 
         // Validate gas limit
         let gas_limit = signed_tx.gas_limit();
-        if gas_limit > MAX_GAS_PER_BLOCK {
-            debug!("[validate_raw_tx] gas limit higher than MAX_GAS_PER_BLOCK");
-            return Err(format_err!("gas limit higher than MAX_GAS_PER_BLOCK").into());
+        let block_gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
+        if gas_limit > U256::from(block_gas_limit) {
+            debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
+            return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
         let use_queue = queue_id != 0;
@@ -285,8 +285,9 @@ impl EVMCoreService {
                 .get_total_gas_used_in(queue_id)
                 .unwrap_or_default();
 
-            if total_current_gas_used + U256::from(used_gas) > MAX_GAS_PER_BLOCK {
-                return Err(format_err!("Block size limit is more than MAX_GAS_PER_BLOCK").into());
+            let block_gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
+            if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
+                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
             }
         }
 
