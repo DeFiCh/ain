@@ -2511,17 +2511,6 @@ static Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache
                 token.name, token.symbol, id.ToString());
         return result.ok;
     }, DCT_ID{1});  // start from non-DFI
-    if (!result.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
-
-    cache.ForEachLoanToken([&](DCT_ID const & id, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, loanToken.name, loanToken.symbol, id.ToString())) {
-            return result.ok;
-        }
-
-        evm_try_create_dst20(result, evmQueueId, loanToken.creationTx.GetByteArray(),
-                    loanToken.name, loanToken.symbol, id.ToString());
-        return result.ok;
-    });
 
     LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
     return result.ok ? Res::Ok() : DeFiErrors::DST20MigrationFailure(result.reason.c_str());
