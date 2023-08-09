@@ -98,14 +98,14 @@ class addressmapTests(DefiTestFramework):
     def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
-        eth_address = self.nodes[1].getnewaddress("", "eth")
+        eth_address = self.nodes[1].getnewaddress("", "erc55")
         assert_raises_rpc_error(-5, "no full public key for address " + eth_address, self.nodes[0].addressmap, eth_address, AddressConversionType.EVMToDVMAddress)
 
     def addressmap_valid_address_invalid_type_should_fail(self):
         self.rollback_to(self.start_block_height)
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
-        eth_address = self.nodes[0].getnewaddress("", "eth")
+        eth_address = self.nodes[0].getnewaddress("", "erc55")
         assert_invalid = lambda *args: assert_raises_rpc_error(-8, "Invalid type parameter", self.nodes[0].addressmap, *args)
         assert_invalid(address, 9)
         assert_invalid(address, -1)

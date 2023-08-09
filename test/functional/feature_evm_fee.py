@@ -181,7 +181,7 @@ class EVMFeeTest(DefiTestFramework):
     def test_fee_deduction_empty_balance(self):
         height = self.nodes[0].getblockcount()
 
-        emptyAddress = self.nodes[0].getnewaddress("", "eth")
+        emptyAddress = self.nodes[0].getnewaddress("", "erc55")
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
 

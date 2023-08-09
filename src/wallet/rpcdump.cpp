@@ -752,6 +752,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
     }
     if (dest.index() == WitV16KeyEthHashType) {
+        LogPrintf("XXX exporting ethereum address\n");
         return HexStr(vchSecret.begin(), vchSecret.end());
     }
     return EncodeSecret(vchSecret);

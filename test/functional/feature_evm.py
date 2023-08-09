@@ -94,17 +94,27 @@ class EVMTest(DefiTestFramework):
         assert_equal(eth_info['solvable'], True)
         assert_equal(eth_info['pubkey'], '04087a947bbb87f5005d25c56a10a7660694b81bffe209a9e89a6e2683a6a900b6ff3a7732eb015021deda823f265ed7a5bbec7aa7e83eb395d4cb7d5dea63d144')
 
+        # Dump Eth address and import into node 1
+        priv_key = self.nodes[0].dumpprivkey('0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E')
+        assert_equal(priv_key, '56c679ab38001e7d427e3fbc4363fcd2100e74d8ac650a2d2ff3a69254d4dae4')
+        self.nodes[1].importprivkey(priv_key)
+
+        # Check key is now present in node 1
+        result = self.nodes[1].getaddressinfo('0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E')
+        assert_equal(result['ismine'], True)
+
         # Import addresses
         self.nodes[0].importprivkey(eth_address_privkey) # eth_address
         self.nodes[0].importprivkey(to_address_privkey) # to_address
 
-        # Check export of private key
-        privkey = self.nodes[0].dumpprivkey(to_address)
-        assert_equal(privkey, to_address_privkey)
-
         # Check creation and private key dump of new Eth key
-        test_eth_dump = self.nodes[0].getnewaddress("", "eth")
+        test_eth_dump = self.nodes[0].getnewaddress("", "erc55")
         self.nodes[0].dumpprivkey(test_eth_dump)
+
+        # Generate an address using an alias and make sure it is an witness 16 address
+        addr = self.nodes[0].getnewaddress("", "eth")
+        addr_info = self.nodes[0].getaddressinfo(addr)
+        assert_equal(addr_info['witness_version'], 16)
 
         # Generate chain
         self.nodes[0].generate(101)
