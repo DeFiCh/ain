@@ -1536,7 +1536,6 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
             }  else if (const auto accounting = std::get_if<CTransferDomainAccounting>(&attribute.second)) {
-                std::cout << accounting->dvmEvmTotal.balances.size() << "|" << accounting->evmDvmTotal.balances.size() << std::endl;
                     auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
                     auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
                     auto dvmDomain    = KeyBuilder(key, "dvm");

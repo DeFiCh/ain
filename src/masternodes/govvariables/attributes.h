@@ -398,8 +398,6 @@ using CAttributeValue          = std::variant<bool,
                                      AscendantValue,
                                      CFeeDir,
                                      CDexBalances,
-                                     CTransferDomainAccounting,
-                                     CEvmFees,
                                      std::set<CScript>,
                                      std::set<std::string>,
                                      CConsortiumMembers,
@@ -408,7 +406,9 @@ using CAttributeValue          = std::variant<bool,
                                      int32_t,
                                      uint32_t,
                                      uint64_t,
-                                     XVmAddressFormatItems>;
+                                     XVmAddressFormatItems,
+                                     CTransferDomainAccounting,
+                                     CEvmFees>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);

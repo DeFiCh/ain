@@ -27,7 +27,7 @@ class EVMTest(DefiTestFramework):
         self.eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         self.eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         self.eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
-        self.eth_address1 = self.nodes[0].getnewaddress("", "eth")
+        self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
         self.no_auth_eth_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
 
 
@@ -149,8 +149,6 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        print(attributes)
-
         assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], Decimal('0E-8'))
         assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], Decimal('0E-8'))
 
@@ -170,13 +168,11 @@ class EVMTest(DefiTestFramework):
         # Transfer 100 DFI from DVM to EVM
         self.valid_transfer_dvm_evm()
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        print(attributes)
 
         # Transfer 100 DFI from EVM to DVM
         tx = self.nodes[0].transferdomain([{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
         self.nodes[0].generate(1)
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        print(attributes)
 
         # Check tx fields
         result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]

@@ -137,11 +137,7 @@ struct CBalances {
         if (ser_action.ForRead()) {
             READWRITE(serializedBalances);
             balances.clear();
-            // check that no zero values are written
             for (auto it = serializedBalances.begin(); it != serializedBalances.end(); /* advance */) {
-                if (it->second == 0) {
-                    throw std::ios_base::failure("non-canonical balances (zero amount)");
-                }
                 balances.emplace(DCT_ID{it->first}, it->second);
                 serializedBalances.erase(it++);
             }

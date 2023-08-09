@@ -2478,16 +2478,16 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         RevertFailedTransferDomainTxs(failedTransactions, block, chainparams.GetConsensus(), pindex->nHeight, cache);
     }
 
-    const auto attributes = cache.GetAttributes();
-    assert(attributes);
-    CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
-    auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
-
     res = cache.AddBalance(Params().GetConsensus().burnAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_burnt_fees)});
     if (!res) return res;
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
 
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
+    auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
     evmFees.feeBurnt += static_cast<CAmount>(blockResult.total_burnt_fees);
     evmFees.feePriority += static_cast<CAmount>(blockResult.total_priority_fees);
 

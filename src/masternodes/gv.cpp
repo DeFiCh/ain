@@ -46,10 +46,8 @@ Res CGovView::SetVariable(const GovVariable &var) {
 }
 
 std::shared_ptr<GovVariable> CGovView::GetVariable(const std::string &name) const {
-    auto var = GovVariable::Create(name);
-    if (var) {
-        /// @todo empty or NO variable??
-        ReadBy<ByName>(std::string(var->GetName()), *var);
+    if (const auto var = GovVariable::Create(name)) {
+        ReadBy<ByName>(var->GetName(), *var);
         return var;
     }
     return {};
