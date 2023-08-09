@@ -354,8 +354,9 @@ py_env_deactivate() {
 
 check() {
     check_git_dirty
-    check_rs
+    check_sh
     check_py
+    check_rs
     # check_lints
 }
 
@@ -387,6 +388,29 @@ check_lints() {
     _fold_end
 
     test/lint/lint-all.sh
+    py_env_deactivate
+}
+
+check_sh() {
+    local x
+    
+    py_ensure_env_active
+
+    # TODO: Remove most of the specific ignores after resolving them
+    # shellcheck disable=SC2086
+    find . -not \( -path ./build -prune \
+        -or -path ./autogen.sh \
+        -or -path ./test/lint/lint-python.sh \
+        -or -path ./test/lint/lint-rpc-help.sh \
+        -or -path ./test/lint/lint-shell.sh \
+        -or -path ./test/lint/disabled-lint-spelling.sh \
+        -or -path ./test/lint/commit-script-check.sh \
+        -or -path ./test/lint/lint-includes.sh \
+        -or -path ./test/lint/lint-python-dead-code.sh \
+        -or -path ./src/univalue -prune \
+        -or -path ./src/secp256k1 -prune \
+        -or -path ./build\* \)  -name '*.sh' -exec shellcheck {} \;
+
     py_env_deactivate
 }
 
