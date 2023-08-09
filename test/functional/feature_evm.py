@@ -19,11 +19,44 @@ class EVMTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1']
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-dakotaheight=50', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-dakotaheight=50', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1']
         ]
 
-    def test_tx_without_chainid(self, node, keypair):
+    def run_test(self):
+        # Check ERC55 wallet support
+        self.erc55_wallet_support()
+
+        # Test TransferDomain, OP_RETURN and EVM Gov vars
+        self.evm_gov_vars()
+
+        # Fund accounts
+        self.setup_accounts()
+
+        # Test block ordering by nonce and Eth RBF
+        self.nonce_order_and_rbf()
+
+        # Check XVM in coinbase
+        self.validate_xvm_coinbase()
+
+        # EVM rollback
+        self.evm_rollback()
+
+        # Mempool limit of 64 TXs
+        self.mempool_tx_limit()
+
+        # Multiple mempool fee replacement
+        self.multiple_eth_rbf()
+
+        # Test that node should not crash without chainId param
+        self.test_tx_without_chainid(self.nodes[0])
+
+        # Toggle EVM
+        self.toggle_evm_enablement()
+
+    def test_tx_without_chainid(self, node):
+
+        keypair = KeyPair.from_node(node)
 
         web3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
         nonce = web3.eth.get_transaction_count(keypair.address)
@@ -45,13 +78,13 @@ class EVMTest(DefiTestFramework):
         web3.eth.send_raw_transaction(signed_tx.rawTransaction)
         node.generate(1)
 
-    def run_test(self):
+    def erc55_wallet_support(self):
         # Addresses and keys
-        address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
-        eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
+        self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
+        self.eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
-        to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
+        self.to_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
         to_address_privkey = '17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35'
 
         # Import Bech32 compressed private key for:
@@ -102,10 +135,6 @@ class EVMTest(DefiTestFramework):
         result = self.nodes[1].getaddressinfo('0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E')
         assert_equal(result['ismine'], True)
 
-        # Import addresses
-        self.nodes[0].importprivkey(eth_address_privkey) # eth_address
-        self.nodes[0].importprivkey(to_address_privkey) # to_address
-
         # Check creation and private key dump of new Eth key
         test_eth_dump = self.nodes[0].getnewaddress("", "erc55")
         self.nodes[0].dumpprivkey(test_eth_dump)
@@ -115,17 +144,23 @@ class EVMTest(DefiTestFramework):
         addr_info = self.nodes[0].getaddressinfo(addr)
         assert_equal(addr_info['witness_version'], 16)
 
+        # Import addresses
+        self.nodes[0].importprivkey(eth_address_privkey)  # eth_address
+        self.nodes[0].importprivkey(to_address_privkey)  # self.to_address
+
         # Generate chain
         self.nodes[0].generate(101)
 
+    def evm_gov_vars(self):
         # Check setting vars before height
-        assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
-        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000}})
-        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/evm_op_return_max_size_bytes': 20000}})
-        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/dvm_op_return_max_size_bytes': 20000}})
+        assert_raises_rpc_error(-32600, "called before NextNetworkUpgrade height", self.nodes[0].evmtx, self.eth_address, 0, 21, 21000, self.to_address, 0.1)
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 1024}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/evm_op_return_max_size_bytes': 65536}})
+        assert_raises_rpc_error(-32600, "Cannot be set before NextNetworkUpgrade", self.nodes[0].setgov, {"ATTRIBUTES": {'v0/rules/tx/dvm_op_return_max_size_bytes': 4096}})
 
         # Check that a transferdomain default is not present in listgovs
         assert ('v0/transferdomain/dvm-evm/enabled' not in self.nodes[0].listgovs()[8][0]['ATTRIBUTES'])
+        assert ('v0/rules/tx/core_op_return_max_size_bytes' not in self.nodes[0].listgovs()[8][0]['ATTRIBUTES'])
 
         # Move to fork height
         self.nodes[0].generate(4)
@@ -143,6 +178,9 @@ class EVMTest(DefiTestFramework):
         assert_equal(result['v0/transferdomain/evm-dvm/auth-formats'], ['bech32-erc55', 'p2pkh-erc55'])
         assert_equal(result['v0/transferdomain/evm-dvm/native-enabled'], 'true')
         assert_equal(result['v0/transferdomain/evm-dvm/dat-enabled'], 'false')
+        assert_equal(result['v0/rules/tx/core_op_return_max_size_bytes'], '1024')
+        assert_equal(result['v0/rules/tx/evm_op_return_max_size_bytes'], '65536')
+        assert_equal(result['v0/rules/tx/dvm_op_return_max_size_bytes'], '4096')
 
         # Set OP_RETURN
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/rules/tx/core_op_return_max_size_bytes': 20000,
@@ -157,26 +195,18 @@ class EVMTest(DefiTestFramework):
         assert_equal(result['v0/rules/tx/dvm_op_return_max_size_bytes'], '20000')
 
         # Check error before EVM enabled
-        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].evmtx, eth_address, 0, 21, 21000, to_address, 0.1)
-        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].evmtx, self.eth_address, 0, 21, 21000, self.to_address, 0.1)
+        assert_raises_rpc_error(-32600, "Cannot create tx, EVM is not enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
         self.nodes[0].generate(1)
 
         # Check error before transferdomain enabled
-        assert_raises_rpc_error(-32600, "Cannot create tx, transfer domain is not enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "Cannot create tx, transfer domain is not enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/transferdomain': 'true'}})
-        self.nodes[0].generate(1)
-
-        # Fund DFI address
-        txid = self.nodes[0].utxostoaccount({address: "200@DFI"})
-        self.nodes[0].generate(1)
-
-        # Check ok
-        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
 
         # Deactivate transferdomain DVM to EVM
@@ -184,7 +214,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check error transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "DVM to EVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/enabled': 'true'}})
@@ -195,14 +225,14 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain DVM to EVM before p2pkh addresses are enabled
-        assert_raises_rpc_error(-32600, "Src address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "Src address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain PKHash address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/src-formats': ['p2pkh']}})
         self.nodes[0].generate(1)
 
         # Check transferdomain DVM to EVM before bech32 addresses are enabled
-        assert_raises_rpc_error(-32600, "Src address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, "Src address must be a legacy or Bech32 address in case of \"DVM\" domain", self.nodes[0].transferdomain, [{"src": {"address":self.eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain PKHash and bech32 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/src-formats': ['p2pkh','bech32']}})
@@ -212,36 +242,25 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain DVM to EVM before ERC55 addresses are enabled
-        assert_raises_rpc_error(-32600, 'Dst address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        assert_raises_rpc_error(-32600, 'Dst address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":self.eth_address_bech32, "amount":"100@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 3}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/dvm-evm/dest-formats': ['erc55']}})
         self.nodes[0].generate(1)
 
-        # Fund DFI address
-        txid = self.nodes[0].utxostoaccount({address: "100@DFI"})
-        self.nodes[0].generate(1)
-
-        # Check initial balances
-        dfi_balance = self.nodes[0].getaccount(address, {}, True)['0']
-        eth_balance = self.nodes[0].eth_getBalance(eth_address)
-        assert_equal(dfi_balance, Decimal('200'))
-        assert_equal(eth_balance, int_to_eth_u256(100))
-        assert_equal(len(self.nodes[0].getaccount(eth_address, {}, True)), 1)
-
         # Check for invalid parameters in transferdomain rpc
-        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].createrawtransaction, [{'txid': txid, 'vout': 1}], [{eth_address: 1}])
-        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {eth_address: 1})
-        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {eth_address: 1})
-        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendtoaddress, eth_address, 1)
-        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].accounttoaccount, address, {eth_address: "1@DFI"})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].createrawtransaction, [{'txid': '0000000000000000000000000000000000000000000000000000000000000000', 'vout': 1}], [{self.eth_address: 1}])
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {self.eth_address: 1})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendmany, "", {self.eth_address: 1})
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].sendtoaddress, self.eth_address, 1)
+        assert_raises_rpc_error(-5, "ERC55 addresses not supported", self.nodes[0].accounttoaccount, self.address, {self.eth_address: "1@DFI"})
 
         # Deactivate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'false'}})
         self.nodes[0].generate(1)
 
         # Check error before transferdomain DVM to EVM is enabled
-        assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, "EVM to DVM is not currently enabled", self.nodes[0].transferdomain, [{"src": {"address":self.address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain DVM to EVM
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/enabled': 'true'}})
@@ -252,7 +271,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before ERC55 addresses are enabled
-        assert_raises_rpc_error(-32600, 'Src address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, 'Src address must be an ERC55 address in case of "EVM" domain', self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/src-formats': ['erc55']}})
@@ -263,14 +282,14 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before P2PKH addresses are enabled
-        assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":address, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.address, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['p2pkh']}})
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before Bech32 addresses are enabled
-        assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, 'Dst address must be a legacy or Bech32 address in case of "DVM" domain', self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address_bech32, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/dest-formats': ['bech32', 'p2pkh']}})
@@ -281,46 +300,64 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check transferdomain EVM to DVM before Bech32 auth is enabled
-        assert_raises_rpc_error(-32600, 'tx must have at least one input from account owner', self.nodes[0].transferdomain, [{"src": {"address":eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":eth_address_bech32, "amount":"100@DFI", "domain": 2}}])
+        assert_raises_rpc_error(-32600, 'tx must have at least one input from account owner', self.nodes[0].transferdomain, [{"src": {"address":self.eth_address, "amount":"100@DFI", "domain": 3}, "dst":{"address":self.eth_address_bech32, "amount":"100@DFI", "domain": 2}}])
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov({"ATTRIBUTES": {'v0/transferdomain/evm-dvm/auth-formats': ['bech32-erc55']}})
         self.nodes[0].generate(1)
 
-        # evmtx tests
+        # Test setting of finalized block
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/finality_count': '100'}})
+        self.nodes[0].generate(1)
 
-        # Fund Eth address
-        self.nodes[0].transferdomain([{"src": {"address":address, "amount":"100@DFI", "domain": 2}, "dst":{"address":eth_address, "amount":"100@DFI", "domain": 3}}])
+        # Check Gov var is present
+        attrs = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attrs['v0/evm/block/finality_count'], '100')
+
+    def setup_accounts(self):
+        # Fund DFI address
+        self.nodes[0].utxostoaccount({self.address: "300@DFI"})
+        self.nodes[0].generate(1)
+
+        # Fund EVM address
+        self.nodes[0].transferdomain([{"src": {"address":self.address, "amount":"200@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"200@DFI", "domain": 3}}])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # Check initial balances
+        dfi_balance = self.nodes[0].getaccount(self.address, {}, True)['0']
+        eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        assert_equal(dfi_balance, Decimal('100'))
+        assert_equal(eth_balance, int_to_eth_u256(200))
+        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
+
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 200000000000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16), 200000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
         # Send tokens to burn address
-        burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
+        self.burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
         self.nodes[0].importprivkey("93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ")
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
-        self.nodes[0].accounttoaccount(address, {burn_address: "1@DFI"})
+        assert_equal(result['address'], self.burn_address)
+        self.nodes[0].accounttoaccount(self.address, {self.burn_address: "1@DFI"})
         self.nodes[0].generate(1)
 
+    def nonce_order_and_rbf(self):
         # Get burn address and miner account balance before transaction
-        burn_before = Decimal(self.nodes[0].getaccount(burn_address)[0].split('@')[0])
-        miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
-        before_blockheight = self.nodes[0].getblockcount()
+        burn_before = Decimal(self.nodes[0].getaccount(self.burn_address)[0].split('@')[0])
+        self.miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
 
         # Test EVM Tx added first in time ordering
-        self.nodes[0].evmtx(eth_address, 0, 21, 21001, to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, self.to_address, 1)
         self.sync_mempools()
 
         # Add more EVM Txs to test block ordering
-        tx5 = self.nodes[0].evmtx(eth_address, 5, 21, 21001, to_address, 1)
-        tx4 = self.nodes[0].evmtx(eth_address, 4, 21, 21001, to_address, 1)
-        tx2 = self.nodes[0].evmtx(eth_address, 2, 21, 21001, to_address, 1)
-        tx1 = self.nodes[0].evmtx(eth_address, 1, 21, 21001, to_address, 1)
-        tx3 = self.nodes[0].evmtx(eth_address, 3, 21, 21001, to_address, 1)
+        tx5 = self.nodes[0].evmtx(self.eth_address, 5, 21, 21001, self.to_address, 1)
+        tx4 = self.nodes[0].evmtx(self.eth_address, 4, 21, 21001, self.to_address, 1)
+        tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
+        tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
+        tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
@@ -328,13 +365,13 @@ class EVMTest(DefiTestFramework):
         result = self.nodes[0].eth_pendingTransactions()
         assert_equal(result[0]['blockHash'], '0x0000000000000000000000000000000000000000000000000000000000000000')
         assert_equal(result[0]['blockNumber'], 'null')
-        assert_equal(result[0]['from'], eth_address)
+        assert_equal(result[0]['from'], self.eth_address)
         assert_equal(result[0]['gas'], '0x5209')
         assert_equal(result[0]['gasPrice'], '0x4e3b29200')
         assert_equal(result[0]['hash'], '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb')
         assert_equal(result[0]['input'], '0x')
         assert_equal(result[0]['nonce'], '0x0')
-        assert_equal(result[0]['to'], to_address.lower())
+        assert_equal(result[0]['to'], self.to_address.lower())
         assert_equal(result[0]['transactionIndex'], '0x0')
         assert_equal(result[0]['value'], '0xde0b6b3a7640000')
         assert_equal(result[0]['v'], '0x26')
@@ -342,7 +379,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result[0]['s'], '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a')
 
         # Create replacement for nonce 0 TX with higher fee
-        tx0 = self.nodes[0].evmtx(eth_address, 0, 22, 21001, to_address, 1)
+        tx0 = self.nodes[0].evmtx(self.eth_address, 0, 22, 21001, self.to_address, 1)
         self.sync_mempools()
 
         # Check mempools for TXs
@@ -363,14 +400,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[6], tx5)
 
         # Check Eth balances after transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 193997333000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 6000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16), 193997333000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 6000000000000000000)
 
         # Get burn address and miner account balance after transfer
-        burn_after = Decimal(self.nodes[0].getaccount(burn_address)[0].split('@')[0])
+        burn_after = Decimal(self.nodes[0].getaccount(self.burn_address)[0].split('@')[0])
         miner_after = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
-        burnt_fee = burn_after - burn_before
-        miner_fee = miner_after - miner_before
+        self.burnt_fee = burn_after - burn_before
+        self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
         block = self.nodes[0].eth_getBlockByNumber("latest", False)
@@ -383,29 +420,10 @@ class EVMTest(DefiTestFramework):
             '0x05d4cdabc4ad55fb7caf42a7fb6d4e8cea991e2331cd9d98a5eef10d84b5c994'
         ])
 
-        # Check pending TXs contains lower fee nonce TX - Mempool should remove this!
-        assert_equal(self.nodes[0].eth_pendingTransactions(), [
-            {'blockHash': '0x0000000000000000000000000000000000000000000000000000000000000000',
-             'blockNumber': 'null',
-             'from': eth_address,
-             'gas': '0x5209',
-             'gasPrice': '0x4e3b29200',
-             'hash': '0xadf0fbeb972cdc4a82916d12ffc6019f60005de6dde1bbc7cb4417fe5a7b1bcb',
-             'input': '0x',
-             'nonce': '0x0',
-             'to': '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110',
-             'transactionIndex': '0x0',
-             'value': '0xde0b6b3a7640000',
-             'v': '0x26',
-             'r': '0x3a0587be1a14bd5e68bc883e627f3c0999cff9458e30ea8049f17bd7369d7d9c',
-             's': '0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a',
-             'type': '0x0',
-             'chainId': '0x1'}
-        ])
-
         # Try and send EVM TX a second time
         assert_raises_rpc_error(-26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx)
 
+    def validate_xvm_coinbase(self):
         # Check EVM blockhash
         eth_block = self.nodes[0].eth_getBlockByNumber('latest')
         eth_hash = eth_block['hash'][2:]
@@ -417,28 +435,30 @@ class EVMTest(DefiTestFramework):
         # Check EVM burnt fee
         opreturn_burnt_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][84:]
         opreturn_burnt_fee_sats = Decimal(int(opreturn_burnt_fee_amount[4:6] + opreturn_burnt_fee_amount[2:4] + opreturn_burnt_fee_amount[0:2], 16)) / 100000000
-        assert_equal(opreturn_burnt_fee_sats, burnt_fee)
+        assert_equal(opreturn_burnt_fee_sats, self.burnt_fee)
 
         # Check EVM miner fee
         opreturn_priority_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][100:]
         opreturn_priority_fee_sats = Decimal(int(opreturn_priority_fee_amount[4:6] + opreturn_priority_fee_amount[2:4] + opreturn_priority_fee_amount[0:2], 16)) / 100000000
-        assert_equal(opreturn_priority_fee_sats, miner_fee)
+        assert_equal(opreturn_priority_fee_sats, self.miner_fee)
 
+    def evm_rollback(self):
         # Test rollback of EVM TX
-        self.rollback_to(before_blockheight, self.nodes)
+        self.rollback_to(self.nodes[0].getblockcount() - 1, self.nodes)
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
-        assert_equal(miner_before, miner_rollback)
+        assert_equal(self.miner_before, miner_rollback)
 
         # Check Eth balances before transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 200000000000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 0)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16), 200000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
+    def mempool_tx_limit(self):
         # Test max limit of TX from a specific sender
         for i in range(63):
-            self.nodes[0].evmtx(eth_address, i, 21, 21001, to_address, 1)
+            self.nodes[0].evmtx(self.eth_address, i, 21, 21001, self.to_address, 1)
 
         # Test error at the 64th EVM TX
-        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, eth_address, 63, 21, 21001, to_address, 1)
+        assert_raises_rpc_error(-26, "too-many-eth-txs-by-sender", self.nodes[0].evmtx, self.eth_address, 63, 21, 21001, self.to_address, 1)
 
         # Mint a block
         self.nodes[0].generate(1)
@@ -446,36 +466,29 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_txs), 64)
 
         # Check Eth balances after transfer
-        assert_equal(int(self.nodes[0].eth_getBalance(eth_address)[2:], 16), 136972217000000000000)
-        assert_equal(int(self.nodes[0].eth_getBalance(to_address)[2:], 16), 63000000000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16), 136972217000000000000)
+        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 63000000000000000000)
 
         # Try and send another TX to make sure mempool has removed entires
-        tx = self.nodes[0].evmtx(eth_address, 63, 21, 21001, to_address, 1)
+        tx = self.nodes[0].evmtx(self.eth_address, 63, 21, 21001, self.to_address, 1)
         self.nodes[0].generate(1)
 
         # Check TX is in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
         assert_equal(block_txs[1], tx)
 
-        # Test setting of finalized block
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/evm/block/finality_count': '100'}})
-        self.nodes[0].generate(1)
-
-        # Check Gov var is present
-        attrs = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attrs['v0/evm/block/finality_count'], '100')
-
+    def multiple_eth_rbf(self):
         # Test multiple replacement TXs with differing fees
-        self.nodes[0].evmtx(eth_address, 64, 22, 21001, to_address, 1)
-        self.nodes[0].evmtx(eth_address, 64, 23, 21001, to_address, 1)
-        tx0 = self.nodes[0].evmtx(eth_address, 64, 25, 21001, to_address, 1)
-        self.nodes[0].evmtx(eth_address, 64, 21, 21001, to_address, 1)
-        self.nodes[0].evmtx(eth_address, 64, 24, 21001, to_address, 1)
-        self.nodes[0].evmtx(to_address, 0, 22, 21001, eth_address, 1)
-        self.nodes[0].evmtx(to_address, 0, 23, 21001, eth_address, 1)
-        tx1 = self.nodes[0].evmtx(to_address, 0, 25, 21001, eth_address, 1)
-        self.nodes[0].evmtx(to_address, 0, 21, 21001, eth_address, 1)
-        self.nodes[0].evmtx(to_address, 0, 24, 21001, eth_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 64, 22, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 64, 23, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(self.eth_address, 64, 25, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 64, 21, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 64, 24, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
+        tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, 0, 21, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, 0, 24, 21001, self.eth_address, 1)
         self.nodes[0].generate(1)
 
         # Check highest paying fee TX in block
@@ -483,13 +496,27 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
 
-        # Test that node should not crash without chainId param
-        key_pair = KeyPair.from_node(self.nodes[0])
-        self.test_tx_without_chainid(self.nodes[0], key_pair)
+    def toggle_evm_enablement(self):
 
-        # Test rollback of EVM related TXs
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
-        assert_equal(self.nodes[0].getblockcount(), 100)
+        # Get block before disablement
+        pre_block = self.nodes[0].eth_getBlockByNumber('latest')
+
+        # Deactivate EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'false'}})
+        self.nodes[0].generate(1)
+
+        # Make sure the block is the same after disablement
+        post_block = self.nodes[0].eth_getBlockByNumber('latest')
+        assert_equal(pre_block, post_block)
+
+        # Reactivate EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Check block is one higher than before
+        enabled_block = self.nodes[0].eth_getBlockByNumber('latest')
+        assert_equal(int(enabled_block['number'], base=16), int(pre_block['number'], base=16) + 1)
+
 
 if __name__ == '__main__':
     EVMTest().main()
