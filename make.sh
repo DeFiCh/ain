@@ -1114,11 +1114,13 @@ _sign() {
 
 _exec_black() {
     local is_check=${1:-0}
-    local black_args="--extend-exclude 'build.*'"
+    # shellcheck disable=SC2089
+    local black_args="--extend-exclude 'build.*' src/crc32/"
     if [[ "${is_check}" == "1" ]]; then
         black_args="${black_args} --check"
     fi
     py_ensure_env_active
+    # shellcheck disable=SC2086,SC2090
     python3 -m black ${black_args} .
     py_env_deactivate
 }
