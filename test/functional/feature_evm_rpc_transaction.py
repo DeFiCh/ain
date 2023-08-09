@@ -96,14 +96,23 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
+        self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(txLegacy)
-        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee = hex_to_decimal(fees["priority_fee"])
+        self.burnt_fee = self.burnt_fee_min = hex_to_decimal(fees["burnt_fee"])
+        self.priority_fee = self.priority_fee_min = hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -146,14 +155,25 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_is_hex_string(receipt['contractAddress'])
+        self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(tx2930)
-        self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee += hex_to_decimal(fees["priority_fee"])
+        self.burnt_fee_max = hex_to_decimal(fees["burnt_fee"])
+        self.burnt_fee += self.burnt_fee_max
+        self.priority_fee_max = hex_to_decimal(fees["priority_fee"])
+        self.priority_fee += self.priority_fee_max
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash1)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash1)
 
         tx1559 = {
             'nonce': '0x2',
@@ -187,10 +207,18 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(tx1559)
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee += hex_to_decimal(fees["priority_fee"])
+        self.priority_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash1)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash1)
 
     def test_send_transaction(self):
         txLegacy = {
@@ -208,10 +236,18 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(txLegacy)
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee += hex_to_decimal(fees["priority_fee"])
+        self.priority_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash1)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash1)
 
         tx2930 = {
             'from': self.ethAddress,
@@ -237,10 +273,18 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(tx2930)
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee += hex_to_decimal(fees["priority_fee"])
+        self.priority_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash1)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash1)
 
         tx1559 = {
             'from': self.ethAddress,
@@ -259,10 +303,18 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         fees = self.nodes[0].debug_feeEstimate(tx1559)
         self.burnt_fee += hex_to_decimal(fees["burnt_fee"])
-        self.paid_fee += hex_to_decimal(fees["priority_fee"])
+        self.priority_fee += hex_to_decimal(fees["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), self.burnt_fee)
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), self.paid_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], self.blockHash1)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min'], self.priority_fee_min)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], self.blockHash)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee_max)
+        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], self.blockHash1)
 
     def run_test(self):
         self.setup()

@@ -1559,7 +1559,15 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
                     auto evmFeesBlockKey     = KeyBuilder(key, "block");
                     ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt"), ValueFromAmount(amounts->feeBurnt));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min"), ValueFromAmount(amounts->feeBurntMin));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min_hash"), amounts->feeBurntMinHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max"), ValueFromAmount(amounts->feeBurntMax));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max_hash"), amounts->feeBurntMaxHash.GetHex());
                     ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority"), ValueFromAmount(amounts->feePriority));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min"), ValueFromAmount(amounts->feePriorityMin));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min_hash"), amounts->feePriorityMinHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max"), ValueFromAmount(amounts->feePriorityMax));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max_hash"), amounts->feePriorityMaxHash.GetHex());
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {

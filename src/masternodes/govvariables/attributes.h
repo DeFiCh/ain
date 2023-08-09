@@ -307,14 +307,30 @@ struct CTransferDomainAccounting {
 
 struct CEvmFees {
     CAmount feeBurnt;
+    CAmount feeBurntMin = std::numeric_limits<CAmount>::max();
+    uint256 feeBurntMinHash;
+    CAmount feeBurntMax = std::numeric_limits<CAmount>::min();
+    uint256 feeBurntMaxHash;
     CAmount feePriority;
+    CAmount feePriorityMin = std::numeric_limits<CAmount>::max();
+    uint256 feePriorityMinHash;
+    CAmount feePriorityMax = std::numeric_limits<CAmount>::min();
+    uint256 feePriorityMaxHash;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(feeBurnt);
+        READWRITE(feeBurntMin);
+        READWRITE(feeBurntMinHash);
+        READWRITE(feeBurntMax);
+        READWRITE(feeBurntMaxHash);
         READWRITE(feePriority);
+        READWRITE(feePriorityMin);
+        READWRITE(feePriorityMinHash);
+        READWRITE(feePriorityMax);
+        READWRITE(feePriorityMaxHash);
     }
 };
 

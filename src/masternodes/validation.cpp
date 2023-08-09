@@ -2488,9 +2488,26 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
 
     CDataStructureV0 evmFeesKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMFees};
     auto evmFees = attributes->GetValue(evmFeesKey, CEvmFees{});
-    evmFees.feeBurnt += static_cast<CAmount>(blockResult.total_burnt_fees);
-    evmFees.feePriority += static_cast<CAmount>(blockResult.total_priority_fees);
-
+    auto feeBurnt = static_cast<CAmount>(blockResult.total_burnt_fees);
+    auto feePriority = static_cast<CAmount>(blockResult.total_priority_fees);
+    evmFees.feeBurnt += feeBurnt;
+    if (feeBurnt && evmFees.feeBurntMin > feeBurnt) {
+        evmFees.feeBurntMin = feeBurnt;
+        evmFees.feeBurntMinHash = block.GetHash();
+    }
+    if (evmFees.feeBurntMax < feeBurnt) {
+        evmFees.feeBurntMax = feeBurnt;
+        evmFees.feeBurntMaxHash = block.GetHash();
+    }
+    evmFees.feePriority += feePriority;
+    if (feePriority && evmFees.feePriorityMin > feePriority) {
+        evmFees.feePriorityMin = feePriority;
+        evmFees.feePriorityMinHash = block.GetHash();
+    }
+    if (evmFees.feePriorityMax < feePriority) {
+        evmFees.feePriorityMax = feePriority;
+        evmFees.feePriorityMaxHash = block.GetHash();
+    }
     attributes->SetValue(evmFeesKey, evmFees);
     cache.SetVariable(*attributes);
 
