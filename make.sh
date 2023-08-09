@@ -358,6 +358,7 @@ check() {
     check_py
     check_rs
     # check_lints
+    # check_cpp
 }
 
 check_git_dirty() {
@@ -414,6 +415,11 @@ check_sh() {
     py_env_deactivate
 }
 
+check_cpp() {
+    # TODO
+    :
+}
+
 check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
     _ensure_enter_dir "$build_dir/lib" || { 
@@ -428,6 +434,7 @@ check_enter_build_rs_dir() {
 fmt() {
     fmt_py
     fmt_lib
+    fmt_cpp
 }
 
 fmt_py() {
@@ -436,6 +443,11 @@ fmt_py() {
 
 fmt_rs() {
     fmt_lib
+}
+
+fmt_cpp() {
+    # TODO
+    :
 }
 
 fmt_lib() {
