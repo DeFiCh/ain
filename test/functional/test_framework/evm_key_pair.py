@@ -22,7 +22,7 @@ class KeyPair:
     @staticmethod
     def from_node(node):
         # get address from node
-        address = node.getnewaddress("", "eth")
+        address = node.getnewaddress("", "erc55")
         pkey = node.dumpprivkey(address)
 
         return KeyPair(pkey, address)
