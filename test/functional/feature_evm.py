@@ -509,6 +509,14 @@ class EVMTest(DefiTestFramework):
         post_block = self.nodes[0].eth_getBlockByNumber('latest')
         assert_equal(pre_block, post_block)
 
+        # Reactivate EVM
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        self.nodes[0].generate(1)
+
+        # Check block is one higher than before
+        enabled_block = self.nodes[0].eth_getBlockByNumber('latest')
+        assert_equal(int(enabled_block['number'], base=16), int(pre_block['number'], base=16) + 1)
+
 
 if __name__ == '__main__':
     EVMTest().main()
