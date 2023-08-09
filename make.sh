@@ -369,8 +369,10 @@ check_git_dirty() {
 }
 
 check_py() {
+    py_ensure_env_active
     _exec_black 1
-    # TODO Add flake as well 
+    # TODO Add flake as well
+    py_env_deactivate 
 }
 
 check_rs() {
@@ -438,7 +440,9 @@ fmt() {
 }
 
 fmt_py() {
+    py_ensure_env_active
     _exec_black
+    py_env_deactivate
 }
 
 fmt_rs() {
@@ -1154,10 +1158,8 @@ _exec_black() {
     if [[ "${is_check}" == "1" ]]; then
         black_args="${black_args} --check"
     fi
-    py_ensure_env_active
     # shellcheck disable=SC2086,SC2090
     python3 -m black --extend-exclude 'src/crc32c' ${black_args} .
-    py_env_deactivate
 }
 
 _safe_rm_rf() {
