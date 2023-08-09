@@ -12,7 +12,6 @@ from test_framework.util import (
     int_to_eth_u256,
     hex_to_decimal
 )
-from decimal import Decimal
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):

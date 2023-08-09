@@ -12,8 +12,6 @@ from test_framework.util import (
     hex_to_decimal
 )
 
-from decimal import Decimal
-
 class EVMRolllbackTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1

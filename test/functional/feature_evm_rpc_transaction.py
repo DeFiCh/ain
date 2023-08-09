@@ -14,8 +14,6 @@ from test_framework.util import (
     hex_to_decimal
 )
 
-from decimal import Decimal
-
 # pragma solidity ^0.8.2;
 # contract Multiply {
 #     function multiply(uint a, uint b) public pure returns (uint) {
