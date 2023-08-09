@@ -281,14 +281,14 @@ struct CDexTokenInfo {
 enum FeeDirValues : uint8_t { Both, In, Out };
 
 struct CTransferDomainAccounting {
-    CBalances dvmEvmTotal;
-    CBalances evmDvmTotal;
-    CBalances dvmIn;
-    CBalances evmIn;
-    CBalances dvmOut;
-    CBalances evmOut;
-    CBalances dvmCurrent;
-    CBalances evmCurrent;
+    CAccountingBalaces dvmEvmTotal;
+    CAccountingBalaces evmDvmTotal;
+    CAccountingBalaces dvmIn;
+    CAccountingBalaces evmIn;
+    CAccountingBalaces dvmOut;
+    CAccountingBalaces evmOut;
+    CAccountingBalaces dvmCurrent;
+    CAccountingBalaces evmCurrent;
 
     ADD_SERIALIZE_METHODS;
 

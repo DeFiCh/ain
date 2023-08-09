@@ -137,7 +137,11 @@ struct CBalances {
         if (ser_action.ForRead()) {
             READWRITE(serializedBalances);
             balances.clear();
+            // check that no zero values are written
             for (auto it = serializedBalances.begin(); it != serializedBalances.end(); /* advance */) {
+                if (it->second == 0) {
+                    throw std::ios_base::failure("non-canonical balances (zero amount)");
+                }
                 balances.emplace(DCT_ID{it->first}, it->second);
                 serializedBalances.erase(it++);
             }
@@ -247,6 +251,108 @@ struct CTransferDomainMessage {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(transfers);
+    }
+};
+
+struct CAccountingBalaces {
+    TAmounts balances;
+
+    Res Add(CTokenAmount amount) {
+        if (amount.nValue == 0) {
+            return Res::Ok();
+        }
+
+        balances[amount.nTokenId] += amount.nValue;
+
+        return Res::Ok();
+    }
+
+    Res Sub(CTokenAmount amount) {
+        if (amount.nValue == 0) {
+            return Res::Ok();
+        }
+
+        balances[amount.nTokenId] -= amount.nValue;
+
+        return Res::Ok();
+    }
+
+    Res SubBalances(const TAmounts &other) {
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Sub(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
+        return Res::Ok();
+    }
+
+    Res AddBalances(const TAmounts &other) {
+        for (const auto &[tokenId, amount] : other) {
+            if (auto res = Add(CTokenAmount{tokenId, amount}); !res) {
+                return res;
+            }
+        }
+        return Res::Ok();
+    }
+
+    std::string ToString() const {
+        std::string str;
+        str.reserve(100);
+        for (const auto &kv : balances) {
+            if (!str.empty()) {
+                str += ",";
+            }
+            str += CTokenAmount{kv.first, kv.second}.ToString();
+        }
+        return str;
+    }
+
+    static CAccountingBalaces Sum(const std::vector<CTokenAmount> &tokens) {
+        CAccountingBalaces res;
+        for (const auto &token : tokens) {
+            res.Add(token);
+        }
+        return res;
+    }
+
+    friend bool operator==(const CAccountingBalaces &a, const CAccountingBalaces &b) { return a.balances == b.balances; }
+
+    friend bool operator!=(const CAccountingBalaces &a, const CAccountingBalaces &b) { return a.balances != b.balances; }
+
+    // NOTE: if some balance from b is hgher than a => a is less than b
+    friend bool operator<(const CAccountingBalaces &a, const CAccountingBalaces &b) {
+        for (const auto &b_kv : b.balances) {
+            const auto a_value_it = a.balances.find(b_kv.first);
+            CAmount a_value       = 0;
+            if (a_value_it != a.balances.end()) {
+                a_value = a_value_it->second;
+            }
+            if (b_kv.second > a_value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        static_assert(std::is_same<decltype(balances), std::map<DCT_ID, CAmount>>::value, "Following code is invalid");
+        std::map<uint32_t, CAmount> serializedBalances;
+        if (ser_action.ForRead()) {
+            READWRITE(serializedBalances);
+            balances.clear();
+            for (auto it = serializedBalances.begin(); it != serializedBalances.end(); /* advance */) {
+                balances.emplace(DCT_ID{it->first}, it->second);
+                serializedBalances.erase(it++);
+            }
+        } else {
+            for (const auto &it : balances) {
+                serializedBalances.emplace(it.first.v, it.second);
+            }
+            READWRITE(serializedBalances);
+        }
     }
 };
 

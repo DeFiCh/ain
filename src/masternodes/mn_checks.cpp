@@ -3897,14 +3897,12 @@ public:
             // Source parsing
             if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from DFI address
-                CBalances balance;
-                balance.Add(src.amount);
-                res = mnview.SubBalances(src.address, balance);
+                res = mnview.SubBalance(src.address, src.amount);
                 if (!res)
                     return res;
-                transferDomainAccounting.dvmEvmTotal.AddBalances(balance.balances);
-                transferDomainAccounting.dvmOut.AddBalances(balance.balances);
-                transferDomainAccounting.dvmCurrent.balances[src.amount.nTokenId] -= src.amount.nValue;
+                transferDomainAccounting.dvmEvmTotal.Add(src.amount);
+                transferDomainAccounting.dvmOut.Add(src.amount);
+                transferDomainAccounting.dvmCurrent.Sub(src.amount);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ERC55 address
                 CTxDestination dest;
@@ -3934,19 +3932,17 @@ public:
                 }
                 auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
                 transferDomainAccounting.evmOut.Add(tokenAmount);
-                transferDomainAccounting.evmCurrent.balances[tokenId] -= src.amount.nValue;
+                transferDomainAccounting.evmCurrent.Sub(tokenAmount);
             }
             // Destination parsing
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Add balance to DFI address
-                CBalances balance;
-                balance.Add(dst.amount);
-                res = mnview.AddBalances(dst.address, balance);
+                res = mnview.AddBalance(dst.address, dst.amount);
                 if (!res)
                     return res;
-                transferDomainAccounting.evmDvmTotal.AddBalances(balance.balances);
-                transferDomainAccounting.dvmIn.AddBalances(balance.balances);
-                transferDomainAccounting.dvmCurrent.AddBalances(balance.balances);
+                transferDomainAccounting.evmDvmTotal.Add(dst.amount);
+                transferDomainAccounting.dvmIn.Add(dst.amount);
+                transferDomainAccounting.dvmCurrent.Add(dst.amount);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ERC55 address
                 CTxDestination dest;
