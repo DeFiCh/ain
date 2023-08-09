@@ -53,7 +53,7 @@ class EVMTest(DefiTestFramework):
 
         # Toggle EVM
         self.toggle_evm_enablement()
-        
+
     def test_tx_without_chainid(self, node):
 
         keypair = KeyPair.from_node(node)
