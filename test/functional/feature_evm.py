@@ -110,6 +110,11 @@ class EVMTest(DefiTestFramework):
         test_eth_dump = self.nodes[0].getnewaddress("", "erc55")
         self.nodes[0].dumpprivkey(test_eth_dump)
 
+        # Generate an address using an alias and make sure it is an witness 16 address
+        addr = self.nodes[0].getnewaddress("", "eth")
+        addr_info = self.nodes[0].getaddressinfo(addr)
+        assert_equal(addr_info['witness_version'], 16)
+
         # Generate chain
         self.nodes[0].generate(101)
 
