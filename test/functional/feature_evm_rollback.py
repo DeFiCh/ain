@@ -25,8 +25,8 @@ class EVMRolllbackTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = self.nodes[0].getnewaddress("","eth")
-        self.toAddress = self.nodes[0].getnewaddress("","eth")
+        self.ethAddress = self.nodes[0].getnewaddress("","erc55")
+        self.toAddress = self.nodes[0].getnewaddress("","erc55")
 
         # Generate chain
         self.nodes[0].generate(101)
