@@ -4,7 +4,6 @@ use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 
 use super::traits::PersistentState;
-
 /// `CodeHistory` maintains a history of accounts' codes.
 ///
 /// It tracks the current state (`code_map`), as well as a history (`history`) of code hashes

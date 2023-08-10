@@ -9,13 +9,14 @@ use super::traits::AttributesStorage;
 use super::{
     code::CodeHistory,
     traits::{
-        BlockStorage, FlushableStorage, PersistentState, PersistentStateError, ReceiptStorage,
-        Rollback, TransactionStorage,
+        BlockStorage, FlushableStorage, PersistentState, ReceiptStorage, Rollback,
+        TransactionStorage,
     },
 };
 use crate::log::LogIndex;
 use crate::receipt::Receipt;
 use crate::storage::traits::LogStorage;
+use crate::Result;
 
 pub static BLOCK_MAP_PATH: &str = "block_map.bin";
 pub static BLOCK_DATA_PATH: &str = "block_data.bin";
@@ -94,33 +95,36 @@ impl BlockchainDataHandler {
 
 impl TransactionStorage for BlockchainDataHandler {
     // TODO: Feature flag
-    fn extend_transactions_from_block(&self, block: &BlockAny) {
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         let mut transactions = self.transactions.write().unwrap();
 
         for transaction in &block.transactions {
             let hash = transaction.hash();
             transactions.insert(hash, transaction.clone());
         }
+        Ok(())
     }
 
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
-        self.transactions
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
+        let transaction = self
+            .transactions
             .read()
             .unwrap()
             .get(hash)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(transaction)
     }
 
     fn get_transaction_by_block_hash_and_index(
         &self,
         block_hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2> {
+    ) -> Result<Option<TransactionV2>> {
         self.block_map
             .write()
             .unwrap()
             .get(block_hash)
-            .and_then(|block_number| {
+            .map_or(Ok(None), |block_number| {
                 self.get_transaction_by_block_number_and_index(block_number, index)
             })
     }
@@ -129,43 +133,48 @@ impl TransactionStorage for BlockchainDataHandler {
         &self,
         block_number: &U256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.blocks
+    ) -> Result<Option<TransactionV2>> {
+        let transaction = self
+            .blocks
             .write()
             .unwrap()
-            .get(block_number)?
-            .transactions
-            .get(index)
-            .map(ToOwned::to_owned)
+            .get(block_number)
+            .and_then(|block| block.transactions.get(index).map(ToOwned::to_owned));
+        Ok(transaction)
     }
 
-    fn put_transaction(&self, transaction: &TransactionV2) {
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
         self.transactions
             .write()
             .unwrap()
             .insert(transaction.hash(), transaction.clone());
+        Ok(())
     }
 }
 
 impl BlockStorage for BlockchainDataHandler {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.blocks
+    fn get_block_by_number(&self, number: &U256) -> Result<Option<BlockAny>> {
+        let block = self
+            .blocks
             .write()
             .unwrap()
             .get(number)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(block)
     }
 
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<Option<BlockAny>> {
         self.block_map
             .write()
             .unwrap()
             .get(block_hash)
-            .and_then(|block_number| self.get_block_by_number(block_number))
+            .map_or(Ok(None), |block_number| {
+                self.get_block_by_number(block_number)
+            })
     }
 
-    fn put_block(&self, block: &BlockAny) {
-        self.extend_transactions_from_block(block);
+    fn put_block(&self, block: &BlockAny) -> Result<()> {
+        self.extend_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
@@ -174,54 +183,61 @@ impl BlockStorage for BlockchainDataHandler {
             .unwrap()
             .insert(block_number, block.clone());
         self.block_map.write().unwrap().insert(hash, block_number);
+        Ok(())
     }
 
-    fn get_latest_block(&self) -> Option<BlockAny> {
+    fn get_latest_block(&self) -> Result<Option<BlockAny>> {
         self.latest_block_number
             .read()
             .unwrap()
             .as_ref()
-            .and_then(|number| self.get_block_by_number(number))
+            .map_or(Ok(None), |number| self.get_block_by_number(number))
     }
 
-    fn put_latest_block(&self, block: Option<&BlockAny>) {
+    fn put_latest_block(&self, block: Option<&BlockAny>) -> Result<()> {
         let mut latest_block_number = self.latest_block_number.write().unwrap();
         *latest_block_number = block.map(|b| b.header.number);
+        Ok(())
     }
 }
 
 impl ReceiptStorage for BlockchainDataHandler {
-    fn get_receipt(&self, tx: &H256) -> Option<Receipt> {
-        self.receipts.read().unwrap().get(tx).map(ToOwned::to_owned)
+    fn get_receipt(&self, tx: &H256) -> Result<Option<Receipt>> {
+        let receipt = self.receipts.read().unwrap().get(tx).map(ToOwned::to_owned);
+        Ok(receipt)
     }
 
-    fn put_receipts(&self, receipts: Vec<Receipt>) {
+    fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
         let mut receipt_map = self.receipts.write().unwrap();
         for receipt in receipts {
             receipt_map.insert(receipt.tx_hash, receipt);
         }
+        Ok(())
     }
 }
 
 impl LogStorage for BlockchainDataHandler {
-    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>> {
-        self.address_logs_map
+    fn get_logs(&self, block_number: &U256) -> Result<Option<HashMap<H160, Vec<LogIndex>>>> {
+        let logs = self
+            .address_logs_map
             .read()
             .unwrap()
             .get(block_number)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(logs)
     }
 
-    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
+    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) -> Result<()> {
         let mut address_logs_map = self.address_logs_map.write().unwrap();
 
         let address_map = address_logs_map.entry(block_number).or_default();
         address_map.insert(address, logs);
+        Ok(())
     }
 }
 
 impl FlushableStorage for BlockchainDataHandler {
-    fn flush(&self) -> Result<(), PersistentStateError> {
+    fn flush(&self) -> Result<()> {
         self.block_map
             .write()
             .unwrap()
@@ -249,30 +265,33 @@ impl FlushableStorage for BlockchainDataHandler {
 }
 
 impl BlockchainDataHandler {
-    pub fn get_code_by_hash(&self, hash: &H256) -> Option<Vec<u8>> {
-        self.code_map
+    pub fn get_code_by_hash(&self, hash: &H256) -> Result<Option<Vec<u8>>> {
+        let code = self
+            .code_map
             .read()
             .unwrap()
             .get(hash)
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(code)
     }
 
-    pub fn put_code(&self, hash: &H256, code: &[u8]) {
+    pub fn put_code(&self, hash: &H256, code: &[u8]) -> Result<()> {
         let block_number = self
-            .get_latest_block()
+            .get_latest_block()?
             .map(|b| b.header.number)
             .unwrap_or_default()
             + 1;
         self.code_map
             .write()
             .unwrap()
-            .insert(block_number, *hash, code.to_vec())
+            .insert(block_number, *hash, code.to_vec());
+        Ok(())
     }
 }
 
 impl Rollback for BlockchainDataHandler {
-    fn disconnect_latest_block(&self) {
-        if let Some(block) = self.get_latest_block() {
+    fn disconnect_latest_block(&self) -> Result<()> {
+        if let Some(block) = self.get_latest_block()? {
             println!("disconnecting block number : {:x?}", block.header.number);
             let mut transactions = self.transactions.write().unwrap();
             let mut receipts = self.receipts.write().unwrap();
@@ -286,18 +305,21 @@ impl Rollback for BlockchainDataHandler {
             self.blocks.write().unwrap().remove(&block.header.number);
             self.code_map.write().unwrap().rollback(block.header.number);
 
-            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
+            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash)?.as_ref())?
         }
+        Ok(())
     }
 }
 
 impl AttributesStorage for BlockchainDataHandler {
-    fn put_attributes(&self, attr: Option<&Attributes>) {
+    fn put_attributes(&self, attr: Option<&Attributes>) -> Result<()> {
         let mut attributes = self.attributes.write().unwrap();
         *attributes = attr.cloned();
+        Ok(())
     }
 
-    fn get_attributes(&self) -> Option<Attributes> {
-        self.attributes.read().unwrap().as_ref().cloned()
+    fn get_attributes(&self) -> Result<Option<Attributes>> {
+        let attributes = self.attributes.read().unwrap().as_ref().cloned();
+        Ok(attributes)
     }
 }

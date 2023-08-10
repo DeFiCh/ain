@@ -1,5 +1,4 @@
 use std::cmp::{max, Ordering};
-use std::error::Error;
 use std::sync::Arc;
 
 use anyhow::format_err;
@@ -10,6 +9,7 @@ use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
 
 use crate::storage::{traits::BlockStorage, Storage};
+use crate::Result;
 
 pub struct BlockService {
     storage: Arc<Storage>,
@@ -26,41 +26,43 @@ pub struct FeeHistoryData {
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 
 impl BlockService {
-    pub fn new(storage: Arc<Storage>) -> Self {
+    pub fn new(storage: Arc<Storage>) -> Result<Self> {
         let mut block_handler = Self {
             storage,
             starting_block_number: U256::zero(),
         };
         let (_, block_number) = block_handler
-            .get_latest_block_hash_and_number()
+            .get_latest_block_hash_and_number()?
             .unwrap_or_default();
 
         block_handler.starting_block_number = block_number;
         debug!("Current block number is {:#?}", block_number);
 
-        block_handler
+        Ok(block_handler)
     }
 
     pub fn get_starting_block_number(&self) -> U256 {
         self.starting_block_number
     }
 
-    pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
-        self.storage
-            .get_latest_block()
-            .map(|latest_block| (latest_block.header.hash(), latest_block.header.number))
+    pub fn get_latest_block_hash_and_number(&self) -> Result<Option<(H256, U256)>> {
+        let opt_block = self.storage.get_latest_block()?;
+        let opt_hash_and_number = opt_block.map(|block| (block.header.hash(), block.header.number));
+        Ok(opt_hash_and_number)
     }
 
-    pub fn get_latest_state_root(&self) -> H256 {
-        self.storage
-            .get_latest_block()
+    pub fn get_latest_state_root(&self) -> Result<H256> {
+        let state_root = self
+            .storage
+            .get_latest_block()?
             .map(|block| block.header.state_root)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        Ok(state_root)
     }
 
-    pub fn connect_block(&self, block: &BlockAny) {
-        self.storage.put_latest_block(Some(block));
-        self.storage.put_block(block);
+    pub fn connect_block(&self, block: &BlockAny) -> Result<()> {
+        self.storage.put_latest_block(Some(block))?;
+        self.storage.put_block(block)
     }
 
     pub fn base_fee_calculation(
@@ -112,38 +114,38 @@ impl BlockService {
         )
     }
 
-    pub fn calculate_base_fee(&self, parent_hash: H256) -> U256 {
+    pub fn calculate_base_fee(&self, parent_hash: H256) -> Result<U256> {
         // constants
         let base_fee_max_change_denominator = U256::from(8);
         let elasticity_multiplier = U256::from(2);
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
-            return INITIAL_BASE_FEE;
+            return Ok(INITIAL_BASE_FEE);
         }
 
         // get parent gas usage,
         // https://eips.ethereum.org/EIPS/eip-1559#:~:text=fee%20is%20correct-,if%20INITIAL_FORK_BLOCK_NUMBER%20%3D%3D%20block.number%3A,-expected_base_fee_per_gas%20%3D%20INITIAL_BASE_FEE
         let parent_block = self
             .storage
-            .get_block_by_hash(&parent_hash)
-            .expect("Parent block not found");
+            .get_block_by_hash(&parent_hash)?
+            .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = parent_block.header.gas_used.as_u64();
         let parent_gas_target =
             parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
 
-        self.get_base_fee(
+        Ok(self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
             parent_base_fee,
             base_fee_max_change_denominator,
             INITIAL_BASE_FEE,
-        )
+        ))
     }
 
-    pub fn calculate_next_block_base_fee(&self) -> U256 {
-        let current_block_data = self.get_latest_block_hash_and_number();
+    pub fn calculate_next_block_base_fee(&self) -> Result<U256> {
+        let current_block_data = self.get_latest_block_hash_and_number()?;
         let current_block_hash = match current_block_data {
             None => H256::zero(),
             Some((hash, _)) => hash,
@@ -157,12 +159,12 @@ impl BlockService {
         block_count: usize,
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
-    ) -> Result<FeeHistoryData, Box<dyn Error>> {
+    ) -> Result<FeeHistoryData> {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
 
         for _ in 0..=block_count {
-            let block = match self.storage.get_block_by_number(&block_number) {
+            let block = match self.storage.get_block_by_number(&block_number)? {
                 None => Err(format_err!("Block {} out of range", block_number)),
                 Some(block) => Ok(block),
             }?;
@@ -258,17 +260,17 @@ impl BlockService {
     /// Returns the 60th percentile priority fee for the last 20 blocks
     /// Ref: https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41
     /// TODO: these should be configurable by the user
-    pub fn suggested_priority_fee(&self) -> U256 {
+    pub fn suggested_priority_fee(&self) -> Result<U256> {
         let mut blocks = Vec::with_capacity(20);
         let block = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .expect("Unable to find latest block");
         blocks.push(block.clone());
         let mut parent_hash = block.header.parent_hash;
 
         while blocks.len() <= blocks.capacity() {
-            match self.storage.get_block_by_hash(&parent_hash) {
+            match self.storage.get_block_by_hash(&parent_hash)? {
                 Some(block) => {
                     blocks.push(block.clone());
                     parent_hash = block.header.parent_hash;
@@ -301,19 +303,19 @@ impl BlockService {
         priority_fees.sort_by(|a, b| a.partial_cmp(b).expect("Invalid f64 value"));
         let mut data = Data::new(priority_fees);
 
-        U256::from(data.percentile(60).ceil() as u64)
+        Ok(U256::from(data.percentile(60).ceil() as u64))
     }
 
-    pub fn get_legacy_fee(&self) -> U256 {
-        let priority_fee = self.suggested_priority_fee();
+    pub fn get_legacy_fee(&self) -> Result<U256> {
+        let priority_fee = self.suggested_priority_fee()?;
         let base_fee = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .expect("Unable to get latest block")
             .header
             .base_fee;
 
-        base_fee + priority_fee
+        Ok(base_fee + priority_fee)
     }
 }
 
