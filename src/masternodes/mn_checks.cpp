@@ -3889,14 +3889,39 @@ public:
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from DFI address
                 CBalances balance;
                 balance.Add(src.amount);
                 res = mnview.SubBalances(src.address, balance);
                 if (!res)
                     return res;
-            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+
+                // Add balance to ERC55 address
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                CrossBoundaryResult result;
+                if (tokenId == DCT_ID{0}) {
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DFI: %s", result.reason);
+                    }
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from ERC55 address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
@@ -3923,39 +3948,16 @@ public:
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
                 }
-            }
-            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+
                 // Add balance to DFI address
                 CBalances balance;
                 balance.Add(dst.amount);
                 res = mnview.AddBalances(dst.address, balance);
                 if (!res)
                     return res;
-            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Add balance to ERC55 address
-                CTxDestination dest;
-                ExtractDestination(dst.address, dest);
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-                arith_uint256 balanceIn = dst.amount.nValue;
-                auto tokenId = dst.amount.nTokenId;
-                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                CrossBoundaryResult result;
-                if (tokenId == DCT_ID{0}) {
-                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
-                    if (!result.ok) {
-                        return Res::Err("Error bridging DFI: %s", result.reason);
-                    }
-                }
-                else {
-                    CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
-
-                    if (!result.ok) {
-                        return Res::Err("Error bridging DST20: %s", result.reason);
-                    }
-                }
+            }
+            else {
+                return DeFiErrors::TransferDomainInvalidDomain();
             }
 
             if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
