@@ -2380,29 +2380,29 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static ResVal<XVM> ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const FinalizeBlockCompletion &blockResult) {
-    const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
-    // Miner does not add output on null block
-    if (coinbaseBlockHash.IsNull()) return Res::Ok();
-
+static ResVal<XVM> GetCoinbaseXVMOutput(const CScript &scriptPubKey) {
     auto res = XVM::TryFrom(scriptPubKey);
     if (!res.ok) return res;
 
-    auto obj = *res;
+    return res;
+}
 
-    if (obj.evm.blockHash != coinbaseBlockHash) {
+static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
+    const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
+
+    if (xvm.evm.blockHash != coinbaseBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
     }
 
-    if (obj.evm.burntFee != blockResult.total_burnt_fees) {
+    if (xvm.evm.burntFee != blockResult.total_burnt_fees) {
         return Res::Err("Incorrect EVM burnt fee in coinbase output");
     }
 
-    if (obj.evm.priorityFee != blockResult.total_priority_fees) {
+    if (xvm.evm.priorityFee != blockResult.total_priority_fees) {
         return Res::Err("Incorrect EVM priority fee in coinbase output");
     }
 
-    return res;
+    return Res::Ok();
 }
 
 static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
@@ -2411,7 +2411,6 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
-    std::array<uint8_t, 20> beneficiary{};
 
     if (!fMockNetwork) {
         const auto id = cache.GetMasternodeIdByOperator(minter);
@@ -2439,18 +2438,17 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         CTxDestination dest;
         assert(ExtractDestination(tx->vout[1].scriptPubKey, dest));
         assert(dest.index() == PKHashType || dest.index() == WitV0KeyHashType);
-
-        const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
-        std::copy(keyID.begin(), keyID.end(), beneficiary.begin());
         minerAddress = GetScriptForDestination(dest);
     } else {
-        std::copy(minter.begin(), minter.end(), beneficiary.begin());
         const auto dest = PKHash(minter);
         minerAddress = GetScriptForDestination(dest);
     }
 
+    auto xvmRes = GetCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey);
+    if (!xvmRes) return std::move(xvmRes);
+
     CrossBoundaryResult result;
-    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, beneficiary, block.GetBlockTime(), pindex->nHeight);
+    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight);
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
@@ -2461,10 +2459,10 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         return Res::Err("Not enough outputs in coinbase TX");
     }
 
-    auto xvmRes = ValidateCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey, blockResult);
-    if (!xvmRes) return std::move(xvmRes);
+    auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
+    if (!res) return res;
 
-    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
 
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
@@ -2576,9 +2574,8 @@ Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustom
     if (!res) return res;
 
     // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
+    res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
     if (!res) return res;
-
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
