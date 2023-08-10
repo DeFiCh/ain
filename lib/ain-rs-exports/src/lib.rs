@@ -10,11 +10,15 @@ pub mod ffi {
     // ========== Transaction ==========
     #[derive(Default)]
     pub struct EVMTransaction {
+        // EIP-2718 transaction type: legacy - 0x0, EIP2930 - 0x1, EIP1559 - 0x2
+        pub tx_type: u8,
         pub hash: [u8; 32],
         pub sender: [u8; 20],
         pub nonce: u64,
         pub gas_price: u64,
         pub gas_limit: u64,
+        pub max_fee_per_gas: u64,
+        pub max_priority_fee_per_gas: u64,
         pub create_tx: bool,
         pub to: [u8; 20],
         pub value: u64,
