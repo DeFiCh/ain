@@ -13,6 +13,8 @@
 #include <masternodes/mn_checks.h>        /// GetAggregatePrice / CustomTxType
 #include <validation.h>                   /// GetNextAccPosition
 
+#include <ain_rs_exports.h>
+
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
@@ -399,6 +401,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
+             {EconomyKeys::TransferDomainStatsLive, "transferdomain"},
+             {EconomyKeys::EVMBlockStatsLive, "evm"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1556,6 +1560,44 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
+            }  else if (const auto stats = std::get_if<CTransferDomainStatsLive>(&attribute.second)) {
+                    auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
+                    auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
+                    auto dvmDomain    = KeyBuilder(key, "dvm");
+                    auto evmDomain    = KeyBuilder(key, "evm");
+                    auto v = std::vector<std::tuple<std::string, std::string, TAmounts>> {
+                        { dvmEvmEdge, "total", stats->dvmEvmTotal.balances },
+                        { evmDvmEdge, "total", stats->evmDvmTotal.balances },
+                        { dvmDomain, "current", stats->dvmCurrent.balances },
+                        { dvmDomain, "in", stats->dvmIn.balances },
+                        { dvmDomain, "out", stats->dvmOut.balances },
+                        { evmDomain, "current", stats->evmCurrent.balances },
+                        { evmDomain, "in", stats->evmIn.balances },
+                        { evmDomain, "out", stats->evmOut.balances },
+                    };
+
+                    for (const auto &[key, subkey, balances] : v) {
+                        for (const auto &[id, value] : balances) {
+                            ret.pushKV(KeyBuilder(key, id.v, subkey), ValueFromAmount(value));
+                        }
+                    }
+            } else if (const auto stats = std::get_if<CEvmBlockStatsLive>(&attribute.second)) {
+                    auto blockStatsKey     = KeyBuilder(key, "block");
+                    auto v = std::vector<std::tuple<std::string, UniValue>> {
+                        { "fee_burnt", ValueFromAmount(stats->feeBurnt) },
+                        { "fee_burnt_min", ValueFromAmount(stats->feeBurntMin) },
+                        { "fee_burnt_min_hash", stats->feeBurntMinHash.GetHex() },
+                        { "fee_burnt_max", ValueFromAmount(stats->feeBurntMax) },
+                        { "fee_burnt_max_hash", stats->feeBurntMaxHash.GetHex() },
+                        { "fee_priority", ValueFromAmount(stats->feePriority) },
+                        { "fee_priority_min", ValueFromAmount(stats->feePriorityMin) },
+                        { "fee_priority_min_hash", stats->feePriorityMinHash.GetHex() },
+                        { "fee_priority_max", ValueFromAmount(stats->feePriorityMax) },
+                        { "fee_priority_max_hash", stats->feePriorityMaxHash.GetHex() },
+                    };
+                    for (const auto &[key, value] : v) {
+                        ret.pushKV(KeyBuilder(blockStatsKey, key), value);
+                    }
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
@@ -1727,7 +1769,28 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             }
                         }
                         [[fallthrough]];
-                    case TokenKeys::LoanCollateralEnabled:
+                    case TokenKeys::LoanCollateralEnabled: {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                            return DeFiErrors::GovVarValidateFortCanningCrunch();
+                        }
+                        // Post fork remove this guard as long as there were no non-DAT loan tokens before
+                        // the fork. A full sync test on the removal of this guard will tell.
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            if (!VerifyDATToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        } else {
+                            if (!VerifyToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        }
+                        CDataStructureV0 intervalPriceKey{
+                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                            return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+                        break;
+                    }
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
@@ -1744,9 +1807,28 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             }
                         }
                         CDataStructureV0 intervalPriceKey{
-                            AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+
+                        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature,
+                                                          DFIPKeys::EVMEnabled};
+
+                        CrossBoundaryResult result;
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight &&
+                            GetValue(enabledKey, false) &&
+                            evmQueueId &&
+                            !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
+                                                       tokenID.ToString())) {
+                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
+                                                 token->name,
+                                                 token->symbol,
+                                                 tokenID.ToString());
+
+                            if (!result.ok) {
+                                return DeFiErrors::GovVarErrorCreatingDST20(result.reason.c_str());
+                            }
                         }
                         break;
                     }

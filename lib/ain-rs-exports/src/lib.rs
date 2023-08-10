@@ -7,6 +7,24 @@ use crate::evm::*;
 
 #[cxx::bridge]
 pub mod ffi {
+    // ========== Transaction ==========
+    #[derive(Default)]
+    pub struct EVMTransaction {
+        // EIP-2718 transaction type: legacy - 0x0, EIP2930 - 0x1, EIP1559 - 0x2
+        pub tx_type: u8,
+        pub hash: [u8; 32],
+        pub sender: [u8; 20],
+        pub nonce: u64,
+        pub gas_price: u64,
+        pub gas_limit: u64,
+        pub max_fee_per_gas: u64,
+        pub max_priority_fee_per_gas: u64,
+        pub create_tx: bool,
+        pub to: [u8; 20],
+        pub value: u64,
+        pub data: Vec<u8>,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -46,6 +64,7 @@ pub mod ffi {
         pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
+        pub block_number: u64,
     }
 
     #[derive(Default)]
@@ -59,6 +78,7 @@ pub mod ffi {
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
+        pub tx_hash: [u8; 32],
         pub prepay_fee: u64,
         pub gas_used: u64,
     }
@@ -143,8 +163,11 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
-
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
+        fn evm_try_get_tx_by_hash(
+            result: &mut CrossBoundaryResult,
+            tx_hash: [u8; 32],
+        ) -> EVMTransaction;
 
         fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
@@ -154,7 +177,6 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         );
-
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
@@ -164,5 +186,17 @@ pub mod ffi {
             token_id: &str,
             out: bool,
         );
+        fn evm_try_is_dst20_deployed_or_queued(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            name: &str,
+            symbol: &str,
+            token_id: &str,
+        ) -> bool;
+
+        fn evm_unsafe_try_get_target_block_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+        ) -> u64;
     }
 }

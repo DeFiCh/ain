@@ -14,7 +14,7 @@ use crate::block::BlockService;
 use crate::bytes::Bytes;
 use crate::core::{EVMCoreService, EVMError, NativeTxHash};
 use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee, get_tx_max_gas_price};
+use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
 use crate::log::LogService;
 use crate::receipt::ReceiptService;
@@ -41,6 +41,7 @@ pub struct FinalizedBlockInfo {
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
+    pub block_number: U256,
 }
 
 pub struct DeployContractInfo {
@@ -183,7 +184,7 @@ impl EVMServices {
         }
 
         for queue_item in queue.transactions.clone() {
-            match queue_item.queue_tx {
+            match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
@@ -302,6 +303,8 @@ impl EVMServices {
         if (total_burnt_fees + total_priority_fees) != queue.total_fees {
             return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, queue.total_fees).into());
         }
+
+        let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
         let gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
         let block = Block::new(
             PartialHeader {
@@ -315,7 +318,7 @@ impl EVMServices {
                 gas_limit: U256::from(gas_limit),
                 gas_used: U256::from(total_gas_used),
                 timestamp,
-                extra_data: Vec::default(),
+                extra_data,
                 mix_hash: H256::default(),
                 nonce: H64::default(),
                 base_fee,
@@ -343,6 +346,7 @@ impl EVMServices {
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
+            block_number: current_block_number,
         })
     }
 
@@ -386,8 +390,7 @@ impl EVMServices {
         );
 
         let block_fee = self.block.calculate_next_block_base_fee();
-        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
-        if tx_gas_price < block_fee {
+        if signed_tx.gas_price() < block_fee {
             debug!("[verify_tx_fees] tx gas price is lower than block base fee");
             return Err(format_err!("tx gas price is lower than block base fee").into());
         }
@@ -522,5 +525,41 @@ impl EVMServices {
             address: contract,
             storage: vec![(storage_index, ain_contracts::u256_to_h256(new_balance))],
         })
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn is_dst20_deployed_or_queued(
+        &self,
+        queue_id: u64,
+        name: &str,
+        symbol: &str,
+        token_id: &str,
+    ) -> Result<bool, Box<dyn Error>> {
+        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+        debug!(
+            "[is_dst20_deployed_or_queued] Fetching address {:#?}",
+            address
+        );
+
+        let backend = self.core.get_latest_block_backend()?;
+        // Address already deployed
+        if backend.get_account(&address).is_some() {
+            return Ok(true);
+        }
+
+        let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            name: String::from(name),
+            symbol: String::from(symbol),
+            address,
+        }));
+
+        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
+
+        Ok(is_queued)
     }
 }

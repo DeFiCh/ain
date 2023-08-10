@@ -97,7 +97,7 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
@@ -290,6 +290,14 @@ impl SignedTx {
             TransactionV2::Legacy(tx) => tx.signature.chain_id().unwrap_or_default(),
             TransactionV2::EIP2930(tx) => tx.chain_id,
             TransactionV2::EIP1559(tx) => tx.chain_id,
+        }
+    }
+
+    pub fn hash(&self) -> H256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.hash(),
+            TransactionV2::EIP2930(tx) => tx.hash(),
+            TransactionV2::EIP1559(tx) => tx.hash(),
         }
     }
 }

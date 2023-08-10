@@ -213,7 +213,9 @@ class TestNode():
         "eth_getTransactionReceipt",
         "eth_pendingTransactions",
         # net
-        "net_version"
+        "net_version",
+        #debug
+        "debug_feeEstimate",
     }
 
     def get_genesis_keys(self):
