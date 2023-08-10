@@ -8,10 +8,9 @@
 import math
 import time
 from decimal import Decimal
-from web3 import Web3
 import os
 
-from test_framework.evm_key_pair import KeyPair
+from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
@@ -45,7 +44,7 @@ class DST20(DefiTestFramework):
     def test_deploy_token(self):
         # should have no code on contract address
         assert_equal(
-            Web3.to_hex(self.web3.eth.get_code(self.contract_address_btc)), "0x"
+            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_btc)), "0x"
         )
 
         self.node.createtoken(
@@ -59,10 +58,10 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # should have code on contract address
-        assert Web3.to_hex(self.web3.eth.get_code(self.contract_address_btc)) != "0x"
+        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_btc)) != "0x"
 
         # check contract variables
-        self.btc = self.web3.eth.contract(
+        self.btc = self.nodes[0].w3.eth.contract(
             address=self.contract_address_btc, abi=self.abi
         )
         assert_equal(self.btc.functions.name().call(), "BTC token")
@@ -71,10 +70,10 @@ class DST20(DefiTestFramework):
     def test_deploy_multiple_tokens(self):
         # should have no code on contract addresses
         assert_equal(
-            Web3.to_hex(self.web3.eth.get_code(self.contract_address_eth)), "0x"
+            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_eth)), "0x"
         )
         assert_equal(
-            Web3.to_hex(self.web3.eth.get_code(self.contract_address_dusd)), "0x"
+            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_dusd)), "0x"
         )
 
         self.node.createtoken(
@@ -96,17 +95,17 @@ class DST20(DefiTestFramework):
         self.node.generate(1)
 
         # should have code on contract address
-        assert Web3.to_hex(self.web3.eth.get_code(self.contract_address_eth)) != "0x"
-        assert Web3.to_hex(self.web3.eth.get_code(self.contract_address_dusd)) != "0x"
+        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_eth)) != "0x"
+        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_dusd)) != "0x"
 
         # check contract variables
-        self.eth = self.web3.eth.contract(
+        self.eth = self.nodes[0].w3.eth.contract(
             address=self.contract_address_eth, abi=self.abi
         )
         assert_equal(self.eth.functions.name().call(), "ETH token")
         assert_equal(self.eth.functions.symbol().call(), "ETH")
 
-        self.dusd = self.web3.eth.contract(
+        self.dusd = self.nodes[0].w3.eth.contract(
             address=self.contract_address_dusd, abi=self.abi
         )
         assert_equal(self.dusd.functions.name().call(), "DUSD token")
@@ -422,7 +421,7 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # check DST token
-        self.tsla = self.web3.eth.contract(
+        self.tsla = self.nodes[0].w3.eth.contract(
             address=self.contract_address_tsla, abi=self.abi
         )
 
@@ -476,15 +475,14 @@ class DST20(DefiTestFramework):
     def run_test(self):
         self.node = self.nodes[0]
         self.address = self.node.get_genesis_keys().ownerAuthAddress
-        self.web3 = Web3(Web3.HTTPProvider(self.node.get_evm_rpc()))
 
         # Contract addresses
         self.contract_address_btc = "0xff00000000000000000000000000000000000001"
         self.contract_address_eth = "0xff00000000000000000000000000000000000002"
-        self.contract_address_dusd = Web3.to_checksum_address(
+        self.contract_address_dusd = self.nodes[0].w3.to_checksum_address(
             "0xff00000000000000000000000000000000000003"
         )
-        self.contract_address_tsla = Web3.to_checksum_address(
+        self.contract_address_tsla = self.nodes[0].w3.to_checksum_address(
             "0xff00000000000000000000000000000000000004"
         )
 
@@ -514,8 +512,8 @@ class DST20(DefiTestFramework):
         self.test_deploy_token()
         self.test_deploy_multiple_tokens()
 
-        self.key_pair = KeyPair.from_node(self.node)
-        self.key_pair2 = KeyPair.from_node(self.node)
+        self.key_pair = EvmKeyPair.from_node(self.node)
+        self.key_pair2 = EvmKeyPair.from_node(self.node)
         self.node.minttokens("10@BTC")
         self.node.generate(1)
 
