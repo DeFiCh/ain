@@ -239,6 +239,7 @@ BASE_SCRIPTS = [
     "rpc_createmultisig.py",
     "feature_versionbits_warning.py",
     "rpc_preciousblock.py",
+    "feature_evm_transaction_replacement.py",
     "wallet_importprunedfunds.py",
     "p2p_leak_tx.py",
     "rpc_signmessage.py",
