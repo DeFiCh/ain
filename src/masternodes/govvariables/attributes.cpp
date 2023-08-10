@@ -1795,14 +1795,15 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
+                        const auto tokenID = DCT_ID{attrV0->typeId};
+                        const auto token = view.GetToken(tokenID);
+                        if (!token) {
+                            return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                        }
                         // Post fork remove this guard as long as there were no non-DAT loan tokens before
                         // the fork. A full sync test on the removal of this guard will tell.
                         if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight) {
-                            if (!VerifyDATToken(view, attrV0->typeId)) {
-                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
-                            }
-                        } else {
-                            if (!VerifyToken(view, attrV0->typeId)) {
+                            if (!token->IsDAT()) {
                                 return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                             }
                         }
