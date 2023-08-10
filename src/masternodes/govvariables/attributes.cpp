@@ -388,6 +388,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
+             {EconomyKeys::TransferDomainStatsLive, "transferdomain"},
+             {EconomyKeys::EVMBlockStatsLive, "evm"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1533,6 +1535,44 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
+            }  else if (const auto stats = std::get_if<CTransferDomainStatsLive>(&attribute.second)) {
+                    auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
+                    auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
+                    auto dvmDomain    = KeyBuilder(key, "dvm");
+                    auto evmDomain    = KeyBuilder(key, "evm");
+                    auto v = std::vector<std::tuple<std::string, std::string, TAmounts>> {
+                        { dvmEvmEdge, "total", stats->dvmEvmTotal.balances },
+                        { evmDvmEdge, "total", stats->evmDvmTotal.balances },
+                        { dvmDomain, "current", stats->dvmCurrent.balances },
+                        { dvmDomain, "in", stats->dvmIn.balances },
+                        { dvmDomain, "out", stats->dvmOut.balances },
+                        { evmDomain, "current", stats->evmCurrent.balances },
+                        { evmDomain, "in", stats->evmIn.balances },
+                        { evmDomain, "out", stats->evmOut.balances },
+                    };
+
+                    for (const auto &[key, subkey, balances] : v) {
+                        for (const auto &[id, value] : balances) {
+                            ret.pushKV(KeyBuilder(key, id.v, subkey), ValueFromAmount(value));
+                        }
+                    }
+            } else if (const auto stats = std::get_if<CEvmBlockStatsLive>(&attribute.second)) {
+                    auto blockStatsKey     = KeyBuilder(key, "block");
+                    auto v = std::vector<std::tuple<std::string, UniValue>> {
+                        { "fee_burnt", ValueFromAmount(stats->feeBurnt) },
+                        { "fee_burnt_min", ValueFromAmount(stats->feeBurntMin) },
+                        { "fee_burnt_min_hash", stats->feeBurntMinHash.GetHex() },
+                        { "fee_burnt_max", ValueFromAmount(stats->feeBurntMax) },
+                        { "fee_burnt_max_hash", stats->feeBurntMaxHash.GetHex() },
+                        { "fee_priority", ValueFromAmount(stats->feePriority) },
+                        { "fee_priority_min", ValueFromAmount(stats->feePriorityMin) },
+                        { "fee_priority_min_hash", stats->feePriorityMinHash.GetHex() },
+                        { "fee_priority_max", ValueFromAmount(stats->feePriorityMax) },
+                        { "fee_priority_max_hash", stats->feePriorityMaxHash.GetHex() },
+                    };
+                    for (const auto &[key, value] : v) {
+                        ret.pushKV(KeyBuilder(blockStatsKey, key), value);
+                    }
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
