@@ -346,6 +346,7 @@ class EVMTest(DefiTestFramework):
 
     def nonce_order_and_rbf(self):
         # Get burn address and miner account balance before transaction
+        self.before_blockheight = self.nodes[0].getblockcount()
         burn_before = Decimal(self.nodes[0].getaccount(self.burn_address)[0].split('@')[0])
         self.miner_before = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
 
@@ -486,7 +487,7 @@ class EVMTest(DefiTestFramework):
 
     def evm_rollback(self):
         # Test rollback of EVM TX
-        self.rollback_to(self.nodes[0].getblockcount() - 1, self.nodes)
+        self.rollback_to(self.before_blockheight, self.nodes)
         miner_rollback = Decimal(self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0].split('@')[0])
         assert_equal(self.miner_before, miner_rollback)
 
