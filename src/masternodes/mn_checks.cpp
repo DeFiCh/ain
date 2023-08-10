@@ -1853,6 +1853,7 @@ public:
                 }
 
                 govVar->time = time;
+                govVar->evmQueueId = evmQueueId;
 
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
@@ -2635,8 +2636,11 @@ public:
         }
 
         CTokenImplementation token;
-        token.symbol         = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
         token.flags          = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
@@ -2652,6 +2656,7 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
+            attributes->evmQueueId = evmQueueId;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};

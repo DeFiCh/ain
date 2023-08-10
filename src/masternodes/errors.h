@@ -338,6 +338,10 @@ public:
         return Res::Err("Fixed interval price currency pair must be set first");
     }
 
+    static Res GovVarErrorCreatingDST20(const std::string &str) {
+        return Res::Err("Error creating DST20 token: %s", str);
+    }
+
     static Res GovVarUnsupportedValue() {
         return Res::Err("Unsupported value");
     }
@@ -524,6 +528,10 @@ public:
 
     static Res InvalidBlockNumberString(const std::string &number) {
         return Res::Err("Invalid block number: %s", number);
+    }
+
+    static Res DST20MigrationFailure(const std::string &reason) {
+        return Res::Err("Error migrating DST20 token: %s", reason);
     }
 };
 
