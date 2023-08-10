@@ -2380,13 +2380,6 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
     }
 }
 
-static ResVal<XVM> GetCoinbaseXVMOutput(const CScript &scriptPubKey) {
-    auto res = XVM::TryFrom(scriptPubKey);
-    if (!res.ok) return res;
-
-    return res;
-}
-
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
 
@@ -2444,7 +2437,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         minerAddress = GetScriptForDestination(dest);
     }
 
-    auto xvmRes = GetCoinbaseXVMOutput(block.vtx[0]->vout[1].scriptPubKey);
+    auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
     if (!xvmRes) return std::move(xvmRes);
 
     CrossBoundaryResult result;
