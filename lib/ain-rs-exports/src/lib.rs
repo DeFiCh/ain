@@ -7,6 +7,20 @@ use crate::evm::*;
 
 #[cxx::bridge]
 pub mod ffi {
+    // ========== Transaction ==========
+    #[derive(Default)]
+    pub struct EVMTransaction {
+        pub hash: [u8; 32],
+        pub sender: [u8; 20],
+        pub nonce: u64,
+        pub gas_price: u64,
+        pub gas_limit: u64,
+        pub create_tx: bool,
+        pub to: [u8; 20],
+        pub value: u64,
+        pub data: Vec<u8>,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -60,6 +74,7 @@ pub mod ffi {
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: [u8; 20],
+        pub tx_hash: [u8; 32],
         pub prepay_fee: u64,
         pub gas_used: u64,
     }
@@ -138,8 +153,11 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
-
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
+        fn evm_try_get_tx_by_hash(
+            result: &mut CrossBoundaryResult,
+            tx_hash: [u8; 32],
+        ) -> EVMTransaction;
 
         fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,

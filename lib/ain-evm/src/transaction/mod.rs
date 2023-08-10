@@ -292,6 +292,14 @@ impl SignedTx {
             TransactionV2::EIP1559(tx) => tx.chain_id,
         }
     }
+
+    pub fn hash(&self) -> H256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.hash(),
+            TransactionV2::EIP2930(tx) => tx.hash(),
+            TransactionV2::EIP1559(tx) => tx.hash(),
+        }
+    }
 }
 
 use std::convert::{TryFrom, TryInto};

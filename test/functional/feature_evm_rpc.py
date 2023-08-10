@@ -9,9 +9,9 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    int_to_eth_u256
+    int_to_eth_u256,
+    hex_to_decimal
 )
-
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -109,6 +109,16 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
+        # Test evm tx RPC
+        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        res = self.nodes[0].getcustomtx(block['tx'][1])
+        assert_equal(res['results']['hash'], "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
+        assert_equal(res['results']['sender'].lower(), self.ethAddress)
+        assert_equal(res['results']['gasPrice'], 2)
+        assert_equal(res['results']['gasLimit'], 21000)
+        assert_equal(res['results']['createTx'], False)
+        assert_equal(res['results']['to'].lower(), self.toAddress)
+
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
         assert_equal(latest_block['number'], "0x3")
         assert_equal(latest_block['transactions'][0], "0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
@@ -132,6 +142,30 @@ class EVMTest(DefiTestFramework):
         # state check
         block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
         assert_equal(block, latest_block)
+        blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+
+        # Check accounting of EVM fees
+        txLegacy = {
+            'nonce': '0x1',
+            'from': self.ethAddress,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x4e3b29200', # 21_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(txLegacy)
+        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        self.priority_fee = hex_to_decimal(fees["priority_fee"])
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max_hash'], blockHash)
 
     def run_test(self):
         self.setup()

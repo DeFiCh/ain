@@ -18,7 +18,7 @@ class VMMapType:
     BlockHashDVMToEVM = 3
     BlockHashEVMToDVM = 4
     TxHashDVMToEVM = 5
-    TxHashEVMToEVM = 6
+    TxHashEVMToDVM = 6
 
 
 class VMMapTests(DefiTestFramework):
@@ -81,9 +81,9 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res['type'], 'TxHashDVMToEVM')
             assert_equal(res['output'], item[1])
 
-            res = self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToEVM)
+            res = self.nodes[0].vmmap(item[1], VMMapType.TxHashEVMToDVM)
             assert_equal(res['input'], item[1])
-            assert_equal(res['type'], 'TxHashEVMToEVM')
+            assert_equal(res['type'], 'TxHashEVMToDVM')
             assert_equal(res['output'], item[0])
 
             res = self.nodes[0].vmmap(item[0], VMMapType.Auto)
@@ -93,7 +93,7 @@ class VMMapTests(DefiTestFramework):
 
             res = self.nodes[0].vmmap(item[1], VMMapType.Auto)
             assert_equal(res['input'], item[1])
-            assert_equal(res['type'], 'TxHashEVMToEVM')
+            assert_equal(res['type'], 'TxHashEVMToDVM')
             assert_equal(res['output'], item[0])
 
     def vmmap_invalid_should_fail(self):

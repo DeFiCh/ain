@@ -6,6 +6,7 @@ use ain_evm::{
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
+    storage::traits::TransactionStorage,
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
@@ -92,8 +93,11 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 
             .get_balance(account, latest_block_number)
             .unwrap_or_default(),
     ); // convert to evm_try_get_balance - Default to 0 for now
+    let Ok(balance) = u64::try_from(balance.to_satoshi()) else {
+        return cross_boundary_error_return(result, "evm balance value overflow");
+    };
     cross_boundary_success(result);
-    balance.to_satoshi().as_u64()
+    balance
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific queue_id
@@ -118,7 +122,12 @@ pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
             .core
             .get_next_valid_nonce_in_queue(queue_id, address)
         {
-            Ok(nonce) => cross_boundary_success_return(result, nonce.as_u64()),
+            Ok(nonce) => {
+                let Ok(nonce) = u64::try_from(nonce) else {
+                    return cross_boundary_error_return(result, "nonce value overflow");
+                };
+                cross_boundary_success_return(result, nonce)
+            }
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -252,14 +261,24 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                 signed_tx,
                 prepay_fee,
                 used_gas: _,
-            }) => cross_boundary_success_return(
-                result,
-                ffi::PreValidateTxCompletion {
-                    nonce: signed_tx.nonce().as_u64(),
-                    sender: signed_tx.sender.to_fixed_bytes(),
-                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-                },
-            ),
+            }) => {
+                let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
+                    return cross_boundary_error_return(result, "nonce value overflow");
+                };
+
+                let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
+                    return cross_boundary_error_return(result, "prepay fee value overflow");
+                };
+
+                cross_boundary_success_return(
+                    result,
+                    ffi::PreValidateTxCompletion {
+                        nonce,
+                        sender: signed_tx.sender.to_fixed_bytes(),
+                        prepay_fee,
+                    },
+                )
+            }
             Err(e) => {
                 debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
                 cross_boundary_error_return(result, e.to_string())
@@ -310,15 +329,26 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                 signed_tx,
                 prepay_fee,
                 used_gas,
-            }) => cross_boundary_success_return(
-                result,
-                ffi::ValidateTxCompletion {
-                    nonce: signed_tx.nonce().as_u64(),
-                    sender: signed_tx.sender.to_fixed_bytes(),
-                    prepay_fee: prepay_fee.try_into().unwrap_or_default(),
-                    gas_used: used_gas,
-                },
-            ),
+            }) => {
+                let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
+                    return cross_boundary_error_return(result, "nonce value overflow");
+                };
+
+                let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
+                    return cross_boundary_error_return(result, "prepay fee value overflow");
+                };
+
+                cross_boundary_success_return(
+                    result,
+                    ffi::ValidateTxCompletion {
+                        nonce,
+                        sender: signed_tx.sender.to_fixed_bytes(),
+                        tx_hash: signed_tx.hash().to_fixed_bytes(),
+                        prepay_fee,
+                        gas_used: used_gas,
+                    },
+                )
+            }
             Err(e) => {
                 debug!("evm_try_validate_raw_tx failed with error: {e}");
                 cross_boundary_error_return(result, e.to_string())
@@ -426,12 +456,18 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 total_priority_fees,
                 block_number,
             }) => {
+                let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()) else {
+                    return cross_boundary_error_return(result, "total burnt fees value overflow");
+                };
+                let Ok(total_priority_fees) = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()) else {
+                    return cross_boundary_error_return(result, "total priority fees value overflow");
+                };
                 cross_boundary_success(result);
                 ffi::FinalizeBlockCompletion {
                     block_hash,
                     failed_transactions,
-                    total_burnt_fees: WeiAmount(total_burnt_fees).to_satoshi().as_u64(),
-                    total_priority_fees: WeiAmount(total_priority_fees).to_satoshi().as_u64(),
+                    total_burnt_fees,
+                    total_priority_fees,
                     block_number: block_number.as_u64(),
                 }
             }
@@ -491,14 +527,24 @@ pub fn evm_try_get_block_number_by_hash(
     hash: [u8; 32],
 ) -> u64 {
     match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
-        Some(block) => cross_boundary_success_return(result, block.header.number.as_u64()),
+        Some(block) => {
+            let Ok(block_number) = u64::try_from(block.header.number) else {
+                return cross_boundary_error_return(result, "Block number value overflow");
+            };
+            cross_boundary_success_return(result, block_number)
+        }
         None => cross_boundary_error_return(result, "Invalid block hash"),
     }
 }
 
 pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     match SERVICES.evm.block.get_latest_block_hash_and_number() {
-        Some((_, number)) => cross_boundary_success_return(result, number.as_u64()),
+        Some((_, number)) => {
+            let Ok(number) = u64::try_from(number) else {
+                return cross_boundary_error_return(result, "Count value overflow");
+            };
+            cross_boundary_success_return(result, number)
+        }
         None => cross_boundary_error_return(result, "Unable to get block count"),
     }
 }
@@ -518,6 +564,59 @@ pub fn evm_try_is_dst20_deployed_or_queued(
             Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
+    }
+}
+
+pub fn evm_try_get_tx_by_hash(
+    result: &mut ffi::CrossBoundaryResult,
+    tx_hash: [u8; 32],
+) -> ffi::EVMTransaction {
+    match SERVICES
+        .evm
+        .storage
+        .get_transaction_by_hash(&H256::from(tx_hash))
+    {
+        Some(tx) => {
+            let Ok(tx) = SignedTx::try_from(tx) else {
+                return cross_boundary_error_return(result, "failed to convert tx to SignedTx");
+            };
+
+            let Ok(nonce) = u64::try_from(tx.nonce()) else {
+                return cross_boundary_error_return(result, "tx nonce value overflow");
+            };
+
+            let Ok(gas_price) = u64::try_from(WeiAmount(tx.gas_price()).to_satoshi()) else {
+                return cross_boundary_error_return(result, "tx gas price value overflow");
+            };
+
+            let Ok(gas_limit) = u64::try_from(tx.gas_limit()) else {
+                return cross_boundary_error_return(result, "tx gas limit value overflow");
+            };
+
+            let Ok(value) = u64::try_from(WeiAmount(tx.value()).to_satoshi()) else {
+                return cross_boundary_error_return(result, "tx value overflow");
+            };
+
+            let out = ffi::EVMTransaction {
+                hash: tx.hash().to_fixed_bytes(),
+                sender: tx.sender.to_fixed_bytes(),
+                nonce,
+                gas_price,
+                gas_limit,
+                create_tx: match tx.action() {
+                    TransactionAction::Call(_) => false,
+                    TransactionAction::Create => true,
+                },
+                to: match tx.to() {
+                    Some(to) => to.to_fixed_bytes(),
+                    None => H160::zero().to_fixed_bytes(),
+                },
+                value,
+                data: tx.data().to_vec(),
+            };
+            cross_boundary_success_return(result, out)
+        }
+        None => cross_boundary_error_return(result, "Unable to get evm tx from tx hash"),
     }
 }
 

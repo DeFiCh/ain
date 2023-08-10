@@ -11,6 +11,8 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
+from decimal import Decimal
+
 class EVMFeeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -69,6 +71,11 @@ class EVMFeeTest(DefiTestFramework):
         # Deduct 50000. 29000 value + min 21000 call fee
         assert_equal(int(balance[2:], 16), 99999789999999971000)
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
+
         self.rollback_to(height)
 
     def test_low_gas_price(self):
@@ -106,6 +113,11 @@ class EVMFeeTest(DefiTestFramework):
         # Deduct 21_000_000_029_000. 29_000 value + 21_000 * 1_000_000_000
         assert_equal(int(balance[2:], 16), 99999789999999971000)
 
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
+
         self.rollback_to(height)
 
     def test_max_gas_price(self):
@@ -114,13 +126,13 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
-        # Test fee overflow error
-        assert_raises_rpc_error(-32001, "evm tx failed to validate calculate prepay gas failed from overflow", self.nodes[0].eth_sendTransaction, {
+        # Test gas price exceed money range error
+        assert_raises_rpc_error(-32001, "value more than money range", self.nodes[0].eth_sendTransaction, {
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            'gasPrice': '3E09DE2596099E2B0000001', # 1_200_000_000_000_000_000_000_000_001
         })
 
         # Test insufficient balance due to high gas fees
@@ -129,7 +141,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0xfffffffffffffffffffffffffffffffffffff',
+            'gasPrice': '0xfffffffffffffff',
         })
 
         self.rollback_to(height)
@@ -169,7 +181,7 @@ class EVMFeeTest(DefiTestFramework):
     def test_fee_deduction_empty_balance(self):
         height = self.nodes[0].getblockcount()
 
-        emptyAddress = self.nodes[0].getnewaddress("", "eth")
+        emptyAddress = self.nodes[0].getnewaddress("", "erc55")
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
 
@@ -199,6 +211,11 @@ class EVMFeeTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
 
         # Don't consume balance as not enough to cover send value + fee.
         # Deduct only 21000 call fee

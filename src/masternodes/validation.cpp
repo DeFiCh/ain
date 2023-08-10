@@ -2485,6 +2485,48 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     res = cache.AddBalance(minerAddress, {DCT_ID{}, static_cast<CAmount>(blockResult.total_priority_fees)});
     if (!res) return res;
 
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    auto stats = attributes->GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
+
+    auto feeBurnt = static_cast<CAmount>(blockResult.total_burnt_fees);
+    auto feePriority = static_cast<CAmount>(blockResult.total_priority_fees);
+    stats.feeBurnt += feeBurnt;
+    if (feeBurnt && stats.feeBurntMin > feeBurnt) {
+        stats.feeBurntMin = feeBurnt;
+        stats.feeBurntMinHash = block.GetHash();
+    }
+    if (stats.feeBurntMax < feeBurnt) {
+        stats.feeBurntMax = feeBurnt;
+        stats.feeBurntMaxHash = block.GetHash();
+    }
+    stats.feePriority += feePriority;
+    if (feePriority && stats.feePriorityMin > feePriority) {
+        stats.feePriorityMin = feePriority;
+        stats.feePriorityMinHash = block.GetHash();
+    }
+    if (stats.feePriorityMax < feePriority) {
+        stats.feePriorityMax = feePriority;
+        stats.feePriorityMaxHash = block.GetHash();
+    }
+
+    auto transferDomainStats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+    for (const auto &[id, amount] : transferDomainStats.dvmCurrent.balances) {
+        if (id.v == 0) {
+            if (amount + stats.feeBurnt + stats.feePriority > 0) {
+                return Res::Err("More DFI moved from DVM to EVM than in. DVM Out: %s Fees: %s Total: %s\n", GetDecimalString(amount),
+                                GetDecimalString(stats.feeBurnt + stats.feePriority), GetDecimalString(amount + stats.feeBurnt + stats.feePriority));
+            }
+        } else if (amount > 0) {
+            return Res::Err("More %s moved from DVM to EVM than in. DVM Out: %s\n", id.ToString(), GetDecimalString(amount));
+        }
+    }
+
+    attributes->SetValue(CEvmBlockStatsLive::Key, stats);
+    cache.SetVariable(*attributes);
+
     return Res::Ok();
 }
 
