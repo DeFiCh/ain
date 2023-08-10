@@ -303,6 +303,7 @@ impl EVMServices {
             return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, queue.total_fees).into());
         }
 
+        let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -315,7 +316,7 @@ impl EVMServices {
                 gas_limit: MAX_GAS_PER_BLOCK,
                 gas_used: U256::from(total_gas_used),
                 timestamp,
-                extra_data: Vec::default(),
+                extra_data,
                 mix_hash: H256::default(),
                 nonce: H64::default(),
                 base_fee,
