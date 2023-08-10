@@ -21,6 +21,7 @@ use crate::storage::Storage;
 use crate::transaction::system::{BalanceUpdate, SystemTx};
 use crate::trie::TrieDBStore;
 use crate::txqueue::{QueueError, QueueTx, TransactionQueueMap};
+use crate::weiamount::WeiAmount;
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
@@ -167,10 +168,11 @@ impl EVMCoreService {
     ///
     /// The validation checks of the tx before we consider it to be valid are:
     /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
-    /// 2. Gas price check: verify that the maximum gas price  is minimally of the block initial base fee.
-    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
-    /// 4. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
-    /// 5. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// 2. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
+    /// 3. Gas price and tx value check: verify that amount is within money range.
+    /// 4. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 5. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 6. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
     ///
     /// # Arguments
     ///
@@ -236,6 +238,12 @@ impl EVMCoreService {
         if tx_gas_price < INITIAL_BASE_FEE {
             debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
             return Err(format_err!("tx gas price is lower than initial block base fee").into());
+        }
+
+        // Validate tx gas price and tx value within money range
+        if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
+            debug!("[validate_raw_tx] value more than money range");
+            return Err(format_err!("value more than money range").into());
         }
 
         let balance = self
