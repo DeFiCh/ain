@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
-from test_framework.evm_key_pair import KeyPair
+from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -13,7 +13,6 @@ from test_framework.util import (
     hex_to_decimal
 )
 from decimal import Decimal
-from web3 import Web3
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -50,33 +49,32 @@ class EVMTest(DefiTestFramework):
         self.multiple_eth_rbf()
 
         # Test that node should not crash without chainId param
-        self.test_tx_without_chainid(self.nodes[0])
+        self.test_tx_without_chainid()
 
         # Toggle EVM
         self.toggle_evm_enablement()
 
-    def test_tx_without_chainid(self, node):
+    def test_tx_without_chainid(self):
+        node = self.nodes[0]
 
-        keypair = KeyPair.from_node(node)
-
-        web3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
-        nonce = web3.eth.get_transaction_count(keypair.address)
+        evmkeypair = EvmKeyPair.from_node(node)
+        nonce = node.w3.eth.get_transaction_count(evmkeypair.address)
 
         node.transferdomain([{"src": {"address": node.get_genesis_keys().ownerAuthAddress, "amount": "50@DFI",
                                       "domain": 2},
-                              "dst": {"address": keypair.address, "amount": "50@DFI", "domain": 3}}])
+                              "dst": {"address": evmkeypair.address, "amount": "50@DFI", "domain": 3}}])
         node.generate(1)
 
         tx = {
             'nonce': nonce,
             'to': "0x0000000000000000000000000000000000000000",
-            'value': web3.to_wei(0.1, 'ether'),
+            'value': node.w3.to_wei(0.1, 'ether'),
             'gas': 21000,
-            'gasPrice': web3.to_wei(10, 'gwei')
+            'gasPrice': node.w3.to_wei(10, 'gwei')
         }
 
-        signed_tx = web3.eth.account.sign_transaction(tx, keypair.pkey)
-        web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        signed_tx = node.w3.eth.account.sign_transaction(tx, evmkeypair.privkey)
+        node.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         node.generate(1)
 
     def erc55_wallet_support(self):
