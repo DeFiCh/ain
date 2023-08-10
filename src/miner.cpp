@@ -39,8 +39,6 @@
 #include <random>
 #include <utility>
 
-typedef std::array<std::uint8_t, 20> EvmAddress;
-
 struct EvmAddressWithNonce {
     EvmAddress address;
     uint64_t nonce;
@@ -133,7 +131,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddress& beneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -286,8 +284,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
-        std::array<uint8_t, 20> beneficiary{};
-        std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
         CrossBoundaryResult result;
         auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
         
@@ -295,7 +291,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
 
-        xvm = XVM{0, {0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
+        xvm = XVM{0, {0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees, beneficiary}};
 
         std::set<uint256> failedTransactions;
         for (const auto& txRustStr : blockResult.failed_transactions) {
@@ -1134,7 +1130,12 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     //
     // Create block template
     //
-    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
+    EvmAddress beneficiary{};
+    auto pubKey = args.minterKey.GetPubKey();
+    pubKey.Decompress();
+    const auto ercID = pubKey.GetEthID();
+    std::copy(ercID.begin(), ercID.end(), beneficiary.begin());
+    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, beneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
         return Status::stakeWaiting;
