@@ -13,10 +13,13 @@ from test_framework.util import assert_raises_rpc_error
 class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.extra_args = [[
-            "-walletrbf={}".format(i),
-            "-mintxfee=0.00002",
-        ] for i in range(self.num_nodes)]
+        self.extra_args = [
+            [
+                "-walletrbf={}".format(i),
+                "-mintxfee=0.00002",
+            ]
+            for i in range(self.num_nodes)
+        ]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -30,20 +33,27 @@ class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
         self.sync_blocks()
         rbfid = spend_one_input(rbf_node, peer_node.getnewaddress())
 
-        self.log.info("Testing bumpfee with totalFee argument raises RPC error with deprecation message")
+        self.log.info(
+            "Testing bumpfee with totalFee argument raises RPC error with deprecation message"
+        )
         assert_raises_rpc_error(
             -8,
-            "totalFee argument has been deprecated and will be removed in 0.20. " +
-            "Please use -deprecatedrpc=totalFee to continue using this argument until removal.",
-            rbf_node.bumpfee, rbfid, {"totalFee": 2000})
+            "totalFee argument has been deprecated and will be removed in 0.20. "
+            + "Please use -deprecatedrpc=totalFee to continue using this argument until removal.",
+            rbf_node.bumpfee,
+            rbfid,
+            {"totalFee": 2000},
+        )
 
         self.log.info("Testing bumpfee without totalFee argument does not raise")
         rbf_node.bumpfee(rbfid)
 
 
 def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
-    tx_input = dict(sequence=BIP125_SEQUENCE_NUMBER,
-                    **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000")))
+    tx_input = dict(
+        sequence=BIP125_SEQUENCE_NUMBER,
+        **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000"))
+    )
     destinations = {dest_address: Decimal("0.00050000")}
     destinations[node.getrawchangeaddress()] = change_size
     rawtx = node.createrawtransaction([tx_input], destinations)

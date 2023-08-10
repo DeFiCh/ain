@@ -11,6 +11,7 @@ from test_framework.util import (
     assert_equal,
 )
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         ain = os.path.dirname(

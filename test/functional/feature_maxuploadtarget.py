@@ -35,11 +35,12 @@ class TestP2PConn(P2PInterface):
 
 
 class MaxUploadTest(DefiTestFramework):
-
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
-        self.extra_args = [["-maxuploadtarget=" + str(MAXUPLOADTARGET), "-acceptnonstdtxn=1"]]
+        self.extra_args = [
+            ["-maxuploadtarget=" + str(MAXUPLOADTARGET), "-acceptnonstdtxn=1"]
+        ]
 
         # Cache for utxos, as the listunspent may take a long time later in the test
         self.utxo_cache = []
@@ -52,6 +53,7 @@ class MaxUploadTest(DefiTestFramework):
         # to be in the past, otherwise things break because the CNode
         # time counters can't be reset backward after initialization
         from test_framework.test_node import TestNode
+
         # TestNode.Mocktime is required now for successful 'generate'
         TestNode.Mocktime = int(time.time() - 2 * 60 * 60 * 24 * 7)
 
@@ -71,7 +73,7 @@ class MaxUploadTest(DefiTestFramework):
 
         # Store the hash; we'll request this later
         big_old_block = self.nodes[0].getbestblockhash()
-        old_block_size = self.nodes[0].getblock(big_old_block, True)['size']
+        old_block_size = self.nodes[0].getblock(big_old_block, True)["size"]
         big_old_block = int(big_old_block, 16)
 
         # Advance to two days ago
@@ -82,7 +84,7 @@ class MaxUploadTest(DefiTestFramework):
 
         # We'll be requesting this new block too
         big_new_block = self.nodes[0].getbestblockhash()
-        new_block_size = self.nodes[0].getblock(big_new_block, True)['size']
+        new_block_size = self.nodes[0].getblock(big_new_block, True)["size"]
         big_new_block = int(big_new_block, 16)
 
         # p2p_conns[0] will test what happens if we just keep requesting the
@@ -92,7 +94,9 @@ class MaxUploadTest(DefiTestFramework):
         getdata_request.inv.append(CInv(2, big_old_block))
 
         max_bytes_per_day = MAXUPLOADTARGET * 1024 * 1024
-        daily_buffer = 16 * 144 * 4000000  # see `buffer` in OutboundTargetReached() in net.cpp
+        daily_buffer = (
+            16 * 144 * 4000000
+        )  # see `buffer` in OutboundTargetReached() in net.cpp
         max_bytes_available = max_bytes_per_day - daily_buffer
         success_count = max_bytes_available // old_block_size
 
@@ -162,10 +166,14 @@ class MaxUploadTest(DefiTestFramework):
 
         getdata_request.inv = [CInv(2, big_old_block)]
         self.nodes[0].p2p.send_and_ping(getdata_request)
-        assert_equal(len(self.nodes[0].getpeerinfo()), 1)  # node is still connected because of the whitelist
+        assert_equal(
+            len(self.nodes[0].getpeerinfo()), 1
+        )  # node is still connected because of the whitelist
 
-        self.log.info("Peer still connected after trying to download old block (whitelisted)")
+        self.log.info(
+            "Peer still connected after trying to download old block (whitelisted)"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MaxUploadTest().main()

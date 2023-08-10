@@ -45,7 +45,11 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, wait_unti
 class MempoolPersistTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
-        self.extra_args = [['-persistmempool=1'], ["-persistmempool=0"], ['-persistmempool=1']]
+        self.extra_args = [
+            ["-persistmempool=1"],
+            ["-persistmempool=0"],
+            ["-persistmempool=1"],
+        ]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -60,23 +64,28 @@ class MempoolPersistTest(DefiTestFramework):
 
         self.log.debug("Send 5 transactions from node2 (to its own address)")
         for i in range(5):
-            last_txid = self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), Decimal("10"))
+            last_txid = self.nodes[2].sendtoaddress(
+                self.nodes[2].getnewaddress(), Decimal("10")
+            )
         node2_balance = self.nodes[2].getbalance()
         self.sync_mempools()
 
-        self.log.debug("Verify that node0 and node1 have 5 transactions in their mempools")
+        self.log.debug(
+            "Verify that node0 and node1 have 5 transactions in their mempools"
+        )
         assert_equal(len(self.nodes[0].getrawmempool()), 5)
         assert_equal(len(self.nodes[1].getrawmempool()), 5)
 
         self.log.debug("Prioritize a transaction on node0")
-        fees = self.nodes[0].getmempoolentry(txid=last_txid)['fees']
-        assert_equal(fees['base'], fees['modified'])
+        fees = self.nodes[0].getmempoolentry(txid=last_txid)["fees"]
+        assert_equal(fees["base"], fees["modified"])
         self.nodes[0].prioritisetransaction(txid=last_txid, fee_delta=1000)
-        fees = self.nodes[0].getmempoolentry(txid=last_txid)['fees']
-        assert_equal(fees['base'] + Decimal('0.00001000'), fees['modified'])
+        fees = self.nodes[0].getmempoolentry(txid=last_txid)["fees"]
+        assert_equal(fees["base"] + Decimal("0.00001000"), fees["modified"])
 
         self.log.debug(
-            "Stop-start the nodes. Verify that node0 has the transactions in its mempool and node1 does not. Verify that node2 calculates its balance correctly after loading wallet transactions.")
+            "Stop-start the nodes. Verify that node0 has the transactions in its mempool and node1 does not. Verify that node2 calculates its balance correctly after loading wallet transactions."
+        )
         self.stop_nodes()
         # Give this node a head-start, so we can be "extra-sure" that it didn't load anything later
         # Also don't store the mempool, to keep the datadir clean
@@ -90,48 +99,60 @@ class MempoolPersistTest(DefiTestFramework):
         # The others have loaded their mempool. If node_1 loaded anything, we'd probably notice by now:
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
 
-        self.log.debug('Verify prioritization is loaded correctly')
-        fees = self.nodes[0].getmempoolentry(txid=last_txid)['fees']
-        assert_equal(fees['base'] + Decimal('0.00001000'), fees['modified'])
+        self.log.debug("Verify prioritization is loaded correctly")
+        fees = self.nodes[0].getmempoolentry(txid=last_txid)["fees"]
+        assert_equal(fees["base"] + Decimal("0.00001000"), fees["modified"])
 
         # Verify accounting of mempool transactions after restart is correct
         self.nodes[2].syncwithvalidationinterfacequeue()  # Flush mempool to wallet
         assert_equal(node2_balance, self.nodes[2].getbalance())
 
-        self.log.debug("Stop-start node0 with -persistmempool=0. Verify that it doesn't load its mempool.dat file.")
+        self.log.debug(
+            "Stop-start node0 with -persistmempool=0. Verify that it doesn't load its mempool.dat file."
+        )
         self.stop_nodes()
         self.start_node(0, extra_args=["-persistmempool=0"])
         wait_until(lambda: self.nodes[0].getmempoolinfo()["loaded"])
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
-        self.log.debug("Stop-start node0. Verify that it has the transactions in its mempool.")
+        self.log.debug(
+            "Stop-start node0. Verify that it has the transactions in its mempool."
+        )
         self.stop_nodes()
         self.start_node(0)
         wait_until(lambda: self.nodes[0].getmempoolinfo()["loaded"])
         assert_equal(len(self.nodes[0].getrawmempool()), 5)
 
-        mempooldat0 = os.path.join(self.nodes[0].datadir, 'regtest', 'mempool.dat')
-        mempooldat1 = os.path.join(self.nodes[1].datadir, 'regtest', 'mempool.dat')
-        self.log.debug("Remove the mempool.dat file. Verify that savemempool to disk via RPC re-creates it")
+        mempooldat0 = os.path.join(self.nodes[0].datadir, "regtest", "mempool.dat")
+        mempooldat1 = os.path.join(self.nodes[1].datadir, "regtest", "mempool.dat")
+        self.log.debug(
+            "Remove the mempool.dat file. Verify that savemempool to disk via RPC re-creates it"
+        )
         os.remove(mempooldat0)
         self.nodes[0].savemempool()
         assert os.path.isfile(mempooldat0)
 
-        self.log.debug("Stop nodes, make node1 use mempool.dat from node0. Verify it has 5 transactions")
+        self.log.debug(
+            "Stop nodes, make node1 use mempool.dat from node0. Verify it has 5 transactions"
+        )
         os.rename(mempooldat0, mempooldat1)
         self.stop_nodes()
         self.start_node(1, extra_args=["-persistmempool=1"])
         wait_until(lambda: self.nodes[1].getmempoolinfo()["loaded"])
         assert_equal(len(self.nodes[1].getrawmempool()), 5)
 
-        self.log.debug("Prevent defid from writing mempool.dat to disk. Verify that `savemempool` fails")
+        self.log.debug(
+            "Prevent defid from writing mempool.dat to disk. Verify that `savemempool` fails"
+        )
         # to test the exception we are creating a tmp folder called mempool.dat.new
         # which is an implementation detail that could change and break this test
-        mempooldotnew1 = mempooldat1 + '.new'
+        mempooldotnew1 = mempooldat1 + ".new"
         os.mkdir(mempooldotnew1)
-        assert_raises_rpc_error(-1, "Unable to dump mempool to disk", self.nodes[1].savemempool)
+        assert_raises_rpc_error(
+            -1, "Unable to dump mempool to disk", self.nodes[1].savemempool
+        )
         os.rmdir(mempooldotnew1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MempoolPersistTest().main()

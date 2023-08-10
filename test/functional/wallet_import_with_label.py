@@ -25,18 +25,14 @@ class ImportWithLabel(DefiTestFramework):
     def run_test(self):
         """Main test logic"""
 
-        self.log.info(
-            "Test importaddress with label and importprivkey without label."
-        )
+        self.log.info("Test importaddress with label and importprivkey without label.")
         self.log.info("Import a watch-only address with a label.")
         address = self.nodes[0].getnewaddress()
         label = "Test Label"
         self.nodes[1].importaddress(address, label)
-        test_address(self.nodes[1],
-                     address,
-                     iswatchonly=True,
-                     ismine=False,
-                     label=label)
+        test_address(
+            self.nodes[1], address, iswatchonly=True, ismine=False, label=label
+        )
 
         self.log.info(
             "Import the watch-only address's private key without a "
@@ -45,21 +41,13 @@ class ImportWithLabel(DefiTestFramework):
         priv_key = self.nodes[0].dumpprivkey(address)
         self.nodes[1].importprivkey(priv_key)
 
-        test_address(self.nodes[1],
-                     address,
-                     label=label)
+        test_address(self.nodes[1], address, label=label)
 
-        self.log.info(
-            "Test importaddress without label and importprivkey with label."
-        )
+        self.log.info("Test importaddress without label and importprivkey with label.")
         self.log.info("Import a watch-only address without a label.")
         address2 = self.nodes[0].getnewaddress()
         self.nodes[1].importaddress(address2)
-        test_address(self.nodes[1],
-                     address2,
-                     iswatchonly=True,
-                     ismine=False,
-                     label="")
+        test_address(self.nodes[1], address2, iswatchonly=True, ismine=False, label="")
 
         self.log.info(
             "Import the watch-only address's private key with a "
@@ -69,20 +57,16 @@ class ImportWithLabel(DefiTestFramework):
         label2 = "Test Label 2"
         self.nodes[1].importprivkey(priv_key2, label2)
 
-        test_address(self.nodes[1],
-                     address2,
-                     label=label2)
+        test_address(self.nodes[1], address2, label=label2)
 
         self.log.info("Test importaddress with label and importprivkey with label.")
         self.log.info("Import a watch-only address with a label.")
         address3 = self.nodes[0].getnewaddress()
         label3_addr = "Test Label 3 for importaddress"
         self.nodes[1].importaddress(address3, label3_addr)
-        test_address(self.nodes[1],
-                     address3,
-                     iswatchonly=True,
-                     ismine=False,
-                     label=label3_addr)
+        test_address(
+            self.nodes[1], address3, iswatchonly=True, ismine=False, label=label3_addr
+        )
 
         self.log.info(
             "Import the watch-only address's private key with a "
@@ -92,9 +76,7 @@ class ImportWithLabel(DefiTestFramework):
         label3_priv = "Test Label 3 for importprivkey"
         self.nodes[1].importprivkey(priv_key3, label3_priv)
 
-        test_address(self.nodes[1],
-                     address3,
-                     label=label3_priv)
+        test_address(self.nodes[1], address3, label=label3_priv)
 
         self.log.info(
             "Test importprivkey won't label new dests with the same "
@@ -104,12 +86,14 @@ class ImportWithLabel(DefiTestFramework):
         address4 = self.nodes[0].getnewaddress()
         label4_addr = "Test Label 4 for importaddress"
         self.nodes[1].importaddress(address4, label4_addr)
-        test_address(self.nodes[1],
-                     address4,
-                     iswatchonly=True,
-                     ismine=False,
-                     label=label4_addr,
-                     embedded=None)
+        test_address(
+            self.nodes[1],
+            address4,
+            iswatchonly=True,
+            ismine=False,
+            label=label4_addr,
+            embedded=None,
+        )
 
         self.log.info(
             "Import the watch-only address's private key without a "
@@ -119,14 +103,10 @@ class ImportWithLabel(DefiTestFramework):
         )
         priv_key4 = self.nodes[0].dumpprivkey(address4)
         self.nodes[1].importprivkey(priv_key4)
-        embedded_addr = self.nodes[1].getaddressinfo(address4)['embedded']['address']
+        embedded_addr = self.nodes[1].getaddressinfo(address4)["embedded"]["address"]
 
-        test_address(self.nodes[1],
-                     embedded_addr,
-                     label="")
-        test_address(self.nodes[1],
-                     address4,
-                     label=label4_addr)
+        test_address(self.nodes[1], embedded_addr, label="")
+        test_address(self.nodes[1], address4, label=label4_addr)
 
         self.stop_nodes()
 

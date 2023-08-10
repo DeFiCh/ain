@@ -14,10 +14,22 @@ class MultiAccountListAccountHistory(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
-             '-grandcentralheight=51'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
-             '-grandcentralheight=51'],
+            [
+                "-acindex=1",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+                "-grandcentralheight=51",
+            ],
+            [
+                "-acindex=1",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+                "-grandcentralheight=51",
+            ],
         ]
 
     def run_test(self):
@@ -29,16 +41,12 @@ class MultiAccountListAccountHistory(DefiTestFramework):
         collateral_a = self.nodes[0].getnewaddress("", "legacy")
         collateral_b = self.nodes[0].getnewaddress("", "legacy")
 
-        self.nodes[0].createtoken({
-            "symbol": "T1",
-            "name": "T1",
-            "collateralAddress": collateral_a
-        })
-        self.nodes[1].createtoken({
-            "symbol": "T2",
-            "name": "T2",
-            "collateralAddress": collateral_b
-        })
+        self.nodes[0].createtoken(
+            {"symbol": "T1", "name": "T1", "collateralAddress": collateral_a}
+        )
+        self.nodes[1].createtoken(
+            {"symbol": "T2", "name": "T2", "collateralAddress": collateral_b}
+        )
         self.sync_mempools()
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -71,5 +79,5 @@ class MultiAccountListAccountHistory(DefiTestFramework):
         assert_equal(len(combined), len(a) + len(b))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MultiAccountListAccountHistory().main()

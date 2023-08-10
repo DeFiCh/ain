@@ -10,14 +10,15 @@ def validate_key(privkey, address):
             Private key does not correspond to provided address.
             Address provided: {address}
             Address computed: {account.address}
-            """)
+            """
+        )
     else:
         return privkey, address
 
 
 class EvmKeyPair:
     def __init__(self, privkey: str = None, address: str = None):
-        self.privkey, self.address= validate_key(privkey, address)
+        self.privkey, self.address = validate_key(privkey, address)
 
     @staticmethod
     def from_node(node):

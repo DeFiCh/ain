@@ -8,6 +8,7 @@ from test_framework.test_framework import DefiTestFramework
 
 # from test_framework.util import assert_raises_rpc_error
 
+
 class DeprecatedRpcTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -28,5 +29,5 @@ class DeprecatedRpcTest(DefiTestFramework):
         self.log.info("No tested deprecated RPC methods")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     DeprecatedRpcTest().main()

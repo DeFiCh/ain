@@ -33,9 +33,21 @@ SOURCES = [
     "src/spv/spv_rpc.cpp",
 ]
 # Source file (relative to root) containing conversion mapping
-SOURCE_CLIENT = 'src/rpc/client.cpp'
+SOURCE_CLIENT = "src/rpc/client.cpp"
 # Argument names that should be ignored in consistency checks
-IGNORE_DUMMY_ARGS = {'dummy', 'arg0', 'arg1', 'arg2', 'arg3', 'arg4', 'arg5', 'arg6', 'arg7', 'arg8', 'arg9'}
+IGNORE_DUMMY_ARGS = {
+    "dummy",
+    "arg0",
+    "arg1",
+    "arg2",
+    "arg3",
+    "arg4",
+    "arg5",
+    "arg6",
+    "arg7",
+    "arg8",
+    "arg9",
+}
 
 
 class RPCCommand:
@@ -68,20 +80,26 @@ def process_commands(fname):
                 if re.match(r"static const CRPCCommand .*\[\] =", line):
                     in_rpcs = True
             else:
-                if line.startswith('};'):
+                if line.startswith("};"):
                     in_rpcs = False
-                elif '{' in line and '"' in line:
-                    m = re.search('{ *("[^"]*"), *("[^"]*"), *&([^,]*), *{([^}]*)} *},', line)
-                    assert m, 'No match to table expression: %s' % line
+                elif "{" in line and '"' in line:
+                    m = re.search(
+                        '{ *("[^"]*"), *("[^"]*"), *&([^,]*), *{([^}]*)} *},', line
+                    )
+                    assert m, "No match to table expression: %s" % line
                     name = parse_string(m.group(2))
                     args_str = m.group(4).strip()
                     if args_str:
-                        args = [RPCArgument(parse_string(x.strip()).split('|'), idx) for idx, x in
-                                enumerate(args_str.split(','))]
+                        args = [
+                            RPCArgument(parse_string(x.strip()).split("|"), idx)
+                            for idx, x in enumerate(args_str.split(","))
+                        ]
                     else:
                         args = []
                     cmds.append(RPCCommand(name, args))
-    assert not in_rpcs and cmds, "Something went wrong with parsing the C++ file: update the regexps"
+    assert (
+        not in_rpcs and cmds
+    ), "Something went wrong with parsing the C++ file: update the regexps"
     return cmds
 
 
@@ -93,14 +111,14 @@ def process_mapping(fname):
         for line in f:
             line = line.rstrip()
             if not in_rpcs:
-                if line == 'static const CRPCConvertParam vRPCConvertParams[] =':
+                if line == "static const CRPCConvertParam vRPCConvertParams[] =":
                     in_rpcs = True
             else:
-                if line.startswith('};'):
+                if line.startswith("};"):
                     in_rpcs = False
-                elif '{' in line and '"' in line:
+                elif "{" in line and '"' in line:
                     m = re.search('{ *("[^"]*"), *([0-9]+) *, *("[^"]*") *},', line)
-                    assert m, 'No match to table expression: %s' % line
+                    assert m, "No match to table expression: %s" % line
                     name = parse_string(m.group(1))
                     idx = int(m.group(2))
                     argname = parse_string(m.group(3))
@@ -111,7 +129,7 @@ def process_mapping(fname):
 
 def main():
     if len(sys.argv) != 2:
-        print('Usage: {} ROOT-DIR'.format(sys.argv[0]), file=sys.stderr)
+        print("Usage: {} ROOT-DIR".format(sys.argv[0]), file=sys.stderr)
         sys.exit(1)
 
     root = sys.argv[1]
@@ -129,24 +147,29 @@ def main():
     client = SOURCE_CLIENT
     mapping = set(process_mapping(os.path.join(root, client)))
 
-    print('* Checking consistency between dispatch tables and vRPCConvertParams')
+    print("* Checking consistency between dispatch tables and vRPCConvertParams")
 
     # Check mapping consistency
     errors = 0
-    for (cmdname, argidx, argname) in mapping:
+    for cmdname, argidx, argname in mapping:
         try:
             # Ignore eth_ forwarding commands
-            if cmdname.startswith('eth_'):
+            if cmdname.startswith("eth_"):
                 continue
             rargnames = cmds_by_name[cmdname].args[argidx].names
         except IndexError:
-            print('ERROR: %s argument %i (named %s in vRPCConvertParams) is not defined in dispatch table' % (
-            cmdname, argidx, argname))
+            print(
+                "ERROR: %s argument %i (named %s in vRPCConvertParams) is not defined in dispatch table"
+                % (cmdname, argidx, argname)
+            )
             errors += 1
             continue
         if argname not in rargnames:
-            print('ERROR: %s argument %i is named %s in vRPCConvertParams but %s in dispatch table' % (
-            cmdname, argidx, argname, rargnames), file=sys.stderr)
+            print(
+                "ERROR: %s argument %i is named %s in vRPCConvertParams but %s in dispatch table"
+                % (cmdname, argidx, argname, rargnames),
+                file=sys.stderr,
+            )
             errors += 1
 
     # Check for conflicts in vRPCConvertParams conversion
@@ -155,10 +178,14 @@ def main():
     # and some aliases won't work.
     for cmd in cmds:
         for arg in cmd.args:
-            convert = [((cmd.name, arg.idx, argname) in mapping) for argname in arg.names]
+            convert = [
+                ((cmd.name, arg.idx, argname) in mapping) for argname in arg.names
+            ]
             if any(convert) != all(convert):
-                print('ERROR: %s argument %s has conflicts in vRPCConvertParams conversion specifier %s' % (
-                cmd.name, arg.names, convert))
+                print(
+                    "ERROR: %s argument %s has conflicts in vRPCConvertParams conversion specifier %s"
+                    % (cmd.name, arg.names, convert)
+                )
                 errors += 1
             arg.convert = all(convert)
 
@@ -178,11 +205,21 @@ def main():
             if argname in IGNORE_DUMMY_ARGS:
                 # these are testing or dummy, don't warn for them
                 continue
-            print('WARNING: conversion mismatch for argument named %s (%s)' %
-                  (argname, list(zip(all_methods_by_argname[argname], converts_by_argname[argname]))))
+            print(
+                "WARNING: conversion mismatch for argument named %s (%s)"
+                % (
+                    argname,
+                    list(
+                        zip(
+                            all_methods_by_argname[argname],
+                            converts_by_argname[argname],
+                        )
+                    ),
+                )
+            )
 
     sys.exit(errors > 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

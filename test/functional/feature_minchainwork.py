@@ -46,15 +46,22 @@ class MinimumChainWorkTest(DefiTestFramework):
         # Start building a chain on node0.  node2 shouldn't be able to sync until node1's
         # minchainwork is exceeded
         starting_chain_work = REGTEST_WORK_PER_BLOCK  # Genesis block's work
-        self.log.info("Testing relay across node %d (minChainWork = %d)", 1, self.node_min_work[1])
+        self.log.info(
+            "Testing relay across node %d (minChainWork = %d)", 1, self.node_min_work[1]
+        )
 
         starting_blockcount = self.nodes[2].getblockcount()
 
-        num_blocks_to_generate = int((self.node_min_work[1] - starting_chain_work) / REGTEST_WORK_PER_BLOCK)
+        num_blocks_to_generate = int(
+            (self.node_min_work[1] - starting_chain_work) / REGTEST_WORK_PER_BLOCK
+        )
         self.log.info("Generating %d blocks on node0", num_blocks_to_generate)
         hashes = self.nodes[0].generate(num_blocks_to_generate)
 
-        self.log.info("Node0 current chain work: %s", self.nodes[0].getblockheader(hashes[-1])['chainwork'])
+        self.log.info(
+            "Node0 current chain work: %s",
+            self.nodes[0].getblockheader(hashes[-1])["chainwork"],
+        )
 
         # Sleep a few seconds and verify that node2 didn't get any new blocks
         # or headers.  We sleep, rather than sync_blocks(node0, node1) because
@@ -67,7 +74,7 @@ class MinimumChainWorkTest(DefiTestFramework):
         # Node2 shouldn't have any new headers yet, because node1 should not
         # have relayed anything.
         assert_equal(len(self.nodes[2].getchaintips()), 1)
-        assert_equal(self.nodes[2].getchaintips()[0]['height'], 0)
+        assert_equal(self.nodes[2].getchaintips()[0]["height"], 0)
 
         assert self.nodes[1].getbestblockhash() != self.nodes[0].getbestblockhash()
         assert_equal(self.nodes[2].getblockcount(), starting_blockcount)
@@ -87,5 +94,5 @@ class MinimumChainWorkTest(DefiTestFramework):
         self.log.info("Blockcounts: %s", [n.getblockcount() for n in self.nodes])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MinimumChainWorkTest().main()

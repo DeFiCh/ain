@@ -5,7 +5,11 @@
 """Test segwit transactions and blocks on P2P network."""
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    add_witness_commitment,
+)
 from test_framework.messages import (
     CBlockHeader,
     CInv,
@@ -61,7 +65,7 @@ MAX_SIGOP_COST = 80000 * 16
 SEGWIT_HEIGHT = 120
 
 
-class UTXO():
+class UTXO:
     """Used to keep track of anyone-can-spend outputs that we can use in the tests."""
 
     def __init__(self, sha256, n, value):
@@ -73,13 +77,20 @@ class UTXO():
 def get_p2pkh_script(pubkeyhash):
     """Get the script associated with a P2PKH."""
     return CScript(
-        [CScriptOp(OP_DUP), CScriptOp(OP_HASH160), pubkeyhash, CScriptOp(OP_EQUALVERIFY), CScriptOp(OP_CHECKSIG)])
+        [
+            CScriptOp(OP_DUP),
+            CScriptOp(OP_HASH160),
+            pubkeyhash,
+            CScriptOp(OP_EQUALVERIFY),
+            CScriptOp(OP_CHECKSIG),
+        ]
+    )
 
 
 def sign_p2pk_witness_input(script, tx_to, in_idx, hashtype, value, key):
     """Add signature for a P2PK witness program."""
     tx_hash = SegwitVersion1SignatureHash(script, tx_to, in_idx, hashtype, value)
-    signature = key.sign_ecdsa(tx_hash) + chr(hashtype).encode('latin-1')
+    signature = key.sign_ecdsa(tx_hash) + chr(hashtype).encode("latin-1")
     tx_to.wit.vtxinwit[in_idx].scriptWitness.stack = [signature, script]
     tx_to.rehash()
 
@@ -114,7 +125,9 @@ def test_witness_block(node, p2p, block, accepted, with_witness=True, reason=Non
     - use the getbestblockhash rpc to check for acceptance."""
     reason = [reason] if reason else []
     with node.assert_debug_log(expected_msgs=reason):
-        p2p.send_message(msg_block(block) if with_witness else msg_no_witness_block(block))
+        p2p.send_message(
+            msg_block(block) if with_witness else msg_no_witness_block(block)
+        )
         p2p.sync_with_ping()
         assert_equal(node.getbestblockhash() == block.hash, accepted)
 
@@ -166,9 +179,17 @@ class SegWitTest2(DefiTestFramework):
         self.num_nodes = 3
         # This test tests SegWit both pre and post-activation, so use the normal BIP9 activation.
         self.extra_args = [
-            ["-whitelist=127.0.0.1", "-acceptnonstdtxn=1", "-segwitheight={}".format(SEGWIT_HEIGHT)],
-            ["-whitelist=127.0.0.1", "-acceptnonstdtxn=0", "-segwitheight={}".format(SEGWIT_HEIGHT)],
-            ["-whitelist=127.0.0.1", "-acceptnonstdtxn=1", "-segwitheight=-1"]
+            [
+                "-whitelist=127.0.0.1",
+                "-acceptnonstdtxn=1",
+                "-segwitheight={}".format(SEGWIT_HEIGHT),
+            ],
+            [
+                "-whitelist=127.0.0.1",
+                "-acceptnonstdtxn=0",
+                "-segwitheight={}".format(SEGWIT_HEIGHT),
+            ],
+            ["-whitelist=127.0.0.1", "-acceptnonstdtxn=1", "-segwitheight=-1"],
         ]
 
     def skip_test_if_missing_module(self):
@@ -195,11 +216,17 @@ class SegWitTest2(DefiTestFramework):
     def run_test(self):
         # Setup the p2p connections
         # self.test_node sets NODE_WITNESS|NODE_NETWORK
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS)
+        self.test_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS
+        )
         # self.old_node sets only NODE_NETWORK
-        self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.old_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(), services=NODE_NETWORK
+        )
         # self.std_node is for testing node1 (fRequireStandard=true)
-        self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS)
+        self.std_node = self.nodes[1].add_p2p_connection(
+            TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS
+        )
 
         assert self.test_node.nServices & NODE_WITNESS != 0
 
@@ -225,7 +252,11 @@ class SegWitTest2(DefiTestFramework):
         """Wraps the subtests for logging and state assertions."""
 
         def func_wrapper(self, *args, **kwargs):
-            self.log.info("Subtest: {} (Segwit active = {})".format(func.__name__, self.segwit_active))
+            self.log.info(
+                "Subtest: {} (Segwit active = {})".format(
+                    func.__name__, self.segwit_active
+                )
+            )
             func(self, *args, **kwargs)
             # Each subtest should leave some utxos for the next subtest
             assert self.utxo
@@ -250,7 +281,9 @@ class SegWitTest2(DefiTestFramework):
         # Create a transaction that spends the coinbase
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(txid, 0), b""))
-        tx.vout.append(CTxOut(49 * 100000000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
+        tx.vout.append(
+            CTxOut(49 * 100000000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))
+        )
         tx.calc_sha256()
 
         # Check that serializing it with or without witness is the same
@@ -312,7 +345,9 @@ class SegWitTest2(DefiTestFramework):
         child_tx.vout = [CTxOut(value - 100000, CScript([OP_TRUE]))]
         for i in range(NUM_OUTPUTS):
             child_tx.wit.vtxinwit.append(CTxInWitness())
-            child_tx.wit.vtxinwit[-1].scriptWitness.stack = [b'a' * filler_size] * (2 * NUM_DROPS) + [witness_program]
+            child_tx.wit.vtxinwit[-1].scriptWitness.stack = [b"a" * filler_size] * (
+                2 * NUM_DROPS
+            ) + [witness_program]
         child_tx.rehash()
         self.update_witness_block_with_transactions(block, [parent_tx, child_tx])
 
@@ -323,8 +358,9 @@ class SegWitTest2(DefiTestFramework):
         while additional_bytes > 0:
             # Add some more bytes to each input until we hit MAX_BLOCK_BASE_SIZE+1
             extra_bytes = min(additional_bytes + 1, 55)
-            block.vtx[-1].wit.vtxinwit[int(i / (2 * NUM_DROPS))].scriptWitness.stack[i % (2 * NUM_DROPS)] = b'a' * (
-                        filler_size + extra_bytes)
+            block.vtx[-1].wit.vtxinwit[int(i / (2 * NUM_DROPS))].scriptWitness.stack[
+                i % (2 * NUM_DROPS)
+            ] = b"a" * (filler_size + extra_bytes)
             additional_bytes -= extra_bytes
             i += 1
 
@@ -341,7 +377,7 @@ class SegWitTest2(DefiTestFramework):
 
         # Now resize the second transaction to make the block fit.
         cur_length = len(block.vtx[-1].wit.vtxinwit[0].scriptWitness.stack[0])
-        block.vtx[-1].wit.vtxinwit[0].scriptWitness.stack[0] = b'a' * (cur_length - 1)
+        block.vtx[-1].wit.vtxinwit[0].scriptWitness.stack[0] = b"a" * (cur_length - 1)
         block.vtx[0].vout.pop()
         add_witness_commitment(block)
         block.solve()
@@ -354,5 +390,5 @@ class SegWitTest2(DefiTestFramework):
         self.utxo.append(UTXO(block.vtx[-1].sha256, 0, block.vtx[-1].vout[0].nValue))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     SegWitTest2().main()

@@ -63,7 +63,7 @@ class WalletBackupTest(DefiTestFramework):
         connect_nodes(self.nodes[2], 0)
 
     def one_send(self, from_node, to_address):
-        if (randint(1, 2) == 1):
+        if randint(1, 2) == 1:
             amount = Decimal(randint(1, 10)) / Decimal(10)
             self.nodes[from_node].sendtoaddress(to_address, amount)
 
@@ -104,9 +104,15 @@ class WalletBackupTest(DefiTestFramework):
         self.stop_node(2)
 
     def erase_three(self):
-        os.remove(os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        os.remove(os.path.join(self.nodes[1].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        os.remove(os.path.join(self.nodes[2].datadir, 'regtest', 'wallets', 'wallet.dat'))
+        os.remove(
+            os.path.join(self.nodes[0].datadir, "regtest", "wallets", "wallet.dat")
+        )
+        os.remove(
+            os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat")
+        )
+        os.remove(
+            os.path.join(self.nodes[2].datadir, "regtest", "wallets", "wallet.dat")
+        )
 
     def run_test(self):
         self.log.info("Generating initial blockchain")
@@ -131,12 +137,12 @@ class WalletBackupTest(DefiTestFramework):
 
         self.log.info("Backing up")
 
-        self.nodes[0].backupwallet(os.path.join(self.nodes[0].datadir, 'wallet.bak'))
-        self.nodes[0].dumpwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
-        self.nodes[1].backupwallet(os.path.join(self.nodes[1].datadir, 'wallet.bak'))
-        self.nodes[1].dumpwallet(os.path.join(self.nodes[1].datadir, 'wallet.dump'))
-        self.nodes[2].backupwallet(os.path.join(self.nodes[2].datadir, 'wallet.bak'))
-        self.nodes[2].dumpwallet(os.path.join(self.nodes[2].datadir, 'wallet.dump'))
+        self.nodes[0].backupwallet(os.path.join(self.nodes[0].datadir, "wallet.bak"))
+        self.nodes[0].dumpwallet(os.path.join(self.nodes[0].datadir, "wallet.dump"))
+        self.nodes[1].backupwallet(os.path.join(self.nodes[1].datadir, "wallet.bak"))
+        self.nodes[1].dumpwallet(os.path.join(self.nodes[1].datadir, "wallet.dump"))
+        self.nodes[2].backupwallet(os.path.join(self.nodes[2].datadir, "wallet.bak"))
+        self.nodes[2].dumpwallet(os.path.join(self.nodes[2].datadir, "wallet.dump"))
 
         self.log.info("More transactions")
         for i in range(5):
@@ -164,18 +170,24 @@ class WalletBackupTest(DefiTestFramework):
         self.erase_three()
 
         # Start node2 with no chain
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'enhancedcs'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "blocks"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "chainstate"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "enhancedcs"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "anchors"))
 
         # Restore wallets from backup
-        shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'),
-                        os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, 'wallet.bak'),
-                        os.path.join(self.nodes[1].datadir, 'regtest', 'wallets', 'wallet.dat'))
-        shutil.copyfile(os.path.join(self.nodes[2].datadir, 'wallet.bak'),
-                        os.path.join(self.nodes[2].datadir, 'regtest', 'wallets', 'wallet.dat'))
+        shutil.copyfile(
+            os.path.join(self.nodes[0].datadir, "wallet.bak"),
+            os.path.join(self.nodes[0].datadir, "regtest", "wallets", "wallet.dat"),
+        )
+        shutil.copyfile(
+            os.path.join(self.nodes[1].datadir, "wallet.bak"),
+            os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"),
+        )
+        shutil.copyfile(
+            os.path.join(self.nodes[2].datadir, "wallet.bak"),
+            os.path.join(self.nodes[2].datadir, "regtest", "wallets", "wallet.dat"),
+        )
 
         self.log.info("Re-starting nodes")
         self.start_three()
@@ -190,10 +202,10 @@ class WalletBackupTest(DefiTestFramework):
         self.erase_three()
 
         # start node2 with no chain
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'enhancedcs'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "blocks"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "chainstate"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "enhancedcs"))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, "regtest", "anchors"))
 
         self.start_three()
 
@@ -201,9 +213,9 @@ class WalletBackupTest(DefiTestFramework):
         assert_equal(self.nodes[1].getbalance(), 0)
         assert_equal(self.nodes[2].getbalance(), 0)
 
-        self.nodes[0].importwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
-        self.nodes[1].importwallet(os.path.join(self.nodes[1].datadir, 'wallet.dump'))
-        self.nodes[2].importwallet(os.path.join(self.nodes[2].datadir, 'wallet.dump'))
+        self.nodes[0].importwallet(os.path.join(self.nodes[0].datadir, "wallet.dump"))
+        self.nodes[1].importwallet(os.path.join(self.nodes[1].datadir, "wallet.dump"))
+        self.nodes[2].importwallet(os.path.join(self.nodes[2].datadir, "wallet.dump"))
 
         self.sync_blocks()
 
@@ -213,14 +225,19 @@ class WalletBackupTest(DefiTestFramework):
 
         # Backup to source wallet file must fail
         sourcePaths = [
-            os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'),
-            os.path.join(self.nodes[0].datadir, 'regtest', '.', 'wallets', 'wallet.dat'),
-            os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', ''),
-            os.path.join(self.nodes[0].datadir, 'regtest', 'wallets')]
+            os.path.join(self.nodes[0].datadir, "regtest", "wallets", "wallet.dat"),
+            os.path.join(
+                self.nodes[0].datadir, "regtest", ".", "wallets", "wallet.dat"
+            ),
+            os.path.join(self.nodes[0].datadir, "regtest", "wallets", ""),
+            os.path.join(self.nodes[0].datadir, "regtest", "wallets"),
+        ]
 
         for sourcePath in sourcePaths:
-            assert_raises_rpc_error(-4, "backup failed", self.nodes[0].backupwallet, sourcePath)
+            assert_raises_rpc_error(
+                -4, "backup failed", self.nodes[0].backupwallet, sourcePath
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     WalletBackupTest().main()

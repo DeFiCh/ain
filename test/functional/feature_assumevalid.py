@@ -31,7 +31,7 @@ Start three nodes:
 """
 import time
 
-from test_framework.blocktools import (create_block, create_coinbase)
+from test_framework.blocktools import create_block, create_coinbase
 from test_framework.key import ECKey
 from test_framework.messages import (
     CBlockHeader,
@@ -40,10 +40,10 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
     msg_block,
-    msg_headers
+    msg_headers,
 )
 from test_framework.mininode import P2PInterface
-from test_framework.script import (CScript, OP_TRUE)
+from test_framework.script import CScript, OP_TRUE
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
@@ -80,12 +80,12 @@ class AssumeValidTest(DefiTestFramework):
 
     def assert_blockchain_height(self, node, height):
         """Wait until the blockchain is no longer advancing and verify it's reached the expected height."""
-        last_height = node.getblock(node.getbestblockhash())['height']
+        last_height = node.getblock(node.getbestblockhash())["height"]
         timeout = 10
         while True:
             time.sleep(0.25)
             timeout -= 0.25
-            current_height = node.getblock(node.getbestblockhash())['height']
+            current_height = node.getblock(node.getbestblockhash())["height"]
             if timeout < 0:
                 assert False, "blockchain too short after timeout: %d" % current_height
             if current_height != last_height:
@@ -101,7 +101,9 @@ class AssumeValidTest(DefiTestFramework):
 
         # Build the blockchain
         self.tip = int(self.nodes[0].getbestblockhash(), 16)
-        self.block_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time'] + 1
+        self.block_time = (
+            self.nodes[0].getblock(self.nodes[0].getbestblockhash())["time"] + 1
+        )
 
         self.blocks = []
 
@@ -112,7 +114,9 @@ class AssumeValidTest(DefiTestFramework):
 
         # Create the first block with a coinbase output to our key
         height = 1
-        block = create_block(self.tip, create_coinbase(height, coinbase_pubkey), self.block_time)
+        block = create_block(
+            self.tip, create_coinbase(height, coinbase_pubkey), self.block_time
+        )
         self.blocks.append(block)
         self.block_time += 1
         block.solve()
@@ -183,12 +187,14 @@ class AssumeValidTest(DefiTestFramework):
             p2p1.send_message(msg_block(self.blocks[i]))
         # Syncing 2200 blocks can take a while on slow systems. Give it plenty of time to sync.
         p2p1.sync_with_ping(400)
-        assert_equal(self.nodes[1].getblock(self.nodes[1].getbestblockhash())['height'], 2202)
+        assert_equal(
+            self.nodes[1].getblock(self.nodes[1].getbestblockhash())["height"], 2202
+        )
 
         # Send blocks to node2. Block 102 will be rejected.
         self.send_blocks_until_disconnected(p2p2)
         self.assert_blockchain_height(self.nodes[2], 101)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AssumeValidTest().main()

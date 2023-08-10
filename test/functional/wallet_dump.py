@@ -17,7 +17,7 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
     Read the given dump, count the addrs that match, count change and reserve.
     Also check that the old hd_master is inactive
     """
-    with open(file_name, encoding='utf8') as inputfile:
+    with open(file_name, encoding="utf8") as inputfile:
         found_legacy_addr = 0
         found_p2sh_segwit_addr = 0
         found_bech32_addr = 0
@@ -35,7 +35,7 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
                 date = key_date_label[1]
                 keytype = key_date_label[2]
 
-                imported_key = date == '1970-01-01T00:00:01Z'
+                imported_key = date == "1970-01-01T00:00:01Z"
                 if imported_key:
                     # Imported keys have multiple addresses, no label (keypath) and timestamp
                     # Skip them
@@ -59,15 +59,18 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
 
                 # count key types
                 for addrObj in addrs:
-                    if addrObj['address'] == addr.split(",")[0] and addrObj[
-                            'hdkeypath'] == keypath and keytype == "label=":
-                        if addr.startswith('m') or addr.startswith('n'):
+                    if (
+                        addrObj["address"] == addr.split(",")[0]
+                        and addrObj["hdkeypath"] == keypath
+                        and keytype == "label="
+                    ):
+                        if addr.startswith("m") or addr.startswith("n"):
                             # P2PKH address
                             found_legacy_addr += 1
-                        elif addr.startswith('2'):
+                        elif addr.startswith("2"):
                             # P2SH-segwit address
                             found_p2sh_segwit_addr += 1
-                        elif addr.startswith('bcrt1'):
+                        elif addr.startswith("bcrt1"):
                             found_bech32_addr += 1
                         break
                     elif keytype == "change=1":
@@ -83,7 +86,15 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
                         found_script_addr += 1
                         break
 
-        return found_legacy_addr, found_p2sh_segwit_addr, found_bech32_addr, found_script_addr, found_addr_chg, found_addr_rsv, hd_master_addr_ret
+        return (
+            found_legacy_addr,
+            found_p2sh_segwit_addr,
+            found_bech32_addr,
+            found_script_addr,
+            found_addr_chg,
+            found_addr_rsv,
+            hd_master_addr_ret,
+        )
 
 
 class WalletDumpTest(DefiTestFramework):
@@ -100,7 +111,9 @@ class WalletDumpTest(DefiTestFramework):
         self.start_nodes()
 
     def run_test(self):
-        wallet_unenc_dump = os.path.join(self.nodes[0].datadir, "wallet.unencrypted.dump")
+        wallet_unenc_dump = os.path.join(
+            self.nodes[0].datadir, "wallet.unencrypted.dump"
+        )
         wallet_enc_dump = os.path.join(self.nodes[0].datadir, "wallet.encrypted.dump")
 
         # generate 30 addresses to compare against the dump
@@ -109,14 +122,16 @@ class WalletDumpTest(DefiTestFramework):
         # - 10 bech32
         test_addr_count = 10
         addrs = []
-        for address_type in ['legacy', 'p2sh-segwit', 'bech32']:
+        for address_type in ["legacy", "p2sh-segwit", "bech32"]:
             for i in range(0, test_addr_count):
                 addr = self.nodes[0].getnewaddress(address_type=address_type)
                 vaddr = self.nodes[0].getaddressinfo(addr)  # required to get hd keypath
                 addrs.append(vaddr)
 
         # Test scripts dump by adding a 1-of-1 multisig address
-        multisig_addr = self.nodes[0].addmultisigaddress(1, [addrs[1]["address"]])["address"]
+        multisig_addr = self.nodes[0].addmultisigaddress(1, [addrs[1]["address"]])[
+            "address"
+        ]
 
         # Refill the keypool. getnewaddress() refills the keypool *before* taking a key from
         # the keypool, so the final call to getnewaddress leaves the keypool with one key below
@@ -125,50 +140,80 @@ class WalletDumpTest(DefiTestFramework):
 
         # dump unencrypted wallet
         result = self.nodes[0].dumpwallet(wallet_unenc_dump)
-        assert_equal(result['filename'], wallet_unenc_dump)
+        assert_equal(result["filename"], wallet_unenc_dump)
 
-        found_legacy_addr, found_p2sh_segwit_addr, found_bech32_addr, found_script_addr, found_addr_chg, found_addr_rsv, hd_master_addr_unenc = \
-            read_dump(wallet_unenc_dump, addrs, [multisig_addr], None)
-        assert_equal(found_legacy_addr, test_addr_count * 3)  # all keys must be in the dump
-        assert_equal(found_p2sh_segwit_addr, test_addr_count * 3)  # all keys must be in the dump
-        assert_equal(found_bech32_addr, test_addr_count * 3)  # all keys must be in the dump
+        (
+            found_legacy_addr,
+            found_p2sh_segwit_addr,
+            found_bech32_addr,
+            found_script_addr,
+            found_addr_chg,
+            found_addr_rsv,
+            hd_master_addr_unenc,
+        ) = read_dump(wallet_unenc_dump, addrs, [multisig_addr], None)
+        assert_equal(
+            found_legacy_addr, test_addr_count * 3
+        )  # all keys must be in the dump
+        assert_equal(
+            found_p2sh_segwit_addr, test_addr_count * 3
+        )  # all keys must be in the dump
+        assert_equal(
+            found_bech32_addr, test_addr_count * 3
+        )  # all keys must be in the dump
         assert_equal(found_script_addr, 1)  # all scripts must be in the dump
         assert_equal(found_addr_chg, 0)  # 0 blocks where mined
         assert_equal(found_addr_rsv, 90 * 2 * 3)  # 90 keys plus 100% internal keys
 
         # encrypt wallet, restart, unlock and dump
-        self.nodes[0].encryptwallet('test')
-        self.nodes[0].walletpassphrase('test', 10)
+        self.nodes[0].encryptwallet("test")
+        self.nodes[0].walletpassphrase("test", 10)
         # Should be a no-op:
         self.nodes[0].keypoolrefill()
         self.nodes[0].dumpwallet(wallet_enc_dump)
 
-        found_legacy_addr, found_p2sh_segwit_addr, found_bech32_addr, found_script_addr, found_addr_chg, found_addr_rsv, _ = \
-            read_dump(wallet_enc_dump, addrs, [multisig_addr], hd_master_addr_unenc)
-        assert_equal(found_legacy_addr, test_addr_count * 3)  # all keys must be in the dump
-        assert_equal(found_p2sh_segwit_addr, test_addr_count * 3)  # all keys must be in the dump
-        assert_equal(found_bech32_addr, test_addr_count * 3)  # all keys must be in the dump
+        (
+            found_legacy_addr,
+            found_p2sh_segwit_addr,
+            found_bech32_addr,
+            found_script_addr,
+            found_addr_chg,
+            found_addr_rsv,
+            _,
+        ) = read_dump(wallet_enc_dump, addrs, [multisig_addr], hd_master_addr_unenc)
+        assert_equal(
+            found_legacy_addr, test_addr_count * 3
+        )  # all keys must be in the dump
+        assert_equal(
+            found_p2sh_segwit_addr, test_addr_count * 3
+        )  # all keys must be in the dump
+        assert_equal(
+            found_bech32_addr, test_addr_count * 3
+        )  # all keys must be in the dump
         assert_equal(found_script_addr, 1)
-        assert_equal(found_addr_chg, 90 * 2 * 3)  # old reserve keys are marked as change now
+        assert_equal(
+            found_addr_chg, 90 * 2 * 3
+        )  # old reserve keys are marked as change now
         assert_equal(found_addr_rsv, 90 * 2 * 3)
 
         # Overwriting should fail
-        assert_raises_rpc_error(-8, "already exists", lambda: self.nodes[0].dumpwallet(wallet_enc_dump))
+        assert_raises_rpc_error(
+            -8, "already exists", lambda: self.nodes[0].dumpwallet(wallet_enc_dump)
+        )
 
         # Restart node with new wallet, and test importwallet
         self.stop_node(0)
-        self.start_node(0, ['-wallet=w2'])
+        self.start_node(0, ["-wallet=w2"])
 
         # Make sure the address is not IsMine before import
         result = self.nodes[0].getaddressinfo(multisig_addr)
-        assert not result['ismine']
+        assert not result["ismine"]
 
         self.nodes[0].importwallet(wallet_unenc_dump)
 
         # Now check IsMine is true
         result = self.nodes[0].getaddressinfo(multisig_addr)
-        assert result['ismine']
+        assert result["ismine"]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     WalletDumpTest().main()

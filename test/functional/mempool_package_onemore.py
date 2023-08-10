@@ -29,67 +29,125 @@ class MempoolPackagesTest(DefiTestFramework):
     def chain_transaction(self, node, parent_txids, vouts, value, fee, num_outputs):
         send_value = satoshi_round((value - fee) / num_outputs)
         inputs = []
-        for (txid, vout) in zip(parent_txids, vouts):
-            inputs.append({'txid': txid, 'vout': vout})
+        for txid, vout in zip(parent_txids, vouts):
+            inputs.append({"txid": txid, "vout": vout})
         outputs = {}
         for i in range(num_outputs):
             outputs[node.getnewaddress()] = send_value
         rawtx = node.createrawtransaction(inputs, outputs)
         signedtx = node.signrawtransactionwithwallet(rawtx)
-        txid = node.sendrawtransaction(signedtx['hex'])
+        txid = node.sendrawtransaction(signedtx["hex"])
         fulltx = node.getrawtransaction(txid, 1)
-        assert len(fulltx['vout']) == num_outputs  # make sure we didn't generate a change output
+        assert (
+            len(fulltx["vout"]) == num_outputs
+        )  # make sure we didn't generate a change output
         return (txid, send_value)
 
     def run_test(self):
         # Mine some blocks and have them mature.
         self.nodes[0].generate(101)
         utxo = self.nodes[0].listunspent(10)
-        txid = utxo[0]['txid']
-        vout = utxo[0]['vout']
-        value = utxo[0]['amount']
+        txid = utxo[0]["txid"]
+        vout = utxo[0]["vout"]
+        value = utxo[0]["amount"]
 
         fee = Decimal("0.0002")
         # MAX_ANCESTORS transactions off a confirmed tx should be fine
         chain = []
         for _ in range(4):
-            (txid, sent_value) = self.chain_transaction(self.nodes[0], [txid], [vout], value, fee, 2)
+            (txid, sent_value) = self.chain_transaction(
+                self.nodes[0], [txid], [vout], value, fee, 2
+            )
             vout = 0
             value = sent_value
             chain.append([txid, value])
         for _ in range(MAX_ANCESTORS - 4):
-            (txid, sent_value) = self.chain_transaction(self.nodes[0], [txid], [0], value, fee, 1)
+            (txid, sent_value) = self.chain_transaction(
+                self.nodes[0], [txid], [0], value, fee, 1
+            )
             value = sent_value
             chain.append([txid, value])
-        (second_chain, second_chain_value) = self.chain_transaction(self.nodes[0], [utxo[1]['txid']], [utxo[1]['vout']],
-                                                                    utxo[1]['amount'], fee, 1)
+        (second_chain, second_chain_value) = self.chain_transaction(
+            self.nodes[0],
+            [utxo[1]["txid"]],
+            [utxo[1]["vout"]],
+            utxo[1]["amount"],
+            fee,
+            1,
+        )
 
         # Check mempool has MAX_ANCESTORS + 1 transactions in it
         assert_equal(len(self.nodes[0].getrawmempool(True)), MAX_ANCESTORS + 1)
 
         # Adding one more transaction on to the chain should fail.
-        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many unconfirmed ancestors [limit: 25]",
-                                self.chain_transaction, self.nodes[0], [txid], [0], value, fee, 1)
+        assert_raises_rpc_error(
+            -26,
+            "too-long-mempool-chain, too many unconfirmed ancestors [limit: 25]",
+            self.chain_transaction,
+            self.nodes[0],
+            [txid],
+            [0],
+            value,
+            fee,
+            1,
+        )
         # ...even if it chains on from some point in the middle of the chain.
-        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_transaction,
-                                self.nodes[0], [chain[2][0]], [1], chain[2][1], fee, 1)
-        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_transaction,
-                                self.nodes[0], [chain[1][0]], [1], chain[1][1], fee, 1)
+        assert_raises_rpc_error(
+            -26,
+            "too-long-mempool-chain, too many descendants",
+            self.chain_transaction,
+            self.nodes[0],
+            [chain[2][0]],
+            [1],
+            chain[2][1],
+            fee,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "too-long-mempool-chain, too many descendants",
+            self.chain_transaction,
+            self.nodes[0],
+            [chain[1][0]],
+            [1],
+            chain[1][1],
+            fee,
+            1,
+        )
         # ...even if it chains on to two parent transactions with one in the chain.
-        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_transaction,
-                                self.nodes[0], [chain[0][0], second_chain], [1, 0], chain[0][1] + second_chain_value,
-                                fee, 1)
+        assert_raises_rpc_error(
+            -26,
+            "too-long-mempool-chain, too many descendants",
+            self.chain_transaction,
+            self.nodes[0],
+            [chain[0][0], second_chain],
+            [1, 0],
+            chain[0][1] + second_chain_value,
+            fee,
+            1,
+        )
         # ...especially if its > 40k weight
-        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_transaction,
-                                self.nodes[0], [chain[0][0]], [1], chain[0][1], fee, 350)
+        assert_raises_rpc_error(
+            -26,
+            "too-long-mempool-chain, too many descendants",
+            self.chain_transaction,
+            self.nodes[0],
+            [chain[0][0]],
+            [1],
+            chain[0][1],
+            fee,
+            350,
+        )
         # But not if it chains directly off the first transaction
         self.chain_transaction(self.nodes[0], [chain[0][0]], [1], chain[0][1], fee, 1)
         # and the second chain should work just fine
-        self.chain_transaction(self.nodes[0], [second_chain], [0], second_chain_value, fee, 1)
+        self.chain_transaction(
+            self.nodes[0], [second_chain], [0], second_chain_value, fee, 1
+        )
 
         # Finally, check that we added two transactions
         assert_equal(len(self.nodes[0].getrawmempool(True)), MAX_ANCESTORS + 3)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MempoolPackagesTest().main()

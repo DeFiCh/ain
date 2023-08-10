@@ -23,19 +23,26 @@ class BlocksdirTest(DefiTestFramework):
         shutil.rmtree(self.nodes[0].datadir)
         initialize_datadir(self.options.tmpdir, 0, self.chain)
         self.log.info("Starting with nonexistent blocksdir ...")
-        blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
-        self.nodes[0].assert_start_raises_init_error(["-blocksdir=" + blocksdir_path],
-                                                     'Error: Specified blocks directory "{}" does not exist.'.format(
-                                                         blocksdir_path))
+        blocksdir_path = os.path.join(self.options.tmpdir, "blocksdir")
+        self.nodes[0].assert_start_raises_init_error(
+            ["-blocksdir=" + blocksdir_path],
+            'Error: Specified blocks directory "{}" does not exist.'.format(
+                blocksdir_path
+            ),
+        )
         os.mkdir(blocksdir_path)
         self.log.info("Starting with existing blocksdir ...")
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
         self.import_deterministic_coinbase_privkeys()  # cause initial datadir with predefined wallets was removed
         self.log.info("mining blocks..")
         self.nodes[0].generate(10)
-        assert os.path.isfile(os.path.join(blocksdir_path, self.chain, "blocks", "blk00000.dat"))
-        assert os.path.isdir(os.path.join(self.nodes[0].datadir, self.chain, "blocks", "index"))
+        assert os.path.isfile(
+            os.path.join(blocksdir_path, self.chain, "blocks", "blk00000.dat")
+        )
+        assert os.path.isdir(
+            os.path.join(self.nodes[0].datadir, self.chain, "blocks", "index")
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     BlocksdirTest().main()

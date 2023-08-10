@@ -19,8 +19,8 @@ class SendTokensToAddressTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50'],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
         ]
 
     def run_test(self):
@@ -33,14 +33,14 @@ class SendTokensToAddressTest(DefiTestFramework):
                 "symbol": "GOLD",
                 "name": "shiny gold",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 30
+                "amount": 30,
             },
             {
                 "wallet": self.nodes[0],
                 "symbol": "SILVER",
                 "name": "just silver",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 30
+                "amount": 30,
             },
         ]
         # inside this function "tokenId" and "symbolId" will be assigned for each token obj
@@ -101,11 +101,11 @@ class SendTokensToAddressTest(DefiTestFramework):
         wallet1_addr2_balance = self.nodes[0].getaccount(wallet1_addr2, {}, True)
 
         # crumbs gets amount by asc order, 0 balances not present
-        assert (token1_tokenId not in wallet1_addr1_balance)
-        assert (token0_tokenId not in wallet1_addr2_balance)
+        assert token1_tokenId not in wallet1_addr1_balance
+        assert token0_tokenId not in wallet1_addr2_balance
         assert_equal(wallet1_addr1_balance[token0_tokenId], Decimal(9))
         assert_equal(wallet1_addr2_balance[token1_tokenId], Decimal(8))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     SendTokensToAddressTest().main()

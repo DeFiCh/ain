@@ -36,7 +36,7 @@ class RpcCreateMultiSigTest(DefiTestFramework):
 
         self.check_addmultisigaddress_errors()
 
-        self.log.info('Generating blocks ...')
+        self.log.info("Generating blocks ...")
         node0.generate(149)
         self.sync_blocks()
 
@@ -50,10 +50,10 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         self.checkbalances()
 
         # Test mixed compressed and uncompressed pubkeys
-        self.log.info('Mixed compressed and uncompressed multisigs are not allowed')
-        pk0 = node0.getaddressinfo(node0.getnewaddress())['pubkey']
-        pk1 = node1.getaddressinfo(node1.getnewaddress())['pubkey']
-        pk2 = node2.getaddressinfo(node2.getnewaddress())['pubkey']
+        self.log.info("Mixed compressed and uncompressed multisigs are not allowed")
+        pk0 = node0.getaddressinfo(node0.getnewaddress())["pubkey"]
+        pk1 = node1.getaddressinfo(node1.getnewaddress())["pubkey"]
+        pk2 = node2.getaddressinfo(node2.getnewaddress())["pubkey"]
 
         # decompress pk2
         pk_obj = ECPubKey()
@@ -64,25 +64,46 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         # Check all permutations of keys because order matters apparently
         for keys in itertools.permutations([pk0, pk1, pk2]):
             # Results should be the same as this legacy one
-            legacy_addr = node0.createmultisig(2, keys, 'legacy')['address']
-            assert_equal(legacy_addr, node0.addmultisigaddress(2, keys, '', 'legacy')['address'])
+            legacy_addr = node0.createmultisig(2, keys, "legacy")["address"]
+            assert_equal(
+                legacy_addr, node0.addmultisigaddress(2, keys, "", "legacy")["address"]
+            )
 
             # Generate addresses with the segwit types. These should all make legacy addresses
-            assert_equal(legacy_addr, node0.createmultisig(2, keys, 'bech32')['address'])
-            assert_equal(legacy_addr, node0.createmultisig(2, keys, 'p2sh-segwit')['address'])
-            assert_equal(legacy_addr, node0.addmultisigaddress(2, keys, '', 'bech32')['address'])
-            assert_equal(legacy_addr, node0.addmultisigaddress(2, keys, '', 'p2sh-segwit')['address'])
+            assert_equal(
+                legacy_addr, node0.createmultisig(2, keys, "bech32")["address"]
+            )
+            assert_equal(
+                legacy_addr, node0.createmultisig(2, keys, "p2sh-segwit")["address"]
+            )
+            assert_equal(
+                legacy_addr, node0.addmultisigaddress(2, keys, "", "bech32")["address"]
+            )
+            assert_equal(
+                legacy_addr,
+                node0.addmultisigaddress(2, keys, "", "p2sh-segwit")["address"],
+            )
 
     def check_addmultisigaddress_errors(self):
-        self.log.info('Check that addmultisigaddress fails when the private keys are missing')
-        addresses = [self.nodes[1].getnewaddress(address_type='legacy') for _ in range(2)]
-        assert_raises_rpc_error(-5, 'no full public key for address',
-                                lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
+        self.log.info(
+            "Check that addmultisigaddress fails when the private keys are missing"
+        )
+        addresses = [
+            self.nodes[1].getnewaddress(address_type="legacy") for _ in range(2)
+        ]
+        assert_raises_rpc_error(
+            -5,
+            "no full public key for address",
+            lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses),
+        )
         for a in addresses:
             # Importing all addresses should not change the result
             self.nodes[0].importaddress(a)
-        assert_raises_rpc_error(-5, 'no full public key for address',
-                                lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
+        assert_raises_rpc_error(
+            -5,
+            "no full public key for address",
+            lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses),
+        )
 
     def checkbalances(self):
         node0, node1, node2 = self.nodes
@@ -106,7 +127,7 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         msig = node2.createmultisig(self.nsigs, self.pub, self.output_type)
         madd = msig["address"]
         mredeem = msig["redeemScript"]
-        if self.output_type == 'bech32':
+        if self.output_type == "bech32":
             assert madd[0:4] == "bcrt"  # actually a bech32 address
 
         # compare against addmultisigaddress
@@ -120,26 +141,48 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         txid = node0.sendtoaddress(madd, 40)
 
         tx = node0.getrawtransaction(txid, True)
-        vout = [v["n"] for v in tx["vout"] if madd in v["scriptPubKey"].get("addresses", [])]
+        vout = [
+            v["n"] for v in tx["vout"] if madd in v["scriptPubKey"].get("addresses", [])
+        ]
         assert len(vout) == 1
         vout = vout[0]
         scriptPubKey = tx["vout"][vout]["scriptPubKey"]["hex"]
         value = tx["vout"][vout]["value"]
-        prevtxs = [{"txid": txid, "vout": vout, "scriptPubKey": scriptPubKey, "redeemScript": mredeem, "amount": value}]
+        prevtxs = [
+            {
+                "txid": txid,
+                "vout": vout,
+                "scriptPubKey": scriptPubKey,
+                "redeemScript": mredeem,
+                "amount": value,
+            }
+        ]
 
         node0.generate(1)
 
         outval = value - decimal.Decimal("0.00001000")
-        rawtx = node2.createrawtransaction([{"txid": txid, "vout": vout}], [{self.final: outval}])
+        rawtx = node2.createrawtransaction(
+            [{"txid": txid, "vout": vout}], [{self.final: outval}]
+        )
 
         prevtx_err = dict(prevtxs[0])
         del prevtx_err["redeemScript"]
 
-        assert_raises_rpc_error(-8, "Missing redeemScript/witnessScript", node2.signrawtransactionwithkey, rawtx,
-                                self.priv[0:self.nsigs - 1], [prevtx_err])
+        assert_raises_rpc_error(
+            -8,
+            "Missing redeemScript/witnessScript",
+            node2.signrawtransactionwithkey,
+            rawtx,
+            self.priv[0 : self.nsigs - 1],
+            [prevtx_err],
+        )
 
-        rawtx2 = node2.signrawtransactionwithkey(rawtx, self.priv[0:self.nsigs - 1], prevtxs)
-        rawtx3 = node2.signrawtransactionwithkey(rawtx2["hex"], [self.priv[-1]], prevtxs)
+        rawtx2 = node2.signrawtransactionwithkey(
+            rawtx, self.priv[0 : self.nsigs - 1], prevtxs
+        )
+        rawtx3 = node2.signrawtransactionwithkey(
+            rawtx2["hex"], [self.priv[-1]], prevtxs
+        )
 
         self.moved += outval
         tx = node0.sendrawtransaction(rawtx3["hex"], 0)
@@ -147,9 +190,18 @@ class RpcCreateMultiSigTest(DefiTestFramework):
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)
-        self.log.info("n/m=%d/%d %s size=%d vsize=%d weight=%d" % (
-        self.nsigs, self.nkeys, self.output_type, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
+        self.log.info(
+            "n/m=%d/%d %s size=%d vsize=%d weight=%d"
+            % (
+                self.nsigs,
+                self.nkeys,
+                self.output_type,
+                txinfo["size"],
+                txinfo["vsize"],
+                txinfo["weight"],
+            )
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     RpcCreateMultiSigTest().main()

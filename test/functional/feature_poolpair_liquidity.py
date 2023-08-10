@@ -23,7 +23,7 @@ from pprint import pprint
 
 
 def make_rounded_decimal(value):
-    return Decimal(value).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+    return Decimal(value).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
 
 class PoolLiquidityTest(DefiTestFramework):
@@ -34,10 +34,11 @@ class PoolLiquidityTest(DefiTestFramework):
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
+        ]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
@@ -64,19 +65,24 @@ class PoolLiquidityTest(DefiTestFramework):
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
 
         # transfer silver
-        self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER})
+        self.nodes[1].accounttoaccount(
+            accountSilver, {accountGold: "1000@" + symbolSILVER}
+        )
         self.nodes[1].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         # create pool
-        self.nodes[0].createpoolpair({
-            "tokenA": symbolGOLD,
-            "tokenB": symbolSILVER,
-            "commission": 1,
-            "status": True,
-            "ownerAddress": poolOwner,
-            "pairSymbol": "GS",
-        }, [])
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": symbolGOLD,
+                "tokenB": symbolSILVER,
+                "commission": 1,
+                "status": True,
+                "ownerAddress": poolOwner,
+                "pairSymbol": "GS",
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
         # only 4 tokens = DFI, GOLD, SILVER, GS
@@ -85,42 +91,42 @@ class PoolLiquidityTest(DefiTestFramework):
         # check tokens id
         pool = self.nodes[0].getpoolpair("GS")
         idGS = list(self.nodes[0].gettoken("GS").keys())[0]
-        assert (pool[idGS]['idTokenA'] == idGold)
-        assert (pool[idGS]['idTokenB'] == idSilver)
+        assert pool[idGS]["idTokenA"] == idGold
+        assert pool[idGS]["idTokenB"] == idSilver
 
         # Add liquidity
         # ========================
         # one token
         try:
-            self.nodes[0].addpoolliquidity({
-                accountGold: "100@" + symbolSILVER
-            }, accountGold, [])
+            self.nodes[0].addpoolliquidity(
+                {accountGold: "100@" + symbolSILVER}, accountGold, []
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("the pool pair requires two tokens" in errorString)
+            errorString = e.error["message"]
+        assert "the pool pair requires two tokens" in errorString
 
         # missing amount
         try:
-            self.nodes[0].addpoolliquidity({
-                accountGold: ["0@" + symbolGOLD, "0@" + symbolSILVER]
-            }, accountGold, [])
+            self.nodes[0].addpoolliquidity(
+                {accountGold: ["0@" + symbolGOLD, "0@" + symbolSILVER]}, accountGold, []
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Amount out of range" in errorString)
+            errorString = e.error["message"]
+        assert "Amount out of range" in errorString
 
         # missing pool
         try:
-            self.nodes[0].addpoolliquidity({
-                accountGold: ["100@DFI", "100@" + symbolGOLD]
-            }, accountGold, [])
+            self.nodes[0].addpoolliquidity(
+                {accountGold: ["100@DFI", "100@" + symbolGOLD]}, accountGold, []
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("there is no such pool pair" in errorString)
+            errorString = e.error["message"]
+        assert "there is no such pool pair" in errorString
 
         # transfer
-        self.nodes[0].addpoolliquidity({
-            accountGold: ["100@" + symbolGOLD, "100@" + symbolSILVER]
-        }, accountGold, [])
+        self.nodes[0].addpoolliquidity(
+            {accountGold: ["100@" + symbolGOLD, "100@" + symbolSILVER]}, accountGold, []
+        )
         self.nodes[0].generate(1)
 
         # only 3 tokens = GOLD, SILVER, GS
@@ -147,9 +153,9 @@ class PoolLiquidityTest(DefiTestFramework):
 
         # getpoolpair
         pool = self.nodes[0].getpoolpair("GS", True)
-        assert_equal(pool['1']['reserveA'], 100)
-        assert_equal(pool['1']['reserveB'], 100)
-        assert_equal(pool['1']['totalLiquidity'], 100)
+        assert_equal(pool["1"]["reserveA"], 100)
+        assert_equal(pool["1"]["reserveB"], 100)
+        assert_equal(pool["1"]["totalLiquidity"], 100)
 
         # third tester
         accountTest = self.nodes[3].getnewaddress()
@@ -160,7 +166,9 @@ class PoolLiquidityTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(accountTest, 1)
 
         # transfer tokens
-        self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]})
+        self.nodes[0].accounttoaccount(
+            accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]}
+        )
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[3]])
 
@@ -173,9 +181,9 @@ class PoolLiquidityTest(DefiTestFramework):
         assert_equal(accountGoldInfo[idSilver], amountSilver - 500)
 
         # transfer liquidity with auto-selection accounts from wallet
-        self.nodes[3].addpoolliquidity({
-            "*": ["50@" + symbolGOLD, "400@" + symbolSILVER]
-        }, accountTest, [])
+        self.nodes[3].addpoolliquidity(
+            {"*": ["50@" + symbolGOLD, "400@" + symbolSILVER]}, accountTest, []
+        )
 
         self.sync_mempools([self.nodes[0], self.nodes[3]])
 
@@ -189,9 +197,9 @@ class PoolLiquidityTest(DefiTestFramework):
         assert_equal(accountTestInfo[idGold], 450)
         assert_equal(accountTestInfo[idSilver], 100)
 
-        assert_equal(pool['1']['reserveA'], 150)
-        assert_equal(pool['1']['reserveB'], 500)
-        assert_equal(pool['1']['totalLiquidity'], 150)
+        assert_equal(pool["1"]["reserveA"], 150)
+        assert_equal(pool["1"]["reserveB"], 500)
+        assert_equal(pool["1"]["totalLiquidity"], 150)
 
         # Remove liquidity
         # ========================
@@ -199,37 +207,37 @@ class PoolLiquidityTest(DefiTestFramework):
         amountGold = accountGoldInfo[idGold]
         amountSilver = accountGoldInfo[idSilver]
 
-        poolReserveA = pool['1']['reserveA']
-        poolReserveB = pool['1']['reserveB']
-        poolLiquidity = pool['1']['totalLiquidity']
+        poolReserveA = pool["1"]["reserveA"]
+        poolReserveB = pool["1"]["reserveB"]
+        poolLiquidity = pool["1"]["totalLiquidity"]
 
         # missing pool
         try:
             self.nodes[0].removepoolliquidity(accountGold, "100@DFI", [])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("there is no such pool pair" in errorString)
+            errorString = e.error["message"]
+        assert "there is no such pool pair" in errorString
 
         # missing amount
         try:
             self.nodes[0].removepoolliquidity(accountGold, "0@GS", [])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Amount out of range" in errorString)
+            errorString = e.error["message"]
+        assert "Amount out of range" in errorString
 
         # missing (account exists, but does not belong)
         try:
             self.nodes[0].removepoolliquidity(accountTest, "10@GS", [])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Incorrect auth" in errorString)
+            errorString = e.error["message"]
+        assert "Incorrect auth" in errorString
 
         # missing amount of share (account exists and mine, but it is not a LP share account)
         try:
             self.nodes[0].removepoolliquidity(poolOwner, "10@GS", [])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("amount 0.00000000 is less" in errorString)
+            errorString = e.error["message"]
+        assert "amount 0.00000000 is less" in errorString
 
         resAmountA = make_rounded_decimal(25 * poolReserveA / poolLiquidity)
         resAmountB = make_rounded_decimal(25 * poolReserveB / poolLiquidity)
@@ -245,9 +253,9 @@ class PoolLiquidityTest(DefiTestFramework):
         assert_equal(accountGoldInfo[idGold], amountGold + resAmountA)
         assert_equal(accountGoldInfo[idSilver], amountSilver + resAmountB)
 
-        assert_equal(pool['1']['reserveA'], poolReserveA - resAmountA)
-        assert_equal(pool['1']['reserveB'], poolReserveB - resAmountB)
-        assert_equal(pool['1']['totalLiquidity'], poolLiquidity - 25)
+        assert_equal(pool["1"]["reserveA"], poolReserveA - resAmountA)
+        assert_equal(pool["1"]["reserveB"], poolReserveB - resAmountB)
+        assert_equal(pool["1"]["totalLiquidity"], poolLiquidity - 25)
 
         # Sending pool token
         # ========================
@@ -295,9 +303,9 @@ class PoolLiquidityTest(DefiTestFramework):
         goldAmountAcc2 = accountTestInfo[idGold]
         silverAmountAcc2 = accountTestInfo[idSilver]
 
-        poolReserveA = pool['1']['reserveA']
-        poolReserveB = pool['1']['reserveB']
-        poolLiquidity = pool['1']['totalLiquidity']
+        poolReserveA = pool["1"]["reserveA"]
+        poolReserveB = pool["1"]["reserveB"]
+        poolLiquidity = pool["1"]["totalLiquidity"]
 
         # remove gold acc liquidity
         resAmountA = make_rounded_decimal(gsAmountAcc1 * poolReserveA / poolLiquidity)
@@ -310,17 +318,17 @@ class PoolLiquidityTest(DefiTestFramework):
         accountGoldInfo = self.nodes[0].getaccount(accountGold, {}, True)
         pool = self.nodes[0].getpoolpair("GS", True)
 
-        assert (not idGS in accountGoldInfo)
+        assert not idGS in accountGoldInfo
         assert_equal(accountGoldInfo[idGold], goldAmountAcc1 + resAmountA)
         assert_equal(accountGoldInfo[idSilver], silverAmountAcc1 + resAmountB)
 
-        assert_equal(pool['1']['reserveA'], poolReserveA - resAmountA)
-        assert_equal(pool['1']['reserveB'], poolReserveB - resAmountB)
-        assert_equal(pool['1']['totalLiquidity'], poolLiquidity - gsAmountAcc1)
+        assert_equal(pool["1"]["reserveA"], poolReserveA - resAmountA)
+        assert_equal(pool["1"]["reserveB"], poolReserveB - resAmountB)
+        assert_equal(pool["1"]["totalLiquidity"], poolLiquidity - gsAmountAcc1)
 
-        poolReserveA = pool['1']['reserveA']
-        poolReserveB = pool['1']['reserveB']
-        poolLiquidity = pool['1']['totalLiquidity']
+        poolReserveA = pool["1"]["reserveA"]
+        poolReserveB = pool["1"]["reserveB"]
+        poolLiquidity = pool["1"]["totalLiquidity"]
 
         # remove test acc liquidity
         resAmountA = make_rounded_decimal(gsAmountAcc2 * poolReserveA / poolLiquidity)
@@ -335,19 +343,19 @@ class PoolLiquidityTest(DefiTestFramework):
         accountTestInfo = self.nodes[0].getaccount(accountTest, {}, True)
         pool = self.nodes[0].getpoolpair("GS", True)
 
-        assert (not idGS in accountTestInfo)
+        assert not idGS in accountTestInfo
         assert_equal(accountTestInfo[idGold], goldAmountAcc2 + resAmountA)
         assert_equal(accountTestInfo[idSilver], silverAmountAcc2 + resAmountB)
 
         print("Empty pool:")
         pprint(pool)
 
-        assert_equal(pool['1']['reserveA'], poolReserveA - resAmountA)
-        assert_equal(pool['1']['reserveB'], poolReserveB - resAmountB)
-        assert_equal(pool['1']['totalLiquidity'], poolLiquidity - gsAmountAcc2)
+        assert_equal(pool["1"]["reserveA"], poolReserveA - resAmountA)
+        assert_equal(pool["1"]["reserveB"], poolReserveB - resAmountB)
+        assert_equal(pool["1"]["totalLiquidity"], poolLiquidity - gsAmountAcc2)
 
         # minimum liquidity 0.00001
-        assert_equal(pool['1']['totalLiquidity'], Decimal('0.00001'))
+        assert_equal(pool["1"]["totalLiquidity"], Decimal("0.00001"))
 
         # REVERTING:
         # ========================
@@ -363,8 +371,12 @@ class PoolLiquidityTest(DefiTestFramework):
         self.nodes[1].clearmempool()
         self.nodes[2].clearmempool()
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
+        assert_equal(
+            self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold
+        )
+        assert_equal(
+            self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver
+        )
 
         # assert_equal(len(self.nodes[0].getrawmempool()), 13) # removed txs for block
 
@@ -373,25 +385,30 @@ class PoolLiquidityTest(DefiTestFramework):
         symbolDFI = "DFI"
         address = self.nodes[0].getnewaddress("", "legacy")
 
-        self.nodes[0].createtoken({
-            "symbol": symbolBTC,
-            "name": "BTC token",
-            "isDAT": True,
-            "collateralAddress": address
-        })
+        self.nodes[0].createtoken(
+            {
+                "symbol": symbolBTC,
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": address,
+            }
+        )
         self.nodes[0].generate(1)
 
         idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
         idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
 
-        pool_pair_tx = self.nodes[0].createpoolpair({
-            "tokenA": idBTC,
-            "tokenB": idDFI,
-            "commission": Decimal('0.002'),
-            "status": True,
-            "ownerAddress": poolOwner,
-            "pairSymbol": "BTC-DFI",
-        }, [])
+        pool_pair_tx = self.nodes[0].createpoolpair(
+            {
+                "tokenA": idBTC,
+                "tokenB": idDFI,
+                "commission": Decimal("0.002"),
+                "status": True,
+                "ownerAddress": poolOwner,
+                "pairSymbol": "BTC-DFI",
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
         self.nodes[0].minttokens(["100@" + symbolBTC])
@@ -400,9 +417,9 @@ class PoolLiquidityTest(DefiTestFramework):
         self.nodes[0].utxostoaccount({address: "100@DFI"})
         self.nodes[0].generate(1)
 
-        self.nodes[0].addpoolliquidity({
-            address: ["100@" + symbolBTC, "100@" + symbolDFI]
-        }, address)
+        self.nodes[0].addpoolliquidity(
+            {address: ["100@" + symbolBTC, "100@" + symbolDFI]}, address
+        )
         self.nodes[0].generate(1)
 
         self.nodes[0].setgov({"LP_DAILY_DFI_REWARD": 1})
@@ -412,19 +429,17 @@ class PoolLiquidityTest(DefiTestFramework):
         self.nodes[0].setgov({"LP_SPLITS": {pool_pair_id: 1}})
         self.nodes[0].generate(1)
 
-        self.nodes[0].updatepoolpair({
-            "pool": pool_pair_tx,
-            "status": False
-        })
+        self.nodes[0].updatepoolpair({"pool": pool_pair_tx, "status": False})
         self.nodes[0].generate(1)
 
         rewards = self.nodes[0].getaccount(address, {}, True)
         self.nodes[0].generate(1)
         rewardsAfter = self.nodes[0].getaccount(address, {}, True)
 
-        assert (rewardsAfter['0'] > rewards[
-            '0'])  # Liquidity pool providers should keep getting rewards while pool status is false
+        assert (
+            rewardsAfter["0"] > rewards["0"]
+        )  # Liquidity pool providers should keep getting rewards while pool status is false
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     PoolLiquidityTest().main()
