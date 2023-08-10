@@ -1,14 +1,15 @@
-use crate::call_request::CallRequest;
-use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
+use std::cmp;
+use std::sync::Arc;
 
+use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
 use ethereum::Account;
 use ethereum_types::U256;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use log::debug;
 use rlp::{Decodable, Rlp};
-use std::cmp;
-use std::sync::Arc;
+
+use crate::call_request::CallRequest;
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
