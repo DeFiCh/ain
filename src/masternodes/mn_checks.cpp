@@ -4118,6 +4118,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
 
 Res ValidateTransferDomainEdge(const CTransaction &tx,
                                    const TransferDomainConfig &config,
+                                   CCustomCSView &mnview,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
                                    const Consensus::Params &consensus,
@@ -4133,22 +4134,23 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nTokenId != dst.amount.nTokenId)
         return DeFiErrors::TransferDomainDifferentTokens();
 
-    if (src.amount.nTokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled)
-        return DeFiErrors::TransferDomainDVMToEVMNativeTokenNotEnabled();
+    auto tokenId = src.amount.nTokenId;
 
-    if (dst.amount.nTokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled)
-        return DeFiErrors::TransferDomainEVMToDVMNativeTokenNotEnabled();
-
-    if (src.amount.nTokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled)
-        return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
-
-    if (dst.amount.nTokenId != DCT_ID{0} && !config.evmToDvmDatEnabled)
-        return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
+    if (tokenId != DCT_ID{0}) {
+        auto token = mnview.GetToken(tokenId);
+        if (!token || !token->IsDAT() || token->IsPoolShare())
+            return DeFiErrors::TransferDomainIncorrectToken();
+    }
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-        if (!config.dvmToEvmEnabled) {
+        if (!config.dvmToEvmEnabled)
             return DeFiErrors::TransferDomainDVMEVMNotEnabled();
-        }
+
+        if (tokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled)
+            return DeFiErrors::TransferDomainDVMToEVMNativeTokenNotEnabled();
+
+        if (tokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled)
+            return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
 
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, config);
@@ -4157,9 +4159,14 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-        if (!config.evmToDvmEnabled) {
+        if (!config.evmToDvmEnabled)
             return DeFiErrors::TransferDomainEVMDVMNotEnabled();
-        }
+
+        if (tokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled)
+            return DeFiErrors::TransferDomainEVMToDVMNativeTokenNotEnabled();
+
+        if (tokenId != DCT_ID{0} && !config.evmToDvmDatEnabled)
+            return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
 
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, config);
@@ -4207,7 +4214,7 @@ Res ValidateTransferDomain(const CTransaction &tx,
     auto config = TransferDomainConfig::From(mnview);
 
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, config, height, coins, consensus, src, dst);
+        auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, consensus, src, dst);
         if (!res) return res;
     }
 
