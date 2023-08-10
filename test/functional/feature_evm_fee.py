@@ -126,13 +126,13 @@ class EVMFeeTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(int(balance[2:], 16), 100000000000000000000)
 
-        # Test fee overflow error
-        assert_raises_rpc_error(-32001, "evm tx failed to validate calculate prepay gas failed from overflow", self.nodes[0].eth_sendTransaction, {
+        # Test gas price exceed money range error
+        assert_raises_rpc_error(-32001, "value more than money range", self.nodes[0].eth_sendTransaction, {
             'from': self.ethAddress,
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            'gasPrice': '3E09DE2596099E2B0000001', # 1_200_000_000_000_000_000_000_000_001
         })
 
         # Test insufficient balance due to high gas fees
@@ -141,7 +141,7 @@ class EVMFeeTest(DefiTestFramework):
             'to': self.toAddress,
             'value': '0x7148', # 29_000
             'gas': '0x7a120',
-            'gasPrice': '0xfffffffffffffffffffffffffffffffffffff',
+            'gasPrice': '0xfffffffffffffff',
         })
 
         self.rollback_to(height)
