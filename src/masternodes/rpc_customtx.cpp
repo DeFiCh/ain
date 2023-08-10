@@ -581,13 +581,34 @@ public:
             CrossBoundaryResult result;
             auto txInfo = evm_try_get_tx_by_hash(result, evmTxHash->GetByteArray());
             if (result.ok) {
+                std::string tx_type;
+                switch (txInfo.tx_type) {
+                    case CEVMTxType::LegacyTransaction: {
+                        tx_type = "legacy-tx";
+                        break;
+                    }
+                    case CEVMTxType::EIP2930Transaction: {
+                        tx_type = "EIP2930-tx";
+                        break;
+                    }
+                    case CEVMTxType::EIP1559Transaction: {
+                        tx_type = "EIP1559-tx";
+                        break;
+                    }
+                    default: {
+                        break;
+                    }
+                }
                 auto senderBytes = std::vector<uint8_t>(txInfo.sender.begin(), txInfo.sender.end());
                 auto sender = CTxDestination(WitnessV16EthHash(uint160(senderBytes)));
+                rpcInfo.pushKV("tx-type", tx_type);
                 rpcInfo.pushKV("hash", evmTxHash->ToString());
-                rpcInfo.pushKV("nonce", txInfo.nonce);
                 rpcInfo.pushKV("sender", EncodeDestination(sender));
+                rpcInfo.pushKV("nonce", txInfo.nonce);
                 rpcInfo.pushKV("gasPrice", txInfo.gas_price);
                 rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
+                rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
+                rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
                 rpcInfo.pushKV("createTx", txInfo.create_tx);
 
                 std::string to = "";

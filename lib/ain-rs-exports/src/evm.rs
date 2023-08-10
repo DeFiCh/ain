@@ -10,7 +10,7 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
-use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
+use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
@@ -565,10 +565,6 @@ pub fn evm_try_get_tx_by_hash(
                 return cross_boundary_error_return(result, "tx nonce value overflow");
             };
 
-            let Ok(gas_price) = u64::try_from(WeiAmount(tx.gas_price()).to_satoshi()) else {
-                return cross_boundary_error_return(result, "tx gas price value overflow");
-            };
-
             let Ok(gas_limit) = u64::try_from(tx.gas_limit()) else {
                 return cross_boundary_error_return(result, "tx gas limit value overflow");
             };
@@ -577,12 +573,46 @@ pub fn evm_try_get_tx_by_hash(
                 return cross_boundary_error_return(result, "tx value overflow");
             };
 
+            let mut tx_type = 0u8;
+            let mut gas_price = 0u64;
+            let mut max_fee_per_gas = 0u64;
+            let mut max_priority_fee_per_gas = 0u64;
+            match &tx.transaction {
+                TransactionV2::Legacy(transaction) => {
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx gas price value overflow");
+                    };
+                    gas_price = price;
+                }
+                TransactionV2::EIP2930(transaction) => {
+                    tx_type = 1u8;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx gas price value overflow");
+                    };
+                    gas_price = price;
+                }
+                TransactionV2::EIP1559(transaction) => {
+                    tx_type = 2u8;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx max fee per gas value overflow");
+                    };
+                    max_fee_per_gas = price;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx max priority fee per gas value overflow");
+                    };
+                    max_priority_fee_per_gas = price;
+                }
+            }
+
             let out = ffi::EVMTransaction {
+                tx_type,
                 hash: tx.hash().to_fixed_bytes(),
                 sender: tx.sender.to_fixed_bytes(),
                 nonce,
                 gas_price,
                 gas_limit,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
                 create_tx: match tx.action() {
                     TransactionAction::Call(_) => false,
                     TransactionAction::Create => true,
