@@ -2405,12 +2405,13 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
     return Res::Ok();
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return {Res::Ok()};
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, const bool evmEnabledOnBlockHead) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
+    std::array<uint8_t, 20> beneficiary{};
 
     if (!fMockNetwork) {
         const auto id = cache.GetMasternodeIdByOperator(minter);
@@ -2570,14 +2571,14 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
+Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, const bool evmEnabledOnBlockHead) {
     CCustomCSView cache(mnview);
 
     auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
     if (!res) return res;
 
     // Process EVM block
-    res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, evmEnabledOnBlockHead);
     if (!res) return res;
 
 
@@ -2587,7 +2588,7 @@ Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustom
     return Res::Ok();
 }
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary) {
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
