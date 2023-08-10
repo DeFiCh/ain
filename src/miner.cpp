@@ -39,8 +39,6 @@
 #include <random>
 #include <utility>
 
-typedef std::array<std::uint8_t, 20> EvmAddress;
-
 struct EvmAddressWithNonce {
     EvmAddress address;
     uint64_t nonce;
@@ -133,7 +131,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const std::array<uint8_t, 20> &beneficiary)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddress&beneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -1132,7 +1130,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     //
     // Create block template
     //
-    std::array<uint8_t, 20> beneficiary{};
+    EvmAddress beneficiary{};
     auto pubKey = args.minterKey.GetPubKey();
     pubKey.Decompress();
     const auto ercID = pubKey.GetEthID();
