@@ -12,7 +12,7 @@ use primitive_types::H256;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
-use crate::core::{EVMCoreService, EVMError, NativeTxHash, MAX_GAS_PER_BLOCK};
+use crate::core::{EVMCoreService, EVMError, NativeTxHash};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
@@ -305,6 +305,7 @@ impl EVMServices {
         }
 
         let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
+        let gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -314,7 +315,7 @@ impl EVMServices {
                 logs_bloom,
                 difficulty: U256::from(difficulty),
                 number: current_block_number,
-                gas_limit: MAX_GAS_PER_BLOCK,
+                gas_limit: U256::from(gas_limit),
                 gas_used: U256::from(total_gas_used),
                 timestamp,
                 extra_data,

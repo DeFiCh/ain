@@ -4,6 +4,7 @@
 
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
+#include <ain_rs_exports.h>
 
 #include <masternodes/accountshistory.h>  /// CAccountsHistoryWriter
 #include <masternodes/errors.h>           /// DeFiErrors
@@ -17,6 +18,12 @@
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
+
+enum class EVMAttributesTypes : uint32_t {
+    Finalized    = 1,
+    GasLimit     = 2,
+    GasTarget    = 3,
+};
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 
@@ -269,6 +276,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
         {AttributeTypes::EVMType,
          {
             {"finality_count", EVMKeys::Finalized},
+            {"gas_limit", EVMKeys::GasLimit},
+            {"gas_target", EVMKeys::GasTarget},
          }},
         {AttributeTypes::Governance,
          {
@@ -371,6 +380,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
         {AttributeTypes::EVMType,
          {
             {EVMKeys::Finalized, "finality_count"},
+            {EVMKeys::GasLimit, "gas_limit"},
+            {EVMKeys::GasTarget, "gas_target"},
          }},
         {AttributeTypes::Live,
          {
@@ -803,7 +814,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::EVMType,
              {
-                {EVMKeys::Finalized, VerifyUInt32},
+                {EVMKeys::Finalized, VerifyUInt64},
+                {EVMKeys::GasLimit, VerifyUInt64},
+                {EVMKeys::GasTarget, VerifyUInt64},
              }},
             {AttributeTypes::Governance,
              {
@@ -1060,8 +1073,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::EVMType) {
             if (typeId == EVMIDs::Block) {
-                if (typeKey != EVMKeys::Finalized)
-                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+                if (typeKey != EVMKeys::Finalized &&
+                    typeKey != EVMKeys::GasLimit &&
+                    typeKey != EVMKeys::GasTarget)
+                    return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -1785,6 +1800,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (!token) {
                             return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                         }
+                        // Post fork remove this guard as long as there were no non-DAT loan tokens before
+                        // the fork. A full sync test on the removal of this guard will tell.
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            if (!token->IsDAT()) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        }
                         CDataStructureV0 intervalPriceKey{
                                 AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
@@ -2275,6 +2297,30 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     // Less than a day's worth of blocks, apply instant lock
                     SetValue(lockKey, true);
                 }
+            }
+        } else if (attrV0->type == AttributeTypes::EVMType && attrV0->typeId == EVMIDs::Block) {
+            uint32_t attributeType{};
+            if (attrV0->key == EVMKeys::Finalized) {
+                attributeType = static_cast<uint32_t>(EVMAttributesTypes::Finalized);
+            } else if (attrV0->key == EVMKeys::GasLimit) {
+                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasLimit);
+            } else if (attrV0->key == EVMKeys::GasTarget) {
+                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasTarget);
+            } else {
+                return DeFiErrors::GovVarVariableUnsupportedEVMType(attrV0->key);
+            }
+
+            const auto number = std::get_if<uint64_t>(&attribute.second);
+            if (!number) {
+                return DeFiErrors::GovVarUnsupportedValue();
+            }
+
+            CrossBoundaryResult result;
+            if (!evm_try_set_attribute(result, evmQueueId, attributeType, *number)) {
+                return DeFiErrors::SettingEVMAttributeFailure();
+            }
+            if (!result.ok) {
+                return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
             }
         }
     }

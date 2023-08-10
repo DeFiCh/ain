@@ -266,6 +266,10 @@ public:
         return Res::Err("Unsupported key for Transfer Domain {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedEVMType(const unsigned char type) {
+        return Res::Err("Unsupported key for EVMType {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedVaultsType(const unsigned char type) {
         return Res::Err("Unsupported key for Vaults {%d}", type);
     }
@@ -512,6 +516,14 @@ public:
 
     static Res TransferDomainMultipleTransfers() {
         return Res::Err("TransferDomain currently only supports a single transfer per transaction");
+    }
+
+    static Res SettingEVMAttributeFailure() {
+        return Res::Err("Failed to set EVM attribute");
+    }
+
+    static Res SettingEVMAttributeFailure(const std::string &str) {
+        return Res::Err("Failed to set EVM attribute: %s", str);
     }
 
     static Res ScriptUnexpected(const CScript &script) {

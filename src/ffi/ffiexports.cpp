@@ -220,3 +220,7 @@ int getCurrentHeight() {
     LOCK(cs_main);
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
 }
+
+Attributes getAttributeDefaults() {
+    return Attributes::Default();
+}

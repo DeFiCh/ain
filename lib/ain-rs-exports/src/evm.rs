@@ -485,6 +485,15 @@ pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_
     }
 }
 
+pub fn evm_try_set_attribute(
+    result: &mut ffi::CrossBoundaryResult,
+    _queue_id: u64,
+    _attribute_type: u32,
+    _value: u64,
+) -> bool {
+    cross_boundary_success_return(result, true)
+}
+
 pub fn evm_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     SERVICES.evm.storage.disconnect_latest_block();
     cross_boundary_success(result);

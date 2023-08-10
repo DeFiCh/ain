@@ -145,6 +145,12 @@ pub mod ffi {
             dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
+        fn evm_try_set_attribute(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            attribute_type: u32,
+            value: u64,
+        ) -> bool;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
