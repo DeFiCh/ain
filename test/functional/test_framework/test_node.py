@@ -21,6 +21,8 @@ import collections
 import shlex
 import sys
 
+from web3 import Web3
+
 from .authproxy import JSONRPCException
 from .util import (
     append_config,
@@ -31,7 +33,6 @@ from .util import (
     wait_until,
     p2p_port,
 )
-from .evm_provider import EVMProvider
 
 DEFID_PROC_WAIT_TIMEOUT = 60
 
@@ -131,7 +132,7 @@ class TestNode():
 
         self.p2ps = []
 
-        self.evm = None
+        self.w3 = None
 
     MnKeys = collections.namedtuple('MnKeys',
                                     ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
@@ -213,7 +214,9 @@ class TestNode():
         "eth_getTransactionReceipt",
         "eth_pendingTransactions",
         # net
-        "net_version"
+        "net_version",
+        #debug
+        "debug_feeEstimate",
     }
 
     def get_genesis_keys(self):
@@ -342,8 +345,7 @@ class TestNode():
                 self.evm_rpc = evm_rpc
                 self.rpc_connected = True
                 self.url = self.rpc.url
-                self.evm_url = self.evm_rpc.url
-                self.evm = EVMProvider(self.evm_url, self.generate)
+                self.w3 = Web3(Web3.HTTPProvider(evm_rpc.url))
                 return
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?

@@ -29,11 +29,9 @@ class DFIIntrinsicsTest(DefiTestFramework):
         node.generate(1)
 
         # check counter contract
-        from web3 import Web3
-        w3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
         # Temp. workaround
         abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json", "r", encoding="utf8").read()
-        counter_contract = w3.eth.contract(
+        counter_contract = node.w3.eth.contract(
             address="0x0000000000000000000000000000000000000301", abi=abi
         )
 
@@ -41,11 +39,11 @@ class DFIIntrinsicsTest(DefiTestFramework):
         state_roots = set()
         for i in range(num_blocks):
             node.generate(1)
-            block = w3.eth.get_block('latest')
-            state_roots.add(Web3.to_hex(block["stateRoot"]))
+            block = node.w3.eth.get_block('latest')
+            state_roots.add(node.w3.to_hex(block["stateRoot"]))
 
             # check evmBlockCount variable
-            assert_equal(counter_contract.functions.evmBlockCount().call(), w3.eth.get_block_number())
+            assert_equal(counter_contract.functions.evmBlockCount().call(), node.w3.eth.get_block_number())
 
             # check version variable
             assert_equal(counter_contract.functions.version().call(), 1)

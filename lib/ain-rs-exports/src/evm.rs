@@ -10,7 +10,7 @@ use ain_evm::{
     transaction::{self, SignedTx},
     weiamount::WeiAmount,
 };
-use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature};
+use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
 use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
@@ -454,6 +454,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 failed_transactions,
                 total_burnt_fees,
                 total_priority_fees,
+                block_number,
             }) => {
                 let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()) else {
                     return cross_boundary_error_return(result, "total burnt fees value overflow");
@@ -467,6 +468,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                     failed_transactions,
                     total_burnt_fees,
                     total_priority_fees,
+                    block_number: block_number.as_u64(),
                 }
             }
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -481,6 +483,15 @@ pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
+}
+
+pub fn evm_try_set_attribute(
+    result: &mut ffi::CrossBoundaryResult,
+    _queue_id: u64,
+    _attribute_type: u32,
+    _value: u64,
+) -> bool {
+    cross_boundary_success_return(result, true)
 }
 
 pub fn evm_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
@@ -547,6 +558,24 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     }
 }
 
+pub fn evm_try_is_dst20_deployed_or_queued(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    name: &str,
+    symbol: &str,
+    token_id: &str,
+) -> bool {
+    unsafe {
+        match SERVICES
+            .evm
+            .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
+        {
+            Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
+}
+
 pub fn evm_try_get_tx_by_hash(
     result: &mut ffi::CrossBoundaryResult,
     tx_hash: [u8; 32],
@@ -565,10 +594,6 @@ pub fn evm_try_get_tx_by_hash(
                 return cross_boundary_error_return(result, "tx nonce value overflow");
             };
 
-            let Ok(gas_price) = u64::try_from(WeiAmount(tx.gas_price()).to_satoshi()) else {
-                return cross_boundary_error_return(result, "tx gas price value overflow");
-            };
-
             let Ok(gas_limit) = u64::try_from(tx.gas_limit()) else {
                 return cross_boundary_error_return(result, "tx gas limit value overflow");
             };
@@ -577,12 +602,46 @@ pub fn evm_try_get_tx_by_hash(
                 return cross_boundary_error_return(result, "tx value overflow");
             };
 
+            let mut tx_type = 0u8;
+            let mut gas_price = 0u64;
+            let mut max_fee_per_gas = 0u64;
+            let mut max_priority_fee_per_gas = 0u64;
+            match &tx.transaction {
+                TransactionV2::Legacy(transaction) => {
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx gas price value overflow");
+                    };
+                    gas_price = price;
+                }
+                TransactionV2::EIP2930(transaction) => {
+                    tx_type = 1u8;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx gas price value overflow");
+                    };
+                    gas_price = price;
+                }
+                TransactionV2::EIP1559(transaction) => {
+                    tx_type = 2u8;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx max fee per gas value overflow");
+                    };
+                    max_fee_per_gas = price;
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()) else {
+                        return cross_boundary_error_return(result, "tx max priority fee per gas value overflow");
+                    };
+                    max_priority_fee_per_gas = price;
+                }
+            }
+
             let out = ffi::EVMTransaction {
+                tx_type,
                 hash: tx.hash().to_fixed_bytes(),
                 sender: tx.sender.to_fixed_bytes(),
                 nonce,
                 gas_price,
                 gas_limit,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
                 create_tx: match tx.action() {
                     TransactionAction::Call(_) => false,
                     TransactionAction::Create => true,
@@ -659,6 +718,27 @@ pub fn evm_try_bridge_dst20(
             .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
         {
             Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
+}
+
+/// Retrieves the queue target block
+///
+/// # Arguments
+///
+/// * `queue_id` - The queue ID.
+///
+/// # Returns
+///
+/// Returns the target block for a specific queue_id as a `u64`
+pub fn evm_unsafe_try_get_target_block_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+) -> u64 {
+    unsafe {
+        match SERVICES.evm.core.get_target_block_in(queue_id) {
+            Ok(target_block) => cross_boundary_success_return(result, target_block.as_u64()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }

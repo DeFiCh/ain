@@ -1,11 +1,12 @@
 use std::borrow::ToOwned;
 use std::{num::NonZeroUsize, sync::RwLock};
 
+use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
 use lru::LruCache;
 use primitive_types::{H256, U256};
 
-use super::traits::{BlockStorage, Rollback, TransactionStorage};
+use super::traits::{AttributesStorage, BlockStorage, Rollback, TransactionStorage};
 
 #[derive(Debug)]
 pub struct Cache {
@@ -13,6 +14,7 @@ pub struct Cache {
     blocks: RwLock<LruCache<U256, BlockAny>>,
     block_hashes: RwLock<LruCache<H256, U256>>,
     latest_block: RwLock<Option<BlockAny>>,
+    attributes: RwLock<Option<Attributes>>,
 }
 
 impl Cache {
@@ -30,6 +32,7 @@ impl Cache {
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             latest_block: RwLock::new(None),
+            attributes: RwLock::new(None),
         }
     }
 }
@@ -144,5 +147,20 @@ impl Rollback for Cache {
 
             self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
         }
+    }
+}
+
+impl AttributesStorage for Cache {
+    fn put_attributes(&self, attributes: Option<&Attributes>) {
+        let mut cache = self.attributes.write().unwrap();
+        *cache = attributes.cloned();
+    }
+
+    fn get_attributes(&self) -> Option<Attributes> {
+        self.attributes
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(ToOwned::to_owned)
     }
 }

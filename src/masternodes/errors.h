@@ -266,6 +266,10 @@ public:
         return Res::Err("Unsupported key for Transfer Domain {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedEVMType(const unsigned char type) {
+        return Res::Err("Unsupported key for EVMType {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedVaultsType(const unsigned char type) {
         return Res::Err("Unsupported key for Vaults {%d}", type);
     }
@@ -336,6 +340,10 @@ public:
 
     static Res GovVarValidateCurrencyPair() {
         return Res::Err("Fixed interval price currency pair must be set first");
+    }
+
+    static Res GovVarErrorCreatingDST20(const std::string &str) {
+        return Res::Err("Error creating DST20 token: %s", str);
     }
 
     static Res GovVarUnsupportedValue() {
@@ -434,6 +442,10 @@ public:
         return Res::Err("Cannot transfer inside same domain");
     }
 
+    static Res TransferDomainInvalidDomain() {
+        return Res::Err("Cannot transfer inside invalid domain specified");
+    }
+
     static Res TransferDomainUnequalAmount() {
         return Res::Err("Source amount must be equal to destination amount");
     }
@@ -506,6 +518,14 @@ public:
         return Res::Err("TransferDomain currently only supports a single transfer per transaction");
     }
 
+    static Res SettingEVMAttributeFailure() {
+        return Res::Err("Failed to set EVM attribute");
+    }
+
+    static Res SettingEVMAttributeFailure(const std::string &str) {
+        return Res::Err("Failed to set EVM attribute: %s", str);
+    }
+
     static Res ScriptUnexpected(const CScript &script) {
         return Res::Err("Unexpected Script: %s", script.GetHex());
     }
@@ -520,6 +540,10 @@ public:
 
     static Res InvalidBlockNumberString(const std::string &number) {
         return Res::Err("Invalid block number: %s", number);
+    }
+
+    static Res DST20MigrationFailure(const std::string &reason) {
+        return Res::Err("Error migrating DST20 token: %s", reason);
     }
 };
 

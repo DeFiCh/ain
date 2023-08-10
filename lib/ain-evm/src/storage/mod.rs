@@ -5,6 +5,7 @@ pub mod traits;
 
 use std::collections::HashMap;
 
+use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
 
@@ -12,8 +13,8 @@ use self::{
     cache::Cache,
     data_handler::BlockchainDataHandler,
     traits::{
-        BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage, Rollback,
-        TransactionStorage,
+        AttributesStorage, BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage,
+        Rollback, TransactionStorage,
     },
 };
 use crate::log::LogIndex;
@@ -201,5 +202,30 @@ impl Rollback for Storage {
     fn disconnect_latest_block(&self) {
         self.cache.disconnect_latest_block();
         self.blockchain_data_handler.disconnect_latest_block();
+    }
+}
+
+impl AttributesStorage for Storage {
+    fn put_attributes(&self, attributes: Option<&Attributes>) {
+        self.cache.put_attributes(attributes);
+        self.blockchain_data_handler.put_attributes(attributes);
+    }
+
+    fn get_attributes(&self) -> Option<Attributes> {
+        self.cache.get_attributes().or_else(|| {
+            let attributes = self.blockchain_data_handler.get_attributes();
+
+            if let Some(ref attributes) = attributes {
+                self.cache.put_attributes(Some(attributes));
+            }
+            attributes
+        })
+    }
+}
+
+impl Storage {
+    pub fn get_attributes_or_default(&self) -> Attributes {
+        self.get_attributes()
+            .unwrap_or_else(ain_cpp_imports::get_attribute_defaults)
     }
 }

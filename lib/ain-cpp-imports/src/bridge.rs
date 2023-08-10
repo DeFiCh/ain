@@ -1,7 +1,15 @@
 #[cxx::bridge]
 pub mod ffi {
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Attributes {
+        pub block_gas_target: u64,
+        pub block_gas_limit: u64,
+        pub finality_count: u64,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
+        type Attributes;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -18,6 +26,7 @@ pub mod ffi {
         fn getStateInputJSON() -> String;
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
+        fn getAttributeDefaults() -> Attributes;
         fn CppLogPrintf(message: String);
     }
 }
