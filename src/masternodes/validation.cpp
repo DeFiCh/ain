@@ -2508,6 +2508,21 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         evmFees.feePriorityMax = feePriority;
         evmFees.feePriorityMaxHash = block.GetHash();
     }
+
+    CDataStructureV0 transferDomainAccountingKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
+    auto transferDomainAccounting = attributes->GetValue(transferDomainAccountingKey, CTransferDomainAccounting{});
+
+    for (const auto &[id, amount] : transferDomainAccounting.dvmCurrent.balances) {
+        if (id.v == 0) {
+            if (amount + evmFees.feeBurnt + evmFees.feePriority > 0) {
+                return Res::Err("More DFI moved from DVM to EVM than in. DVM Out: %s Fees: %s Total: %s\n", GetDecimalString(amount),
+                                GetDecimalString(evmFees.feeBurnt + evmFees.feePriority), GetDecimalString(amount + evmFees.feeBurnt + evmFees.feePriority));
+            }
+        } else if (amount > 0) {
+            return Res::Err("More %s moved from DVM to EVM than in. DVM Out: %s\n", id.ToString(), GetDecimalString(amount));
+        }
+    }
+
     attributes->SetValue(evmFeesKey, evmFees);
     cache.SetVariable(*attributes);
 
