@@ -922,7 +922,7 @@ class EVMTest(DefiTestFramework):
             .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
             .split("@")[0]
         )
-        self.burnt_fee = burn_after - burn_before
+        self.burn = burn_after - burn_before
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -968,7 +968,7 @@ class EVMTest(DefiTestFramework):
             )
             / 100000000
         )
-        assert_equal(opreturn_burnt_fee_sats, self.burnt_fee)
+        assert_equal(opreturn_burnt_fee_sats, self.burn)
 
         # Check EVM miner fee
         opreturn_priority_fee_amount = raw_tx["vout"][1]["scriptPubKey"]["hex"][100:]
