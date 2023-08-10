@@ -50,7 +50,7 @@ def mine_large_blocks(node, n):
     for _ in range(n):
         # Build the coinbase transaction (with large scriptPubKey)
         coinbase_tx = create_coinbase(height)
-        coinbase_tx.vin[0].nSequence = 2 ** 32 - 1
+        coinbase_tx.vin[0].nSequence = 2**32 - 1
         coinbase_tx.vout[0].scriptPubKey = big_script
         coinbase_tx.rehash()
 
@@ -59,7 +59,7 @@ def mine_large_blocks(node, n):
         block.nVersion = best_block["version"]
         block.hashPrevBlock = previousblockhash
         block.nTime = mine_large_blocks.nTime
-        block.nBits = int('207fffff', 16)
+        block.nBits = int("207fffff", 16)
         block.vtx = [coinbase_tx]
         block.hashMerkleRoot = block.calc_merkle_root()
         block.solve()
@@ -74,8 +74,10 @@ def mine_large_blocks(node, n):
 
 def calc_usage(blockdir):
     return sum(
-        os.path.getsize(blockdir + f) for f in os.listdir(blockdir) if os.path.isfile(os.path.join(blockdir, f))) / (
-                1024. * 1024.)
+        os.path.getsize(blockdir + f)
+        for f in os.listdir(blockdir)
+        if os.path.isfile(os.path.join(blockdir, f))
+    ) / (1024.0 * 1024.0)
 
 
 class PruneTest(DefiTestFramework):
@@ -103,7 +105,7 @@ class PruneTest(DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
-        self.prunedir = os.path.join(self.nodes[2].datadir, 'regtest', 'blocks', '')
+        self.prunedir = os.path.join(self.nodes[2].datadir, "regtest", "blocks", "")
 
         connect_nodes(self.nodes[0], 1)
         connect_nodes(self.nodes[1], 2)
@@ -116,7 +118,11 @@ class PruneTest(DefiTestFramework):
         self.add_nodes(self.num_nodes, self.extra_args)
         self.start_nodes()
         for n in self.nodes:
-            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=False)
+            n.importprivkey(
+                privkey=n.get_genesis_keys().operatorPrivKey,
+                label="coinbase",
+                rescan=False,
+            )
 
     def create_big_chain(self):
         # Start by creating some coinbases we can spend later
@@ -130,15 +136,25 @@ class PruneTest(DefiTestFramework):
         self.sync_blocks(self.nodes[0:5])
 
     def test_height_min(self):
-        assert os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), "blk00000.dat is missing, pruning too early"
+        assert os.path.isfile(
+            os.path.join(self.prunedir, "blk00000.dat")
+        ), "blk00000.dat is missing, pruning too early"
         self.log.info("Success")
-        self.log.info("Though we're already using more than 550MiB, current usage: %d" % calc_usage(self.prunedir))
-        self.log.info("Mining 25 more blocks should cause the first block file to be pruned")
+        self.log.info(
+            "Though we're already using more than 550MiB, current usage: %d"
+            % calc_usage(self.prunedir)
+        )
+        self.log.info(
+            "Mining 25 more blocks should cause the first block file to be pruned"
+        )
         # Pruning doesn't run until we're allocating another chunk, 20 full blocks past the height cutoff will ensure this
         mine_large_blocks(self.nodes[0], 25)
 
         # Wait for blk00000.dat to be pruned
-        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=30)
+        wait_until(
+            lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")),
+            timeout=30,
+        )
 
         self.log.info("Success")
         usage = calc_usage(self.prunedir)
@@ -148,7 +164,8 @@ class PruneTest(DefiTestFramework):
     def create_chain_with_staleblocks(self):
         # Create stale blocks in manageable sized chunks
         self.log.info(
-            "Mine 24 (stale) blocks on Node 1, followed by 25 (main chain) block reorg from Node 0, for 12 rounds")
+            "Mine 24 (stale) blocks on Node 1, followed by 25 (main chain) block reorg from Node 0, for 12 rounds"
+        )
 
         for j in range(12):
             # Disconnect node 0 so it can mine a longer reorg chain without knowing about node 1's soon-to-be-stale chain
@@ -166,7 +183,10 @@ class PruneTest(DefiTestFramework):
             connect_nodes(self.nodes[0], 2)
             self.sync_blocks(self.nodes[0:3])
 
-        self.log.info("Usage can be over target because of high stale rate: %d" % calc_usage(self.prunedir))
+        self.log.info(
+            "Usage can be over target because of high stale rate: %d"
+            % calc_usage(self.prunedir)
+        )
 
     def reorg_test(self):
         # Node 1 will mine a 300 block chain starting 287 blocks back from Node 0 and Node 2's tip
@@ -177,7 +197,9 @@ class PruneTest(DefiTestFramework):
 
         self.forkheight = height - 287
         self.forkhash = self.nodes[1].getblockhash(self.forkheight)
-        self.log.info("Invalidating block %s at height %d" % (self.forkhash, self.forkheight))
+        self.log.info(
+            "Invalidating block %s at height %d" % (self.forkhash, self.forkheight)
+        )
         self.nodes[1].invalidateblock(self.forkhash)
 
         # We've now switched to our previously mined-24 block fork on node 1, but that's not what we want
@@ -196,7 +218,9 @@ class PruneTest(DefiTestFramework):
         disconnect_nodes(self.nodes[1], 2)
 
         self.log.info("Generating new longer chain of 300 more blocks")
-        self.nodes[1].pullup_mocktime()  # Pull mocktime to last block due to previous manual block submitting
+        self.nodes[
+            1
+        ].pullup_mocktime()  # Pull mocktime to last block due to previous manual block submitting
         self.nodes[1].generate(300)
 
         self.log.info("Reconnect nodes")
@@ -206,7 +230,9 @@ class PruneTest(DefiTestFramework):
 
         self.log.info("Verify height on node 2: %d" % self.nodes[2].getblockcount())
         self.log.info(
-            "Usage possibly still high because of stale blocks in block files: %d" % calc_usage(self.prunedir))
+            "Usage possibly still high because of stale blocks in block files: %d"
+            % calc_usage(self.prunedir)
+        )
 
         self.log.info("Mine 220 more large blocks so we have requisite history")
 
@@ -219,9 +245,18 @@ class PruneTest(DefiTestFramework):
 
     def reorg_back(self):
         # Verify that a block on the old main chain fork has been pruned away
-        assert_raises_rpc_error(-1, "Block not available (pruned data)", self.nodes[2].getblock, self.forkhash)
+        assert_raises_rpc_error(
+            -1,
+            "Block not available (pruned data)",
+            self.nodes[2].getblock,
+            self.forkhash,
+        )
         with self.nodes[2].assert_debug_log(
-                expected_msgs=['block verification stopping at height', '(pruning, no data)']):
+            expected_msgs=[
+                "block verification stopping at height",
+                "(pruning, no data)",
+            ]
+        ):
             self.nodes[2].verifychain(checklevel=4, nblocks=0)
         self.log.info("Will need to redownload block %d" % self.forkheight)
 
@@ -248,14 +283,18 @@ class PruneTest(DefiTestFramework):
         if self.nodes[2].getblockcount() < self.mainchainheight:
             blocks_to_mine = first_reorg_height + 1 - self.mainchainheight
             self.log.info(
-                "Rewind node 0 to prev main chain to mine longer chain to trigger redownload. Blocks needed: %d" % blocks_to_mine)
+                "Rewind node 0 to prev main chain to mine longer chain to trigger redownload. Blocks needed: %d"
+                % blocks_to_mine
+            )
             self.nodes[0].invalidateblock(curchainhash)
             assert_equal(self.nodes[0].getblockcount(), self.mainchainheight)
             assert_equal(self.nodes[0].getbestblockhash(), self.mainchainhash2)
             goalbesthash = self.nodes[0].generate(blocks_to_mine)[-1]
             goalbestheight = first_reorg_height + 1
 
-        self.log.info("Verify node 2 reorged back to the main chain, some blocks of which it had to redownload")
+        self.log.info(
+            "Verify node 2 reorged back to the main chain, some blocks of which it had to redownload"
+        )
         # Wait for Node 2 to reorg to proper height
         wait_until(lambda: self.nodes[2].getblockcount() >= goalbestheight, timeout=900)
         assert_equal(self.nodes[2].getbestblockhash(), goalbesthash)
@@ -277,20 +316,31 @@ class PruneTest(DefiTestFramework):
 
         def height(index):
             if use_timestamp:
-                return node.getblockheader(node.getblockhash(index))["time"] + TIMESTAMP_WINDOW
+                return (
+                    node.getblockheader(node.getblockhash(index))["time"]
+                    + TIMESTAMP_WINDOW
+                )
             else:
                 return index
 
         def prune(index):
             ret = node.pruneblockchain(height=height(index))
-            assert_equal(ret, node.getblockchaininfo()['pruneheight'])
+            assert_equal(ret, node.getblockchaininfo()["pruneheight"])
 
         def has_block(index):
             return os.path.isfile(
-                os.path.join(self.nodes[node_number].datadir, "regtest", "blocks", "blk{:05}.dat".format(index)))
+                os.path.join(
+                    self.nodes[node_number].datadir,
+                    "regtest",
+                    "blocks",
+                    "blk{:05}.dat".format(index),
+                )
+            )
 
         # should not prune because chain tip of node 3 (995) < PruneAfterHeight (1000)
-        assert_raises_rpc_error(-1, "Blockchain is too short for pruning", node.pruneblockchain, height(500))
+        assert_raises_rpc_error(
+            -1, "Blockchain is too short for pruning", node.pruneblockchain, height(500)
+        )
 
         # Save block transaction count before pruning, assert value
         block1_details = node.getblock(node.getblockhash(1))
@@ -301,7 +351,9 @@ class PruneTest(DefiTestFramework):
         assert_equal(node.getblockchaininfo()["blocks"], 1001)
 
         # Pruned block should still know the number of transactions
-        assert_equal(node.getblockheader(node.getblockhash(1))["nTx"], block1_details["nTx"])
+        assert_equal(
+            node.getblockheader(node.getblockhash(1))["nTx"], block1_details["nTx"]
+        )
 
         # negative heights should raise an exception
         assert_raises_rpc_error(-8, "Negative", node.pruneblockchain, -10)
@@ -374,12 +426,16 @@ class PruneTest(DefiTestFramework):
         self.stop_node(3)
         self.stop_node(4)
 
-        self.log.info("Check that we haven't started pruning yet because we're below PruneAfterHeight")
+        self.log.info(
+            "Check that we haven't started pruning yet because we're below PruneAfterHeight"
+        )
         self.test_height_min()
         # Extend this chain past the PruneAfterHeight
         # N0=N1=N2 **...*(1020)
 
-        self.log.info("Check that we'll exceed disk space target if we have a very high stale block rate")
+        self.log.info(
+            "Check that we'll exceed disk space target if we have a very high stale block rate"
+        )
         self.create_chain_with_staleblocks()
         # Disconnect N0
         # And mine a 24 block chain on N1 and a separate 25 block chain on N0
@@ -436,7 +492,9 @@ class PruneTest(DefiTestFramework):
         #                                 \
         #                                  *...**(1320)
 
-        self.log.info("Test that we can rerequest a block we previously pruned if needed for a reorg")
+        self.log.info(
+            "Test that we can rerequest a block we previously pruned if needed for a reorg"
+        )
         self.reorg_back()
         # Verify that N2 still has block 1033 on current chain (@), but not on main chain (*)
         # Invalidate 1033 on current chain (@) on N2 and we should be able to reorg to
@@ -468,5 +526,5 @@ class PruneTest(DefiTestFramework):
         self.log.info("Done")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     PruneTest().main()

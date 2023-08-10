@@ -53,7 +53,11 @@ Node1 is unused in tests 3-7:
 
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    create_tx_with_script,
+)
 from test_framework.messages import CBlockHeader, CInv, msg_block, msg_headers, msg_inv
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.test_framework import DefiTestFramework
@@ -87,7 +91,10 @@ class AcceptBlockTest(DefiTestFramework):
 
         # 1. Have nodes mine a block (leave IBD)
         # [n.generate(1) for n in self.nodes] # not `generate` here!!! cant understand the logic, but if we touch mocktime here, everything fails!!
-        [n.generatetoaddress(1, n.get_genesis_keys().ownerAuthAddress) for n in self.nodes]
+        [
+            n.generatetoaddress(1, n.get_genesis_keys().ownerAuthAddress)
+            for n in self.nodes
+        ]
         tips = [int("0x" + n.getbestblockhash(), 0) for n in self.nodes]
 
         # 2. Send one block that builds on each tip.
@@ -105,10 +112,14 @@ class AcceptBlockTest(DefiTestFramework):
             x.sync_with_ping()
         assert_equal(self.nodes[0].getblockcount(), 2)
         assert_equal(self.nodes[1].getblockcount(), 1)
-        self.log.info("First height 2 block accepted by node0; correctly rejected by node1")
+        self.log.info(
+            "First height 2 block accepted by node0; correctly rejected by node1"
+        )
 
         # 3. Send another block that builds on genesis.
-        block_h1f = create_block(int("0x" + self.nodes[0].getblockhash(0), 0), create_coinbase(1), block_time)
+        block_h1f = create_block(
+            int("0x" + self.nodes[0].getblockhash(0), 0), create_coinbase(1), block_time
+        )
         block_time += 1
         block_h1f.solve()
         test_node.send_message(msg_block(block_h1f))
@@ -116,11 +127,13 @@ class AcceptBlockTest(DefiTestFramework):
         test_node.sync_with_ping()
         tip_entry_found = False
         for x in self.nodes[0].getchaintips():
-            if x['hash'] == block_h1f.hash:
-                assert_equal(x['status'], "headers-only")
+            if x["hash"] == block_h1f.hash:
+                assert_equal(x["status"], "headers-only")
                 tip_entry_found = True
         assert tip_entry_found
-        assert_raises_rpc_error(-1, "Block not found on disk", self.nodes[0].getblock, block_h1f.hash)
+        assert_raises_rpc_error(
+            -1, "Block not found on disk", self.nodes[0].getblock, block_h1f.hash
+        )
 
         # 4. Send another two block that build on the fork.
         block_h2f = create_block(block_h1f.sha256, create_coinbase(2), block_time)
@@ -133,8 +146,8 @@ class AcceptBlockTest(DefiTestFramework):
         # can't be fully validated.
         tip_entry_found = False
         for x in self.nodes[0].getchaintips():
-            if x['hash'] == block_h2f.hash:
-                assert_equal(x['status'], "headers-only")
+            if x["hash"] == block_h2f.hash:
+                assert_equal(x["status"], "headers-only")
                 tip_entry_found = True
         assert tip_entry_found
 
@@ -143,7 +156,9 @@ class AcceptBlockTest(DefiTestFramework):
         self.log.info("Second height 2 block accepted, but not reorg'ed to")
 
         # 4b. Now send another block that builds on the forking chain.
-        block_h3 = create_block(block_h2f.sha256, create_coinbase(3), block_h2f.nTime + 1)
+        block_h3 = create_block(
+            block_h2f.sha256, create_coinbase(3), block_h2f.nTime + 1
+        )
         block_h3.solve()
         test_node.send_message(msg_block(block_h3))
 
@@ -152,8 +167,8 @@ class AcceptBlockTest(DefiTestFramework):
         # can't be fully validated.
         tip_entry_found = False
         for x in self.nodes[0].getchaintips():
-            if x['hash'] == block_h3.hash:
-                assert_equal(x['status'], "headers-only")
+            if x["hash"] == block_h3.hash:
+                assert_equal(x["status"], "headers-only")
                 tip_entry_found = True
         assert tip_entry_found
         self.nodes[0].getblock(block_h3.hash)
@@ -175,8 +190,12 @@ class AcceptBlockTest(DefiTestFramework):
         # Now send the block at height 5 and check that it wasn't accepted (missing header)
         test_node.send_message(msg_block(all_blocks[1]))
         test_node.sync_with_ping()
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].getblock, all_blocks[1].hash)
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].getblockheader, all_blocks[1].hash)
+        assert_raises_rpc_error(
+            -5, "Block not found", self.nodes[0].getblock, all_blocks[1].hash
+        )
+        assert_raises_rpc_error(
+            -5, "Block not found", self.nodes[0].getblockheader, all_blocks[1].hash
+        )
 
         # The block at height 5 should be accepted if we provide the missing header, though
         headers_message = msg_headers()
@@ -194,7 +213,9 @@ class AcceptBlockTest(DefiTestFramework):
         # Blocks 1-287 should be accepted, block 288 should be ignored because it's too far ahead
         for x in all_blocks[:-1]:
             self.nodes[0].getblock(x.hash)
-        assert_raises_rpc_error(-1, "Block not found on disk", self.nodes[0].getblock, all_blocks[-1].hash)
+        assert_raises_rpc_error(
+            -1, "Block not found on disk", self.nodes[0].getblock, all_blocks[-1].hash
+        )
 
         # 5. Test handling of unrequested block on the node that didn't process
         # Should still not be processed (even though it has a child that has more
@@ -212,7 +233,9 @@ class AcceptBlockTest(DefiTestFramework):
 
         test_node.sync_with_ping()
         assert_equal(self.nodes[0].getblockcount(), 2)
-        self.log.info("Unrequested block that would complete more-work chain was ignored")
+        self.log.info(
+            "Unrequested block that would complete more-work chain was ignored"
+        )
 
         # 6. Try to get node to request the missing block.
         # Poke the node with an inv for block at height 3 and see if that
@@ -237,21 +260,33 @@ class AcceptBlockTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 290)
         self.nodes[0].getblock(all_blocks[286].hash)
         assert_equal(self.nodes[0].getbestblockhash(), all_blocks[286].hash)
-        assert_raises_rpc_error(-1, "Block not found on disk", self.nodes[0].getblock, all_blocks[287].hash)
+        assert_raises_rpc_error(
+            -1, "Block not found on disk", self.nodes[0].getblock, all_blocks[287].hash
+        )
         self.log.info("Successfully reorged to longer chain from non-whitelisted peer")
 
         # 8. Create a chain which is invalid at a height longer than the
         # current chain, but which has more blocks on top of that
-        block_289f = create_block(all_blocks[284].sha256, create_coinbase(289), all_blocks[284].nTime + 1)
+        block_289f = create_block(
+            all_blocks[284].sha256, create_coinbase(289), all_blocks[284].nTime + 1
+        )
         block_289f.solve()
-        block_290f = create_block(block_289f.sha256, create_coinbase(290), block_289f.nTime + 1)
+        block_290f = create_block(
+            block_289f.sha256, create_coinbase(290), block_289f.nTime + 1
+        )
         block_290f.solve()
-        block_291 = create_block(block_290f.sha256, create_coinbase(291), block_290f.nTime + 1)
+        block_291 = create_block(
+            block_290f.sha256, create_coinbase(291), block_290f.nTime + 1
+        )
         # block_291 spends a coinbase below maturity!
-        block_291.vtx.append(create_tx_with_script(block_290f.vtx[0], 0, script_sig=b"42", amount=1))
+        block_291.vtx.append(
+            create_tx_with_script(block_290f.vtx[0], 0, script_sig=b"42", amount=1)
+        )
         block_291.hashMerkleRoot = block_291.calc_merkle_root()
         block_291.solve()
-        block_292 = create_block(block_291.sha256, create_coinbase(292), block_291.nTime + 1)
+        block_292 = create_block(
+            block_291.sha256, create_coinbase(292), block_291.nTime + 1
+        )
         block_292.solve()
 
         # Now send all the headers on the chain and enough blocks to trigger reorg
@@ -265,11 +300,13 @@ class AcceptBlockTest(DefiTestFramework):
         test_node.sync_with_ping()
         tip_entry_found = False
         for x in self.nodes[0].getchaintips():
-            if x['hash'] == block_292.hash:
-                assert_equal(x['status'], "headers-only")
+            if x["hash"] == block_292.hash:
+                assert_equal(x["status"], "headers-only")
                 tip_entry_found = True
         assert tip_entry_found
-        assert_raises_rpc_error(-1, "Block not found on disk", self.nodes[0].getblock, block_292.hash)
+        assert_raises_rpc_error(
+            -1, "Block not found on disk", self.nodes[0].getblock, block_292.hash
+        )
 
         test_node.send_message(msg_block(block_289f))
         test_node.send_message(msg_block(block_290f))
@@ -298,7 +335,9 @@ class AcceptBlockTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblock(block_291.hash)["confirmations"], -1)
 
         # Now send a new header on the invalid chain, indicating we're forked off, and expect to get disconnected
-        block_293 = create_block(block_292.sha256, create_coinbase(293), block_292.nTime + 1)
+        block_293 = create_block(
+            block_292.sha256, create_coinbase(293), block_292.nTime + 1
+        )
         block_293.solve()
         headers_message = msg_headers()
         headers_message.headers.append(CBlockHeader(block_293))
@@ -311,5 +350,5 @@ class AcceptBlockTest(DefiTestFramework):
         self.log.info("Successfully synced nodes 1 and 0")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AcceptBlockTest().main()

@@ -26,5 +26,5 @@ class UptimeTest(DefiTestFramework):
         assert self.nodes[0].uptime() >= wait_time
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     UptimeTest().main()

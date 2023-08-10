@@ -9,6 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import connect_nodes_bi
 
+
 class EmptyTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -23,9 +24,10 @@ class EmptyTest(DefiTestFramework):
         self.sync_blocks()
 
     def run_test(self):
-        assert (self.nodes[0].getbalance() == 0)
+        assert self.nodes[0].getbalance() == 0
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     EmptyTest().main()

@@ -12,6 +12,7 @@ import struct
 
 # generic big endian MPI format
 
+
 def bn_bytes(v, have_ext=False):
     ext = 0
     if have_ext:
@@ -23,7 +24,7 @@ def bn2bin(v):
     s = bytearray()
     i = bn_bytes(v)
     while i > 0:
-        s.append((v >> ((i - 1) * 8)) & 0xff)
+        s.append((v >> ((i - 1) * 8)) & 0xFF)
         i -= 1
     return s
 

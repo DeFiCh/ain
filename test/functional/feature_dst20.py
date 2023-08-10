@@ -44,7 +44,10 @@ class DST20(DefiTestFramework):
     def test_deploy_token(self):
         # should have no code on contract address
         assert_equal(
-            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_btc)), "0x"
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_btc)
+            ),
+            "0x",
         )
 
         self.node.createtoken(
@@ -58,7 +61,12 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # should have code on contract address
-        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_btc)) != "0x"
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_btc)
+            )
+            != "0x"
+        )
 
         # check contract variables
         self.btc = self.nodes[0].w3.eth.contract(
@@ -70,10 +78,16 @@ class DST20(DefiTestFramework):
     def test_deploy_multiple_tokens(self):
         # should have no code on contract addresses
         assert_equal(
-            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_eth)), "0x"
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_eth)
+            ),
+            "0x",
         )
         assert_equal(
-            self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_dusd)), "0x"
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_dusd)
+            ),
+            "0x",
         )
 
         self.node.createtoken(
@@ -95,8 +109,18 @@ class DST20(DefiTestFramework):
         self.node.generate(1)
 
         # should have code on contract address
-        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_eth)) != "0x"
-        assert self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(self.contract_address_dusd)) != "0x"
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_eth)
+            )
+            != "0x"
+        )
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_dusd)
+            )
+            != "0x"
+        )
 
         # check contract variables
         self.eth = self.nodes[0].w3.eth.contract(
@@ -488,7 +512,11 @@ class DST20(DefiTestFramework):
 
         # Contract ABI
         # Temp. workaround
-        self.abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/abi.json", "r", encoding="utf8").read()
+        self.abi = open(
+            f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/abi.json",
+            "r",
+            encoding="utf8",
+        ).read()
 
         # Generate chain
         self.node.generate(150)

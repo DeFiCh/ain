@@ -47,7 +47,7 @@ class ErrorMatch(Enum):
     PARTIAL_REGEX = 3
 
 
-class TestNode():
+class TestNode:
     """A class for representing a defid node under test.
 
     This class contains:
@@ -61,8 +61,25 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, *, chain, rpchost, evm_rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None,
-                 extra_args=None, use_cli=False, start_perf=False, use_valgrind=False):
+    def __init__(
+        self,
+        i,
+        datadir,
+        *,
+        chain,
+        rpchost,
+        evm_rpchost,
+        timewait,
+        defid,
+        defi_cli,
+        coverage_dir,
+        cwd,
+        extra_conf=None,
+        extra_args=None,
+        use_cli=False,
+        start_perf=False,
+        use_valgrind=False
+    ):
         """
         Kwargs:
             start_perf (bool): If True, begin profiling the node with `perf` as soon as
@@ -107,12 +124,23 @@ class TestNode():
         if use_valgrind:
             default_suppressions_file = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
-                "..", "..", "..", "contrib", "valgrind.supp")
-            suppressions_file = os.getenv("VALGRIND_SUPPRESSIONS_FILE",
-                                          default_suppressions_file)
-            self.args = ["valgrind", "--suppressions={}".format(suppressions_file),
-                         "--gen-suppressions=all", "--exit-on-first-error=yes",
-                         "--error-exitcode=1", "--quiet"] + self.args
+                "..",
+                "..",
+                "..",
+                "contrib",
+                "valgrind.supp",
+            )
+            suppressions_file = os.getenv(
+                "VALGRIND_SUPPRESSIONS_FILE", default_suppressions_file
+            )
+            self.args = [
+                "valgrind",
+                "--suppressions={}".format(suppressions_file),
+                "--gen-suppressions=all",
+                "--exit-on-first-error=yes",
+                "--error-exitcode=1",
+                "--quiet",
+            ] + self.args
 
         self.cli = TestNodeCLI(defi_cli, self.datadir)
         self.use_cli = use_cli
@@ -125,8 +153,10 @@ class TestNode():
         self.evm_rpc = None
         self.url = None
         self.evm_url = None
-        self.log = logging.getLogger('TestFramework.node%d' % i)
-        self.cleanup_on_exit = True  # Whether to kill the node when this object goes away
+        self.log = logging.getLogger("TestFramework.node%d" % i)
+        self.cleanup_on_exit = (
+            True  # Whether to kill the node when this object goes away
+        )
         # Cache perf subprocesses here by their data output filename.
         self.perf_subprocesses = {}
 
@@ -134,28 +164,62 @@ class TestNode():
 
         self.w3 = None
 
-    MnKeys = collections.namedtuple('MnKeys',
-                                    ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
+    MnKeys = collections.namedtuple(
+        "MnKeys",
+        ["ownerAuthAddress", "ownerPrivKey", "operatorAuthAddress", "operatorPrivKey"],
+    )
     PRIV_KEYS = [
         # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
         # legacy:
-        MnKeys("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz",
-               "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy", "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"),
-        MnKeys("msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W",
-               "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ", "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV"),
-        MnKeys("myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS", "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9",
-               "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4", "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD"),
-        MnKeys("mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz", "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY",
-               "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t", "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL"),
-        MnKeys("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u",
-               "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg", "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy"),
-        MnKeys("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb",
-               "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN", "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe"),
+        MnKeys(
+            "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+            "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz",
+            "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy",
+            "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC",
+        ),
+        MnKeys(
+            "msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7",
+            "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W",
+            "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ",
+            "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV",
+        ),
+        MnKeys(
+            "myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS",
+            "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9",
+            "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4",
+            "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD",
+        ),
+        MnKeys(
+            "mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz",
+            "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY",
+            "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t",
+            "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL",
+        ),
+        MnKeys(
+            "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu",
+            "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u",
+            "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg",
+            "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy",
+        ),
+        MnKeys(
+            "mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c",
+            "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb",
+            "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN",
+            "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe",
+        ),
         # bech32:
-        MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj",
-               "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
-        MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp",
-               "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
+        MnKeys(
+            "bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny",
+            "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj",
+            "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv",
+            "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR",
+        ),
+        MnKeys(
+            "bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu",
+            "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp",
+            "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r",
+            "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW",
+        ),
     ]
     Mocktime = None
 
@@ -215,7 +279,7 @@ class TestNode():
         "eth_pendingTransactions",
         # net
         "net_version",
-        #debug
+        # debug
         "debug_feeEstimate",
     }
 
@@ -251,7 +315,8 @@ class TestNode():
                 self.pullup_mocktime()
                 # mintedHashes.append(self.getblockhash(height+minted))
                 mintedHashes.append(
-                    self.getblockhash(self.getblockcount()))  # always "tip" due to chain switching (possibly wrong)
+                    self.getblockhash(self.getblockcount())
+                )  # always "tip" due to chain switching (possibly wrong)
         return mintedHashes
 
     def _node_msg(self, msg: str) -> str:
@@ -279,7 +344,9 @@ class TestNode():
         else:
             assert self.rpc_connected, self._node_msg("Error: no RPC connection")
             if name in self.EVM_CALLS:
-                assert self.evm_rpc is not None, self._node_msg("Error: no EVM-RPC connection")
+                assert self.evm_rpc is not None, self._node_msg(
+                    "Error: no EVM-RPC connection"
+                )
                 return getattr(self.evm_rpc, name)
             else:
                 assert self.rpc is not None, self._node_msg("Error: no RPC connection")
@@ -309,8 +376,14 @@ class TestNode():
         # add environment variable LIBC_FATAL_STDERR_=1 so that libc errors are written to stderr and not the terminal
         subp_env = dict(os.environ, LIBC_FATAL_STDERR_="1")
 
-        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd,
-                                        **kwargs)
+        self.process = subprocess.Popen(
+            self.args + extra_args,
+            env=subp_env,
+            stdout=stdout,
+            stderr=stderr,
+            cwd=cwd,
+            **kwargs
+        )
 
         self.running = True
         self.log.debug("defid started, waiting for RPC to come up")
@@ -324,17 +397,30 @@ class TestNode():
         poll_per_s = 4
         for _ in range(poll_per_s * self.rpc_timeout):
             if self.process.poll() is not None:
-                raise FailedToStartError(self._node_msg(
-                    'defid exited with status {} during initialization'.format(self.process.returncode)))
+                raise FailedToStartError(
+                    self._node_msg(
+                        "defid exited with status {} during initialization".format(
+                            self.process.returncode
+                        )
+                    )
+                )
             try:
-                rpc = get_rpc_proxy(rpc_url(self.datadir, self.index, self.chain, self.rpchost), self.index,
-                                    timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
+                rpc = get_rpc_proxy(
+                    rpc_url(self.datadir, self.index, self.chain, self.rpchost),
+                    self.index,
+                    timeout=self.rpc_timeout,
+                    coveragedir=self.coverage_dir,
+                )
                 rpc.getblockcount()
                 # If the call to getblockcount() succeeds then the RPC connection is up
                 self.log.debug("RPC successfully started")
 
-                evm_rpc = get_rpc_proxy(eth_rpc_url(self.datadir, self.index, self.chain, self.evm_rpchost), self.index,
-                                     timeout=self.rpc_timeout, coveragedir=self.coverage_dir)
+                evm_rpc = get_rpc_proxy(
+                    eth_rpc_url(self.datadir, self.index, self.chain, self.evm_rpchost),
+                    self.index,
+                    timeout=self.rpc_timeout,
+                    coveragedir=self.coverage_dir,
+                )
                 evm_rpc.eth_blockNumber()
                 # If the call to eth_blockNumber() succeeds then the evm-RPC connection is up
                 self.log.debug("EVM-RPC successfully started")
@@ -353,9 +439,11 @@ class TestNode():
             except JSONRPCException as e:  # Initialization phase
                 # -28 RPC in warmup
                 # -342 Service unavailable, RPC server started but is shutting down due to error
-                if e.error['code'] != -28 and e.error['code'] != -342:
+                if e.error["code"] != -28 and e.error["code"] != -342:
                     raise  # unknown JSON RPC exception
-            except ValueError as e:  # cookie file not found and no rpcuser or rpcassword. defid still starting
+            except (
+                ValueError
+            ) as e:  # cookie file not found and no rpcuser or rpcassword. defid still starting
                 if "No RPC credentials" not in str(e):
                     raise
             time.sleep(1.0 / poll_per_s)
@@ -369,7 +457,7 @@ class TestNode():
             wallet_path = "wallet/{}".format(urllib.parse.quote(wallet_name))
             return self.rpc / wallet_path
 
-    def stop_node(self, expected_stderr='', wait=0):
+    def stop_node(self, expected_stderr="", wait=0):
         """Stop the node."""
         if not self.running:
             return
@@ -384,7 +472,7 @@ class TestNode():
             self._stop_perf(profile_name)
 
         # Check that stderr is as expected
-        stderr = self.stderr.read().decode('utf-8').strip()
+        stderr = self.stderr.read().decode("utf-8").strip()
         if stderr != expected_stderr:
             pass
             # @todo temp removed for debugging
@@ -408,7 +496,8 @@ class TestNode():
 
         # process has stopped. Assert that it didn't return an error code.
         assert return_code == 0, self._node_msg(
-            "Node returned non-zero exit code (%d) when stopping" % return_code)
+            "Node returned non-zero exit code (%d) when stopping" % return_code
+        )
         self.running = False
         self.process = None
         self.rpc_connected = False
@@ -426,8 +515,8 @@ class TestNode():
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs, timeout=2):
         time_end = time.time() + timeout
-        debug_log = os.path.join(self.datadir, self.chain, 'debug.log')
-        with open(debug_log, encoding='utf-8') as dl:
+        debug_log = os.path.join(self.datadir, self.chain, "debug.log")
+        with open(debug_log, encoding="utf-8") as dl:
             dl.seek(0, 2)
             prev_size = dl.tell()
         try:
@@ -435,12 +524,15 @@ class TestNode():
         finally:
             while True:
                 found = True
-                with open(debug_log, encoding='utf-8') as dl:
+                with open(debug_log, encoding="utf-8") as dl:
                     dl.seek(prev_size)
                     log = dl.read()
                 print_log = " - " + "\n - ".join(log.splitlines())
                 for expected_msg in expected_msgs:
-                    if re.search(re.escape(expected_msg), log, flags=re.MULTILINE) is None:
+                    if (
+                        re.search(re.escape(expected_msg), log, flags=re.MULTILINE)
+                        is None
+                    ):
                         found = False
                 if found:
                     return
@@ -448,7 +540,10 @@ class TestNode():
                     break
                 time.sleep(0.05)
             self._raise_assertion_error(
-                'Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(str(expected_msgs), print_log))
+                'Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(
+                    str(expected_msgs), print_log
+                )
+            )
 
     @contextlib.contextmanager
     def profile_with_perf(self, profile_name):
@@ -475,36 +570,52 @@ class TestNode():
         subp = None
 
         def test_success(cmd):
-            return subprocess.call(
-                # shell=True required for pipe use below
-                cmd, shell=True,
-                stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL) == 0
+            return (
+                subprocess.call(
+                    # shell=True required for pipe use below
+                    cmd,
+                    shell=True,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                == 0
+            )
 
-        if not sys.platform.startswith('linux'):
-            self.log.warning("Can't profile with perf; only available on Linux platforms")
+        if not sys.platform.startswith("linux"):
+            self.log.warning(
+                "Can't profile with perf; only available on Linux platforms"
+            )
             return None
 
-        if not test_success('which perf'):
+        if not test_success("which perf"):
             self.log.warning("Can't profile with perf; must install perf-tools")
             return None
 
-        if not test_success('readelf -S {} | grep .debug_str'.format(shlex.quote(self.binary))):
+        if not test_success(
+            "readelf -S {} | grep .debug_str".format(shlex.quote(self.binary))
+        ):
             self.log.warning(
-                "perf output won't be very useful without debug symbols compiled into defid")
+                "perf output won't be very useful without debug symbols compiled into defid"
+            )
 
         output_path = tempfile.NamedTemporaryFile(
             dir=self.datadir,
-            prefix="{}.perf.data.".format(profile_name or 'test'),
+            prefix="{}.perf.data.".format(profile_name or "test"),
             delete=False,
         ).name
 
         cmd = [
-            'perf', 'record',
-            '-g',  # Record the callgraph.
-            '--call-graph', 'dwarf',  # Compatibility for gcc's --fomit-frame-pointer.
-            '-F', '101',  # Sampling frequency in Hz.
-            '-p', str(self.process.pid),
-            '-o', output_path,
+            "perf",
+            "record",
+            "-g",  # Record the callgraph.
+            "--call-graph",
+            "dwarf",  # Compatibility for gcc's --fomit-frame-pointer.
+            "-F",
+            "101",  # Sampling frequency in Hz.
+            "-p",
+            str(self.process.pid),
+            "-o",
+            output_path,
         ]
         subp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.perf_subprocesses[profile_name] = subp
@@ -514,62 +625,85 @@ class TestNode():
     def _stop_perf(self, profile_name):
         """Stop (and pop) a perf subprocess."""
         subp = self.perf_subprocesses.pop(profile_name)
-        output_path = subp.args[subp.args.index('-o') + 1]
+        output_path = subp.args[subp.args.index("-o") + 1]
 
         subp.terminate()
         subp.wait(timeout=10)
 
         stderr = subp.stderr.read().decode()
-        if 'Consider tweaking /proc/sys/kernel/perf_event_paranoid' in stderr:
+        if "Consider tweaking /proc/sys/kernel/perf_event_paranoid" in stderr:
             self.log.warning(
                 "perf couldn't collect data! Try "
-                "'sudo sysctl -w kernel.perf_event_paranoid=-1'")
+                "'sudo sysctl -w kernel.perf_event_paranoid=-1'"
+            )
         else:
             report_cmd = "perf report -i {}".format(output_path)
             self.log.info("See perf output by running '{}'".format(report_cmd))
 
-    def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args,
-                                       **kwargs):
+    def assert_start_raises_init_error(
+        self,
+        extra_args=None,
+        expected_msg=None,
+        match=ErrorMatch.FULL_TEXT,
+        *args,
+        **kwargs
+    ):
         """Attempt to start the node and expect it to raise an error.
 
         extra_args: extra arguments to pass through to defid
         expected_msg: regex that stderr should match when defid fails
 
         Will throw if defid starts without an error.
-        Will throw if an expected_msg is provided and it does not match defid's stdout."""
-        with tempfile.NamedTemporaryFile(dir=self.stderr_dir, delete=False) as log_stderr, \
-                tempfile.NamedTemporaryFile(dir=self.stdout_dir, delete=False) as log_stdout:
+        Will throw if an expected_msg is provided and it does not match defid's stdout.
+        """
+        with tempfile.NamedTemporaryFile(
+            dir=self.stderr_dir, delete=False
+        ) as log_stderr, tempfile.NamedTemporaryFile(
+            dir=self.stdout_dir, delete=False
+        ) as log_stdout:
             try:
-                self.start(extra_args, stdout=log_stdout, stderr=log_stderr, *args, **kwargs)
+                self.start(
+                    extra_args, stdout=log_stdout, stderr=log_stderr, *args, **kwargs
+                )
                 self.wait_for_rpc_connection()
                 self.stop_node()
                 self.wait_until_stopped()
             except FailedToStartError as e:
-                self.log.debug('defid failed to start: %s', e)
+                self.log.debug("defid failed to start: %s", e)
                 self.running = False
                 self.process = None
                 # Check stderr for expected message
                 if expected_msg is not None:
                     log_stderr.seek(0)
-                    stderr = log_stderr.read().decode('utf-8').strip()
+                    stderr = log_stderr.read().decode("utf-8").strip()
                     if match == ErrorMatch.PARTIAL_REGEX:
                         if re.search(expected_msg, stderr, flags=re.MULTILINE) is None:
                             self._raise_assertion_error(
-                                'Expected message "{}" does not partially match stderr:\n"{}"'.format(expected_msg,
-                                                                                                      stderr))
+                                'Expected message "{}" does not partially match stderr:\n"{}"'.format(
+                                    expected_msg, stderr
+                                )
+                            )
                     elif match == ErrorMatch.FULL_REGEX:
                         if re.fullmatch(expected_msg, stderr) is None:
                             self._raise_assertion_error(
-                                'Expected message "{}" does not fully match stderr:\n"{}"'.format(expected_msg, stderr))
+                                'Expected message "{}" does not fully match stderr:\n"{}"'.format(
+                                    expected_msg, stderr
+                                )
+                            )
                     elif match == ErrorMatch.FULL_TEXT:
                         if expected_msg != stderr:
                             self._raise_assertion_error(
-                                'Expected message "{}" does not fully match stderr:\n"{}"'.format(expected_msg, stderr))
+                                'Expected message "{}" does not fully match stderr:\n"{}"'.format(
+                                    expected_msg, stderr
+                                )
+                            )
             else:
                 if expected_msg is None:
                     assert_msg = "defid should have exited with an error"
                 else:
-                    assert_msg = "defid should have exited with expected error " + expected_msg
+                    assert_msg = (
+                        "defid should have exited with expected error " + expected_msg
+                    )
                 self._raise_assertion_error(assert_msg)
 
     def add_p2p_connection(self, p2p_conn, *, wait_for_verack=True, **kwargs):
@@ -577,10 +711,10 @@ class TestNode():
 
         This method adds the p2p connection to the self.p2ps list and also
         returns the connection to the caller."""
-        if 'dstport' not in kwargs:
-            kwargs['dstport'] = p2p_port(self.index)
-        if 'dstaddr' not in kwargs:
-            kwargs['dstaddr'] = '127.0.0.1'
+        if "dstport" not in kwargs:
+            kwargs["dstport"] = p2p_port(self.index)
+        if "dstaddr" not in kwargs:
+            kwargs["dstaddr"] = "127.0.0.1"
 
         p2p_conn.peer_connect(**kwargs)()
         self.p2ps.append(p2p_conn)
@@ -626,7 +760,7 @@ def arg_to_cli(arg):
         return str(arg)
 
 
-class TestNodeCLI():
+class TestNodeCLI:
     """Interface to defi-cli for an individual node"""
 
     def __init__(self, binary, datadir):
@@ -634,7 +768,7 @@ class TestNodeCLI():
         self.binary = binary
         self.datadir = datadir
         self.input = None
-        self.log = logging.getLogger('TestFramework.deficli')
+        self.log = logging.getLogger("TestFramework.deficli")
 
     def __call__(self, *options, input=None):
         # TestNodeCLI is callable with defi-cli command-line options
@@ -658,9 +792,12 @@ class TestNodeCLI():
     def send_cli(self, command=None, *args, **kwargs):
         """Run defi-cli command. Deserializes returned string as python object."""
         pos_args = [arg_to_cli(arg) for arg in args]
-        named_args = [str(key) + "=" + arg_to_cli(value) for (key, value) in kwargs.items()]
+        named_args = [
+            str(key) + "=" + arg_to_cli(value) for (key, value) in kwargs.items()
+        ]
         assert not (
-                    pos_args and named_args), "Cannot use positional arguments and named arguments in the same defi-cli call"
+            pos_args and named_args
+        ), "Cannot use positional arguments and named arguments in the same defi-cli call"
         p_args = [self.binary, "-datadir=" + self.datadir] + self.options
         if named_args:
             p_args += ["-named"]
@@ -668,17 +805,24 @@ class TestNodeCLI():
             p_args += [command]
         p_args += pos_args + named_args
         self.log.debug("Running defi-cli command: %s" % command)
-        process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True)
+        process = subprocess.Popen(
+            p_args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         cli_stdout, cli_stderr = process.communicate(input=self.input)
         returncode = process.poll()
         if returncode:
-            match = re.match(r'error code: ([-0-9]+)\nerror message:\n(.*)', cli_stderr)
+            match = re.match(r"error code: ([-0-9]+)\nerror message:\n(.*)", cli_stderr)
             if match:
                 code, message = match.groups()
                 raise JSONRPCException(dict(code=int(code), message=message))
             # Ignore cli_stdout, raise with cli_stderr
-            raise subprocess.CalledProcessError(returncode, self.binary, output=cli_stderr)
+            raise subprocess.CalledProcessError(
+                returncode, self.binary, output=cli_stderr
+            )
         try:
             return json.loads(cli_stdout, parse_float=decimal.Decimal)
         except json.JSONDecodeError:

@@ -44,17 +44,17 @@ class BitcoinSPVTests(DefiTestFramework):
             dummy_address = "000000000000000000000000000000000000000000"
             self.nodes[0].spv_sendtoaddress(dummy_address, 0.1)
         except JSONRPCException as e:
-            errorString = e.error['message']
-            assert ("Invalid address" in errorString)
+            errorString = e.error["message"]
+            assert "Invalid address" in errorString
 
         # Send to external address
         dummy_address = "bcrt1qfpnmx6jrn30yvscrw9spudj5aphyrc8es6epva"
         result = self.nodes[0].spv_sendtoaddress(dummy_address, 0.1)
-        assert_equal(result['sendmessage'], "")
+        assert_equal(result["sendmessage"], "")
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
-        assert (result['txid'] in txs)
+        assert result["txid"] in txs
 
         # Make sure balance reduced
         balance = self.nodes[0].spv_getbalance()
@@ -62,11 +62,11 @@ class BitcoinSPVTests(DefiTestFramework):
 
         # Send to self
         result = self.nodes[0].spv_sendtoaddress(address, 0.1)
-        assert_equal(result['sendmessage'], "")
+        assert_equal(result["sendmessage"], "")
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
-        assert (result['txid'] in txs)
+        assert result["txid"] in txs
 
         # Make sure balance reduced
         balance = self.nodes[0].spv_getbalance()
@@ -75,10 +75,10 @@ class BitcoinSPVTests(DefiTestFramework):
         # Let's find the output that matches our address
         # One is the send-to-self and the other change.
         # This also tests spv_getrawtransaction
-        raw_tx = self.nodes[0].spv_getrawtransaction(result['txid'])
+        raw_tx = self.nodes[0].spv_getrawtransaction(result["txid"])
         decoded_tx = self.nodes[0].decoderawtransaction(raw_tx)
-        output_one = decoded_tx['vout'][0]['scriptPubKey']['addresses'][0]
-        output_two = decoded_tx['vout'][1]['scriptPubKey']['addresses'][0]
+        output_one = decoded_tx["vout"][0]["scriptPubKey"]["addresses"][0]
+        output_two = decoded_tx["vout"][1]["scriptPubKey"]["addresses"][0]
 
         # Let's get the private key from the DeFi wallet
         if output_one == address:
@@ -95,5 +95,5 @@ class BitcoinSPVTests(DefiTestFramework):
         assert_equal(wallet_change_priv_key, change_priv_key)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     BitcoinSPVTests().main()

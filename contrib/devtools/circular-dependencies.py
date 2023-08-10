@@ -4,16 +4,15 @@ import sys
 import re
 
 MAPPING = {
-    'core_read.cpp': 'core_io.cpp',
-    'core_write.cpp': 'core_io.cpp',
+    "core_read.cpp": "core_io.cpp",
+    "core_write.cpp": "core_io.cpp",
 }
 
 # Directories with header-based modules, where the assumption that .cpp files
 # define functions and variables declared in corresponding .h files is
 # incorrect.
-HEADER_MODULE_PATHS = [
-    'interfaces/'
-]
+HEADER_MODULE_PATHS = ["interfaces/"]
+
 
 def module_name(path):
     if path in MAPPING:
@@ -27,6 +26,7 @@ def module_name(path):
     if path.endswith(".cpp"):
         return path[:-4]
     return None
+
 
 files = dict()
 deps = dict()
@@ -46,13 +46,17 @@ for arg in sys.argv[1:]:
 # TODO: implement support for multiple include directories
 for arg in sorted(files.keys()):
     module = files[arg]
-    with open(arg, 'r', encoding="utf8") as f:
+    with open(arg, "r", encoding="utf8") as f:
         for line in f:
             match = RE.match(line)
             if match:
                 include = match.group(1)
                 included_module = module_name(include)
-                if included_module is not None and included_module in deps and included_module != module:
+                if (
+                    included_module is not None
+                    and included_module in deps
+                    and included_module != module
+                ):
                     deps[module].add(included_module)
 
 # Loop to find the shortest (remaining) circular dependency
@@ -74,7 +78,9 @@ while True:
             if len(closure) == old_size:
                 break
         # If module is in its own transitive closure, it's a circular dependency; check if it is the shortest
-        if module in closure and (shortest_cycle is None or len(closure[module]) + 1 < len(shortest_cycle)):
+        if module in closure and (
+            shortest_cycle is None or len(closure[module]) + 1 < len(shortest_cycle)
+        ):
             shortest_cycle = [module] + closure[module]
     if shortest_cycle is None:
         break

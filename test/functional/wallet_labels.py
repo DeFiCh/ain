@@ -31,13 +31,15 @@ class WalletLabelsTest(DefiTestFramework):
 
         # Note each time we call generate, all generated coins go into
         # the same address, so we call twice to get two addresses w/50 each
-        node.generate(nblocks=1, address=node.getnewaddress(label='coinbase'))
-        node.generate(nblocks=101, address=node.getnewaddress(label='coinbase'))
+        node.generate(nblocks=1, address=node.getnewaddress(label="coinbase"))
+        node.generate(nblocks=101, address=node.getnewaddress(label="coinbase"))
         assert_equal(node.getbalance(), 100)
 
         # there should be 2 address groups
         # each with 1 address with a balance of 50 Defis
-        address_groups = node.listaddressgroupings()  # TODO: may be remove genesis (or all) mn_creation txs from listaddressgroupings?
+        address_groups = (
+            node.listaddressgroupings()
+        )  # TODO: may be remove genesis (or all) mn_creation txs from listaddressgroupings?
         assert_equal(len(address_groups), 3)  # +1 mn genesis
         # the addresses aren't linked now, but will be after we send to the
         # common address
@@ -46,7 +48,7 @@ class WalletLabelsTest(DefiTestFramework):
             assert_equal(len(address_group), 1)
             assert_equal(len(address_group[0]), 3)
             assert_equal(address_group[0][1], 50)
-            assert_equal(address_group[0][2], 'coinbase')
+            assert_equal(address_group[0][2], "coinbase")
             linked_addresses.add(address_group[0][0])
 
         # send 50 from each address to a third address not in this wallet
@@ -80,7 +82,9 @@ class WalletLabelsTest(DefiTestFramework):
             label.verify(node)
 
         # Check all labels are returned by listlabels.
-        assert_equal(node.listlabels(), sorted(['coinbase'] + [label.name for label in labels]))
+        assert_equal(
+            node.listlabels(), sorted(["coinbase"] + [label.name for label in labels])
+        )
 
         # Send a transaction to each label.
         for label in labels:
@@ -90,8 +94,7 @@ class WalletLabelsTest(DefiTestFramework):
         # Check the amounts received.
         node.generate(1)
         for label in labels:
-            assert_equal(
-                node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
+            assert_equal(node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
             assert_equal(node.getreceivedbylabel(label.name), amount_to_send)
 
         for i, label in enumerate(labels):
@@ -109,23 +112,27 @@ class WalletLabelsTest(DefiTestFramework):
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
             address = node.getnewaddress("", "bech32")
-            eth_address = node.addressmap(address, 1)['format']['erc55']
-            bech32_address = node.addressmap(eth_address, 2)['format']['bech32']
-            legacy_address = key_to_p2pkh(node.getaddressinfo(eth_address)['pubkey'])
+            eth_address = node.addressmap(address, 1)["format"]["erc55"]
+            bech32_address = node.addressmap(eth_address, 2)["format"]["bech32"]
+            legacy_address = key_to_p2pkh(node.getaddressinfo(eth_address)["pubkey"])
             node.setlabel(address, label.name)
             node.setlabel(eth_address, label.name)
             node.setlabel(bech32_address, label.name)
             node.setlabel(legacy_address, label.name)
             label.add_address(address)
             label.verify(node)
-            assert_raises_rpc_error(-11, "No addresses with label", node.getaddressesbylabel, "")
+            assert_raises_rpc_error(
+                -11, "No addresses with label", node.getaddressesbylabel, ""
+            )
 
         # Check that addmultisigaddress can assign labels.
         for label in labels:
             addresses = []
             for x in range(10):
                 addresses.append(node.getnewaddress("", "bech32"))
-            multisig_address = node.addmultisigaddress(5, addresses, label.name)['address']
+            multisig_address = node.addmultisigaddress(5, addresses, label.name)[
+                "address"
+            ]
             label.purpose[multisig_address] = "send"
             label.verify(node)
         node.generate(101)
@@ -163,20 +170,21 @@ class Label:
 
         for address in self.addresses:
             assert_equal(
-                node.getaddressinfo(address)['labels'][0],
-                {"name": self.name,
-                 "purpose": self.purpose[address]})
-            assert_equal(node.getaddressinfo(address)['label'], self.name)
+                node.getaddressinfo(address)["labels"][0],
+                {"name": self.name, "purpose": self.purpose[address]},
+            )
+            assert_equal(node.getaddressinfo(address)["label"], self.name)
 
         # Ignore addresses added from Eth address support
         addresses = node.getaddressesbylabel(self.name)
-        delete = [key for key in addresses if key[0:1] != 'b']
+        delete = [key for key in addresses if key[0:1] != "b"]
         for key in delete:
             del addresses[key]
 
         assert_equal(
             addresses,
-            {address: {"purpose": self.purpose[address]} for address in self.addresses})
+            {address: {"purpose": self.purpose[address]} for address in self.addresses},
+        )
 
 
 def change_label(node, address, old_label, new_label):
@@ -190,5 +198,5 @@ def change_label(node, address, old_label, new_label):
     new_label.verify(node)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     WalletLabelsTest().main()

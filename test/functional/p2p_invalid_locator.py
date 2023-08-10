@@ -20,21 +20,33 @@ class InvalidLocatorTest(DefiTestFramework):
         node = self.nodes[0]  # convenience reference to the node
         node.generate(1)  # Get node out of IBD
 
-        self.log.info('Test max locator size')
+        self.log.info("Test max locator size")
         block_count = node.getblockcount()
         for msg in [msg_getheaders(), msg_getblocks()]:
-            self.log.info('Wait for disconnect when sending {} hashes in locator'.format(MAX_LOCATOR_SZ + 1))
+            self.log.info(
+                "Wait for disconnect when sending {} hashes in locator".format(
+                    MAX_LOCATOR_SZ + 1
+                )
+            )
             node.add_p2p_connection(P2PInterface())
-            msg.locator.vHave = [int(node.getblockhash(i - 1), 16) for i in
-                                 range(block_count, block_count - (MAX_LOCATOR_SZ + 1), -1)]
+            msg.locator.vHave = [
+                int(node.getblockhash(i - 1), 16)
+                for i in range(block_count, block_count - (MAX_LOCATOR_SZ + 1), -1)
+            ]
             node.p2p.send_message(msg)
             node.p2p.wait_for_disconnect()
             node.disconnect_p2ps()
 
-            self.log.info('Wait for response when sending {} hashes in locator'.format(MAX_LOCATOR_SZ))
+            self.log.info(
+                "Wait for response when sending {} hashes in locator".format(
+                    MAX_LOCATOR_SZ
+                )
+            )
             node.add_p2p_connection(P2PInterface())
-            msg.locator.vHave = [int(node.getblockhash(i - 1), 16) for i in
-                                 range(block_count, block_count - (MAX_LOCATOR_SZ), -1)]
+            msg.locator.vHave = [
+                int(node.getblockhash(i - 1), 16)
+                for i in range(block_count, block_count - (MAX_LOCATOR_SZ), -1)
+            ]
             node.p2p.send_message(msg)
             if type(msg) == msg_getheaders:
                 node.p2p.wait_for_header(int(node.getbestblockhash(), 16))
@@ -42,5 +54,5 @@ class InvalidLocatorTest(DefiTestFramework):
                 node.p2p.wait_for_block(int(node.getbestblockhash(), 16))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     InvalidLocatorTest().main()

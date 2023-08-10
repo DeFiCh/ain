@@ -6,8 +6,20 @@
 
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, ToHex
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    add_witness_commitment,
+)
+from test_framework.messages import (
+    COIN,
+    COutPoint,
+    CTransaction,
+    CTxIn,
+    CTxOut,
+    FromHex,
+    ToHex,
+)
 from test_framework.script import CScript
 from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import TestNode
@@ -18,10 +30,10 @@ from test_framework.util import (
     satoshi_round,
 )
 
-SEQUENCE_LOCKTIME_DISABLE_FLAG = (1 << 31)
-SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22)  # this means use time (0 means height)
+SEQUENCE_LOCKTIME_DISABLE_FLAG = 1 << 31
+SEQUENCE_LOCKTIME_TYPE_FLAG = 1 << 22  # this means use time (0 means height)
 SEQUENCE_LOCKTIME_GRANULARITY = 9  # this is a bit-shift
-SEQUENCE_LOCKTIME_MASK = 0x0000ffff
+SEQUENCE_LOCKTIME_MASK = 0x0000FFFF
 
 # RPC error for non-BIP68 final transactions
 NOT_FINAL_ERROR = "non-BIP68-final (code 64)"
@@ -60,7 +72,9 @@ class BIP68Test(DefiTestFramework):
         self.activateCSV()
 
         self.log.info("Verifying nVersion=2 transactions are standard.")
-        self.log.info("Note that nVersion=2 transactions are always standard (independent of BIP68 activation status).")
+        self.log.info(
+            "Note that nVersion=2 transactions are always standard (independent of BIP68 activation status)."
+        )
         self.test_version2_relay()
 
         self.log.info("Passed")
@@ -84,8 +98,12 @@ class BIP68Test(DefiTestFramework):
         # If sequence locks were used, this would require 1 block for the
         # input to mature.
         sequence_value = SEQUENCE_LOCKTIME_DISABLE_FLAG | 1
-        tx1.vin = [CTxIn(COutPoint(int(utxo["txid"], 16), utxo["vout"]), nSequence=sequence_value)]
-        tx1.vout = [CTxOut(value, CScript([b'a']))]
+        tx1.vin = [
+            CTxIn(
+                COutPoint(int(utxo["txid"], 16), utxo["vout"]), nSequence=sequence_value
+            )
+        ]
+        tx1.vout = [CTxOut(value, CScript([b"a"]))]
 
         tx1_signed = self.nodes[0].signrawtransactionwithwallet(ToHex(tx1))["hex"]
         tx1_id = self.nodes[0].sendrawtransaction(tx1_signed)
@@ -95,12 +113,14 @@ class BIP68Test(DefiTestFramework):
         # fail
         tx2 = CTransaction()
         tx2.nVersion = 2
-        sequence_value = sequence_value & 0x7fffffff
+        sequence_value = sequence_value & 0x7FFFFFFF
         tx2.vin = [CTxIn(COutPoint(tx1_id, 0), nSequence=sequence_value)]
-        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), CScript([b'a' * 35]))]
+        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), CScript([b"a" * 35]))]
         tx2.rehash()
 
-        assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, ToHex(tx2))
+        assert_raises_rpc_error(
+            -26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, ToHex(tx2)
+        )
 
         # Setting the version back down to 1 should disable the sequence lock,
         # so this should be accepted.
@@ -111,7 +131,9 @@ class BIP68Test(DefiTestFramework):
     # Calculate the median time past of a prior block ("confirmations" before
     # the current tip).
     def get_median_time_past(self, confirmations):
-        block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount() - confirmations)
+        block_hash = self.nodes[0].getblockhash(
+            self.nodes[0].getblockcount() - confirmations
+        )
         return self.nodes[0].getblockheader(block_hash)["mediantime"]
 
     # Test that sequence locks are respected for transactions spending confirmed inputs.
@@ -124,6 +146,7 @@ class BIP68Test(DefiTestFramework):
             addresses.append(self.nodes[0].getnewaddress())
         while len(self.nodes[0].listunspent()) < 200:
             import random
+
             random.shuffle(addresses)
             num_outputs = random.randint(1, max_outputs)
             outputs = {}
@@ -154,14 +177,14 @@ class BIP68Test(DefiTestFramework):
             tx.nVersion = 2
             value = 0
             for j in range(num_inputs):
-                sequence_value = 0xfffffffe  # this disables sequence locks
+                sequence_value = 0xFFFFFFFE  # this disables sequence locks
 
                 # 50% chance we enable sequence locks
                 if random.randint(0, 1):
                     using_sequence_locks = True
 
                     # 10% of the time, make the input sequence value pass
-                    input_will_pass = (random.randint(1, 10) == 1)
+                    input_will_pass = random.randint(1, 10) == 1
                     sequence_value = utxos[j]["confirmations"]
                     if not input_will_pass:
                         sequence_value += 1
@@ -176,7 +199,9 @@ class BIP68Test(DefiTestFramework):
 
                     # can only timelock this input if it's not too old -- otherwise use height
                     can_time_lock = True
-                    if ((cur_time - orig_time) >> SEQUENCE_LOCKTIME_GRANULARITY) >= SEQUENCE_LOCKTIME_MASK:
+                    if (
+                        (cur_time - orig_time) >> SEQUENCE_LOCKTIME_GRANULARITY
+                    ) >= SEQUENCE_LOCKTIME_MASK:
                         can_time_lock = False
 
                     # if time-lockable, then 50% chance we make this a time lock
@@ -184,20 +209,35 @@ class BIP68Test(DefiTestFramework):
                         # Find first time-lock value that fails, or latest one that succeeds
                         time_delta = sequence_value << SEQUENCE_LOCKTIME_GRANULARITY
                         if input_will_pass and time_delta > cur_time - orig_time:
-                            sequence_value = ((cur_time - orig_time) >> SEQUENCE_LOCKTIME_GRANULARITY)
-                        elif (not input_will_pass and time_delta <= cur_time - orig_time):
-                            sequence_value = ((cur_time - orig_time) >> SEQUENCE_LOCKTIME_GRANULARITY) + 1
+                            sequence_value = (
+                                cur_time - orig_time
+                            ) >> SEQUENCE_LOCKTIME_GRANULARITY
+                        elif not input_will_pass and time_delta <= cur_time - orig_time:
+                            sequence_value = (
+                                (cur_time - orig_time) >> SEQUENCE_LOCKTIME_GRANULARITY
+                            ) + 1
                         sequence_value |= SEQUENCE_LOCKTIME_TYPE_FLAG
-                tx.vin.append(CTxIn(COutPoint(int(utxos[j]["txid"], 16), utxos[j]["vout"]), nSequence=sequence_value))
+                tx.vin.append(
+                    CTxIn(
+                        COutPoint(int(utxos[j]["txid"], 16), utxos[j]["vout"]),
+                        nSequence=sequence_value,
+                    )
+                )
                 value += utxos[j]["amount"] * COIN
             # Overestimate the size of the tx - signatures should be less than 120 bytes, and leave 50 for the output
             tx_size = len(ToHex(tx)) // 2 + 120 * num_inputs + 50
-            tx.vout.append(CTxOut(int(value - self.relayfee * tx_size * COIN / 1000), CScript([b'a'])))
+            tx.vout.append(
+                CTxOut(
+                    int(value - self.relayfee * tx_size * COIN / 1000), CScript([b"a"])
+                )
+            )
             rawtx = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))["hex"]
 
-            if (using_sequence_locks and not should_pass):
+            if using_sequence_locks and not should_pass:
                 # This transaction should be rejected
-                assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, rawtx)
+                assert_raises_rpc_error(
+                    -26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, rawtx
+                )
             else:
                 # This raw transaction should be accepted
                 self.nodes[0].sendrawtransaction(rawtx)
@@ -221,7 +261,9 @@ class BIP68Test(DefiTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 2
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue - self.relayfee * COIN), CScript([b'a']))]
+        tx2.vout = [
+            CTxOut(int(tx1.vout[0].nValue - self.relayfee * COIN), CScript([b"a"]))
+        ]
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx2))["hex"]
         tx2 = FromHex(tx2, tx2_raw)
         tx2.rehash()
@@ -239,12 +281,18 @@ class BIP68Test(DefiTestFramework):
             tx = CTransaction()
             tx.nVersion = 2
             tx.vin = [CTxIn(COutPoint(orig_tx.sha256, 0), nSequence=sequence_value)]
-            tx.vout = [CTxOut(int(orig_tx.vout[0].nValue - relayfee * COIN), CScript([b'a' * 35]))]
+            tx.vout = [
+                CTxOut(
+                    int(orig_tx.vout[0].nValue - relayfee * COIN), CScript([b"a" * 35])
+                )
+            ]
             tx.rehash()
 
-            if (orig_tx.hash in node.getrawmempool()):
+            if orig_tx.hash in node.getrawmempool():
                 # sendrawtransaction should fail if the tx is in the mempool
-                assert_raises_rpc_error(-26, NOT_FINAL_ERROR, node.sendrawtransaction, ToHex(tx))
+                assert_raises_rpc_error(
+                    -26, NOT_FINAL_ERROR, node.sendrawtransaction, ToHex(tx)
+                )
             else:
                 # sendrawtransaction should succeed if the tx is not in the mempool
                 node.sendrawtransaction(ToHex(tx))
@@ -256,7 +304,9 @@ class BIP68Test(DefiTestFramework):
 
         # Now mine some blocks, but make sure tx2 doesn't get mined.
         # Use prioritisetransaction to lower the effective feerate to 0
-        self.nodes[0].prioritisetransaction(txid=tx2.hash, fee_delta=int(-self.relayfee * COIN))
+        self.nodes[0].prioritisetransaction(
+            txid=tx2.hash, fee_delta=int(-self.relayfee * COIN)
+        )
         cur_time = int(time.time())
         for i in range(10):
             # self.nodes[0].setmocktime(cur_time + 600)
@@ -270,7 +320,9 @@ class BIP68Test(DefiTestFramework):
         test_nonzero_locks(tx2, self.nodes[0], self.relayfee, use_height_lock=False)
 
         # Mine tx2, and then try again
-        self.nodes[0].prioritisetransaction(txid=tx2.hash, fee_delta=int(self.relayfee * COIN))
+        self.nodes[0].prioritisetransaction(
+            txid=tx2.hash, fee_delta=int(self.relayfee * COIN)
+        )
 
         # Advance the time on the node so that we can test timelocks
         TestNode.Mocktime = cur_time + 600
@@ -280,26 +332,36 @@ class BIP68Test(DefiTestFramework):
 
         # Now that tx2 is not in the mempool, a sequence locked spend should
         # succeed
-        tx3 = test_nonzero_locks(tx2, self.nodes[0], self.relayfee, use_height_lock=False)
+        tx3 = test_nonzero_locks(
+            tx2, self.nodes[0], self.relayfee, use_height_lock=False
+        )
         assert tx3.hash in self.nodes[0].getrawmempool()
 
         self.nodes[0].generate(1)
         assert tx3.hash not in self.nodes[0].getrawmempool()
 
         # One more test, this time using height locks
-        tx4 = test_nonzero_locks(tx3, self.nodes[0], self.relayfee, use_height_lock=True)
+        tx4 = test_nonzero_locks(
+            tx3, self.nodes[0], self.relayfee, use_height_lock=True
+        )
         assert tx4.hash in self.nodes[0].getrawmempool()
 
         # Now try combining confirmed and unconfirmed inputs
-        tx5 = test_nonzero_locks(tx4, self.nodes[0], self.relayfee, use_height_lock=True)
+        tx5 = test_nonzero_locks(
+            tx4, self.nodes[0], self.relayfee, use_height_lock=True
+        )
         assert tx5.hash not in self.nodes[0].getrawmempool()
 
         utxos = self.nodes[0].listunspent()
-        tx5.vin.append(CTxIn(COutPoint(int(utxos[0]["txid"], 16), utxos[0]["vout"]), nSequence=1))
+        tx5.vin.append(
+            CTxIn(COutPoint(int(utxos[0]["txid"], 16), utxos[0]["vout"]), nSequence=1)
+        )
         tx5.vout[0].nValue += int(utxos[0]["amount"] * COIN)
         raw_tx5 = self.nodes[0].signrawtransactionwithwallet(ToHex(tx5))["hex"]
 
-        assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, raw_tx5)
+        assert_raises_rpc_error(
+            -26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, raw_tx5
+        )
 
         # Test mempool-BIP68 consistency after reorg
         #
@@ -353,7 +415,9 @@ class BIP68Test(DefiTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 1
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue - self.relayfee * COIN), CScript([b'a']))]
+        tx2.vout = [
+            CTxOut(int(tx1.vout[0].nValue - self.relayfee * COIN), CScript([b"a"]))
+        ]
 
         # sign tx2
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx2))["hex"]
@@ -368,14 +432,20 @@ class BIP68Test(DefiTestFramework):
         tx3 = CTransaction()
         tx3.nVersion = 2
         tx3.vin = [CTxIn(COutPoint(tx2.sha256, 0), nSequence=sequence_value)]
-        tx3.vout = [CTxOut(int(tx2.vout[0].nValue - self.relayfee * COIN), CScript([b'a' * 35]))]
+        tx3.vout = [
+            CTxOut(int(tx2.vout[0].nValue - self.relayfee * COIN), CScript([b"a" * 35]))
+        ]
         tx3.rehash()
 
-        assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, ToHex(tx3))
+        assert_raises_rpc_error(
+            -26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, ToHex(tx3)
+        )
 
         # make a block that violates bip68; ensure that the tip updates
         tip = int(self.nodes[0].getbestblockhash(), 16)
-        block = create_block(tip, create_coinbase(self.nodes[0].getblockcount() + 1), TestNode.Mocktime)
+        block = create_block(
+            tip, create_coinbase(self.nodes[0].getblockcount() + 1), TestNode.Mocktime
+        )
         block.nVersion = 3
         block.vtx.extend([tx1, tx2, tx3])
         block.hashMerkleRoot = block.calc_merkle_root()
@@ -401,12 +471,12 @@ class BIP68Test(DefiTestFramework):
         inputs = []
         outputs = {self.nodes[1].getnewaddress(): 1.0}
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
-        rawtxfund = self.nodes[1].fundrawtransaction(rawtx)['hex']
+        rawtxfund = self.nodes[1].fundrawtransaction(rawtx)["hex"]
         tx = FromHex(CTransaction(), rawtxfund)
         tx.nVersion = 2
         tx_signed = self.nodes[1].signrawtransactionwithwallet(ToHex(tx))["hex"]
         self.nodes[1].sendrawtransaction(tx_signed)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     BIP68Test().main()

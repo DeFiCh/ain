@@ -55,7 +55,12 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         # Set -maxmempool=0 to turn off mempool memory sharing with dbcache
         # Set -rpcservertimeout=900 to reduce socket disconnects in this
         # long-running test
-        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", "-dbbatchsize=200000"]
+        self.base_args = [
+            "-limitdescendantsize=0",
+            "-maxmempool=0",
+            "-rpcservertimeout=900",
+            "-dbbatchsize=200000",
+        ]
 
         # Set different crash ratios and cache sizes.  Note that not all of
         # -dbcache goes to the in-memory coins cache.
@@ -66,7 +71,12 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         # Node3 is a normal node with default args, except will mine full blocks
         # and non-standard txs (e.g. txs with "dust" outputs)
         self.node3_args = ["-blockmaxweight=4000000", "-acceptnonstdtxn"]
-        self.extra_args = [self.node0_args, self.node1_args, self.node2_args, self.node3_args]
+        self.extra_args = [
+            self.node0_args,
+            self.node1_args,
+            self.node2_args,
+            self.node3_args,
+        ]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -89,7 +99,9 @@ class ChainstateWriteCrashTest(DefiTestFramework):
                 # Any of these RPC calls could throw due to node crash
                 self.start_node(node_index)
                 self.nodes[node_index].waitforblock(expected_tip)
-                utxo_hash = self.nodes[node_index].gettxoutsetinfo()['hash_serialized_2']
+                utxo_hash = self.nodes[node_index].gettxoutsetinfo()[
+                    "hash_serialized_2"
+                ]
                 return utxo_hash
             except Exception:
                 # An exception here should mean the node is about to crash.
@@ -104,7 +116,9 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         # perhaps we generated a test case that blew up our cache?
         # TODO: If this happens a lot, we should try to restart without -dbcrashratio
         # and make sure that recovery happens.
-        raise AssertionError("Unable to successfully restart node %d in allotted time", node_index)
+        raise AssertionError(
+            "Unable to successfully restart node %d in allotted time", node_index
+        )
 
     def submit_block_catch_error(self, node_index, block):
         """Try submitting a block to the given node.
@@ -119,7 +133,11 @@ class ChainstateWriteCrashTest(DefiTestFramework):
             self.log.debug("node %d submitblock raised exception: %s", node_index, e)
             return False
         except OSError as e:
-            self.log.debug("node %d submitblock raised OSError exception: errno=%s", node_index, e.errno)
+            self.log.debug(
+                "node %d submitblock raised OSError exception: errno=%s",
+                node_index,
+                e.errno,
+            )
             if e.errno in [errno.EPIPE, errno.ECONNREFUSED, errno.ECONNRESET]:
                 # The node has likely crashed
                 return False
@@ -134,7 +152,7 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         If any nodes crash while updating, we'll compare utxo hashes to
         ensure recovery was successful."""
 
-        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()['hash_serialized_2']
+        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()["hash_serialized_2"]
 
         # Retrieve all the blocks from node3
         blocks = []
@@ -145,14 +163,16 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         for i in range(3):
             nodei_utxo_hash = None
             self.log.debug("Syncing blocks to node %d", i)
-            for (block_hash, block) in blocks:
+            for block_hash, block in blocks:
                 # Get the block from node3, and submit to node_i
                 self.log.debug("submitting block %s", block_hash)
                 if not self.submit_block_catch_error(i, block):
                     # TODO: more carefully check that the crash is due to -dbcrashratio
                     # (change the exit code perhaps, and check that here?)
                     self.wait_for_node_exit(i, timeout=30)
-                    self.log.debug("Restarting node %d after block hash %s", i, block_hash)
+                    self.log.debug(
+                        "Restarting node %d after block hash %s", i, block_hash
+                    )
                     nodei_utxo_hash = self.restart_node(i, block_hash)
                     assert nodei_utxo_hash is not None
                     self.restart_counts[i] += 1
@@ -176,12 +196,12 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         """Verify that the utxo hash of each node matches node3.
 
         Restart any nodes that crash while querying."""
-        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()['hash_serialized_2']
+        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()["hash_serialized_2"]
         self.log.info("Verifying utxo hash matches for all nodes")
 
         for i in range(3):
             try:
-                nodei_utxo_hash = self.nodes[i].gettxoutsetinfo()['hash_serialized_2']
+                nodei_utxo_hash = self.nodes[i].gettxoutsetinfo()["hash_serialized_2"]
             except OSError:
                 # probably a crash on db flushing
                 nodei_utxo_hash = self.restart_node(i, self.nodes[3].getbestblockhash())
@@ -196,8 +216,8 @@ class ChainstateWriteCrashTest(DefiTestFramework):
             input_amount = 0
             for i in range(2):
                 utxo = utxo_list.pop()
-                tx.vin.append(CTxIn(COutPoint(int(utxo['txid'], 16), utxo['vout'])))
-                input_amount += int(utxo['amount'] * COIN)
+                tx.vin.append(CTxIn(COutPoint(int(utxo["txid"], 16), utxo["vout"])))
+                input_amount += int(utxo["amount"] * COIN)
             output_amount = (input_amount - FEE) // 3
 
             if output_amount <= 0:
@@ -205,10 +225,12 @@ class ChainstateWriteCrashTest(DefiTestFramework):
                 continue
 
             for i in range(3):
-                tx.vout.append(CTxOut(output_amount, hex_str_to_bytes(utxo['scriptPubKey'])))
+                tx.vout.append(
+                    CTxOut(output_amount, hex_str_to_bytes(utxo["scriptPubKey"]))
+                )
 
             # Sign and send the transaction to get into the mempool
-            tx_signed_hex = node.signrawtransactionwithwallet(ToHex(tx))['hex']
+            tx_signed_hex = node.signrawtransactionwithwallet(ToHex(tx))["hex"]
             node.sendrawtransaction(tx_signed_hex)
             num_transactions += 1
 
@@ -219,7 +241,9 @@ class ChainstateWriteCrashTest(DefiTestFramework):
 
         # Start by creating a lot of utxos on node3
         initial_height = self.nodes[3].getblockcount()
-        utxo_list = create_confirmed_utxos(self.nodes[3].getnetworkinfo()['relayfee'], self.nodes[3], 5000)
+        utxo_list = create_confirmed_utxos(
+            self.nodes[3].getnetworkinfo()["relayfee"], self.nodes[3], 5000
+        )
         self.log.info("Prepped %d utxo entries", len(utxo_list))
 
         # Sync these blocks with the other nodes
@@ -237,25 +261,35 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
         for i in range(40):
-            self.log.info("Iteration %d, generating 2500 transactions %s", i, self.restart_counts)
+            self.log.info(
+                "Iteration %d, generating 2500 transactions %s", i, self.restart_counts
+            )
             # Generate a bunch of small-ish transactions
             self.generate_small_transactions(self.nodes[3], 2500, utxo_list)
             # Pick a random block between current tip, and starting tip
             current_height = self.nodes[3].getblockcount()
             random_height = random.randint(starting_tip_height, current_height)
-            self.log.debug("At height %d, considering height %d", current_height, random_height)
+            self.log.debug(
+                "At height %d, considering height %d", current_height, random_height
+            )
             if random_height > starting_tip_height:
                 # Randomly reorg from this point with some probability (1/4 for
                 # tip, 1/5 for tip-1, ...)
                 if random.random() < 1.0 / (current_height + 4 - random_height):
                     self.log.debug("Invalidating block at height %d", random_height)
-                    self.nodes[3].invalidateblock(self.nodes[3].getblockhash(random_height))
+                    self.nodes[3].invalidateblock(
+                        self.nodes[3].getblockhash(random_height)
+                    )
 
             # Now generate new blocks until we pass the old tip height
             self.log.debug("Mining longer tip")
             block_hashes = []
             while current_height + 1 > self.nodes[3].getblockcount():
-                block_hashes.extend(self.nodes[3].generate(min(10, current_height + 1 - self.nodes[3].getblockcount())))
+                block_hashes.extend(
+                    self.nodes[3].generate(
+                        min(10, current_height + 1 - self.nodes[3].getblockcount())
+                    )
+                )
             self.log.debug("Syncing %d new blocks...", len(block_hashes))
             self.sync_node3blocks(block_hashes)
             utxo_list = self.nodes[3].listunspent()
@@ -267,7 +301,11 @@ class ChainstateWriteCrashTest(DefiTestFramework):
         self.verify_utxo_hash()
 
         # Check the test coverage
-        self.log.info("Restarted nodes: %s; crashes on restart: %d", self.restart_counts, self.crashed_on_restart)
+        self.log.info(
+            "Restarted nodes: %s; crashes on restart: %d",
+            self.restart_counts,
+            self.crashed_on_restart,
+        )
 
         # If no nodes were restarted, we didn't test anything.
         assert self.restart_counts != [0, 0, 0]
