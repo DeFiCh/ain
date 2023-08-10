@@ -123,6 +123,11 @@ class uint160 : public base_blob<160> {
 public:
     uint160() {}
     explicit uint160(const std::vector<unsigned char>& vch) : base_blob<160>(vch) {}
+
+    static uint160 TryFromArray(const std::array<unsigned char, 20>& vch) {
+        std::vector<unsigned char> bytes(vch.begin(), vch.end());
+        return uint160(bytes);
+    }
 };
 
 /** 256-bit opaque blob.
@@ -134,6 +139,11 @@ class uint256 : public base_blob<256> {
 public:
     uint256() {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
+
+    static uint256 TryFromArray(const std::array<unsigned char, 32>& vch) {
+        std::vector<unsigned char> bytes(vch.begin(), vch.end());
+        return uint256(bytes);
+    }
 };
 
 /* uint256 from const char *.

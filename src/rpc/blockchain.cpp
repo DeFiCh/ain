@@ -5,6 +5,7 @@
 
 #include <rpc/blockchain.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <blockfilter.h>
 #include <chain.h>
@@ -281,12 +282,26 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             }
             auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
             if (tx1ScriptPubKey.size() == 0) return {};
-            auto res = XVM::TryFrom(tx1ScriptPubKey);
-            if (!res) return {};
+            auto xvm = XVM::TryFrom(tx1ScriptPubKey);
+            if (!xvm) return {};
             UniValue result(UniValue::VOBJ);
             result.pushKV("vmtype", "coinbase");
             result.pushKV("txtype", "coinbase");
-            result.pushKV("msg", res->ToUniValue());
+            result.pushKV("msg", xvm->ToUniValue());
+            UniValue objEvmBlockHeader(UniValue::VOBJ);
+            CrossBoundaryResult res;
+            auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
+            objEvmBlockHeader.pushKV("parenthash", uint256::TryFromArray(evmBlockHeader.parent_hash).ToString());
+            objEvmBlockHeader.pushKV("beneficiary", uint160::TryFromArray(evmBlockHeader.beneficiary).ToString());
+            objEvmBlockHeader.pushKV("stateRoot", uint256::TryFromArray(evmBlockHeader.state_root).ToString());
+            objEvmBlockHeader.pushKV("receiptRoot", uint256::TryFromArray(evmBlockHeader.receipts_root).ToString());
+            objEvmBlockHeader.pushKV("number", evmBlockHeader.number);
+            objEvmBlockHeader.pushKV("gasLimit", evmBlockHeader.gas_limit);
+            objEvmBlockHeader.pushKV("gasUsed", evmBlockHeader.gas_used);
+            objEvmBlockHeader.pushKV("timestamp", evmBlockHeader.timestamp);
+            objEvmBlockHeader.pushKV("nonce", evmBlockHeader.nonce);
+            objEvmBlockHeader.pushKV("baseFee", evmBlockHeader.base_fee);
+            result.pushKV("evmblockheader", objEvmBlockHeader);
             return result;
         }
         auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
