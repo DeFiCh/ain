@@ -26,6 +26,7 @@ struct EVM {
     uint256 blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
+    std::array<uint8_t, 20> beneficiary;
 
     ADD_SERIALIZE_METHODS;
 
@@ -36,6 +37,7 @@ struct EVM {
         READWRITE(blockHash);
         READWRITE(burntFee);
         READWRITE(priorityFee);
+        READWRITE(beneficiary);
     }
 
     UniValue ToUniValue() const;

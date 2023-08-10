@@ -922,7 +922,7 @@ class EVMTest(DefiTestFramework):
             .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
             .split("@")[0]
         )
-        self.burnt_fee = burn_after - burn_before
+        self.burn = burn_after - burn_before
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -946,17 +946,15 @@ class EVMTest(DefiTestFramework):
 
     def validate_xvm_coinbase(self):
         # Check EVM blockhash
-        eth_block = self.nodes[0].eth_getBlockByNumber("latest")
-        eth_hash = eth_block["hash"][2:]
-        block = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )
-        raw_tx = self.nodes[0].getrawtransaction(block["tx"][0], 1)
-        block_hash = raw_tx["vout"][1]["scriptPubKey"]["hex"][20:84]
+        eth_block = self.nodes[0].eth_getBlockByNumber('latest')
+        eth_hash = eth_block['hash'][2:]
+        block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
+        block_hash = raw_tx['vout'][1]['scriptPubKey']['hex'][22:86]
         assert_equal(block_hash, eth_hash)
 
         # Check EVM burnt fee
-        opreturn_burnt_fee_amount = raw_tx["vout"][1]["scriptPubKey"]["hex"][84:]
+        opreturn_burnt_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][86:]
         opreturn_burnt_fee_sats = (
             Decimal(
                 int(
@@ -968,10 +966,10 @@ class EVMTest(DefiTestFramework):
             )
             / 100000000
         )
-        assert_equal(opreturn_burnt_fee_sats, self.burnt_fee)
+        assert_equal(opreturn_burnt_fee_sats, self.burn)
 
         # Check EVM miner fee
-        opreturn_priority_fee_amount = raw_tx["vout"][1]["scriptPubKey"]["hex"][100:]
+        opreturn_priority_fee_amount = raw_tx['vout'][1]['scriptPubKey']['hex'][102:]
         opreturn_priority_fee_sats = (
             Decimal(
                 int(
@@ -984,6 +982,12 @@ class EVMTest(DefiTestFramework):
             / 100000000
         )
         assert_equal(opreturn_priority_fee_sats, self.miner_fee)
+
+        # Check EVM beneficiary address
+        opreturn_miner_keyid = raw_tx['vout'][1]['scriptPubKey']['hex'][120:]
+        miner_eth_address = self.nodes[0].addressmap(self.nodes[0].get_genesis_keys().operatorAuthAddress, 1)
+        miner_eth_keyid = self.nodes[0].getaddressinfo(miner_eth_address['format']['erc55'])['witness_program']
+        assert_equal(opreturn_miner_keyid, miner_eth_keyid)
 
     def evm_rollback(self):
         # Test rollback of EVM TX
