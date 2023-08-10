@@ -241,10 +241,8 @@ class EVMTest(DefiTestFramework):
 
         self.should_replace_pending_transaction_0()
 
-        # failed
         self.should_replace_pending_transaction_1()
 
-        # failed
         self.should_replace_pending_transaction_2()
 
         self.should_replace_pending_transaction_3()

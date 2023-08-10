@@ -762,7 +762,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // EVM related context for this package
     EvmPackageContext evmPackageContext;
 
-    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !evmPackageContext.failedNonces.empty()) {
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !evmPackageContext.failedNonces.empty() || !evmPackageContext.replaceByFee.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
             SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTxSet, failedTxSet)) {
