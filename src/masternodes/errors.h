@@ -438,6 +438,10 @@ public:
         return Res::Err("Cannot transfer inside same domain");
     }
 
+    static Res TransferDomainInvalidDomain() {
+        return Res::Err("Cannot transfer inside invalid domain specified");
+    }
+
     static Res TransferDomainUnequalAmount() {
         return Res::Err("Source amount must be equal to destination amount");
     }
