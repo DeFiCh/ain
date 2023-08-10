@@ -22,7 +22,7 @@ impl WeiAmount {
     pub fn wei_range(&self) -> bool {
         let max_money_sats = MAX_MONEY_SATS;
         let max_money_wei = max_money_sats.saturating_mul(WEI_TO_SATS);
-        self.0 >= U256::zero() && self.0 <= max_money_wei
+        self.0 <= max_money_wei
     }
 }
 

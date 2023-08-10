@@ -27,7 +27,7 @@ class EVMTest(DefiTestFramework):
         self.eth_address = '0x9b8a4af42140d8a4c153a822f02571a1dd037e89'
         self.eth_address_bech32 = 'bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8'
         self.eth_address_privkey = 'af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23'
-        self.eth_address1 = self.nodes[0].getnewaddress("", "eth")
+        self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
         self.no_auth_eth_address = '0x6c34cbb9219d8caa428835d2073e8ec88ba0a110'
 
 
