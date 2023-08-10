@@ -584,15 +584,15 @@ public:
                 std::string tx_type;
                 switch (txInfo.tx_type) {
                     case CEVMTxType::LegacyTransaction: {
-                        tx_type = "legacy-tx";
+                        tx_type = "legacy";
                         break;
                     }
                     case CEVMTxType::EIP2930Transaction: {
-                        tx_type = "EIP2930-tx";
+                        tx_type = "eip2930";
                         break;
                     }
                     case CEVMTxType::EIP1559Transaction: {
-                        tx_type = "EIP1559-tx";
+                        tx_type = "eip1559";
                         break;
                     }
                     default: {
@@ -601,7 +601,7 @@ public:
                 }
                 auto senderBytes = std::vector<uint8_t>(txInfo.sender.begin(), txInfo.sender.end());
                 auto sender = CTxDestination(WitnessV16EthHash(uint160(senderBytes)));
-                rpcInfo.pushKV("tx-type", tx_type);
+                rpcInfo.pushKV("type", tx_type);
                 rpcInfo.pushKV("hash", evmTxHash->ToString());
                 rpcInfo.pushKV("sender", EncodeDestination(sender));
                 rpcInfo.pushKV("nonce", txInfo.nonce);
