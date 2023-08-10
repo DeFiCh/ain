@@ -1853,6 +1853,7 @@ public:
                 }
 
                 govVar->time = time;
+                govVar->evmQueueId = evmQueueId;
 
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
@@ -2635,8 +2636,11 @@ public:
         }
 
         CTokenImplementation token;
-        token.symbol         = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name           = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        auto tokenSymbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto tokenName = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
+        token.symbol         = tokenSymbol;
+        token.name           = tokenName;
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
         token.flags          = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
@@ -2652,6 +2656,7 @@ public:
 
             auto attributes  = mnview.GetAttributes();
             attributes->time = time;
+            attributes->evmQueueId = evmQueueId;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
@@ -3894,8 +3899,7 @@ public:
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
-            // Source parsing
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from DFI address
                 res = mnview.SubBalance(src.address, src.amount);
                 if (!res)
@@ -3903,7 +3907,35 @@ public:
                 stats.dvmEvmTotal.Add(src.amount);
                 stats.dvmOut.Add(src.amount);
                 stats.dvmCurrent.Sub(src.amount);
-            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+
+                // Add balance to ERC55 address
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+                arith_uint256 balanceIn = dst.amount.nValue;
+                auto tokenId = dst.amount.nTokenId;
+                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
+                CrossBoundaryResult result;
+                if (tokenId == DCT_ID{0}) {
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DFI: %s", result.reason);
+                    }
+                }
+                else {
+                    CrossBoundaryResult result;
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
+                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+
+                    if (!result.ok) {
+                        return Res::Err("Error bridging DST20: %s", result.reason);
+                    }
+                }
+                auto tokenAmount = CTokenAmount{tokenId, dst.amount.nValue};
+                stats.evmIn.Add(tokenAmount);
+                stats.evmCurrent.Add(tokenAmount);
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                 // Subtract balance from ERC55 address
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
@@ -3933,9 +3965,7 @@ public:
                 auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
                 stats.evmOut.Add(tokenAmount);
                 stats.evmCurrent.Sub(tokenAmount);
-            }
-            // Destination parsing
-            if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+
                 // Add balance to DFI address
                 res = mnview.AddBalance(dst.address, dst.amount);
                 if (!res)
@@ -3943,34 +3973,9 @@ public:
                 stats.evmDvmTotal.Add(dst.amount);
                 stats.dvmIn.Add(dst.amount);
                 stats.dvmCurrent.Add(dst.amount);
-            } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                // Add balance to ERC55 address
-                CTxDestination dest;
-                ExtractDestination(dst.address, dest);
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-                arith_uint256 balanceIn = dst.amount.nValue;
-                auto tokenId = dst.amount.nTokenId;
-                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
-                CrossBoundaryResult result;
-                if (tokenId == DCT_ID{0}) {
-                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
-                    if (!result.ok) {
-                        return Res::Err("Error bridging DFI: %s", result.reason);
-                    }
-                }
-                else {
-                    CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
-
-                    if (!result.ok) {
-                        return Res::Err("Error bridging DST20: %s", result.reason);
-                    }
-                }
-                auto tokenAmount = CTokenAmount{tokenId, dst.amount.nValue};
-                stats.evmIn.Add(tokenAmount);
-                stats.evmCurrent.Add(tokenAmount);
+            }
+            else {
+                return DeFiErrors::TransferDomainInvalidDomain();
             }
 
             if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {

@@ -17,6 +17,7 @@
 #include <masternodes/validation.h>
 #include <masternodes/threadpool.h>
 #include <masternodes/vaulthistory.h>
+#include <masternodes/errors.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
@@ -980,7 +981,7 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
     cache.SetVariable(*attributes);
 }
 
-static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
@@ -994,6 +995,7 @@ static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, co
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
+                govVar->evmQueueId = evmQueueId;
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -2404,7 +2406,7 @@ static Res ValidateCoinbaseXVMOutput(const CScript &scriptPubKey, const Finalize
 }
 
 static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
-    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return {Res::Ok()};
 
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
@@ -2528,6 +2530,34 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     return Res::Ok();
 }
 
+static Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
+    if (!IsEVMEnabled(pindex->nHeight, cache, chainparams.GetConsensus())) return Res::Ok();
+
+    CrossBoundaryResult result;
+    auto evmTargetBlock = evm_unsafe_try_get_target_block_in_q(result, evmQueueId);
+    if (!result.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+    if (evmTargetBlock > 0) return Res::Ok();
+
+    auto time = GetTimeMillis();
+    LogPrintf("DST20 migration ...\n");
+
+    cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
+        if (token.IsPoolShare()) return true;
+        if (!token.IsDAT()) return true;
+
+        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString())) {
+            return result.ok;
+        }
+
+        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
+                token.name, token.symbol, id.ToString());
+        return result.ok;
+    }, DCT_ID{1});  // start from non-DFI
+
+    LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
+    return result.ok ? Res::Ok() : DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+}
+
 static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
     // construct undo
     auto& flushable = cache.GetStorage();
@@ -2543,9 +2573,13 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
 Res ProcessFallibleEvent(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, std::array<uint8_t, 20>& beneficiary, const bool evmEnabledOnBlockHead) {
     CCustomCSView cache(mnview);
 
-    // Process EVM block
-    auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
     if (!res) return res;
+
+    // Process EVM block
+    res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    if (!res) return res;
+
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
@@ -2580,7 +2614,7 @@ void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSV
     ProcessFutures(pindex, cache, chainparams);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams);
+    ProcessGovEvents(pindex, cache, chainparams, evmQueueId);
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);

@@ -454,6 +454,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 failed_transactions,
                 total_burnt_fees,
                 total_priority_fees,
+                block_number,
             }) => {
                 let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()) else {
                     return cross_boundary_error_return(result, "total burnt fees value overflow");
@@ -467,6 +468,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                     failed_transactions,
                     total_burnt_fees,
                     total_priority_fees,
+                    block_number: block_number.as_u64(),
                 }
             }
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -544,6 +546,24 @@ pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
             cross_boundary_success_return(result, number)
         }
         None => cross_boundary_error_return(result, "Unable to get block count"),
+    }
+}
+
+pub fn evm_try_is_dst20_deployed_or_queued(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    name: &str,
+    symbol: &str,
+    token_id: &str,
+) -> bool {
+    unsafe {
+        match SERVICES
+            .evm
+            .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
+        {
+            Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
     }
 }
 
@@ -689,6 +709,27 @@ pub fn evm_try_bridge_dst20(
             .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
         {
             Ok(_) => cross_boundary_success(result),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
+}
+
+/// Retrieves the queue target block
+///
+/// # Arguments
+///
+/// * `queue_id` - The queue ID.
+///
+/// # Returns
+///
+/// Returns the target block for a specific queue_id as a `u64`
+pub fn evm_unsafe_try_get_target_block_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+) -> u64 {
+    unsafe {
+        match SERVICES.evm.core.get_target_block_in(queue_id) {
+            Ok(target_block) => cross_boundary_success_return(result, target_block.as_u64()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }

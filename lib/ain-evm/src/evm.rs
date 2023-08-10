@@ -41,6 +41,7 @@ pub struct FinalizedBlockInfo {
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
+    pub block_number: U256,
 }
 
 pub struct DeployContractInfo {
@@ -183,7 +184,7 @@ impl EVMServices {
         }
 
         for queue_item in queue.transactions.clone() {
-            match queue_item.queue_tx {
+            match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
@@ -344,6 +345,7 @@ impl EVMServices {
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
+            block_number: current_block_number,
         })
     }
 
@@ -522,5 +524,41 @@ impl EVMServices {
             address: contract,
             storage: vec![(storage_index, ain_contracts::u256_to_h256(new_balance))],
         })
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn is_dst20_deployed_or_queued(
+        &self,
+        queue_id: u64,
+        name: &str,
+        symbol: &str,
+        token_id: &str,
+    ) -> Result<bool, Box<dyn Error>> {
+        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+        debug!(
+            "[is_dst20_deployed_or_queued] Fetching address {:#?}",
+            address
+        );
+
+        let backend = self.core.get_latest_block_backend()?;
+        // Address already deployed
+        if backend.get_account(&address).is_some() {
+            return Ok(true);
+        }
+
+        let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            name: String::from(name),
+            symbol: String::from(symbol),
+            address,
+        }));
+
+        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
+
+        Ok(is_queued)
     }
 }

@@ -64,6 +64,7 @@ pub mod ffi {
         pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
+        pub block_number: u64,
     }
 
     #[derive(Default)]
@@ -170,7 +171,6 @@ pub mod ffi {
             symbol: &str,
             token_id: &str,
         );
-
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
@@ -180,5 +180,17 @@ pub mod ffi {
             token_id: &str,
             out: bool,
         );
+        fn evm_try_is_dst20_deployed_or_queued(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            name: &str,
+            symbol: &str,
+            token_id: &str,
+        ) -> bool;
+
+        fn evm_unsafe_try_get_target_block_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+        ) -> u64;
     }
 }
