@@ -395,8 +395,6 @@ check_lints() {
 }
 
 check_sh() {
-    local x
-    
     py_ensure_env_active
 
     # TODO: Remove most of the specific ignores after resolving them
