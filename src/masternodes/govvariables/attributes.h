@@ -90,7 +90,7 @@ enum EconomyKeys : uint8_t {
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
     Loans                     = 'q',
     TransferDomainLive        = 'r',
-    EVMFees                   = 's',
+    EVMBlockStatsLive                   = 's',
 };
 
 enum DFIPKeys : uint8_t {
@@ -280,15 +280,15 @@ struct CDexTokenInfo {
 
 enum FeeDirValues : uint8_t { Both, In, Out };
 
-struct CTransferDomainAccounting {
-    CAccountingBalaces dvmEvmTotal;
-    CAccountingBalaces evmDvmTotal;
-    CAccountingBalaces dvmIn;
-    CAccountingBalaces evmIn;
-    CAccountingBalaces dvmOut;
-    CAccountingBalaces evmOut;
-    CAccountingBalaces dvmCurrent;
-    CAccountingBalaces evmCurrent;
+struct CTransferDomainStatsLive {
+    CStatsBalances dvmEvmTotal;
+    CStatsBalances evmDvmTotal;
+    CStatsBalances dvmIn;
+    CStatsBalances evmIn;
+    CStatsBalances dvmOut;
+    CStatsBalances evmOut;
+    CStatsBalances dvmCurrent;
+    CStatsBalances evmCurrent;
 
     ADD_SERIALIZE_METHODS;
 
@@ -305,7 +305,7 @@ struct CTransferDomainAccounting {
     }
 };
 
-struct CEvmFees {
+struct CEvmBlockStatsLive {
     CAmount feeBurnt;
     CAmount feeBurntMin = std::numeric_limits<CAmount>::max();
     uint256 feeBurntMinHash;
@@ -423,8 +423,8 @@ using CAttributeValue          = std::variant<bool,
                                      uint32_t,
                                      uint64_t,
                                      XVmAddressFormatItems,
-                                     CTransferDomainAccounting,
-                                     CEvmFees>;
+                                     CTransferDomainStatsLive,
+                                     CEvmBlockStatsLive>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);

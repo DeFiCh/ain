@@ -296,6 +296,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         missing_tx = self.nodes[0].updatemasternode(mn_id, {'ownerAddress': owner_address})
         missing_rawtx = self.nodes[0].getrawtransaction(missing_tx, 1)
         self.nodes[0].clearmempool()
+        self.sync_all()
 
         # Test owner update without collateral input
         rawtx = self.nodes[0].createrawtransaction([{"txid": missing_auth_tx, "vout": missing_input_vout},

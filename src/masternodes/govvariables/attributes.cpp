@@ -389,7 +389,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
              {EconomyKeys::TransferDomainLive, "transferdomain"},
-             {EconomyKeys::EVMFees, "evm_fees"},
+             {EconomyKeys::EVMBlockStatsLive, "evm"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1535,39 +1535,39 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
-            }  else if (const auto accounting = std::get_if<CTransferDomainAccounting>(&attribute.second)) {
+            }  else if (const auto stats = std::get_if<CTransferDomainStatsLive>(&attribute.second)) {
                     auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
                     auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
                     auto dvmDomain    = KeyBuilder(key, "dvm");
                     auto evmDomain    = KeyBuilder(key, "evm");
-                    for (const auto &[id, value] : accounting->dvmEvmTotal.balances)
+                    for (const auto &[id, value] : stats->dvmEvmTotal.balances)
                         ret.pushKV(KeyBuilder(dvmEvmEdge, id.v, "total"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->evmDvmTotal.balances)
+                    for (const auto &[id, value] : stats->evmDvmTotal.balances)
                         ret.pushKV(KeyBuilder(evmDvmEdge, id.v, "total"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->dvmCurrent.balances)
+                    for (const auto &[id, value] : stats->dvmCurrent.balances)
                         ret.pushKV(KeyBuilder(dvmDomain, id.v, "current"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->dvmIn.balances)
+                    for (const auto &[id, value] : stats->dvmIn.balances)
                         ret.pushKV(KeyBuilder(dvmDomain, id.v, "in"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->dvmOut.balances)
+                    for (const auto &[id, value] : stats->dvmOut.balances)
                         ret.pushKV(KeyBuilder(dvmDomain, id.v, "out"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->evmCurrent.balances)
+                    for (const auto &[id, value] : stats->evmCurrent.balances)
                         ret.pushKV(KeyBuilder(evmDomain, id.v, "current"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->evmIn.balances)
+                    for (const auto &[id, value] : stats->evmIn.balances)
                         ret.pushKV(KeyBuilder(evmDomain, id.v, "in"), ValueFromAmount(value));
-                    for (const auto &[id, value] : accounting->evmOut.balances)
+                    for (const auto &[id, value] : stats->evmOut.balances)
                         ret.pushKV(KeyBuilder(evmDomain, id.v, "out"), ValueFromAmount(value));
-            } else if (const auto amounts = std::get_if<CEvmFees>(&attribute.second)) {
+            } else if (const auto stats = std::get_if<CEvmBlockStatsLive>(&attribute.second)) {
                     auto evmFeesBlockKey     = KeyBuilder(key, "block");
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt"), ValueFromAmount(amounts->feeBurnt));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min"), ValueFromAmount(amounts->feeBurntMin));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min_hash"), amounts->feeBurntMinHash.GetHex());
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max"), ValueFromAmount(amounts->feeBurntMax));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max_hash"), amounts->feeBurntMaxHash.GetHex());
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority"), ValueFromAmount(amounts->feePriority));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min"), ValueFromAmount(amounts->feePriorityMin));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min_hash"), amounts->feePriorityMinHash.GetHex());
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max"), ValueFromAmount(amounts->feePriorityMax));
-                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max_hash"), amounts->feePriorityMaxHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt"), ValueFromAmount(stats->feeBurnt));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min"), ValueFromAmount(stats->feeBurntMin));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_min_hash"), stats->feeBurntMinHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max"), ValueFromAmount(stats->feeBurntMax));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_burnt_max_hash"), stats->feeBurntMaxHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority"), ValueFromAmount(stats->feePriority));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min"), ValueFromAmount(stats->feePriorityMin));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_min_hash"), stats->feePriorityMinHash.GetHex());
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max"), ValueFromAmount(stats->feePriorityMax));
+                    ret.pushKV(KeyBuilder(evmFeesBlockKey, "fee_priority_max_hash"), stats->feePriorityMaxHash.GetHex());
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
