@@ -3890,7 +3890,7 @@ public:
         auto attributes = mnview.GetAttributes();
         assert(attributes);
         CDataStructureV0 transferDomainStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
-        auto transferDomainStats = attributes->GetValue(transferDomainStatsKey, CTransferDomainStatsLive{});
+        auto stats = attributes->GetValue(transferDomainStatsKey, CTransferDomainStatsLive{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
@@ -3900,9 +3900,9 @@ public:
                 res = mnview.SubBalance(src.address, src.amount);
                 if (!res)
                     return res;
-                transferDomainStats.dvmEvmTotal.Add(src.amount);
-                transferDomainStats.dvmOut.Add(src.amount);
-                transferDomainStats.dvmCurrent.Sub(src.amount);
+                stats.dvmEvmTotal.Add(src.amount);
+                stats.dvmOut.Add(src.amount);
+                stats.dvmCurrent.Sub(src.amount);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Subtract balance from ERC55 address
                 CTxDestination dest;
@@ -3931,8 +3931,8 @@ public:
                     }
                 }
                 auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
-                transferDomainStats.evmOut.Add(tokenAmount);
-                transferDomainStats.evmCurrent.Sub(tokenAmount);
+                stats.evmOut.Add(tokenAmount);
+                stats.evmCurrent.Sub(tokenAmount);
             }
             // Destination parsing
             if (dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
@@ -3940,9 +3940,9 @@ public:
                 res = mnview.AddBalance(dst.address, dst.amount);
                 if (!res)
                     return res;
-                transferDomainStats.evmDvmTotal.Add(dst.amount);
-                transferDomainStats.dvmIn.Add(dst.amount);
-                transferDomainStats.dvmCurrent.Add(dst.amount);
+                stats.evmDvmTotal.Add(dst.amount);
+                stats.dvmIn.Add(dst.amount);
+                stats.dvmCurrent.Add(dst.amount);
             } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
                 // Add balance to ERC55 address
                 CTxDestination dest;
@@ -3969,8 +3969,8 @@ public:
                     }
                 }
                 auto tokenAmount = CTokenAmount{tokenId, dst.amount.nValue};
-                transferDomainStats.evmIn.Add(tokenAmount);
-                transferDomainStats.evmCurrent.Add(tokenAmount);
+                stats.evmIn.Add(tokenAmount);
+                stats.evmCurrent.Add(tokenAmount);
             }
 
             if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
@@ -3978,7 +3978,7 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainStatsKey, transferDomainStats);
+        attributes->SetValue(transferDomainStatsKey, stats);
         return mnview.SetVariable(*attributes);
     }
 

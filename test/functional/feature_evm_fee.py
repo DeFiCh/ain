@@ -73,8 +73,8 @@ class EVMFeeTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), Decimal('0.00021000'))
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), Decimal('0'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
 
         self.rollback_to(height)
 
@@ -115,8 +115,8 @@ class EVMFeeTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), Decimal('0.00021000'))
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), Decimal('0'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
 
         self.rollback_to(height)
 
@@ -214,8 +214,8 @@ class EVMFeeTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_burnt']), Decimal('0.00021000'))
-        assert_equal(Decimal(attributes['v0/live/economy/evm_fees/block/fee_priority']), Decimal('0'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_burnt']), Decimal('0.00021000'))
+        assert_equal(Decimal(attributes['v0/live/economy/evm/block/fee_priority']), Decimal('0'))
 
         # Don't consume balance as not enough to cover send value + fee.
         # Deduct only 21000 call fee

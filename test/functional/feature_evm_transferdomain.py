@@ -149,8 +149,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], Decimal('0E-8'))
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], Decimal('0E-8'))
 
 
     def invalid_values_evm_dvm(self):
@@ -201,8 +201,8 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], Decimal('0E-8'))
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt'], Decimal('0E-8'))
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], Decimal('0E-8'))
 
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(-5, "Incorrect authorization for " + self.address1, self.nodes[0].transferdomain, [{"src": {"address":self.address1, "amount":"1@DFI", "domain": 2}, "dst":{"address":self.eth_address, "amount":"1@DFI", "domain": 3}}])
@@ -253,16 +253,16 @@ class EVMTest(DefiTestFramework):
         attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
         self.burnt_fee = Decimal('0.00021000')
         self.priority_fee = Decimal('0.00023100')
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt'], self.burnt_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min'], self.burnt_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_min_hash'], blockHash)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max'], self.burnt_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_burnt_max_hash'], blockHash)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority'], self.priority_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_min_hash'], blockHash)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max'], self.priority_fee)
-        assert_equal(attributes['v0/live/economy/evm_fees/block/fee_priority_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max_hash'], blockHash)
 
         dfi_balance = self.nodes[0].getaccount(self.address, {}, True)['0']
 
