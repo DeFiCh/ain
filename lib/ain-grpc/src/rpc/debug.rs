@@ -1,5 +1,4 @@
 use crate::call_request::CallRequest;
-use ain_evm::core::MAX_GAS_PER_BLOCK;
 use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
 
 use ethereum::Account;
@@ -82,6 +81,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         Ok(())
     }
+
     fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate> {
         let CallRequest {
             from,
@@ -105,6 +105,11 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 "Error fetching latest block hash and number".to_string(),
             ))?;
         let base_fee = self.handler.block.calculate_base_fee(block_hash);
+        let Ok(gas_limit) = u64::try_from(gas.ok_or(Error::Custom("Cannot get fee estimate without specifying gas limit".to_string()))?) else {
+            return Err(Error::Custom(
+                "Cannot get fee estimate, gas value overflow".to_string()
+            ));
+        };
 
         let TxResponse { used_gas, .. } = self
             .handler
@@ -114,7 +119,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 to,
                 value: value.unwrap_or_default(),
                 data: &data.map(|d| d.0).unwrap_or_default(),
-                gas_limit: gas.unwrap_or(MAX_GAS_PER_BLOCK).as_u64(),
+                gas_limit,
                 access_list: access_list.unwrap_or_default(),
                 block_number,
             })
@@ -156,7 +161,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 ))
             }
         }.ok_or(Error::Custom(
-            "Overflow happened during fee calculation".to_string()
+            "Cannot get fee estimate, fee value overflow".to_string()
         ))?;
 
         let burnt_fee = used_gas * base_fee;
