@@ -9,9 +9,9 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    int_to_eth_u256
+    int_to_eth_u256,
+    hex_to_decimal
 )
-
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -142,6 +142,30 @@ class EVMTest(DefiTestFramework):
         # state check
         block = self.nodes[0].eth_getBlockByHash(latest_block['hash'])
         assert_equal(block, latest_block)
+        blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+
+        # Check accounting of EVM fees
+        txLegacy = {
+            'nonce': '0x1',
+            'from': self.ethAddress,
+            'value': '0x1',
+            'gas': '0x5208', # 21000
+            'gasPrice': '0x4e3b29200', # 21_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(txLegacy)
+        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        self.priority_fee = hex_to_decimal(fees["priority_fee"])
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max'], self.burnt_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_min_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max_hash'], blockHash)
 
     def run_test(self):
         self.setup()
