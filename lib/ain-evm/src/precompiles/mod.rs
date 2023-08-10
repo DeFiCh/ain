@@ -78,7 +78,6 @@ fn ensure_linear_cost(
     Ok(cost)
 }
 
-#[derive(Default)]
 pub struct MetachainPrecompiles;
 
 // Ethereum precompiles available as of shangai fork :

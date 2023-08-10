@@ -12,6 +12,8 @@
 #include <masternodes/mn_checks.h>        /// GetAggregatePrice / CustomTxType
 #include <validation.h>                   /// GetNextAccPosition
 
+#include <ain_rs_exports.h>
+
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
@@ -615,9 +617,17 @@ static bool VerifyToken(const CCustomCSView &view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
-static bool VerifyDATToken(const CCustomCSView &view, const std::string str) {
+static bool VerifyDATToken(const CCustomCSView &view, const std::string &str) {
     const auto tokenPair = view.GetToken(str);
     if (tokenPair && tokenPair->second && tokenPair->second->IsDAT()) {
+        return true;
+    }
+    return false;
+}
+
+static bool VerifyDATToken(const CCustomCSView &view, const uint32_t id) {
+    const auto token = view.GetToken(DCT_ID{id});
+    if (token && token->IsDAT()) {
         return true;
     }
     return false;
@@ -1744,18 +1754,60 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             }
                         }
                         [[fallthrough]];
-                    case TokenKeys::LoanCollateralEnabled:
+                    case TokenKeys::LoanCollateralEnabled: {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
+                            return DeFiErrors::GovVarValidateFortCanningCrunch();
+                        }
+                        // Post fork remove this guard as long as there were no non-DAT loan tokens before
+                        // the fork. A full sync test on the removal of this guard will tell.
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            if (!VerifyDATToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        } else {
+                            if (!VerifyToken(view, attrV0->typeId)) {
+                                return DeFiErrors::GovVarValidateToken(attrV0->typeId);
+                            }
+                        }
+                        CDataStructureV0 intervalPriceKey{
+                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                            return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+                        break;
+                    }
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return DeFiErrors::GovVarValidateFortCanningCrunch();
                         }
-                        if (!VerifyToken(view, attrV0->typeId)) {
+                        const auto tokenID = DCT_ID{attrV0->typeId};
+                        const auto token = view.GetToken(tokenID);
+                        if (!token) {
                             return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                         }
                         CDataStructureV0 intervalPriceKey{
-                            AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
+                        }
+
+                        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature,
+                                                          DFIPKeys::EVMEnabled};
+
+                        CrossBoundaryResult result;
+                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight &&
+                            GetValue(enabledKey, false) &&
+                            evmQueueId &&
+                            !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
+                                                       tokenID.ToString())) {
+                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
+                                                 token->name,
+                                                 token->symbol,
+                                                 tokenID.ToString());
+
+                            if (!result.ok) {
+                                return DeFiErrors::GovVarErrorCreatingDST20(result.reason.c_str());
+                            }
                         }
                         break;
                     }

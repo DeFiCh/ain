@@ -43,7 +43,7 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self) -> u64 {
+    pub unsafe fn create(&self, target_block: U256) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -54,7 +54,7 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new()));
+                e.insert(Arc::new(TransactionQueue::new(target_block)));
                 return queue_id;
             }
         }
@@ -186,6 +186,15 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
     }
 
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
+        self.with_transaction_queue(queue_id, |queue| queue.get_target_block())
+    }
+
     /// Apply the closure to the queue associated with the queue ID.
     /// # Errors
     ///
@@ -201,15 +210,15 @@ impl TransactionQueueMap {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueTx {
     SignedTx(Box<SignedTx>),
     SystemTx(SystemTx),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueueTxItem {
-    pub queue_tx: QueueTx,
+    pub tx: QueueTx,
     pub tx_hash: NativeTxHash,
     pub tx_fee: U256,
     pub gas_used: U256,
@@ -237,16 +246,18 @@ pub struct TransactionQueueData {
     pub block_data: Option<BlockData>,
     pub total_fees: U256,
     pub total_gas_used: U256,
+    pub target_block: U256,
 }
 
 impl TransactionQueueData {
-    pub fn new() -> Self {
+    pub fn new(target_block: U256) -> Self {
         Self {
             transactions: Vec::new(),
             account_nonces: HashMap::new(),
             total_fees: U256::zero(),
             total_gas_used: U256::zero(),
             block_data: None,
+            target_block,
         }
     }
 }
@@ -257,9 +268,9 @@ pub struct TransactionQueue {
 }
 
 impl TransactionQueue {
-    fn new() -> Self {
+    fn new(target_block: U256) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new()),
+            data: Mutex::new(TransactionQueueData::new(target_block)),
         }
     }
 
@@ -289,7 +300,7 @@ impl TransactionQueue {
             data.total_gas_used += gas_used;
         }
         data.transactions.push(QueueTxItem {
-            queue_tx: tx,
+            tx,
             tx_hash,
             tx_fee: gas_fee,
             gas_used,
@@ -302,7 +313,7 @@ impl TransactionQueue {
         let mut fees_to_remove = U256::zero();
         let mut gas_used_to_remove = U256::zero();
         data.transactions.retain(|item| {
-            let tx_sender = match &item.queue_tx {
+            let tx_sender = match &item.tx {
                 QueueTx::SignedTx(tx) => tx.sender,
                 QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
             };
@@ -334,6 +345,19 @@ impl TransactionQueue {
 
     pub fn get_total_gas_used(&self) -> U256 {
         self.data.lock().unwrap().total_gas_used
+    }
+
+    pub fn get_target_block(&self) -> U256 {
+        self.data.lock().unwrap().target_block
+    }
+
+    pub fn is_queued(&self, tx: QueueTx) -> bool {
+        self.data
+            .lock()
+            .unwrap()
+            .transactions
+            .iter()
+            .any(|queued| queued.tx == tx)
     }
 }
 
