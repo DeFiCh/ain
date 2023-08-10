@@ -526,6 +526,12 @@ impl EVMServices {
         })
     }
 
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn is_dst20_deployed_or_queued(
         &self,
         queue_id: u64,
