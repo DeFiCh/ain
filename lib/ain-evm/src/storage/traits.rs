@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use ain_cpp_imports::Attributes;
 use ethereum::BlockAny;
 use ethereum::TransactionV2;
 use keccak_hash::H256;
@@ -55,6 +56,11 @@ pub trait FlushableStorage {
 
 pub trait Rollback {
     fn disconnect_latest_block(&self);
+}
+
+pub trait AttributesStorage {
+    fn put_attributes(&self, attributes: Option<&Attributes>);
+    fn get_attributes(&self) -> Option<Attributes>;
 }
 
 pub trait PersistentState {

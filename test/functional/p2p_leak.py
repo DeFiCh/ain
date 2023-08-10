@@ -33,49 +33,71 @@ class CLazyNode(P2PInterface):
     def on_open(self):
         self.ever_connected = True
 
-    def on_version(self, message): self.bad_message(message)
+    def on_version(self, message):
+        self.bad_message(message)
 
-    def on_verack(self, message): self.bad_message(message)
+    def on_verack(self, message):
+        self.bad_message(message)
 
-    def on_reject(self, message): self.bad_message(message)
+    def on_reject(self, message):
+        self.bad_message(message)
 
-    def on_inv(self, message): self.bad_message(message)
+    def on_inv(self, message):
+        self.bad_message(message)
 
-    def on_addr(self, message): self.bad_message(message)
+    def on_addr(self, message):
+        self.bad_message(message)
 
-    def on_getdata(self, message): self.bad_message(message)
+    def on_getdata(self, message):
+        self.bad_message(message)
 
-    def on_getblocks(self, message): self.bad_message(message)
+    def on_getblocks(self, message):
+        self.bad_message(message)
 
-    def on_tx(self, message): self.bad_message(message)
+    def on_tx(self, message):
+        self.bad_message(message)
 
-    def on_block(self, message): self.bad_message(message)
+    def on_block(self, message):
+        self.bad_message(message)
 
-    def on_getaddr(self, message): self.bad_message(message)
+    def on_getaddr(self, message):
+        self.bad_message(message)
 
-    def on_headers(self, message): self.bad_message(message)
+    def on_headers(self, message):
+        self.bad_message(message)
 
-    def on_anchorauth(self, message): self.bad_message(message)
+    def on_anchorauth(self, message):
+        self.bad_message(message)
 
-    def on_getheaders(self, message): self.bad_message(message)
+    def on_getheaders(self, message):
+        self.bad_message(message)
 
-    def on_ping(self, message): self.bad_message(message)
+    def on_ping(self, message):
+        self.bad_message(message)
 
-    def on_mempool(self, message): self.bad_message(message)
+    def on_mempool(self, message):
+        self.bad_message(message)
 
-    def on_pong(self, message): self.bad_message(message)
+    def on_pong(self, message):
+        self.bad_message(message)
 
-    def on_feefilter(self, message): self.bad_message(message)
+    def on_feefilter(self, message):
+        self.bad_message(message)
 
-    def on_sendheaders(self, message): self.bad_message(message)
+    def on_sendheaders(self, message):
+        self.bad_message(message)
 
-    def on_sendcmpct(self, message): self.bad_message(message)
+    def on_sendcmpct(self, message):
+        self.bad_message(message)
 
-    def on_cmpctblock(self, message): self.bad_message(message)
+    def on_cmpctblock(self, message):
+        self.bad_message(message)
 
-    def on_getblocktxn(self, message): self.bad_message(message)
+    def on_getblocktxn(self, message):
+        self.bad_message(message)
 
-    def on_blocktxn(self, message): self.bad_message(message)
+    def on_blocktxn(self, message):
+        self.bad_message(message)
 
 
 # Node that never sends a version. We'll use this to send a bunch of messages
@@ -88,7 +110,8 @@ class CNodeNoVersionBan(CLazyNode):
         for i in range(banscore):
             self.send_message(msg_verack())
 
-    def on_reject(self, message): pass
+    def on_reject(self, message):
+        pass
 
 
 # Node that never sends a version. This one just sits idle and hopes to receive
@@ -104,9 +127,11 @@ class CNodeNoVerackIdle(CLazyNode):
         self.version_received = False
         super().__init__()
 
-    def on_reject(self, message): pass
+    def on_reject(self, message):
+        pass
 
-    def on_verack(self, message): pass
+    def on_verack(self, message):
+        pass
 
     # When version is received, don't reply with a verack. Instead, see if the
     # node will give us a message that it shouldn't. This is not an exhaustive
@@ -120,18 +145,26 @@ class CNodeNoVerackIdle(CLazyNode):
 class P2PLeakTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-banscore=' + str(banscore)]]
+        self.extra_args = [["-banscore=" + str(banscore)]]
 
     def run_test(self):
-        no_version_bannode = self.nodes[0].add_p2p_connection(CNodeNoVersionBan(), send_version=False,
-                                                              wait_for_verack=False)
-        no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(), send_version=False,
-                                                               wait_for_verack=False)
+        no_version_bannode = self.nodes[0].add_p2p_connection(
+            CNodeNoVersionBan(), send_version=False, wait_for_verack=False
+        )
+        no_version_idlenode = self.nodes[0].add_p2p_connection(
+            CNodeNoVersionIdle(), send_version=False, wait_for_verack=False
+        )
         no_verack_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVerackIdle())
 
-        wait_until(lambda: no_version_bannode.ever_connected, timeout=10, lock=mininode_lock)
-        wait_until(lambda: no_version_idlenode.ever_connected, timeout=10, lock=mininode_lock)
-        wait_until(lambda: no_verack_idlenode.version_received, timeout=10, lock=mininode_lock)
+        wait_until(
+            lambda: no_version_bannode.ever_connected, timeout=10, lock=mininode_lock
+        )
+        wait_until(
+            lambda: no_version_idlenode.ever_connected, timeout=10, lock=mininode_lock
+        )
+        wait_until(
+            lambda: no_verack_idlenode.version_received, timeout=10, lock=mininode_lock
+        )
 
         # Mine a block and make sure that it's not sent to the connected nodes
         self.nodes[0].generate(1)
@@ -153,5 +186,5 @@ class P2PLeakTest(DefiTestFramework):
         assert no_verack_idlenode.unexpected_msg == False
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     P2PLeakTest().main()

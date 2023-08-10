@@ -17,9 +17,9 @@ class MempoolDakotaTest(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
-            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
-            ['-txnotokens=0', '-amkheight=50', '-dakotaheight=100'],
+            ["-txnotokens=0", "-amkheight=50", "-dakotaheight=100"],
+            ["-txnotokens=0", "-amkheight=50", "-dakotaheight=100"],
+            ["-txnotokens=0", "-amkheight=50", "-dakotaheight=100"],
         ]
 
     def run_test(self):
@@ -36,12 +36,16 @@ class MempoolDakotaTest(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
         collateral = node1.createmasternode(wallet1_addr)
-        assert_raises_rpc_error(-26, "collateral-locked", node1.utxostoaccount, {wallet1_addr: "0.09@0"})
+        assert_raises_rpc_error(
+            -26, "collateral-locked", node1.utxostoaccount, {wallet1_addr: "0.09@0"}
+        )
         self.sync_mempools()
         node.generate(1)
         self.sync_blocks()
         assert_equal(node1.listmasternodes({}, False)[collateral], "PRE_ENABLED")
-        assert_equal(node1.getmasternode(collateral)[collateral]["state"], "PRE_ENABLED")
+        assert_equal(
+            node1.getmasternode(collateral)[collateral]["state"], "PRE_ENABLED"
+        )
         node.generate(10)
         assert_equal(node.listmasternodes({}, False)[collateral], "ENABLED")
 
@@ -50,5 +54,5 @@ class MempoolDakotaTest(DefiTestFramework):
         self.sync_blocks()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MempoolDakotaTest().main()

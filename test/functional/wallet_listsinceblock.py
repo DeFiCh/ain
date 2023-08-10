@@ -5,7 +5,11 @@
 """Test the listsincelast RPC."""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_array_result, assert_raises_rpc_error
+from test_framework.util import (
+    assert_equal,
+    assert_array_result,
+    assert_raises_rpc_error,
+)
 
 
 class ListSinceBlockTest(DefiTestFramework):
@@ -28,42 +32,57 @@ class ListSinceBlockTest(DefiTestFramework):
 
     def test_no_blockhash(self):
         txid = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 1)
-        blockhash, = self.nodes[2].generate(1)
+        (blockhash,) = self.nodes[2].generate(1)
         self.sync_blocks()
 
         txs = self.nodes[0].listtransactions()
-        assert_array_result(txs, {"txid": txid}, {
-            "category": "receive",
-            "amount": 1,
-            "blockhash": blockhash,
-            "confirmations": 1,
-        })
+        assert_array_result(
+            txs,
+            {"txid": txid},
+            {
+                "category": "receive",
+                "amount": 1,
+                "blockhash": blockhash,
+                "confirmations": 1,
+            },
+        )
         assert_equal(
             sorted(self.nodes[0].listsinceblock()),
-            sorted({"lastblock": blockhash,
-                    "removed": [],
-                    "transactions": txs}))
+            sorted({"lastblock": blockhash, "removed": [], "transactions": txs}),
+        )
         assert_equal(
             sorted(self.nodes[0].listsinceblock("")),
-            sorted({"lastblock": blockhash,
-                    "removed": [],
-                    "transactions": txs}))
+            sorted({"lastblock": blockhash, "removed": [], "transactions": txs}),
+        )
 
     def test_invalid_blockhash(self):
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].listsinceblock,
-                                "42759cde25462784395a337460bde75f58e73d3f08bd31fdc3507cbac856a2c4")
-        assert_raises_rpc_error(-5, "Block not found", self.nodes[0].listsinceblock,
-                                "0000000000000000000000000000000000000000000000000000000000000000")
-        assert_raises_rpc_error(-8, "blockhash must be of length 64 (not 11, for 'invalid-hex')",
-                                self.nodes[0].listsinceblock,
-                                "invalid-hex")
-        assert_raises_rpc_error(-8,
-                                "blockhash must be hexadecimal string (not 'Z000000000000000000000000000000000000000000000000000000000000000')",
-                                self.nodes[0].listsinceblock,
-                                "Z000000000000000000000000000000000000000000000000000000000000000")
+        assert_raises_rpc_error(
+            -5,
+            "Block not found",
+            self.nodes[0].listsinceblock,
+            "42759cde25462784395a337460bde75f58e73d3f08bd31fdc3507cbac856a2c4",
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Block not found",
+            self.nodes[0].listsinceblock,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        assert_raises_rpc_error(
+            -8,
+            "blockhash must be of length 64 (not 11, for 'invalid-hex')",
+            self.nodes[0].listsinceblock,
+            "invalid-hex",
+        )
+        assert_raises_rpc_error(
+            -8,
+            "blockhash must be hexadecimal string (not 'Z000000000000000000000000000000000000000000000000000000000000000')",
+            self.nodes[0].listsinceblock,
+            "Z000000000000000000000000000000000000000000000000000000000000000",
+        )
 
     def test_reorg(self):
-        '''
+        """
         `listsinceblock` did not behave correctly when handed a block that was
         no longer in the main chain:
 
@@ -89,7 +108,7 @@ class ListSinceBlockTest(DefiTestFramework):
         range bb1-bb4.
 
         This test only checks that [tx0] is present.
-        '''
+        """
 
         # Split network into two
         self.split_network()
@@ -100,7 +119,7 @@ class ListSinceBlockTest(DefiTestFramework):
         # generate on both sides
         lastblockhash = self.nodes[1].generate(6)[5]
         self.nodes[2].generate(7)
-        self.log.info('lastblockhash=%s' % (lastblockhash))
+        self.log.info("lastblockhash=%s" % (lastblockhash))
 
         self.sync_blocks(self.nodes[:2])
         self.sync_blocks(self.nodes[2:])
@@ -110,14 +129,14 @@ class ListSinceBlockTest(DefiTestFramework):
         # listsinceblock(lastblockhash) should now include tx, as seen from nodes[0]
         lsbres = self.nodes[0].listsinceblock(lastblockhash)
         found = False
-        for tx in lsbres['transactions']:
-            if tx['txid'] == senttx:
+        for tx in lsbres["transactions"]:
+            if tx["txid"] == senttx:
                 found = True
                 break
         assert found
 
     def test_double_spend(self):
-        '''
+        """
         This tests the case where the same UTXO is spent twice on two separate
         blocks as part of a reorg.
 
@@ -144,7 +163,7 @@ class ListSinceBlockTest(DefiTestFramework):
         asked for in listsinceblock, and to iterate back over existing blocks up
         until the fork point, and to include all transactions that relate to the
         node wallet.
-        '''
+        """
 
         self.sync_blocks()
 
@@ -154,22 +173,26 @@ class ListSinceBlockTest(DefiTestFramework):
         # share utxo between nodes[1] and nodes[2]
         utxos = self.nodes[2].listunspent()
         utxo = utxos[0]
-        privkey = self.nodes[2].dumpprivkey(utxo['address'])
+        privkey = self.nodes[2].dumpprivkey(utxo["address"])
         self.nodes[1].importprivkey(privkey)
 
         # send from nodes[1] using utxo to nodes[0]
-        change = '%.8f' % (float(utxo['amount']) - 1.0003)
+        change = "%.8f" % (float(utxo["amount"]) - 1.0003)
         recipient_dict = {
             self.nodes[0].getnewaddress(): 1,
             self.nodes[1].getnewaddress(): change,
         }
-        utxo_dicts = [{
-            'txid': utxo['txid'],
-            'vout': utxo['vout'],
-        }]
+        utxo_dicts = [
+            {
+                "txid": utxo["txid"],
+                "vout": utxo["vout"],
+            }
+        ]
         txid1 = self.nodes[1].sendrawtransaction(
             self.nodes[1].signrawtransactionwithwallet(
-                self.nodes[1].createrawtransaction(utxo_dicts, recipient_dict))['hex'])
+                self.nodes[1].createrawtransaction(utxo_dicts, recipient_dict)
+            )["hex"]
+        )
 
         # send from nodes[2] using utxo to nodes[3]
         recipient_dict2 = {
@@ -178,7 +201,9 @@ class ListSinceBlockTest(DefiTestFramework):
         }
         self.nodes[2].sendrawtransaction(
             self.nodes[2].signrawtransactionwithwallet(
-                self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict2))['hex'])
+                self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict2)
+            )["hex"]
+        )
 
         # generate on both sides
         lastblockhash = self.nodes[1].generate(3)[2]
@@ -189,18 +214,22 @@ class ListSinceBlockTest(DefiTestFramework):
         self.sync_blocks()
 
         # gettransaction should work for txid1
-        assert self.nodes[0].gettransaction(txid1)['txid'] == txid1, "gettransaction failed to find txid1"
+        assert (
+            self.nodes[0].gettransaction(txid1)["txid"] == txid1
+        ), "gettransaction failed to find txid1"
 
         # listsinceblock(lastblockhash) should now include txid1, as seen from nodes[0]
         lsbres = self.nodes[0].listsinceblock(lastblockhash)
-        assert any(tx['txid'] == txid1 for tx in lsbres['removed'])
+        assert any(tx["txid"] == txid1 for tx in lsbres["removed"])
 
         # but it should not include 'removed' if include_removed=false
-        lsbres2 = self.nodes[0].listsinceblock(blockhash=lastblockhash, include_removed=False)
-        assert 'removed' not in lsbres2
+        lsbres2 = self.nodes[0].listsinceblock(
+            blockhash=lastblockhash, include_removed=False
+        )
+        assert "removed" not in lsbres2
 
     def test_double_send(self):
-        '''
+        """
         This tests the case where the same transaction is submitted twice on two
         separate blocks as part of a reorg. The former will vanish and the
         latter will appear as the true transaction (with confirmations dropping
@@ -223,7 +252,7 @@ class ListSinceBlockTest(DefiTestFramework):
            present in a different block.
         3. It is listed with a confirmation count of 2 (bb3, bb4), not
            3 (aa1, aa2, aa3).
-        '''
+        """
 
         self.sync_blocks()
 
@@ -233,20 +262,23 @@ class ListSinceBlockTest(DefiTestFramework):
         # create and sign a transaction
         utxos = self.nodes[2].listunspent()
         utxo = utxos[0]
-        change = '%.8f' % (float(utxo['amount']) - 1.0003)
+        change = "%.8f" % (float(utxo["amount"]) - 1.0003)
         recipient_dict = {
             self.nodes[0].getnewaddress(): 1,
             self.nodes[2].getnewaddress(): change,
         }
-        utxo_dicts = [{
-            'txid': utxo['txid'],
-            'vout': utxo['vout'],
-        }]
+        utxo_dicts = [
+            {
+                "txid": utxo["txid"],
+                "vout": utxo["vout"],
+            }
+        ]
         signedtxres = self.nodes[2].signrawtransactionwithwallet(
-            self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict))
-        assert signedtxres['complete']
+            self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict)
+        )
+        assert signedtxres["complete"]
 
-        signedtx = signedtxres['hex']
+        signedtx = signedtxres["hex"]
 
         # send from nodes[1]; this will end up in aa1
         txid1 = self.nodes[1].sendrawtransaction(signedtx)
@@ -273,19 +305,19 @@ class ListSinceBlockTest(DefiTestFramework):
         # listsinceblock(lastblockhash) should now include txid1 in transactions
         # as well as in removed
         lsbres = self.nodes[0].listsinceblock(lastblockhash)
-        assert any(tx['txid'] == txid1 for tx in lsbres['transactions'])
-        assert any(tx['txid'] == txid1 for tx in lsbres['removed'])
+        assert any(tx["txid"] == txid1 for tx in lsbres["transactions"])
+        assert any(tx["txid"] == txid1 for tx in lsbres["removed"])
 
         # find transaction and ensure confirmations is valid
-        for tx in lsbres['transactions']:
-            if tx['txid'] == txid1:
-                assert_equal(tx['confirmations'], 2)
+        for tx in lsbres["transactions"]:
+            if tx["txid"] == txid1:
+                assert_equal(tx["confirmations"], 2)
 
         # the same check for the removed array; confirmations should STILL be 2
-        for tx in lsbres['removed']:
-            if tx['txid'] == txid1:
-                assert_equal(tx['confirmations'], 2)
+        for tx in lsbres["removed"]:
+            if tx["txid"] == txid1:
+                assert_equal(tx["confirmations"], 2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ListSinceBlockTest().main()

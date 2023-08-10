@@ -22,25 +22,29 @@ class KeyPoolTest(DefiTestFramework):
         addr_before_encrypting = nodes[0].getnewaddress()
         addr_before_encrypting_data = nodes[0].getaddressinfo(addr_before_encrypting)
         wallet_info_old = nodes[0].getwalletinfo()
-        assert addr_before_encrypting_data['hdseedid'] == wallet_info_old['hdseedid']
+        assert addr_before_encrypting_data["hdseedid"] == wallet_info_old["hdseedid"]
 
         # Encrypt wallet and wait to terminate
-        nodes[0].encryptwallet('test')
+        nodes[0].encryptwallet("test")
         # Keep creating keys
         addr = nodes[0].getnewaddress()
         addr_data = nodes[0].getaddressinfo(addr)
         wallet_info = nodes[0].getwalletinfo()
-        assert addr_before_encrypting_data['hdseedid'] != wallet_info['hdseedid']
-        assert addr_data['hdseedid'] == wallet_info['hdseedid']
-        assert_raises_rpc_error(-12, "Error: Keypool ran out, please call keypoolrefill first", nodes[0].getnewaddress)
+        assert addr_before_encrypting_data["hdseedid"] != wallet_info["hdseedid"]
+        assert addr_data["hdseedid"] == wallet_info["hdseedid"]
+        assert_raises_rpc_error(
+            -12,
+            "Error: Keypool ran out, please call keypoolrefill first",
+            nodes[0].getnewaddress,
+        )
 
         # put six (plus 2) new keys in the keypool (100% external-, +100% internal-keys, 1 in min)
-        nodes[0].walletpassphrase('test', 12000)
+        nodes[0].walletpassphrase("test", 12000)
         nodes[0].keypoolrefill(6)
         nodes[0].walletlock()
         wi = nodes[0].getwalletinfo()
-        assert_equal(wi['keypoolsize_hd_internal'], 6)
-        assert_equal(wi['keypoolsize'], 6)
+        assert_equal(wi["keypoolsize_hd_internal"], 6)
+        assert_equal(wi["keypoolsize"], 6)
 
         # drain the internal keys
         nodes[0].getrawchangeaddress()
@@ -62,10 +66,14 @@ class KeyPoolTest(DefiTestFramework):
         addr.add(nodes[0].getnewaddress())
         assert len(addr) == 6
         # the next one should fail
-        assert_raises_rpc_error(-12, "Error: Keypool ran out, please call keypoolrefill first", nodes[0].getnewaddress)
+        assert_raises_rpc_error(
+            -12,
+            "Error: Keypool ran out, please call keypoolrefill first",
+            nodes[0].getnewaddress,
+        )
 
         # refill keypool with three new addresses
-        nodes[0].walletpassphrase('test', 1)
+        nodes[0].walletpassphrase("test", 1)
         nodes[0].keypoolrefill(3)
 
         # test walletpassphrase timeout
@@ -77,12 +85,12 @@ class KeyPoolTest(DefiTestFramework):
             nodes[0].getnewaddress()
         assert_raises_rpc_error(-12, "Keypool ran out", nodes[0].getnewaddress)
 
-        nodes[0].walletpassphrase('test', 100)
+        nodes[0].walletpassphrase("test", 100)
         nodes[0].keypoolrefill(100)
         wi = nodes[0].getwalletinfo()
-        assert_equal(wi['keypoolsize_hd_internal'], 100)
-        assert_equal(wi['keypoolsize'], 100)
+        assert_equal(wi["keypoolsize_hd_internal"], 100)
+        assert_equal(wi["keypoolsize"], 100)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     KeyPoolTest().main()

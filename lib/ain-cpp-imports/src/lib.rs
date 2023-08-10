@@ -9,6 +9,12 @@ use bridge::ffi;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
+    pub struct Attributes {
+        pub block_gas_target: u64,
+        pub block_gas_limit: u64,
+        pub finality_count: u64,
+    }
+
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
@@ -55,12 +61,17 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getAttributeDefaults() -> Attributes {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 
     pub fn CppLogPrintf(_message: String) {
         // Intentionally left empty, so it can be used from everywhere.
         // Just the logs are skipped.
     }
 }
+
+pub use ffi::Attributes;
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
@@ -133,6 +144,10 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     let current_block = ffi::getCurrentHeight();
     let highest_block = ffi::getHighestBlock();
     Ok((current_block, highest_block))
+}
+
+pub fn get_attribute_defaults() -> ffi::Attributes {
+    ffi::getAttributeDefaults()
 }
 
 pub fn log_print(message: &str) {

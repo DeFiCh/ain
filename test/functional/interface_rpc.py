@@ -10,8 +10,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_greater_than_or_equal
 
 
-def expect_http_status(expected_http_status, expected_rpc_code,
-                       fcn, *args):
+def expect_http_status(expected_http_status, expected_rpc_code, fcn, *args):
     try:
         fcn(*args)
         raise AssertionError("Expected RPC error %d, got none" % expected_rpc_code)
@@ -29,38 +28,42 @@ class RPCInterfaceTest(DefiTestFramework):
         self.log.info("Testing getrpcinfo...")
 
         info = self.nodes[0].getrpcinfo()
-        assert_equal(len(info['active_commands']), 1)
+        assert_equal(len(info["active_commands"]), 1)
 
-        command = info['active_commands'][0]
-        assert_equal(command['method'], 'getrpcinfo')
-        assert_greater_than_or_equal(command['duration'], 0)
-        assert_equal(info['logpath'], os.path.join(self.nodes[0].datadir, 'regtest', 'debug.log'))
+        command = info["active_commands"][0]
+        assert_equal(command["method"], "getrpcinfo")
+        assert_greater_than_or_equal(command["duration"], 0)
+        assert_equal(
+            info["logpath"], os.path.join(self.nodes[0].datadir, "regtest", "debug.log")
+        )
 
     def test_batch_request(self):
         self.log.info("Testing basic JSON-RPC batch request...")
 
-        results = self.nodes[0].batch([
-            # A basic request that will work fine.
-            {"method": "getblockcount", "id": 1},
-            # Request that will fail.  The whole batch request should still
-            # work fine.
-            {"method": "invalidmethod", "id": 2},
-            # Another call that should succeed.
-            {"method": "getbestblockhash", "id": 3},
-        ])
+        results = self.nodes[0].batch(
+            [
+                # A basic request that will work fine.
+                {"method": "getblockcount", "id": 1},
+                # Request that will fail.  The whole batch request should still
+                # work fine.
+                {"method": "invalidmethod", "id": 2},
+                # Another call that should succeed.
+                {"method": "getbestblockhash", "id": 3},
+            ]
+        )
 
         result_by_id = {}
         for res in results:
             result_by_id[res["id"]] = res
 
-        assert_equal(result_by_id[1]['error'], None)
-        assert_equal(result_by_id[1]['result'], 0)
+        assert_equal(result_by_id[1]["error"], None)
+        assert_equal(result_by_id[1]["result"], 0)
 
-        assert_equal(result_by_id[2]['error']['code'], -32601)
-        assert_equal(result_by_id[2]['result'], None)
+        assert_equal(result_by_id[2]["error"]["code"], -32601)
+        assert_equal(result_by_id[2]["result"], None)
 
-        assert_equal(result_by_id[3]['error'], None)
-        assert result_by_id[3]['result'] is not None
+        assert_equal(result_by_id[3]["error"], None)
+        assert result_by_id[3]["result"] is not None
 
     def test_http_status_codes(self):
         self.log.info("Testing HTTP status codes for JSON-RPC requests...")
@@ -74,5 +77,5 @@ class RPCInterfaceTest(DefiTestFramework):
         self.test_http_status_codes()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     RPCInterfaceTest().main()

@@ -7,8 +7,14 @@ from solcx import compile_standard
 class EVMContract:
     path_prefix = "../contracts"
 
-    def __init__(self, code: str, file_name: str, contract_name: str, compiler_version: str = "0.8.20",
-                 path_prefix: str = "../contracts"):
+    def __init__(
+        self,
+        code: str,
+        file_name: str,
+        contract_name: str,
+        compiler_version: str = "0.8.20",
+        path_prefix: str = "../contracts",
+    ):
         self.code = code
         self.file_name = file_name
         self.contract_name = contract_name
@@ -17,7 +23,11 @@ class EVMContract:
 
     @staticmethod
     def from_file(file_name: str, contract_name: str):
-        with open(f"{os.path.dirname(__file__)}/{EVMContract.path_prefix}/{file_name}", "r", encoding="utf8") as file:
+        with open(
+            f"{os.path.dirname(__file__)}/{EVMContract.path_prefix}/{file_name}",
+            "r",
+            encoding="utf8",
+        ) as file:
             return EVMContract(file.read(), file_name, contract_name)
 
     def compile(self) -> (List[Dict], str):

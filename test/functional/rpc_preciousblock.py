@@ -20,11 +20,11 @@ def unidirectional_node_sync_via_rpc(node_src, node_dest):
             break
         except JSONRPCException:
             blocks_to_copy.append(blockhash)
-            blockhash = node_src.getblockheader(blockhash, True)['previousblockhash']
+            blockhash = node_src.getblockheader(blockhash, True)["previousblockhash"]
     blocks_to_copy.reverse()
     for blockhash in blocks_to_copy:
         blockdata = node_src.getblock(blockhash, False)
-        assert node_dest.submitblock(blockdata) in (None, 'inconclusive')
+        assert node_dest.submitblock(blockdata) in (None, "inconclusive")
 
 
 def node_sync_via_rpc(nodes):
@@ -74,7 +74,9 @@ class PreciousTest(DefiTestFramework):
         assert_equal(self.nodes[0].getbestblockhash(), hashC)
         self.log.info("Make Node1 prefer block C")
         self.nodes[1].preciousblock(hashC)
-        self.sync_blocks(self.nodes[0:2])  # wait because node 1 may not have downloaded hashC
+        self.sync_blocks(
+            self.nodes[0:2]
+        )  # wait because node 1 may not have downloaded hashC
         assert_equal(self.nodes[1].getbestblockhash(), hashC)
         self.log.info("Make Node1 prefer block G again")
         self.nodes[1].preciousblock(hashG)
@@ -113,5 +115,5 @@ class PreciousTest(DefiTestFramework):
         assert_equal(self.nodes[2].getbestblockhash(), hashH)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     PreciousTest().main()

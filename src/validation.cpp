@@ -2331,7 +2331,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, std::array<uint8_t, 20>& beneficiary, bool fJustCheck, const int64_t evmQueueId)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmQueueId)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2415,7 +2415,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
-        mnview.MigrateInterestRateToV2(mnview,(uint32_t)pindex->nHeight);
+        mnview.MigrateInterestRateToV2(mnview, static_cast<uint32_t>(pindex->nHeight));
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -2607,9 +2607,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(attributes);
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
-
-    // Get EVM enabled. Used to check whether the miner will have added a coinbase output with EVM blockhash and fees in.
-    const auto evmEnabledOnBlockHead = IsEVMEnabled(pindex->nHeight, mnview, chainparams.GetConsensus());
 
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -2849,7 +2846,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId, beneficiary, evmEnabledOnBlockHead);
+    res = ProcessFallibleEvent(block, pindex, mnview, chainparams, evmQueueId);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -2866,7 +2863,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmQueueId, beneficiary);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmQueueId);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -3329,11 +3326,10 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        std::array<uint8_t, 20> beneficiary{};
         uint64_t evmQueueId{};
         auto r = CrossBoundaryResValChecked(evm_unsafe_try_create_queue(result));
         if (r) { evmQueueId = *r; }
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, beneficiary, false, evmQueueId);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             CrossBoundaryChecked(evm_unsafe_try_remove_queue(result, evmQueueId));
@@ -4876,7 +4872,6 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
     bool dummyRewardedAnchors{};
-    std::array<uint8_t, 20> dummyBeneficiary{};
     CCustomCSView mnview(*pcustomcsview);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
@@ -4892,7 +4887,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
         return false;
     assert(state.IsValid());
 
@@ -5355,8 +5350,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             bool dummyRewardedAnchors{};
-            std::array<uint8_t, 20> dummyBeneficiary{};
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, dummyBeneficiary))
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }

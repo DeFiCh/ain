@@ -14,7 +14,7 @@ class AccountMiningTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50']]
+        self.extra_args = [["-txnotokens=0", "-amkheight=50"]]
 
     def run_test(self):
         node = self.nodes[0]
@@ -38,9 +38,9 @@ class AccountMiningTest(DefiTestFramework):
             # Not enough amount - rejected
             node.accounttoutxos(account, {destination: "2@DFI"})
         except JSONRPCException as e:
-            errorString = e.error['message']
+            errorString = e.error["message"]
 
-        assert ('bad-txns-customtx' in errorString)
+        assert "bad-txns-customtx" in errorString
 
         # Store block height
         blockcount = node.getblockcount()
@@ -55,5 +55,5 @@ class AccountMiningTest(DefiTestFramework):
         assert_equal(node.getaccount(account)[0], "1.00000000@DFI")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AccountMiningTest().main()

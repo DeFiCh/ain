@@ -16,7 +16,9 @@ class TransferBurnTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=200', '-dakotaheight=1']]
+        self.extra_args = [
+            ["-txnotokens=0", "-amkheight=1", "-eunosheight=200", "-dakotaheight=1"]
+        ]
 
     def run_test(self):
         # Burn address
@@ -28,8 +30,12 @@ class TransferBurnTest(DefiTestFramework):
         destruction_two = "mxiaFfAnCoXEUy4RW8NgsQM7yU5YRCiFSh"
 
         # Import priv keys to allow sending account DFI to them
-        self.nodes[0].importprivkey("cVx5Bn1MQREmdR1STQZK1dMD7XwzvUQCajTRjYjtppXzDk7F6gx2")
-        self.nodes[0].importprivkey("cQ3NeYsQfNT4LsEWQQTYm4iSRbKJcuvdyPLTpVxzaRxkPfnQcQxn")
+        self.nodes[0].importprivkey(
+            "cVx5Bn1MQREmdR1STQZK1dMD7XwzvUQCajTRjYjtppXzDk7F6gx2"
+        )
+        self.nodes[0].importprivkey(
+            "cQ3NeYsQfNT4LsEWQQTYm4iSRbKJcuvdyPLTpVxzaRxkPfnQcQxn"
+        )
 
         self.nodes[0].generate(101)
 
@@ -39,35 +45,35 @@ class TransferBurnTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create tokens
-        self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "shiny gold",
-            "collateralAddress": address
-        })
+        self.nodes[0].createtoken(
+            {"symbol": "GOLD", "name": "shiny gold", "collateralAddress": address}
+        )
         self.nodes[0].generate(1)
 
         # Check token burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'],
-                     "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003")  # OP_RETURN data
-        assert_equal(result[0]['txn'], 1)
-        assert_equal(result[0]['type'], 'CreateToken')
-        assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
+        assert_equal(
+            result[0]["owner"],
+            "6a1f446654785404474f4c440a7368696e7920676f6c6408000000000000000003",
+        )  # OP_RETURN data
+        assert_equal(result[0]["txn"], 1)
+        assert_equal(result[0]["type"], "CreateToken")
+        assert_equal(result[0]["amounts"][0], "1.00000000@DFI")
 
-        self.nodes[0].createtoken({
-            "symbol": "SILVER",
-            "name": "shiny silver",
-            "collateralAddress": address
-        })
+        self.nodes[0].createtoken(
+            {"symbol": "SILVER", "name": "shiny silver", "collateralAddress": address}
+        )
         self.nodes[0].generate(1)
 
         # Check token burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'],
-                     "6a2344665478540653494c5645520c7368696e792073696c76657208000000000000000003")  # OP_RETURN data
-        assert_equal(result[0]['txn'], 1)
-        assert_equal(result[0]['type'], 'CreateToken')
-        assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
+        assert_equal(
+            result[0]["owner"],
+            "6a2344665478540653494c5645520c7368696e792073696c76657208000000000000000003",
+        )  # OP_RETURN data
+        assert_equal(result[0]["txn"], 1)
+        assert_equal(result[0]["type"], "CreateToken")
+        assert_equal(result[0]["amounts"][0], "1.00000000@DFI")
 
         # Mint tokens
         self.nodes[0].minttokens(["100@128"])
@@ -110,21 +116,21 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(result[1], "100.00000000@SILVER#129")
 
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'], burn_address)
-        assert_equal(result[0]['txn'], 2)
-        assert_equal(result[0]['type'], 'AccountToAccount')
-        assert_equal(result[0]['amounts'][0], '100.00000000@SILVER#129')
-        assert_equal(result[1]['owner'], burn_address)
-        assert_equal(result[1]['txn'], 1)
-        assert_equal(result[1]['type'], 'AccountToAccount')
-        assert_equal(result[1]['amounts'][0], '100.00000000@GOLD#128')
+        assert_equal(result[0]["owner"], burn_address)
+        assert_equal(result[0]["txn"], 2)
+        assert_equal(result[0]["type"], "AccountToAccount")
+        assert_equal(result[0]["amounts"][0], "100.00000000@SILVER#129")
+        assert_equal(result[1]["owner"], burn_address)
+        assert_equal(result[1]["txn"], 1)
+        assert_equal(result[1]["type"], "AccountToAccount")
+        assert_equal(result[1]["amounts"][0], "100.00000000@GOLD#128")
 
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
-        assert_equal(result['amount'], Decimal('0.00000000'))
-        assert_equal(result['tokens'][0], '100.00000000@GOLD#128')
-        assert_equal(result['tokens'][1], '100.00000000@SILVER#129')
-        assert_equal(result['feeburn'], Decimal('2.00000000'))
+        assert_equal(result["address"], burn_address)
+        assert_equal(result["amount"], Decimal("0.00000000"))
+        assert_equal(result["tokens"][0], "100.00000000@GOLD#128")
+        assert_equal(result["tokens"][1], "100.00000000@SILVER#129")
+        assert_equal(result["feeburn"], Decimal("2.00000000"))
 
         # Check destruction balance
         result = self.nodes[0].getaccount(destruction_one)
@@ -140,12 +146,14 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(result[0], "100.00000000@GOLD#128")
         assert_equal(result[1], "100.00000000@SILVER#129")
 
-        assert_equal(len(self.nodes[0].listburnhistory()), 2)  # Creation fee burns still present
+        assert_equal(
+            len(self.nodes[0].listburnhistory()), 2
+        )  # Creation fee burns still present
 
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
-        assert_equal(result['amount'], Decimal('0.00000000'))
-        assert_equal(len(result['tokens']), 0)
+        assert_equal(result["address"], burn_address)
+        assert_equal(result["amount"], Decimal("0.00000000"))
+        assert_equal(len(result["tokens"]), 0)
 
         # Check destruction balance
         result = self.nodes[0].getaccount(destruction_one)
@@ -161,21 +169,21 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(result[1], "100.00000000@SILVER#129")
 
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'], burn_address)
-        assert_equal(result[0]['txn'], 2)
-        assert_equal(result[0]['type'], 'AccountToAccount')
-        assert_equal(result[0]['amounts'][0], '100.00000000@SILVER#129')
-        assert_equal(result[1]['owner'], burn_address)
-        assert_equal(result[1]['txn'], 1)
-        assert_equal(result[1]['type'], 'AccountToAccount')
-        assert_equal(result[1]['amounts'][0], '100.00000000@GOLD#128')
+        assert_equal(result[0]["owner"], burn_address)
+        assert_equal(result[0]["txn"], 2)
+        assert_equal(result[0]["type"], "AccountToAccount")
+        assert_equal(result[0]["amounts"][0], "100.00000000@SILVER#129")
+        assert_equal(result[1]["owner"], burn_address)
+        assert_equal(result[1]["txn"], 1)
+        assert_equal(result[1]["type"], "AccountToAccount")
+        assert_equal(result[1]["amounts"][0], "100.00000000@GOLD#128")
 
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
-        assert_equal(result['amount'], Decimal('0.00000000'))
-        assert_equal(result['tokens'][0], '100.00000000@GOLD#128')
-        assert_equal(result['tokens'][1], '100.00000000@SILVER#129')
-        assert_equal(result['feeburn'], Decimal('2.00000000'))
+        assert_equal(result["address"], burn_address)
+        assert_equal(result["amount"], Decimal("0.00000000"))
+        assert_equal(result["tokens"][0], "100.00000000@GOLD#128")
+        assert_equal(result["tokens"][1], "100.00000000@SILVER#129")
+        assert_equal(result["feeburn"], Decimal("2.00000000"))
 
         # Check destruction balance
         result = self.nodes[0].getaccount(destruction_one)
@@ -184,5 +192,5 @@ class TransferBurnTest(DefiTestFramework):
         assert_equal(len(result), 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TransferBurnTest().main()

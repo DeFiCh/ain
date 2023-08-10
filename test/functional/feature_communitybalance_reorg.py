@@ -16,7 +16,10 @@ class CommunityBalanceReorg(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=0'], ['-txnotokens=0', '-amkheight=0']]
+        self.extra_args = [
+            ["-txnotokens=0", "-amkheight=0"],
+            ["-txnotokens=0", "-amkheight=0"],
+        ]
 
     def run_test(self):
         # Generate across nodes
@@ -33,8 +36,10 @@ class CommunityBalanceReorg(DefiTestFramework):
 
         # Check rewards
         assert_equal(self.nodes[0].getblockcount(), 30)
-        assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('3.00000000'))
-        assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 300)
+        assert_equal(
+            self.nodes[0].listcommunitybalances()["AnchorReward"], Decimal("3.00000000")
+        )
+        assert_equal(self.nodes[0].listcommunitybalances()["Burnt"], 300)
 
         # Create longer chain
         self.nodes[1].generate(21)
@@ -48,9 +53,11 @@ class CommunityBalanceReorg(DefiTestFramework):
         assert_equal(self.nodes[1].getblockcount(), 31)
 
         # Should be one more than before
-        assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('3.10000000'))
-        assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 310)
+        assert_equal(
+            self.nodes[0].listcommunitybalances()["AnchorReward"], Decimal("3.10000000")
+        )
+        assert_equal(self.nodes[0].listcommunitybalances()["Burnt"], 310)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     CommunityBalanceReorg().main()

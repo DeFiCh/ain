@@ -8,35 +8,35 @@ import os
 import shutil
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import (
-    assert_equal,
-    connect_nodes_bi,
-    assert_raises_rpc_error
-)
+from test_framework.util import assert_equal, connect_nodes_bi, assert_raises_rpc_error
 import string
+
 
 def is_hex(s):
     hex_digits = set(string.hexdigits)
     return all(c in hex_digits for c in s)
 
+
 class WalletHDTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
-        self.extra_args = [[], ['-keypool=0']]
+        self.extra_args = [[], ["-keypool=0"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
     def run_test(self):
         # Make sure we use hd, keep masterkeyid
-        masterkeyid = self.nodes[1].getwalletinfo()['hdseedid']
+        masterkeyid = self.nodes[1].getwalletinfo()["hdseedid"]
         assert_equal(len(masterkeyid), 40)
 
         # create an internal key
         change_addr = self.nodes[1].getrawchangeaddress()
         change_addrV = self.nodes[1].getaddressinfo(change_addr)
-        assert_equal(change_addrV["hdkeypath"], "m/0'/1'/0'")  # first internal child key
+        assert_equal(
+            change_addrV["hdkeypath"], "m/0'/1'/0'"
+        )  # first internal child key
 
         # Import a non-HD private key in the HD wallet
         non_hd_add = self.nodes[0].getnewaddress()
@@ -64,7 +64,9 @@ class WalletHDTest(DefiTestFramework):
         # create an internal key (again)
         change_addr = self.nodes[1].getrawchangeaddress()
         change_addrV = self.nodes[1].getaddressinfo(change_addr)
-        assert_equal(change_addrV["hdkeypath"], "m/0'/1'/1'")  # second internal child key
+        assert_equal(
+            change_addrV["hdkeypath"], "m/0'/1'/1'"
+        )  # second internal child key
 
         self.sync_blocks()
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
@@ -75,10 +77,12 @@ class WalletHDTest(DefiTestFramework):
         # otherwise node1 would auto-recover all funds in flag the keypool keys as used
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "blocks"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'enhancedcs'))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'anchors'))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"),
-                        os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "enhancedcs"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "anchors"))
+        shutil.copyfile(
+            os.path.join(self.nodes[1].datadir, "hd.bak"),
+            os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"),
+        )
         self.start_node(1)
 
         # Assert that derivation is deterministic
@@ -94,132 +98,170 @@ class WalletHDTest(DefiTestFramework):
 
         # Needs rescan
         self.stop_node(1)
-        self.start_node(1, extra_args=self.extra_args[1] + ['-rescan'])
+        self.start_node(1, extra_args=self.extra_args[1] + ["-rescan"])
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
 
         # Try a RPC based rescan
         self.stop_node(1)
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "blocks"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'enhancedcs'))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'anchors'))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"),
-                        os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "enhancedcs"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "anchors"))
+        shutil.copyfile(
+            os.path.join(self.nodes[1].datadir, "hd.bak"),
+            os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"),
+        )
         self.start_node(1, extra_args=self.extra_args[1])
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks()
         # Wallet automatically scans blocks older than key on startup
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
         out = self.nodes[1].rescanblockchain(0, 1)
-        assert_equal(out['start_height'], 0)
-        assert_equal(out['stop_height'], 1)
+        assert_equal(out["start_height"], 0)
+        assert_equal(out["stop_height"], 1)
         out = self.nodes[1].rescanblockchain()
-        assert_equal(out['start_height'], 0)
-        assert_equal(out['stop_height'], self.nodes[1].getblockcount())
+        assert_equal(out["start_height"], 0)
+        assert_equal(out["stop_height"], self.nodes[1].getblockcount())
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
 
         # send a tx and make sure its using the internal chain for the changeoutput
         txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1)
-        outs = self.nodes[1].decoderawtransaction(self.nodes[1].gettransaction(txid)['hex'])['vout']
+        outs = self.nodes[1].decoderawtransaction(
+            self.nodes[1].gettransaction(txid)["hex"]
+        )["vout"]
         keypath = ""
         for out in outs:
-            if out['value'] != 1:
-                keypath = self.nodes[1].getaddressinfo(out['scriptPubKey']['addresses'][0])['hdkeypath']
+            if out["value"] != 1:
+                keypath = self.nodes[1].getaddressinfo(
+                    out["scriptPubKey"]["addresses"][0]
+                )["hdkeypath"]
 
         assert_equal(keypath[0:7], "m/0'/1'")
 
         # Generate a new HD seed on node 1 and make sure it is set
-        orig_masterkeyid = self.nodes[1].getwalletinfo()['hdseedid']
+        orig_masterkeyid = self.nodes[1].getwalletinfo()["hdseedid"]
         self.nodes[1].sethdseed()
-        new_masterkeyid = self.nodes[1].getwalletinfo()['hdseedid']
+        new_masterkeyid = self.nodes[1].getwalletinfo()["hdseedid"]
         assert orig_masterkeyid != new_masterkeyid
         addr = self.nodes[1].getnewaddress()
-        assert_equal(self.nodes[1].getaddressinfo(addr)['hdkeypath'],
-                     'm/0\'/0\'/0\'')  # Make sure the new address is the first from the keypool
+        assert_equal(
+            self.nodes[1].getaddressinfo(addr)["hdkeypath"], "m/0'/0'/0'"
+        )  # Make sure the new address is the first from the keypool
         self.nodes[1].keypoolrefill(1)  # Fill keypool with 1 key
 
         # Set a new HD seed on node 1 without flushing the keypool
         new_seed = self.nodes[0].dumpprivkey(self.nodes[0].getnewaddress())
         orig_masterkeyid = new_masterkeyid
         self.nodes[1].sethdseed(False, new_seed)
-        new_masterkeyid = self.nodes[1].getwalletinfo()['hdseedid']
+        new_masterkeyid = self.nodes[1].getwalletinfo()["hdseedid"]
         assert orig_masterkeyid != new_masterkeyid
         addr = self.nodes[1].getnewaddress()
-        assert_equal(orig_masterkeyid, self.nodes[1].getaddressinfo(addr)['hdseedid'])
-        assert_equal(self.nodes[1].getaddressinfo(addr)['hdkeypath'],
-                     'm/0\'/0\'/1\'')  # Make sure the new address continues previous keypool
+        assert_equal(orig_masterkeyid, self.nodes[1].getaddressinfo(addr)["hdseedid"])
+        assert_equal(
+            self.nodes[1].getaddressinfo(addr)["hdkeypath"], "m/0'/0'/1'"
+        )  # Make sure the new address continues previous keypool
 
         # Check that the next address is from the new seed
         self.nodes[1].keypoolrefill(1)
         next_addr = self.nodes[1].getnewaddress()
-        assert_equal(new_masterkeyid, self.nodes[1].getaddressinfo(next_addr)['hdseedid'])
-        assert_equal(self.nodes[1].getaddressinfo(next_addr)['hdkeypath'],
-                     'm/0\'/0\'/0\'')  # Make sure the new address is not from previous keypool
+        assert_equal(
+            new_masterkeyid, self.nodes[1].getaddressinfo(next_addr)["hdseedid"]
+        )
+        assert_equal(
+            self.nodes[1].getaddressinfo(next_addr)["hdkeypath"], "m/0'/0'/0'"
+        )  # Make sure the new address is not from previous keypool
         assert next_addr != addr
 
         # Sethdseed parameter validity
-        assert_raises_rpc_error(-1, 'sethdseed', self.nodes[0].sethdseed, False, new_seed, 0)
-        assert_raises_rpc_error(-5, "Invalid private key", self.nodes[1].sethdseed, False, "not_wif")
-        assert_raises_rpc_error(-1, "JSON value is not a boolean as expected", self.nodes[1].sethdseed, "Not_bool")
-        assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[1].sethdseed, False, True)
-        assert_raises_rpc_error(-5, "Already have this key", self.nodes[1].sethdseed, False, new_seed)
-        assert_raises_rpc_error(-5, "Already have this key", self.nodes[1].sethdseed, False,
-                                self.nodes[1].dumpprivkey(self.nodes[1].getnewaddress()))
+        assert_raises_rpc_error(
+            -1, "sethdseed", self.nodes[0].sethdseed, False, new_seed, 0
+        )
+        assert_raises_rpc_error(
+            -5, "Invalid private key", self.nodes[1].sethdseed, False, "not_wif"
+        )
+        assert_raises_rpc_error(
+            -1,
+            "JSON value is not a boolean as expected",
+            self.nodes[1].sethdseed,
+            "Not_bool",
+        )
+        assert_raises_rpc_error(
+            -1,
+            "JSON value is not a string as expected",
+            self.nodes[1].sethdseed,
+            False,
+            True,
+        )
+        assert_raises_rpc_error(
+            -5, "Already have this key", self.nodes[1].sethdseed, False, new_seed
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Already have this key",
+            self.nodes[1].sethdseed,
+            False,
+            self.nodes[1].dumpprivkey(self.nodes[1].getnewaddress()),
+        )
 
         # Get and check eth address
-        eth_addr = self.nodes[0].getnewaddress("", "eth")
-        assert_equal(eth_addr[0:2], '0x')
+        eth_addr = self.nodes[0].getnewaddress("", "erc55")
+        assert_equal(eth_addr[0:2], "0x")
         assert_equal(len(eth_addr), 42)
         assert_equal(is_hex(eth_addr[2:]), True)
 
         # Validate Eth address
         result = self.nodes[0].validateaddress(eth_addr)
-        assert_equal(result['isvalid'], True)
+        assert_equal(result["isvalid"], True)
 
         # Check Eth address info
         result = self.nodes[0].getaddressinfo(eth_addr)
-        assert_equal(result['ismine'], True)
-        assert_equal(result['solvable'], True)
-        assert_equal(result['iswitness'], True)
-        assert_equal(result['witness_version'], 16)
-        assert_equal(result['labels'][0]['purpose'], 'eth')
+        assert_equal(result["ismine"], True)
+        assert_equal(result["solvable"], True)
+        assert_equal(result["iswitness"], True)
+        assert_equal(result["witness_version"], 16)
+        assert_equal(result["labels"][0]["purpose"], "receive")
 
         # Make sure TX to Eth address are not valid
-        assert_raises_rpc_error(-5, 'Eth type addresses are not valid', self.nodes[0].sendtoaddress, eth_addr, 1)
-
-        # Dump and import address into node 1
-        priv_key = self.nodes[0].dumpprivkey(eth_addr)
-        self.nodes[1].importprivkey(priv_key)
-
-        # Check key is now present in node 1
-        result = self.nodes[1].getaddressinfo(eth_addr)
-        assert_equal(result['ismine'], True)
+        assert_raises_rpc_error(
+            -5,
+            "ERC55 addresses not supported",
+            self.nodes[0].sendtoaddress,
+            eth_addr,
+            1,
+        )
 
         # Get another eth address
-        eth_addr = self.nodes[0].getnewaddress("", "eth")
+        eth_addr = self.nodes[0].getnewaddress("", "erc55")
         priv_key = self.nodes[0].dumpprivkey(eth_addr)
 
         # Import multi into node 1
-        self.nodes[1].importmulti([{"scriptPubKey": {"address": eth_addr},
-                                    "timestamp": "now",
-                                    "keys": [priv_key]}])
+        self.nodes[1].importmulti(
+            [
+                {
+                    "scriptPubKey": {"address": eth_addr},
+                    "timestamp": "now",
+                    "keys": [priv_key],
+                }
+            ]
+        )
 
         # Check key is now present in node 1
         result = self.nodes[1].getaddressinfo(eth_addr)
-        assert_equal(result['ismine'], True)
+        assert_equal(result["ismine"], True)
 
         # Get another eth address
-        eth_addr = self.nodes[0].getnewaddress("", "eth")
+        eth_addr = self.nodes[0].getnewaddress("", "erc55")
 
         # Dump wallet to file
-        self.nodes[0].dumpwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
+        self.nodes[0].dumpwallet(os.path.join(self.nodes[0].datadir, "wallet.dump"))
 
         # Import wallet from file
-        self.nodes[1].importwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
+        self.nodes[1].importwallet(os.path.join(self.nodes[0].datadir, "wallet.dump"))
 
         # Check key is now present in node 1
         result = self.nodes[1].getaddressinfo(eth_addr)
-        assert_equal(result['ismine'], True)
+        assert_equal(result["ismine"], True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     WalletHDTest().main()

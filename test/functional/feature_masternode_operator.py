@@ -30,9 +30,12 @@ class TestMasternodeOperator(DefiTestFramework):
         operators = [node0_keys.operatorAuthAddress, node1_keys.operatorAuthAddress]
 
         self.log.info("Restart nodes...")
-        self.restart_node(0, ['-gen', '-masternode_operator=' + operators[0]])
-        self.restart_node(1, ['-gen', '-rewardaddress=' + operators[1]] +
-                          ['-masternode_operator=' + x for x in operators])
+        self.restart_node(0, ["-gen", "-masternode_operator=" + operators[0]])
+        self.restart_node(
+            1,
+            ["-gen", "-rewardaddress=" + operators[1]]
+            + ["-masternode_operator=" + x for x in operators],
+        )
 
         connect_nodes_bi(self.nodes, 0, 1)
 
@@ -58,5 +61,5 @@ class TestMasternodeOperator(DefiTestFramework):
         assert_equal(len(minters), 2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TestMasternodeOperator().main()

@@ -19,20 +19,23 @@ class HTTPCorsTest(DefiTestFramework):
 
     def run_test(self):
         url = urllib.parse.urlparse(self.nodes[0].url)
-        authpair = url.username + ':' + url.password
+        authpair = url.username + ":" + url.password
 
         # same should be if we add keep-alive because this should be the std. behaviour
-        headers = {"Authorization": "Basic " + str_to_b64str(authpair), "Connection": "keep-alive"}
+        headers = {
+            "Authorization": "Basic " + str_to_b64str(authpair),
+            "Connection": "keep-alive",
+        }
 
         conn = http.client.HTTPConnection(url.hostname, url.port)
         conn.connect()
-        conn.request('POST', '/', '{"method": "getbestblockhash"}', headers)
+        conn.request("POST", "/", '{"method": "getbestblockhash"}', headers)
         res = conn.getresponse()
         self.check_cors_headers(res)
         assert_equal(res.status, http.client.OK)
         res.close()
 
-        conn.request('OPTIONS', '/', '{"method": "getbestblockhash"}', headers)
+        conn.request("OPTIONS", "/", '{"method": "getbestblockhash"}', headers)
         res = conn.getresponse()
         self.check_cors_headers(res)
         assert_equal(res.status, http.client.NO_CONTENT)
@@ -41,9 +44,13 @@ class HTTPCorsTest(DefiTestFramework):
     def check_cors_headers(self, res):
         assert_equal(res.getheader("Access-Control-Allow-Origin"), self.cors_origin)
         assert_equal(res.getheader("Access-Control-Allow-Credentials"), "true")
-        assert_equal(res.getheader("Access-Control-Allow-Methods"), "POST, GET, OPTIONS")
-        assert_equal(res.getheader("Access-Control-Allow-Headers"), "Content-Type, Authorization")
+        assert_equal(
+            res.getheader("Access-Control-Allow-Methods"), "POST, GET, OPTIONS"
+        )
+        assert_equal(
+            res.getheader("Access-Control-Allow-Headers"), "Content-Type, Authorization"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     HTTPCorsTest().main()

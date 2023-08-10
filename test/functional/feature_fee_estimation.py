@@ -7,7 +7,16 @@ from decimal import Decimal
 import random
 
 from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, ToHex, COIN
-from test_framework.script import CScript, OP_1, OP_DROP, OP_2, OP_HASH160, OP_EQUAL, hash160, OP_TRUE
+from test_framework.script import (
+    CScript,
+    OP_1,
+    OP_DROP,
+    OP_2,
+    OP_HASH160,
+    OP_EQUAL,
+    hash160,
+    OP_TRUE,
+)
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -29,7 +38,9 @@ P2SH_2 = CScript([OP_HASH160, hash160(REDEEM_SCRIPT_2), OP_EQUAL])
 SCRIPT_SIG = [CScript([OP_TRUE, REDEEM_SCRIPT_1]), CScript([OP_TRUE, REDEEM_SCRIPT_2])]
 
 
-def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee_increment):
+def small_txpuzzle_randfee(
+    from_node, conflist, unconflist, amount, min_fee, fee_increment
+):
     """Create and send a transaction with a random fee.
 
     The transaction pays to a trivial P2SH script, and assumes that its inputs
@@ -57,7 +68,9 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
             total_in += t["amount"]
             tx.vin.append(CTxIn(COutPoint(int(t["txid"], 16), t["vout"]), b""))
         if total_in <= amount + fee:
-            raise RuntimeError("Insufficient funds: need %d, have %d" % (amount + fee, total_in))
+            raise RuntimeError(
+                "Insufficient funds: need %d, have %d" % (amount + fee, total_in)
+            )
     tx.vout.append(CTxOut(int((total_in - amount - fee) * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
     # These transactions don't need to be signed, but we still have to insert
@@ -90,7 +103,7 @@ def split_inputs(from_node, txins, txouts, initial_split=False):
 
     # If this is the initial split we actually need to sign the transaction
     # Otherwise we just need to insert the proper ScriptSig
-    if (initial_split):
+    if initial_split:
         completetx = from_node.signrawtransactionwithwallet(ToHex(tx))["hex"]
     else:
         tx.vin[0].scriptSig = SCRIPT_SIG[prevtxout["vout"]]
@@ -111,11 +124,15 @@ def check_estimates(node, fees_seen):
         assert_greater_than(feerate, 0)
 
         if feerate + delta < min(fees_seen) or feerate - delta > max(fees_seen):
-            raise AssertionError("Estimated fee (%f) out of range (%f,%f)"
-                                 % (feerate, min(fees_seen), max(fees_seen)))
+            raise AssertionError(
+                "Estimated fee (%f) out of range (%f,%f)"
+                % (feerate, min(fees_seen), max(fees_seen))
+            )
         if feerate - delta > last_feerate:
-            raise AssertionError("Estimated fee (%f) larger than last fee (%f) for lower number of confirms"
-                                 % (feerate, last_feerate))
+            raise AssertionError(
+                "Estimated fee (%f) larger than last fee (%f) for lower number of confirms"
+                % (feerate, last_feerate)
+            )
         last_feerate = feerate
 
         if i == 0:
@@ -165,13 +182,19 @@ class EstimateFeeTest(DefiTestFramework):
             random.shuffle(self.confutxo)
             for j in range(random.randrange(100 - 50, 100 + 50)):
                 from_index = random.randint(1, 2)
-                (txhex, fee) = small_txpuzzle_randfee(self.nodes[from_index], self.confutxo,
-                                                      self.memutxo, Decimal("0.005"), min_fee, min_fee)
+                (txhex, fee) = small_txpuzzle_randfee(
+                    self.nodes[from_index],
+                    self.confutxo,
+                    self.memutxo,
+                    Decimal("0.005"),
+                    min_fee,
+                    min_fee,
+                )
                 tx_kbytes = (len(txhex) // 2) / 1000.0
                 self.fees_per_kb.append(float(fee) / tx_kbytes)
-            self.sync_mempools(wait=.1)
+            self.sync_mempools(wait=0.1)
             mined = mining_node.getblock(mining_node.generate(1)[0], True)["tx"]
-            self.sync_blocks(wait=.1)
+            self.sync_blocks(wait=0.1)
             # update which txouts are confirmed
             newmem = []
             for utx in self.memutxo:
@@ -225,16 +248,22 @@ class EstimateFeeTest(DefiTestFramework):
 
         self.fees_per_kb = []
         self.memutxo = []
-        self.confutxo = self.txouts  # Start with the set of confirmed txouts after splitting
+        self.confutxo = (
+            self.txouts
+        )  # Start with the set of confirmed txouts after splitting
         self.log.info("Will output estimates for 1/2/3/6/15/25 blocks")
 
         for i in range(2):
-            self.log.info("Creating transactions and mining them with a block size that can't keep up")
+            self.log.info(
+                "Creating transactions and mining them with a block size that can't keep up"
+            )
             # Create transactions and mine 10 small blocks with node 2, but create txs faster than we can mine
             self.transact_and_mine(10, self.nodes[2])
             check_estimates(self.nodes[1], self.fees_per_kb)
 
-            self.log.info("Creating transactions and mining them at a block size that is just big enough")
+            self.log.info(
+                "Creating transactions and mining them at a block size that is just big enough"
+            )
             # Generate transactions while mining 10 more blocks, this time with node1
             # which mines blocks with capacity just above the rate that transactions are being created
             self.transact_and_mine(10, self.nodes[1])
@@ -244,10 +273,10 @@ class EstimateFeeTest(DefiTestFramework):
         while len(self.nodes[1].getrawmempool()) > 0:
             self.nodes[1].generate(1)
 
-        self.sync_blocks(self.nodes[0:3], wait=.1)
+        self.sync_blocks(self.nodes[0:3], wait=0.1)
         self.log.info("Final estimates after emptying mempools")
         check_estimates(self.nodes[1], self.fees_per_kb)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     EstimateFeeTest().main()

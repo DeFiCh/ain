@@ -59,7 +59,11 @@ class ResendWalletTransactionsTest(DefiTestFramework):
         # after the last time we tried to broadcast. Use mocktime and give an extra minute to be sure.
         block_time = int(time.time()) + 6 * 60
         node.setmocktime(block_time)
-        block = create_block(int(node.getbestblockhash(), 16), create_coinbase(node.getblockcount() + 1), block_time)
+        block = create_block(
+            int(node.getbestblockhash(), 16),
+            create_coinbase(node.getblockcount() + 1),
+            block_time,
+        )
         block.rehash()
         block.solve()
         node.submitblock(ToHex(block))
@@ -75,5 +79,5 @@ class ResendWalletTransactionsTest(DefiTestFramework):
         wait_until(lambda: node.p2ps[1].tx_invs_received[txid] >= 1, lock=mininode_lock)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ResendWalletTransactionsTest().main()

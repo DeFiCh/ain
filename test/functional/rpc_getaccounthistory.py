@@ -15,9 +15,27 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
+            [
+                "-acindex=1",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+            ],
+            [
+                "-acindex=1",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+            ],
+            [
+                "-acindex=1",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+            ],
         ]
 
     def run_test(self):
@@ -28,11 +46,9 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         collateral_a = self.nodes[0].getnewaddress("", "legacy")
 
         # Create token
-        self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "gold",
-            "collateralAddress": collateral_a
-        })
+        self.nodes[0].createtoken(
+            {"symbol": "GOLD", "name": "gold", "collateralAddress": collateral_a}
+        )
         self.nodes[0].generate(1)
 
         # Make sure there's an extra token
@@ -44,7 +60,7 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "GOLD"):
+            if token["symbol"] == "GOLD":
                 token_a = idx
 
         # Mint some tokens
@@ -57,47 +73,63 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         # test token ids match token symbol
         for result in results:
             for amount in result["amounts"]:
-                symbol = amount.split('@')[1]
-                assert (symbol.isnumeric())
+                symbol = amount.split("@")[1]
+                assert symbol.isnumeric()
 
         # test amount@symbol format
         results = self.nodes[0].listaccounthistory(collateral_a, {"format": "symbol"})
         # test token ids match token symbol
         for result in results:
             for amount in result["amounts"]:
-                symbol = amount.split('@')[1]
-                assert (symbol.isnumeric() == False)
+                symbol = amount.split("@")[1]
+                assert symbol.isnumeric() == False
 
         # test amount@symbol format
         try:
-            results = self.nodes[0].listaccounthistory(collateral_a, {"format": "combined"})
+            results = self.nodes[0].listaccounthistory(
+                collateral_a, {"format": "combined"}
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("format must be one of the following: \"id\", \"symbol\"" in errorString)
+            errorString = e.error["message"]
+        assert 'format must be one of the following: "id", "symbol"' in errorString
 
         # An account history from listaccounthistory and gettaccounthistory must be matched
         expected = results[0]
-        self.log.info("owner:%s blockHeight:%s txn:%s", expected['owner'], expected['blockHeight'], expected['txn'])
+        self.log.info(
+            "owner:%s blockHeight:%s txn:%s",
+            expected["owner"],
+            expected["blockHeight"],
+            expected["txn"],
+        )
 
-        history = self.nodes[0].getaccounthistory(expected['owner'], expected['blockHeight'], expected['txn'])
-        assert_equal(history['owner'], expected['owner'])
-        assert_equal(history['blockHeight'], expected['blockHeight'])
-        assert_equal(history['txn'], expected['txn'])
-        assert_equal(history['type'], expected['type'])
+        history = self.nodes[0].getaccounthistory(
+            expected["owner"], expected["blockHeight"], expected["txn"]
+        )
+        assert_equal(history["owner"], expected["owner"])
+        assert_equal(history["blockHeight"], expected["blockHeight"])
+        assert_equal(history["txn"], expected["txn"])
+        assert_equal(history["type"], expected["type"])
 
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
 
         # An account history from listaccounthistory and gettaccounthistory must be matched
         expected = results[0]
-        self.log.info("owner:%s blockHeight:%s txn:%s", expected['owner'], expected['blockHeight'], expected['txn'])
+        self.log.info(
+            "owner:%s blockHeight:%s txn:%s",
+            expected["owner"],
+            expected["blockHeight"],
+            expected["txn"],
+        )
 
-        history = self.nodes[1].getaccounthistory(expected['owner'], expected['blockHeight'], expected['txn'])
-        assert_equal(history['owner'], expected['owner'])
-        assert_equal(history['blockHeight'], expected['blockHeight'])
-        assert_equal(history['txn'], expected['txn'])
-        assert_equal(history['type'], expected['type'])
+        history = self.nodes[1].getaccounthistory(
+            expected["owner"], expected["blockHeight"], expected["txn"]
+        )
+        assert_equal(history["owner"], expected["owner"])
+        assert_equal(history["blockHeight"], expected["blockHeight"])
+        assert_equal(history["txn"], expected["txn"])
+        assert_equal(history["type"], expected["type"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TokensRPCGetAccountHistory().main()

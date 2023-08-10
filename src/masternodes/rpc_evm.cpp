@@ -13,7 +13,7 @@ enum class VMDomainRPCMapType {
     BlockHashDVMToEVM,
     BlockHashEVMToDVM,
     TxHashDVMToEVM,
-    TxHashEVMToEVM,
+    TxHashEVMToDVM,
 };
 
 std::string GetVMDomainRPCMapType(VMDomainRPCMapType t) {
@@ -30,8 +30,8 @@ std::string GetVMDomainRPCMapType(VMDomainRPCMapType t) {
             return "BlockHashEVMToDVM";
         case VMDomainRPCMapType::TxHashDVMToEVM:
             return "TxHashDVMToEVM";
-        case VMDomainRPCMapType::TxHashEVMToEVM:
-            return "TxHashEVMToEVM";
+        case VMDomainRPCMapType::TxHashEVMToDVM:
+            return "TxHashEVMToDVM";
         default:
             return "Unknown";
     }
@@ -49,7 +49,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         "Creates (and submits to local node and network) a tx to send DFI token to EVM address.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-                          {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "From Eth address"},
+                          {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "From ERC55 address"},
                           {"nonce", RPCArg::Type::NUM, RPCArg::Optional::NO, "Transaction nonce"},
                           {"gasPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas Price in Gwei"},
                           {"gasLimit", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas limit"},
@@ -219,7 +219,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
         if (res)
-            return VMDomainRPCMapType::TxHashEVMToEVM;
+            return VMDomainRPCMapType::TxHashEVMToDVM;
 
         res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
         if (res)
@@ -360,7 +360,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
             break;
         }
-        case VMDomainRPCMapType::TxHashEVMToEVM: {
+        case VMDomainRPCMapType::TxHashEVMToDVM: {
             res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
             break;
         }

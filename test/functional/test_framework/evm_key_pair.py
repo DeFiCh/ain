@@ -1,28 +1,29 @@
 from eth_account import Account
 
 
-def validate_keys(pkey, pkey_address):
-    account = Account.from_key(pkey)
+def validate_key(privkey, address):
+    account = Account.from_key(privkey)
 
-    if account.address != pkey_address:
+    if account.address != address:
         raise RuntimeError(
             f"""
             Private key does not correspond to provided address.
-            Address provided: {pkey_address}
+            Address provided: {address}
             Address computed: {account.address}
-            """)
+            """
+        )
     else:
-        return pkey, pkey_address
+        return privkey, address
 
 
-class KeyPair:
-    def __init__(self, pkey: str = None, pkey_address: str = None):
-        self.pkey, self.address = validate_keys(pkey, pkey_address)
+class EvmKeyPair:
+    def __init__(self, privkey: str = None, address: str = None):
+        self.privkey, self.address = validate_key(privkey, address)
 
     @staticmethod
     def from_node(node):
         # get address from node
-        address = node.getnewaddress("", "eth")
-        pkey = node.dumpprivkey(address)
+        address = node.getnewaddress("", "erc55")
+        privkey = node.dumpprivkey(address)
 
-        return KeyPair(pkey, address)
+        return EvmKeyPair(privkey, address)

@@ -23,12 +23,37 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
-             '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
-             '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50',
-             '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140']]
+            [
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+                "-dakotaheight=136",
+                "-eunosheight=140",
+                "-eunospayaheight=140",
+            ],
+            [
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+                "-dakotaheight=136",
+                "-eunosheight=140",
+                "-eunospayaheight=140",
+            ],
+            [
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+                "-dakotaheight=136",
+                "-eunosheight=140",
+                "-eunospayaheight=140",
+            ],
+        ]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
@@ -45,43 +70,47 @@ class MasternodesRpcBasicTest(DefiTestFramework):
 
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            idnode0 = self.nodes[0].createmasternode(
-                collateral0
-            )
+            idnode0 = self.nodes[0].createmasternode(collateral0)
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Insufficient funds" in errorString)
+            errorString = e.error["message"]
+        assert "Insufficient funds" in errorString
 
         # Create node0
         self.nodes[0].generate(1)
         collateral1 = self.nodes[1].getnewaddress("", "legacy")
-        assert_raises_rpc_error(-8, "Address ({}) is not owned by the wallet".format(collateral1),
-                                self.nodes[0].createmasternode, collateral1)
-
-        idnode0 = self.nodes[0].createmasternode(
-            collateral0
+        assert_raises_rpc_error(
+            -8,
+            "Address ({}) is not owned by the wallet".format(collateral1),
+            self.nodes[0].createmasternode,
+            collateral1,
         )
+
+        idnode0 = self.nodes[0].createmasternode(collateral0)
 
         rawTx0 = self.nodes[0].getrawtransaction(idnode0)
         decodeTx0 = self.nodes[0].decoderawtransaction(rawTx0)
         # Create and sign (only) collateral spending tx
-        spendTx = self.nodes[0].createrawtransaction([{'txid': idnode0, 'vout': 1}], [{collateral0: 9.999}])
+        spendTx = self.nodes[0].createrawtransaction(
+            [{"txid": idnode0, "vout": 1}], [{collateral0: 9.999}]
+        )
         signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
-        assert_equal(signedTx['complete'], True)
+        assert_equal(signedTx["complete"], True)
 
         # Try to spend collateral of mempooled createmasternode tx
         try:
-            self.nodes[0].sendrawtransaction(signedTx['hex'])
+            self.nodes[0].sendrawtransaction(signedTx["hex"])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("collateral-locked-in-mempool," in errorString)
+            errorString = e.error["message"]
+        assert "collateral-locked-in-mempool," in errorString
 
         balance_before_creation = self.nodes[0].getbalance()
         self.nodes[0].generate(1)
         # At this point, mn was created
         assert_equal(balance_before_creation - 10 + 50, self.nodes[0].getbalance())
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "PRE_ENABLED")
-        assert_equal(self.nodes[0].getmasternode(idnode0)[idnode0]["state"], "PRE_ENABLED")
+        assert_equal(
+            self.nodes[0].getmasternode(idnode0)[idnode0]["state"], "PRE_ENABLED"
+        )
         self.nodes[0].generate(10)
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "ENABLED")
 
@@ -91,10 +120,10 @@ class MasternodesRpcBasicTest(DefiTestFramework):
 
         # Try to spend locked collateral again
         try:
-            self.nodes[0].sendrawtransaction(signedTx['hex'])
+            self.nodes[0].sendrawtransaction(signedTx["hex"])
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("collateral-locked," in errorString)
+            errorString = e.error["message"]
+        assert "collateral-locked," in errorString
 
         # RESIGNING:
         # ========================
@@ -113,15 +142,15 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         # resignTx
         self.nodes[0].resignmasternode(idnode0)
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "PRE_RESIGNED")
         self.nodes[0].generate(10)
-        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "RESIGNED")
 
         # Spend unlocked collateral
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
         # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
+        sendedTxHash = self.nodes[0].sendrawtransaction(signedTx["hex"])
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
 
@@ -144,7 +173,7 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         # print ("SpendTx", sendedTxHash)
         # resignTx is removed for a block
         assert_equal(self.nodes[0].getrawmempool(), [fundingTx])
-        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "ENABLED")
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "ENABLED")
 
         # Revert creation!
         self.start_node(2)
@@ -169,20 +198,26 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         colTx = self.nodes[0].sendtoaddress(collateral0, 3)
         decTx = self.nodes[0].getrawtransaction(colTx, 1)
         self.nodes[0].generate(1)
-        for outputs in decTx['vout']:
-            if outputs['scriptPubKey']['addresses'][0] == collateral0:
-                vout = outputs['n']
+        for outputs in decTx["vout"]:
+            if outputs["scriptPubKey"]["addresses"][0] == collateral0:
+                vout = outputs["n"]
 
         assert_equal(self.nodes[0].getblockcount(), 140)  # Eunos height
         # get createmasternode data
-        data = decodeTx0['vout'][0]['scriptPubKey']['hex'][4:]
-        cmTx = self.nodes[0].createrawtransaction([{'txid': colTx, 'vout': vout}], [{'data': data}, {collateral1: 2}])
+        data = decodeTx0["vout"][0]["scriptPubKey"]["hex"][4:]
+        cmTx = self.nodes[0].createrawtransaction(
+            [{"txid": colTx, "vout": vout}], [{"data": data}, {collateral1: 2}]
+        )
         # HACK replace vout 0 to 1DFI
-        cmTx = cmTx.replace('020000000000000000', '0200e1f50500000000')
+        cmTx = cmTx.replace("020000000000000000", "0200e1f50500000000")
         signedTx = self.nodes[0].signrawtransactionwithwallet(cmTx)
-        assert_equal(signedTx['complete'], True)
-        assert_raises_rpc_error(-26, 'masternode creation needs owner auth', self.nodes[0].sendrawtransaction,
-                                signedTx['hex'])
+        assert_equal(signedTx["complete"], True)
+        assert_raises_rpc_error(
+            -26,
+            "masternode creation needs owner auth",
+            self.nodes[0].sendrawtransaction,
+            signedTx["hex"],
+        )
 
         # Test new register delay
         mnAddress = self.nodes[0].getnewaddress("", "legacy")
@@ -190,11 +225,15 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Rollback masternode creation
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].invalidateblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )
         self.nodes[0].clearmempool()
 
         # Make sure MN not found
-        assert_raises_rpc_error(-5, "Masternode not found", self.nodes[0].getmasternode, mnTx)
+        assert_raises_rpc_error(
+            -5, "Masternode not found", self.nodes[0].getmasternode, mnTx
+        )
 
         # Create masternode again
         mnTx = self.nodes[0].createmasternode(mnAddress)
@@ -205,8 +244,8 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         try:
             self.nodes[0].resignmasternode(mnTx)
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("state is not 'ENABLED'" in errorString)
+            errorString = e.error["message"]
+        assert "state is not 'ENABLED'" in errorString
 
         # Check end of PRE_ENABLED range
         self.nodes[0].generate(19)
@@ -216,39 +255,48 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
 
-        blocks = self.nodes[0].getmasternodeblocks({'ownerAddress': mnAddress})
+        blocks = self.nodes[0].getmasternodeblocks({"ownerAddress": mnAddress})
         assert_equal(len(blocks), 0)  # there is no minted blocks yet
 
         # test getmasternodeblocks
         self.nodes[0].generate(1)
         node0_keys = self.nodes[0].get_genesis_keys()
-        blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress}, 2)
+        blocks = self.nodes[0].getmasternodeblocks(
+            {"operatorAddress": node0_keys.operatorAuthAddress}, 2
+        )
         assert_equal(len(blocks), 2)
 
-        blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress})
-        assert_equal(list(blocks.keys())[0], '162')
+        blocks = self.nodes[0].getmasternodeblocks(
+            {"operatorAddress": node0_keys.operatorAuthAddress}
+        )
+        assert_equal(list(blocks.keys())[0], "162")
 
         # Test new resign delay
         self.nodes[0].resignmasternode(mnTx)
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]["state"], "PRE_RESIGNED")
 
         # Test rollback of MN resign
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].invalidateblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )
         self.nodes[0].clearmempool()
 
         # Make sure rollback succesful
         result = self.nodes[0].getmasternode(mnTx)[mnTx]
-        assert_equal(result['resignHeight'], -1)
-        assert_equal(result['resignTx'], '0000000000000000000000000000000000000000000000000000000000000000')
+        assert_equal(result["resignHeight"], -1)
+        assert_equal(
+            result["resignTx"],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
 
         # Resign again
         self.nodes[0].resignmasternode(mnTx)
         self.nodes[0].generate(40)
-        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]["state"], "PRE_RESIGNED")
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]["state"], "RESIGNED")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MasternodesRpcBasicTest().main()

@@ -8,16 +8,33 @@
 import os
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import (
-    assert_equal
-)
+from test_framework.util import assert_equal
+
 
 class DFIIntrinsicsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txordering=2', '-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-fortcanningepilogueheight=96', '-grandcentralheight=101', '-nextnetworkupgradeheight=105', '-subsidytest=1', '-txindex=1'],
+            [
+                "-txordering=2",
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=51",
+                "-eunosheight=80",
+                "-fortcanningheight=82",
+                "-fortcanninghillheight=84",
+                "-fortcanningroadheight=86",
+                "-fortcanningcrunchheight=88",
+                "-fortcanningspringheight=90",
+                "-fortcanninggreatworldheight=94",
+                "-fortcanningepilogueheight=96",
+                "-grandcentralheight=101",
+                "-nextnetworkupgradeheight=105",
+                "-subsidytest=1",
+                "-txindex=1",
+            ],
         ]
 
     def run_test(self):
@@ -25,15 +42,17 @@ class DFIIntrinsicsTest(DefiTestFramework):
         node.generate(105)
 
         # Activate EVM
-        node.setgov({"ATTRIBUTES": {'v0/params/feature/evm': 'true'}})
+        node.setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
         node.generate(1)
 
         # check counter contract
-        from web3 import Web3
-        w3 = Web3(Web3.HTTPProvider(self.nodes[0].get_evm_rpc()))
         # Temp. workaround
-        abi = open(f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json", "r", encoding="utf8").read()
-        counter_contract = w3.eth.contract(
+        abi = open(
+            f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json",
+            "r",
+            encoding="utf8",
+        ).read()
+        counter_contract = node.w3.eth.contract(
             address="0x0000000000000000000000000000000000000301", abi=abi
         )
 
@@ -41,20 +60,25 @@ class DFIIntrinsicsTest(DefiTestFramework):
         state_roots = set()
         for i in range(num_blocks):
             node.generate(1)
-            block = w3.eth.get_block('latest')
-            state_roots.add(Web3.to_hex(block["stateRoot"]))
+            block = node.w3.eth.get_block("latest")
+            state_roots.add(node.w3.to_hex(block["stateRoot"]))
 
             # check evmBlockCount variable
-            assert_equal(counter_contract.functions.evmBlockCount().call(), w3.eth.get_block_number())
+            assert_equal(
+                counter_contract.functions.evmBlockCount().call(),
+                node.w3.eth.get_block_number(),
+            )
 
             # check version variable
             assert_equal(counter_contract.functions.version().call(), 1)
 
             # check dvmBlockCount variable
-            assert_equal(counter_contract.functions.dvmBlockCount().call(), node.getblockcount())
+            assert_equal(
+                counter_contract.functions.dvmBlockCount().call(), node.getblockcount()
+            )
 
         assert_equal(len(state_roots), num_blocks)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     DFIIntrinsicsTest().main()

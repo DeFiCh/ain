@@ -12,7 +12,11 @@ re-requested.
 """
 import copy
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    create_tx_with_script,
+)
 from test_framework.messages import COIN
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import DefiTestFramework
@@ -64,8 +68,10 @@ class InvalidBlockRequestTest(DefiTestFramework):
         block_time += 1
 
         # b'0x51' is OP_TRUE
-        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x51', amount=50 * COIN)
-        tx2 = create_tx_with_script(tx1, 0, script_sig=b'\x51', amount=50 * COIN)
+        tx1 = create_tx_with_script(
+            block1.vtx[0], 0, script_sig=b"\x51", amount=50 * COIN
+        )
+        tx2 = create_tx_with_script(tx1, 0, script_sig=b"\x51", amount=50 * COIN)
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()
@@ -80,7 +86,9 @@ class InvalidBlockRequestTest(DefiTestFramework):
         assert_equal(orig_hash, block2.rehash())
         assert block2_orig.vtx != block2.vtx
 
-        node.p2p.send_blocks_and_test([block2], node, success=False, reject_reason='bad-txns-duplicate')
+        node.p2p.send_blocks_and_test(
+            [block2], node, success=False, reject_reason="bad-txns-duplicate"
+        )
 
         # Check transactions for duplicate inputs
         self.log.info("Test duplicate input block.")
@@ -90,7 +98,12 @@ class InvalidBlockRequestTest(DefiTestFramework):
         block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
         block2_orig.rehash()
         block2_orig.solve()
-        node.p2p.send_blocks_and_test([block2_orig], node, success=False, reject_reason='bad-txns-inputs-duplicate')
+        node.p2p.send_blocks_and_test(
+            [block2_orig],
+            node,
+            success=False,
+            reject_reason="bad-txns-inputs-duplicate",
+        )
 
         self.log.info("Test very broken block.")
 
@@ -103,8 +116,10 @@ class InvalidBlockRequestTest(DefiTestFramework):
         block3.rehash()
         block3.solve()
 
-        node.p2p.send_blocks_and_test([block3], node, success=False, reject_reason='bad-cb-amount')
+        node.p2p.send_blocks_and_test(
+            [block3], node, success=False, reject_reason="bad-cb-amount"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     InvalidBlockRequestTest().main()

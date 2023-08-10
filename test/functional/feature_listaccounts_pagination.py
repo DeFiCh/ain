@@ -14,8 +14,8 @@ class AccountsValidatingTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
         ]
 
     def run_test(self):
@@ -37,7 +37,7 @@ class AccountsValidatingTest(DefiTestFramework):
         assert_equal(accounts[0]["key"], accountkey1)
         pagination = {
             "start": accounts[len(accounts) - 1]["key"],
-            "including_start": True
+            "including_start": True,
         }
         result2 = node1.listaccounts(pagination)
         # check the result has accountkey1
@@ -63,8 +63,10 @@ class AccountsValidatingTest(DefiTestFramework):
             assert_equal(accounts[0]["key"], accountkey2)
             assert_equal(accounts[1]["key"], accountkey1)
         pagination = {
-            "start": accounts[len(accounts) - 1]["key"],  # giving the last element of accounts[] as start
-            "including_start": True
+            "start": accounts[len(accounts) - 1][
+                "key"
+            ],  # giving the last element of accounts[] as start
+            "including_start": True,
         }
         result2 = node1.listaccounts(pagination)
         # check for length
@@ -89,12 +91,12 @@ class AccountsValidatingTest(DefiTestFramework):
         assert_equal(len(accounts), 3)
         pagination = {
             "start": accounts[0]["key"],  # pass the first key in the accounts list
-            "including_start": False
+            "including_start": False,
         }
         result2 = node1.listaccounts(pagination)
         # check for length, we should get 2 entries since listaccounts RPC should return all accounts even with pagination.
         assert_equal(len(result2), 2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AccountsValidatingTest().main()

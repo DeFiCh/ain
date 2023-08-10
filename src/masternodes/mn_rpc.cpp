@@ -867,9 +867,8 @@ UniValue getgov(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    auto name = request.params[0].getValStr();
-    auto var = pcustomcsview->GetVariable(name);
-    if (var) {
+    const auto name = request.params[0].getValStr();
+    if (const auto var = pcustomcsview->GetVariable(name)) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
         return GetRPCResultCache().Set(request, ret);

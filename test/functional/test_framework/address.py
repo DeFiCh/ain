@@ -11,35 +11,38 @@ from .util import hex_str_to_bytes
 
 from . import segwit_addr
 
-ADDRESS_BCRT1_UNSPENDABLE = 'bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3xueyj'
+ADDRESS_BCRT1_UNSPENDABLE = (
+    "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3xueyj"
+)
 
 
 class AddressType(enum.Enum):
-    bech32 = 'bech32'
-    p2sh_segwit = 'p2sh-segwit'
-    legacy = 'legacy'  # P2PKH
+    bech32 = "bech32"
+    p2sh_segwit = "p2sh-segwit"
+    legacy = "legacy"  # P2PKH
 
 
-chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 
 def byte_to_base58(b, version):
-    result = ''
+    result = ""
     str = b.hex()
-    str = chr(version).encode('latin-1').hex() + str
+    str = chr(version).encode("latin-1").hex() + str
     checksum = hash256(hex_str_to_bytes(str)).hex()
     str += checksum[:8]
-    value = int('0x' + str, 0)
+    value = int("0x" + str, 0)
     while value > 0:
         result = chars[value % 58] + result
         value //= 58
-    while (str[:2] == '00'):
+    while str[:2] == "00":
         result = chars[0] + result
         str = str[2:]
     return result
 
 
 # TODO: def base58_decode
+
 
 def keyhash_to_p2pkh(hash, main=False):
     assert len(hash) == 20
@@ -70,7 +73,7 @@ def key_to_p2sh_p2wpkh(key, main=False):
 
 
 def program_to_witness(version, program, main=False):
-    if (type(program) is str):
+    if type(program) is str:
         program = hex_str_to_bytes(program)
     assert 0 <= version <= 16
     assert 2 <= len(program) <= 40
@@ -95,16 +98,16 @@ def script_to_p2sh_p2wsh(script, main=False):
 
 
 def check_key(key):
-    if (type(key) is str):
+    if type(key) is str:
         key = hex_str_to_bytes(key)  # Assuming this is hex string
-    if (type(key) is bytes and (len(key) == 33 or len(key) == 65)):
+    if type(key) is bytes and (len(key) == 33 or len(key) == 65):
         return key
     assert False
 
 
 def check_script(script):
-    if (type(script) is str):
+    if type(script) is str:
         script = hex_str_to_bytes(script)  # Assuming this is hex string
-    if (type(script) is bytes or type(script) is CScript):
+    if type(script) is bytes or type(script) is CScript:
         return script
     assert False

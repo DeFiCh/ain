@@ -44,8 +44,12 @@ class TimeoutsTest(DefiTestFramework):
     def run_test(self):
         # Setup the p2p connections
         no_verack_node = self.nodes[0].add_p2p_connection(TestP2PConn())
-        no_version_node = self.nodes[0].add_p2p_connection(TestP2PConn(), send_version=False, wait_for_verack=False)
-        no_send_node = self.nodes[0].add_p2p_connection(TestP2PConn(), send_version=False, wait_for_verack=False)
+        no_version_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(), send_version=False, wait_for_verack=False
+        )
+        no_send_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(), send_version=False, wait_for_verack=False
+        )
 
         sleep(1)
 
@@ -84,5 +88,5 @@ class TimeoutsTest(DefiTestFramework):
             assert not no_send_node.is_connected
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TimeoutsTest().main()

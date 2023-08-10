@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
 use keccak_hash::H256;
-use log::debug;
+use log::{debug, trace};
 use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
 
@@ -177,7 +177,7 @@ impl BlockService {
         let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
             .iter()
             .map(|block| {
-                debug!("Processing block {}", block.header.number);
+                trace!("[fee_history] Processing block {}", block.header.number);
                 let base_fee = block.header.base_fee;
 
                 let gas_ratio = if block.header.gas_limit == U256::zero() {

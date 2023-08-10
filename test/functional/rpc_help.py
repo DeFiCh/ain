@@ -22,39 +22,64 @@ class HelpRpcTest(DefiTestFramework):
         node = self.nodes[0]
 
         # wrong argument count
-        assert_raises_rpc_error(-1, 'help', node.help, 'foo', 'bar')
+        assert_raises_rpc_error(-1, "help", node.help, "foo", "bar")
 
         # invalid argument
-        assert_raises_rpc_error(-1, 'JSON value is not a string as expected', node.help, 0)
+        assert_raises_rpc_error(
+            -1, "JSON value is not a string as expected", node.help, 0
+        )
 
         # help of unknown command
-        assert_equal(node.help('foo'), 'help: unknown command: foo')
+        assert_equal(node.help("foo"), "help: unknown command: foo")
 
         # command titles
-        titles = [line[3:-3] for line in node.help().splitlines() if line.startswith('==')]
+        titles = [
+            line[3:-3] for line in node.help().splitlines() if line.startswith("==")
+        ]
 
-        components = ['Accounts', 'Blockchain', 'Control', 'Evm', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes',
-                      'Mining', 'Network', 'Oracles', 'Poolpair', 'Proposals', 'Rawtransactions', 'Spv', 'Stats',
-                      'Tokens', 'Util', 'Vault']
+        components = [
+            "Accounts",
+            "Blockchain",
+            "Control",
+            "Evm",
+            "Generating",
+            "Icxorderbook",
+            "Loan",
+            "Masternodes",
+            "Mining",
+            "Network",
+            "Oracles",
+            "Poolpair",
+            "Proposals",
+            "Rawtransactions",
+            "Spv",
+            "Stats",
+            "Tokens",
+            "Util",
+            "Vault",
+        ]
 
         if self.is_wallet_compiled():
-            components.append('Wallet')
+            components.append("Wallet")
 
         if self.is_zmq_compiled():
-            components.append('Zmq')
+            components.append("Zmq")
 
         assert_equal(titles, components)
 
     def dump_help(self):
-        dump_dir = os.path.join(self.options.tmpdir, 'rpc_help_dump')
+        dump_dir = os.path.join(self.options.tmpdir, "rpc_help_dump")
         os.mkdir(dump_dir)
-        calls = [line.split(' ', 1)[0] for line in self.nodes[0].help().splitlines() if
-                 line and not line.startswith('==')]
+        calls = [
+            line.split(" ", 1)[0]
+            for line in self.nodes[0].help().splitlines()
+            if line and not line.startswith("==")
+        ]
         for call in calls:
-            with open(os.path.join(dump_dir, call), 'w', encoding='utf-8') as f:
+            with open(os.path.join(dump_dir, call), "w", encoding="utf-8") as f:
                 # Make sure the node can generate the help at runtime without crashing
                 f.write(self.nodes[0].help(call))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     HelpRpcTest().main()

@@ -15,10 +15,12 @@ from test_framework.test_framework import DefiTestFramework
 class msg_unrecognized:
     """Nonsensical message. Modeled after similar types in test_framework.messages."""
 
-    command = b'badmsg'
+    command = b"badmsg"
 
     def __init__(self, *, str_data):
-        self.str_data = str_data.encode() if not isinstance(str_data, bytes) else str_data
+        self.str_data = (
+            str_data.encode() if not isinstance(str_data, bytes) else str_data
+        )
 
     def serialize(self):
         return messages.ser_string(self.str_data)
@@ -65,7 +67,9 @@ class InvalidMessagesTest(DefiTestFramework):
         msg_at_size = msg_unrecognized(str_data="b" * valid_data_limit)
         assert len(msg_at_size.serialize()) == msg_limit
 
-        self.log.info("Sending a bunch of large, junk messages to test memory exhaustion. May take a bit...")
+        self.log.info(
+            "Sending a bunch of large, junk messages to test memory exhaustion. May take a bit..."
+        )
 
         # Run a bunch of times to test for memory exhaustion. DeFi reduced to 40, was 80 before.
         for _ in range(40):
@@ -90,11 +94,13 @@ class InvalidMessagesTest(DefiTestFramework):
         # returned from the closing socket which python/asyncio does not
         # yet know how to handle.
         #
-        if sys.platform != 'darwin':
+        if sys.platform != "darwin":
             msg_over_size = msg_unrecognized(str_data="b" * (valid_data_limit + 1))
             assert len(msg_over_size.serialize()) == (msg_limit + 1)
 
-            with node.assert_debug_log(["Oversized message from peer=4, disconnecting"]):
+            with node.assert_debug_log(
+                ["Oversized message from peer=4, disconnecting"]
+            ):
                 # An unknown message type (or *any* message type) over
                 # MAX_PROTOCOL_MESSAGE_LENGTH should result in a disconnect.
                 node.p2p.send_message(msg_over_size)
@@ -104,7 +110,9 @@ class InvalidMessagesTest(DefiTestFramework):
             conn = node.add_p2p_connection(P2PDataStore())
             conn.wait_for_verack()
         else:
-            self.log.info("Skipping test p2p_invalid_messages/1 (oversized message) under macOS")
+            self.log.info(
+                "Skipping test p2p_invalid_messages/1 (oversized message) under macOS"
+            )
 
         #
         # 2.
@@ -116,7 +124,9 @@ class InvalidMessagesTest(DefiTestFramework):
 
         # TODO: handle larger-than cases. I haven't been able to pin down what behavior to expect.
         for wrong_size in (2, 77, 78, 79):
-            self.log.info("Sending a message with incorrect size of {}".format(wrong_size))
+            self.log.info(
+                "Sending a message with incorrect size of {}".format(wrong_size)
+            )
 
             # Unmodified message should submit okay.
             node.p2p.send_and_ping(msg)
@@ -147,56 +157,58 @@ class InvalidMessagesTest(DefiTestFramework):
         conn = self.nodes[0].add_p2p_connection(P2PDataStore())
 
         async def swap_magic_bytes():
-            conn._on_data = lambda: None  # Need to ignore all incoming messages from now, since they come with "invalid" magic bytes
-            conn.magic_bytes = b'\x00\x11\x22\x32'
+            conn._on_data = (
+                lambda: None
+            )  # Need to ignore all incoming messages from now, since they come with "invalid" magic bytes
+            conn.magic_bytes = b"\x00\x11\x22\x32"
 
         # Call .result() to block until the atomic swap is complete, otherwise
         # we might run into races later on
-        asyncio.run_coroutine_threadsafe(swap_magic_bytes(), NetworkThread.network_event_loop).result()
+        asyncio.run_coroutine_threadsafe(
+            swap_magic_bytes(), NetworkThread.network_event_loop
+        ).result()
 
-        with self.nodes[0].assert_debug_log(['PROCESSMESSAGE: INVALID MESSAGESTART ping']):
-            conn.send_message(messages.msg_ping(nonce=0xff))
+        with self.nodes[0].assert_debug_log(
+            ["PROCESSMESSAGE: INVALID MESSAGESTART ping"]
+        ):
+            conn.send_message(messages.msg_ping(nonce=0xFF))
             conn.wait_for_disconnect(timeout=1)
             self.nodes[0].disconnect_p2ps()
 
     def test_checksum(self):
         conn = self.nodes[0].add_p2p_connection(P2PDataStore())
         with self.nodes[0].assert_debug_log(
-                ['ProcessMessages(badmsg, 2 bytes): CHECKSUM ERROR expected 78df0a04 was ffffffff']):
+            [
+                "ProcessMessages(badmsg, 2 bytes): CHECKSUM ERROR expected 78df0a04 was ffffffff"
+            ]
+        ):
             msg = conn.build_message(msg_unrecognized(str_data="d"))
-            cut_len = (
-                    4 +  # magic
-                    12 +  # command
-                    4  # len
-            )
+            cut_len = 4 + 12 + 4  # magic  # command  # len
             # modify checksum
-            msg = msg[:cut_len] + b'\xff' * 4 + msg[cut_len + 4:]
+            msg = msg[:cut_len] + b"\xff" * 4 + msg[cut_len + 4 :]
             self.nodes[0].p2p.send_raw_message(msg)
             conn.sync_with_ping(timeout=1)
             self.nodes[0].disconnect_p2ps()
 
     def test_size(self):
         conn = self.nodes[0].add_p2p_connection(P2PDataStore())
-        with self.nodes[0].assert_debug_log(['']):
+        with self.nodes[0].assert_debug_log([""]):
             msg = conn.build_message(msg_unrecognized(str_data="d"))
-            cut_len = (
-                    4 +  # magic
-                    12  # command
-            )
+            cut_len = 4 + 12  # magic  # command
             # modify len to MAX_DESER_SIZE + 1
-            msg = msg[:cut_len] + struct.pack("<I", 0x08000000 + 1) + msg[cut_len + 4:]
+            msg = msg[:cut_len] + struct.pack("<I", 0x08000000 + 1) + msg[cut_len + 4 :]
             self.nodes[0].p2p.send_raw_message(msg)
             conn.wait_for_disconnect(timeout=1)
             self.nodes[0].disconnect_p2ps()
 
     def test_command(self):
         conn = self.nodes[0].add_p2p_connection(P2PDataStore())
-        with self.nodes[0].assert_debug_log(['PROCESSMESSAGE: ERRORS IN HEADER']):
+        with self.nodes[0].assert_debug_log(["PROCESSMESSAGE: ERRORS IN HEADER"]):
             msg = msg_unrecognized(str_data="d")
-            msg.command = b'\xff' * 12
+            msg.command = b"\xff" * 12
             msg = conn.build_message(msg)
             # Modify command
-            msg = msg[:7] + b'\x00' + msg[7 + 1:]
+            msg = msg[:7] + b"\x00" + msg[7 + 1 :]
             self.nodes[0].p2p.send_raw_message(msg)
             conn.sync_with_ping(timeout=1)
             self.nodes[0].disconnect_p2ps()
@@ -213,14 +225,14 @@ class InvalidMessagesTest(DefiTestFramework):
 
         # Replace the correct data size in the message with an incorrect one.
         raw_msg_with_wrong_size = (
-                raw_msg[:num_header_bytes_before_size] +
-                bad_size_bytes +
-                raw_msg[(num_header_bytes_before_size + len(bad_size_bytes)):]
+            raw_msg[:num_header_bytes_before_size]
+            + bad_size_bytes
+            + raw_msg[(num_header_bytes_before_size + len(bad_size_bytes)) :]
         )
         assert len(raw_msg) == len(raw_msg_with_wrong_size)
 
         return raw_msg_with_wrong_size
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     InvalidMessagesTest().main()

@@ -10,13 +10,16 @@ Runs automatically during `make check`.
 Can also be run manually."""
 
 import argparse
+
 # import binascii # TODO: (temp) it's used in bctest
 import configparser
+
 # import difflib # TODO: (temp) it's used in bctest
 import json
 import logging
 import os
 import pprint
+
 # import subprocess  # TODO: (temp) it's used in bctest
 import sys
 
@@ -24,11 +27,13 @@ import sys
 def main():
     config = configparser.ConfigParser()
     config.optionxform = str
-    config.read_file(open(os.path.join(os.path.dirname(__file__), "../config.ini"), encoding="utf8"))
-    env_conf = dict(config.items('environment'))
+    config.read_file(
+        open(os.path.join(os.path.dirname(__file__), "../config.ini"), encoding="utf8")
+    )
+    env_conf = dict(config.items("environment"))
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     verbose = args.verbose
 
@@ -36,15 +41,19 @@ def main():
         level = logging.DEBUG
     else:
         level = logging.ERROR
-    formatter = '%(asctime)s - %(levelname)s - %(message)s'
+    formatter = "%(asctime)s - %(levelname)s - %(message)s"
     # Add the format/level to the logger
     logging.basicConfig(format=formatter, level=level)
 
-    bctester(os.path.join(env_conf["SRCDIR"], "test", "util", "data"), "defi-util-test.json", env_conf)
+    bctester(
+        os.path.join(env_conf["SRCDIR"], "test", "util", "data"),
+        "defi-util-test.json",
+        env_conf,
+    )
 
 
 def bctester(testDir, input_basename, buildenv):
-    """ Loads and parses the input file, runs all tests and reports results"""
+    """Loads and parses the input file, runs all tests and reports results"""
     input_filename = os.path.join(testDir, input_basename)
     raw_data = open(input_filename, encoding="utf8").read()
     input_data = json.loads(raw_data)
@@ -177,5 +186,5 @@ def bctest(testDir, testObj, buildenv):
 #     else:
 #         raise NotImplementedError("Don't know how to compare %s" % fmt)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

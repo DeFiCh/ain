@@ -14,8 +14,8 @@ class AccountsValidatingTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
         ]
 
     def run_test(self):
@@ -55,5 +55,5 @@ class AccountsValidatingTest(DefiTestFramework):
         assert_equal(node1.getblockcount(), blockcount + 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AccountsValidatingTest().main()

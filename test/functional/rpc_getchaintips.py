@@ -21,9 +21,9 @@ class GetChainTipsTest(DefiTestFramework):
     def run_test(self):
         tips = self.nodes[0].getchaintips()
         assert_equal(len(tips), 1)
-        assert_equal(tips[0]['branchlen'], 0)
-        assert_equal(tips[0]['height'], 200)
-        assert_equal(tips[0]['status'], 'active')
+        assert_equal(tips[0]["branchlen"], 0)
+        assert_equal(tips[0]["height"], 200)
+        assert_equal(tips[0]["status"], "active")
 
         # Split the network and build two chains of different lengths.
         self.split_network()
@@ -35,16 +35,16 @@ class GetChainTipsTest(DefiTestFramework):
         tips = self.nodes[1].getchaintips()
         assert_equal(len(tips), 1)
         shortTip = tips[0]
-        assert_equal(shortTip['branchlen'], 0)
-        assert_equal(shortTip['height'], 210)
-        assert_equal(tips[0]['status'], 'active')
+        assert_equal(shortTip["branchlen"], 0)
+        assert_equal(shortTip["height"], 210)
+        assert_equal(tips[0]["status"], "active")
 
         tips = self.nodes[3].getchaintips()
         assert_equal(len(tips), 1)
         longTip = tips[0]
-        assert_equal(longTip['branchlen'], 0)
-        assert_equal(longTip['height'], 220)
-        assert_equal(tips[0]['status'], 'active')
+        assert_equal(longTip["branchlen"], 0)
+        assert_equal(longTip["height"], 220)
+        assert_equal(tips[0]["status"], "active")
 
         # Join the network halves and check that we now have two tips
         # (at least at the nodes that previously had the short chain).
@@ -54,12 +54,12 @@ class GetChainTipsTest(DefiTestFramework):
         assert_equal(len(tips), 2)
         assert_equal(tips[0], longTip)
 
-        assert_equal(tips[1]['branchlen'], 10)
-        assert_equal(tips[1]['status'], 'valid-fork')
-        tips[1]['branchlen'] = 0
-        tips[1]['status'] = 'active'
+        assert_equal(tips[1]["branchlen"], 10)
+        assert_equal(tips[1]["status"], "valid-fork")
+        tips[1]["branchlen"] = 0
+        tips[1]["status"] = "active"
         assert_equal(tips[1], shortTip)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     GetChainTipsTest().main()

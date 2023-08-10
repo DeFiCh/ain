@@ -111,6 +111,7 @@ dependencies = [
  "anyhow",
  "cxx",
  "cxx-build",
+ "serde",
 ]
 
 [[package]]

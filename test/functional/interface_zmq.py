@@ -24,6 +24,7 @@ class ZMQSubscriber:
         self.topic = topic
 
         import zmq
+
         self.socket.setsockopt(zmq.SUBSCRIBE, self.topic)
 
     def receive(self):
@@ -31,7 +32,7 @@ class ZMQSubscriber:
         # Topic should match the subscriber topic.
         assert_equal(topic, self.topic)
         # Sequence should be incremental.
-        assert_equal(struct.unpack('<I', seq)[-1], self.sequence)
+        assert_equal(struct.unpack("<I", seq)[-1], self.sequence)
         self.sequence += 1
         return body
 
@@ -46,6 +47,7 @@ class ZMQTest(DefiTestFramework):
 
     def run_test(self):
         import zmq
+
         self.ctx = zmq.Context()
         try:
             self.test_basic()
@@ -61,7 +63,8 @@ class ZMQTest(DefiTestFramework):
         # Note that the publishing order is not defined in the documentation and
         # is subject to change.
         import zmq
-        address = 'tcp://127.0.0.1:28554'
+
+        address = "tcp://127.0.0.1:28554"
         socket = self.ctx.socket(zmq.SUB)
         socket.set(zmq.RCVTIMEO, 60000)
 
@@ -71,16 +74,25 @@ class ZMQTest(DefiTestFramework):
         rawblock = ZMQSubscriber(socket, b"rawblock")
         rawtx = ZMQSubscriber(socket, b"rawtx")
 
-        self.restart_node(0, ["-zmqpub%s=%s" % (sub.topic.decode(), address) for sub in
-                              [hashblock, hashtx, rawblock, rawtx]])
+        self.restart_node(
+            0,
+            [
+                "-zmqpub%s=%s" % (sub.topic.decode(), address)
+                for sub in [hashblock, hashtx, rawblock, rawtx]
+            ],
+        )
         connect_nodes(self.nodes[0], 1)
         socket.connect(address)
         # Relax so that the subscriber is ready before publishing zmq messages
         sleep(0.2)
 
         num_blocks = 5
-        self.log.info("Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks})
-        genhashes = self.nodes[0].generate(nblocks=num_blocks, address=ADDRESS_BCRT1_UNSPENDABLE)
+        self.log.info(
+            "Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks}
+        )
+        genhashes = self.nodes[0].generate(
+            nblocks=num_blocks, address=ADDRESS_BCRT1_UNSPENDABLE
+        )
         self.sync_blocks()
 
         for x in range(num_blocks):
@@ -102,11 +114,15 @@ class ZMQTest(DefiTestFramework):
 
             # Should receive the generated raw block.
             block = rawblock.receive()
-            assert_equal(genhashes[x], hash256_reversed(block[:BLOCK_HEADER_SIZE]).hex())
+            assert_equal(
+                genhashes[x], hash256_reversed(block[:BLOCK_HEADER_SIZE]).hex()
+            )
 
         if self.is_wallet_compiled():
             self.log.info("Wait for tx from second node")
-            payment_txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
+            payment_txid = self.nodes[1].sendtoaddress(
+                self.nodes[0].getnewaddress(), 1.0
+            )
             self.sync_mempools()
 
             # Should receive the broadcasted txid.
@@ -118,24 +134,28 @@ class ZMQTest(DefiTestFramework):
             assert_equal(payment_txid, hash256_reversed(hex).hex())
 
         self.log.info("Test the getzmqnotifications RPC")
-        assert_equal(self.nodes[0].getzmqnotifications(), [
-            {"type": "pubhashblock", "address": address, "hwm": 1000},
-            {"type": "pubhashtx", "address": address, "hwm": 1000},
-            {"type": "pubrawblock", "address": address, "hwm": 1000},
-            {"type": "pubrawtx", "address": address, "hwm": 1000},
-        ])
+        assert_equal(
+            self.nodes[0].getzmqnotifications(),
+            [
+                {"type": "pubhashblock", "address": address, "hwm": 1000},
+                {"type": "pubhashtx", "address": address, "hwm": 1000},
+                {"type": "pubrawblock", "address": address, "hwm": 1000},
+                {"type": "pubrawtx", "address": address, "hwm": 1000},
+            ],
+        )
 
         assert_equal(self.nodes[1].getzmqnotifications(), [])
 
     def test_reorg(self):
         import zmq
-        address = 'tcp://127.0.0.1:28555'
+
+        address = "tcp://127.0.0.1:28555"
         socket = self.ctx.socket(zmq.SUB)
         socket.set(zmq.RCVTIMEO, 60000)
-        hashblock = ZMQSubscriber(socket, b'hashblock')
+        hashblock = ZMQSubscriber(socket, b"hashblock")
 
         # Should only notify the tip if a reorg occurs
-        self.restart_node(0, ['-zmqpub%s=%s' % (hashblock.topic.decode(), address)])
+        self.restart_node(0, ["-zmqpub%s=%s" % (hashblock.topic.decode(), address)])
         socket.connect(address)
         # Relax so that the subscriber is ready before publishing zmq messages
         sleep(0.2)
@@ -154,5 +174,5 @@ class ZMQTest(DefiTestFramework):
         assert_equal(self.nodes[1].getbestblockhash(), hashblock.receive().hex())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ZMQTest().main()

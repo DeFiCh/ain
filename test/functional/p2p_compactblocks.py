@@ -9,12 +9,45 @@ Version 2 compact blocks are post-segwit (wtxids)
 """
 import random
 
-from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, \
-    CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, \
-    msg_no_witness_block, msg_no_witness_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, \
-    msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_block, msg_blocktxn, MSG_WITNESS_FLAG, \
-    NODE_NETWORK, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    add_witness_commitment,
+)
+from test_framework.messages import (
+    BlockTransactions,
+    BlockTransactionsRequest,
+    calculate_shortid,
+    CBlock,
+    CBlockHeader,
+    CInv,
+    COutPoint,
+    CTransaction,
+    CTxIn,
+    CTxInWitness,
+    CTxOut,
+    FromHex,
+    HeaderAndShortIDs,
+    msg_no_witness_block,
+    msg_no_witness_blocktxn,
+    msg_cmpctblock,
+    msg_getblocktxn,
+    msg_getdata,
+    msg_getheaders,
+    msg_headers,
+    msg_inv,
+    msg_sendcmpct,
+    msg_sendheaders,
+    msg_tx,
+    msg_block,
+    msg_blocktxn,
+    MSG_WITNESS_FLAG,
+    NODE_NETWORK,
+    P2PHeaderAndShortIDs,
+    PrefilledTransaction,
+    ser_uint256,
+    ToHex,
+)
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import DefiTestFramework
@@ -39,7 +72,9 @@ class TestP2PConn(P2PInterface):
     def on_cmpctblock(self, message):
         self.block_announced = True
         self.last_message["cmpctblock"].header_and_shortids.header.calc_sha256()
-        self.announced_blockhashes.add(self.last_message["cmpctblock"].header_and_shortids.header.sha256)
+        self.announced_blockhashes.add(
+            self.last_message["cmpctblock"].header_and_shortids.header.sha256
+        )
 
     def on_headers(self, message):
         self.block_announced = True
@@ -85,7 +120,7 @@ class TestP2PConn(P2PInterface):
     # received.
     def wait_for_block_announcement(self, block_hash, timeout=30):
         def received_hash():
-            return (block_hash in self.announced_blockhashes)
+            return block_hash in self.announced_blockhashes
 
         wait_until(received_hash, timeout=timeout, lock=mininode_lock)
 
@@ -102,9 +137,7 @@ class CompactBlocksTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
-        self.extra_args = [[
-            "-acceptnonstdtxn=1", "-dummypos=1"
-        ]]
+        self.extra_args = [["-acceptnonstdtxn=1", "-dummypos=1"]]
         self.utxos = []
 
     def skip_test_if_missing_module(self):
@@ -113,7 +146,7 @@ class CompactBlocksTest(DefiTestFramework):
     def build_block_on_tip(self, node, segwit=False):
         height = node.getblockcount()
         tip = node.getbestblockhash()
-        mtp = node.getblockheader(tip)['mediantime']
+        mtp = node.getblockheader(tip)["mediantime"]
         block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1)
         block.nVersion = 4
         if segwit:
@@ -126,12 +159,14 @@ class CompactBlocksTest(DefiTestFramework):
         block = self.build_block_on_tip(self.nodes[0])
         self.segwit_node.send_and_ping(msg_no_witness_block(block))
         assert int(self.nodes[0].getbestblockhash(), 16) == block.sha256
-        self.nodes[0].generate(nblocks=100, address=self.nodes[0].getnewaddress(address_type="bech32"))
+        self.nodes[0].generate(
+            nblocks=100, address=self.nodes[0].getnewaddress(address_type="bech32")
+        )
 
         total_value = block.vtx[0].vout[0].nValue
         out_value = total_value // 10
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(block.vtx[0].sha256, 0), b''))
+        tx.vin.append(CTxIn(COutPoint(block.vtx[0].sha256, 0), b""))
         for i in range(10):
             tx.vout.append(CTxOut(out_value, CScript([OP_TRUE])))
         tx.rehash()
@@ -159,7 +194,7 @@ class CompactBlocksTest(DefiTestFramework):
 
         # Make sure we get a SENDCMPCT message from our peer
         def received_sendcmpct():
-            return (len(test_node.last_sendcmpct) > 0)
+            return len(test_node.last_sendcmpct) > 0
 
         wait_until(received_sendcmpct, timeout=30, lock=mininode_lock)
         with mininode_lock:
@@ -178,17 +213,26 @@ class CompactBlocksTest(DefiTestFramework):
             assert peer.block_announced
 
             with mininode_lock:
-                assert predicate(peer), (
-                    "block_hash={!r}, cmpctblock={!r}, inv={!r}".format(
-                        block_hash, peer.last_message.get("cmpctblock", None), peer.last_message.get("inv", None)))
+                assert predicate(
+                    peer
+                ), "block_hash={!r}, cmpctblock={!r}, inv={!r}".format(
+                    block_hash,
+                    peer.last_message.get("cmpctblock", None),
+                    peer.last_message.get("inv", None),
+                )
 
         # We shouldn't get any block announcements via cmpctblock yet.
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" not in p.last_message
+        )
 
         # Try one more time, this time after requesting headers.
         test_node.request_headers_and_sync(locator=[tip])
-        check_announcement_of_new_block(node, test_node,
-                                        lambda p: "cmpctblock" not in p.last_message and "inv" in p.last_message)
+        check_announcement_of_new_block(
+            node,
+            test_node,
+            lambda p: "cmpctblock" not in p.last_message and "inv" in p.last_message,
+        )
 
         # Test a few ways of using sendcmpct that should NOT
         # result in compact block announcements.
@@ -200,7 +244,9 @@ class CompactBlocksTest(DefiTestFramework):
         sendcmpct.version = preferred_version + 1
         sendcmpct.announce = True
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" not in p.last_message
+        )
 
         # Headers sync before next test.
         test_node.request_headers_and_sync(locator=[tip])
@@ -209,7 +255,9 @@ class CompactBlocksTest(DefiTestFramework):
         sendcmpct.version = preferred_version
         sendcmpct.announce = False
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" not in p.last_message
+        )
 
         # Headers sync before next test.
         test_node.request_headers_and_sync(locator=[tip])
@@ -218,27 +266,39 @@ class CompactBlocksTest(DefiTestFramework):
         sendcmpct.version = preferred_version
         sendcmpct.announce = True
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" in p.last_message
+        )
 
         # Try one more time (no headers sync should be needed!)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" in p.last_message
+        )
 
         # Try one more time, after turning on sendheaders
         test_node.send_and_ping(msg_sendheaders())
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" in p.last_message
+        )
 
         # Try one more time, after sending a version-1, announce=false message.
         sendcmpct.version = preferred_version - 1
         sendcmpct.announce = False
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" in p.last_message)
+        check_announcement_of_new_block(
+            node, test_node, lambda p: "cmpctblock" in p.last_message
+        )
 
         # Now turn off announcements
         sendcmpct.version = preferred_version
         sendcmpct.announce = False
         test_node.send_and_ping(sendcmpct)
-        check_announcement_of_new_block(node, test_node,
-                                        lambda p: "cmpctblock" not in p.last_message and "headers" in p.last_message)
+        check_announcement_of_new_block(
+            node,
+            test_node,
+            lambda p: "cmpctblock" not in p.last_message
+            and "headers" in p.last_message,
+        )
 
         if old_node is not None:
             # Verify that a peer using an older protocol version can receive
@@ -248,7 +308,9 @@ class CompactBlocksTest(DefiTestFramework):
             old_node.send_and_ping(sendcmpct)
             # Header sync
             old_node.request_headers_and_sync(locator=[tip])
-            check_announcement_of_new_block(node, old_node, lambda p: "cmpctblock" in p.last_message)
+            check_announcement_of_new_block(
+                node, old_node, lambda p: "cmpctblock" in p.last_message
+            )
 
     # This test actually causes defid to (reasonably!) disconnect us, so do this last.
     def test_invalid_cmpctblock_message(self):
@@ -303,15 +365,21 @@ class CompactBlocksTest(DefiTestFramework):
         block.rehash()
 
         # Wait until the block was announced (via compact blocks)
-        wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
+        wait_until(
+            test_node.received_block_announcement, timeout=30, lock=mininode_lock
+        )
 
         # Now fetch and check the compact block
         header_and_shortids = None
         with mininode_lock:
             assert "cmpctblock" in test_node.last_message
             # Convert the on-the-wire representation to absolute indexes
-            header_and_shortids = HeaderAndShortIDs(test_node.last_message["cmpctblock"].header_and_shortids)
-        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block)
+            header_and_shortids = HeaderAndShortIDs(
+                test_node.last_message["cmpctblock"].header_and_shortids
+            )
+        self.check_compactblock_construction_from_block(
+            version, header_and_shortids, block_hash, block
+        )
 
         # Now fetch the compact block using a normal non-announce getdata
         with mininode_lock:
@@ -319,17 +387,25 @@ class CompactBlocksTest(DefiTestFramework):
             inv = CInv(4, block_hash)  # 4 == "CompactBlock"
             test_node.send_message(msg_getdata([inv]))
 
-        wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
+        wait_until(
+            test_node.received_block_announcement, timeout=30, lock=mininode_lock
+        )
 
         # Now fetch and check the compact block
         header_and_shortids = None
         with mininode_lock:
             assert "cmpctblock" in test_node.last_message
             # Convert the on-the-wire representation to absolute indexes
-            header_and_shortids = HeaderAndShortIDs(test_node.last_message["cmpctblock"].header_and_shortids)
-        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block)
+            header_and_shortids = HeaderAndShortIDs(
+                test_node.last_message["cmpctblock"].header_and_shortids
+            )
+        self.check_compactblock_construction_from_block(
+            version, header_and_shortids, block_hash, block
+        )
 
-    def check_compactblock_construction_from_block(self, version, header_and_shortids, block_hash, block):
+    def check_compactblock_construction_from_block(
+        self, version, header_and_shortids, block_hash, block
+    ):
         # Check that we got the right block!
         header_and_shortids.header.calc_sha256()
         assert_equal(header_and_shortids.header.sha256, block_hash)
@@ -353,7 +429,10 @@ class CompactBlocksTest(DefiTestFramework):
                 assert entry.tx.wit.is_null()
 
         # Check that the cmpctblock message announced all the transactions.
-        assert_equal(len(header_and_shortids.prefilled_txn) + len(header_and_shortids.shortids), len(block.vtx))
+        assert_equal(
+            len(header_and_shortids.prefilled_txn) + len(header_and_shortids.shortids),
+            len(block.vtx),
+        )
 
         # And now check that all the shortids are as expected as well.
         # Determine the siphash keys to use.
@@ -361,8 +440,10 @@ class CompactBlocksTest(DefiTestFramework):
 
         index = 0
         while index < len(block.vtx):
-            if (len(header_and_shortids.prefilled_txn) > 0 and
-                    header_and_shortids.prefilled_txn[0].index == index):
+            if (
+                len(header_and_shortids.prefilled_txn) > 0
+                and header_and_shortids.prefilled_txn[0].index == index
+            ):
                 # Already checked prefilled transactions above
                 header_and_shortids.prefilled_txn.pop(0)
             else:
@@ -392,11 +473,19 @@ class CompactBlocksTest(DefiTestFramework):
 
             if announce == "inv":
                 test_node.send_message(msg_inv([CInv(2, block.sha256)]))
-                wait_until(lambda: "getheaders" in test_node.last_message, timeout=30, lock=mininode_lock)
+                wait_until(
+                    lambda: "getheaders" in test_node.last_message,
+                    timeout=30,
+                    lock=mininode_lock,
+                )
                 test_node.send_header_for_blocks([block])
             else:
                 test_node.send_header_for_blocks([block])
-            wait_until(lambda: "getdata" in test_node.last_message, timeout=30, lock=mininode_lock)
+            wait_until(
+                lambda: "getdata" in test_node.last_message,
+                timeout=30,
+                lock=mininode_lock,
+            )
             assert_equal(len(test_node.last_message["getdata"].inv), 1)
             assert_equal(test_node.last_message["getdata"].inv[0].type, 4)
             assert_equal(test_node.last_message["getdata"].inv[0].hash, block.sha256)
@@ -415,7 +504,9 @@ class CompactBlocksTest(DefiTestFramework):
             # Expect a getblocktxn message.
             with mininode_lock:
                 assert "getblocktxn" in test_node.last_message
-                absolute_indexes = test_node.last_message["getblocktxn"].block_txn_request.to_absolute()
+                absolute_indexes = test_node.last_message[
+                    "getblocktxn"
+                ].block_txn_request.to_absolute()
             assert_equal(absolute_indexes, [0])  # should be a coinbase request
 
             # Send the coinbase, and verify that the tip advances.
@@ -434,8 +525,10 @@ class CompactBlocksTest(DefiTestFramework):
 
         for i in range(num_transactions):
             tx = CTransaction()
-            tx.vin.append(CTxIn(COutPoint(utxo[0], utxo[1]), b''))
-            tx.vout.append(CTxOut(utxo[2] - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
+            tx.vin.append(CTxIn(COutPoint(utxo[0], utxo[1]), b""))
+            tx.vout.append(
+                CTxOut(utxo[2] - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))
+            )
             tx.rehash()
             utxo = [tx.sha256, 0, tx.vout[0].nValue]
             block.vtx.append(tx)
@@ -450,14 +543,16 @@ class CompactBlocksTest(DefiTestFramework):
     def test_getblocktxn_requests(self, test_node):
         version = test_node.cmpct_version
         node = self.nodes[0]
-        with_witness = (version == 2)
+        with_witness = version == 2
 
         def test_getblocktxn_response(compact_block, peer, expected_result):
             msg = msg_cmpctblock(compact_block.to_p2p())
             peer.send_and_ping(msg)
             with mininode_lock:
                 assert "getblocktxn" in peer.last_message
-                absolute_indexes = peer.last_message["getblocktxn"].block_txn_request.to_absolute()
+                absolute_indexes = peer.last_message[
+                    "getblocktxn"
+                ].block_txn_request.to_absolute()
             assert_equal(absolute_indexes, expected_result)
 
         def test_tip_after_message(node, peer, msg, tip):
@@ -486,7 +581,9 @@ class CompactBlocksTest(DefiTestFramework):
         self.utxos.append([block.vtx[-1].sha256, 0, block.vtx[-1].vout[0].nValue])
 
         # Now try interspersing the prefilled transactions
-        comp_block.initialize_from_block(block, prefill_list=[0, 1, 5], use_witness=with_witness)
+        comp_block.initialize_from_block(
+            block, prefill_list=[0, 1, 5], use_witness=with_witness
+        )
         test_getblocktxn_response(comp_block, test_node, [2, 3, 4])
         msg_bt.block_transactions = BlockTransactions(block.sha256, block.vtx[2:5])
         test_tip_after_message(node, test_node, msg_bt, block.sha256)
@@ -500,7 +597,9 @@ class CompactBlocksTest(DefiTestFramework):
 
         # Prefill 4 out of the 6 transactions, and verify that only the one
         # that was not in the mempool is requested.
-        comp_block.initialize_from_block(block, prefill_list=[0, 2, 3, 4], use_witness=with_witness)
+        comp_block.initialize_from_block(
+            block, prefill_list=[0, 2, 3, 4], use_witness=with_witness
+        )
         test_getblocktxn_response(comp_block, test_node, [5])
 
         msg_bt.block_transactions = BlockTransactions(block.sha256, [block.vtx[5]])
@@ -524,8 +623,12 @@ class CompactBlocksTest(DefiTestFramework):
             test_node.last_message.pop("getblocktxn", None)
 
         # Send compact block
-        comp_block.initialize_from_block(block, prefill_list=[0], use_witness=with_witness)
-        test_tip_after_message(node, test_node, msg_cmpctblock(comp_block.to_p2p()), block.sha256)
+        comp_block.initialize_from_block(
+            block, prefill_list=[0], use_witness=with_witness
+        )
+        test_tip_after_message(
+            node, test_node, msg_cmpctblock(comp_block.to_p2p()), block.sha256
+        )
         with mininode_lock:
             # Shouldn't have gotten a request for any transaction
             assert "getblocktxn" not in test_node.last_message
@@ -550,12 +653,16 @@ class CompactBlocksTest(DefiTestFramework):
 
         # Send compact block
         comp_block = HeaderAndShortIDs()
-        comp_block.initialize_from_block(block, prefill_list=[0], use_witness=(version == 2))
+        comp_block.initialize_from_block(
+            block, prefill_list=[0], use_witness=(version == 2)
+        )
         test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
         absolute_indexes = []
         with mininode_lock:
             assert "getblocktxn" in test_node.last_message
-            absolute_indexes = test_node.last_message["getblocktxn"].block_txn_request.to_absolute()
+            absolute_indexes = test_node.last_message[
+                "getblocktxn"
+            ].block_txn_request.to_absolute()
         assert_equal(absolute_indexes, [6, 7, 8, 9, 10])
 
         # Now give an incorrect response.
@@ -569,17 +676,23 @@ class CompactBlocksTest(DefiTestFramework):
         msg = msg_no_witness_blocktxn()
         if version == 2:
             msg = msg_blocktxn()
-        msg.block_transactions = BlockTransactions(block.sha256, [block.vtx[5]] + block.vtx[7:])
+        msg.block_transactions = BlockTransactions(
+            block.sha256, [block.vtx[5]] + block.vtx[7:]
+        )
         test_node.send_and_ping(msg)
 
         # Tip should not have updated
         assert_equal(int(node.getbestblockhash(), 16), block.hashPrevBlock)
 
         # We should receive a getdata request
-        wait_until(lambda: "getdata" in test_node.last_message, timeout=10, lock=mininode_lock)
+        wait_until(
+            lambda: "getdata" in test_node.last_message, timeout=10, lock=mininode_lock
+        )
         assert_equal(len(test_node.last_message["getdata"].inv), 1)
-        assert test_node.last_message["getdata"].inv[0].type == 2 or test_node.last_message["getdata"].inv[
-            0].type == 2 | MSG_WITNESS_FLAG
+        assert (
+            test_node.last_message["getdata"].inv[0].type == 2
+            or test_node.last_message["getdata"].inv[0].type == 2 | MSG_WITNESS_FLAG
+        )
         assert_equal(test_node.last_message["getdata"].inv[0].hash, block.sha256)
 
         # Deliver the block
@@ -597,23 +710,34 @@ class CompactBlocksTest(DefiTestFramework):
         MAX_GETBLOCKTXN_DEPTH = 10
         chain_height = node.getblockcount()
         current_height = chain_height
-        while (current_height >= chain_height - MAX_GETBLOCKTXN_DEPTH):
+        while current_height >= chain_height - MAX_GETBLOCKTXN_DEPTH:
             block_hash = node.getblockhash(current_height)
             block = FromHex(CBlock(), node.getblock(block_hash, False))
 
             msg = msg_getblocktxn()
             msg.block_txn_request = BlockTransactionsRequest(int(block_hash, 16), [])
             num_to_request = random.randint(1, len(block.vtx))
-            msg.block_txn_request.from_absolute(sorted(random.sample(range(len(block.vtx)), num_to_request)))
+            msg.block_txn_request.from_absolute(
+                sorted(random.sample(range(len(block.vtx)), num_to_request))
+            )
             test_node.send_message(msg)
-            wait_until(lambda: "blocktxn" in test_node.last_message, timeout=10, lock=mininode_lock)
+            wait_until(
+                lambda: "blocktxn" in test_node.last_message,
+                timeout=10,
+                lock=mininode_lock,
+            )
 
             [tx.calc_sha256() for tx in block.vtx]
             with mininode_lock:
-                assert_equal(test_node.last_message["blocktxn"].block_transactions.blockhash, int(block_hash, 16))
+                assert_equal(
+                    test_node.last_message["blocktxn"].block_transactions.blockhash,
+                    int(block_hash, 16),
+                )
                 all_indices = msg.block_txn_request.to_absolute()
                 for index in all_indices:
-                    tx = test_node.last_message["blocktxn"].block_transactions.transactions.pop(0)
+                    tx = test_node.last_message[
+                        "blocktxn"
+                    ].block_transactions.transactions.pop(0)
                     tx.calc_sha256()
                     assert_equal(tx.sha256, block.vtx[index].sha256)
                     if version == 1:
@@ -621,7 +745,9 @@ class CompactBlocksTest(DefiTestFramework):
                         assert tx.wit.is_null()
                     else:
                         # Check that the witness matches
-                        assert_equal(tx.calc_sha256(True), block.vtx[index].calc_sha256(True))
+                        assert_equal(
+                            tx.calc_sha256(True), block.vtx[index].calc_sha256(True)
+                        )
                 test_node.last_message.pop("blocktxn", None)
             current_height -= 1
 
@@ -635,7 +761,9 @@ class CompactBlocksTest(DefiTestFramework):
         test_node.send_and_ping(msg)
         with mininode_lock:
             test_node.last_message["block"].block.calc_sha256()
-            assert_equal(test_node.last_message["block"].block.sha256, int(block_hash, 16))
+            assert_equal(
+                test_node.last_message["block"].block.sha256, int(block_hash, 16)
+            )
             assert "blocktxn" not in test_node.last_message
 
     def test_compactblocks_not_at_tip(self, test_node):
@@ -646,23 +774,35 @@ class CompactBlocksTest(DefiTestFramework):
         for i in range(MAX_CMPCTBLOCK_DEPTH + 1):
             test_node.clear_block_announcement()
             new_blocks.append(node.generate(1)[0])
-            wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
+            wait_until(
+                test_node.received_block_announcement, timeout=30, lock=mininode_lock
+            )
 
         test_node.clear_block_announcement()
         test_node.send_message(msg_getdata([CInv(4, int(new_blocks[0], 16))]))
-        wait_until(lambda: "cmpctblock" in test_node.last_message, timeout=30, lock=mininode_lock)
+        wait_until(
+            lambda: "cmpctblock" in test_node.last_message,
+            timeout=30,
+            lock=mininode_lock,
+        )
 
         test_node.clear_block_announcement()
         node.generate(1)
-        wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
+        wait_until(
+            test_node.received_block_announcement, timeout=30, lock=mininode_lock
+        )
         test_node.clear_block_announcement()
         with mininode_lock:
             test_node.last_message.pop("block", None)
         test_node.send_message(msg_getdata([CInv(4, int(new_blocks[0], 16))]))
-        wait_until(lambda: "block" in test_node.last_message, timeout=30, lock=mininode_lock)
+        wait_until(
+            lambda: "block" in test_node.last_message, timeout=30, lock=mininode_lock
+        )
         with mininode_lock:
             test_node.last_message["block"].block.calc_sha256()
-            assert_equal(test_node.last_message["block"].block.sha256, int(new_blocks[0], 16))
+            assert_equal(
+                test_node.last_message["block"].block.sha256, int(new_blocks[0], 16)
+            )
 
         # Generate an old compactblock, and verify that it's not accepted.
         cur_height = node.getblockcount()
@@ -707,12 +847,17 @@ class CompactBlocksTest(DefiTestFramework):
         node.submitblock(ToHex(block))
 
         for l in listeners:
-            wait_until(lambda: l.received_block_announcement(), timeout=30, lock=mininode_lock)
+            wait_until(
+                lambda: l.received_block_announcement(), timeout=30, lock=mininode_lock
+            )
         with mininode_lock:
             for l in listeners:
                 assert "cmpctblock" in l.last_message
                 l.last_message["cmpctblock"].header_and_shortids.header.calc_sha256()
-                assert_equal(l.last_message["cmpctblock"].header_and_shortids.header.sha256, block.sha256)
+                assert_equal(
+                    l.last_message["cmpctblock"].header_and_shortids.header.sha256,
+                    block.sha256,
+                )
 
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
@@ -734,7 +879,9 @@ class CompactBlocksTest(DefiTestFramework):
         # Now send the compact block with all transactions prefilled, and
         # verify that we don't get disconnected.
         comp_block = HeaderAndShortIDs()
-        comp_block.initialize_from_block(block, prefill_list=[0, 1, 2, 3, 4], use_witness=use_segwit)
+        comp_block.initialize_from_block(
+            block, prefill_list=[0, 1, 2, 3, 4], use_witness=use_segwit
+        )
         msg = msg_cmpctblock(comp_block.to_p2p())
         test_node.send_and_ping(msg)
 
@@ -754,7 +901,9 @@ class CompactBlocksTest(DefiTestFramework):
         msg.announce = True
         peer.send_and_ping(msg)
 
-    def test_compactblock_reconstruction_multiple_peers(self, stalling_peer, delivery_peer):
+    def test_compactblock_reconstruction_multiple_peers(
+        self, stalling_peer, delivery_peer
+    ):
         node = self.nodes[0]
         assert len(self.utxos)
 
@@ -792,7 +941,9 @@ class CompactBlocksTest(DefiTestFramework):
         delivery_peer.sync_with_ping()
 
         cmpct_block.prefilled_txn[0].tx.wit.vtxinwit = [CTxInWitness()]
-        cmpct_block.prefilled_txn[0].tx.wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(0)]
+        cmpct_block.prefilled_txn[0].tx.wit.vtxinwit[0].scriptWitness.stack = [
+            ser_uint256(0)
+        ]
 
         cmpct_block.use_witness = True
         delivery_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
@@ -806,9 +957,15 @@ class CompactBlocksTest(DefiTestFramework):
 
     def run_test(self):
         # Setup the p2p connections
-        self.segwit_node = self.nodes[0].add_p2p_connection(TestP2PConn(cmpct_version=2))
-        self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(cmpct_version=1), services=NODE_NETWORK)
-        self.additional_segwit_node = self.nodes[0].add_p2p_connection(TestP2PConn(cmpct_version=2))
+        self.segwit_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(cmpct_version=2)
+        )
+        self.old_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(cmpct_version=1), services=NODE_NETWORK
+        )
+        self.additional_segwit_node = self.nodes[0].add_p2p_connection(
+            TestP2PConn(cmpct_version=2)
+        )
 
         # We will need UTXOs to construct transactions in later tests.
         self.make_utxos()
@@ -827,7 +984,9 @@ class CompactBlocksTest(DefiTestFramework):
         self.log.info("Testing getblocktxn requests (segwit node)...")
         self.test_getblocktxn_requests(self.segwit_node)
 
-        self.log.info("Testing getblocktxn handler (segwit node should return witnesses)...")
+        self.log.info(
+            "Testing getblocktxn handler (segwit node should return witnesses)..."
+        )
         self.test_getblocktxn_handler(self.segwit_node)
         self.test_getblocktxn_handler(self.old_node)
 
@@ -839,7 +998,9 @@ class CompactBlocksTest(DefiTestFramework):
         self.test_incorrect_blocktxn_response(self.segwit_node)
 
         self.log.info("Testing reconstructing compact blocks from all peers...")
-        self.test_compactblock_reconstruction_multiple_peers(self.segwit_node, self.additional_segwit_node)
+        self.test_compactblock_reconstruction_multiple_peers(
+            self.segwit_node, self.additional_segwit_node
+        )
 
         # Test that if we submitblock to node1, we'll get a compact block
         # announcement to all peers.
@@ -858,5 +1019,5 @@ class CompactBlocksTest(DefiTestFramework):
         self.test_invalid_cmpctblock_message()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     CompactBlocksTest().main()

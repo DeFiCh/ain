@@ -6,7 +6,11 @@
 """Test the masternodes RPC.
 """
 
-from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase
+from test_framework.blocktools import (
+    add_witness_commitment,
+    create_block,
+    create_coinbase,
+)
 from test_framework.test_framework import DefiTestFramework
 
 
@@ -37,9 +41,9 @@ class SimpleHashTest(DefiTestFramework):
         # import pprint
         # pp = pprint.PrettyPrinter(indent=4)
         # pp.pprint (node.getblockheader(node.getbestblockhash()))
-        assert (block.hash == node.getbestblockhash())
-        assert (height == node.getblockcount())
+        assert block.hash == node.getbestblockhash()
+        assert height == node.getblockcount()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     SimpleHashTest().main()
