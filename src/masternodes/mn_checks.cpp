@@ -3889,7 +3889,7 @@ public:
 
         auto attributes = mnview.GetAttributes();
         assert(attributes);
-        CDataStructureV0 transferDomainStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
+        CDataStructureV0 transferDomainStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
         auto stats = attributes->GetValue(transferDomainStatsKey, CTransferDomainStatsLive{});
 
         // Iterate over array of transfers

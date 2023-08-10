@@ -388,7 +388,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
              {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
              {EconomyKeys::Loans, "loans"},
-             {EconomyKeys::TransferDomainLive, "transferdomain"},
+             {EconomyKeys::TransferDomainStatsLive, "transferdomain"},
              {EconomyKeys::EVMBlockStatsLive, "evm"},
          }},
         {AttributeTypes::Governance,

@@ -46,11 +46,11 @@ enum OracleIDs : uint8_t {
 };
 
 enum EVMIDs : uint8_t {
-    Block    = 'a',
+    Block = 'a',
 };
 
 enum EVMKeys : uint8_t {
-    Finalized    = 'a',
+    Finalized = 'a',
 };
 
 enum GovernanceIDs : uint8_t {
@@ -59,8 +59,8 @@ enum GovernanceIDs : uint8_t {
 };
 
 enum TransferIDs : uint8_t {
-    DVMToEVM    = 'a',
-    EVMToDVM    = 'b',
+    DVMToEVM = 'a',
+    EVMToDVM = 'b',
 };
 
 enum VaultIDs : uint8_t {
@@ -89,48 +89,48 @@ enum EconomyKeys : uint8_t {
     ConsolidatedInterest      = 'o',  // Amount added to loan amounts after auction with no bids.
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
     Loans                     = 'q',
-    TransferDomainLive        = 'r',
-    EVMBlockStatsLive                   = 's',
+    TransferDomainStatsLive   = 'r',
+    EVMBlockStatsLive         = 's',
 };
 
 enum DFIPKeys : uint8_t {
-    Active                  = 'a',
-    Premium                 = 'b',
-    MinSwap                 = 'c',
-    RewardPct               = 'd',
-    BlockPeriod             = 'e',
-    DUSDInterestBurn        = 'g',
-    DUSDLoanBurn            = 'h',
-    StartBlock              = 'i',
-    GovUnset                = 'j',
-    GovFoundation           = 'k',
-    MNSetRewardAddress      = 'l',
-    MNSetOperatorAddress    = 'm',
-    MNSetOwnerAddress       = 'n',
-    ConsortiumEnabled       = 'o',
-    Members                 = 'p',
-    GovernanceEnabled       = 'q',
-    CFPPayout               = 'r',
-    EmissionUnusedFund      = 's',
-    MintTokens              = 't',
-    EVMEnabled              = 'u',
-    ICXEnabled              = 'v',
-    TransferDomain          = 'w',
+    Active               = 'a',
+    Premium              = 'b',
+    MinSwap              = 'c',
+    RewardPct            = 'd',
+    BlockPeriod          = 'e',
+    DUSDInterestBurn     = 'g',
+    DUSDLoanBurn         = 'h',
+    StartBlock           = 'i',
+    GovUnset             = 'j',
+    GovFoundation        = 'k',
+    MNSetRewardAddress   = 'l',
+    MNSetOperatorAddress = 'm',
+    MNSetOwnerAddress    = 'n',
+    ConsortiumEnabled    = 'o',
+    Members              = 'p',
+    GovernanceEnabled    = 'q',
+    CFPPayout            = 'r',
+    EmissionUnusedFund   = 's',
+    MintTokens           = 't',
+    EVMEnabled           = 'u',
+    ICXEnabled           = 'v',
+    TransferDomain       = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
-    FeeRedistribution       = 'a',
-    FeeBurnPct              = 'b',
-    CFPFee                  = 'd',
-    CFPApprovalThreshold    = 'e',
-    VOCFee                  = 'f',
-    VOCEmergencyFee         = 'g',
-    VOCEmergencyPeriod      = 'h',
-    VOCApprovalThreshold    = 'i',
-    Quorum                  = 'j',
-    VotingPeriod            = 'k',
-    VOCEmergencyQuorum      = 'l',
-    CFPMaxCycles            = 'm',
+    FeeRedistribution    = 'a',
+    FeeBurnPct           = 'b',
+    CFPFee               = 'd',
+    CFPApprovalThreshold = 'e',
+    VOCFee               = 'f',
+    VOCEmergencyFee      = 'g',
+    VOCEmergencyPeriod   = 'h',
+    VOCApprovalThreshold = 'i',
+    Quorum               = 'j',
+    VotingPeriod         = 'k',
+    VOCEmergencyQuorum   = 'l',
+    CFPMaxCycles         = 'm',
 };
 
 enum TokenKeys : uint8_t {
@@ -167,9 +167,9 @@ enum PoolKeys : uint8_t {
 
 enum TransferKeys : uint8_t {
     TransferEnabled = 'a',
-    SrcFormats     = 'b',
-    DestFormats    = 'c',
-    AuthFormats    = 'd',
+    SrcFormats      = 'b',
+    DestFormats     = 'c',
+    AuthFormats     = 'd',
     NativeEnabled   = 'e',
     DATEnabled      = 'f',
     Disallowed      = 'g',
@@ -281,14 +281,14 @@ struct CDexTokenInfo {
 enum FeeDirValues : uint8_t { Both, In, Out };
 
 struct CTransferDomainStatsLive {
-    CStatsBalances dvmEvmTotal;
-    CStatsBalances evmDvmTotal;
-    CStatsBalances dvmIn;
-    CStatsBalances evmIn;
-    CStatsBalances dvmOut;
-    CStatsBalances evmOut;
-    CStatsBalances dvmCurrent;
-    CStatsBalances evmCurrent;
+    CStatsTokenBalances dvmEvmTotal;
+    CStatsTokenBalances evmDvmTotal;
+    CStatsTokenBalances dvmIn;
+    CStatsTokenBalances evmIn;
+    CStatsTokenBalances dvmOut;
+    CStatsTokenBalances evmOut;
+    CStatsTokenBalances dvmCurrent;
+    CStatsTokenBalances evmCurrent;
 
     ADD_SERIALIZE_METHODS;
 
@@ -303,35 +303,8 @@ struct CTransferDomainStatsLive {
         READWRITE(dvmCurrent);
         READWRITE(evmCurrent);
     }
-};
 
-struct CEvmBlockStatsLive {
-    CAmount feeBurnt;
-    CAmount feeBurntMin = std::numeric_limits<CAmount>::max();
-    uint256 feeBurntMinHash;
-    CAmount feeBurntMax = std::numeric_limits<CAmount>::min();
-    uint256 feeBurntMaxHash;
-    CAmount feePriority;
-    CAmount feePriorityMin = std::numeric_limits<CAmount>::max();
-    uint256 feePriorityMinHash;
-    CAmount feePriorityMax = std::numeric_limits<CAmount>::min();
-    uint256 feePriorityMaxHash;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(feeBurnt);
-        READWRITE(feeBurntMin);
-        READWRITE(feeBurntMinHash);
-        READWRITE(feeBurntMax);
-        READWRITE(feeBurntMaxHash);
-        READWRITE(feePriority);
-        READWRITE(feePriorityMin);
-        READWRITE(feePriorityMinHash);
-        READWRITE(feePriorityMax);
-        READWRITE(feePriorityMaxHash);
-    }
+    static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
 };
 
 struct CConsortiumMember {
@@ -394,6 +367,37 @@ enum XVmAddressFormatTypes : uint8_t {
     PkHash,
     PkHashProxyErc55,
     Erc55,
+};
+
+struct CEvmBlockStatsLive {
+    CAmount feeBurnt;
+    CAmount feeBurntMin = std::numeric_limits<CAmount>::max();
+    uint256 feeBurntMinHash;
+    CAmount feeBurntMax = std::numeric_limits<CAmount>::min();
+    uint256 feeBurntMaxHash;
+    CAmount feePriority;
+    CAmount feePriorityMin = std::numeric_limits<CAmount>::max();
+    uint256 feePriorityMinHash;
+    CAmount feePriorityMax = std::numeric_limits<CAmount>::min();
+    uint256 feePriorityMaxHash;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(feeBurnt);
+        READWRITE(feeBurntMin);
+        READWRITE(feeBurntMinHash);
+        READWRITE(feeBurntMax);
+        READWRITE(feeBurntMaxHash);
+        READWRITE(feePriority);
+        READWRITE(feePriorityMin);
+        READWRITE(feePriorityMinHash);
+        READWRITE(feePriorityMax);
+        READWRITE(feePriorityMaxHash);
+    }
+
+    static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMBlockStatsLive};
 };
 
 using CDexBalances             = std::map<DCT_ID, CDexTokenInfo>;
@@ -570,8 +574,8 @@ private:
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<std::string, uint8_t> &allowedRulesIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
-    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
-        &parseValue();
+    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
+    parseValue();
 
     Res ProcessVariable(const std::string &key,
                         const std::optional<UniValue> &value,

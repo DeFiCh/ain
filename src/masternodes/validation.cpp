@@ -2486,44 +2486,43 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto attributes = cache.GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 evmBlockStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMBlockStatsLive};
-    auto evmBlockStats = attributes->GetValue(evmBlockStatsKey, CEvmBlockStatsLive{});
+    auto stats = attributes->GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
+
     auto feeBurnt = static_cast<CAmount>(blockResult.total_burnt_fees);
     auto feePriority = static_cast<CAmount>(blockResult.total_priority_fees);
-    evmBlockStats.feeBurnt += feeBurnt;
-    if (feeBurnt && evmBlockStats.feeBurntMin > feeBurnt) {
-        evmBlockStats.feeBurntMin = feeBurnt;
-        evmBlockStats.feeBurntMinHash = block.GetHash();
+    stats.feeBurnt += feeBurnt;
+    if (feeBurnt && stats.feeBurntMin > feeBurnt) {
+        stats.feeBurntMin = feeBurnt;
+        stats.feeBurntMinHash = block.GetHash();
     }
-    if (evmBlockStats.feeBurntMax < feeBurnt) {
-        evmBlockStats.feeBurntMax = feeBurnt;
-        evmBlockStats.feeBurntMaxHash = block.GetHash();
+    if (stats.feeBurntMax < feeBurnt) {
+        stats.feeBurntMax = feeBurnt;
+        stats.feeBurntMaxHash = block.GetHash();
     }
-    evmBlockStats.feePriority += feePriority;
-    if (feePriority && evmBlockStats.feePriorityMin > feePriority) {
-        evmBlockStats.feePriorityMin = feePriority;
-        evmBlockStats.feePriorityMinHash = block.GetHash();
+    stats.feePriority += feePriority;
+    if (feePriority && stats.feePriorityMin > feePriority) {
+        stats.feePriorityMin = feePriority;
+        stats.feePriorityMinHash = block.GetHash();
     }
-    if (evmBlockStats.feePriorityMax < feePriority) {
-        evmBlockStats.feePriorityMax = feePriority;
-        evmBlockStats.feePriorityMaxHash = block.GetHash();
+    if (stats.feePriorityMax < feePriority) {
+        stats.feePriorityMax = feePriority;
+        stats.feePriorityMaxHash = block.GetHash();
     }
 
-    CDataStructureV0 transferDomainAccountingKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainLive};
-    auto transferDomainAccounting = attributes->GetValue(transferDomainAccountingKey, CTransferDomainStatsLive{});
+    auto transferDomainStats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
-    for (const auto &[id, amount] : transferDomainAccounting.dvmCurrent.balances) {
+    for (const auto &[id, amount] : transferDomainStats.dvmCurrent.balances) {
         if (id.v == 0) {
-            if (amount + evmBlockStats.feeBurnt + evmBlockStats.feePriority > 0) {
+            if (amount + stats.feeBurnt + stats.feePriority > 0) {
                 return Res::Err("More DFI moved from DVM to EVM than in. DVM Out: %s Fees: %s Total: %s\n", GetDecimalString(amount),
-                                GetDecimalString(evmBlockStats.feeBurnt + evmBlockStats.feePriority), GetDecimalString(amount + evmBlockStats.feeBurnt + evmBlockStats.feePriority));
+                                GetDecimalString(stats.feeBurnt + stats.feePriority), GetDecimalString(amount + stats.feeBurnt + stats.feePriority));
             }
         } else if (amount > 0) {
             return Res::Err("More %s moved from DVM to EVM than in. DVM Out: %s\n", id.ToString(), GetDecimalString(amount));
         }
     }
 
-    attributes->SetValue(evmBlockStatsKey, evmBlockStats);
+    attributes->SetValue(CEvmBlockStatsLive::Key, stats);
     cache.SetVariable(*attributes);
 
     return Res::Ok();

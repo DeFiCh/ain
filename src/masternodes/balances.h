@@ -254,7 +254,7 @@ struct CTransferDomainMessage {
     }
 };
 
-struct CStatsBalances {
+struct CStatsTokenBalances {
     TAmounts balances;
 
     Res Add(CTokenAmount amount) {
@@ -307,20 +307,20 @@ struct CStatsBalances {
         return str;
     }
 
-    static CStatsBalances Sum(const std::vector<CTokenAmount> &tokens) {
-        CStatsBalances res;
+    static CStatsTokenBalances Sum(const std::vector<CTokenAmount> &tokens) {
+        CStatsTokenBalances res;
         for (const auto &token : tokens) {
             res.Add(token);
         }
         return res;
     }
 
-    friend bool operator==(const CStatsBalances &a, const CStatsBalances &b) { return a.balances == b.balances; }
+    friend bool operator==(const CStatsTokenBalances &a, const CStatsTokenBalances &b) { return a.balances == b.balances; }
 
-    friend bool operator!=(const CStatsBalances &a, const CStatsBalances &b) { return a.balances != b.balances; }
+    friend bool operator!=(const CStatsTokenBalances &a, const CStatsTokenBalances &b) { return a.balances != b.balances; }
 
     // NOTE: if some balance from b is hgher than a => a is less than b
-    friend bool operator<(const CStatsBalances &a, const CStatsBalances &b) {
+    friend bool operator<(const CStatsTokenBalances &a, const CStatsTokenBalances &b) {
         for (const auto &b_kv : b.balances) {
             const auto a_value_it = a.balances.find(b_kv.first);
             CAmount a_value       = 0;
