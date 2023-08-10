@@ -581,12 +581,12 @@ class EVMTest(DefiTestFramework):
         assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min'], self.burnt_fee)
         assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_min_hash'], self.blockHash1)
         assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max'], self.burnt_fee * 63)
-        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_burnt_max_hash'], self.blockHash)
         assert_equal(attributes['v0/live/economy/evm/block/fee_priority'], self.priority_fee * 64 + 2 * self.priority_fee64)
         assert_equal(attributes['v0/live/economy/evm/block/fee_priority_min'], self.priority_fee)
         assert_equal(attributes['v0/live/economy/evm/block/fee_priority_min_hash'], self.blockHash1)
         assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max'], self.priority_fee * 63)
-        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max_hash'], blockHash)
+        assert_equal(attributes['v0/live/economy/evm/block/fee_priority_max_hash'], self.blockHash)
 
         # Check highest paying fee TX in block
         block_txs = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['tx']
