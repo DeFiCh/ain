@@ -3991,8 +3991,9 @@ public:
             return Res::Err("evm tx size too large");
 
         CrossBoundaryResult result;
+        ValidateTxCompletion validateResults;
         if (!prevalidateEvm) {
-            const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
+            validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
             // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
             if (!result.ok) {
                 LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
@@ -4013,9 +4014,8 @@ public:
             }
         }
 
-        std::vector<unsigned char> evmTxHashBytes;
-        sha3(obj.evmTx, evmTxHashBytes);
         auto txHash = tx.GetHash();
+        auto evmTxHashBytes = std::vector<uint8_t>(validateResults.tx_hash.begin(), validateResults.tx_hash.end());
         auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {

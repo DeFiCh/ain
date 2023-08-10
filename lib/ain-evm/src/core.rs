@@ -12,7 +12,7 @@ use vsdb_core::vsdb_set_base_dir;
 use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
-use crate::fee::{calculate_prepay_gas_fee, get_tx_max_gas_price};
+use crate::fee::calculate_prepay_gas_fee;
 use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
 use crate::services::SERVICES;
@@ -234,7 +234,7 @@ impl EVMCoreService {
         }
 
         // Validate tx gas price with initial block base fee
-        let tx_gas_price = get_tx_max_gas_price(&signed_tx);
+        let tx_gas_price = signed_tx.gas_price();
         if tx_gas_price < INITIAL_BASE_FEE {
             debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
             return Err(format_err!("tx gas price is lower than initial block base fee").into());

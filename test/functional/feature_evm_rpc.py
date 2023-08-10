@@ -109,6 +109,16 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
+        # Test evm tx RPC
+        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        res = self.nodes[0].getcustomtx(block['tx'][1])
+        assert_equal(res['results']['hash'], "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
+        assert_equal(res['results']['sender'].lower(), self.ethAddress)
+        assert_equal(res['results']['gasPrice'], 2)
+        assert_equal(res['results']['gasLimit'], 21000)
+        assert_equal(res['results']['createTx'], False)
+        assert_equal(res['results']['to'].lower(), self.toAddress)
+
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
         assert_equal(latest_block['number'], "0x3")
         assert_equal(latest_block['transactions'][0], "0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497")
