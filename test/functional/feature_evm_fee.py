@@ -248,6 +248,45 @@ class EVMFeeTest(DefiTestFramework):
 
         self.rollback_to(height)
 
+    def test_new_gas_limit_higher_than_block_limit(self):
+        height = self.nodes[0].getblockcount()
+
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_limit": 40000000,
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        assert_equal(int(balance[2:], 16), 100000000000000000000)
+
+        self.nodes[0].eth_sendTransaction(
+            {
+                "from": self.ethAddress,
+                "to": self.toAddress,
+                "value": "0x7148",  # 29_000
+                "gas": "0x1C9C381",  # 30_000_001
+                "gasPrice": "0x2540BE400",  # 10_000_000_000
+            }
+        )
+        assert_raises_rpc_error(
+            -32001,
+            "evm tx failed to validate gas limit higher than max_gas_per_block",
+            self.nodes[0].eth_sendTransaction,
+            {
+                "from": self.ethAddress,
+                "to": self.toAddress,
+                "value": "0x7148",  # 29_000
+                "gas": "0x2625A01",  # 40_000_001
+                "gasPrice": "0x2540BE400",  # 10_000_000_000
+            },
+        )
+
+        self.rollback_to(height)
+
     def test_fee_deduction_empty_balance(self):
         height = self.nodes[0].getblockcount()
 
@@ -333,6 +372,8 @@ class EVMFeeTest(DefiTestFramework):
         self.test_low_gas_limit()
 
         self.test_gas_limit_higher_than_block_limit()
+
+        self.test_new_gas_limit_higher_than_block_limit()
 
         self.test_fee_deduction_empty_balance()
 

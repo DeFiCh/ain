@@ -41,6 +41,109 @@ class DST20(DefiTestFramework):
             ]
         ]
 
+    def test_deploy_token_before_evm(self):
+        # setup oracle
+        oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
+        price_feeds1 = [
+            {"currency": "USD", "token": "DFI"},
+            {"currency": "USD", "token": "GOOGL"},
+        ]
+        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [
+            {"currency": "USD", "tokenAmount": "1@DFI"},
+            {"currency": "USD", "tokenAmount": "4@GOOGL"},
+        ]
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
+        self.nodes[0].generate(8)  # activate prices
+
+        # set price again
+        timestamp = int(time.time())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(1)
+
+        # create loan token
+        self.nodes[0].setloantoken(
+            {
+                "symbol": "GOOGL",
+                "name": "Google Token",
+                "fixedIntervalPriceId": "GOOGL/USD",
+                "mintable": True,
+                "interest": 0.01,
+            }
+        )
+        self.nodes[0].createloanscheme(200, 1, "LOAN0001")
+        self.nodes[0].setcollateraltoken(
+            {"token": "DFI", "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
+        )
+        self.nodes[0].generate(1)
+
+        # mint loan token
+        vaultId1 = self.nodes[0].createvault(self.address, "")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId1, self.address, "1000@DFI")
+        self.nodes[0].generate(1)
+
+        # take loan
+        self.nodes[0].takeloan({"vaultId": vaultId1, "amounts": "100@GOOGL"})
+        self.nodes[0].generate(1)
+
+    def test_migration_loan_tokens(self):
+        # check contract variables
+        self.googl = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_googl, abi=self.abi
+        )
+        assert_equal(self.googl.functions.name().call(), "Google Token")
+        assert_equal(self.googl.functions.symbol().call(), "GOOGL")
+
+        # check DVM-EVM transferdomain
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "2@GOOGL", "domain": 2},
+                    "dst": {
+                        "address": self.key_pair.address,
+                        "amount": "2@GOOGL",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+        [GOOGLAmount] = [x for x in self.node.getaccount(self.address) if "GOOGL" in x]
+        assert_equal(GOOGLAmount, "98.00000000@GOOGL")
+        assert_equal(
+            self.googl.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.googl.functions.decimals().call()),
+            Decimal(2),
+        )
+
+        # check EVM-DVM transferdomain
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@GOOGL",
+                        "domain": 3,
+                    },
+                    "dst": {"address": self.address, "amount": "1@GOOGL", "domain": 2},
+                }
+            ]
+        )
+        self.node.generate(1)
+        [GOOGLAmount] = [x for x in self.node.getaccount(self.address) if "GOOGL" in x]
+        assert_equal(GOOGLAmount, "99.00000000@GOOGL")
+        assert_equal(
+            self.googl.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.googl.functions.decimals().call()),
+            Decimal(1),
+        )
+
     def test_deploy_token(self):
         # should have no code on contract address
         assert_equal(
@@ -76,7 +179,6 @@ class DST20(DefiTestFramework):
         assert_equal(self.btc.functions.symbol().call(), "BTC")
 
     def test_deploy_multiple_tokens(self):
-        # should have no code on contract addresses
         assert_equal(
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
@@ -409,7 +511,7 @@ class DST20(DefiTestFramework):
         mock_time = int(time.time())
         self.nodes[0].setmocktime(mock_time)
         self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
-        self.nodes[0].generate(8)  # activate prices
+        self.nodes[0].generate(24)  # activate prices
 
         # set price again
         timestamp = int(time.time())
@@ -426,11 +528,6 @@ class DST20(DefiTestFramework):
                 "interest": 0.01,
             }
         )
-        self.nodes[0].createloanscheme(200, 1, "LOAN0001")
-        self.nodes[0].setcollateraltoken(
-            {"token": "DFI", "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
-        )
-        self.nodes[0].generate(1)
         self.nodes[0].generate(1)
 
         # mint loan token
@@ -470,7 +567,7 @@ class DST20(DefiTestFramework):
         assert_equal(TSLAAmount, "98.00000000@TSLA")
         assert_equal(
             self.tsla.functions.balanceOf(self.key_pair.address).call()
-            / math.pow(10, self.btc.functions.decimals().call()),
+            / math.pow(10, self.tsla.functions.decimals().call()),
             Decimal(2),
         )
 
@@ -492,7 +589,7 @@ class DST20(DefiTestFramework):
         assert_equal(TSLAAmount, "99.00000000@TSLA")
         assert_equal(
             self.tsla.functions.balanceOf(self.key_pair.address).call()
-            / math.pow(10, self.btc.functions.decimals().call()),
+            / math.pow(10, self.tsla.functions.decimals().call()),
             Decimal(1),
         )
 
@@ -501,13 +598,20 @@ class DST20(DefiTestFramework):
         self.address = self.node.get_genesis_keys().ownerAuthAddress
 
         # Contract addresses
-        self.contract_address_btc = "0xff00000000000000000000000000000000000001"
-        self.contract_address_eth = "0xff00000000000000000000000000000000000002"
-        self.contract_address_dusd = self.nodes[0].w3.to_checksum_address(
+        self.contract_address_googl = self.nodes[0].w3.to_checksum_address(
+            "0xff00000000000000000000000000000000000001"
+        )
+        self.contract_address_btc = self.nodes[0].w3.to_checksum_address(
+            "0xff00000000000000000000000000000000000002"
+        )
+        self.contract_address_eth = self.nodes[0].w3.to_checksum_address(
             "0xff00000000000000000000000000000000000003"
         )
-        self.contract_address_tsla = self.nodes[0].w3.to_checksum_address(
+        self.contract_address_dusd = self.nodes[0].w3.to_checksum_address(
             "0xff00000000000000000000000000000000000004"
+        )
+        self.contract_address_tsla = self.nodes[0].w3.to_checksum_address(
+            "0xff00000000000000000000000000000000000005"
         )
 
         # Contract ABI
@@ -520,15 +624,16 @@ class DST20(DefiTestFramework):
 
         # Generate chain
         self.node.generate(150)
-        self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "2100@DFI"})
 
-        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.test_deploy_token_before_evm()
+
+        # enable EVM, transferdomain, DVM to EVM DAT transfers and EVM to DVM DAT transfers
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
                     "v0/params/feature/evm": "true",
                     "v0/params/feature/transferdomain": "true",
-                    "v0/transferdomain/dvm-evm/enabled": "true",
                     "v0/transferdomain/dvm-evm/dat-enabled": "true",
                     "v0/transferdomain/evm-dvm/dat-enabled": "true",
                 }
@@ -537,11 +642,14 @@ class DST20(DefiTestFramework):
 
         self.nodes[0].generate(1)
 
+        self.key_pair = EvmKeyPair.from_node(self.node)
+        self.key_pair2 = EvmKeyPair.from_node(self.node)
+
+        self.test_migration_loan_tokens()
+
         self.test_deploy_token()
         self.test_deploy_multiple_tokens()
 
-        self.key_pair = EvmKeyPair.from_node(self.node)
-        self.key_pair2 = EvmKeyPair.from_node(self.node)
         self.node.minttokens("10@BTC")
         self.node.generate(1)
 
