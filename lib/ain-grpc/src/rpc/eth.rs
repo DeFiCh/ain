@@ -584,9 +584,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let gas_price = request.gas_price;
         let gas_limit = match request.gas {
             Some(gas_limit) => gas_limit,
-            // TODO(): get the gas_limit from block.header
-            // set 21000 (min gas_limit req) by default first
-            None => U256::from(21000),
+            None => U256::from(self.handler.storage.get_attributes_or_default().block_gas_limit),
         };
         let max_fee_per_gas = request.max_fee_per_gas;
         let message: Option<TransactionMessage> = request.into();
