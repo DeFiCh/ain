@@ -625,12 +625,6 @@ template<typename Stream, typename T, typename ...Args> void Serialize(Stream& o
 template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, std::variant<T, Args...>& var);
 
 /**
- * array
- */
-template<typename Stream, typename T, size_t N> void Serialize(Stream& os, const std::array<T, N>& arr);
-template<typename Stream, typename T, size_t N> void Unserialize(Stream& is, std::array<T, N>& arr);
-
-/**
  * If none of the specialized versions above matched, default to calling member function.
  */
 template<typename Stream, typename T>
@@ -993,28 +987,6 @@ void Serialize(Stream& s, const std::variant<T, Args...>& var)
     SerializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
 }
 
-template<typename Stream, typename T, size_t N>
-void Serialize(Stream& os, const std::array<T, N>& arr)
-{
-    WriteCompactSize(os, N);
-
-    for (const auto& element : arr) {
-        Serialize(os, element);
-    }
-}
-
-template<typename Stream, typename T, size_t N>
-void Unserialize(Stream& is, std::array<T, N>& arr)
-{
-    arr = {};
-    std::size_t nSize = ReadCompactSize(is);
-
-    for (std::size_t i{}; i < nSize; ++i) {
-        T element;
-        Unserialize(is, element);
-        arr[i] = element;
-    }
-}
 
 
 
