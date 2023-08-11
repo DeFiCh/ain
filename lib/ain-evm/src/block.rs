@@ -3,7 +3,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use anyhow::format_err;
-use ethereum::{BlockAny, PartialHeader, TransactionAny};
+use ethereum::{BlockAny, PartialHeader, TransactionAny, Block};
 use keccak_hash::H256;
 use log::{debug, trace};
 use primitive_types::U256;
@@ -55,6 +55,10 @@ impl BlockService {
         self.starting_block_number
     }
 
+    pub fn get_latest_block(&self) -> Option<BlockAny> {
+        self.storage.get_latest_block()
+    }
+
     pub fn get_latest_block_hash_and_number(&self) -> Option<(H256, U256)> {
         self.storage
             .get_latest_block()
@@ -81,12 +85,13 @@ impl BlockService {
             .map(|signed_tx| signed_tx.unwrap().transaction)
             .collect();
 
-        if let Some((hash, block_number)) = self.get_latest_block_hash_and_number() {
+        if let Some(block) = self.get_latest_block() {
+            let current_hash = block.header.hash();
             let pending_block = BlockAny::new(
                 PartialHeader {
-                    parent_hash: hash,
-                    number: block_number.saturating_add(U256::one()),
-                    base_fee: self.calculate_base_fee(hash),
+                    parent_hash: current_hash,
+                    number: block.header.number.saturating_add(U256::one()),
+                    base_fee: self.calculate_base_fee(current_hash),
                     gas_limit: MAX_GAS_PER_BLOCK,
 
                     // wip
