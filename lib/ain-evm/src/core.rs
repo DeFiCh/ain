@@ -30,6 +30,8 @@ use crate::{
 
 pub type NativeTxHash = [u8; 32];
 
+pub const MAX_GAS_PER_BLOCK: U256 = U256([30_000_000, 0, 0, 0]);
+
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
