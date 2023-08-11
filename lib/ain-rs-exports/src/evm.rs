@@ -535,7 +535,10 @@ pub fn evm_try_get_block_number_by_hash(
     result: &mut ffi::CrossBoundaryResult,
     hash: [u8; 32],
 ) -> u64 {
-    match SERVICES.evm.storage.get_block_by_hash(&H256::from(hash)) {
+    let Ok(hash) = H256::try_from(hash) else {
+        return cross_boundary_error_return(result, "Invalid block hash");
+    };
+    match SERVICES.evm.storage.get_block_by_hash(&hash) {
         Some(block) => {
             let Ok(block_number) = u64::try_from(block.header.number) else {
                 return cross_boundary_error_return(result, "Block number value overflow");
@@ -543,6 +546,52 @@ pub fn evm_try_get_block_number_by_hash(
             cross_boundary_success_return(result, block_number)
         }
         None => cross_boundary_error_return(result, "Invalid block hash"),
+    }
+}
+
+pub fn evm_try_get_block_header_by_hash(
+    result: &mut ffi::CrossBoundaryResult,
+    hash: [u8; 32],
+) -> ffi::EVMBlockHeader {
+    let Ok(hash) = H256::try_from(hash) else {
+        return cross_boundary_error_return(result, "Invalid block hash");
+    };
+
+    match SERVICES.evm.storage.get_block_by_hash(&hash) {
+        Some(block) => {
+            let Ok(number) = u64::try_from(block.header.number) else {
+                return cross_boundary_error_return(result, "block number value overflow");
+            };
+            let Ok(gas_limit) = u64::try_from(block.header.gas_limit) else {
+                return cross_boundary_error_return(result, "block gas limit value overflow");
+            };
+            let Ok(gas_used) = u64::try_from(block.header.gas_used) else {
+                return cross_boundary_error_return(result, "block gas used value overflow");
+            };
+            let Ok(base_fee) = u64::try_from(WeiAmount(block.header.base_fee).to_satoshi()) else {
+                return cross_boundary_error_return(result, "base fee value overflow");
+            };
+
+            let out = ffi::EVMBlockHeader {
+                parent_hash: block.header.parent_hash.to_fixed_bytes(),
+                beneficiary: block.header.beneficiary.to_fixed_bytes(),
+                state_root: block.header.state_root.to_fixed_bytes(),
+                receipts_root: block.header.receipts_root.to_fixed_bytes(),
+                number,
+                gas_limit,
+                gas_used,
+                timestamp: block.header.timestamp,
+                extra_data: block.header.extra_data.clone(),
+                mix_hash: block.header.mix_hash.to_fixed_bytes(),
+                nonce: block.header.nonce.to_low_u64_ne(),
+                base_fee,
+            };
+            cross_boundary_success_return(result, out)
+        }
+        None => {
+            debug!("XXX here");
+            cross_boundary_error_return(result, "Invalid block hash")
+        }
     }
 }
 
