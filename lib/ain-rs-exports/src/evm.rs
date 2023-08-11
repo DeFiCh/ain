@@ -572,7 +572,7 @@ pub fn evm_try_get_block_header_by_hash(
                 return cross_boundary_error_return(result, "base fee value overflow");
             };
 
-            ffi::EVMBlockHeader {
+            let out = ffi::EVMBlockHeader {
                 parent_hash: block.header.parent_hash.to_fixed_bytes(),
                 beneficiary: block.header.beneficiary.to_fixed_bytes(),
                 state_root: block.header.state_root.to_fixed_bytes(),
@@ -585,9 +585,13 @@ pub fn evm_try_get_block_header_by_hash(
                 mix_hash: block.header.mix_hash.to_fixed_bytes(),
                 nonce: block.header.nonce.to_low_u64_ne(),
                 base_fee,
-            }
+            };
+            cross_boundary_success_return(result, out)
         }
-        None => cross_boundary_error_return(result, "Invalid block hash"),
+        None => {
+            debug!("XXX here");
+            cross_boundary_error_return(result, "Invalid block hash")
+        }
     }
 }
 

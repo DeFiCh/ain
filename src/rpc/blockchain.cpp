@@ -291,10 +291,11 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             UniValue objEvmBlockHeader(UniValue::VOBJ);
             CrossBoundaryResult res;
             auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
-            objEvmBlockHeader.pushKV("parenthash", uint256::TryFromArray(evmBlockHeader.parent_hash).ToString());
-            objEvmBlockHeader.pushKV("beneficiary", uint160::TryFromArray(evmBlockHeader.beneficiary).ToString());
-            objEvmBlockHeader.pushKV("stateRoot", uint256::TryFromArray(evmBlockHeader.state_root).ToString());
-            objEvmBlockHeader.pushKV("receiptRoot", uint256::TryFromArray(evmBlockHeader.receipts_root).ToString());
+            if (!res.ok) return {};
+            objEvmBlockHeader.pushKV("parenthash", uint256::FromArray(evmBlockHeader.parent_hash).ToString());
+            objEvmBlockHeader.pushKV("beneficiary", uint160::FromArray(evmBlockHeader.beneficiary).ToString());
+            objEvmBlockHeader.pushKV("stateRoot", uint256::FromArray(evmBlockHeader.state_root).ToString());
+            objEvmBlockHeader.pushKV("receiptRoot", uint256::FromArray(evmBlockHeader.receipts_root).ToString());
             objEvmBlockHeader.pushKV("number", evmBlockHeader.number);
             objEvmBlockHeader.pushKV("gasLimit", evmBlockHeader.gas_limit);
             objEvmBlockHeader.pushKV("gasUsed", evmBlockHeader.gas_used);

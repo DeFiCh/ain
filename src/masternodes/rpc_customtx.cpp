@@ -601,7 +601,7 @@ public:
                 }
                 rpcInfo.pushKV("type", tx_type);
                 rpcInfo.pushKV("hash", evmTxHash->ToString());
-                rpcInfo.pushKV("sender", EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::TryFromArray(txInfo.sender)))));
+                rpcInfo.pushKV("sender", EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromArray(txInfo.sender)))));
                 rpcInfo.pushKV("nonce", txInfo.nonce);
                 rpcInfo.pushKV("gasPrice", txInfo.gas_price);
                 rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
@@ -610,7 +610,7 @@ public:
                 rpcInfo.pushKV("createTx", txInfo.create_tx);
                 std::string to = "";
                 if (!txInfo.create_tx)
-                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::TryFromArray(txInfo.to))));
+                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromArray(txInfo.to))));
                 rpcInfo.pushKV("to", to);
                 rpcInfo.pushKV("value", txInfo.value);
             }

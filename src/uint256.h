@@ -124,7 +124,7 @@ public:
     uint160() {}
     explicit uint160(const std::vector<unsigned char>& vch) : base_blob<160>(vch) {}
 
-    static uint160 TryFromArray(const std::array<unsigned char, 20>& vch) {
+    static uint160 FromArray(const std::array<unsigned char, 20>& vch) {
         std::vector<unsigned char> bytes(vch.begin(), vch.end());
         return uint160(bytes);
     }
@@ -140,7 +140,7 @@ public:
     uint256() {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
 
-    static uint256 TryFromArray(const std::array<unsigned char, 32>& vch) {
+    static uint256 FromArray(const std::array<unsigned char, 32>& vch) {
         std::vector<unsigned char> bytes(vch.begin(), vch.end());
         return uint256(bytes);
     }
