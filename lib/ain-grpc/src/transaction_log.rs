@@ -9,10 +9,11 @@ use crate::block::BlockNumber;
 #[serde(rename_all = "camelCase")]
 pub struct LogResult {
     pub block_hash: H256,
+    pub block_number: U256,
     pub log_index: U256,
     pub removed: bool,
     pub transaction_hash: H256,
-    pub transaction_index: usize,
+    pub transaction_index: U256,
     pub address: H160,
     pub data: Bytes,
     pub topics: Vec<H256>,
@@ -22,6 +23,7 @@ impl From<LogIndex> for LogResult {
     fn from(log: LogIndex) -> Self {
         Self {
             block_hash: log.block_hash,
+            block_number: log.block_number,
             log_index: log.log_index,
             removed: log.removed,
             transaction_hash: log.transaction_hash,
