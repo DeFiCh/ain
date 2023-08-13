@@ -7,6 +7,23 @@ use crate::evm::*;
 
 #[cxx::bridge]
 pub mod ffi {
+    // ========== Block ==========
+    #[derive(Default)]
+    pub struct EVMBlockHeader {
+        pub parent_hash: [u8; 32],
+        pub beneficiary: [u8; 20],
+        pub state_root: [u8; 32],
+        pub receipts_root: [u8; 32],
+        pub number: u64,
+        pub gas_limit: u64,
+        pub gas_used: u64,
+        pub timestamp: u64,
+        pub extra_data: Vec<u8>,
+        pub mix_hash: [u8; 32],
+        pub nonce: u64,
+        pub base_fee: u64,
+    }
+
     // ========== Transaction ==========
     #[derive(Default)]
     pub struct EVMTransaction {
@@ -163,6 +180,10 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: [u8; 32],
         ) -> u64;
+        fn evm_try_get_block_header_by_hash(
+            result: &mut CrossBoundaryResult,
+            hash: [u8; 32],
+        ) -> EVMBlockHeader;
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_get_tx_by_hash(
             result: &mut CrossBoundaryResult,
