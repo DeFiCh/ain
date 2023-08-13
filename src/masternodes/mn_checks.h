@@ -26,7 +26,7 @@ struct EVM {
     uint256 blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    EvmAddressRaw beneficiary;
+    EvmAddressData beneficiary;
 
     ADD_SERIALIZE_METHODS;
 

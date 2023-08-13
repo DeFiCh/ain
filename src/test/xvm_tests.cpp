@@ -17,8 +17,8 @@ BOOST_AUTO_TEST_CASE(xvm_test_case_1)
     auto oneVecReversed = std::vector<uint8_t>(oneArr.begin(), oneArr.end());
     std::reverse(oneVecReversed.begin(), oneVecReversed.end());
 
-    auto twoArr20 = EvmAddressRaw{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2};
-    auto toString = [](EvmAddressRaw arr) {
+    auto twoArr20 = EvmAddressData{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2};
+    auto toString = [](EvmAddressData arr) {
         std::ostringstream os;
         for (int i: arr) {
             os << i;

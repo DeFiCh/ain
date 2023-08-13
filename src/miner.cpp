@@ -39,11 +39,11 @@
 #include <random>
 #include <utility>
 
-struct EvmAddressWithNonce {
-    EvmAddressRaw address;
+struct EvmAddressDataWithNonce {
+    EvmAddressData address;
     uint64_t nonce;
 
-    bool operator<(const EvmAddressWithNonce& item) const
+    bool operator<(const EvmAddressDataWithNonce& item) const
     {
         return std::tie(address, nonce) < std::tie(item.address, item.nonce);
     }
@@ -51,9 +51,9 @@ struct EvmAddressWithNonce {
 
 struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
-    std::map<EvmAddressWithNonce, uint64_t> feeMap;
+    std::map<EvmAddressDataWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
-    std::map<EvmAddressRaw, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    std::map<EvmAddressData, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
@@ -131,7 +131,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressRaw& evmBeneficiary)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -666,7 +666,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
 
-    const auto addrKey = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    const auto addrKey = EvmAddressDataWithNonce{txResult.sender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
@@ -711,7 +711,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    auto addrNonce = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    auto addrNonce = EvmAddressDataWithNonce{txResult.sender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
     evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
     return true;

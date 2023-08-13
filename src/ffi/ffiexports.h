@@ -34,7 +34,7 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<rust::string> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
-std::array<uint8_t, 32> getEthPrivKey(EvmAddressRaw keyID);
+std::array<uint8_t, 32> getEthPrivKey(EvmAddressData keyID);
 rust::string getStateInputJSON();
 int getHighestBlock();
 int getCurrentHeight();

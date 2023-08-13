@@ -477,7 +477,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     CTxDestination dest;
     if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
-        EvmAddressRaw address{};
+        EvmAddressData address{};
         std::copy(keyID.begin(), keyID.end(), address.begin());
         auto r = XResultValue(evm_try_get_balance(result, address));
         if (!r) throw JSONRPCError(RPC_MISC_ERROR, r.msg);
@@ -606,7 +606,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
-            EvmAddressRaw address{};
+            EvmAddressData address{};
             std::copy(keyID.begin(), keyID.end(), address.begin());
             auto res = XResultValue(evm_try_get_balance(result, address));
             if (res) {
