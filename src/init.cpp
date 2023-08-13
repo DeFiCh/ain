@@ -222,7 +222,7 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
-    CrossBoundaryChecked(ain_rs_stop_network_services(result));
+    XResultStatusLogged(ain_rs_stop_network_services(result));
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -288,7 +288,7 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
-    CrossBoundaryChecked(ain_rs_stop_core_services(result));
+    XResultStatusLogged(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
@@ -1659,24 +1659,6 @@ void SetupInterrupts() {
     fStopOrInterrupt = isSet;
 }
 
-static bool LoanAmountsInClosedVaults(CCustomCSView &mnview) {
-    LOCK(cs_main);
-
-    std::set<CVaultId> vaults;
-    mnview.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
-        vaults.insert(vaultId);
-        return true;
-    });
-
-    for (const auto &vaultId : vaults) {
-        const auto vault = mnview.GetVault(vaultId);
-        if (!vault) {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1884,11 +1866,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
-                if (LoanAmountsInClosedVaults(*pcustomcsview)) {
-                    strLoadError = "Corrupted block database detected. You will need to rebuild the database using -reindex-chainstate.";
-                    break;
-                }
-
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
@@ -1915,7 +1892,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Wipe EVM folder on reindex
                 if (fReset || fReindexChainState) {
-                    auto res = CrossBoundaryChecked(ain_rs_wipe_evm_folder(result));
+                    auto res = XResultStatusLogged(ain_rs_wipe_evm_folder(result));
                     if (!res) {
                         return false;
                     }
@@ -1924,7 +1901,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // All DBs have been initialized. We start the rust core services to ensure that
                 // it's initialized as late as possible, but before anything can start rolling blocks
                 // back or forth. `ReplayBlocks, VerifyDB` etc.
-                auto res = CrossBoundaryChecked(ain_rs_init_core_services(result));
+                auto res = XResultStatusLogged(ain_rs_init_core_services(result));
                 if (!res) return false;
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -2291,7 +2268,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Default to using the first address passed to bind
         auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
         auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        auto res = CrossBoundaryChecked(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
+        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
         if (!res) return false;
     }
     uiInterface.InitMessage(_("Done loading").translated);

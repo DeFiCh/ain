@@ -84,7 +84,7 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
     def test_node_params(self):
         is_miningA = self.nodes[0].eth_mining()

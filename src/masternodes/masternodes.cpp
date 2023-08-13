@@ -605,7 +605,6 @@ int CLastHeightView::GetLastHeight() const {
 }
 
 void CLastHeightView::SetLastHeight(int height) {
-    SetLastValidatedHeight(height);
     Write(Height::prefix(), height);
 }
 

@@ -81,7 +81,7 @@ class EVMFeeTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
     def test_fee_deduction(self):
         height = self.nodes[0].getblockcount()

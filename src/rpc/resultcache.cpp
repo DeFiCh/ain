@@ -35,9 +35,9 @@ std::optional<UniValue> RPCResultCache::TryGet(const JSONRPCRequest &request) {
     {
         std::unique_lock l{aMutex};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
-        if (LogAcceptCategory(BCLog::RPCCACHE)) {
-            LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s, val: %s\n", cacheHeight, key, res->second.write());
-        }
+            if (LogAcceptCategory(BCLog::RPCCACHE)) {
+                LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s, val: %s\n", cacheHeight, key, res->second.write());
+            }
             return res->second;
         }
     }
@@ -87,13 +87,14 @@ CMemoizedResultValue MemoizedResultCache::GetOrDefault(const JSONRPCRequest &req
     {
         std::unique_lock l{aMutex};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
-            if (!::ChainActive().Contains(LookupBlockIndex(res->second.hash)))
+            auto val = res->second;
+            if (!::ChainActive().Contains(LookupBlockIndex(val.hash)))
                 return {};
 
             if (LogAcceptCategory(BCLog::RPCCACHE)) {
-                LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s\n", res->second.height, key);
+                LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s\n", val.height, key);
             }
-            return res->second;
+            return val;
         }
     }
     return {};

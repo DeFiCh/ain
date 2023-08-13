@@ -39,10 +39,8 @@
 #include <random>
 #include <utility>
 
-typedef std::array<std::uint8_t, 20> EvmAddress;
-
 struct EvmAddressWithNonce {
-    EvmAddress address;
+    EvmAddressRaw address;
     uint64_t nonce;
 
     bool operator<(const EvmAddressWithNonce& item) const
@@ -55,7 +53,7 @@ struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
     std::map<EvmAddressWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
-    std::map<EvmAddress, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    std::map<EvmAddressRaw, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
@@ -133,7 +131,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressRaw& evmBeneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -256,6 +254,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
+    auto isEvmEnabledForBlock = IsEVMEnabled(nHeight, mnview, consensus);
 
     bool timeOrdering{false};
     if (txOrdering == MIXED_ORDERING) {
@@ -273,29 +272,28 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         timeOrdering = false;
     }
 
-    auto r = CrossBoundaryResValChecked(evm_unsafe_try_create_queue(result));
+    auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
     if (!r) return nullptr;
     const auto evmQueueId = *r;
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
     }
 
     XVM xvm{};
-    if (IsEVMEnabled(nHeight, mnview, consensus)) {
-        std::array<uint8_t, 20> beneficiary{};
-        std::copy(nodePtr->ownerAuthAddress.begin(), nodePtr->ownerAuthAddress.end(), beneficiary.begin());
-        CrossBoundaryResult result;
-        auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
+    if (isEvmEnabledForBlock) {
+        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight));
+        if (!res) { return nullptr; }
+        auto blockResult = *res;
         
-        CrossBoundaryChecked(evm_unsafe_try_remove_queue(result, evmQueueId));
+        auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+        if (!r) { return nullptr; }
 
-        const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
-
-        xvm = XVM{0, {0, uint256(blockHash), blockResult.total_burnt_fees, blockResult.total_priority_fees}};
+        xvm = XVM{0, {0, uint256::FromByteArray(blockResult.block_hash), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
         for (const auto& txRustStr : blockResult.failed_transactions) {
@@ -393,18 +391,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (IsEVMEnabled(nHeight, mnview, consensus) && !xvm.evm.blockHash.IsNull()) {
+        if (isEvmEnabledForBlock) {
+            if (xvm.evm.blockHash.IsNull()) {
+                LogPrint(BCLog::STAKING, "%s: EVM block hash is null\n", __func__);
+                return nullptr;
+            }
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
-
-            CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
-            metadata << xvm;
-
-            CScript script;
-            script << OP_RETURN << ToByteVector(metadata);
-
-            coinbaseTx.vout[headerIndex].scriptPubKey = script;
+            coinbaseTx.vout[headerIndex].scriptPubKey = xvm.ToScript();
+            // LogPrintf("DEBUG:: CreateNewBlock:: xvm-coinbase-add:: %s\n", XVM::TryFrom(xvm.ToScript())->ToUniValue().write());
         }
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
@@ -733,7 +729,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -897,6 +893,10 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             // Only check custom TXs
             if (txType != CustomTxType::None) {
                 if (txType == CustomTxType::EvmTx) {
+                    if (!isEvmEnabledForBlock) {
+                        customTxPassed = false;
+                        break;
+                    }
                     auto evmTxCtx = EvmTxPreApplyContext{
                         tx,
                         sortedEntries[i],
@@ -917,7 +917,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
@@ -1134,7 +1134,12 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     //
     // Create block template
     //
-    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
+    auto pubKey = args.minterKey.GetPubKey();
+    if (pubKey.IsCompressed()) {
+        pubKey.Decompress();
+    }
+    const auto evmBeneficiary = pubKey.GetEthID().GetByteArray();
+    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
         return Status::stakeWaiting;

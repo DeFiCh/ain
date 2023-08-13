@@ -29,7 +29,7 @@ class EVMTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=107",
+                "-nextnetworkupgradeheight=150",
                 "-subsidytest=1",
                 "-txindex=1",
             ],
@@ -48,7 +48,7 @@ class EVMTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=107",
+                "-nextnetworkupgradeheight=150",
                 "-subsidytest=1",
                 "-txindex=1",
             ],
@@ -66,6 +66,11 @@ class EVMTest(DefiTestFramework):
         self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
         self.no_auth_eth_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
 
+        symbolDFI = "DFI"
+        symbolBTC = "BTC"
+        self.symbolBTCDFI = "BTC-DFI"
+        symbolUSER = "USER"
+
         # Import eth_address and validate Bech32 eqivilent is part of the wallet
         self.nodes[0].importprivkey(self.eth_address_privkey)
         result = self.nodes[0].getaddressinfo(self.eth_address_bech32)
@@ -80,20 +85,64 @@ class EVMTest(DefiTestFramework):
         assert_equal(result["iswitness"], True)
 
         # Generate chain
-        self.nodes[0].generate(104)
+        self.nodes[0].generate(145)
 
-        # Create additional token to be used in tests
+        # Create DAT token to be used in tests
         self.nodes[0].createtoken(
             {
-                "symbol": "BTC",
+                "symbol": symbolBTC,
                 "name": "BTC token",
                 "isDAT": True,
                 "collateralAddress": self.address,
             }
         )
 
+        # Create non-DAT token to be used in tests
+        userTx = self.nodes[0].createtoken(
+            {
+                "symbol": symbolUSER,
+                "name": "Non-DAT token",
+                "isDAT": False,
+                "collateralAddress": self.address,
+            }
+        )
+
         # Fund DFI address
-        self.nodes[0].utxostoaccount({self.address: "101@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "201@DFI"})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].minttokens("100@BTC")
+        self.nodes[0].minttokens("100@USER#128")
+
+        idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
+        idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
+        idUSER = list(self.nodes[0].gettoken(userTx).keys())[0]
+        self.symbolUSER = self.nodes[0].gettoken(idUSER)[idUSER]["symbolKey"]
+
+        # create pool
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": idBTC,
+                "tokenB": idDFI,
+                "commission": 1,
+                "status": True,
+                "ownerAddress": self.address,
+                "pairSymbol": self.symbolBTCDFI,
+            },
+            [],
+        )
+        self.nodes[0].generate(1)
+
+        # check tokens id
+        pool = self.nodes[0].getpoolpair(self.symbolBTCDFI)
+        idDFIBTC = list(self.nodes[0].gettoken(self.symbolBTCDFI).keys())[0]
+        assert pool[idDFIBTC]["idTokenA"] == idBTC
+        assert pool[idDFIBTC]["idTokenB"] == idDFI
+
+        # transfer
+        self.nodes[0].addpoolliquidity(
+            {self.address: ["1@" + symbolBTC, "100@" + symbolDFI]}, self.address, []
+        )
         self.nodes[0].generate(1)
 
     def check_initial_balance(self):
@@ -126,7 +175,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32600,
-            "Cannot create tx, EVM is not enabled",
+            "Cannot create tx, transfer domain is not enabled",
             self.nodes[0].transferdomain,
             [
                 {
@@ -142,7 +191,9 @@ class EVMTest(DefiTestFramework):
 
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
-        self.nodes[0].generate(1)
+        # TODO: Check EVM disabled on gen +1
+        # TODO: Check EVM enabled on gen +2
+        self.nodes[0].generate(2)
 
         # Check error before transferdomain enabled
         assert_raises_rpc_error(
@@ -163,20 +214,99 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}}
-        )
-        self.nodes[0].generate(1)
-
-        # Activate transferdomain DVM to EVM
-        self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    "v0/transferdomain/evm-dvm/enabled": "true",
+                    "v0/params/feature/transferdomain": "true",
+                    "v0/transferdomain/dvm-evm/enabled": "false",
                     "v0/transferdomain/dvm-evm/src-formats": ["p2pkh", "bech32"],
                     "v0/transferdomain/dvm-evm/dest-formats": ["erc55"],
+                    "v0/transferdomain/evm-dvm/enabled": "false",
                     "v0/transferdomain/evm-dvm/src-formats": ["erc55"],
                     "v0/transferdomain/evm-dvm/auth-formats": ["bech32-erc55"],
                     "v0/transferdomain/evm-dvm/dest-formats": ["p2pkh", "bech32"],
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        assert_raises_rpc_error(
+            -32600,
+            "DVM to EVM is not currently enabled",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "EVM to DVM is not currently enabled",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "100@DFI",
+                        "domain": 2,
+                    },
+                }
+            ],
+        )
+
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/transferdomain/dvm-evm/enabled": "true",
+                    "v0/transferdomain/evm-dvm/enabled": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        assert_raises_rpc_error(
+            -32600,
+            "transferdomain for DST20 from DVM to EVM is not enabled",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "transferdomain for DST20 from EVM to DVM is not enabled",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ],
+        )
+
+        # Activate DAT transferdomain
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/transferdomain/dvm-evm/dat-enabled": "true",
+                    "v0/transferdomain/evm-dvm/dat-enabled": "true",
                 }
             }
         )
@@ -420,6 +550,44 @@ class EVMTest(DefiTestFramework):
                 }
             ],
         )
+        assert_raises_rpc_error(
+            -32600,
+            "Non-DAT or LP tokens are not supported for transferdomain",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@" + self.symbolUSER,
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@" + self.symbolUSER,
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Non-DAT or LP tokens are not supported for transferdomain",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@" + self.symbolBTCDFI,
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@" + self.symbolBTCDFI,
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
 
     def valid_transfer_dvm_evm(self):
         # Transfer 100 DFI from DVM to EVM
@@ -448,7 +616,8 @@ class EVMTest(DefiTestFramework):
 
         # Check that EVM balance shows in gettokenbalances
         assert_equal(
-            self.nodes[0].gettokenbalances({}, False, False, True), ["101.00000000@0"]
+            self.nodes[0].gettokenbalances({}, False, False, True),
+            ["101.00000000@0", "99.00000000@1", "9.99999000@2", "100.00000000@128"],
         )
 
         # Check new balances
@@ -570,6 +739,44 @@ class EVMTest(DefiTestFramework):
                         "domain": 2,
                     },
                 },
+            ],
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Non-DAT or LP tokens are not supported for transferdomain",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@" + self.symbolUSER,
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@" + self.symbolUSER,
+                        "domain": 2,
+                    },
+                }
+            ],
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Non-DAT or LP tokens are not supported for transferdomain",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@" + self.symbolBTCDFI,
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@" + self.symbolBTCDFI,
+                        "domain": 2,
+                    },
+                }
             ],
         )
 
@@ -713,7 +920,8 @@ class EVMTest(DefiTestFramework):
 
         # Check that EVM balance shows in gettokenbalances
         assert_equal(
-            self.nodes[0].gettokenbalances({}, False, False, True), ["101.00000000@0"]
+            self.nodes[0].gettokenbalances({}, False, False, True),
+            ["101.00000000@0", "99.00000000@1", "9.99999000@2", "100.00000000@128"],
         )
 
         # Check new balances

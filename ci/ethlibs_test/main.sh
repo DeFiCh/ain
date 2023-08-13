@@ -72,15 +72,14 @@ setup_fixtures() {
     $DEFI_CLI_BIN -regtest utxostoaccount '{"'"$OWNERAUTHADDR"'":"500@DFI"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 
-    $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES": {"v0/params/feature/evm":"true",
-                                                   "v0/params/feature/transferdomain": "true",
-                                                   "v0/transferdomain/dvm-evm/enabled": "true",
-                                                   "v0/transferdomain/dvm-evm/src-formats": ["p2pkh","bech32"],
-                                                   "v0/transferdomain/dvm-evm/dest-formats": ["erc55"],
-                                                   "v0/transferdomain/evm-dvm/src-formats": ["erc55"],
-                                                   "v0/transferdomain/evm-dvm/auth-formats": ["bech32-erc55"],
-                                                   "v0/transferdomain/evm-dvm/dest-formats": ["p2pkh","bech32"]}}'
+    $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                    "v0/params/feature/transferdomain": "true",
+                    "v0/rules/tx/core_op_return_max_size_bytes": 20000,
+                    "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
+                    "v0/rules/tx/dvm_op_return_max_size_bytes": 20000}}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
     

@@ -128,9 +128,9 @@ inline uint160 Hash160(const prevector<N, unsigned char>& vch)
     return Hash160(vch.begin(), vch.end());
 }
 
-inline uint160 Sha3(const std::vector<unsigned char> &input) {
+inline uint160 Sha3(const std::vector<unsigned char>& vch) {
     std::vector<unsigned char> output;
-    sha3(input, output);
+    sha3(vch, output);
     const size_t ADDRESS_OFFSET{12};
     return uint160({output.begin() + ADDRESS_OFFSET, output.end()});
 }

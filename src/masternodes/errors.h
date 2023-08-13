@@ -471,7 +471,7 @@ public:
     }
 
     static Res TransferDomainIncorrectToken() {
-        return Res::Err("For transferdomain, only DFI token is currently supported");
+        return Res::Err("Non-DAT or LP tokens are not supported for transferdomain");
     }
 
     static Res TransferDomainEVMDVMNotEnabled() {

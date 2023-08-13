@@ -599,23 +599,18 @@ public:
                         break;
                     }
                 }
-                auto senderBytes = std::vector<uint8_t>(txInfo.sender.begin(), txInfo.sender.end());
-                auto sender = CTxDestination(WitnessV16EthHash(uint160(senderBytes)));
                 rpcInfo.pushKV("type", tx_type);
                 rpcInfo.pushKV("hash", evmTxHash->ToString());
-                rpcInfo.pushKV("sender", EncodeDestination(sender));
+                rpcInfo.pushKV("sender", EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromByteArray(txInfo.sender)))));
                 rpcInfo.pushKV("nonce", txInfo.nonce);
                 rpcInfo.pushKV("gasPrice", txInfo.gas_price);
                 rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
                 rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
                 rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
                 rpcInfo.pushKV("createTx", txInfo.create_tx);
-
                 std::string to = "";
-                if (!txInfo.create_tx) {
-                    auto toBytes = std::vector<uint8_t>(txInfo.to.begin(), txInfo.to.end());
-                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160(toBytes))));
-                }
+                if (!txInfo.create_tx)
+                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromByteArray(txInfo.to))));
                 rpcInfo.pushKV("to", to);
                 rpcInfo.pushKV("value", txInfo.value);
             }
@@ -632,7 +627,8 @@ Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniVa
         return Res::Ok();
     }
     auto txMessage = customTypeToMessage(txType);
-    auto res       = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+    auto consensus = Params().GetConsensus();
+    auto res       = CustomMetadataParse(height, consensus, metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
         std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
