@@ -76,7 +76,7 @@ class EVMTest(DefiTestFramework):
         self.nonce_order_and_rbf()
 
         # Check XVM in coinbase
-        # self.validate_xvm_coinbase()
+        self.validate_xvm_coinbase()
 
         # EVM rollback
         self.evm_rollback()

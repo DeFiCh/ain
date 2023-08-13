@@ -2564,11 +2564,11 @@ Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCu
     CCustomCSView cache(mnview);
     
     if (isEvmEnabledForBlock) {
-        auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
-        if (!res) return res;
+        // auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
+        // if (!res) return res;
 
         // Process EVM block
-        res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
         if (!res) return res;
     }
 

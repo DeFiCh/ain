@@ -169,6 +169,7 @@ class EVMTest(DefiTestFramework):
             res["results"]["hash"],
             "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",
         )
+        # Note: This will fail. Re-evaluate
         assert_equal(res["results"]["sender"].lower(), self.ethAddress)
         assert_equal(res["results"]["gasPrice"], 2)
         assert_equal(res["results"]["gasLimit"], 21000)

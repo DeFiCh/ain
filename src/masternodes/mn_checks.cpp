@@ -3890,14 +3890,10 @@ public:
 
     Res operator()(const CTransferDomainMessage &obj) const {
         auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
-        if (!res) {
-            return res;
-        }
-
+        if (!res) { return res; }
+        
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
-        CDataStructureV0 transferDomainStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
-        auto stats = attributes->GetValue(transferDomainStatsKey, CTransferDomainStatsLive{});
+        auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
@@ -3985,7 +3981,7 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainStatsKey, stats);
+        attributes->SetValue(CTransferDomainStatsLive::Key, stats);
         return mnview.SetVariable(*attributes);
     }
 
