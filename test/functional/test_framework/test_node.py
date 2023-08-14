@@ -162,7 +162,7 @@ class TestNode:
 
         self.p2ps = []
 
-        self.w3 = None
+        self.w3: Web3 = None
 
     MnKeys = collections.namedtuple(
         "MnKeys",

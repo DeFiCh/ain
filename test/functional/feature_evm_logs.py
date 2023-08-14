@@ -11,6 +11,7 @@ from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from web3._utils.events import get_event_data
 
+
 class EVMTestLogs(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -82,7 +83,7 @@ class EVMTestLogs(DefiTestFramework):
         abi, bytecode = self.contract.compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
         self.abi = abi
-        self.event_abi = compiled._find_matching_event_abi('NumberStored')
+        self.event_abi = compiled._find_matching_event_abi("NumberStored")
 
         tx = compiled.constructor().build_transaction(
             {
@@ -121,22 +122,22 @@ class EVMTestLogs(DefiTestFramework):
         node.w3.eth.wait_for_transaction_receipt(hash)
 
         block = self.nodes[0].eth_getBlockByNumber("latest")
-        receipt = self.nodes[0].eth_getTransactionReceipt(block['transactions'][0])
-        assert_equal(len(receipt['logs']), 1)
+        receipt = self.nodes[0].eth_getTransactionReceipt(block["transactions"][0])
+        assert_equal(len(receipt["logs"]), 1)
 
-        logs = self.nodes[0].eth_getLogs({'fromBlock': 'latest'})
-        assert_equal(logs[0]['blockHash'], block['hash'])
-        assert_equal(logs[0]['blockNumber'], block['number'])
-        assert_equal(logs[0]['logIndex'], '0x0')
-        assert_equal(logs[0]['removed'], False)
-        assert_equal(logs[0]['transactionHash'], block['transactions'][0])
-        assert_equal(logs[0]['transactionIndex'], '0x0')
-        assert_equal(logs[0]['data'], '0x')
-        assert_equal(len(logs[0]['topics']), 3)
+        logs = self.nodes[0].eth_getLogs({"fromBlock": "latest"})
+        assert_equal(logs[0]["blockHash"], block["hash"])
+        assert_equal(logs[0]["blockNumber"], block["number"])
+        assert_equal(logs[0]["logIndex"], "0x0")
+        assert_equal(logs[0]["removed"], False)
+        assert_equal(logs[0]["transactionHash"], block["transactions"][0])
+        assert_equal(logs[0]["transactionIndex"], "0x0")
+        assert_equal(logs[0]["data"], "0x")
+        assert_equal(len(logs[0]["topics"]), 3)
 
-        logs = node.w3.eth.get_logs({'fromBlock': 'latest'})
+        logs = node.w3.eth.get_logs({"fromBlock": "latest"})
         event_data = get_event_data(node.w3.codec, self.event_abi, logs[0])
-        assert_equal(event_data['event'], 'NumberStored')
+        assert_equal(event_data["event"], "NumberStored")
 
     def run_test(self):
         self.setup()

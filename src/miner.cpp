@@ -20,6 +20,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/validation.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>
@@ -285,8 +286,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
         CrossBoundaryResult result;
+        auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId);
+        if (!res) throw std::runtime_error(strprintf("%s: DST20 migration failed: %s", __func__, res.msg));
+
         auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
-        
+
         CrossBoundaryChecked(evm_unsafe_try_remove_queue(result, evmQueueId));
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
