@@ -20,6 +20,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/validation.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>
@@ -285,25 +286,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     XVM xvm{};
     if (IsEVMEnabled(nHeight, mnview, consensus)) {
         CrossBoundaryResult result;
-        auto evmTargetBlock = evm_unsafe_try_get_target_block_in_q(result, evmQueueId);
-        if (!result.ok) throw std::runtime_error(strprintf("%s: DST20 migration failed: %s", __func__, result.reason));
-        if (evmTargetBlock == 0) {
-            pcustomcsview->ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
-                if (token.IsPoolShare()) return true;
-                if (!token.IsDAT()) return true;
-
-                if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString())) {
-                    return result.ok;
-                }
-
-                evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
-                                     token.name, token.symbol, id.ToString());
-                return result.ok;
-            }, DCT_ID{1});  // start from non-DFI
-        }
+        auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId);
+        if (!res) throw std::runtime_error(strprintf("%s: DST20 migration failed: %s", __func__, res.msg));
 
         auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), beneficiary, blockTime, nHeight);
-        
+
         CrossBoundaryChecked(evm_unsafe_try_remove_queue(result, evmQueueId));
 
         const auto blockHash = std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end());
