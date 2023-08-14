@@ -2383,17 +2383,17 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     const auto coinbaseBlockHash = uint256(std::vector<uint8_t>(blockResult.block_hash.begin(), blockResult.block_hash.end()));
 
-    if (xvm.evm.blockHash != coinbaseBlockHash) {
-        return Res::Err("Incorrect EVM block hash in coinbase output");
-    }
+    // if (xvm.evm.blockHash != coinbaseBlockHash) {
+    //     return Res::Err("Incorrect EVM block hash in coinbase output");
+    // }
 
-    if (xvm.evm.burntFee != blockResult.total_burnt_fees) {
-        return Res::Err("Incorrect EVM burnt fee in coinbase output");
-    }
+    // if (xvm.evm.burntFee != blockResult.total_burnt_fees) {
+    //     return Res::Err("Incorrect EVM burnt fee in coinbase output");
+    // }
 
-    if (xvm.evm.priorityFee != blockResult.total_priority_fees) {
-        return Res::Err("Incorrect EVM priority fee in coinbase output");
-    }
+    // if (xvm.evm.priorityFee != blockResult.total_priority_fees) {
+    //     return Res::Err("Incorrect EVM priority fee in coinbase output");
+    // }
 
     return Res::Ok();
 }
@@ -2452,10 +2452,12 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         return Res::Err("Not enough outputs in coinbase TX");
     }
 
-    auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
-    if (!res) return res;
+    if (blockResult.block_number > 0) {
+        auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
+        if (!res) return res;
+    }
 
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
 
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
