@@ -2383,9 +2383,6 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     const auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash);
     
-    // LogPrintf("DEBUG:: EVMQ Validate: blockResult: %s\n", blockResultBlockHash.ToString());
-    // LogPrintf("DEBUG:: EVMQ Validate: xvm: %s\n", xvm.ToUniValue().write());
-
     if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
     }

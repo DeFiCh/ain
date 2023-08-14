@@ -39,11 +39,11 @@
 #include <random>
 #include <utility>
 
-struct EvmAddressDataWithNonce {
+struct EvmAddressWithNonce {
     EvmAddressData address;
     uint64_t nonce;
 
-    bool operator<(const EvmAddressDataWithNonce& item) const
+    bool operator<(const EvmAddressWithNonce& item) const
     {
         return std::tie(address, nonce) < std::tie(item.address, item.nonce);
     }
@@ -51,7 +51,7 @@ struct EvmAddressDataWithNonce {
 
 struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
-    std::map<EvmAddressDataWithNonce, uint64_t> feeMap;
+    std::map<EvmAddressWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
     std::map<EvmAddressData, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
     // Keep track of EVM entries that failed nonce check
@@ -400,7 +400,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout.resize(headerIndex + 1);
             coinbaseTx.vout[headerIndex].nValue = 0;
             coinbaseTx.vout[headerIndex].scriptPubKey = xvm.ToScript();
-            // LogPrintf("DEBUG:: CreateNewBlock:: xvm-coinbase-add:: %s\n", XVM::TryFrom(xvm.ToScript())->ToUniValue().write());
         }
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
@@ -666,7 +665,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
 
-    const auto addrKey = EvmAddressDataWithNonce{txResult.sender, txResult.nonce};
+    const auto addrKey = EvmAddressWithNonce{txResult.sender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
@@ -711,7 +710,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    auto addrNonce = EvmAddressDataWithNonce{txResult.sender, txResult.nonce};
+    auto addrNonce = EvmAddressWithNonce{txResult.sender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
     evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
     return true;

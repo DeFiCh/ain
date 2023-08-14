@@ -168,13 +168,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_WALLET_ERROR, "Wallet is currently rescanning. Abort existing rescan or wait.");
         }
 
-        CKey key;
-        if (const auto ethKey{IsHex(strSecret)}; ethKey) {
-            const auto vch = ParseHex(strSecret);
-            key.Set(vch.begin(), vch.end(), true);
-        } else {
-            key = DecodeSecret(strSecret);
-        }
+        CKey key = DecodeSecret(strSecret);
         if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key encoding");
 
         CPubKey pubkey = key.GetPubKey();
