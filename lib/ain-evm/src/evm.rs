@@ -265,27 +265,7 @@ impl EVMServices {
                     if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
-
-                    let tx = SignedTx {
-                        sender: H160::zero(),
-                        transaction: TransactionV2::Legacy(LegacyTransaction {
-                            nonce: U256::from(idx),
-                            gas_price: U256::zero(),
-                            gas_limit: U256::from(u64::MAX),
-                            action: TransactionAction::Create,
-                            value: current_block_number,
-                            input: Vec::new(),
-                            signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
-                                .ok_or("Invalid transaction signature format")?,
-                        }),
-                    };
-
-                    let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
-                        status_code: 1u8,
-                        used_gas: U256::zero(),
-                        logs_bloom: Bloom::default(),
-                        logs: Vec::new(),
-                    });
+                    let (tx, receipt) = create_deploy_contract_tx(idx, current_block_number)?;
 
                     all_transactions.push(Box::new(tx));
                     receipts_v3.push((receipt, Some(address)));
@@ -592,4 +572,32 @@ impl EVMServices {
 
         Ok(is_queued)
     }
+}
+
+fn create_deploy_contract_tx(
+    idx: usize,
+    block_number: U256,
+) -> Result<(SignedTx, ReceiptV3), Box<dyn Error>> {
+    let tx = SignedTx {
+        sender: H160::zero(),
+        transaction: TransactionV2::Legacy(LegacyTransaction {
+            nonce: U256::from(idx),
+            gas_price: U256::zero(),
+            gas_limit: U256::from(u64::MAX),
+            action: TransactionAction::Create,
+            value: block_number,
+            input: Vec::new(),
+            signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+                .ok_or("Invalid transaction signature format")?,
+        }),
+    };
+
+    let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
+        status_code: 1u8,
+        used_gas: U256::zero(),
+        logs_bloom: Bloom::default(),
+        logs: Vec::new(),
+    });
+
+    Ok((tx, receipt))
 }
