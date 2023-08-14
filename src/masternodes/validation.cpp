@@ -2518,27 +2518,31 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     return Res::Ok();
 }
 
-static Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
-
-    CrossBoundaryResult result;
-    auto evmTargetBlock = evm_unsafe_try_get_target_block_in_q(result, evmQueueId);
-    if (!result.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
+    auto res = XResultValueLogged(evm_unsafe_try_get_target_block_in_q(result, evmQueueId));
+    if (!res.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+    
+    auto evmTargetBlock = *res;
     if (evmTargetBlock > 0) return Res::Ok();
 
     auto time = GetTimeMillis();
     LogPrintf("DST20 migration ...\n");
 
+    bool isErr = false;
     cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
         if (!token.IsDAT() || token.IsPoolShare()) 
             return true;
 
-        if (evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString())) {
-            return result.ok;
+        if (auto res = XResultValue(evm_try_is_dst20_deployed_or_queued(result, 
+                evmQueueId, token.name, token.symbol, id.ToString())), res) {
+            auto alreadyExists = *res;
+            if (!alreadyExists) {
+                XResultStatusLogged(evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
+                    token.name, token.symbol, id.ToString()));
+            }
         }
 
-        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
-                token.name, token.symbol, id.ToString());
-        return result.ok;
+        return true;
     }, DCT_ID{1});  // start from non-DFI
 
     LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
