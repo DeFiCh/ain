@@ -287,7 +287,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     XVM xvm{};
     if (isEvmEnabledForBlock) {
         if (auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId); !res) {
-            LogPrintf("Miner: Failed to process DST20 migration: %s\n", res.msg);
+            LogPrintf("ThreadStaker: Failed to process DST20 migration: %s\n", res.msg);
             return nullptr;
         }
 

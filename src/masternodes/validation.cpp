@@ -19,6 +19,7 @@
 #include <masternodes/vaulthistory.h>
 #include <masternodes/errors.h>
 #include <validation.h>
+#include <ffi/ffihelpers.h>
 
 #include <boost/asio.hpp>
 
@@ -2519,8 +2520,8 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
 }
 
 Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
-    auto res = XResultValueLogged(evm_unsafe_try_get_target_block_in_q(result, evmQueueId));
-    if (!res.ok) return DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+    auto res = XResultValue(evm_unsafe_try_get_target_block_in_q(result, evmQueueId));
+    if (!res.ok) return DeFiErrors::DST20MigrationFailure(res.msg);
     
     auto evmTargetBlock = *res;
     if (evmTargetBlock > 0) return Res::Ok();
@@ -2528,25 +2529,33 @@ Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const
     auto time = GetTimeMillis();
     LogPrintf("DST20 migration ...\n");
 
-    bool isErr = false;
+    std::string errMsg = "";
     cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
         if (!token.IsDAT() || token.IsPoolShare()) 
             return true;
 
-        if (auto res = XResultValue(evm_try_is_dst20_deployed_or_queued(result, 
-                evmQueueId, token.name, token.symbol, id.ToString())), res) {
-            auto alreadyExists = *res;
-            if (!alreadyExists) {
-                XResultStatusLogged(evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(),
-                    token.name, token.symbol, id.ToString()));
-            }
+        CrossBoundaryResult result;
+        auto alreadyExists = evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString());
+        if (!result.ok) {
+            errMsg = result.reason.c_str();
+            return false;
+        }
+
+        if (alreadyExists) {
+            return true;
+        }
+
+        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(), token.name, token.symbol, id.ToString());
+        if (!result.ok) {
+            errMsg = result.reason.c_str();
+            return false;
         }
 
         return true;
     }, DCT_ID{1});  // start from non-DFI
 
     LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
-    return result.ok ? Res::Ok() : DeFiErrors::DST20MigrationFailure(result.reason.c_str());
+    return errMsg.empty() ? Res::Ok() : DeFiErrors::DST20MigrationFailure(errMsg);
 }
 
 static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
