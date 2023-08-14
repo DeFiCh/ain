@@ -41,6 +41,68 @@ class DST20(DefiTestFramework):
             ]
         ]
 
+    def test_pre_evm_token(self):
+        # should have code on contract address
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
+            )
+            != "0x"
+        )
+
+        # check contract variables
+        self.usdt = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_usdt, abi=self.abi
+        )
+        assert_equal(self.usdt.functions.name().call(), "USDT token")
+        assert_equal(self.usdt.functions.symbol().call(), "USDT")
+
+        # check transferdomain
+        [beforeUSDT] = [x for x in self.node.getaccount(self.address) if "USDT" in x]
+        assert_equal(beforeUSDT, "10.00000000@USDT")
+        self.node.transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@USDT", "domain": 2},
+                    "dst": {
+                        "address": self.key_pair.address,
+                        "amount": "1@USDT",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+        [afterUSDT] = [x for x in self.node.getaccount(self.address) if "USDT" in x]
+
+        assert_equal(
+            self.usdt.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.usdt.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(afterUSDT, "9.00000000@USDT")
+
+        self.node.transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@USDT",
+                        "domain": 3,
+                    },
+                    "dst": {"address": self.address, "amount": "1@USDT", "domain": 2},
+                }
+            ]
+        )
+        self.node.generate(1)
+        [afterUSDT] = [x for x in self.node.getaccount(self.address) if "USDT" in x]
+        assert_equal(afterUSDT, "10.00000000@USDT")
+        assert_equal(
+            self.usdt.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.usdt.functions.decimals().call()),
+            Decimal(0),
+        )
+
     def test_deploy_token(self):
         # should have no code on contract address
         assert_equal(
@@ -498,16 +560,24 @@ class DST20(DefiTestFramework):
 
     def run_test(self):
         self.node = self.nodes[0]
+        self.w0 = self.node.w3
         self.address = self.node.get_genesis_keys().ownerAuthAddress
 
         # Contract addresses
-        self.contract_address_btc = "0xff00000000000000000000000000000000000001"
-        self.contract_address_eth = "0xff00000000000000000000000000000000000002"
-        self.contract_address_dusd = self.nodes[0].w3.to_checksum_address(
+        self.contract_address_usdt = self.w0.to_checksum_address(
+            "0xff00000000000000000000000000000000000001"
+        )
+        self.contract_address_btc = self.w0.to_checksum_address(
+            "0xff00000000000000000000000000000000000002"
+        )
+        self.contract_address_eth = self.w0.to_checksum_address(
             "0xff00000000000000000000000000000000000003"
         )
-        self.contract_address_tsla = self.nodes[0].w3.to_checksum_address(
+        self.contract_address_dusd = self.w0.to_checksum_address(
             "0xff00000000000000000000000000000000000004"
+        )
+        self.contract_address_tsla = self.w0.to_checksum_address(
+            "0xff00000000000000000000000000000000000005"
         )
 
         # Contract ABI
@@ -521,6 +591,21 @@ class DST20(DefiTestFramework):
         # Generate chain
         self.node.generate(150)
         self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+        # Create token before EVM
+        self.node.createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.node.generate(1)
+        self.node.minttokens("10@USDT")
+        self.node.generate(1)
+
+        self.key_pair = EvmKeyPair.from_node(self.node)
+        self.key_pair2 = EvmKeyPair.from_node(self.node)
 
         # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
         self.nodes[0].setgov(
@@ -534,14 +619,12 @@ class DST20(DefiTestFramework):
                 }
             }
         )
-
         self.nodes[0].generate(1)
 
+        self.test_pre_evm_token()
         self.test_deploy_token()
         self.test_deploy_multiple_tokens()
 
-        self.key_pair = EvmKeyPair.from_node(self.node)
-        self.key_pair2 = EvmKeyPair.from_node(self.node)
         self.node.minttokens("10@BTC")
         self.node.generate(1)
 
