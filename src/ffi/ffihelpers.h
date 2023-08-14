@@ -4,42 +4,52 @@
 #include <masternodes/res.h>
 #include <ain_rs_exports.h>
 
-#define CrossBoundaryCheckedThrow(x) { \
+#define XResultThrowOnErr(x) [&]() { \
     CrossBoundaryResult result; \
     x; \
     if (!result.ok) { \
         throw std::runtime_error(result.reason.c_str()); \
     } \
-}
+}();
 
-#define CrossBoundaryChecked(x) [&]() { \
+#define XResultStatus(x) [&]() { \
     CrossBoundaryResult result; \
     x; \
     if (!result.ok) { \
-        LogPrintf("%s\n", result.reason.c_str()); \
-        return false; \
+        return Res::Err("XR:: %s\n", result.reason.c_str()); \
     } \
-    return true; \
+    return Res::Ok(); \
 }();
 
-#define CrossBoundaryResVal(x) [&]() { \
+#define XResultStatusLogged(x) [&]() { \
+    CrossBoundaryResult result; \
+    x; \
+    if (!result.ok) { \
+        LogPrintf("XR:: %s\n", result.reason.c_str()); \
+        return Res::Err("XR:: %s\n", result.reason.c_str()); \
+    } \
+    return Res::Ok(); \
+}();
+
+#define XResultValue(x) [&]() { \
     CrossBoundaryResult result; \
     auto res = x; \
     if (!result.ok) { \
-        return ResVal<decltype(res)>(Res::Err("%s\n", result.reason.c_str())); \
+        return ResVal<decltype(res)>(Res::Err("XR:: %s\n", result.reason.c_str())); \
     } \
     return ResVal(std::move(res), Res::Ok()); \
 }();
 
-#define CrossBoundaryResValChecked(x) [&]() { \
+#define XResultValueLogged(x) [&]() { \
     CrossBoundaryResult result; \
     auto res = x; \
     if (!result.ok) { \
-        LogPrintf("%s\n", result.reason.c_str()); \
-        return ResVal<decltype(res)>(Res::Err("%s\n", result.reason.c_str())); \
+        LogPrintf("XR:: %s\n", result.reason.c_str()); \
+        return ResVal<decltype(res)>(Res::Err("XR:: %s\n", result.reason.c_str())); \
     } \
     return ResVal(std::move(res), Res::Ok()); \
 }();
+
 
 #endif  // DEFI_FFI_FFIHELPERS_H
 

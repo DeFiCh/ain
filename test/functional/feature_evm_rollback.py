@@ -81,6 +81,7 @@ class EVMRolllbackTest(DefiTestFramework):
         )
 
     def test_rollback_block(self):
+        self.nodes[0].generate(1)
         initialBlockHash = self.nodes[0].getbestblockhash()
         blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
         blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(

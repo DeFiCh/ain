@@ -460,7 +460,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         )
         missing_rawtx = self.nodes[0].getrawtransaction(missing_tx, 1)
         self.nodes[0].clearmempool()
-        self.sync_all()
 
         # Test owner update without collateral input
         rawtx = self.nodes[0].createrawtransaction(

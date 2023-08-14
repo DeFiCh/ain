@@ -1119,6 +1119,10 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
+
+    auto consensus = Params().GetConsensus();
+    auto isEvmEnabledForBlock = IsEVMEnabled(height, viewDuplicate, consensus);
+
     // Check custom TX consensus types are now not in conflict with account layer
     auto& txsByEntryTime = mapTx.get<entry_time>();
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
@@ -1130,7 +1134,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus , height, 0, nullptr, 0, 0, isEvmEnabledForBlock);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

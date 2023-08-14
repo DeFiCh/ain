@@ -26,7 +26,7 @@ struct EVM {
     uint256 blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    std::array<uint8_t, 20> beneficiary;
+    EvmAddressData beneficiary;
 
     ADD_SERIALIZE_METHODS;
 
@@ -58,6 +58,7 @@ struct XVM {
 
     static ResVal<XVM> TryFrom(const CScript &scriptPubKey);
     UniValue ToUniValue() const;
+    CScript ToScript() const;
 
 };
 
@@ -278,7 +279,7 @@ std::string ToString(CustomTxType type);
 CustomTxType FromString(const std::string &str);
 
 // it's disabled after Dakota height
-inline bool NotAllowedToFail(CustomTxType txType, int height) {
+inline bool IsBelowDakotaMintTokenOrAccountToUtxos(CustomTxType txType, int height) {
     return (height < Params().GetConsensus().DakotaHeight &&
             (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }
@@ -551,24 +552,30 @@ Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
+
 Res ApplyCustomTx(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
-                  uint64_t time            = 0,
-                  uint256 *canSpend        = nullptr,
-                  uint32_t txn             = 0,
-                  const uint64_t evmQueueId = 0);
+                  uint64_t time,
+                  uint256 *canSpend,
+                  uint32_t txn,
+                  const uint64_t evmQueueId,
+                  const bool isEvmEnabledForBlock);
+
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
-                  uint32_t height,
+                  const uint32_t height,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
-                  uint64_t time,
-                  uint32_t txn = 0,
-                  const uint64_t evmQueueId = 0);
+                  const uint64_t time,
+                  const uint32_t txn,
+                  const uint64_t evmQueueId,
+                  const bool isEvmEnabledForBlock);
+
+
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,
                                     int height,
@@ -612,7 +619,8 @@ Res ValidateTransferDomain(const CTransaction &tx,
                                    const CCoinsViewCache &coins,
                                    CCustomCSView &mnview,
                                    const Consensus::Params &consensus,
-                                   const CTransferDomainMessage &obj);
+                                   const CTransferDomainMessage &obj,
+                                   const bool isEvmEnabledForBlock);
 
 inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD

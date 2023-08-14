@@ -175,7 +175,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32600,
-            "Cannot create tx, EVM is not enabled",
+            "Cannot create tx, transfer domain is not enabled",
             self.nodes[0].transferdomain,
             [
                 {
@@ -191,7 +191,9 @@ class EVMTest(DefiTestFramework):
 
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
-        self.nodes[0].generate(1)
+        # TODO: Check EVM disabled on gen +1
+        # TODO: Check EVM enabled on gen +2
+        self.nodes[0].generate(2)
 
         # Check error before transferdomain enabled
         assert_raises_rpc_error(

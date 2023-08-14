@@ -785,7 +785,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     const uint256 gasLimit{uint256S("5208")}; // 21,000
 
     std::vector<uint8_t> toVec{ParseHex("34c1ca09a2dc717d89baef2f30ff6a6b2975e17e")};
-    std::array<uint8_t, 20> to{};
+    EvmAddressData to{};
     std::copy(toVec.begin(), toVec.end(), to.begin());
 
     std::array<uint8_t, 32> value{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,ParseHex("23")[0],ParseHex("86")[0],ParseHex("F2")[0],ParseHex("6F")[0],ParseHex("C1")[0],0,0}; // 0.01 Eth

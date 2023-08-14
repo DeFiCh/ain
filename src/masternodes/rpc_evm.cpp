@@ -101,7 +101,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const uint256 gasLimit      = ArithToUint256(gasLimitArith);
 
     const auto toStr = request.params[4].get_str();
-    std::array<uint8_t, 20> to{};
+    EvmAddressData to{};
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {

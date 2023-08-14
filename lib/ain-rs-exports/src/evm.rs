@@ -588,10 +588,7 @@ pub fn evm_try_get_block_header_by_hash(
             };
             cross_boundary_success_return(result, out)
         }
-        None => {
-            debug!("XXX here");
-            cross_boundary_error_return(result, "Invalid block hash")
-        }
+        None => cross_boundary_error_return(result, "Invalid block hash"),
     }
 }
 

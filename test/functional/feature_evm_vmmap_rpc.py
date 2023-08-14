@@ -106,7 +106,9 @@ class VMMapTests(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        # We generate 2 to ensure we have one valid evm block
+        # One enabling evm and one with evm enabled
+        self.nodes[0].generate(2)
         self.start_block_height = self.nodes[0].getblockcount()
 
     def vmmap_valid_tx_should_succeed(self):
