@@ -354,7 +354,11 @@ class EVMTest(DefiTestFramework):
                 self.nodes[0].transferdomain,
                 [
                     {
-                        "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "100@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.eth_address,
                             "amount": "100@DFI",
@@ -372,7 +376,11 @@ class EVMTest(DefiTestFramework):
                 self.nodes[0].transferdomain,
                 [
                     {
-                        "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "100@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.eth_address,
                             "amount": "100@DFI",
@@ -1221,7 +1229,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "false"}})
         self.nodes[0].generate(1)
         evm_disabling_block = self.nodes[0].eth_getBlockByNumber("latest")
-        
+
         self.nodes[0].generate(1)
         evm_disabled_first_block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(evm_disabling_block, evm_disabled_first_block)
@@ -1236,7 +1244,8 @@ class EVMTest(DefiTestFramework):
         # Check block is one higher than before
         evm_first_valid_block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(
-            int(evm_first_valid_block["number"], base=16), int(evm_enabling_block["number"], base=16) + 1
+            int(evm_first_valid_block["number"], base=16),
+            int(evm_enabling_block["number"], base=16) + 1,
         )
 
 
