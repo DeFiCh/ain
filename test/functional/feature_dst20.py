@@ -471,7 +471,7 @@ class DST20(DefiTestFramework):
         mock_time = int(time.time())
         self.nodes[0].setmocktime(mock_time)
         self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
-        self.nodes[0].generate(8)  # activate prices
+        self.nodes[0].generate(10)  # activate prices
 
         # set price again
         timestamp = int(time.time())
