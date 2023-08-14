@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::format_err;
-use ethereum::{Block, PartialHeader, ReceiptV3};
+use ethereum::{
+    Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
+    TransactionSignature, TransactionV2,
+};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -23,7 +26,7 @@ use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
-use crate::transaction::SignedTx;
+use crate::transaction::{SignedTx, LOWER_H256};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::{BlockData, QueueTx};
 
@@ -54,6 +57,8 @@ pub struct DST20BridgeInfo {
     pub address: H160,
     pub storage: Vec<(H256, H256)>,
 }
+
+pub type ReceiptAndOptionalContractAddress = (ReceiptV3, Option<H160>);
 
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
@@ -117,9 +122,11 @@ impl EVMServices {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
         let queue_txs_len = queue.transactions.len();
+
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_txs_len);
+        let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
+            Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -182,8 +189,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
-
-        for queue_item in queue.transactions.clone() {
+        for (idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -202,11 +208,11 @@ impl EVMServices {
                         receipt,
                     ) = executor.exec(&signed_tx, prepay_gas);
                     debug!(
-                        "receipt : {:#?} for signed_tx : {:#x}",
+                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
                         receipt,
+                        exit_reason,
                         signed_tx.transaction.hash()
                     );
-
                     if !exit_reason.is_succeed() {
                         failed_transactions.push(hex::encode(queue_item.tx_hash));
                     }
@@ -217,7 +223,7 @@ impl EVMServices {
 
                     all_transactions.push(signed_tx.clone());
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push(receipt);
+                    receipts_v3.push((receipt, None));
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -259,6 +265,30 @@ impl EVMServices {
                     if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
+
+                    let tx = SignedTx {
+                        sender: H160::zero(),
+                        transaction: TransactionV2::Legacy(LegacyTransaction {
+                            nonce: U256::from(idx),
+                            gas_price: U256::zero(),
+                            gas_limit: U256::from(u64::MAX),
+                            action: TransactionAction::Create,
+                            value: current_block_number,
+                            input: Vec::new(),
+                            signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+                                .ok_or("Invalid transaction signature format")?,
+                        }),
+                    };
+
+                    let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
+                        status_code: 1u8,
+                        used_gas: U256::zero(),
+                        logs_bloom: Bloom::default(),
+                        logs: Vec::new(),
+                    });
+
+                    all_transactions.push(Box::new(tx));
+                    receipts_v3.push((receipt, Some(address)));
                 }
                 QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                     to,

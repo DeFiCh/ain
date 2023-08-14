@@ -4,7 +4,6 @@ use ethereum::{
     AccessList, EnvelopedDecoderError, LegacyTransaction, TransactionAction, TransactionSignature,
     TransactionV2,
 };
-use libsecp256k1::PublicKey;
 use primitive_types::{H160, H256, U256};
 use rlp::RlpStream;
 use sha3::Digest;
@@ -101,7 +100,6 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
-    pub pubkey: PublicKey,
 }
 
 impl TryFrom<TransactionV2> for SignedTx {
@@ -163,7 +161,6 @@ impl TryFrom<TransactionV2> for SignedTx {
         Ok(SignedTx {
             transaction: src,
             sender: public_key_to_address(&pubkey),
-            pubkey,
         })
     }
 }
