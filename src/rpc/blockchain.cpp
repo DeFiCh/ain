@@ -272,7 +272,22 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
 
-    auto txVmInfo = [](const CTransaction& tx) -> std::optional<UniValue> {
+    auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
+            UniValue r(UniValue::VOBJ);
+            r.pushKV("parenthash", uint256::FromByteArray(header.parent_hash).ToString());
+            r.pushKV("beneficiary", uint160::FromByteArray(header.beneficiary).ToString());
+            r.pushKV("stateRoot", uint256::FromByteArray(header.state_root).ToString());
+            r.pushKV("receiptRoot", uint256::FromByteArray(header.receipts_root).ToString());
+            r.pushKV("number", header.number);
+            r.pushKV("gasLimit", header.gas_limit);
+            r.pushKV("gasUsed", header.gas_used);
+            r.pushKV("timestamp", header.timestamp);
+            r.pushKV("nonce", header.nonce);
+            r.pushKV("baseFee", header.base_fee);
+            return r;
+    };
+
+    auto txVmInfo = [&evmBlockHeaderToUniValue](const CTransaction& tx) -> std::optional<UniValue> {
         CustomTxType guess;
         UniValue txResults(UniValue::VOBJ);
         if (tx.IsCoinBase()) {
@@ -288,21 +303,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             result.pushKV("vmtype", "coinbase");
             result.pushKV("txtype", "coinbase");
             result.pushKV("msg", xvm->ToUniValue());
-            UniValue objEvmBlockHeader(UniValue::VOBJ);
             CrossBoundaryResult res;
             auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
             if (!res.ok) return {};
-            objEvmBlockHeader.pushKV("parenthash", uint256::FromByteArray(evmBlockHeader.parent_hash).ToString());
-            objEvmBlockHeader.pushKV("beneficiary", uint160::FromByteArray(evmBlockHeader.beneficiary).ToString());
-            objEvmBlockHeader.pushKV("stateRoot", uint256::FromByteArray(evmBlockHeader.state_root).ToString());
-            objEvmBlockHeader.pushKV("receiptRoot", uint256::FromByteArray(evmBlockHeader.receipts_root).ToString());
-            objEvmBlockHeader.pushKV("number", evmBlockHeader.number);
-            objEvmBlockHeader.pushKV("gasLimit", evmBlockHeader.gas_limit);
-            objEvmBlockHeader.pushKV("gasUsed", evmBlockHeader.gas_used);
-            objEvmBlockHeader.pushKV("timestamp", evmBlockHeader.timestamp);
-            objEvmBlockHeader.pushKV("nonce", evmBlockHeader.nonce);
-            objEvmBlockHeader.pushKV("baseFee", evmBlockHeader.base_fee);
-            result.pushKV("evmblockheader", objEvmBlockHeader);
+            result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
             return result;
         }
         auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);

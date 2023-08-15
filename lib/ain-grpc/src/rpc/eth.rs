@@ -94,12 +94,12 @@ pub trait MetachainRPC {
 
     /// Returns the hash of the current block, the seedHash, and the boundary condition to be met ("target").
     #[method(name = "getWork")]
-    fn get_getwork(&self) -> RpcResult<Vec<String>>;
+    fn get_work(&self) -> RpcResult<Vec<String>>;
 
     /// Submits a proof of work solution to the node.
     /// Always returns false
     #[method(name = "submitWork")]
-    fn eth_submitwork(&self, nonce: String, hash: String, digest: String) -> RpcResult<bool>;
+    fn submit_work(&self, nonce: String, hash: String, digest: String) -> RpcResult<bool>;
 
     /// Retrieves the current hash rate of the node.
     /// Always returns 0x0
@@ -109,7 +109,7 @@ pub trait MetachainRPC {
     /// Submit mining hashrate.
     /// Always returns false
     #[method(name = "submitHashrate")]
-    fn eth_submithashrate(&self, hashrate: String, id: String) -> RpcResult<bool>;
+    fn submit_hashrate(&self, hashrate: String, id: String) -> RpcResult<bool>;
 
     // ----------------------------------------
     // Transaction
@@ -773,7 +773,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 
-    fn get_getwork(&self) -> RpcResult<Vec<String>> {
+    fn get_work(&self) -> RpcResult<Vec<String>> {
         Ok(vec![
             "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
@@ -781,11 +781,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         ])
     }
 
-    fn eth_submitwork(&self, _nonce: String, _hash: String, _digest: String) -> RpcResult<bool> {
+    fn submit_work(&self, _nonce: String, _hash: String, _digest: String) -> RpcResult<bool> {
         Ok(false)
     }
 
-    fn eth_submithashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
+    fn submit_hashrate(&self, _hashrate: String, _id: String) -> RpcResult<bool> {
         Ok(false)
     }
 

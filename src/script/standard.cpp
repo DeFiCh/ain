@@ -62,8 +62,14 @@ static bool MatchPayToPubkey(const CScript& script, valtype& pubkey)
 
 static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
 {
-    if ((script.size() == 25 && script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == 20 && script[23] == OP_EQUALVERIFY && script[24] == OP_CHECKSIG) ||
-        (script.size() == 25 && script[0] == OP_DUP && script[1] == OP_KECCAK && script[2] == 20 && script[23] == OP_EQUALVERIFY && script[24] == OP_CHECKSIG)) {
+    auto envelopeCheck = [](const CScript& script) {
+        return (script.size() == 25 && script[0] == OP_DUP && script[2] == 20 && script[23] == OP_EQUALVERIFY && script[24] == OP_CHECKSIG);
+    };
+    auto hashOpCheck = [](const CScript& script) {
+        return (script[1] == OP_HASH160 || script[1] == OP_KECCAK);
+    };
+
+    if (envelopeCheck(script) && hashOpCheck(script)) {
         pubkeyhash = valtype(script.begin () + 3, script.begin() + 23);
         return true;
     }

@@ -627,7 +627,8 @@ Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniVa
         return Res::Ok();
     }
     auto txMessage = customTypeToMessage(txType);
-    auto res       = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+    auto consensus = Params().GetConsensus();
+    auto res       = CustomMetadataParse(height, consensus, metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
         std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);

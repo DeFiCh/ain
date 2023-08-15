@@ -15,13 +15,14 @@ use crate::Result;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {
     pub block_hash: H256,
+    pub block_number: U256,
     pub topics: Vec<H256>,
     pub data: Vec<u8>,
     pub log_index: U256,
     pub address: H160,
     pub removed: bool,
     pub transaction_hash: H256,
-    pub transaction_index: usize,
+    pub transaction_index: U256,
 }
 
 pub struct LogService {
@@ -50,13 +51,14 @@ impl LogService {
 
                 map.push(LogIndex {
                     block_hash: receipt.block_hash,
+                    block_number,
                     topics: log.clone().topics,
                     data: log.clone().data,
                     log_index: U256::from(log_index),
                     address: log.clone().address,
                     removed: false, // hardcoded as no reorgs on DeFiChain
                     transaction_hash: receipt.tx_hash,
-                    transaction_index: receipt.tx_index,
+                    transaction_index: U256::from(receipt.tx_index),
                 });
 
                 log_index += 1;

@@ -770,6 +770,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint32_t txn;
     uint64_t evmQueueId;
     bool prevalidateEvm;
+    bool isEvmEnabledForBlock;
 
 public:
     CCustomTxApplyVisitor(const CTransaction &tx,
@@ -780,7 +781,8 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmQueueId,
-                          const bool prevalidateEvm)
+                          const bool prevalidateEvm,
+                          const bool isEvmEnabledForBlock)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
@@ -1068,7 +1070,7 @@ public:
 
         auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
 
-        if (tokenId && token.IsDAT() && IsEVMEnabled(height, mnview, consensus)) {
+        if (tokenId && token.IsDAT() && isEvmEnabledForBlock) {
             CrossBoundaryResult result;
             evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
                              rust::string(tokenName.c_str()),
@@ -3887,15 +3889,11 @@ public:
     }
 
     Res operator()(const CTransferDomainMessage &obj) const {
-        auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj);
-        if (!res) {
-            return res;
-        }
-
+        auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
+        if (!res) { return res; }
+        
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
-        CDataStructureV0 transferDomainStatsKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
-        auto stats = attributes->GetValue(transferDomainStatsKey, CTransferDomainStatsLive{});
+        auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
         // Iterate over array of transfers
         for (const auto &[src, dst] : obj.transfers) {
@@ -3983,12 +3981,12 @@ public:
             }
         }
 
-        attributes->SetValue(transferDomainStatsKey, stats);
+        attributes->SetValue(CTransferDomainStatsLive::Key, stats);
         return mnview.SetVariable(*attributes);
     }
 
     Res operator()(const CEvmTxMessage &obj) const {
-        if (!IsEVMEnabled(height, mnview, consensus)) {
+        if (!isEvmEnabledForBlock) {
             return Res::Err("Cannot create tx, EVM is not enabled");
         }
 
@@ -4193,9 +4191,10 @@ Res ValidateTransferDomain(const CTransaction &tx,
                                    const CCoinsViewCache &coins,
                                    CCustomCSView &mnview,
                                    const Consensus::Params &consensus,
-                                   const CTransferDomainMessage &obj)
+                                   const CTransferDomainMessage &obj,
+                                   const bool isEvmEnabledForBlock)
 {
-    if (!IsEVMEnabled(height, mnview, consensus)) {
+    if (!isEvmEnabledForBlock) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
@@ -4269,12 +4268,13 @@ bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Para
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
                   const CTransaction &tx,
-                  uint32_t height,
+                  const uint32_t height,
                   const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
-                  uint64_t time,
-                  uint32_t txn,
-                  const uint64_t evmQueueId) {
+                  const uint64_t time,
+                  const uint32_t txn,
+                  const uint64_t evmQueueId,
+                  const bool isEvmEnabledForBlock) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
@@ -4283,12 +4283,14 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool prevalidateEvm = false;
     if (q == 0) {
         prevalidateEvm = true;
-        auto r = CrossBoundaryResVal(evm_unsafe_try_create_queue(result));
+        auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (r) { q = *r; } else { return r; }
     }
 
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm), txMessage);
+        return std::visit(
+            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm, isEvmEnabledForBlock),
+            txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -4374,7 +4376,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId) {
+                  const uint64_t evmQueueId,
+                  const bool isEvmEnabledForBlock) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -4385,6 +4388,10 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     auto attributes = mnview.GetAttributes();
     assert(attributes);
+
+    if (txType == CustomTxType::EvmTx && !isEvmEnabledForBlock) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
+    }
 
     // Check OP_RETURN sizes
     const auto opReturnLimits = OpReturnLimits::From(height, consensus, *attributes);
@@ -4409,7 +4416,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -4452,7 +4459,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     if (!res) {
         res.msg = strprintf("%sTx: %s", ToString(txType), res.msg);
 
-        if (NotAllowedToFail(txType, height)) {
+        if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
             if (ShouldReturnNonFatalError(tx, height)) {
                 return res;
             }
@@ -5266,6 +5273,7 @@ UniValue EVM::ToUniValue() const {
     obj.pushKV("blockHash", "0x" + blockHash.GetHex());
     obj.pushKV("burntFee", burntFee);
     obj.pushKV("priorityFee", priorityFee);
+    obj.pushKV("beneficiary", "0x" + HexStr(beneficiary));
     return obj;
 }
 
@@ -5274,6 +5282,15 @@ UniValue XVM::ToUniValue() const {
     obj.pushKV("version", static_cast<uint64_t>(version));
     obj.pushKV("evm", evm.ToUniValue());
     return obj;
+}
+
+CScript XVM::ToScript() const {
+    CDataStream metadata(SER_NETWORK, PROTOCOL_VERSION);
+    metadata << *this;
+
+    CScript script;
+    script << OP_RETURN << ToByteVector(metadata);
+    return script;
 }
 
 ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {

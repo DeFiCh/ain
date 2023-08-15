@@ -156,23 +156,6 @@ std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocati
     return wallet;
 }
 
-std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input) {
-    CKey key;
-    CKeyID keyID;
-    std::copy(input.begin(), input.end(), keyID.begin());
-
-    for (const auto &wallet : GetWallets()) {
-        if (wallet->GetKey(keyID, key)) {
-            break;
-        }
-    }
-
-    std::array<uint8_t, 32> result{};
-    std::copy(key.begin(), key.end(), result.begin());
-
-    return result;
-}
-
 std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const std::string& name, std::string& error, std::string& warning)
 {
     return LoadWallet(chain, WalletLocation(name), error, warning);
@@ -418,7 +401,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     return true;
 }
 
-bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
+bool CWallet::AddKeyPair(const CKey& secret, const CPubKey &pubkey)
 {
     WalletBatch batch(*database);
     return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey);
@@ -1673,8 +1656,8 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         mapKeyMetadata[uncomp.GetID()] = metadata;
 
         // write the key&metadata to the database
-        if (!AddKeyPubKey(key, seed))
-            throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
+        if (!AddKeyPair(key, seed))
+            throw std::runtime_error(std::string(__func__) + ": AddKeyPair failed");
     }
 
     return seed;
@@ -5048,7 +5031,7 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {
-        return FillableSigningProvider::AddKeyPubKey(key, pubkey);
+        return FillableSigningProvider::AddKeyPair(key, pubkey);
     }
 
     if (IsLocked()) {

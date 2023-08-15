@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
 //    FillableSigningProvider keystore;
-//    BOOST_CHECK(keystore.AddKeyPubKey(key, key.GetPubKey()));
+//    BOOST_CHECK(keystore.AddKeyPair(key, key.GetPubKey()));
 //    CKeyID keyID = key.GetPubKey().GetID();
 //
 //    uint256 prevStakeModifier = uint256S("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321");

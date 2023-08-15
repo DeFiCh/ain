@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
     CKey key;
     key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
     FillableSigningProvider keystore;
-    BOOST_CHECK(keystore.AddKeyPubKey(key, key.GetPubKey()));
+    BOOST_CHECK(keystore.AddKeyPair(key, key.GetPubKey()));
     CKeyID hash = key.GetPubKey().GetID();
     CScript scriptPubKey = CScript() << OP_0 << std::vector<unsigned char>(hash.begin(), hash.end());
 
@@ -518,10 +518,10 @@ BOOST_AUTO_TEST_CASE(test_witness)
     pubkey3 = key3.GetPubKey();
     pubkey1L = key1L.GetPubKey();
     pubkey2L = key2L.GetPubKey();
-    BOOST_CHECK(keystore.AddKeyPubKey(key1, pubkey1));
-    BOOST_CHECK(keystore.AddKeyPubKey(key2, pubkey2));
-    BOOST_CHECK(keystore.AddKeyPubKey(key1L, pubkey1L));
-    BOOST_CHECK(keystore.AddKeyPubKey(key2L, pubkey2L));
+    BOOST_CHECK(keystore.AddKeyPair(key1, pubkey1));
+    BOOST_CHECK(keystore.AddKeyPair(key2, pubkey2));
+    BOOST_CHECK(keystore.AddKeyPair(key1L, pubkey1L));
+    BOOST_CHECK(keystore.AddKeyPair(key2L, pubkey2L));
     CScript scriptPubkey1, scriptPubkey2, scriptPubkey1L, scriptPubkey2L, scriptMulti;
     scriptPubkey1 << ToByteVector(pubkey1) << OP_CHECKSIG;
     scriptPubkey2 << ToByteVector(pubkey2) << OP_CHECKSIG;
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     BOOST_CHECK(keystore.AddCScript(GetScriptForWitness(scriptMulti)));
     BOOST_CHECK(keystore2.AddCScript(scriptMulti));
     BOOST_CHECK(keystore2.AddCScript(GetScriptForWitness(scriptMulti)));
-    BOOST_CHECK(keystore2.AddKeyPubKey(key3, pubkey3));
+    BOOST_CHECK(keystore2.AddKeyPair(key3, pubkey3));
 
     CTransactionRef output1, output2;
     CMutableTransaction input1, input2;
@@ -785,7 +785,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     const uint256 gasLimit{uint256S("5208")}; // 21,000
 
     std::vector<uint8_t> toVec{ParseHex("34c1ca09a2dc717d89baef2f30ff6a6b2975e17e")};
-    std::array<uint8_t, 20> to{};
+    EvmAddressData to{};
     std::copy(toVec.begin(), toVec.end(), to.begin());
 
     std::array<uint8_t, 32> value{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,ParseHex("23")[0],ParseHex("86")[0],ParseHex("F2")[0],ParseHex("6F")[0],ParseHex("C1")[0],0,0}; // 0.01 Eth

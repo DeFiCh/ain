@@ -59,7 +59,7 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
-    CrossBoundaryCheckedThrow(ain_rs_preinit(result));
+    XResultThrowOnErr(ain_rs_preinit(result));
 
     InitInterfaces interfaces;
     interfaces.chain = interfaces::MakeChain();
@@ -123,7 +123,7 @@ static bool AppInit(int argc, char* argv[])
         // Set this early so that parameter interactions go to console
         InitLogging();
         
-        auto res = CrossBoundaryChecked(ain_rs_init_logging(result));
+        auto res = XResultStatusLogged(ain_rs_init_logging(result));
         if (!res) return false;
 
         InitParameterInteraction();
