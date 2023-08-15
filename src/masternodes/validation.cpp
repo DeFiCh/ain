@@ -25,6 +25,8 @@
 
 #define MILLI 0.001
 
+extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
+
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
     if (incentivePair != Params().GetConsensus().blockTokenRewards.end())
@@ -2383,7 +2385,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     const auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash);
-    
+
     if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
     }
@@ -2395,6 +2397,80 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
     if (xvm.evm.priorityFee != blockResult.total_priority_fees) {
         return Res::Err("Incorrect EVM priority fee in coinbase output");
     }
+
+    return Res::Ok();
+}
+
+static Res ProcessTransferDomainEvents(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const CTransferDomainStatsLive& oldState) {
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CStatsTokenBalances totalDVMout, totalEVMout, totalDVMin, totalEVMin;
+    for (const auto &tx : block.vtx) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(*tx, metadata);
+        if (txType == CustomTxType::TransferDomain) {
+            auto txMessage = customTypeToMessage(txType);
+            if (CustomMetadataParse(pindex->nHeight, chainparams.GetConsensus(), metadata, txMessage)) {
+                auto tx = std::get_if<CTransferDomainMessage>(&txMessage);
+                for (auto const &[src, dst]: tx->transfers){
+                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM))
+                        totalDVMout.Add(src.amount);
+                    else if (src.domain == static_cast<uint8_t>(VMDomain::EVM))
+                        totalEVMout.Add(src.amount);
+                    if (dst.domain == static_cast<uint8_t>(VMDomain::DVM))
+                        totalDVMin.Add(dst.amount);
+                    else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM))
+                        totalEVMin.Add(dst.amount);
+                }
+            }
+        }
+    }
+
+    auto transferDomainStats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+    for (const auto &[id, amount] : transferDomainStats.dvmCurrent.balances) {
+        if (amount > 0) {
+            return Res::Err("More %s moved in DVM from EVM than out. DVM domain balance (should be negative or zero): %s\n", id.ToString(), GetDecimalString(amount));
+        }
+    }
+    for (const auto &[id, amount] : transferDomainStats.evmCurrent.balances) {
+        if (amount < 0) {
+            return Res::Err("More %s moved out from EVM to DVM than in. EVM domain balance (should be positive or zero): %s\n", id.ToString(), GetDecimalString(amount));
+        }
+    }
+
+    auto newState = oldState.dvmOut;
+    newState.AddBalances(totalDVMout.balances);
+    if (newState != transferDomainStats.dvmOut)
+        return Res::Err("Accounting mistmatch on DVM out - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmOut.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmOut.balances).write());
+
+    newState = oldState.dvmIn;
+    newState.AddBalances(totalDVMin.balances);
+    if (newState != transferDomainStats.dvmIn)
+        return Res::Err("Accounting mistmatch on DVM in - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmIn.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmIn.balances).write());
+
+    newState = oldState.dvmCurrent;
+    newState.AddBalances(totalDVMin.balances);
+    newState.SubBalances(totalDVMout.balances);
+    if (newState != transferDomainStats.dvmCurrent)
+        return Res::Err("Accounting mistmatch on DVM to EVM total - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmCurrent.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmCurrent.balances).write());
+
+    newState = oldState.evmOut;
+    newState.AddBalances(totalEVMout.balances);
+    if (newState != transferDomainStats.evmOut)
+        return Res::Err("Accounting mistmatch on EVM out - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmOut.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmOut.balances).write());
+
+    newState = oldState.evmIn;
+    newState.AddBalances(totalEVMin.balances);
+    if (newState != transferDomainStats.evmIn)
+        return Res::Err("Accounting mistmatch on EVM in - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmIn.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmIn.balances).write());
+
+    newState = oldState.evmCurrent;
+    newState.AddBalances(totalEVMin.balances);
+    newState.SubBalances(totalEVMout.balances);
+    if (newState != transferDomainStats.evmCurrent)
+        return Res::Err("Accounting mistmatch on EVM to DVM total - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmCurrent.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmCurrent.balances).write());
 
     return Res::Ok();
 }
@@ -2500,19 +2576,6 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         stats.feePriorityMaxHash = block.GetHash();
     }
 
-    auto transferDomainStats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
-
-    for (const auto &[id, amount] : transferDomainStats.dvmCurrent.balances) {
-        if (id.v == 0) {
-            if (amount + stats.feeBurnt + stats.feePriority > 0) {
-                return Res::Err("More DFI moved from DVM to EVM than in. DVM Out: %s Fees: %s Total: %s\n", GetDecimalString(amount),
-                                GetDecimalString(stats.feeBurnt + stats.feePriority), GetDecimalString(amount + stats.feeBurnt + stats.feePriority));
-            }
-        } else if (amount > 0) {
-            return Res::Err("More %s moved from DVM to EVM than in. DVM Out: %s\n", id.ToString(), GetDecimalString(amount));
-        }
-    }
-
     attributes->SetValue(CEvmBlockStatsLive::Key, stats);
     cache.SetVariable(*attributes);
 
@@ -2522,7 +2585,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
 Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
     auto res = XResultValue(evm_unsafe_try_get_target_block_in_q(result, evmQueueId));
     if (!res.ok) return DeFiErrors::DST20MigrationFailure(res.msg);
-    
+
     auto evmTargetBlock = *res;
     if (evmTargetBlock > 0) return Res::Ok();
 
@@ -2531,7 +2594,7 @@ Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const
 
     std::string errMsg = "";
     cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
-        if (!token.IsDAT() || token.IsPoolShare()) 
+        if (!token.IsDAT() || token.IsPoolShare())
             return true;
 
         CrossBoundaryResult result;
@@ -2570,11 +2633,15 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, const bool isEvmEnabledForBlock) {
+Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, const bool isEvmEnabledForBlock, const CTransferDomainStatsLive& oldState) {
     CCustomCSView cache(mnview);
-    
+
     if (isEvmEnabledForBlock) {
         auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
+        if (!res) return res;
+
+        // Process transferdomain events
+        res = ProcessTransferDomainEvents(block, pindex, cache, chainparams, oldState);
         if (!res) return res;
 
         // Process EVM block

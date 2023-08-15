@@ -2607,6 +2607,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
+    auto transferDomainStatsBefore = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     const auto consensus = chainparams.GetConsensus();
@@ -2850,7 +2852,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock, transferDomainStatsBefore);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -2929,7 +2931,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Finalize items
-    
+
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_unsafe_try_commit_queue(result, evmQueueId));
     }
@@ -3349,7 +3351,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
-        
+
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }

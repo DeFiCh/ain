@@ -634,12 +634,18 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/transferdomain/dvm-evm/0/total"],
             Decimal("100.00000000"),
         )
-        # assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/current'], Decimal('-100.00000000'))
+        assert_equal(
+            attributes["v0/live/economy/transferdomain/dvm/0/current"],
+            Decimal("-100.00000000"),
+        )
         assert_equal(
             attributes["v0/live/economy/transferdomain/dvm/0/out"],
             Decimal("100.00000000"),
         )
-        # assert_equal(attributes['v0/live/economy/transferdomain/evm/0/current'], Decimal('100.00000000'))
+        assert_equal(
+            attributes["v0/live/economy/transferdomain/evm/0/current"],
+            Decimal("100.00000000"),
+        )
         assert_equal(
             attributes["v0/live/economy/transferdomain/evm/0/in"],
             Decimal("100.00000000"),

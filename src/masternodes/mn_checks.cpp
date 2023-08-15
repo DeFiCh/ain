@@ -3892,7 +3892,7 @@ public:
     Res operator()(const CTransferDomainMessage &obj) const {
         auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
         if (!res) { return res; }
-        
+
         auto attributes = mnview.GetAttributes();
         auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
