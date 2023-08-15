@@ -10,6 +10,7 @@ use crate::filters::LogsFilter;
 use crate::receipt::Receipt;
 use crate::storage::traits::LogStorage;
 use crate::storage::Storage;
+use crate::Result;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {
@@ -33,7 +34,11 @@ impl LogService {
         Self { storage }
     }
 
-    pub fn generate_logs_from_receipts(&self, receipts: &Vec<Receipt>, block_number: U256) {
+    pub fn generate_logs_from_receipts(
+        &self,
+        receipts: &Vec<Receipt>,
+        block_number: U256,
+    ) -> Result<()> {
         let mut logs_map: HashMap<H160, Vec<LogIndex>> = HashMap::new();
         let mut log_index = 0; // log index is a block level index
         for receipt in receipts {
@@ -60,9 +65,10 @@ impl LogService {
             }
         }
 
-        logs_map
-            .into_iter()
-            .for_each(|(address, logs)| self.storage.put_logs(address, logs, block_number));
+        for (address, logs) in logs_map {
+            self.storage.put_logs(address, logs, block_number)?
+        }
+        Ok(())
     }
 
     // get logs at a block height and filter for topics
@@ -71,11 +77,11 @@ impl LogService {
         address: &Option<Vec<H160>>,
         topics: &Option<Vec<Option<H256>>>,
         block_number: U256,
-    ) -> Vec<LogIndex> {
+    ) -> Result<Vec<LogIndex>> {
         debug!("Getting logs for block {:#x?}", block_number);
-        let logs = self.storage.get_logs(&block_number).unwrap_or_default();
+        let logs = self.storage.get_logs(&block_number)?.unwrap_or_default();
 
-        let logs = match address {
+        let filtered_logs: Vec<LogIndex> = match address {
             None => logs.into_iter().flat_map(|(_, log)| log).collect(),
             Some(addresses) => {
                 // filter by addresses
@@ -86,9 +92,9 @@ impl LogService {
             }
         };
 
-        match topics {
-            None => logs,
-            Some(topics) => logs
+        let logs = match topics {
+            None => filtered_logs,
+            Some(topics) => filtered_logs
                 .into_iter()
                 .filter(|log| {
                     topics
@@ -100,13 +106,14 @@ impl LogService {
                         })
                 })
                 .collect(),
-        }
+        };
+        Ok(logs)
     }
 
-    pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Vec<LogIndex> {
+    pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Result<Vec<LogIndex>> {
         if filter.last_block_height >= filter.to_block {
             // not possible to have any new entries
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
         // get all logs that match filter from last_block_height to to_block
@@ -119,12 +126,14 @@ impl LogService {
             block_number += U256::one();
         }
 
-        block_numbers
+        let logs = block_numbers
             .into_iter()
-            .flat_map(|block_number| {
-                self.get_logs(&filter.address, &filter.topics, block_number)
-                    .into_iter()
-            })
-            .collect()
+            .map(|block_number| self.get_logs(&filter.address, &filter.topics, block_number))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        Ok(logs)
     }
 }

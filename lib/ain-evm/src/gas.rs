@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use anyhow::format_err;
 use ethereum::TransactionAction;
 use evm::{
@@ -9,6 +7,7 @@ use evm::{
 use log::debug;
 
 use crate::transaction::SignedTx;
+use crate::Result;
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx
@@ -23,7 +22,7 @@ fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     }
 }
 
-pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<(), Box<dyn Error>> {
+pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<()> {
     const CONFIG: Config = Config::shanghai();
     let mut gasometer = Gasometer::new(signed_tx.gas_limit().as_u64(), &CONFIG);
 

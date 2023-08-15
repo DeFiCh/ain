@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -12,7 +11,7 @@ use primitive_types::H256;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
-use crate::core::{EVMCoreService, EVMError, NativeTxHash};
+use crate::core::{EVMCoreService, NativeTxHash};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
@@ -26,6 +25,7 @@ use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, S
 use crate::transaction::SignedTx;
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::{BlockData, QueueTx};
+use crate::Result;
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -71,17 +71,18 @@ impl EVMServices {
     /// # Return
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
-    pub fn new() -> Result<Self, anyhow::Error> {
+    pub fn new() -> Result<Self> {
         if let Some(path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
                 return Err(format_err!(
                     "Loading a genesis from JSON file is restricted to regtest network"
-                ));
+                )
+                .into());
             }
             let storage = Arc::new(Storage::new());
             Ok(Self {
-                core: EVMCoreService::new_from_json(Arc::clone(&storage), PathBuf::from(path)),
-                block: BlockService::new(Arc::clone(&storage)),
+                core: EVMCoreService::new_from_json(Arc::clone(&storage), PathBuf::from(path))?,
+                block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
@@ -91,7 +92,7 @@ impl EVMServices {
             let storage = Arc::new(Storage::restore());
             Ok(Self {
                 core: EVMCoreService::restore(Arc::clone(&storage)),
-                block: BlockService::new(Arc::clone(&storage)),
+                block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
@@ -113,7 +114,7 @@ impl EVMServices {
         beneficiary: H160,
         timestamp: u64,
         dvm_block_number: u64,
-    ) -> Result<FinalizedBlockInfo, Box<dyn Error>> {
+    ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
         let queue_txs_len = queue.transactions.len();
@@ -124,10 +125,10 @@ impl EVMServices {
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
 
-        let parent_data = self.block.get_latest_block_hash_and_number();
+        let parent_data = self.block.get_latest_block_hash_and_number()?;
         let state_root = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .map_or(GENESIS_STATE_ROOT.parse().unwrap(), |block| {
                 block.header.state_root
             });
@@ -155,7 +156,7 @@ impl EVMServices {
             ),
         };
 
-        let base_fee = self.block.calculate_base_fee(parent_hash);
+        let base_fee = self.block.calculate_base_fee(parent_hash)?;
         debug!("[construct_block] Block base fee: {}", base_fee);
 
         let mut backend = EVMBackend::from_root(
@@ -305,7 +306,7 @@ impl EVMServices {
         }
 
         let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
-        let gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
+        let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -356,7 +357,7 @@ impl EVMServices {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<(), Box<dyn Error>> {
+    pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<()> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
             let queue = tx_queue.data.lock().unwrap();
@@ -369,10 +370,10 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.block.connect_block(&block);
+            self.block.connect_block(&block)?;
             self.logs
-                .generate_logs_from_receipts(&receipts, block.header.number);
-            self.receipt.put_receipts(receipts);
+                .generate_logs_from_receipts(&receipts, block.header.number)?;
+            self.receipt.put_receipts(receipts)?;
             self.filters.add_block_to_filters(block.header.hash());
         }
         self.core.tx_queues.remove(queue_id);
@@ -380,7 +381,7 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<(), Box<dyn Error>> {
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<()> {
         debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
@@ -389,8 +390,9 @@ impl EVMServices {
             signed_tx.transaction
         );
 
-        let block_fee = self.block.calculate_next_block_base_fee();
-        if signed_tx.gas_price() < block_fee {
+        let block_fee = self.block.calculate_next_block_base_fee()?;
+        let tx_gas_price = signed_tx.gas_price();
+        if tx_gas_price < block_fee {
             debug!("[verify_tx_fees] tx gas price is lower than block base fee");
             return Err(format_err!("tx gas price is lower than block base fee").into());
         }
@@ -410,13 +412,13 @@ impl EVMServices {
         tx: QueueTx,
         hash: NativeTxHash,
         gas_used: U256,
-    ) -> Result<(), EVMError> {
-        let parent_data = self.block.get_latest_block_hash_and_number();
+    ) -> Result<()> {
+        let parent_data = self.block.get_latest_block_hash_and_number()?;
         let parent_hash = match parent_data {
             Some((hash, _)) => hash,
             None => H256::zero(),
         };
-        let base_fee = self.block.calculate_base_fee(parent_hash);
+        let base_fee = self.block.calculate_base_fee(parent_hash)?;
 
         self.core
             .tx_queues
@@ -433,7 +435,7 @@ impl EVMServices {
     pub fn counter_contract(
         dvm_block_number: u64,
         evm_block_number: U256,
-    ) -> Result<DeployContractInfo, Box<dyn Error>> {
+    ) -> Result<DeployContractInfo> {
         let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
         let count = SERVICES
@@ -468,7 +470,7 @@ impl EVMServices {
         address: H160,
         name: String,
         symbol: String,
-    ) -> Result<DeployContractInfo, Box<dyn Error>> {
+    ) -> Result<DeployContractInfo> {
         if executor.backend.get_account(&address).is_some() {
             return Err(format_err!("Token address is already in use").into());
         }
@@ -498,7 +500,7 @@ impl EVMServices {
         to: H160,
         amount: U256,
         out: bool,
-    ) -> Result<DST20BridgeInfo, Box<dyn Error>> {
+    ) -> Result<DST20BridgeInfo> {
         // check if code of address matches DST20 bytecode
         let account = executor
             .backend
@@ -559,7 +561,7 @@ impl EVMServices {
         name: &str,
         symbol: &str,
         token_id: &str,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool> {
         let address = ain_contracts::dst20_address_from_token_id(token_id)?;
         debug!(
             "[is_dst20_deployed_or_queued] Fetching address {:#?}",

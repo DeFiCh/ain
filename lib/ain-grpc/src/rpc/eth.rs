@@ -9,7 +9,7 @@ use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
 use ain_evm::filters::Filter;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
-use ain_evm::transaction::{SignedTx, TransactionError};
+use ain_evm::transaction::SignedTx;
 use ethereum::{EnvelopedEncodable, TransactionV2};
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
@@ -17,6 +17,7 @@ use libsecp256k1::SecretKey;
 use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 
+use super::to_jsonrpsee_custom_error;
 use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
 use crate::call_request::CallRequest;
 use crate::codegen::types::EthTransactionInfo;
@@ -281,24 +282,29 @@ impl MetachainRPCModule {
             BlockNumber::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
             BlockNumber::Safe | BlockNumber::Finalized => {
                 self.handler.storage.get_latest_block().and_then(|block| {
-                    let finality_count = self
-                        .handler
-                        .storage
-                        .get_attributes_or_default()
-                        .finality_count;
+                    block.map_or(Ok(None), |block| {
+                        let finality_count = self
+                            .handler
+                            .storage
+                            .get_attributes_or_default()?
+                            .finality_count;
 
-                    let safe_block_number = block
-                        .header
-                        .number
-                        .checked_sub(U256::from(finality_count))?;
-                    self.handler.storage.get_block_by_number(&safe_block_number)
+                        block
+                            .header
+                            .number
+                            .checked_sub(U256::from(finality_count))
+                            .map_or(Ok(None), |safe_block_number| {
+                                self.handler.storage.get_block_by_number(&safe_block_number)
+                            })
+                    })
                 })
             }
             // BlockNumber::Pending => todo!(),
             _ => self.handler.storage.get_latest_block(),
         }
-        .ok_or(Error::Custom(String::from("header not found")))
+        .map_err(to_jsonrpsee_custom_error)?
         .map(|block| block.header.number)
+        .ok_or(Error::Custom(String::from("header not found")))
     }
 }
 
@@ -320,6 +326,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_attributes_or_default()
+            .map_err(to_jsonrpsee_custom_error)?
             .block_gas_limit;
         let TxResponse { data, .. } = self
             .handler
@@ -360,7 +367,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .core
             .get_balance(address, block_number)
-            .unwrap_or(U256::zero());
+            .map_err(to_jsonrpsee_custom_error)?;
 
         debug!(target:"rpc", "Address: {:?} balance : {} ", address, balance);
         Ok(balance)
@@ -378,7 +385,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .core
             .get_code(address, block_number)
-            .map_err(|e| Error::Custom(format!("Error getting address code : {e:?}")))?;
+            .map_err(to_jsonrpsee_custom_error)?;
 
         match code {
             Some(code) => Ok(format!("0x{}", hex::encode(code))),
@@ -401,7 +408,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .core
             .get_storage_at(address, position, block_number)
-            .map_err(|e| Error::Custom(format!("get_storage_at error : {e:?}")))?
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(H256::default()), |storage| {
                 Ok(H256::from_slice(&storage))
             })
@@ -416,6 +423,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_block_by_hash(&hash)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |block| {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block,
@@ -440,6 +448,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_latest_block()
+            .map_err(to_jsonrpsee_custom_error)?
             .map(|block| block.header.number)
             .unwrap_or_default();
 
@@ -457,6 +466,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_block_by_number(&block_number)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |block| {
                 Ok(Some(RpcBlock::from_block_with_tx(
                     block,
@@ -473,14 +483,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_transaction_by_hash(&hash)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let mut transaction_info: EthTransactionInfo = tx
-                    .try_into()
-                    .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
+                let mut transaction_info: EthTransactionInfo =
+                    tx.try_into().map_err(to_jsonrpsee_custom_error)?;
 
                 // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
                 // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
-                if let Some(receipt) = self.handler.storage.get_receipt(&hash) {
+                if let Some(receipt) = self
+                    .handler
+                    .storage
+                    .get_receipt(&hash)
+                    .map_err(to_jsonrpsee_custom_error)?
+                {
                     transaction_info.block_hash = Some(format_h256(receipt.block_hash));
                     transaction_info.block_number = Some(format_u256(receipt.block_number));
                     transaction_info.transaction_index =
@@ -499,7 +514,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(EthTransactionInfo::into_pending_transaction_info)
                     .collect()
             })
-            .map_err(|e| Error::Custom(e.to_string()))
+            .map_err(to_jsonrpsee_custom_error)
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -510,10 +525,9 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_transaction_by_block_hash_and_index(&hash, index)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx
-                    .try_into()
-                    .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
+                let transaction_info = tx.try_into().map_err(to_jsonrpsee_custom_error)?;
                 Ok(Some(transaction_info))
             })
     }
@@ -526,10 +540,9 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_transaction_by_block_number_and_index(&number, index)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx
-                    .try_into()
-                    .map_err(|e: TransactionError| Error::Custom(e.to_string()))?;
+                let transaction_info = tx.try_into().map_err(to_jsonrpsee_custom_error)?;
                 Ok(Some(transaction_info))
             })
     }
@@ -538,6 +551,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_block_by_hash(&hash)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
@@ -546,6 +560,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_block_by_number(&block_number)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
@@ -694,9 +709,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .core
             .get_nonce(address, block_number)
-            .map_err(|e| {
-                Error::Custom(format!("Error getting address transaction count : {e:?}"))
-            })?;
+            .map_err(to_jsonrpsee_custom_error)?;
 
         debug!(target:"rpc", "Count: {:#?}", nonce);
         Ok(nonce)
@@ -722,6 +735,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_attributes_or_default()
+            .map_err(to_jsonrpsee_custom_error)?
             .block_gas_limit;
         let TxResponse { used_gas, .. } = self
             .handler
@@ -742,7 +756,11 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = self.handler.block.get_legacy_fee();
+        let gas_price = self
+            .handler
+            .block
+            .get_legacy_fee()
+            .map_err(to_jsonrpsee_custom_error)?;
         debug!(target:"rpc", "gasPrice: {:#?}", gas_price);
         Ok(gas_price)
     }
@@ -751,6 +769,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         self.handler
             .storage
             .get_receipt(&hash)
+            .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |receipt| Ok(Some(ReceiptResult::from(receipt))))
     }
 
@@ -786,7 +805,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
-        Ok(self.handler.block.suggested_priority_fee())
+        self.handler
+            .block
+            .suggested_priority_fee()
+            .map_err(to_jsonrpsee_custom_error)
     }
 
     fn syncing(&self) -> RpcResult<SyncState> {
@@ -805,6 +827,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .handler
                     .storage
                     .get_latest_block()
+                    .map_err(to_jsonrpsee_custom_error)?
                     .map(|block| block.header.number)
                     .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
 
@@ -865,30 +888,35 @@ impl MetachainRPCServer for MetachainRPCModule {
                     block_number += U256::one();
                 }
 
-                block_numbers
+                Ok::<Vec<U256>, Error>(block_numbers)
             }
             Some(block_hash) => {
-                vec![
-                    self.handler
-                        .storage
-                        .get_block_by_hash(&block_hash)
-                        .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))?
-                        .header
-                        .number,
-                ]
+                let block_number = self
+                    .handler
+                    .storage
+                    .get_block_by_hash(&block_hash)
+                    .map_err(to_jsonrpsee_custom_error)?
+                    .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))?
+                    .header
+                    .number;
+                Ok(vec![block_number])
             }
-        };
+        }?;
 
-        Ok(block_numbers
+        let logs_result = block_numbers
             .into_iter()
-            .flat_map(|block_number| {
+            .map(|block_number| {
                 self.handler
                     .logs
                     .get_logs(&input.address, &input.topics, block_number)
-                    .into_iter()
-                    .map(LogResult::from)
+                    .map_err(to_jsonrpsee_custom_error)
             })
-            .collect())
+            .collect::<RpcResult<Vec<Vec<_>>>>()?
+            .into_iter()
+            .flatten()
+            .map(LogResult::from)
+            .collect::<Vec<_>>();
+        Ok(logs_result)
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
@@ -903,7 +931,12 @@ impl MetachainRPCServer for MetachainRPCModule {
             )));
         }
 
-        let current_block_height = match self.handler.storage.get_latest_block() {
+        let current_block_height = match self
+            .handler
+            .storage
+            .get_latest_block()
+            .map_err(to_jsonrpsee_custom_error)?
+        {
             None => return Err(Error::Custom(String::from("Latest block unavailable"))),
             Some(block) => block.header.number,
         };
@@ -930,11 +963,16 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .filters
             .get_filter(filter_id.as_usize())
-            .map_err(|e| Error::Custom(String::from(e)))?;
+            .map_err(to_jsonrpsee_custom_error)?;
 
         let res = match filter {
             Filter::Logs(filter) => {
-                let current_block_height = match self.handler.storage.get_latest_block() {
+                let current_block_height = match self
+                    .handler
+                    .storage
+                    .get_latest_block()
+                    .map_err(to_jsonrpsee_custom_error)?
+                {
                     None => return Err(Error::Custom(String::from("Latest block unavailable"))),
                     Some(block) => block.header.number,
                 };
@@ -943,6 +981,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .handler
                     .logs
                     .get_logs_from_filter(filter)
+                    .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
                     .collect();
@@ -950,7 +989,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 self.handler
                     .filters
                     .update_last_block(filter_id.as_usize(), current_block_height)
-                    .map_err(|e| Error::Custom(String::from(e)))?;
+                    .map_err(to_jsonrpsee_custom_error)?;
 
                 GetFilterChangesResult::Logs(logs)
             }
@@ -958,13 +997,13 @@ impl MetachainRPCServer for MetachainRPCModule {
                 self.handler
                     .filters
                     .get_entries_from_filter(filter_id.as_usize())
-                    .map_err(|e| Error::Custom(String::from(e)))?,
+                    .map_err(to_jsonrpsee_custom_error)?,
             ),
             Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
                 self.handler
                     .filters
                     .get_entries_from_filter(filter_id.as_usize())
-                    .map_err(|e| Error::Custom(String::from(e)))?,
+                    .map_err(to_jsonrpsee_custom_error)?,
             ),
         };
 
@@ -980,38 +1019,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .filters
             .get_filter(filter_id.as_usize())
-            .map_err(|e| Error::Custom(String::from(e)))?;
+            .map_err(to_jsonrpsee_custom_error)?;
 
         match filter {
             Filter::Logs(filter) => {
-                // use fromBlock-toBlock
-                let mut block_number = filter.from_block;
-                let to_block_number = filter.to_block;
-                let mut block_numbers = Vec::new();
-
-                if block_number > to_block_number {
-                    return Err(Error::Custom(format!(
-                        "fromBlock ({}) > toBlock ({})",
-                        format_u256(block_number),
-                        format_u256(to_block_number)
-                    )));
-                }
-
-                while block_number <= to_block_number {
-                    block_numbers.push(block_number);
-                    block_number += U256::one();
-                }
-
-                Ok(block_numbers
+                let logs = self
+                    .handler
+                    .logs
+                    .get_logs_from_filter(filter)
+                    .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
-                    .flat_map(|block_number| {
-                        self.handler
-                            .logs
-                            .get_logs(&filter.address, &filter.topics, block_number)
-                            .into_iter()
-                            .map(LogResult::from)
-                    })
-                    .collect())
+                    .map(LogResult::from)
+                    .collect();
+                Ok(logs)
             }
             _ => Err(Error::Custom(String::from("Filter is not a log filter"))),
         }

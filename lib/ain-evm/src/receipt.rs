@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
+use crate::Result;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Receipt {
@@ -94,7 +95,7 @@ impl ReceiptService {
             .collect()
     }
 
-    pub fn put_receipts(&self, receipts: Vec<Receipt>) {
+    pub fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
         self.storage.put_receipts(receipts)
     }
 }

@@ -10,8 +10,9 @@ use primitive_types::{H160, H256};
 
 use crate::bytes::Bytes;
 use crate::precompiles::MetachainPrecompiles;
+use crate::Result;
 use crate::{
-    backend::{EVMBackend, EVMBackendError},
+    backend::EVMBackend,
     core::EVMCoreService,
     traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
@@ -26,11 +27,11 @@ impl<'backend> AinExecutor<'backend> {
         Self { backend }
     }
 
-    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         self.backend.add_balance(address, amount)
     }
 
-    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<(), EVMBackendError> {
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         self.backend.sub_balance(address, amount)
     }
 
@@ -39,15 +40,11 @@ impl<'backend> AinExecutor<'backend> {
         address: H160,
         bytecode: Bytes,
         storage: Vec<(H256, H256)>,
-    ) -> Result<(), EVMBackendError> {
+    ) -> Result<()> {
         self.backend.deploy_contract(&address, bytecode.0, storage)
     }
 
-    pub fn update_storage(
-        &mut self,
-        address: H160,
-        storage: Vec<(H256, H256)>,
-    ) -> Result<(), EVMBackendError> {
+    pub fn update_storage(&mut self, address: H160, storage: Vec<(H256, H256)>) -> Result<()> {
         self.backend.update_storage(&address, storage)
     }
 
