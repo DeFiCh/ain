@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
@@ -27,7 +27,8 @@ fn is_empty_account(account: &Account) -> bool {
 }
 
 lazy_static! {
-    pub static ref VICINITY: Vicinity = Vicinity::new();
+    #[derive(Debug)]
+    pub static ref VICINITY: Vicinity = Mutex::new(mut Vicinity::new());
 }
 
 #[derive(Default, Debug)]

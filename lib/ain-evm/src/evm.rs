@@ -132,7 +132,8 @@ impl EVMServices {
             .map_or(GENESIS_STATE_ROOT.parse().unwrap(), |block| {
                 block.header.state_root
             });
-
+        
+        debug!("[construct_block] beneficiary: {:?}", beneficiary);
         let (vicinity, parent_hash, current_block_number) = match parent_data {
             None => (
                 Vicinity {
@@ -155,6 +156,7 @@ impl EVMServices {
                 number + 1,
             ),
         };
+        debug!("[construct_block] vincinity: {:?}", vicinity);
 
         let base_fee = self.block.calculate_base_fee(parent_hash)?;
         debug!("[construct_block] Block base fee: {}", base_fee);
