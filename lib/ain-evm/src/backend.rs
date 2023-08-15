@@ -1,10 +1,9 @@
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
-use lazy_static::lazy_static;
 use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
@@ -36,12 +35,6 @@ pub struct Vicinity {
     pub gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
-}
-
-impl Vicinity {
-    fn new() -> Self {
-        Self::default()
-    }
 }
 
 pub struct EVMBackend {
