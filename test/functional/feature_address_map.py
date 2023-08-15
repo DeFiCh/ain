@@ -60,14 +60,23 @@ class addressmapTests(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.nodes[0].importprivkey(
-            "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
-        self.nodes[0].importprivkey(
-            "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
-        )  # toAddress
+        addr_keys = [
+            [
+                "0x9b8a4af42140d8a4c153a822f02571a1dd037e89",
+                "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23",
+            ],
+            [
+                "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110",
+                "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35",
+            ],
+        ]
+
+        self.ethAddress = addr_keys[0][0]
+        self.toAddress = addr_keys[1][0]
+
+        for [addr, key] in addr_keys:
+            self.nodes[0].importprivkey(key)
+            assert_equal(self.nodes[0].dumpprivkey(addr), key)
 
         # Generate chain
         self.nodes[0].generate(101)
