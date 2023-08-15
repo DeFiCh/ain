@@ -12,7 +12,7 @@ class EvmKeyPair:
         privkey = node.dumpprivkey(address)
 
         return EvmKeyPair(privkey, address)
-    
+
     @staticmethod
     def validate_key(privkey, address):
         account = Account.from_key(privkey)

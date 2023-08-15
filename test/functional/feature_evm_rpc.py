@@ -53,7 +53,10 @@ class EVMTest(DefiTestFramework):
         EvmKeyPair.validate_key(
             self.nodes[0].dumpprivkey(self.ethAddress), self.ethAddress
         )
-        self.dst20_accounts = ['0x0a06de8abc3f15359ec0dfe32394c8b8f09e828f', '0x3aeddfb7ffd59d0909145e6a11db224a13e7a9f6']
+        self.dst20_accounts = [
+            "0x0a06de8abc3f15359ec0dfe32394c8b8f09e828f",
+            "0x3aeddfb7ffd59d0909145e6a11db224a13e7a9f6",
+        ]
 
         # Generate chain
         self.nodes[0].generate(101)
