@@ -264,7 +264,10 @@ impl Backend for EVMBackend {
     }
 
     fn block_coinbase(&self) -> H160 {
-        self.vicinity.beneficiary
+        let Some(beneficiary)= self.storage.get_latest_block().map(|block| block.header.beneficiary) else {
+            return H160::default()
+        };
+        beneficiary
     }
 
     fn block_timestamp(&self) -> U256 {

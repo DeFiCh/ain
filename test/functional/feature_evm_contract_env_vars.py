@@ -134,8 +134,7 @@ class EVMTest(DefiTestFramework):
         miner_eth_keyid = self.nodes[0].getaddressinfo(miner_eth_address['format']['erc55'])['witness_program']
         assert_equal(opreturn_miner_keyid, miner_eth_keyid)
         coinbase = self.contract.functions.coinbase().call()
-        print('coinbase: ', coinbase, opreturn_miner_keyid)
-        # assert_equal(coinbase, opreturn_miner_keyid)
+        assert_equal(coinbase, self.nodes[0].w3.to_checksum_address(f"0x{opreturn_miner_keyid}"))
 
         difficulty = self.contract.functions.difficulty().call()
         assert_equal(difficulty, 0)
