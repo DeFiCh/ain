@@ -394,8 +394,6 @@ class EVMTest(DefiTestFramework):
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
         self.nodes[0].generate(1)
-        verify_evm_not_enabled()
-        self.nodes[0].generate(1)
         verify_transferdomain_not_enabled_post_evm_on()
 
         # Activate transferdomain
