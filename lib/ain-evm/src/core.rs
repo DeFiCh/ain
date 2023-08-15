@@ -136,14 +136,17 @@ impl EVMCoreService {
             "Calling EVM at block number : {:#x}, state_root : {:#x}",
             block_number, state_root
         );
-
+        debug!("[call] caller: {:?}", caller);
+        debug!("[call] VICINITY 1: {:?}", VICINITY);
         let vicinity: Vicinity = Vicinity {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
             ..*VICINITY
         };
-
+        debug!("[call] vicinity: {:?}", vicinity);
+        debug!("[call] VICINITY 2: {:?}", VICINITY);
+        
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
