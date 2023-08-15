@@ -401,7 +401,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     return true;
 }
 
-bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
+bool CWallet::AddKeyPair(const CKey& secret, const CPubKey &pubkey)
 {
     WalletBatch batch(*database);
     return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey);
@@ -1656,8 +1656,8 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         mapKeyMetadata[uncomp.GetID()] = metadata;
 
         // write the key&metadata to the database
-        if (!AddKeyPubKey(key, seed))
-            throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
+        if (!AddKeyPair(key, seed))
+            throw std::runtime_error(std::string(__func__) + ": AddKeyPair failed");
     }
 
     return seed;
@@ -5031,7 +5031,7 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {
-        return FillableSigningProvider::AddKeyPubKey(key, pubkey);
+        return FillableSigningProvider::AddKeyPair(key, pubkey);
     }
 
     if (IsLocked()) {
