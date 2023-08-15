@@ -5,6 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 
+from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -49,6 +50,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
+        EvmKeyPair.validate_key(self.nodes[0].dumpprivkey(self.ethAddress), self.ethAddress)
 
         # Generate chain
         self.nodes[0].generate(101)

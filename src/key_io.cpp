@@ -63,7 +63,7 @@ public:
     {
         // Raw addr = ETH_ADDR_PREFIX + HexStr(id);
         // Produce ERC55 checksum address: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
-        const auto address = id.GetHex();
+        const auto address = HexStr(id);
         std::vector<unsigned char> input(address.begin(), address.end());
         std::vector<unsigned char> output;
         sha3(input, output);
@@ -93,7 +93,6 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             return CNoDestination();
         }
         data = ParseHex(hex);
-        std::reverse(data.begin(), data.end());
         return WitnessV16EthHash(uint160(data));
     }
     if (DecodeBase58Check(str, data)) {
