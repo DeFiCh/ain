@@ -109,7 +109,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.GetByteArray();
+        to = toEth.GetByteArrayBE();
     }
 
     const arith_uint256 valueParam = AmountFromValue(request.params[5]);
@@ -130,13 +130,13 @@ UniValue evmtx(const JSONRPCRequest &request) {
     CrossBoundaryResult result;
     const auto signedTx = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
-                                                                              nonce.GetByteArray(),
-                                                                              gasPrice.GetByteArray(),
-                                                                              gasLimit.GetByteArray(),
+                                                                              nonce.GetByteArrayLE(),
+                                                                              gasPrice.GetByteArrayLE(),
+                                                                              gasLimit.GetByteArrayLE(),
                                                                               to,
-                                                                              value.GetByteArray(),
+                                                                              value.GetByteArrayLE(),
                                                                               input,
-                                                                              privKey.GetByteArray()});
+                                                                              privKey.GetByteArrayBE()});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
@@ -310,8 +310,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
         CrossBoundaryResult result;
         auto evmHash = evm_try_get_block_hash_by_number(result, height);
         crossBoundaryOkOrThrow(result);
-        auto evmBlockHash = std::uint256::FromByteArray(evmHash);
-        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
+        auto evmBlockHash = uint256::FromByteArrayBE(evmHash);
+        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
         if (!dvm_block) {
             throwInvalidParam(dvm_block.msg);
         }
@@ -336,7 +336,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(evmBlockHash.msg);
         }
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArrayBE());
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };

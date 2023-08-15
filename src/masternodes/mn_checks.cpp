@@ -1073,7 +1073,7 @@ public:
 
         if (tokenId && token.IsDAT() && isEvmEnabledForBlock) {
             CrossBoundaryResult result;
-            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetHex(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
                              tokenId->ToString());
@@ -3917,7 +3917,7 @@ public:
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
                     evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                                    ArithToUint256(balanceIn).GetByteArrayLE(), tx.GetHash().GetHex());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
                     }
@@ -3925,7 +3925,7 @@ public:
                 else {
                     CrossBoundaryResult result;
                     evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
+                                     ArithToUint256(balanceIn).GetByteArrayLE(), tx.GetHash().GetHex(), tokenId.ToString(), false);
 
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
@@ -3945,7 +3945,7 @@ public:
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
                     if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
-                            ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                            ArithToUint256(balanceIn).GetByteArrayLE(), tx.GetHash().GetHex())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                     if (!result.ok) {
@@ -3954,8 +3954,9 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
+                    LogPrintf("XXX tx hash is: %s\n", tx.GetHash().ToString());
                     evm_try_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
+                                     ArithToUint256(balanceIn).GetByteArrayLE(), tx.GetHash().GetHex(), tokenId.ToString(), true);
 
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
@@ -4004,7 +4005,7 @@ public:
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
 
-            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
+            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used);
             if (!result.ok) {
                 LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to queue %s\n", result.reason);
@@ -4019,7 +4020,7 @@ public:
         }
 
         auto txHash = tx.GetHash();
-        auto evmTxHash = uint256::FromByteArray(validateResults.tx_hash);
+        auto evmTxHash = uint256::FromByteArrayBE(validateResults.tx_hash);
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
             LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash.ToString());

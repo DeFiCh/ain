@@ -274,10 +274,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
             UniValue r(UniValue::VOBJ);
-            r.pushKV("parenthash", uint256::FromByteArray(header.parent_hash).ToString());
-            r.pushKV("beneficiary", uint160::FromByteArray(header.beneficiary).ToString());
-            r.pushKV("stateRoot", uint256::FromByteArray(header.state_root).ToString());
-            r.pushKV("receiptRoot", uint256::FromByteArray(header.receipts_root).ToString());
+            r.pushKV("parenthash", uint256::FromByteArrayBE(header.parent_hash).ToString());
+            r.pushKV("beneficiary", uint160::FromByteArrayBE(header.beneficiary).ToString());
+            r.pushKV("stateRoot", uint256::FromByteArrayBE(header.state_root).ToString());
+            r.pushKV("receiptRoot", uint256::FromByteArrayBE(header.receipts_root).ToString());
             r.pushKV("number", header.number);
             r.pushKV("gasLimit", header.gas_limit);
             r.pushKV("gasUsed", header.gas_used);
@@ -304,7 +304,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             result.pushKV("txtype", "coinbase");
             result.pushKV("msg", xvm->ToUniValue());
             CrossBoundaryResult res;
-            auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
+            auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArrayBE());
             if (!res.ok) return {};
             result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
             return result;

@@ -2382,7 +2382,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 }
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
-    const auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash);
+    const auto blockResultBlockHash = uint256::FromByteArrayBE(blockResult.block_hash);
     
     if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
@@ -2444,7 +2444,6 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
-    auto evmBlockHash = uint256::FromByteArray(blockResult.block_hash);
     if (block.vtx[0]->vout.size() < 2) {
         return Res::Err("Not enough outputs in coinbase TX");
     }
@@ -2452,6 +2451,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
     if (!res) return res;
 
+    auto evmBlockHash = uint256::FromByteArrayBE(blockResult.block_hash);
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
 
@@ -2543,7 +2543,7 @@ Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const
             return true;
         }
 
-        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(), token.name, token.symbol, id.ToString());
+        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetHex(), token.name, token.symbol, id.ToString());
         if (!result.ok) {
             errMsg = result.reason.c_str();
             return false;

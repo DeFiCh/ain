@@ -619,7 +619,7 @@ class DST20(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         self.test_pre_evm_token()
         self.test_deploy_token()

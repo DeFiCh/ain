@@ -66,7 +66,14 @@ public:
                ((uint64_t)ptr[7]) << 56;
     }
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArray() const
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayBE() const
+    {
+        std::array<uint8_t, WIDTH> array;
+        std::copy(data, data + sizeof(data), array.begin());
+        return array;
+    }
+
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayLE() const
     {
         // We store bytes in the reverse order. So any expectations of
         // an array of bytes should be in same order as the hex string.
@@ -124,7 +131,11 @@ public:
     uint160() {}
     explicit uint160(const std::vector<unsigned char>& vch) : base_blob<160>(vch) {}
 
-    static uint160 FromByteArray(const std::array<uint8_t, 20>& data) {
+    static uint160 FromByteArrayBE(const std::array<uint8_t, 20>& data) {
+        return uint160(std::vector<unsigned char>(data.begin(), data.end()));
+    }
+
+    static uint160 FromByteArrayLE(const std::array<uint8_t, 20>& data) {
         return uint160(std::vector<unsigned char>(data.rbegin(), data.rend()));
     }
 };
@@ -139,7 +150,11 @@ public:
     uint256() {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
 
-    static uint256 FromByteArray(const std::array<uint8_t, 32>& data) {
+    static uint256 FromByteArrayBE(const std::array<uint8_t, 32>& data) {
+        return uint256(std::vector<unsigned char>(data.begin(), data.end()));
+    }
+
+    static uint256 FromByteArrayLE(const std::array<uint8_t, 32>& data) {
         return uint256(std::vector<unsigned char>(data.rbegin(), data.rend()));
     }
 };

@@ -38,7 +38,7 @@ pub fn evm_try_create_and_sign_tx(
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
-        TransactionAction::Call(H160::from_slice(&ctx.to))
+        TransactionAction::Call(H160::from(ctx.to))
     };
 
     let nonce_u256 = U256::from(ctx.nonce);
@@ -59,8 +59,7 @@ pub fn evm_try_create_and_sign_tx(
     };
 
     // Sign
-    let priv_key_h256 = H256::from(ctx.priv_key);
-    match t.sign(&priv_key_h256, ctx.chain_id) {
+    match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -164,8 +163,9 @@ pub fn evm_unsafe_try_add_balance_in_q(
     queue_id: u64,
     address: &str,
     amount: [u8; 32],
-    hash: [u8; 32],
+    native_hash: &str,
 ) {
+    let native_hash = native_hash.to_string();
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
@@ -174,7 +174,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
         match SERVICES
             .evm
             .core
-            .add_balance(queue_id, address, amount.into(), hash)
+            .add_balance(queue_id, address, amount.into(), native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -206,8 +206,9 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     queue_id: u64,
     address: &str,
     amount: [u8; 32],
-    hash: [u8; 32],
+    native_hash: &str,
 ) -> bool {
+    let native_hash = native_hash.to_string();
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
@@ -216,7 +217,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
         match SERVICES
             .evm
             .core
-            .sub_balance(queue_id, address, amount.into(), hash)
+            .sub_balance(queue_id, address, amount.into(), native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -396,9 +397,10 @@ pub fn evm_unsafe_try_push_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
-    hash: [u8; 32],
+    native_hash: &str,
     gas_used: u64,
 ) {
+    let native_hash = native_hash.to_string();
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
     unsafe {
         match signed_tx {
@@ -406,7 +408,7 @@ pub fn evm_unsafe_try_push_tx_in_q(
                 match SERVICES.evm.push_tx_in_queue(
                     queue_id,
                     signed_tx.into(),
-                    hash,
+                    native_hash,
                     U256::from(gas_used),
                 ) {
                     Ok(_) => cross_boundary_success(result),
@@ -733,11 +735,12 @@ pub fn evm_try_get_tx_by_hash(
 pub fn evm_try_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    native_hash: [u8; 32],
+    native_hash: &str,
     name: &str,
     symbol: &str,
     token_id: &str,
 ) {
+    let native_hash = native_hash.to_string();
     let address = match ain_contracts::dst20_address_from_token_id(token_id) {
         Ok(address) => address,
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -766,10 +769,11 @@ pub fn evm_try_bridge_dst20(
     queue_id: u64,
     address: &str,
     amount: [u8; 32],
-    native_hash: [u8; 32],
+    native_hash: &str,
     token_id: &str,
     out: bool,
 ) {
+    let native_hash = native_hash.to_string();
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };

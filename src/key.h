@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <vector>
 
+/** Byte array of an EVM address stored as big endian. */
 typedef std::array<uint8_t, 20> EvmAddressData;
 
 /**
@@ -141,7 +142,7 @@ public:
     //! Load private key and check that public key matches.
     bool Load(const CPrivKey& privkey, const CPubKey& vchPubKey, bool fSkipCheck);
 
-    std::array<uint8_t, 32> GetByteArray() const
+    std::array<uint8_t, 32> GetByteArrayLE() const
     {
         // We store bytes in the reverse order. So any expectations of
         // an array of bytes should be in same order as the hex string.
@@ -149,6 +150,16 @@ public:
         std::array<uint8_t, 32> reversedArray;
         std::copy(keydata.rbegin(), keydata.rend(), reversedArray.begin());
         return reversedArray;
+    }
+
+    std::array<uint8_t, 32> GetByteArrayBE() const
+    {
+        // We store bytes in the reverse order. So any expectations of
+        // an array of bytes should be in same order as the hex string.
+        // The protected data array is an internal implementation detail. 
+        std::array<uint8_t, 32> array;
+        std::copy(keydata.begin(), keydata.end(), array.begin());
+        return array;
     }
 };
 

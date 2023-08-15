@@ -40,7 +40,9 @@
 #include <random>
 #include <utility>
 
+
 struct EvmAddressWithNonce {
+    // Byte array of EVM address stored as big endian
     EvmAddressData address;
     uint64_t nonce;
 
@@ -298,7 +300,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
-        xvm = XVM{0, {0, uint256::FromByteArray(blockResult.block_hash), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        xvm = XVM{0, {0, uint256::FromByteArrayBE(blockResult.block_hash), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
         // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
@@ -1143,7 +1145,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     if (pubKey.IsCompressed()) {
         pubKey.Decompress();
     }
-    const auto evmBeneficiary = pubKey.GetEthID().GetByteArray();
+    const auto evmBeneficiary = pubKey.GetEthID().GetByteArrayBE();
     auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");

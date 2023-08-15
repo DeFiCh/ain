@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(xvm_test_case_1)
 {
     auto zero = uint256S("0x0");
     auto one = uint256S("0x1");
-    auto oneArr = uint256S("0x1").GetByteArray();
+    auto oneArr = uint256S("0x1").GetByteArrayLE();
     auto oneVec = std::vector<uint8_t>(oneArr.begin(), oneArr.end());
     auto oneVecReversed = std::vector<uint8_t>(oneArr.begin(), oneArr.end());
     std::reverse(oneVecReversed.begin(), oneVecReversed.end());

@@ -778,8 +778,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
 
     // Check address on explorer to calc nonce
     const std::vector<uint8_t> nonceVec{ParseHex("0000000000000000000000000000000000000000000000000000000000000000")};
-    std::array<uint8_t, 32> nonce{};
-    std::copy(nonceVec.begin(), nonceVec.end(), nonce.begin()); // Not need with nonce 0 but useful later
+    uint256 nonce(nonceVec);
 
     const uint256 gasPrice{uint256S("689451EEE1")}; // 449.164996321 Gwei
     const uint256 gasLimit{uint256S("5208")}; // 21,000
@@ -797,7 +796,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     rust::Vec<uint8_t> input{};
 
     CrossBoundaryResult result;
-    const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce, gasPrice.GetByteArray(), gasLimit.GetByteArray(), to, value, input, privKey});
+    const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArrayLE(), gasPrice.GetByteArrayLE(), gasLimit.GetByteArrayLE(), to, value, input, privKey});
     std::vector<uint8_t> replyVector(reply.size());
     std::copy(reply.begin(), reply.end(), replyVector.begin());
     std::string transaction(HexStr(replyVector.begin(), replyVector.end()));

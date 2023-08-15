@@ -11,7 +11,7 @@ use primitive_types::H256;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
-use crate::core::{EVMCoreService, NativeTxHash};
+use crate::core::EVMCoreService;
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
@@ -209,7 +209,7 @@ impl EVMServices {
                     );
 
                     if !exit_reason.is_succeed() {
-                        failed_transactions.push(hex::encode(queue_item.tx_hash));
+                        failed_transactions.push(queue_item.tx_hash);
                     }
 
                     let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
@@ -227,7 +227,7 @@ impl EVMServices {
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[construct_block] EvmIn failed with {e}");
-                        failed_transactions.push(hex::encode(queue_item.tx_hash));
+                        failed_transactions.push(queue_item.tx_hash);
                     }
                 }
                 QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
@@ -238,7 +238,7 @@ impl EVMServices {
 
                     if let Err(e) = executor.sub_balance(address, amount) {
                         debug!("[construct_block] EvmOut failed with {e}");
-                        failed_transactions.push(hex::encode(queue_item.tx_hash));
+                        failed_transactions.push(queue_item.tx_hash);
                     }
                 }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
@@ -276,12 +276,12 @@ impl EVMServices {
                         Ok(DST20BridgeInfo { address, storage }) => {
                             if let Err(e) = executor.update_storage(address, storage) {
                                 debug!("[construct_block] EvmOut failed with {e}");
-                                failed_transactions.push(hex::encode(queue_item.tx_hash));
+                                failed_transactions.push(queue_item.tx_hash);
                             }
                         }
                         Err(e) => {
                             debug!("[construct_block] EvmOut failed with {e}");
-                            failed_transactions.push(hex::encode(queue_item.tx_hash));
+                            failed_transactions.push(queue_item.tx_hash);
                         }
                     }
                 }
@@ -410,7 +410,7 @@ impl EVMServices {
         &self,
         queue_id: u64,
         tx: QueueTx,
-        hash: NativeTxHash,
+        hash: String,
         gas_used: U256,
     ) -> Result<()> {
         let parent_data = self.block.get_latest_block_hash_and_number()?;

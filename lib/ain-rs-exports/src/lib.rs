@@ -128,14 +128,14 @@ pub mod ffi {
             queue_id: u64,
             address: &str,
             amount: [u8; 32],
-            native_tx_hash: [u8; 32],
+            native_hash: &str,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
             amount: [u8; 32],
-            native_tx_hash: [u8; 32],
+            native_hash: &str,
         ) -> bool;
         fn evm_unsafe_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
@@ -150,7 +150,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
-            hash: [u8; 32],
+            native_hash: &str,
             gas_used: u64,
         );
         fn evm_unsafe_try_construct_block_in_q(
@@ -193,7 +193,7 @@ pub mod ffi {
         fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
-            native_hash: [u8; 32],
+            native_hash: &str,
             name: &str,
             symbol: &str,
             token_id: &str,
@@ -203,7 +203,7 @@ pub mod ffi {
             context: u64,
             address: &str,
             amount: [u8; 32],
-            native_hash: [u8; 32],
+            native_hash: &str,
             token_id: &str,
             out: bool,
         );
