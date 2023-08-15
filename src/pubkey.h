@@ -194,7 +194,9 @@ public:
     CKeyID GetEthID() const
     {
         const size_t HEADER_OFFSET{1};
-        return CKeyID(Sha3({vch + HEADER_OFFSET, vch + size()}));
+        auto begin = vch + HEADER_OFFSET;
+        auto end = vch + size();
+        return CKeyID(EthHash160({begin, end}));
     }
 
     //! Get the 256-bit hash of this public key.

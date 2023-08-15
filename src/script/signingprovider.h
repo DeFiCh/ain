@@ -74,8 +74,8 @@ protected:
     void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
 
 public:
-    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
-    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey()); }
+    virtual bool AddKeyPair(const CKey& key, const CPubKey &pubkey);
+    virtual bool AddKey(const CKey &key) { return AddKeyPair(key, key.GetPubKey()); }
     virtual bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const override;
     virtual bool HaveKey(const CKeyID &address) const override;
     virtual std::set<CKeyID> GetKeys() const;
