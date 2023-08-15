@@ -8,7 +8,7 @@ use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
 
-use crate::backend::{EVMBackend, Vicinity, VICINITY};
+use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
 use crate::core::{EVMCoreService, NativeTxHash};
@@ -132,7 +132,7 @@ impl EVMServices {
             .map_or(GENESIS_STATE_ROOT.parse().unwrap(), |block| {
                 block.header.state_root
             });
-        
+
         debug!("[construct_block] beneficiary: {:?}", beneficiary);
         let (vicinity, parent_hash, current_block_number) = match parent_data {
             None => (
@@ -140,7 +140,7 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
-                    ..*VICINITY
+                    ..Vicinity::default()
                 },
                 H256::zero(),
                 U256::zero(),
@@ -150,7 +150,7 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
-                    ..*VICINITY
+                    ..Vicinity::default()
                 },
                 hash,
                 number + 1,

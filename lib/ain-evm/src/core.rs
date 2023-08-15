@@ -8,7 +8,7 @@ use log::debug;
 use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity, VICINITY};
+use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
@@ -127,26 +127,31 @@ impl EVMCoreService {
             block_number,
         } = arguments;
 
-        let (state_root, block_number) = self
+        let (state_root, block_number, beneficiary) = self
             .storage
             .get_block_by_number(&block_number)?
-            .map(|block| (block.header.state_root, block.header.number))
+            .map(|block| {
+                (
+                    block.header.state_root,
+                    block.header.number,
+                    block.header.beneficiary,
+                )
+            })
             .unwrap_or_default();
         debug!(
             "Calling EVM at block number : {:#x}, state_root : {:#x}",
             block_number, state_root
         );
         debug!("[call] caller: {:?}", caller);
-        debug!("[call] VICINITY 1: {:?}", VICINITY);
         let vicinity: Vicinity = Vicinity {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
-            ..*VICINITY
+            beneficiary,
+            ..Vicinity::default()
         };
         debug!("[call] vicinity: {:?}", vicinity);
-        debug!("[call] VICINITY 2: {:?}", VICINITY);
-        
+
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
