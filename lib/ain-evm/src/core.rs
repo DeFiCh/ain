@@ -8,7 +8,7 @@ use log::debug;
 use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity};
+use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity, VICINITY};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
@@ -137,11 +137,11 @@ impl EVMCoreService {
             block_number, state_root
         );
 
-        let vicinity = Vicinity {
+        let vicinity: Vicinity = Vicinity {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
-            ..Default::default()
+            ..*VICINITY
         };
 
         let mut backend = EVMBackend::from_root(

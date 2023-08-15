@@ -8,7 +8,7 @@ use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
 
-use crate::backend::{EVMBackend, Vicinity};
+use crate::backend::{EVMBackend, Vicinity, VICINITY};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
 use crate::core::{EVMCoreService, NativeTxHash};
@@ -139,7 +139,7 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
-                    ..Default::default()
+                    ..*VICINITY
                 },
                 H256::zero(),
                 U256::zero(),
@@ -149,7 +149,7 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
-                    ..Default::default()
+                    ..*VICINITY
                 },
                 hash,
                 number + 1,
