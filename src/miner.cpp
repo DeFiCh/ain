@@ -40,7 +40,6 @@
 #include <random>
 #include <utility>
 
-
 struct EvmAddressWithNonce {
     // Byte array of EVM address stored as big endian
     EvmAddressData address;
