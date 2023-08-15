@@ -788,7 +788,8 @@ public:
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          prevalidateEvm(prevalidateEvm) {}
+          prevalidateEvm(prevalidateEvm),
+          isEvmEnabledForBlock(isEvmEnabledForBlock) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         Require(CheckMasternodeCreationTx());
@@ -4194,12 +4195,12 @@ Res ValidateTransferDomain(const CTransaction &tx,
                                    const CTransferDomainMessage &obj,
                                    const bool isEvmEnabledForBlock)
 {
-    if (!isEvmEnabledForBlock) {
-        return DeFiErrors::TransferDomainEVMNotEnabled();
-    }
-
     if (!IsTransferDomainEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainNotEnabled();
+    }
+
+    if (!isEvmEnabledForBlock) {
+        return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
     if (obj.transfers.size() != 1) {
