@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ethereum::{Account, Log};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
+use lazy_static::lazy_static;
 use log::{debug, trace};
 use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
@@ -25,6 +26,10 @@ fn is_empty_account(account: &Account) -> bool {
     account.balance.is_zero() && account.nonce.is_zero() && account.code_hash.is_zero()
 }
 
+lazy_static! {
+    pub static ref VICINITY: Vicinity = Vicinity::new();
+}
+
 #[derive(Default, Debug)]
 pub struct Vicinity {
     pub gas_price: U256,
@@ -35,6 +40,12 @@ pub struct Vicinity {
     pub gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
+}
+
+impl Vicinity {
+    fn new() -> Self {
+        Self::default()
+    }
 }
 
 pub struct EVMBackend {
@@ -264,10 +275,7 @@ impl Backend for EVMBackend {
     }
 
     fn block_coinbase(&self) -> H160 {
-        let Some(beneficiary)= self.storage.get_latest_block().map(|block| block.header.beneficiary) else {
-            return H160::default()
-        };
-        beneficiary
+        self.vicinity.beneficiary
     }
 
     fn block_timestamp(&self) -> U256 {
