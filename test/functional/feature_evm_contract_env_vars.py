@@ -122,7 +122,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(f"0x{b1hash}", b1["hash"])
 
         base_fee = self.contract.functions.baseFee().call()
-        print('base_fee: ', base_fee)
+        assert_equal(base_fee, 10_000_000_000)
 
         chain_id = self.contract.functions.chainId().call()
         assert_equal(chain_id, 1133)
@@ -148,7 +148,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(f"0x{n}", bn)
 
         ts = self.contract.functions.timestamp().call()
-        print('ts: ', ts)
+        assert_equal(ts, block["time"])
 
         # gasLeft = self.contract.functions.gasLeft().call()
         # print('gasLeft: ', gasLeft)
@@ -169,7 +169,7 @@ class EVMTest(DefiTestFramework):
         # tx_gas_price = self.contract.functions.getTxGasPrice().call(tx)
         # print('tx_gas_price: ', tx_gas_price)
 
-        # tx_origin = self.contract.functions.getTxOrigin().call(tx)
+        # tx_origin = self.contract.functions.getTxOrigin().call()
         # print('tx_origin: ', tx_origin)
 
         count = self.contract.functions.count().call()

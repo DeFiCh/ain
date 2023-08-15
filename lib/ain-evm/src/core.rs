@@ -127,7 +127,7 @@ impl EVMCoreService {
             block_number,
         } = arguments;
 
-        let (state_root, block_number, beneficiary) = self
+        let (state_root, block_number, beneficiary, base_fee, timestamp) = self
             .storage
             .get_block_by_number(&block_number)?
             .map(|block| {
@@ -135,6 +135,8 @@ impl EVMCoreService {
                     block.header.state_root,
                     block.header.number,
                     block.header.beneficiary,
+                    block.header.base_fee,
+                    block.header.timestamp,
                 )
             })
             .unwrap_or_default();
@@ -148,6 +150,8 @@ impl EVMCoreService {
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
             beneficiary,
+            block_base_fee_per_gas: base_fee,
+            timestamp: U256::from(timestamp),
             ..Vicinity::default()
         };
         debug!("[call] vicinity: {:?}", vicinity);
