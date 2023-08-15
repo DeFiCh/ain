@@ -4018,8 +4018,7 @@ public:
         }
 
         auto txHash = tx.GetHash();
-        auto evmTxHashBytes = std::vector<uint8_t>(validateResults.tx_hash.begin(), validateResults.tx_hash.end());
-        auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
+        auto evmTxHash = uint256::FromByteArray(validateResults.tx_hash);
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
             LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash.ToString());

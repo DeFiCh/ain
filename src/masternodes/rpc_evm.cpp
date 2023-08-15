@@ -76,8 +76,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
 
-    CKey key;
-    if (!pwallet->GetKey(keyId, key)) {
+    CKey privKey;
+    if (!pwallet->GetKey(keyId, privKey)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
     }
 
@@ -109,7 +109,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        std::copy(toEth.begin(), toEth.end(), to.begin());
+        to = toEth.GetByteArray();
     }
 
     const arith_uint256 valueParam = AmountFromValue(request.params[5]);
@@ -127,9 +127,6 @@ UniValue evmtx(const JSONRPCRequest &request) {
         std::copy(inputVec.begin(), inputVec.end(), input.begin());
     }
 
-    std::array<uint8_t, 32> privKey{};
-    std::copy(key.begin(), key.end(), privKey.begin());
-
     CrossBoundaryResult result;
     const auto signedTx = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
@@ -139,7 +136,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
                                                                               to,
                                                                               value.GetByteArray(),
                                                                               input,
-                                                                              privKey});
+                                                                              privKey.GetByteArray()});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
@@ -313,8 +310,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         CrossBoundaryResult result;
         auto evmHash = evm_try_get_block_hash_by_number(result, height);
         crossBoundaryOkOrThrow(result);
-        auto evmBlockHash = std::vector<uint8_t>(evmHash.begin(), evmHash.end());
-        std::reverse(evmBlockHash.begin(), evmBlockHash.end());
+        auto evmBlockHash = std::uint256::FromByteArray(evmHash);
         ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
         if (!dvm_block) {
             throwInvalidParam(dvm_block.msg);

@@ -140,6 +140,16 @@ public:
 
     //! Load private key and check that public key matches.
     bool Load(const CPrivKey& privkey, const CPubKey& vchPubKey, bool fSkipCheck);
+
+    std::array<uint8_t, 32> GetByteArray() const
+    {
+        // We store bytes in the reverse order. So any expectations of
+        // an array of bytes should be in same order as the hex string.
+        // The protected data array is an internal implementation detail. 
+        std::array<uint8_t, 32> reversedArray;
+        std::copy(keydata.rbegin(), keydata.rend(), reversedArray.begin());
+        return reversedArray;
+    }
 };
 
 struct CExtKey {
