@@ -53,6 +53,7 @@ class EVMTest(DefiTestFramework):
         EvmKeyPair.validate_key(
             self.nodes[0].dumpprivkey(self.ethAddress), self.ethAddress
         )
+        self.dst20_accounts = ['0x0a06de8abc3f15359ec0dfe32394c8b8f09e828f', '0x3aeddfb7ffd59d0909145e6a11db224a13e7a9f6']
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -118,7 +119,14 @@ class EVMTest(DefiTestFramework):
 
     def test_accounts(self):
         eth_accounts = self.nodes[0].eth_accounts()
-        assert_equal(eth_accounts.sort(), [self.ethAddress, self.toAddress].sort())
+        check_accounts = []
+        for acc in eth_accounts:
+            address = acc.lower()
+            if address not in self.dst20_accounts:
+                check_accounts.append(address)
+        accounts = [self.ethAddress, self.toAddress]
+        accounts.sort()
+        assert_equal(check_accounts, accounts)
 
     def test_address_state(self, address):
         assert_raises_rpc_error(

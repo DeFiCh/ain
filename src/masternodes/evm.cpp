@@ -6,7 +6,7 @@
 Res CVMDomainGraphView::SetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey, uint256 blockHash)
 {
     return WriteBy<VMDomainBlockEdge>(std::pair(static_cast<uint8_t>(type), blockHashKey), blockHash)
-            ? Res::Ok() : DeFiErrors::DatabaseRWFailure(blockHashKey.GetHex());
+        ? Res::Ok() : DeFiErrors::DatabaseRWFailure(blockHashKey.GetHex());
 }
 
 ResVal<uint256> CVMDomainGraphView::GetVMDomainBlockEdge(VMDomainEdge type, uint256 blockHashKey) const

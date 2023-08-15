@@ -2444,9 +2444,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
-    auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
-    auto evmBlockHash = uint256(evmBlockHashData);
-
+    auto evmBlockHash = uint256::FromByteArray(blockResult.block_hash);
     if (block.vtx[0]->vout.size() < 2) {
         return Res::Err("Not enough outputs in coinbase TX");
     }
