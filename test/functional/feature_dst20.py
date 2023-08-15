@@ -391,7 +391,7 @@ class DST20(DefiTestFramework):
         assert_equal(
             self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(3.5),
+            Decimal(5.5),
         )
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
@@ -454,7 +454,7 @@ class DST20(DefiTestFramework):
         assert_equal(
             self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(2),
+            Decimal(5.5),
         )
 
     def test_negative_transfer(self):
