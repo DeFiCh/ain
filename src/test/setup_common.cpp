@@ -275,9 +275,9 @@ void print_backtrace()
     size = backtrace(array, 10);
     strings = backtrace_symbols(array, size);
     if (strings != NULL) {
-        printf("Obtained %d stack frames.\n", size);
+        std::cout << "Obtained " << size << "stack frames.\n";
         for (i = 0; i < size; i++) {
-            printf("%s\n", strings[i]);
+            std::cout << strings[i] << "\n";
         }
     }
     free(strings);
