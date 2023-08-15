@@ -3195,7 +3195,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
-        XResultThrowOnErr(evm_disconnect_latest_block(result));
+        XResultThrowOnErr(evm_try_disconnect_latest_block(result));
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();

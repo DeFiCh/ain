@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,23 +8,23 @@ use log::debug;
 use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::backend::{EVMBackend, EVMBackendError, InsufficientBalance, Vicinity};
+use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity};
 use crate::block::INITIAL_BASE_FEE;
 use crate::executor::TxResponse;
 use crate::fee::calculate_prepay_gas_fee;
 use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
-use crate::services::SERVICES;
-use crate::storage::traits::{BlockStorage, PersistentStateError};
+use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::transaction::system::{BalanceUpdate, SystemTx};
 use crate::trie::TrieDBStore;
-use crate::txqueue::{QueueError, QueueTx, TransactionQueueMap};
+use crate::txqueue::{QueueTx, TransactionQueueMap};
 use crate::weiamount::WeiAmount;
 use crate::{
     executor::AinExecutor,
     traits::{Executor, ExecutorContext},
     transaction::SignedTx,
+    Result,
 };
 
 pub type NativeTxHash = [u8; 32];
@@ -74,7 +73,7 @@ impl EVMCoreService {
         }
     }
 
-    pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Self {
+    pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Result<Self> {
         debug!("Loading genesis state from {}", path.display());
         init_vsdb();
 
@@ -84,10 +83,9 @@ impl EVMCoreService {
             storage: Arc::clone(&storage),
         };
         let (state_root, genesis) =
-            TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)
-                .expect("Error getting genesis state root from json");
+            TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)?;
 
-        let gas_limit = storage.get_attributes_or_default().block_gas_limit;
+        let gas_limit = storage.get_attributes_or_default()?.block_gas_limit;
         let block: Block<TransactionV2> = Block::new(
             PartialHeader {
                 state_root,
@@ -108,17 +106,17 @@ impl EVMCoreService {
             Vec::new(),
             Vec::new(),
         );
-        storage.put_latest_block(Some(&block));
-        storage.put_block(&block);
+        storage.put_latest_block(Some(&block))?;
+        storage.put_block(&block)?;
 
-        handler
+        Ok(handler)
     }
 
-    pub fn flush(&self) -> Result<(), PersistentStateError> {
+    pub fn flush(&self) -> Result<()> {
         self.trie_store.flush()
     }
 
-    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse, Box<dyn Error>> {
+    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse> {
         let EthCallArgs {
             caller,
             to,
@@ -131,7 +129,7 @@ impl EVMCoreService {
 
         let (state_root, block_number) = self
             .storage
-            .get_block_by_number(&block_number)
+            .get_block_by_number(&block_number)?
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
         debug!(
@@ -188,11 +186,7 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(
-        &self,
-        tx: &str,
-        queue_id: u64,
-    ) -> Result<ValidateTxInfo, Box<dyn Error>> {
+    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
@@ -203,7 +197,7 @@ impl EVMCoreService {
 
         let block_number = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .map(|block| block.header.number)
             .unwrap_or_default();
         debug!("[validate_raw_tx] block_number : {:#?}", block_number);
@@ -263,7 +257,7 @@ impl EVMCoreService {
 
         // Validate gas limit
         let gas_limit = signed_tx.gas_limit();
-        let block_gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
+        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         if gas_limit > U256::from(block_gas_limit) {
             debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
@@ -293,7 +287,7 @@ impl EVMCoreService {
                 .get_total_gas_used_in(queue_id)
                 .unwrap_or_default();
 
-            let block_gas_limit = self.storage.get_attributes_or_default().block_gas_limit;
+            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
             if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
                 return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
             }
@@ -330,7 +324,7 @@ impl EVMCoreService {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), EVMError> {
+    ) -> Result<()> {
         let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
             .push_in(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
@@ -349,14 +343,14 @@ impl EVMCoreService {
         address: H160,
         amount: U256,
         hash: NativeTxHash,
-    ) -> Result<(), EVMError> {
+    ) -> Result<()> {
         let block_number = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .map_or(U256::default(), |block| block.header.number);
         let balance = self.get_balance(address, block_number)?;
         if balance < amount {
-            Err(EVMBackendError::InsufficientBalance(InsufficientBalance {
+            Err(BackendError::InsufficientBalance(InsufficientBalance {
                 address,
                 account_balance: balance,
                 amount,
@@ -376,12 +370,13 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create_queue(&self) -> u64 {
-        let target_block = match self.storage.get_latest_block() {
+    pub unsafe fn create_queue(&self) -> Result<u64> {
+        let target_block = match self.storage.get_latest_block()? {
             None => U256::zero(), // Genesis queue
             Some(block) => block.header.number + 1,
         };
-        self.tx_queues.create(target_block)
+        let queue_id = self.tx_queues.create(target_block);
+        Ok(queue_id)
     }
 
     ///
@@ -400,11 +395,7 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_txs_by_sender_in(
-        &self,
-        queue_id: u64,
-        address: H160,
-    ) -> Result<(), EVMError> {
+    pub unsafe fn remove_txs_by_sender_in(&self, queue_id: u64, address: H160) -> Result<()> {
         self.tx_queues.remove_by_sender_in(queue_id, address)?;
         Ok(())
     }
@@ -415,7 +406,7 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256, EVMError> {
+    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
         let target_block = self.tx_queues.get_target_block_in(queue_id)?;
         Ok(target_block)
     }
@@ -449,19 +440,18 @@ impl EVMCoreService {
         &self,
         queue_id: u64,
         address: H160,
-    ) -> Result<U256, QueueError> {
-        let nonce = self
-            .tx_queues
-            .get_next_valid_nonce_in(queue_id, address)?
-            .unwrap_or_else(|| {
-                let latest_block = self
+    ) -> Result<U256> {
+        let nonce = match self.tx_queues.get_next_valid_nonce_in(queue_id, address)? {
+            Some(nonce) => Ok(nonce),
+            None => {
+                let block_number = self
                     .storage
-                    .get_latest_block()
-                    .map_or_else(U256::zero, |b| b.header.number);
+                    .get_latest_block()?
+                    .map_or_else(U256::zero, |block| block.header.number);
 
-                self.get_nonce(address, latest_block)
-                    .unwrap_or_else(|_| U256::zero())
-            });
+                self.get_nonce(address, block_number)
+            }
+        }?;
 
         debug!(
             "Account {:x?} nonce {:x?} in queue_id {queue_id}",
@@ -473,17 +463,15 @@ impl EVMCoreService {
 
 // State methods
 impl EVMCoreService {
-    pub fn get_account(
-        &self,
-        address: H160,
-        block_number: U256,
-    ) -> Result<Option<Account>, EVMError> {
+    pub fn get_account(&self, address: H160, block_number: U256) -> Result<Option<Account>> {
         let state_root = self
             .storage
-            .get_block_by_number(&block_number)
-            .or_else(|| self.storage.get_latest_block())
+            .get_block_by_number(&block_number)?
             .map(|block| block.header.state_root)
-            .unwrap_or_default();
+            .ok_or(format_err!(
+                "[get_account] Block number {:x?} not found",
+                block_number
+            ))?;
 
         let backend = EVMBackend::from_root(
             state_root,
@@ -494,22 +482,11 @@ impl EVMCoreService {
         Ok(backend.get_account(&address))
     }
 
-    pub fn get_latest_contract_storage(
-        &self,
-        contract: H160,
-        storage_index: H256,
-    ) -> Result<U256, EVMError> {
-        let (_, block_number) = SERVICES
-            .evm
-            .block
-            .get_latest_block_hash_and_number()
-            .unwrap_or_default();
+    pub fn get_latest_contract_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
         let state_root = self
             .storage
-            .get_block_by_number(&block_number)
-            .or_else(|| self.storage.get_latest_block())
-            .map(|block| block.header.state_root)
-            .unwrap_or_default();
+            .get_latest_block()?
+            .map_or(H256::default(), |block| block.header.state_root);
 
         let backend = EVMBackend::from_root(
             state_root,
@@ -518,18 +495,14 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
 
-        backend
-            .get_contract_storage(contract, storage_index.as_bytes())
-            .map_err(|e| EVMError::TrieError(e.to_string()))
+        backend.get_contract_storage(contract, storage_index.as_bytes())
     }
 
-    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>, EVMError> {
-        self.get_account(address, block_number).map(|opt_account| {
-            opt_account.map_or_else(
-                || None,
-                |account| self.storage.get_code_by_hash(account.code_hash),
-            )
-        })
+    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
+        self.get_account(address, block_number)?
+            .map_or(Ok(None), |account| {
+                self.storage.get_code_by_hash(account.code_hash)
+            })
     }
 
     pub fn get_storage_at(
@@ -537,7 +510,7 @@ impl EVMCoreService {
         address: H160,
         position: U256,
         block_number: U256,
-    ) -> Result<Option<Vec<u8>>, EVMError> {
+    ) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number)?
             .map_or(Ok(None), |account| {
                 let storage_trie = self
@@ -550,11 +523,11 @@ impl EVMCoreService {
                 position.to_big_endian(tmp);
                 storage_trie
                     .get(tmp.as_slice())
-                    .map_err(|e| EVMError::TrieError(format!("{e}")))
+                    .map_err(|e| BackendError::TrieError(e.to_string()).into())
             })
     }
 
-    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256> {
         let balance = self
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.balance);
@@ -563,7 +536,7 @@ impl EVMCoreService {
         Ok(balance)
     }
 
-    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256, EVMError> {
+    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256> {
         let nonce = self
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.nonce);
@@ -572,10 +545,10 @@ impl EVMCoreService {
         Ok(nonce)
     }
 
-    pub fn get_latest_block_backend(&self) -> Result<EVMBackend, EVMBackendError> {
+    pub fn get_latest_block_backend(&self) -> Result<EVMBackend> {
         let (state_root, block_number) = self
             .storage
-            .get_latest_block()
+            .get_latest_block()?
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
 
@@ -591,42 +564,3 @@ impl EVMCoreService {
         )
     }
 }
-
-use std::fmt;
-
-#[derive(Debug)]
-pub enum EVMError {
-    BackendError(EVMBackendError),
-    QueueError(QueueError),
-    NoSuchAccount(H160),
-    TrieError(String),
-}
-
-impl fmt::Display for EVMError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EVMError::BackendError(e) => write!(f, "EVMError: Backend error: {e}"),
-            EVMError::QueueError(e) => write!(f, "EVMError: Queue error: {e}"),
-            EVMError::NoSuchAccount(address) => {
-                write!(f, "EVMError: No such acccount for address {address:#x}")
-            }
-            EVMError::TrieError(e) => {
-                write!(f, "EVMError: Trie error {e}")
-            }
-        }
-    }
-}
-
-impl From<EVMBackendError> for EVMError {
-    fn from(e: EVMBackendError) -> Self {
-        EVMError::BackendError(e)
-    }
-}
-
-impl From<QueueError> for EVMError {
-    fn from(e: QueueError) -> Self {
-        EVMError::QueueError(e)
-    }
-}
-
-impl std::error::Error for EVMError {}

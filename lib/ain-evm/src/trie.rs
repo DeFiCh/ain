@@ -11,8 +11,9 @@ use vsdb_trie_db::MptStore;
 
 use crate::backend::{EVMBackend, Vicinity};
 use crate::genesis::GenesisData;
-use crate::storage::traits::{PersistentState, PersistentStateError};
+use crate::storage::traits::PersistentState;
 use crate::storage::Storage;
+use crate::Result;
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 pub static GENESIS_STATE_ROOT: &str =
@@ -57,7 +58,7 @@ impl TrieDBStore {
         trie_store: &Arc<TrieDBStore>,
         storage: &Arc<Storage>,
         json_file: PathBuf,
-    ) -> Result<(H256, GenesisData), std::io::Error> {
+    ) -> Result<(H256, GenesisData)> {
         let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
 
         let mut backend = EVMBackend::from_root(
@@ -99,7 +100,7 @@ impl TrieDBStore {
         Ok((state_root, genesis))
     }
 
-    pub fn flush(&self) -> Result<(), PersistentStateError> {
+    pub fn flush(&self) -> Result<()> {
         self.save_to_disk(TRIE_DB_STORE)
     }
 }

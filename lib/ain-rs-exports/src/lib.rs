@@ -108,7 +108,7 @@ pub mod ffi {
         fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: [u8; 20]) -> u64;
         fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
         fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
-        fn evm_disconnect_latest_block(result: &mut CrossBoundaryResult);
+        fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
 
         // Failible functions
         // Has to take CrossBoundaryResult as first param
