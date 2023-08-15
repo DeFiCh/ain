@@ -26,11 +26,6 @@ fn is_empty_account(account: &Account) -> bool {
     account.balance.is_zero() && account.nonce.is_zero() && account.code_hash.is_zero()
 }
 
-lazy_static! {
-    #[derive(Debug)]
-    pub static ref VICINITY: Vicinity = Mutex::new(mut Vicinity::new());
-}
-
 #[derive(Default, Debug)]
 pub struct Vicinity {
     pub gas_price: U256,
