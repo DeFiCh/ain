@@ -173,7 +173,7 @@ class EVMTest(DefiTestFramework):
         # print('tx_origin: ', tx_origin)
 
         count = self.contract.functions.count().call()
-        print('count: ', count)
+        assert_equal(count, 45)
 
 if __name__ == "__main__":
     EVMTest().main()

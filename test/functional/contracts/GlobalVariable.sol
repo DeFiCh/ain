@@ -5,7 +5,7 @@ pragma solidity >=0.7.0 <0.9.0;
 
 contract GlobalVariable {
     address owner;
-    int public count = 44;
+    int public count = 45;
 
     constructor() {
         owner = msg.sender;
