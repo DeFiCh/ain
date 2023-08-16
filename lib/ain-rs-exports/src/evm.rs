@@ -554,9 +554,7 @@ pub fn evm_try_get_block_hash_by_number(
         .storage
         .get_block_by_number(&U256::from(height))
     {
-        Ok(Some(block)) => {
-            cross_boundary_success_return(result, block.header.hash().to_string())
-        }
+        Ok(Some(block)) => cross_boundary_success_return(result, block.header.hash().to_string()),
         Ok(None) => cross_boundary_error_return(result, "Invalid block number"),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -571,10 +569,7 @@ pub fn evm_try_get_block_hash_by_number(
 /// # Returns
 ///
 /// Returns the block number associated with the given blockhash.
-pub fn evm_try_get_block_number_by_hash(
-    result: &mut ffi::CrossBoundaryResult,
-    hash: &str,
-) -> u64 {
+pub fn evm_try_get_block_number_by_hash(result: &mut ffi::CrossBoundaryResult, hash: &str) -> u64 {
     let Ok(hash) = hash.parse() else {
         return cross_boundary_error_return(result, "Invalid block hash");
     };
@@ -674,11 +669,7 @@ pub fn evm_try_get_tx_by_hash(
         return cross_boundary_error_return(result, "Invalid tx hash");
     };
 
-    match SERVICES
-        .evm
-        .storage
-        .get_transaction_by_hash(&tx_hash)
-    {
+    match SERVICES.evm.storage.get_transaction_by_hash(&tx_hash) {
         Ok(Some(tx)) => {
             let Ok(tx) = SignedTx::try_from(tx) else {
                 return cross_boundary_error_return(result, "failed to convert tx to SignedTx");

@@ -176,10 +176,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             height: u64,
         ) -> String;
-        fn evm_try_get_block_number_by_hash(
-            result: &mut CrossBoundaryResult,
-            hash: &str,
-        ) -> u64;
+        fn evm_try_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: &str) -> u64;
         fn evm_try_get_block_header_by_hash(
             result: &mut CrossBoundaryResult,
             hash: &str,
