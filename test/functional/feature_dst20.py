@@ -218,6 +218,13 @@ class DST20(DefiTestFramework):
             Decimal(1),
         )
 
+        # test totalSupply variable
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+
         [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(amountBTC, "9.00000000@BTC")
 
@@ -241,6 +248,11 @@ class DST20(DefiTestFramework):
             / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(2),
         )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
         [amountBTC] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(amountBTC, "8.00000000@BTC")
 
@@ -261,6 +273,11 @@ class DST20(DefiTestFramework):
 
         assert_equal(
             self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0.5),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(0.5),
         )
@@ -296,6 +313,11 @@ class DST20(DefiTestFramework):
 
         assert_equal(
             self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(3.5),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(3.5),
         )
@@ -336,6 +358,11 @@ class DST20(DefiTestFramework):
         assert_equal(
             self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0)
         )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(3.5),
+        )
         assert_equal(beforeAmount, afterAmount)
 
     def test_bridge_when_no_balance(self):
@@ -360,6 +387,11 @@ class DST20(DefiTestFramework):
 
         assert_equal(
             self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0)
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(5.5),
         )
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
@@ -418,6 +450,11 @@ class DST20(DefiTestFramework):
             self.btc.functions.balanceOf(self.contract_address_btc).call()
             / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(2),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(5.5),
         )
 
     def test_negative_transfer(self):
@@ -532,7 +569,12 @@ class DST20(DefiTestFramework):
         assert_equal(TSLAAmount, "98.00000000@TSLA")
         assert_equal(
             self.tsla.functions.balanceOf(self.key_pair.address).call()
-            / math.pow(10, self.btc.functions.decimals().call()),
+            / math.pow(10, self.tsla.functions.decimals().call()),
+            Decimal(2),
+        )
+        assert_equal(
+            self.tsla.functions.totalSupply().call()
+            / math.pow(10, self.tsla.functions.decimals().call()),
             Decimal(2),
         )
 
@@ -554,7 +596,12 @@ class DST20(DefiTestFramework):
         assert_equal(TSLAAmount, "99.00000000@TSLA")
         assert_equal(
             self.tsla.functions.balanceOf(self.key_pair.address).call()
-            / math.pow(10, self.btc.functions.decimals().call()),
+            / math.pow(10, self.tsla.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(
+            self.tsla.functions.totalSupply().call()
+            / math.pow(10, self.tsla.functions.decimals().call()),
             Decimal(1),
         )
 
