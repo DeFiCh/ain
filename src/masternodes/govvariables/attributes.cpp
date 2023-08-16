@@ -1819,11 +1819,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             GetValue(enabledKey, false) &&
                             evmQueueId &&
                             !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
-                                                       tokenID.ToString())) {
+                                                       tokenID.v)) {
                             evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
                                                  token->name,
                                                  token->symbol,
-                                                 tokenID.ToString());
+                                                 tokenID.v);
 
                             if (!result.ok) {
                                 return DeFiErrors::GovVarErrorCreatingDST20(result.reason.c_str());

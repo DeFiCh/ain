@@ -67,8 +67,8 @@ pub fn get_dst20_codehash() -> Result<H256> {
     Ok(Blake2Hasher::hash(&bytecode))
 }
 
-pub fn dst20_address_from_token_id(token_id: &str) -> Result<H160> {
-    let number_str = format!("{:x}", token_id.parse::<u64>()?);
+pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
+    let number_str = format!("{:x}", token_id);
     let padded_number_str = format!("{number_str:0>38}");
     let final_str = format!("ff{padded_number_str}");
 

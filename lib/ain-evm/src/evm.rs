@@ -27,7 +27,7 @@ use crate::traits::Executor;
 use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
 use crate::transaction::{SignedTx, LOWER_H256};
 use crate::trie::GENESIS_STATE_ROOT;
-use crate::txqueue::{BlockData, QueueTx};
+use crate::txqueue::{BlockData, QueueTx, QueueTxItem};
 use crate::Result;
 
 pub struct EVMServices {
@@ -122,8 +122,14 @@ impl EVMServices {
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
-        let queue_txs_len = queue.transactions.len();
 
+        let is_evm_genesis_block = queue.target_block == U256::zero();
+        if is_evm_genesis_block {
+            let migration_txs = get_dst20_migration_txs()?;
+            queue.transactions.extend(migration_txs.into_iter())
+        }
+
+        let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
@@ -571,7 +577,7 @@ impl EVMServices {
         queue_id: u64,
         name: &str,
         symbol: &str,
-        token_id: &str,
+        token_id: u64,
     ) -> Result<bool> {
         let address = ain_contracts::dst20_address_from_token_id(token_id)?;
         debug!(
@@ -624,4 +630,25 @@ fn create_deploy_contract_tx(
     });
 
     Ok((tx, receipt))
+}
+
+fn get_dst20_migration_txs() -> Result<Vec<QueueTxItem>> {
+    let mut txs = Vec::new();
+    for token in ain_cpp_imports::get_dst20_tokens() {
+        let address = ain_contracts::dst20_address_from_token_id(token.id)?;
+        debug!("Deploying to address {:#?}", address);
+
+        let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            name: token.name,
+            symbol: token.symbol,
+            address,
+        }));
+        txs.push(QueueTxItem {
+            tx,
+            tx_hash: Default::default(),
+            tx_fee: U256::zero(),
+            gas_used: U256::zero(),
+        });
+    }
+    Ok(txs)
 }

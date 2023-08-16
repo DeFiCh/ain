@@ -621,7 +621,7 @@ pub fn evm_try_is_dst20_deployed_or_queued(
     queue_id: u64,
     name: &str,
     symbol: &str,
-    token_id: &str,
+    token_id: u64,
 ) -> bool {
     unsafe {
         match SERVICES
@@ -736,7 +736,7 @@ pub fn evm_try_create_dst20(
     native_hash: [u8; 32],
     name: &str,
     symbol: &str,
-    token_id: &str,
+    token_id: u64,
 ) {
     let address = match ain_contracts::dst20_address_from_token_id(token_id) {
         Ok(address) => address,
@@ -767,7 +767,7 @@ pub fn evm_try_bridge_dst20(
     address: &str,
     amount: [u8; 32],
     native_hash: [u8; 32],
-    token_id: &str,
+    token_id: u64,
     out: bool,
 ) {
     let Ok(address) = address.parse() else {

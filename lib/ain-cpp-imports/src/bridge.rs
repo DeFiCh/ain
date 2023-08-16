@@ -7,9 +7,17 @@ pub mod ffi {
         pub finality_count: u64,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct DST20Token {
+        pub id: u64,
+        pub name: String,
+        pub symbol: String,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
+        type DST20Token;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -28,5 +36,6 @@ pub mod ffi {
         fn getCurrentHeight() -> i32;
         fn getAttributeDefaults() -> Attributes;
         fn CppLogPrintf(message: String);
+        fn getDST20Tokens() -> Vec<DST20Token>;
     }
 }

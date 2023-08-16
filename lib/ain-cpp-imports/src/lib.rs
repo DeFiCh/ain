@@ -15,6 +15,12 @@ mod ffi {
         pub finality_count: u64,
     }
 
+    pub struct DST20Token {
+        pub id: u64,
+        pub name: String,
+        pub symbol: String,
+    }
+
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
@@ -68,6 +74,10 @@ mod ffi {
     pub fn CppLogPrintf(_message: String) {
         // Intentionally left empty, so it can be used from everywhere.
         // Just the logs are skipped.
+    }
+
+    pub fn getDST20Tokens() -> Vec<DST20Token> {
+        unimplemented!("{}", UNIMPL_MSG)
     }
 }
 
@@ -153,6 +163,10 @@ pub fn get_attribute_defaults() -> ffi::Attributes {
 pub fn log_print(message: &str) {
     // TODO: Switch to u8 to avoid intermediate string conversions
     ffi::CppLogPrintf(message.to_owned());
+}
+
+pub fn get_dst20_tokens() -> Vec<ffi::DST20Token> {
+    ffi::getDST20Tokens()
 }
 
 #[cfg(test)]
