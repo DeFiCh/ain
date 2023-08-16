@@ -6,9 +6,10 @@
 """Test EVM behaviour"""
 
 import math
+import json
 import time
-from decimal import Decimal
 import os
+from decimal import Decimal
 
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
@@ -41,13 +42,22 @@ class DST20(DefiTestFramework):
             ]
         ]
 
+    def test_unused_dst20(self):
+        # should have system reserved bytecode
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_unused)
+            )
+            != self.reserved_bytecode
+        )
+
     def test_pre_evm_token(self):
         # should have code on contract address
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
             )
-            != "0x"
+            != self.reserved_bytecode
         )
 
         # check contract variables
@@ -109,7 +119,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_btc)
             ),
-            "0x",
+            self.reserved_bytecode,
         )
 
         self.node.createtoken(
@@ -127,7 +137,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_btc)
             )
-            != "0x"
+            != self.reserved_bytecode
         )
 
         # check contract variables
@@ -143,13 +153,13 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
             ),
-            "0x",
+            self.reserved_bytecode,
         )
         assert_equal(
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_dusd)
             ),
-            "0x",
+            self.reserved_bytecode,
         )
 
         self.node.createtoken(
@@ -175,13 +185,13 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
             )
-            != "0x"
+            != self.reserved_bytecode
         )
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_dusd)
             )
-            != "0x"
+            != self.reserved_bytecode
         )
 
         # check contract variables
@@ -626,6 +636,9 @@ class DST20(DefiTestFramework):
         self.contract_address_tsla = self.w0.to_checksum_address(
             "0xff00000000000000000000000000000000000005"
         )
+        self.contract_address_unused = self.w0.to_checksum_address(
+            "0xff000000000000000000000000000000000000aa"
+        )
 
         # Contract ABI
         # Temp. workaround
@@ -634,6 +647,13 @@ class DST20(DefiTestFramework):
             "r",
             encoding="utf8",
         ).read()
+        self.reserved_bytecode = json.loads(
+            open(
+                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/system_reserved/output/bytecode.json",
+                "r",
+                encoding="utf8",
+            ).read()
+        )["object"]
 
         # Generate chain
         self.node.generate(150)
