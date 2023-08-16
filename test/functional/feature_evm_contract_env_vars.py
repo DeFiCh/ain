@@ -109,7 +109,7 @@ class EVMTest(DefiTestFramework):
 
         tx = {
             "from": self.evm_key_pair.address,
-            "value": "0x1a",
+            "value": "0x0",
             # "data": self.contract.encodeABI('mul', [2,3]),
             "chainId": node.w3.eth.chain_id,
             "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
@@ -160,17 +160,18 @@ class EVMTest(DefiTestFramework):
         # print('data: ', data)
         # assert_equal(data, tx["data"])
 
-        value = self.contract.functions.getValue().call(tx)
-        assert_equal(value, int(tx['value'], base=16))
-
         # sig = self.contract.functions.getSig().call(tx)
         # print('sig: ', sig)
 
         # tx_gas_price = self.contract.functions.getTxGasPrice().call(tx)
         # print('tx_gas_price: ', tx_gas_price)
 
-        # tx_origin = self.contract.functions.getTxOrigin().call()
-        # print('tx_origin: ', tx_origin)
+        tx_origin = self.contract.functions.getTxOrigin().call(tx)
+        assert_equal(tx_origin, self.evm_key_pair.address)
+
+        tx["value"] = "0x1a"
+        value = self.contract.functions.getValue().call(tx)
+        assert_equal(value, int(tx['value'], base=16))
 
         count = self.contract.functions.count().call()
         assert_equal(count, 45)
