@@ -365,7 +365,7 @@ class VMMapTests(DefiTestFramework):
         list_blocks = self.nodes[0].logvmmaps(0)
         eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)["hash"]
         assert_equal(eth_block[2:] in list(list_blocks["indexes"].values()), True)
-        dfi_block = self.nodes[0].vmmap(eth_block[2:], VMMapType.BlockHashEVMToDVM)[
+        dfi_block = self.nodes[0].vmmap(eth_block, VMMapType.BlockHashEVMToDVM)[
             "output"
         ]
         assert_equal(dfi_block in list(list_blocks["indexes"].keys()), True)
