@@ -558,7 +558,9 @@ pub fn evm_try_get_block_hash_by_number(
         .storage
         .get_block_by_number(&U256::from(height))
     {
-        Ok(Some(block)) => cross_boundary_success_return(result, format!("{:?}", block.header.hash())),
+        Ok(Some(block)) => {
+            cross_boundary_success_return(result, format!("{:?}", block.header.hash()))
+        }
         Ok(None) => cross_boundary_error_return(result, "Invalid block number"),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -868,7 +870,9 @@ mod tests {
         assert_eq!(num_h160_test, num_h160);
 
         use primitive_types::H256;
-        let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351".parse().unwrap();
+        let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351"
+            .parse()
+            .unwrap();
         let num_h256_string = format!("{:?}", num_h256);
         println!("{}", num_h256_string);
         let num_h256_test: H256 = num_h256_string.parse().unwrap();
