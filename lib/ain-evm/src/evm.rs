@@ -266,7 +266,8 @@ impl EVMServices {
                     if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
-                    let (tx, receipt) = create_deploy_contract_tx(idx, current_block_number)?;
+                    let (tx, receipt) =
+                        create_deploy_contract_tx(idx, current_block_number, &base_fee)?;
 
                     all_transactions.push(Box::new(tx));
                     receipts_v3.push((receipt, Some(address)));
@@ -596,12 +597,16 @@ impl EVMServices {
     }
 }
 
-fn create_deploy_contract_tx(idx: usize, block_number: U256) -> Result<(SignedTx, ReceiptV3)> {
+fn create_deploy_contract_tx(
+    idx: usize,
+    block_number: U256,
+    base_fee: &U256,
+) -> Result<(SignedTx, ReceiptV3)> {
     let tx = SignedTx {
         sender: H160::zero(),
         transaction: TransactionV2::Legacy(LegacyTransaction {
             nonce: U256::from(idx),
-            gas_price: U256::zero(),
+            gas_price: base_fee.clone(),
             gas_limit: U256::from(u64::MAX),
             action: TransactionAction::Create,
             value: block_number,

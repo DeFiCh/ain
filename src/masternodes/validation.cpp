@@ -2451,12 +2451,10 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         return Res::Err("Not enough outputs in coinbase TX");
     }
 
-    if (blockResult.block_number > 0) {
-        auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
-        if (!res) return res;
-    }
+    auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
+    if (!res) return res;
 
-    auto res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
     if (!res) return res;
 
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
