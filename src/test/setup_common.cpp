@@ -22,7 +22,6 @@
 #include <rpc/server.h>
 #include <script/sigcache.h>
 #include <streams.h>
-#include <execinfo.h>
 #include <txdb.h>
 #include <util/strencodings.h>
 #include <util/time.h>
@@ -31,6 +30,10 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <functional>
+
+#ifdef __linux__
+#include <execinfo.h>
+#endif // defined (__linux__)
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
