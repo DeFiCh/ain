@@ -84,17 +84,11 @@ pub struct MetachainPrecompiles;
 // Ref: Ethereum Yellow Paper (https://ethereum.github.io/yellowpaper/paper.pdf) Page 12
 impl MetachainPrecompiles {
     pub fn used_addresses() -> [H160; 9] {
-        [
-            hash(1),
-            hash(2),
-            hash(3),
-            hash(4),
-            hash(5),
-            hash(6),
-            hash(7),
-            hash(8),
-            hash(9),
-        ]
+        (1..=1024)
+            .map(hash)
+            .collect::<Vec<H160>>()
+            .try_into()
+            .expect("Failed to convert Vec to array")
     }
 }
 
