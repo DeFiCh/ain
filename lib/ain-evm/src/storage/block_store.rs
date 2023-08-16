@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
@@ -19,7 +20,9 @@ pub struct BlockStore(Arc<Rocks>);
 
 impl BlockStore {
     pub fn new(path: &PathBuf) -> Result<Self> {
-        let backend = Arc::new(Rocks::open(path)?);
+        let path = path.join("indexes");
+        fs::create_dir_all(&path)?;
+        let backend = Arc::new(Rocks::open(&path)?);
 
         Ok(Self(backend))
     }
