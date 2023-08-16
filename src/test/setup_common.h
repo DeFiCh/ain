@@ -168,6 +168,10 @@ private:
     boost::test_tools::output_test_stream output{};
 };
 
+#ifdef __linux__
+
 void print_backtrace();
+
+#endif
 
 #endif
