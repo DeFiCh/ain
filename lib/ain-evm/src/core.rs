@@ -151,7 +151,7 @@ impl EVMCoreService {
             block_number, state_root
         );
         debug!("[call] caller: {:?}", caller);
-        let vicinity: Vicinity = Vicinity {
+        let vicinity = Vicinity {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
