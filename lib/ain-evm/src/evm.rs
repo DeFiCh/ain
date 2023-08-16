@@ -147,13 +147,14 @@ impl EVMServices {
                 block.header.state_root
             });
 
+        debug!("[construct_block] beneficiary: {:?}", beneficiary);
         let (vicinity, parent_hash, current_block_number) = match parent_data {
             None => (
                 Vicinity {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
-                    ..Default::default()
+                    ..Vicinity::default()
                 },
                 H256::zero(),
                 U256::zero(),
@@ -163,12 +164,13 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
-                    ..Default::default()
+                    ..Vicinity::default()
                 },
                 hash,
                 number + 1,
             ),
         };
+        debug!("[construct_block] vincinity: {:?}", vicinity);
 
         let base_fee = self.block.calculate_base_fee(parent_hash)?;
         debug!("[construct_block] Block base fee: {}", base_fee);
