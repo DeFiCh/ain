@@ -46,6 +46,6 @@ int getHighestBlock();
 int getCurrentHeight();
 Attributes getAttributeDefaults();
 void CppLogPrintf(rust::string message);
-rust::vec<DST20Token> getDST20Tokens();
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

@@ -225,12 +225,12 @@ Attributes getAttributeDefaults() {
     return Attributes::Default();
 }
 
-rust::vec<DST20Token> getDST20Tokens() {
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
     LOCK(cs_main);
 
     rust::vec<DST20Token> tokens;
-    CCustomCSView cache(*pcustomcsview);
-    cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
+    CCustomCSView* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
+    cache->ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
         if (!token.IsDAT() || token.IsPoolShare())
             return true;
 

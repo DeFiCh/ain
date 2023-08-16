@@ -160,6 +160,7 @@ pub mod ffi {
             miner_address: [u8; 20],
             timestamp: u64,
             dvm_block_number: u64,
+            mnview_ptr: usize,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_set_attribute(

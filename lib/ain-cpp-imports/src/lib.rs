@@ -76,7 +76,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    pub fn getDST20Tokens() -> Vec<DST20Token> {
+    pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -165,8 +165,8 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
-pub fn get_dst20_tokens() -> Vec<ffi::DST20Token> {
-    ffi::getDST20Tokens()
+pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
+    ffi::getDST20Tokens(mnview_ptr)
 }
 
 #[cfg(test)]

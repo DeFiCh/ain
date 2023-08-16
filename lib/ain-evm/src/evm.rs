@@ -119,13 +119,14 @@ impl EVMServices {
         beneficiary: H160,
         timestamp: u64,
         dvm_block_number: u64,
+        mnview_ptr: usize,
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
 
         let is_evm_genesis_block = queue.target_block == U256::zero();
         if is_evm_genesis_block {
-            let migration_txs = get_dst20_migration_txs()?;
+            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs.into_iter())
         }
 
@@ -632,9 +633,9 @@ fn create_deploy_contract_tx(
     Ok((tx, receipt))
 }
 
-fn get_dst20_migration_txs() -> Result<Vec<QueueTxItem>> {
+fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
-    for token in ain_cpp_imports::get_dst20_tokens() {
+    for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
         debug!("Deploying to address {:#?}", address);
 

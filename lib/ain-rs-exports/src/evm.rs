@@ -437,6 +437,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
     miner_address: [u8; 20],
     timestamp: u64,
     dvm_block_number: u64,
+    mnview_ptr: usize,
 ) -> ffi::FinalizeBlockCompletion {
     let eth_address = H160::from(miner_address);
     unsafe {
@@ -446,6 +447,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
             eth_address,
             timestamp,
             dvm_block_number,
+            mnview_ptr,
         ) {
             Ok(FinalizedBlockInfo {
                 block_hash,
