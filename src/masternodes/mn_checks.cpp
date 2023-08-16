@@ -4012,6 +4012,9 @@ public:
         }
 
         auto txHash = tx.GetHash().GetHex();
+        if (validateResults.tx_hash.length() < 2) {
+            return Res::Ok();
+        }
         auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
