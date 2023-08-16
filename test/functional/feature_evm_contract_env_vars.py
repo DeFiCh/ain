@@ -78,9 +78,7 @@ class EVMTest(DefiTestFramework):
         )
         node.generate(1)
 
-        abi, bytecode = EVMContract.from_file(
-            "GlobalVariable.sol", "GlobalVariable"
-        ).compile()
+        abi, bytecode = EVMContract.from_file("GlobalVariable.sol", "GlobalVariable").compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -116,15 +114,11 @@ class EVMTest(DefiTestFramework):
         assert_equal(chain_id, 1133)
 
     def test_coinbase(self):
-        block = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )
-        raw_tx = self.nodes[0].getrawtransaction(block["tx"][0], 1)
-        opreturn_miner_keyid = raw_tx["vout"][1]["scriptPubKey"]["hex"][120:]
+        block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
+        opreturn_miner_keyid = raw_tx['vout'][1]['scriptPubKey']['hex'][120:]
         coinbase = self.contract.functions.coinbase().call()
-        assert_equal(
-            coinbase, self.nodes[0].w3.to_checksum_address(f"0x{opreturn_miner_keyid}")
-        )
+        assert_equal(coinbase, self.nodes[0].w3.to_checksum_address(f"0x{opreturn_miner_keyid}"))
 
     def test_difficulty(self):
         difficulty = self.contract.functions.difficulty().call()
@@ -140,9 +134,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(f"0x{n}", bn)
 
     def test_timestamp(self):
-        block = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )
+        block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         ts = self.contract.functions.timestamp().call()
         assert_equal(ts, block["time"])
 
@@ -151,15 +143,13 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
             "type": "0x2",
         }
-        gas_left = self.contract.functions.gasLeft().call(tx)  # 978_708
+        gas_left = self.contract.functions.gasLeft().call(tx) # 978_708
         assert tx["gas"] > gas_left
 
     def test_msg_sender(self):
@@ -171,9 +161,7 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x1a",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
@@ -187,15 +175,13 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
             "type": "0x2",
         }
-        data = self.contract.encodeABI("getData", [])
+        data = self.contract.encodeABI('getData', [])
         d = self.contract.functions.getData().call(tx)
         assert_equal(data, f"0x{d.hex()}")
 
@@ -204,15 +190,13 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
             "type": "0x2",
         }
-        data = self.contract.encodeABI("getSig", [])
+        data = self.contract.encodeABI('getSig', [])
         sig = self.contract.functions.getSig().call(tx)
         assert_equal(data, f"0x{sig.hex()}")
 
@@ -221,9 +205,7 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gasPrice": 10_000_000_000,
             "gas": 1_000_000,
         }
@@ -234,9 +216,7 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
@@ -250,9 +230,7 @@ class EVMTest(DefiTestFramework):
             "from": self.evm_key_pair.address,
             "value": "0x0",
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address),
             "gas": 1_000_000,
             "maxFeePerGas": 15_000_000_000,
             "maxPriorityFeePerGas": 9_000_000_000,
@@ -265,43 +243,43 @@ class EVMTest(DefiTestFramework):
         count = self.contract.functions.count().call()
         assert_equal(count, 45)
 
+
     def run_test(self):
         self.setup()
 
         self.should_create_contract()
 
-        self.test_blockhash()  # blockhash(number)
+        self.test_blockhash() # blockhash(number)
 
-        self.test_block_basefee()  # block.basefee
+        self.test_block_basefee() # block.basefee
 
-        self.test_block_chainid()  # block.chainid
+        self.test_block_chainid() # block.chainid
 
-        self.test_coinbase()  # block.coinbase
+        self.test_coinbase() # block.coinbase
 
-        self.test_difficulty()  # block.difficulty
+        self.test_difficulty() # block.difficulty
 
-        self.test_block_gaslimit()  # block.gaslimit
+        self.test_block_gaslimit() # block.gaslimit
 
-        self.test_block_number()  # block.number
+        self.test_block_number() # block.number
 
-        self.test_timestamp()  # block.timestamp
+        self.test_timestamp() # block.timestamp
 
-        self.test_gasleft()  # gasleft()
+        self.test_gasleft() # gasleft()
 
-        self.test_msg_sender()  # msg.sender
+        self.test_msg_sender() # msg.sender
 
-        self.test_msg_value()  # msg.value
+        self.test_msg_value() # msg.value
 
-        self.test_msg_data()  # msg.data
+        self.test_msg_data() # msg.data
 
-        self.test_msg_sig()  # msg.sig
+        self.test_msg_sig() # msg.sig
 
-        self.test_tx_gasprice()  # tx.gasprice
+        self.test_tx_gasprice() # tx.gasprice
 
-        self.test_tx_origin()  # tx.origin
+        self.test_tx_origin() # tx.origin
 
         self.test_call_contract_property()
-
 
 if __name__ == "__main__":
     EVMTest().main()

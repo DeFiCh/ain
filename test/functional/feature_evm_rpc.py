@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 
-from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -50,13 +49,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
-        EvmKeyPair.validate_key(
-            self.nodes[0].dumpprivkey(self.ethAddress), self.ethAddress
-        )
-        self.dst20_accounts = [
-            "0x0a06de8abc3f15359ec0dfe32394c8b8f09e828f",
-            "0x3aeddfb7ffd59d0909145e6a11db224a13e7a9f6",
-        ]
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -122,14 +114,7 @@ class EVMTest(DefiTestFramework):
 
     def test_accounts(self):
         eth_accounts = self.nodes[0].eth_accounts()
-        check_accounts = []
-        for acc in eth_accounts:
-            address = acc.lower()
-            if address not in self.dst20_accounts:
-                check_accounts.append(address)
-        accounts = [self.ethAddress, self.toAddress]
-        accounts.sort()
-        assert_equal(check_accounts, accounts)
+        assert_equal(eth_accounts.sort(), [self.ethAddress, self.toAddress].sort())
 
     def test_address_state(self, address):
         assert_raises_rpc_error(
@@ -181,7 +166,7 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         res = self.nodes[0].getcustomtx(block["tx"][1])
         assert_equal(
-            res["results"]["hash"][2:],
+            res["results"]["hash"],
             "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",
         )
         # Note: This will fail. Re-evaluate

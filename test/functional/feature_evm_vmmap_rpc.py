@@ -142,7 +142,7 @@ class VMMapTests(DefiTestFramework):
             for j in range(num_txs):
                 # note dfi block is j+1 since we ignore coinbase
                 tx_maps.append(
-                    [dfi_block["tx"][j + 1], eth_block["transactions"][j][2:]]
+                    [dfi_block["tx"][j + 1], eth_block["transactions"][j]]
                 )
         for item in tx_maps:
             res = self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM)
@@ -179,7 +179,7 @@ class VMMapTests(DefiTestFramework):
                 continue  # auto and num are ignored for this test
             assert_raises_rpc_error(
                 -32600,
-                "Key not found: " + fake_evm_tx,
+                "Key not found: " + fake_evm_tx[2:],
                 self.nodes[0].vmmap,
                 fake_evm_tx,
                 map_type,
@@ -210,7 +210,7 @@ class VMMapTests(DefiTestFramework):
             self.nodes[0].generate(1)
             dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-            block_maps.append([dfi_block["hash"], eth_block["hash"][2:]])
+            block_maps.append([dfi_block["hash"], eth_block["hash"]])
         for item in block_maps:
             res = self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM)
             assert_equal(res["input"], item[0])
