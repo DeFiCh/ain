@@ -40,8 +40,11 @@ pub struct EthCallArgs<'a> {
     pub value: U256,
     pub data: &'a [u8],
     pub gas_limit: u64,
+    pub gas_price: Option<U256>,
+    pub max_fee_per_gas: Option<U256>,
     pub access_list: AccessList,
     pub block_number: U256,
+    pub transaction_type: Option<U256>,
 }
 
 pub struct ValidateTxInfo {
@@ -123,8 +126,11 @@ impl EVMCoreService {
             value,
             data,
             gas_limit,
+            gas_price,
+            max_fee_per_gas,
             access_list,
             block_number,
+            transaction_type,
         } = arguments;
 
         let (state_root, block_number, beneficiary, base_fee, timestamp) = self
@@ -149,6 +155,11 @@ impl EVMCoreService {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
+            gas_price: if transaction_type == Some(U256::from(2)) {
+                max_fee_per_gas.unwrap_or_default()
+            } else {
+                gas_price.unwrap_or_default()
+            },
             beneficiary,
             block_base_fee_per_gas: base_fee,
             timestamp: U256::from(timestamp),
@@ -285,6 +296,9 @@ impl EVMCoreService {
                 gas_limit: signed_tx.gas_limit().as_u64(),
                 access_list: signed_tx.access_list(),
                 block_number,
+                gas_price: None,
+                max_fee_per_gas: None,
+                transaction_type: None,
             })?;
             used_gas
         } else {
