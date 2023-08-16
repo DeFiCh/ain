@@ -777,17 +777,16 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     const uint64_t chainID{5}; // Goerli testnetwork
 
     // Check address on explorer to calc nonce
-    const std::vector<uint8_t> nonceVec{ParseHex("0000000000000000000000000000000000000000000000000000000000000000")};
-    uint256 nonce(nonceVec);
+    uint64_t nonce = 0;
 
-    const uint256 gasPrice{uint256S("689451EEE1")}; // 449.164996321 Gwei
-    const uint256 gasLimit{uint256S("5208")}; // 21,000
+    const uint64_t gasPrice = 449164996321; // 449.164996321 GWei
+    const uint64_t gasLimit = 21000; // 21,000
 
     std::vector<uint8_t> toVec{ParseHex("34c1ca09a2dc717d89baef2f30ff6a6b2975e17e")};
     EvmAddressData to{};
     std::copy(toVec.begin(), toVec.end(), to.begin());
 
-    std::array<uint8_t, 32> value{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,ParseHex("23")[0],ParseHex("86")[0],ParseHex("F2")[0],ParseHex("6F")[0],ParseHex("C1")[0],0,0}; // 0.01 Eth
+    uint64_t value = 1000000;   // 0.01 DFI
 
     const std::vector<uint8_t> privKeyVec{ParseHex("1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571")};
     std::array<uint8_t, 32> privKey{};
@@ -796,7 +795,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     rust::Vec<uint8_t> input{};
 
     CrossBoundaryResult result;
-    const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce.GetByteArrayLE(), gasPrice.GetByteArrayLE(), gasLimit.GetByteArrayLE(), to, value, input, privKey});
+    const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce, gasPrice, gasLimit, to, value, input, privKey});
     std::vector<uint8_t> replyVector(reply.size());
     std::copy(reply.begin(), reply.end(), replyVector.begin());
     std::string transaction(HexStr(replyVector.begin(), replyVector.end()));

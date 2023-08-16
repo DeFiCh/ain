@@ -8,7 +8,7 @@ use ain_evm::{
     storage::traits::Rollback,
     storage::traits::TransactionStorage,
     transaction::{self, SignedTx},
-    weiamount::WeiAmount,
+    weiamount::{WeiAmount, try_from_gwei, try_from_satoshi},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
@@ -41,18 +41,27 @@ pub fn evm_try_create_and_sign_tx(
         TransactionAction::Call(H160::from(ctx.to))
     };
 
-    let nonce_u256 = U256::from(ctx.nonce);
-    let gas_price_u256 = U256::from(ctx.gas_price);
-    let gas_limit_u256 = U256::from(ctx.gas_limit);
-    let value_u256 = U256::from(ctx.value);
+    let nonce = U256::from(ctx.nonce);
+    let gas_price_gwei = U256::from(ctx.gas_price);
+    let gas_price_wei = match try_from_gwei(gas_price_gwei) {
+        Ok(wei) => wei,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+
+    let gas_limit = U256::from(ctx.gas_limit);
+    let value_satoshi = U256::from(ctx.value);
+    let value_wei = match try_from_satoshi(value_satoshi) {
+        Ok(wei) => wei,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
 
     // Create
     let t = LegacyUnsignedTransaction {
-        nonce: nonce_u256,
-        gas_price: gas_price_u256,
-        gas_limit: gas_limit_u256,
+        nonce,
+        gas_price: gas_price_wei.0,
+        gas_limit,
         action: to_action,
-        value: value_u256,
+        value: value_wei.0,
         input: ctx.input,
         // Dummy sig for now. Needs 27, 28 or > 36 for valid v.
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),

@@ -90,15 +90,13 @@ UniValue evmtx(const JSONRPCRequest &request) {
     // TODO Get chain ID from Params when defined
     const uint64_t chainID{1};
 
-    const arith_uint256 nonceParam = request.params[1].get_int64();
-    const auto nonce               = ArithToUint256(nonceParam);
-
-    arith_uint256 gasPriceArith = request.params[2].get_int64();  // Price as GWei
-    gasPriceArith *= WEI_IN_GWEI;                                 // Convert to Wei
-    const uint256 gasPrice = ArithToUint256(gasPriceArith);
-
-    arith_uint256 gasLimitArith = request.params[3].get_int64();
-    const uint256 gasLimit      = ArithToUint256(gasLimitArith);
+    if (request.params[1].get_int64() < 0 || request.params[2].get_int64() < 0 || request.params[3].get_int64() < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Input params cannot be negative");
+    }
+    const auto nonce = static_cast<uint64_t>(request.params[1].get_int64());
+    const auto gasPrice = static_cast<uint64_t>(request.params[2].get_int64());  // Price as GWei
+    const auto gasLimit = static_cast<uint64_t>(request.params[3].get_int64());
+    const uint64_t value = AmountFromValue(request.params[5]);   // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
     EvmAddressData to{};
@@ -111,9 +109,6 @@ UniValue evmtx(const JSONRPCRequest &request) {
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
         to = toEth.GetByteArrayBE();
     }
-
-    const arith_uint256 valueParam = AmountFromValue(request.params[5]);
-    const auto value               = ArithToUint256(valueParam * CAMOUNT_TO_GWEI * WEI_IN_GWEI);
 
     rust::Vec<uint8_t> input{};
     if (!request.params[6].isNull()) {
@@ -130,11 +125,11 @@ UniValue evmtx(const JSONRPCRequest &request) {
     CrossBoundaryResult result;
     const auto signedTx = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
-                                                                              nonce.GetByteArrayLE(),
-                                                                              gasPrice.GetByteArrayLE(),
-                                                                              gasLimit.GetByteArrayLE(),
+                                                                              nonce,
+                                                                              gasPrice,
+                                                                              gasLimit,
                                                                               to,
-                                                                              value.GetByteArrayLE(),
+                                                                              value,
                                                                               input,
                                                                               privKey.GetByteArrayBE()});
     if (!result.ok) {

@@ -66,11 +66,13 @@ pub mod ffi {
 
     pub struct CreateTransactionContext {
         pub chain_id: u64,
-        pub nonce: [u8; 32],
-        pub gas_price: [u8; 32],
-        pub gas_limit: [u8; 32],
+        pub nonce: u64,
+        // GWei
+        pub gas_price: u64,
+        pub gas_limit: u64,
         pub to: [u8; 20],
-        pub value: [u8; 32],
+        // Satoshi
+        pub value: u64,
         pub input: Vec<u8>,
         pub priv_key: [u8; 32],
     }
