@@ -817,7 +817,7 @@ class DST20(DefiTestFramework):
         self.test_bridge_when_no_balance()
         self.test_negative_transfer()
         self.test_different_tokens()
-        # self.test_loan_token()
+        self.test_loan_token()
 
 if __name__ == "__main__":
     DST20().main()
