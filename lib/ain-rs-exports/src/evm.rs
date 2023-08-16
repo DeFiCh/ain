@@ -81,23 +81,19 @@ pub fn evm_try_create_and_sign_tx(
 /// Returns the balance of the account as a `u64` on success.
 pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 20]) -> u64 {
     let account = H160::from(address);
-    let (_, latest_block_number) = SERVICES
-        .evm
-        .block
-        .get_latest_block_hash_and_number()
-        .unwrap_or_default();
-    let balance = WeiAmount(
-        SERVICES
-            .evm
-            .core
-            .get_balance(account, latest_block_number)
-            .unwrap_or_default(),
-    ); // convert to evm_try_get_balance - Default to 0 for now
-    let Ok(balance) = u64::try_from(balance.to_satoshi()) else {
-        return cross_boundary_error_return(result, "evm balance value overflow");
+    let (_, latest_block_number) = match SERVICES.evm.block.get_latest_block_hash_and_number() {
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+        Ok(data) => data.unwrap_or_default(),
     };
-    cross_boundary_success(result);
-    balance
+
+    match SERVICES.evm.core.get_balance(account, latest_block_number) {
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+        Ok(balance) => {
+            let amount = WeiAmount(balance).to_satoshi().try_into();
+
+            try_cross_boundary_return(result, amount)
+        }
+    }
 }
 
 /// Retrieves the next valid nonce of an EVM account in a specific queue_id
@@ -363,10 +359,12 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 ///
 /// Returns the EVM queue ID as a `u64`.
 pub fn evm_unsafe_try_create_queue(result: &mut ffi::CrossBoundaryResult) -> u64 {
-    let q;
-    unsafe { q = SERVICES.evm.core.create_queue() }
-    cross_boundary_success(result);
-    q
+    unsafe {
+        match SERVICES.evm.core.create_queue() {
+            Ok(queue_id) => cross_boundary_success_return(result, queue_id),
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
+        }
+    }
 }
 
 /// /// Discards an EVM queue.
@@ -456,11 +454,17 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 total_priority_fees,
                 block_number,
             }) => {
-                let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()) else {
+                let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())
+                else {
                     return cross_boundary_error_return(result, "total burnt fees value overflow");
                 };
-                let Ok(total_priority_fees) = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()) else {
-                    return cross_boundary_error_return(result, "total priority fees value overflow");
+                let Ok(total_priority_fees) =
+                    u64::try_from(WeiAmount(total_priority_fees).to_satoshi())
+                else {
+                    return cross_boundary_error_return(
+                        result,
+                        "total priority fees value overflow",
+                    );
                 };
                 cross_boundary_success(result);
                 ffi::FinalizeBlockCompletion {
@@ -485,6 +489,13 @@ pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_
     }
 }
 
+pub fn evm_try_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
+    match SERVICES.evm.storage.disconnect_latest_block() {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 pub fn evm_try_set_attribute(
     result: &mut ffi::CrossBoundaryResult,
     _queue_id: u64,
@@ -492,11 +503,6 @@ pub fn evm_try_set_attribute(
     _value: u64,
 ) -> bool {
     cross_boundary_success_return(result, true)
-}
-
-pub fn evm_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
-    SERVICES.evm.storage.disconnect_latest_block();
-    cross_boundary_success(result);
 }
 
 /// Return the block for a given height.
@@ -517,8 +523,11 @@ pub fn evm_try_get_block_hash_by_number(
         .storage
         .get_block_by_number(&U256::from(height))
     {
-        Some(block) => cross_boundary_success_return(result, block.header.hash().to_fixed_bytes()),
-        None => cross_boundary_error_return(result, "Invalid block number"),
+        Ok(Some(block)) => {
+            cross_boundary_success_return(result, block.header.hash().to_fixed_bytes())
+        }
+        Ok(None) => cross_boundary_error_return(result, "Invalid block number"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -539,13 +548,14 @@ pub fn evm_try_get_block_number_by_hash(
         return cross_boundary_error_return(result, "Invalid block hash");
     };
     match SERVICES.evm.storage.get_block_by_hash(&hash) {
-        Some(block) => {
+        Ok(Some(block)) => {
             let Ok(block_number) = u64::try_from(block.header.number) else {
                 return cross_boundary_error_return(result, "Block number value overflow");
             };
             cross_boundary_success_return(result, block_number)
         }
-        None => cross_boundary_error_return(result, "Invalid block hash"),
+        Ok(None) => cross_boundary_error_return(result, "Invalid block hash"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -558,7 +568,7 @@ pub fn evm_try_get_block_header_by_hash(
     };
 
     match SERVICES.evm.storage.get_block_by_hash(&hash) {
-        Some(block) => {
+        Ok(Some(block)) => {
             let Ok(number) = u64::try_from(block.header.number) else {
                 return cross_boundary_error_return(result, "block number value overflow");
             };
@@ -588,22 +598,21 @@ pub fn evm_try_get_block_header_by_hash(
             };
             cross_boundary_success_return(result, out)
         }
-        None => {
-            debug!("XXX here");
-            cross_boundary_error_return(result, "Invalid block hash")
-        }
+        Ok(None) => cross_boundary_error_return(result, "Invalid block hash"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn evm_try_get_block_count(result: &mut ffi::CrossBoundaryResult) -> u64 {
     match SERVICES.evm.block.get_latest_block_hash_and_number() {
-        Some((_, number)) => {
+        Ok(Some((_, number))) => {
             let Ok(number) = u64::try_from(number) else {
                 return cross_boundary_error_return(result, "Count value overflow");
             };
             cross_boundary_success_return(result, number)
         }
-        None => cross_boundary_error_return(result, "Unable to get block count"),
+        Ok(None) => cross_boundary_error_return(result, "Unable to get block count"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -634,7 +643,7 @@ pub fn evm_try_get_tx_by_hash(
         .storage
         .get_transaction_by_hash(&H256::from(tx_hash))
     {
-        Some(tx) => {
+        Ok(Some(tx)) => {
             let Ok(tx) = SignedTx::try_from(tx) else {
                 return cross_boundary_error_return(result, "failed to convert tx to SignedTx");
             };
@@ -657,26 +666,38 @@ pub fn evm_try_get_tx_by_hash(
             let mut max_priority_fee_per_gas = 0u64;
             match &tx.transaction {
                 TransactionV2::Legacy(transaction) => {
-                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())
+                    else {
                         return cross_boundary_error_return(result, "tx gas price value overflow");
                     };
                     gas_price = price;
                 }
                 TransactionV2::EIP2930(transaction) => {
                     tx_type = 1u8;
-                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()) else {
+                    let Ok(price) = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())
+                    else {
                         return cross_boundary_error_return(result, "tx gas price value overflow");
                     };
                     gas_price = price;
                 }
                 TransactionV2::EIP1559(transaction) => {
                     tx_type = 2u8;
-                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()) else {
-                        return cross_boundary_error_return(result, "tx max fee per gas value overflow");
+                    let Ok(price) =
+                        u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi())
+                    else {
+                        return cross_boundary_error_return(
+                            result,
+                            "tx max fee per gas value overflow",
+                        );
                     };
                     max_fee_per_gas = price;
-                    let Ok(price) = u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()) else {
-                        return cross_boundary_error_return(result, "tx max priority fee per gas value overflow");
+                    let Ok(price) =
+                        u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi())
+                    else {
+                        return cross_boundary_error_return(
+                            result,
+                            "tx max priority fee per gas value overflow",
+                        );
                     };
                     max_priority_fee_per_gas = price;
                 }
@@ -704,7 +725,8 @@ pub fn evm_try_get_tx_by_hash(
             };
             cross_boundary_success_return(result, out)
         }
-        None => cross_boundary_error_return(result, "Unable to get evm tx from tx hash"),
+        Ok(None) => cross_boundary_error_return(result, "Unable to get evm tx from tx hash"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 

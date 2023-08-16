@@ -897,7 +897,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         CSHA1().Write(vch.data(), vch.size()).Finalize(vchHash.data());
                     else if (opcode == OP_KECCAK) {
                         const size_t HEADER_OFFSET{1};
-                        const auto result = Sha3({vch.begin() + HEADER_OFFSET, vch.end()});
+                        const auto result = EthHash160({vch.begin() + HEADER_OFFSET, vch.end()});
                         memcpy(vchHash.data(), result.begin(), 20);
                     } else if (opcode == OP_SHA256)
                         CSHA256().Write(vch.data(), vch.size()).Finalize(vchHash.data());

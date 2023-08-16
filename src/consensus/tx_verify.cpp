@@ -178,9 +178,11 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     std::vector<unsigned char> dummy;
     const auto txType = GuessCustomTxType(tx, dummy);
 
-    if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
+    if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend);
+        // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
+        // that it's propagated.
+        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, 0, false);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

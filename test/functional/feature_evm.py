@@ -335,54 +335,66 @@ class EVMTest(DefiTestFramework):
         assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/dvm_op_return_max_size_bytes"], "20000")
 
-        # Check error before EVM enabled
-        assert_raises_rpc_error(
-            -32600,
-            "Cannot create tx, EVM is not enabled",
-            self.nodes[0].evmtx,
-            self.eth_address,
-            0,
-            21,
-            21000,
-            self.to_address,
-            0.1,
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "Cannot create tx, EVM is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
-        )
+        def verify_evm_not_enabled():
+            # Check error before EVM enabled
+            assert_raises_rpc_error(
+                -32600,
+                "Cannot create tx, EVM is not enabled",
+                self.nodes[0].evmtx,
+                self.eth_address,
+                0,
+                21,
+                21000,
+                self.to_address,
+                0.1,
+            )
+            assert_raises_rpc_error(
+                -32600,
+                "Cannot create tx, transfer domain is not enabled",
+                self.nodes[0].transferdomain,
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "100@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.eth_address,
+                            "amount": "100@DFI",
+                            "domain": 3,
+                        },
+                    }
+                ],
+            )
 
+        def verify_transferdomain_not_enabled_post_evm_on():
+            # Check error before transferdomain enabled
+            assert_raises_rpc_error(
+                -32600,
+                "Cannot create tx, transfer domain is not enabled",
+                self.nodes[0].transferdomain,
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "100@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.eth_address,
+                            "amount": "100@DFI",
+                            "domain": 3,
+                        },
+                    }
+                ],
+            )
+
+        verify_evm_not_enabled()
         # Activate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
         self.nodes[0].generate(1)
-
-        # Check error before transferdomain enabled
-        assert_raises_rpc_error(
-            -32600,
-            "Cannot create tx, transfer domain is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
-        )
+        verify_transferdomain_not_enabled_post_evm_on()
 
         # Activate transferdomain
         self.nodes[0].setgov(
@@ -1211,25 +1223,27 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[2], tx1)
 
     def toggle_evm_enablement(self):
-        # Get block before disablement
-        pre_block = self.nodes[0].eth_getBlockByNumber("latest")
-
         # Deactivate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "false"}})
         self.nodes[0].generate(1)
+        evm_disabling_block = self.nodes[0].eth_getBlockByNumber("latest")
 
-        # Make sure the block is the same after disablement
-        post_block = self.nodes[0].eth_getBlockByNumber("latest")
-        assert_equal(pre_block, post_block)
+        self.nodes[0].generate(1)
+        evm_disabled_first_block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(evm_disabling_block, evm_disabled_first_block)
 
         # Reactivate EVM
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
         self.nodes[0].generate(1)
+        evm_enabling_block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(evm_disabled_first_block, evm_enabling_block)
 
+        self.nodes[0].generate(1)
         # Check block is one higher than before
-        enabled_block = self.nodes[0].eth_getBlockByNumber("latest")
+        evm_first_valid_block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(
-            int(enabled_block["number"], base=16), int(pre_block["number"], base=16) + 1
+            int(evm_first_valid_block["number"], base=16),
+            int(evm_enabling_block["number"], base=16) + 1,
         )
 
 

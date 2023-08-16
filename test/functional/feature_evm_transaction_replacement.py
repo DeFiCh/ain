@@ -88,7 +88,7 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         self.nodes[0].transferdomain(
             [
@@ -103,7 +103,6 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(balance, int_to_eth_u256(50))
 

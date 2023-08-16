@@ -9,6 +9,7 @@ use jsonrpsee::proc_macros::rpc;
 use log::debug;
 use rlp::{Decodable, Rlp};
 
+use super::to_jsonrpsee_custom_error;
 use crate::call_request::CallRequest;
 
 #[derive(Serialize, Deserialize)]
@@ -102,13 +103,20 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .handler
             .block
             .get_latest_block_hash_and_number()
+            .map_err(to_jsonrpsee_custom_error)?
             .ok_or(Error::Custom(
                 "Error fetching latest block hash and number".to_string(),
             ))?;
-        let base_fee = self.handler.block.calculate_base_fee(block_hash);
-        let Ok(gas_limit) = u64::try_from(gas.ok_or(Error::Custom("Cannot get fee estimate without specifying gas limit".to_string()))?) else {
+        let base_fee = self
+            .handler
+            .block
+            .calculate_base_fee(block_hash)
+            .map_err(to_jsonrpsee_custom_error)?;
+        let Ok(gas_limit) = u64::try_from(gas.ok_or(Error::Custom(
+            "Cannot get fee estimate without specifying gas limit".to_string(),
+        ))?) else {
             return Err(Error::Custom(
-                "Cannot get fee estimate, gas value overflow".to_string()
+                "Cannot get fee estimate, gas value overflow".to_string(),
             ));
         };
 

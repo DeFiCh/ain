@@ -108,7 +108,7 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     return true;
 }
 
-bool FillableSigningProvider::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
+bool FillableSigningProvider::AddKeyPair(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
 

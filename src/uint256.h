@@ -124,9 +124,8 @@ public:
     uint160() {}
     explicit uint160(const std::vector<unsigned char>& vch) : base_blob<160>(vch) {}
 
-    static uint160 FromByteArray(const std::array<unsigned char, 20>& vch) {
-        std::vector<unsigned char> bytes(vch.rbegin(), vch.rend());
-        return uint160(bytes);
+    static uint160 FromByteArray(const std::array<uint8_t, 20>& data) {
+        return uint160(std::vector<unsigned char>(data.rbegin(), data.rend()));
     }
 };
 
@@ -140,9 +139,8 @@ public:
     uint256() {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
 
-    static uint256 FromByteArray(const std::array<unsigned char, 32>& vch) {
-        std::vector<unsigned char> bytes(vch.rbegin(), vch.rend());
-        return uint256(bytes);
+    static uint256 FromByteArray(const std::array<uint8_t, 32>& data) {
+        return uint256(std::vector<unsigned char>(data.rbegin(), data.rend()));
     }
 };
 

@@ -1,7 +1,7 @@
-use std::error::Error;
-
 use anyhow::format_err;
 use primitive_types::U256;
+
+use crate::Result;
 
 pub struct WeiAmount(pub U256);
 
@@ -26,7 +26,7 @@ impl WeiAmount {
     }
 }
 
-pub fn try_from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
+pub fn try_from_gwei(gwei: U256) -> Result<WeiAmount> {
     let wei = gwei.checked_mul(WEI_TO_GWEI);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
@@ -34,7 +34,7 @@ pub fn try_from_gwei(gwei: U256) -> Result<WeiAmount, Box<dyn Error>> {
     }
 }
 
-pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount, Box<dyn Error>> {
+pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount> {
     let wei = satoshi.checked_mul(WEI_TO_SATS);
     match wei {
         Some(wei) => Ok(WeiAmount(wei)),
