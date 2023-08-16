@@ -2405,7 +2405,7 @@ static Res ProcessTransferDomainEvents(const CBlock &block, const CBlockIndex* p
     auto attributes = cache.GetAttributes();
     assert(attributes);
 
-    CStatsTokenBalances totalDVMout, totalEVMout, totalDVMin, totalEVMin;
+    CStatsTokenBalances totalBlockDVMOut, totalBlockEVMOut, totalBlockDVMIn, totalBlockEVMIn;
     for (const auto &tx : block.vtx) {
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(*tx, metadata);
@@ -2414,14 +2414,17 @@ static Res ProcessTransferDomainEvents(const CBlock &block, const CBlockIndex* p
             if (CustomMetadataParse(pindex->nHeight, chainparams.GetConsensus(), metadata, txMessage)) {
                 auto tx = std::get_if<CTransferDomainMessage>(&txMessage);
                 for (auto const &[src, dst]: tx->transfers){
-                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM))
-                        totalDVMout.Add(src.amount);
-                    else if (src.domain == static_cast<uint8_t>(VMDomain::EVM))
-                        totalEVMout.Add(src.amount);
-                    if (dst.domain == static_cast<uint8_t>(VMDomain::DVM))
-                        totalDVMin.Add(dst.amount);
-                    else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM))
-                        totalEVMin.Add(dst.amount);
+                    std::vector<std::tuple<const uint8_t, const CTokenAmount, VMDomain, CStatsTokenBalances &>> statsList{
+                        { src.domain, src.amount, VMDomain::DVM, totalBlockDVMOut },
+                        { dst.domain, dst.amount, VMDomain::DVM, totalBlockDVMIn },
+                        { src.domain, src.amount, VMDomain::EVM, totalBlockEVMOut },
+                        { dst.domain, dst.amount, VMDomain::DVM, totalBlockEVMIn },
+                    };
+                    for (auto [domain, amount, domainTarget, targetStat]: statsList) {
+                        if (domain == static_cast<uint8_t>(domainTarget)) {
+                            targetStat.Add(amount);
+                        }
+                    }
                 }
             }
         }
@@ -2440,37 +2443,24 @@ static Res ProcessTransferDomainEvents(const CBlock &block, const CBlockIndex* p
         }
     }
 
-    auto newState = oldState.dvmOut;
-    newState.AddBalances(totalDVMout.balances);
-    if (newState != transferDomainStats.dvmOut)
-        return Res::Err("Accounting mistmatch on DVM out - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmOut.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmOut.balances).write());
-
-    newState = oldState.dvmIn;
-    newState.AddBalances(totalDVMin.balances);
-    if (newState != transferDomainStats.dvmIn)
-        return Res::Err("Accounting mistmatch on DVM in - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmIn.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmIn.balances).write());
-
-    newState = oldState.dvmCurrent;
-    newState.AddBalances(totalDVMin.balances);
-    newState.SubBalances(totalDVMout.balances);
-    if (newState != transferDomainStats.dvmCurrent)
-        return Res::Err("Accounting mistmatch on DVM to EVM total - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.dvmCurrent.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.dvmCurrent.balances).write());
-
-    newState = oldState.evmOut;
-    newState.AddBalances(totalEVMout.balances);
-    if (newState != transferDomainStats.evmOut)
-        return Res::Err("Accounting mistmatch on EVM out - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmOut.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmOut.balances).write());
-
-    newState = oldState.evmIn;
-    newState.AddBalances(totalEVMin.balances);
-    if (newState != transferDomainStats.evmIn)
-        return Res::Err("Accounting mistmatch on EVM in - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmIn.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmIn.balances).write());
-
-    newState = oldState.evmCurrent;
-    newState.AddBalances(totalEVMin.balances);
-    newState.SubBalances(totalEVMout.balances);
-    if (newState != transferDomainStats.evmCurrent)
-        return Res::Err("Accounting mistmatch on EVM to DVM total - Old: %s New: %s Accounting: %s\n", AmountsToJSON(oldState.evmCurrent.balances).write(), AmountsToJSON(newState.balances).write(), AmountsToJSON(transferDomainStats.evmCurrent.balances).write());
+    auto totalBlockDVMCurrent = totalBlockDVMIn;
+    totalBlockDVMCurrent.SubBalances(totalBlockDVMOut.balances);
+    auto totalBlockEVMCurrent = totalBlockEVMIn;
+    totalBlockEVMCurrent.SubBalances(totalBlockEVMOut.balances);
+    std::vector<std::tuple<const CStatsTokenBalances, const CStatsTokenBalances, const CStatsTokenBalances, const std::string>> statsList{
+                        { oldState.dvmOut, totalBlockDVMOut, transferDomainStats.dvmOut, "dvmOut"},
+                        { oldState.dvmIn, totalBlockDVMIn, transferDomainStats.dvmIn, "dvmIn" },
+                        { oldState.dvmCurrent, totalBlockDVMCurrent, transferDomainStats.dvmCurrent, "dvmCurrent" },
+                        { oldState.evmOut, totalBlockEVMOut, transferDomainStats.evmOut, "evmOut" },
+                        { oldState.evmIn, totalBlockEVMIn, transferDomainStats.evmIn, "evmIn" },
+                        { oldState.evmCurrent, totalBlockEVMCurrent, transferDomainStats.evmCurrent, "evmCurrent" },
+                    };
+    for (auto [old, totalBlock, stats, direction]: statsList) {
+        auto newState = old;
+        newState.AddBalances(totalBlock.balances);
+        if (newState != stats)
+            return Res::Err("Accounting mistmatch - Old: %s New %s: %s Accounting: %s\n", direction, oldState.ToUniValue().write(), newState.ToString(), transferDomainStats.ToUniValue().write());
+    }
 
     return Res::Ok();
 }

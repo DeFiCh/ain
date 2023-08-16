@@ -306,6 +306,8 @@ struct CTransferDomainStatsLive {
         READWRITE(evmCurrent);
     }
 
+    UniValue ToUniValue() const;
+
     static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
 };
 
