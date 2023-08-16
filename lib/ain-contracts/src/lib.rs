@@ -62,6 +62,15 @@ pub fn get_dst20_bytecode() -> Result<Vec<u8>> {
     get_bytecode(include_str!("../dst20/output/bytecode.json"))
 }
 
+pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
+    get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
+}
+
+pub fn get_system_reserved_codehash() -> Result<H256> {
+    let bytecode = get_bytecode(include_str!("../system_reserved/output/bytecode.json"))?;
+    Ok(Blake2Hasher::hash(&bytecode))
+}
+
 pub fn get_dst20_codehash() -> Result<H256> {
     let bytecode = get_bytecode(include_str!("../dst20/output/bytecode.json"))?;
     Ok(Blake2Hasher::hash(&bytecode))
