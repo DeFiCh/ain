@@ -33,6 +33,23 @@
 
 #ifdef __linux__
 #include <execinfo.h>
+
+void print_backtrace()
+{
+    void* array[10];
+    char** strings;
+    int size, i;
+    size = backtrace(array, 10);
+    strings = backtrace_symbols(array, size);
+    if (strings != NULL) {
+        std::cout << "Obtained " << size << "stack frames.\n";
+        for (i = 0; i < size; i++) {
+            std::cout << strings[i] << "\n";
+        }
+    }
+    free(strings);
+}
+
 #endif // defined (__linux__)
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -270,18 +287,3 @@ CBlock getBlock13b8a()
     return block;
 }
 
-void print_backtrace()
-{
-    void* array[10];
-    char** strings;
-    int size, i;
-    size = backtrace(array, 10);
-    strings = backtrace_symbols(array, size);
-    if (strings != NULL) {
-        std::cout << "Obtained " << size << "stack frames.\n";
-        for (i = 0; i < size; i++) {
-            std::cout << strings[i] << "\n";
-        }
-    }
-    free(strings);
-}
