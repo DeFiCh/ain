@@ -2451,7 +2451,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
     if (!res) return res;
 
-    auto evmBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length());
+    auto evmBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash().GetHex(), evmBlockHash);
     if (!res) return res;
 
