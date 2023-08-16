@@ -159,9 +159,9 @@ class EVMTest(DefiTestFramework):
         sender = self.contract.functions.getSender().call()
         assert_equal(sender, self.evm_key_pair.address)
 
-        # data = self.contract.functions.getData().call(tx)
-        # print('data: ', data)
-        # assert_equal(data, tx["data"])
+        data = self.contract.encodeABI('getData', [])
+        d = self.contract.functions.getData().call(tx)
+        assert_equal(data, f"0x{d.hex()}")
 
         data = self.contract.encodeABI('getSig', [])
         sig = self.contract.functions.getSig().call(tx)

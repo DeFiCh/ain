@@ -70,10 +70,10 @@ contract GlobalVariable {
         return uint256(msg.value);
     }
 
-    // complete data
-    // function getData() public view returns (bytes) {
-    //     return msg.data;
-    // }
+    // complete calldata
+    function getData() public pure returns (bytes memory) {
+        return msg.data;
+    }
 
     // first four bytes of the calldata (i.e. function identifier)
     function getSig() public pure returns (bytes4) {
