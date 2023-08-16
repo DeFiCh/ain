@@ -85,13 +85,6 @@ pub mod ffi {
     }
 
     #[derive(Default)]
-    pub struct PreValidateTxCompletion {
-        pub nonce: u64,
-        pub sender: String,
-        pub prepay_fee: u64,
-    }
-
-    #[derive(Default)]
     pub struct ValidateTxCompletion {
         pub nonce: u64,
         pub sender: String,
@@ -140,7 +133,7 @@ pub mod ffi {
         fn evm_unsafe_try_prevalidate_raw_tx(
             result: &mut CrossBoundaryResult,
             tx: &str,
-        ) -> PreValidateTxCompletion;
+        ) -> ValidateTxCompletion;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
             tx: &str,

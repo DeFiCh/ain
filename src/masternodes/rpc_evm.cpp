@@ -193,13 +193,6 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam("Automatic detection not viable for input");
     };
 
-    auto ensureEVMHashPrefixed = [](const std::string &str, const VMDomainRPCMapType type) {
-        if (type == VMDomainRPCMapType::TxHashDVMToEVM || type == VMDomainRPCMapType::BlockHashDVMToEVM) {
-            return "0x" + str;
-        }
-        return str;
-    };
-
     const std::string input = request.params[0].get_str();
 
     int typeInt = request.params[1].get_int();
@@ -284,7 +277,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             UniValue ret(UniValue::VOBJ);
             ret.pushKV("input", input);
             ret.pushKV("type", GetVMDomainRPCMapType(type));
-            ret.pushKV("output", ensureEVMHashPrefixed(*res.val, type));
+            ret.pushKV("output", *res.val);
             return ret;
         }
     };

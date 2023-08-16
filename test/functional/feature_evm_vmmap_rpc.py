@@ -141,7 +141,7 @@ class VMMapTests(DefiTestFramework):
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
             for j in range(num_txs):
                 # note dfi block is j+1 since we ignore coinbase
-                tx_maps.append([dfi_block["tx"][j + 1], eth_block["transactions"][j]])
+                tx_maps.append([dfi_block["tx"][j + 1], eth_block["transactions"][j][2:]])
         for item in tx_maps:
             res = self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM)
             assert_equal(res["input"], item[0])
@@ -177,7 +177,7 @@ class VMMapTests(DefiTestFramework):
                 continue  # auto and num are ignored for this test
             assert_raises_rpc_error(
                 -32600,
-                "Key not found: " + fake_evm_tx[2:],
+                "Key not found: " + fake_evm_tx,
                 self.nodes[0].vmmap,
                 fake_evm_tx,
                 map_type,
@@ -208,7 +208,7 @@ class VMMapTests(DefiTestFramework):
             self.nodes[0].generate(1)
             dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-            block_maps.append([dfi_block["hash"], eth_block["hash"]])
+            block_maps.append([dfi_block["hash"], eth_block["hash"][2:]])
         for item in block_maps:
             res = self.nodes[0].vmmap(item[0], VMMapType.BlockHashDVMToEVM)
             assert_equal(res["input"], item[0])
@@ -365,7 +365,7 @@ class VMMapTests(DefiTestFramework):
         list_blocks = self.nodes[0].logvmmaps(0)
         eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)["hash"]
         assert_equal(eth_block[2:] in list(list_blocks["indexes"].values()), True)
-        dfi_block = self.nodes[0].vmmap(eth_block, VMMapType.BlockHashEVMToDVM)[
+        dfi_block = self.nodes[0].vmmap(eth_block[2:], VMMapType.BlockHashEVMToDVM)[
             "output"
         ]
         assert_equal(dfi_block in list(list_blocks["indexes"].keys()), True)

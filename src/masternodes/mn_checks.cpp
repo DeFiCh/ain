@@ -4004,7 +4004,7 @@ public:
             }
         }
         else {
-            evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            validateResults = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);
