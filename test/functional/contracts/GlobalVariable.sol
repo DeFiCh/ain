@@ -57,7 +57,7 @@ contract GlobalVariable {
 
     // Remaining gas
     function gasLeft() public view returns (uint256) {
-        return gasLeft();
+        return gasleft();
     }
 
     // sender of the message (current call)

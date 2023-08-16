@@ -153,8 +153,8 @@ class EVMTest(DefiTestFramework):
         ts = self.contract.functions.timestamp().call()
         assert_equal(ts, block["time"])
 
-        # gasLeft = self.contract.functions.gasLeft().call(tx)
-        # print('gasLeft: ', gasLeft)
+        gas_left = self.contract.functions.gasLeft().call(tx) # 978_708
+        assert tx["gas"] > gas_left
 
         sender = self.contract.functions.getSender().call()
         assert_equal(sender, self.evm_key_pair.address)
