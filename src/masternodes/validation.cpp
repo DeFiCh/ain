@@ -2418,7 +2418,7 @@ static Res ProcessTransferDomainEvents(const CBlock &block, const CBlockIndex* p
                         { src.domain, src.amount, VMDomain::DVM, totalBlockDVMOut },
                         { dst.domain, dst.amount, VMDomain::DVM, totalBlockDVMIn },
                         { src.domain, src.amount, VMDomain::EVM, totalBlockEVMOut },
-                        { dst.domain, dst.amount, VMDomain::DVM, totalBlockEVMIn },
+                        { dst.domain, dst.amount, VMDomain::EVM, totalBlockEVMIn },
                     };
                     for (auto [domain, amount, domainTarget, targetStat]: statsList) {
                         if (domain == static_cast<uint8_t>(domainTarget)) {
