@@ -80,6 +80,9 @@ class DST20(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        # Trigger EVM genesis DST20 migration
+        self.nodes[0].generate(1)
+
         # should have code on contract address
         assert (
             self.nodes[0].w3.to_hex(
