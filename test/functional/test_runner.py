@@ -299,6 +299,7 @@ BASE_SCRIPTS = [
     "feature_evm_contracts.py",
     "feature_evm_dfi_intrinsics.py",
     "feature_evm_logs.py",
+    "feature_evm_contract_env_vars.py",
     "feature_evm_fee.py",
     "feature_evm_genesis.py",
     "feature_evm_rollback.py",
