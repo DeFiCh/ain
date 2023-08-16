@@ -518,38 +518,38 @@ impl EVMServices {
             .backend
             .get_contract_storage(contract, storage_index.as_bytes())?;
 
-            let total_supply_index = H256::from_low_u64_be(2);
-            let total_supply = executor
-                .backend
-                .get_contract_storage(contract, total_supply_index.as_bytes())?;
-    
-            let (new_balance, new_total_supply) = if out {
+        let total_supply_index = H256::from_low_u64_be(2);
+        let total_supply = executor
+            .backend
+            .get_contract_storage(contract, total_supply_index.as_bytes())?;
+
+        let (new_balance, new_total_supply) = if out {
+            (
+                balance.checked_sub(amount),
+                total_supply.checked_sub(amount),
+            )
+        } else {
+            (
+                balance.checked_add(amount),
+                total_supply.checked_add(amount),
+            )
+        };
+
+        let new_balance = new_balance.ok_or_else(|| format_err!("Balance overflow/underflow"))?;
+        let new_total_supply =
+            new_total_supply.ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
+
+        Ok(DST20BridgeInfo {
+            address: contract,
+            storage: vec![
+                (storage_index, ain_contracts::u256_to_h256(new_balance)),
                 (
-                    balance.checked_sub(amount),
-                    total_supply.checked_sub(amount),
-                )
-            } else {
-                (
-                    balance.checked_add(amount),
-                    total_supply.checked_add(amount),
-                )
-            };
-    
-            let new_balance = new_balance.ok_or_else(|| format_err!("Balance overflow/underflow"))?;
-            let new_total_supply =
-                new_total_supply.ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
-    
-            Ok(DST20BridgeInfo {
-                address: contract,
-                storage: vec![
-                    (storage_index, ain_contracts::u256_to_h256(new_balance)),
-                    (
-                        total_supply_index,
-                        ain_contracts::u256_to_h256(new_total_supply),
-                    ),
-                ],
-            })
-        }
+                    total_supply_index,
+                    ain_contracts::u256_to_h256(new_total_supply),
+                ),
+            ],
+        })
+    }
 
     ///
     /// # Safety

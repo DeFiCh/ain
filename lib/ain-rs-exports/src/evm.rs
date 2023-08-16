@@ -132,15 +132,11 @@ pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
         {
             Ok(nonce) => {
                 let Ok(nonce) = u64::try_from(nonce) else {
-                    debug!("XX Here1");
                     return cross_boundary_error_return(result, "nonce value overflow");
                 };
                 cross_boundary_success_return(result, nonce)
             }
-            Err(e) => {
-                debug!("XX Here2");
-                cross_boundary_error_return(result, e.to_string())
-            }
+            Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
 }
