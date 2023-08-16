@@ -670,8 +670,8 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
 
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
-    const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
 
+    const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
     const auto addrKey = EvmAddressWithNonce{txResultSender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
