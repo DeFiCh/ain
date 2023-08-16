@@ -7,6 +7,7 @@ use primitive_types::{H160, H256, U256};
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 
+use crate::evm::ReceiptAndOptionalContractAddress;
 use crate::storage::{traits::ReceiptStorage, Storage};
 use crate::transaction::SignedTx;
 use crate::Result;
@@ -43,18 +44,18 @@ impl ReceiptService {
         Self { storage }
     }
 
-    pub fn get_receipts_root(receipts: &[ReceiptV3]) -> H256 {
+    pub fn get_receipts_root(receipts: &[ReceiptAndOptionalContractAddress]) -> H256 {
         ordered_trie_root(
             receipts
                 .iter()
-                .map(|r| EnvelopedEncodable::encode(r).freeze()),
+                .map(|(r, _)| EnvelopedEncodable::encode(r).freeze()),
         )
     }
 
     pub fn generate_receipts(
         &self,
         transactions: &[Box<SignedTx>],
-        receipts: Vec<ReceiptV3>,
+        receipts_and_contract_address: Vec<ReceiptAndOptionalContractAddress>,
         block_hash: H256,
         block_number: U256,
     ) -> Vec<Receipt> {
@@ -64,8 +65,8 @@ impl ReceiptService {
         transactions
             .iter()
             .enumerate()
-            .zip(receipts)
-            .map(|((index, signed_tx), receipt)| {
+            .zip(receipts_and_contract_address)
+            .map(|((index, signed_tx), (receipt, contract_address))| {
                 let receipt_data = match &receipt {
                     ReceiptV3::Legacy(data)
                     | ReceiptV3::EIP2930(data)
@@ -84,10 +85,11 @@ impl ReceiptService {
                     to: signed_tx.to(),
                     tx_index: index,
                     tx_type: signed_tx.transaction.type_id().unwrap_or_default(),
-                    contract_address: signed_tx
-                        .to()
-                        .is_none()
-                        .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
+                    contract_address: signed_tx.to().is_none().then(|| {
+                        contract_address.unwrap_or_else(|| {
+                            get_contract_address(&signed_tx.sender, &signed_tx.nonce())
+                        })
+                    }),
                     logs_index: logs_size - logs_len,
                     cumulative_gas,
                 }

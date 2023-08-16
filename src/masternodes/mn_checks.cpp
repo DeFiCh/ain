@@ -1076,7 +1076,7 @@ public:
             evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetHex(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
-                             tokenId->ToString());
+                             tokenId->v);
 
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
@@ -3892,7 +3892,7 @@ public:
     Res operator()(const CTransferDomainMessage &obj) const {
         auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
         if (!res) { return res; }
-        
+
         auto attributes = mnview.GetAttributes();
         auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
@@ -3922,7 +3922,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.ToString(), false);
+                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3948,7 +3948,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.ToString(), true);
+                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
 
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);

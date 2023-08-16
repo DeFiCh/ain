@@ -42,6 +42,112 @@ class DST20(DefiTestFramework):
             ]
         ]
 
+    def test_dst20_migration_txs(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.node.createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.node.createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.node.createtoken(
+            {
+                "symbol": "ETH",
+                "name": "ETH token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Trigger EVM genesis DST20 migration
+        self.nodes[0].generate(1)
+
+        # should have code on contract address
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_btc)
+            )
+            != "0x"
+        )
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_eth)
+            )
+            != "0x"
+        )
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+
+        self.eth = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_eth, abi=self.abi
+        )
+        assert_equal(self.eth.functions.name().call(), "ETH token")
+        assert_equal(self.eth.functions.symbol().call(), "ETH")
+
+        # Check that migration has associated EVM TX and receipt
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        all_tokens = self.nodes[0].listtokens()
+        # Keep only DAT non-DFI tokens
+        loanTokens = [token for token in all_tokens.values() if token['isDAT'] == True and token['symbol'] != 'DFI']
+        assert_equal(len(block['transactions']), len(loanTokens))
+
+        # check USDT migration
+        usdt_tx = block['transactions'][0]
+        receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
+        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_usdt)
+        assert_equal(receipt['from'], '0x0000000000000000000000000000000000000000')
+        assert_equal(receipt['gasUsed'], '0x0')
+        assert_equal(receipt['logs'], [])
+        assert_equal(receipt['status'], '0x1')
+        assert_equal(receipt['to'], None)
+
+        # check BTC migration
+        btc_tx = block['transactions'][1]
+        receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
+        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_btc)
+        assert_equal(receipt['from'], '0x0000000000000000000000000000000000000000')
+        assert_equal(receipt['gasUsed'], '0x0')
+        assert_equal(receipt['logs'], [])
+        assert_equal(receipt['status'], '0x1')
+        assert_equal(receipt['to'], None)
+
+        # check ETH migration
+        eth_tx = block['transactions'][2]
+        receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
+        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_eth)
+        assert_equal(receipt['from'], '0x0000000000000000000000000000000000000000')
+        assert_equal(receipt['gasUsed'], '0x0')
+        assert_equal(receipt['logs'], [])
+        assert_equal(receipt['status'], '0x1')
+        assert_equal(receipt['to'], None)
+
+        self.rollback_to(block_height)
+
     def test_unused_dst20(self):
         # should have system reserved bytecode
         assert (
@@ -56,6 +162,7 @@ class DST20(DefiTestFramework):
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
+
             )
             != self.reserved_bytecode
         )
@@ -658,6 +765,11 @@ class DST20(DefiTestFramework):
         # Generate chain
         self.node.generate(150)
         self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+        self.nodes[0].generate(1)
+
+        # Create token and check DST20 migration pre EVM activation
+        self.test_dst20_migration_txs()
+
         # Create token before EVM
         self.node.createtoken(
             {
@@ -689,6 +801,7 @@ class DST20(DefiTestFramework):
         self.nodes[0].generate(2)
 
         self.test_pre_evm_token()
+
         self.test_deploy_token()
         self.test_deploy_multiple_tokens()
 
@@ -705,7 +818,6 @@ class DST20(DefiTestFramework):
         self.test_negative_transfer()
         self.test_different_tokens()
         self.test_loan_token()
-
 
 if __name__ == "__main__":
     DST20().main()

@@ -467,6 +467,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
     miner_address: &str,
     timestamp: u64,
     dvm_block_number: u64,
+    mnview_ptr: usize,
 ) -> ffi::FinalizeBlockCompletion {
     let Ok(eth_address) = miner_address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
@@ -479,6 +480,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
             eth_address,
             timestamp,
             dvm_block_number,
+            mnview_ptr,
         ) {
             Ok(FinalizedBlockInfo {
                 block_hash,
@@ -652,7 +654,7 @@ pub fn evm_try_is_dst20_deployed_or_queued(
     queue_id: u64,
     name: &str,
     symbol: &str,
-    token_id: &str,
+    token_id: u64,
 ) -> bool {
     unsafe {
         match SERVICES
@@ -767,7 +769,7 @@ pub fn evm_try_create_dst20(
     native_hash: &str,
     name: &str,
     symbol: &str,
-    token_id: &str,
+    token_id: u64,
 ) {
     let native_hash = String::from(native_hash);
     let address = match ain_contracts::dst20_address_from_token_id(token_id) {
@@ -799,7 +801,7 @@ pub fn evm_try_bridge_dst20(
     address: &str,
     amount: u64,
     native_hash: &str,
-    token_id: &str,
+    token_id: u64,
     out: bool,
 ) {
     let Ok(address) = address.parse() else {
