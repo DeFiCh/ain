@@ -172,6 +172,9 @@ impl EVMServices {
 
         // Ensure that state root changes by updating counter contract storage
         if current_block_number == U256::zero() {
+            // reserve DST20 namespace
+            self.reserve_dst20_namespace(&mut executor)?;
+
             // Deploy contract on the first block
             let DeployContractInfo {
                 address,
@@ -473,8 +476,13 @@ impl EVMServices {
         name: String,
         symbol: String,
     ) -> Result<DeployContractInfo> {
-        if executor.backend.get_account(&address).is_some() {
-            return Err(format_err!("Token address is already in use").into());
+        match executor.backend.get_account(&address) {
+            None => {}
+            Some(account) => {
+                if account.code_hash != ain_contracts::get_system_reserved_codehash()? {
+                    return Err(format_err!("Token address is already in use").into());
+                }
+            }
         }
 
         let bytecode = ain_contracts::get_dst20_bytecode()?;
@@ -572,8 +580,13 @@ impl EVMServices {
 
         let backend = self.core.get_latest_block_backend()?;
         // Address already deployed
-        if backend.get_account(&address).is_some() {
-            return Ok(true);
+        match backend.get_account(&address) {
+            None => {}
+            Some(account) => {
+                if account.code_hash == ain_contracts::get_dst20_codehash()? {
+                    return Ok(true);
+                }
+            }
         }
 
         let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
@@ -585,5 +598,21 @@ impl EVMServices {
         let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
 
         Ok(is_queued)
+    }
+
+    pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
+        let bytecode = ain_contracts::get_system_reserved_bytecode()?;
+        let addresses = (1..=1024)
+            .map(|token_id| {
+                ain_contracts::dst20_address_from_token_id(&token_id.to_string()).unwrap()
+            })
+            .collect::<Vec<H160>>();
+
+        for address in addresses {
+            debug!("Deploying address to {:#?}", address);
+            executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
+        }
+
+        Ok(())
     }
 }
