@@ -8,7 +8,7 @@ use ain_evm::{
     storage::traits::Rollback,
     storage::traits::TransactionStorage,
     transaction::{self, SignedTx},
-    weiamount::{WeiAmount, try_from_satoshi, try_from_gwei},
+    weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
