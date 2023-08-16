@@ -315,10 +315,13 @@ impl MetachainRPCServer for MetachainRPCModule {
             from,
             to,
             gas,
+            gas_price,
+            max_fee_per_gas,
             value,
             data,
             input,
             access_list,
+            transaction_type,
             ..
         } = input;
 
@@ -343,8 +346,11 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
                 gas_limit: gas.unwrap_or(U256::from(max_gas_per_block)).as_u64(),
+                gas_price,
+                max_fee_per_gas,
                 access_list: access_list.unwrap_or_default(),
                 block_number: self.block_number_to_u256(block_number)?,
+                transaction_type,
             })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
         Ok(Bytes(data))
@@ -727,6 +733,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             value,
             data,
             access_list,
+            gas_price,
+            max_fee_per_gas,
+            transaction_type,
             ..
         } = input;
 
@@ -746,8 +755,11 @@ impl MetachainRPCServer for MetachainRPCModule {
                 value: value.unwrap_or_default(),
                 data: &data.map(|d| d.0).unwrap_or_default(),
                 gas_limit: gas.unwrap_or(U256::from(gas_limit)).as_u64(),
+                gas_price,
+                max_fee_per_gas,
                 access_list: access_list.unwrap_or_default(),
                 block_number,
+                transaction_type,
             })
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
 
