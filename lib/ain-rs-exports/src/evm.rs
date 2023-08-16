@@ -620,7 +620,7 @@ pub fn evm_try_get_block_header_by_hash(
                 timestamp: block.header.timestamp,
                 extra_data: block.header.extra_data.clone(),
                 mix_hash: block.header.mix_hash.to_string(),
-                nonce: block.header.nonce.to_low_u64_ne(),
+                nonce: block.header.nonce.to_low_u64_be(),
                 base_fee,
             };
             cross_boundary_success_return(result, out)
