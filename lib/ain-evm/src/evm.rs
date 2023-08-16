@@ -343,7 +343,7 @@ impl EVMServices {
         });
 
         Ok(FinalizedBlockInfo {
-            block_hash: block.header.hash().to_string(),
+            block_hash: format!("{:?}", block.header.hash()),
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,

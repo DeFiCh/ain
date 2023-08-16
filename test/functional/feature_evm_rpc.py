@@ -181,8 +181,8 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         res = self.nodes[0].getcustomtx(block["tx"][1])
         assert_equal(
-            res["results"]["hash"],
-            "977468de6179f215a690501614b929d58ff3216275c2338e0733e053f0e9998c",
+            res["results"]["hash"][2:],
+            "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",
         )
         # Note: This will fail. Re-evaluate
         assert_equal(res["results"]["sender"].lower(), self.ethAddress)
