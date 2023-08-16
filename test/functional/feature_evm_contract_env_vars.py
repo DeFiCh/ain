@@ -153,7 +153,7 @@ class EVMTest(DefiTestFramework):
         ts = self.contract.functions.timestamp().call()
         assert_equal(ts, block["time"])
 
-        # gasLeft = self.contract.functions.gasLeft().call()
+        # gasLeft = self.contract.functions.gasLeft().call(tx)
         # print('gasLeft: ', gasLeft)
 
         sender = self.contract.functions.getSender().call()
@@ -163,8 +163,9 @@ class EVMTest(DefiTestFramework):
         # print('data: ', data)
         # assert_equal(data, tx["data"])
 
-        # sig = self.contract.functions.getSig().call(tx)
-        # print('sig: ', sig)
+        data = self.contract.encodeABI('getSig', [])
+        sig = self.contract.functions.getSig().call(tx)
+        assert_equal(data, f"0x{sig.hex()}")
 
         # tx_gas_price = self.contract.functions.getTxGasPrice().call(tx)
         # assert_equal(tx_gas_price, tx["gasPrice"])
