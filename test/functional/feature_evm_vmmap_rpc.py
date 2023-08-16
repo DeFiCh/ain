@@ -141,7 +141,9 @@ class VMMapTests(DefiTestFramework):
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
             for j in range(num_txs):
                 # note dfi block is j+1 since we ignore coinbase
-                tx_maps.append([dfi_block["tx"][j + 1], eth_block["transactions"][j][2:]])
+                tx_maps.append(
+                    [dfi_block["tx"][j + 1], eth_block["transactions"][j][2:]]
+                )
         for item in tx_maps:
             res = self.nodes[0].vmmap(item[0], VMMapType.TxHashDVMToEVM)
             assert_equal(res["input"], item[0])
