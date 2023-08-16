@@ -37,7 +37,7 @@ pub struct EVMServices {
 }
 
 pub struct FinalizedBlockInfo {
-    pub block_hash: [u8; 32],
+    pub block_hash: String,
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
@@ -343,7 +343,7 @@ impl EVMServices {
         });
 
         Ok(FinalizedBlockInfo {
-            block_hash: *block.header.hash().as_fixed_bytes(),
+            block_hash: block.header.hash().to_string(),
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,

@@ -910,7 +910,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        std::optional<std::array<::std::uint8_t, 20>> ethSender;
+        std::string ethSender{};
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
@@ -925,11 +925,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
-            const auto sender = pool.ethTxsBySender.find(txResult.sender);
+            const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
+            const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
-                ethSender = txResult.sender;
+                ethSender = txResultSender;
             }
         }
 

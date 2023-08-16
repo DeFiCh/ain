@@ -76,8 +76,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
 
-    CKey privKey;
-    if (!pwallet->GetKey(keyId, privKey)) {
+    CKey key;
+    if (!pwallet->GetKey(keyId, key)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
     }
 
@@ -99,7 +99,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const uint64_t value = AmountFromValue(request.params[5]);   // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
-    EvmAddressData to{};
+    std::string to = "";
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {
@@ -107,7 +107,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.GetByteArrayBE();
+        to = toEth.ToHexString();
     }
 
     rust::Vec<uint8_t> input{};
@@ -122,6 +122,9 @@ UniValue evmtx(const JSONRPCRequest &request) {
         std::copy(inputVec.begin(), inputVec.end(), input.begin());
     }
 
+    std::array<uint8_t, 32> privKey{};
+    std::copy(key.begin(), key.end(), privKey.begin());
+
     CrossBoundaryResult result;
     const auto signedTx = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
@@ -131,7 +134,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
                                                                               to,
                                                                               value,
                                                                               input,
-                                                                              privKey.GetByteArrayBE()});
+                                                                              privKey});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
@@ -204,7 +207,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
 
-    auto tryResolveMapBlockOrTxResult = [](ResVal<uint256> &res, const uint256 input) {
+    auto tryResolveMapBlockOrTxResult = [](ResVal<std::string> &res, const std::string input) {
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
         if (res)
             return VMDomainRPCMapType::TxHashDVMToEVM;
@@ -255,7 +258,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         };
 */
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
-    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
+    ResVal res = ResVal<std::string>(std::string{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
         // auto mapType = tryResolveBlockNumberType(input);
@@ -264,7 +267,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
-            auto mapType = tryResolveMapBlockOrTxResult(res, uint256S(input));
+            auto mapType = tryResolveMapBlockOrTxResult(res, input);
             // We don't pass this type back on purpose
             if (mapType != VMDomainRPCMapType::Unknown) {
                 return {mapType, true};
@@ -274,14 +277,14 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return {VMDomainRPCMapType::Unknown, false};
     };
 
-    auto finalizeResult = [&](ResVal<uint256> &res, const VMDomainRPCMapType type, const std::string input) {
+    auto finalizeResult = [&](ResVal<std::string> &res, const VMDomainRPCMapType type, const std::string input) {
         if (!res) {
             throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
         } else {
             UniValue ret(UniValue::VOBJ);
             ret.pushKV("input", input);
             ret.pushKV("type", GetVMDomainRPCMapType(type));
-            ret.pushKV("output", ensureEVMHashPrefixed(res.val->ToString(), type));
+            ret.pushKV("output", ensureEVMHashPrefixed(*res.val, type));
             return ret;
         }
     };
@@ -304,8 +307,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
         CrossBoundaryResult result;
         auto evmHash = evm_try_get_block_hash_by_number(result, height);
+        auto evmBlockHash = std::string(evmHash.data(), evmHash.length());
         crossBoundaryOkOrThrow(result);
-        auto evmBlockHash = uint256::FromByteArrayBE(evmHash);
         ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
         if (!dvm_block) {
             throwInvalidParam(dvm_block.msg);
@@ -326,12 +329,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
         CBlockIndex *pindex = ::ChainActive()[height];
         auto evmBlockHash =
-            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(pindex->GetBlockHash().GetHex()));
+            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
         if (!evmBlockHash.val.has_value()) {
             throwInvalidParam(evmBlockHash.msg);
         }
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArrayBE());
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, *evmBlockHash.val);
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
@@ -348,19 +351,19 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         // TODO(canonbrother): disable for release, more investigation needed
@@ -408,50 +411,50 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     switch (type) {
         case VMDomainIndexType::BlockHashDVMToEVM: {
             pcustomcsview->ForEachVMDomainBlockEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
-                        indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                        indexesJson.pushKV(index.second, blockHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+                std::make_pair(VMDomainEdge::DVMToEVM, std::string{}));
             break;
         }
         case VMDomainIndexType::BlockHashEVMToDVM: {
             pcustomcsview->ForEachVMDomainBlockEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
-                        indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                        indexesJson.pushKV(index.second, blockHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+                std::make_pair(VMDomainEdge::EVMToDVM, std::string{}));
             break;
         }
         case VMDomainIndexType::TxHashDVMToEVM: {
             pcustomcsview->ForEachVMDomainTxEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
-                        indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                        indexesJson.pushKV(index.second, txHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+                std::make_pair(VMDomainEdge::DVMToEVM, std::string{}));
             break;
         }
         case VMDomainIndexType::TxHashEVMToDVM: {
             pcustomcsview->ForEachVMDomainTxEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
-                        indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                        indexesJson.pushKV(index.second, txHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+                std::make_pair(VMDomainEdge::EVMToDVM, std::string{}));
             break;
         }
         default:

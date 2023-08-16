@@ -66,18 +66,11 @@ public:
                ((uint64_t)ptr[7]) << 56;
     }
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayBE() const
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArray() const
     {
-        std::array<uint8_t, WIDTH> array;
-        std::copy(data, data + sizeof(data), array.begin());
-        return array;
-    }
-
-    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayLE() const
-    {
-        // We store bytes in the reverse order. So any expectations of
+        // We store bytes in little endian. So any expectations of
         // an array of bytes should be in same order as the hex string.
-        // The protected data array is an internal implementation detail. 
+        // The protected data array is an internal implementation detail.
         std::array<uint8_t, WIDTH> reversedArray;
         std::copy(std::reverse_iterator<const uint8_t*>(data + sizeof(data)), std::reverse_iterator<const uint8_t*>(data), reversedArray.begin());
         return reversedArray;
@@ -130,14 +123,6 @@ class uint160 : public base_blob<160> {
 public:
     uint160() {}
     explicit uint160(const std::vector<unsigned char>& vch) : base_blob<160>(vch) {}
-
-    static uint160 FromByteArrayBE(const std::array<uint8_t, 20>& data) {
-        return uint160(std::vector<unsigned char>(data.begin(), data.end()));
-    }
-
-    static uint160 FromByteArrayLE(const std::array<uint8_t, 20>& data) {
-        return uint160(std::vector<unsigned char>(data.rbegin(), data.rend()));
-    }
 };
 
 /** 256-bit opaque blob.
@@ -149,14 +134,6 @@ class uint256 : public base_blob<256> {
 public:
     uint256() {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
-
-    static uint256 FromByteArrayBE(const std::array<uint8_t, 32>& data) {
-        return uint256(std::vector<unsigned char>(data.begin(), data.end()));
-    }
-
-    static uint256 FromByteArrayLE(const std::array<uint8_t, 32>& data) {
-        return uint256(std::vector<unsigned char>(data.rbegin(), data.rend()));
-    }
 };
 
 /* uint256 from const char *.

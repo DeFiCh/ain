@@ -114,6 +114,7 @@ struct WitnessV16EthHash : public uint160 {
     WitnessV16EthHash() : uint160() {}
     explicit WitnessV16EthHash(const uint160& hash) : uint160(hash) {}
     explicit WitnessV16EthHash(const CPubKey& pubkey);
+    std::string ToHexString() const;
     using uint160::uint160;
 };
 

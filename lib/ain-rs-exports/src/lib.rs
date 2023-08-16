@@ -10,16 +10,16 @@ pub mod ffi {
     // ========== Block ==========
     #[derive(Default)]
     pub struct EVMBlockHeader {
-        pub parent_hash: [u8; 32],
-        pub beneficiary: [u8; 20],
-        pub state_root: [u8; 32],
-        pub receipts_root: [u8; 32],
+        pub parent_hash: String,
+        pub beneficiary: String,
+        pub state_root: String,
+        pub receipts_root: String,
         pub number: u64,
         pub gas_limit: u64,
         pub gas_used: u64,
         pub timestamp: u64,
         pub extra_data: Vec<u8>,
-        pub mix_hash: [u8; 32],
+        pub mix_hash: String,
         pub nonce: u64,
         pub base_fee: u64,
     }
@@ -29,15 +29,15 @@ pub mod ffi {
     pub struct EVMTransaction {
         // EIP-2718 transaction type: legacy - 0x0, EIP2930 - 0x1, EIP1559 - 0x2
         pub tx_type: u8,
-        pub hash: [u8; 32],
-        pub sender: [u8; 20],
+        pub hash: String,
+        pub sender: String,
         pub nonce: u64,
         pub gas_price: u64,
         pub gas_limit: u64,
         pub max_fee_per_gas: u64,
         pub max_priority_fee_per_gas: u64,
         pub create_tx: bool,
-        pub to: [u8; 20],
+        pub to: String,
         pub value: u64,
         pub data: Vec<u8>,
     }
@@ -64,14 +64,12 @@ pub mod ffi {
 
     // ========== EVM ==========
 
-    pub struct CreateTransactionContext {
+    pub struct CreateTransactionContext<'a> {
         pub chain_id: u64,
         pub nonce: u64,
-        // GWei
         pub gas_price: u64,
         pub gas_limit: u64,
-        pub to: [u8; 20],
-        // Satoshi
+        pub to: &'a str,
         pub value: u64,
         pub input: Vec<u8>,
         pub priv_key: [u8; 32],
@@ -79,7 +77,7 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
-        pub block_hash: [u8; 32],
+        pub block_hash: String,
         pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
@@ -89,15 +87,15 @@ pub mod ffi {
     #[derive(Default)]
     pub struct PreValidateTxCompletion {
         pub nonce: u64,
-        pub sender: [u8; 20],
+        pub sender: String,
         pub prepay_fee: u64,
     }
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
         pub nonce: u64,
-        pub sender: [u8; 20],
-        pub tx_hash: [u8; 32],
+        pub sender: String,
+        pub tx_hash: String,
         pub prepay_fee: u64,
         pub gas_used: u64,
     }
@@ -107,7 +105,7 @@ pub mod ffi {
         //
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
-        fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: [u8; 20]) -> u64;
+        fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: &str) -> u64;
         fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
         fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
@@ -118,25 +116,25 @@ pub mod ffi {
         fn evm_unsafe_try_get_next_valid_nonce_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: [u8; 20],
+            address: &str,
         ) -> u64;
         fn evm_unsafe_try_remove_txs_by_sender_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: [u8; 20],
+            address: &str,
         );
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
-            amount: [u8; 32],
+            amount: u64,
             native_hash: &str,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
-            amount: [u8; 32],
+            amount: u64,
             native_hash: &str,
         ) -> bool;
         fn evm_unsafe_try_prevalidate_raw_tx(
@@ -159,7 +157,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             difficulty: u32,
-            miner_address: [u8; 20],
+            miner_address: &str,
             timestamp: u64,
             dvm_block_number: u64,
         ) -> FinalizeBlockCompletion;
@@ -177,19 +175,19 @@ pub mod ffi {
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,
-        ) -> [u8; 32];
+        ) -> String;
         fn evm_try_get_block_number_by_hash(
             result: &mut CrossBoundaryResult,
-            hash: [u8; 32],
+            hash: &str,
         ) -> u64;
         fn evm_try_get_block_header_by_hash(
             result: &mut CrossBoundaryResult,
-            hash: [u8; 32],
+            hash: &str,
         ) -> EVMBlockHeader;
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_get_tx_by_hash(
             result: &mut CrossBoundaryResult,
-            tx_hash: [u8; 32],
+            tx_hash: &str,
         ) -> EVMTransaction;
 
         fn evm_try_create_dst20(
@@ -204,7 +202,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             context: u64,
             address: &str,
-            amount: [u8; 32],
+            amount: u64,
             native_hash: &str,
             token_id: &str,
             out: bool,

@@ -781,10 +781,7 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
 
     const uint64_t gasPrice = 449164996321; // 449.164996321 GWei
     const uint64_t gasLimit = 21000; // 21,000
-
-    std::vector<uint8_t> toVec{ParseHex("34c1ca09a2dc717d89baef2f30ff6a6b2975e17e")};
-    EvmAddressData to{};
-    std::copy(toVec.begin(), toVec.end(), to.begin());
+    std::string to = "34c1ca09a2dc717d89baef2f30ff6a6b2975e17e";
 
     uint64_t value = 1000000;   // 0.01 DFI
 

@@ -23,11 +23,10 @@ class CCustomCSView;
 
 struct EVM {
     uint32_t version;
-    uint256 blockHash;
+    std::string blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    // miner address in big endian
-    EvmAddressData beneficiary;
+    std::string beneficiary;
 
     ADD_SERIALIZE_METHODS;
 

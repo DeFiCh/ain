@@ -178,7 +178,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Test evm tx RPC
-        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 3)
+        assert_equal(block, False)
         res = self.nodes[0].getcustomtx(block["tx"][1])
         assert_equal(
             res["results"]["hash"],

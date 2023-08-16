@@ -41,8 +41,7 @@
 #include <utility>
 
 struct EvmAddressWithNonce {
-    // Byte array of EVM address stored as big endian
-    EvmAddressData address;
+    std::string address;
     uint64_t nonce;
 
     bool operator<(const EvmAddressWithNonce& item) const
@@ -55,7 +54,7 @@ struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
     std::map<EvmAddressWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
-    std::map<EvmAddressData, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    std::map<std::string, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
@@ -133,7 +132,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const std::string& evmBeneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -299,7 +298,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
-        xvm = XVM{0, {0, uint256::FromByteArrayBE(blockResult.block_hash), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
         // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
@@ -399,7 +398,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
 
         if (isEvmEnabledForBlock) {
-            if (xvm.evm.blockHash.IsNull()) {
+            if (xvm.evm.blockHash.empty()) {
                 LogPrint(BCLog::STAKING, "%s: EVM block hash is null\n", __func__);
                 return nullptr;
             }
@@ -671,8 +670,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
 
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
+    const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
 
-    const auto addrKey = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    const auto addrKey = EvmAddressWithNonce{txResultSender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
@@ -705,7 +705,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
     }
 
-    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
+    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResultSender);
     if (!result.ok) {
         return false;
     }
@@ -717,9 +717,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    auto addrNonce = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    auto addrNonce = EvmAddressWithNonce{txResultSender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
-    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
+    evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);
     return true;
 }
 
@@ -1144,7 +1144,8 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     if (pubKey.IsCompressed()) {
         pubKey.Decompress();
     }
-    const auto evmBeneficiary = pubKey.GetEthID().GetByteArrayBE();
+    // TODO: Use GetHex when eth key is fixed to be stored in LE
+    const auto evmBeneficiary = HexStr(pubKey.GetEthID());
     auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
