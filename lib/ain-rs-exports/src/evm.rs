@@ -854,8 +854,6 @@ pub fn evm_unsafe_try_get_target_block_in_q(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_hash_type_string() {
         use primitive_types::H160;
