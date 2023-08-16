@@ -117,9 +117,6 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(block['tx'][0], 1)
         opreturn_miner_keyid = raw_tx['vout'][1]['scriptPubKey']['hex'][120:]
-        miner_eth_address = self.nodes[0].addressmap(self.nodes[0].get_genesis_keys().operatorAuthAddress, 1)
-        miner_eth_keyid = self.nodes[0].getaddressinfo(miner_eth_address['format']['erc55'])['witness_program']
-
         coinbase = self.contract.functions.coinbase().call()
         assert_equal(coinbase, self.nodes[0].w3.to_checksum_address(f"0x{opreturn_miner_keyid}"))
 
