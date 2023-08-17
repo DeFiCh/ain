@@ -194,7 +194,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
-            if (include_hex || version <= 2) {
+            if (include_hex || version != 3) {
                 o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             }
             in.pushKV("scriptSig", o);
@@ -215,7 +215,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         out.pushKV("value", ValueFromAmount(txout.nValue));
         out.pushKV("n", (int64_t)index);
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex || version <= 2);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, include_hex || version != 3);
         out.pushKV("scriptPubKey", o);
         // We skip this for v3+ as we tokenId field is unused.
         if (version <= 2 && tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
