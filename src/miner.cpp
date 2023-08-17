@@ -221,9 +221,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             CTxDestination destination;
             if (nHeight < consensus.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
             }
 
             if (IsValidDestination(destination)) {
@@ -286,15 +286,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        if (auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId); !res) {
-            LogPrintf("ThreadStaker: Failed to process DST20 migration: %s\n", res.msg);
-            return nullptr;
-        }
-
-        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight));
+        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) { return nullptr; }
         auto blockResult = *res;
-        
+
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
@@ -1042,9 +1037,9 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         if (args.coinbaseScript.empty()) {
             // this is safe because MN was found
             if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, TxDestTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
             } else {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
             }
         } else {
             scriptPubKey = args.coinbaseScript;

@@ -296,8 +296,14 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
     vErrorsRet.push_back(entry);
 }
 
+int RPCSerializationFlags();
+UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails);
+
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType)
 {
+    if (LogAcceptCategory(BCLog::SIGN)) {
+        LogPrintf("SignTransaction::Pre: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true).write(2));
+    }
     // Add previous txouts given in the RPC call:
     if (!prevTxsUnival.isNull()) {
         UniValue prevTxs = prevTxsUnival.get_array();
@@ -424,6 +430,10 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         }
     }
     bool fComplete = vErrors.empty();
+
+    if (LogAcceptCategory(BCLog::SIGN)) {
+        LogPrintf("SignTransaction::Post: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true).write(2));
+    }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));

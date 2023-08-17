@@ -334,10 +334,8 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet,
 
     // Only set change to auth on single auth TXs
     if (auths.size() == 1) {
-
         // Get auth ScriptPubkey
         auto auth = *auths.cbegin();
-
         // Create output to cover 1KB transaction
         CTxOut authOut(GetMinimumFee(*pwallet, 1000, coinControl, nullptr), auth);
         mtx.vout.push_back(authOut);

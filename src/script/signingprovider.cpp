@@ -190,8 +190,8 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,
     // P2WPKH, and P2SH-P2WPKH.
-    auto id = CKeyID::FromOrDefaultDestination(dest, KeyType::SigningProviderType);
-    auto dest_type = FromOrDefaultDestinationTypeToKeyType(dest.index()) & KeyType::SigningProviderType;
+    auto id = CKeyID::FromOrDefaultDestination(dest);
+    auto dest_type = TxDestTypeToKeyType(dest.index()) & KeyType::SigningProviderType;
     switch (dest_type) {
         case KeyType::WPKHashKeyType: {
             id.type = KeyAddressType::COMPRESSED;

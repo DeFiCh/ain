@@ -15,6 +15,8 @@ class CBlock;
 class CBlockHeader;
 class CScript;
 class CTransaction;
+class CTxIn;
+class CTxOut;
 struct CMutableTransaction;
 class uint256;
 class UniValue;
@@ -46,6 +48,8 @@ std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags = 0);
 std::string SighashToStr(unsigned char sighash_type);
 void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address);
+UniValue TxInToUniv(const CTransaction& tx, const CTxIn& txin, const unsigned int index, bool include_hex, int version);
+UniValue TxOutToUniv(const CTransaction& tx, const CTxOut& txout, const unsigned int index, bool include_hex, int version);
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex = true, int serialize_flags = 0, int verbosity = 0);
 
 #endif // DEFI_CORE_IO_H
