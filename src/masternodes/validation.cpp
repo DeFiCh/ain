@@ -2382,7 +2382,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 }
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
-    const auto blockResultBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length());
+    const auto blockResultBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
     
     if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");

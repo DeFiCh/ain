@@ -298,7 +298,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
-        xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
         // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;

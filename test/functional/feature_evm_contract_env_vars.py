@@ -117,13 +117,15 @@ class EVMTest(DefiTestFramework):
 
     def test_coinbase(self):
         block = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount()), 3
         )
-        raw_tx = self.nodes[0].getrawtransaction(block["tx"][0], 1)
-        opreturn_miner_keyid = raw_tx["vout"][1]["scriptPubKey"]["hex"][120:]
+        coinbase_xvm = block["tx"][0]["vm"]
+        assert_equal(coinbase_xvm["vmtype"], "coinbase")
+        assert_equal(coinbase_xvm["txtype"], "coinbase")
+        opreturn_miner_keyid = coinbase_xvm["msg"]["evm"]["beneficiary"]
         coinbase = self.contract.functions.coinbase().call()
         assert_equal(
-            coinbase, self.nodes[0].w3.to_checksum_address(f"0x{opreturn_miner_keyid}")
+            coinbase, self.nodes[0].w3.to_checksum_address(opreturn_miner_keyid)
         )
 
     def test_difficulty(self):
