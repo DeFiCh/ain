@@ -130,7 +130,8 @@ def try_rpc(code, message, fun, *args, **kwds):
     except JSONRPCException as e:
         # JSONRPCException was thrown as expected. Check the code and message values are correct.
         if (code is not None) and (code != e.error["code"]):
-            raise AssertionError("Unexpected JSONRPC error code %i" % e.error["code"])
+            err_str = str(e.error["code"]) + " (" + e.error["message"] + ")"
+            raise AssertionError("Unexpected JSONRPC error code: " + err_str)
         if (message is not None) and (message not in e.error["message"]):
             raise AssertionError(
                 "Expected substring (" + message + ") not found:" + e.error["message"]
