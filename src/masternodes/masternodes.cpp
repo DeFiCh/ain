@@ -1342,13 +1342,13 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {
     mnview.ForEachMasternode([&](const uint256 &id, const CMasternode &node) {
         if (node.rewardAddressType) {
-            const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.rewardAddress, FromOrDefaultDestinationTypeToKeyType(node.rewardAddressType), KeyType::MNRewardKeyType));
+            const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.rewardAddress, TxDestTypeToKeyType(node.rewardAddressType), KeyType::MNRewardKeyType));
             if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
                 mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
             }
         }
 
-        const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(node.ownerType), KeyType::MNOwnerKeyType));
+        const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(node.ownerAuthAddress, TxDestTypeToKeyType(node.ownerType), KeyType::MNOwnerKeyType));
         if (IsMineCached(wallet, rewardAddress) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(rewardAddress, targetHeight);
         }
