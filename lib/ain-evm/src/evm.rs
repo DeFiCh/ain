@@ -354,19 +354,17 @@ impl EVMServices {
             Vec::new(),
         );
 
+        let block_hash = *block.header.hash().as_fixed_bytes();
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3,
             block.header.hash(),
             block.header.number,
         );
-        queue.block_data = Some(BlockData {
-            block: block.clone(),
-            receipts,
-        });
+        queue.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
-            block_hash: *block.header.hash().as_fixed_bytes(),
+            block_hash,
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
