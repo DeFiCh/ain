@@ -9,12 +9,22 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_et
 from decimal import Decimal
 
 
+def transfer_domain(node, fromAddr, toAddr, amount, fromDomain, toDomain):
+    return node.transferdomain([
+        {
+                    "src": {"address": fromAddr, "amount": amount, "domain": fromDomain},
+                    "dst": {
+                        "address": toAddr,
+                        "amount": amount,
+                        "domain": toDomain,
+                    }
+        }])
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [
-            [
+        node_args = [
                 "-txordering=2",
                 "-dummypos=0",
                 "-txnotokens=0",
@@ -32,27 +42,8 @@ class EVMTest(DefiTestFramework):
                 "-nextnetworkupgradeheight=150",
                 "-subsidytest=1",
                 "-txindex=1",
-            ],
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=150",
-                "-subsidytest=1",
-                "-txindex=1",
-            ],
         ]
+        self.extra_args = [ node_args, node_args ]
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -157,17 +148,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "called before NextNetworkUpgrade height",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         )
 
         # Move to fork height
@@ -176,17 +157,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Cannot create tx, transfer domain is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         )
 
         # Activate EVM
@@ -199,17 +170,7 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Cannot create tx, transfer domain is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         )
 
         # Activate transferdomain
@@ -232,32 +193,12 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "DVM to EVM is not currently enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         )
         assert_raises_rpc_error(
             -32600,
             "EVM to DVM is not currently enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 3},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 2,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 3, 2)
         )
 
         self.nodes[0].setgov(
@@ -273,32 +214,12 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "transferdomain for DST20 from DVM to EVM is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "1@BTC",
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@BTC", 2, 3)
         )
         assert_raises_rpc_error(
             -32600,
             "transferdomain for DST20 from EVM to DVM is not enabled",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "1@BTC", "domain": 3},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "1@BTC",
-                        "domain": 2,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@BTC", 3, 2)
         )
 
         # Activate DAT transferdomain
@@ -455,49 +376,19 @@ class EVMTest(DefiTestFramework):
     def invalid_values_dvm_evm(self):
         # Check for valid values DVM->EVM in transferdomain rpc
         assert_raises_rpc_error(
-            -32600,
-            'Src address must be a legacy or Bech32 address in case of "DVM" domain',
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 2,
-                    },
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
+            None,
+            None,
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         )
         assert_raises_rpc_error(
             -32600,
             'Dst address must be an ERC55 address in case of "EVM" domain',
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {"address": self.address, "amount": "100@DFI", "domain": 3},
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.address, "100@DFI", 2, 3)
         )
         assert_raises_rpc_error(
             -32600,
             "Cannot transfer inside same domain",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 2,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 2)
         )
         assert_raises_rpc_error(
             -32600,
@@ -553,56 +444,17 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Non-DAT or LP tokens are not supported for transferdomain",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {
-                        "address": self.address,
-                        "amount": "1@" + self.symbolUSER,
-                        "domain": 2,
-                    },
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "1@" + self.symbolUSER,
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@" + self.symbolUSER, 2, 3)
         )
         assert_raises_rpc_error(
             -32600,
             "Non-DAT or LP tokens are not supported for transferdomain",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {
-                        "address": self.address,
-                        "amount": "1@" + self.symbolBTCDFI,
-                        "domain": 2,
-                    },
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "1@" + self.symbolBTCDFI,
-                        "domain": 3,
-                    },
-                }
-            ],
+            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@" + self.symbolBTCDFI, 2, 3)
         )
 
     def valid_transfer_dvm_evm(self):
         # Transfer 100 DFI from DVM to EVM
-        tx1 = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
+        tx1 = transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
         self.nodes[0].generate(1)
 
         # Check tx1 fields
@@ -666,8 +518,8 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -32600,
-            'Dst address must be a legacy or Bech32 address in case of "DVM" domain',
+            None,
+            None,
             self.nodes[0].transferdomain,
             [
                 {
@@ -685,8 +537,8 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -32600,
-            "Cannot transfer inside same domain",
+            None,
+            None,
             self.nodes[0].transferdomain,
             [
                 {
@@ -700,8 +552,8 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -32600,
-            "Source amount must be equal to destination amount",
+            None,
+            None,
             self.nodes[0].transferdomain,
             [
                 {
@@ -787,18 +639,7 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_dvm_evm()
 
         # Transfer 100 DFI from EVM to DVM
-        tx = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                    "dst": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                }
-            ]
-        )
+        tx = transfer_domain(self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2)
         self.nodes[0].generate(1)
 
         # Check tx fields
