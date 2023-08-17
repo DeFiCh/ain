@@ -275,11 +275,15 @@ impl EVMServices {
                         storage,
                     } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
 
-                    if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
+                    if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
-                    let (tx, receipt) =
-                        create_deploy_contract_tx(idx, current_block_number, &base_fee)?;
+                    let (tx, receipt) = create_deploy_contract_tx(
+                        idx,
+                        current_block_number,
+                        &base_fee,
+                        bytecode.into_vec(),
+                    )?;
 
                     all_transactions.push(Box::new(tx));
                     receipts_v3.push((receipt, Some(address)));
@@ -635,6 +639,7 @@ fn create_deploy_contract_tx(
     idx: usize,
     block_number: U256,
     base_fee: &U256,
+    bytecode: Vec<u8>,
 ) -> Result<(SignedTx, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(idx),
@@ -642,7 +647,7 @@ fn create_deploy_contract_tx(
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: block_number,
-        input: Vec::new(),
+        input: bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
