@@ -263,6 +263,7 @@ impl EVMServices {
                     name,
                     symbol,
                     address,
+                    token_id,
                 })) => {
                     debug!(
                         "[construct_block] DeployContract for address {}, name {}, symbol {}",
@@ -279,7 +280,7 @@ impl EVMServices {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
                     let (tx, receipt) = create_deploy_contract_tx(
-                        idx,
+                        token_id,
                         current_block_number,
                         &base_fee,
                         bytecode.into_vec(),
@@ -612,6 +613,7 @@ impl EVMServices {
         let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: String::from(name),
             symbol: String::from(symbol),
+            token_id,
             address,
         }));
 
@@ -636,17 +638,17 @@ impl EVMServices {
 }
 
 fn create_deploy_contract_tx(
-    idx: usize,
+    token_id: u64,
     block_number: U256,
     base_fee: &U256,
     bytecode: Vec<u8>,
 ) -> Result<(SignedTx, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
-        nonce: U256::from(idx),
+        nonce: U256::from(token_id),
         gas_price: base_fee.clone(),
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
-        value: block_number,
+        value: U256::zero(),
         input: bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
@@ -672,6 +674,7 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
         let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: token.name,
             symbol: token.symbol,
+            token_id: token.id,
             address,
         }));
         txs.push(QueueTxItem {

@@ -750,6 +750,7 @@ pub fn evm_try_create_dst20(
         name: String::from(name),
         symbol: String::from(symbol),
         address,
+        token_id,
     }));
 
     unsafe {
