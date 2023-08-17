@@ -1,11 +1,10 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use primitive_types::{H160, H256, U256};
-use rocksdb::ColumnFamily;
 
 use super::db::{Column, ColumnName, LedgerColumn, Rocks};
 use super::traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage};
@@ -19,20 +18,12 @@ use crate::Result;
 pub struct BlockStore(Arc<Rocks>);
 
 impl BlockStore {
-    pub fn new(path: &PathBuf) -> Result<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
         let backend = Arc::new(Rocks::open(&path)?);
 
         Ok(Self(backend))
-    }
-
-    #[inline]
-    pub fn cf_handle<C: ColumnName>(&self) -> &ColumnFamily
-    where
-        C: Column + ColumnName,
-    {
-        self.0.cf_handle(C::NAME)
     }
 
     pub fn column<C>(&self) -> LedgerColumn<C>

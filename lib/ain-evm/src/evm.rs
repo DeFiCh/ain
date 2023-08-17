@@ -90,7 +90,7 @@ impl EVMServices {
                 core: EVMCoreService::new_from_json(
                     Arc::clone(&storage),
                     PathBuf::from(state_input_path),
-                    PathBuf::from(path),
+                    path,
                 )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),

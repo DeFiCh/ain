@@ -3,7 +3,7 @@ mod cache;
 mod db;
 pub mod traits;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::Path};
 
 use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
@@ -29,14 +29,14 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new(path: &PathBuf) -> Result<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         Ok(Self {
             cache: Cache::new(None),
             blockstore: BlockStore::new(path)?,
         })
     }
 
-    pub fn restore(path: &PathBuf) -> Result<Self> {
+    pub fn restore(path: &Path) -> Result<Self> {
         Ok(Self {
             cache: Cache::new(None),
             blockstore: BlockStore::new(path)?,
