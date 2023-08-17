@@ -541,10 +541,6 @@ public:
     static Res InvalidBlockNumberString(const std::string &number) {
         return Res::Err("Invalid block number: %s", number);
     }
-
-    static Res DST20MigrationFailure(const std::string &reason) {
-        return Res::Err("Error migrating DST20 token: %s", reason);
-    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H

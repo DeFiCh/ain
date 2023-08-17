@@ -5,6 +5,7 @@ pub struct DeployContractData {
     pub name: String,
     pub symbol: String,
     pub address: H160,
+    pub token_id: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
