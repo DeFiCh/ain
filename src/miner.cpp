@@ -286,15 +286,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        if (auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId); !res) {
-            LogPrintf("ThreadStaker: Failed to process DST20 migration: %s\n", res.msg);
-            return nullptr;
-        }
-
-        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight));
+        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) { return nullptr; }
         auto blockResult = *res;
-        
+
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
