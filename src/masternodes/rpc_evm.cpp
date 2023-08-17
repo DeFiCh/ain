@@ -54,7 +54,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
                           {"gasPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas Price in Gwei"},
                           {"gasLimit", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas limit"},
                           {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "To address. Can be empty"},
-                          {"value", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount to send"},
+                          {"value", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount to send in DFI"},
                           {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex encoded data. Can be blank."},
                           },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
