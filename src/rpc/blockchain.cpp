@@ -266,12 +266,9 @@ struct RewardInfo {
     }
 };
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
-{
-    // Serialize passed information without accessing chain state of the active chain!
-    AssertLockNotHeld(cs_main); // For performance reasons
-    const auto consensus = Params().GetConsensus();
 
+std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
+    
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
             UniValue r(UniValue::VOBJ);
             r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
@@ -287,7 +284,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             return r;
     };
 
-    auto txVmInfo = [&evmBlockHeaderToUniValue](const CTransaction& tx) -> std::optional<UniValue> {
         CustomTxType guess;
         UniValue txResults(UniValue::VOBJ);
         if (tx.IsCoinBase()) {
@@ -322,24 +318,35 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             result.pushKV("msg", txResults);
         }
         return result;
-    };
+}
 
-    auto txsToUniValue = [&txVmInfo](const CBlock& block, bool txDetails, int version) {
+UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails) {
+
+        if (txDetails) {
+        UniValue objTx(UniValue::VOBJ);
+        TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
+        if (version > 2) { 
+            if (auto r = VmInfoUniv(tx); r) {
+                objTx.pushKV("vm", *r);
+            }
+        }
+        return objTx;
+    } else {
+        return tx.GetHash().GetHex();
+    }
+}
+
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
+{
+    // Serialize passed information without accessing chain state of the active chain!
+    AssertLockNotHeld(cs_main); // For performance reasons
+    const auto consensus = Params().GetConsensus();
+
+    auto txsToUniValue = [](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx)
         {
-            if (txDetails) {
-                UniValue objTx(UniValue::VOBJ);
-                TxToUniv(*tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
-                if (version > 2) { 
-                    if (auto r = txVmInfo(*tx); r) {
-                        objTx.pushKV("vm", *r);
-                    }
-                }
-                txs.push_back(objTx);
-            } else {
-                txs.push_back(tx->GetHash().GetHex());
-            }
+            txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails));
         }
         return txs;
     };
