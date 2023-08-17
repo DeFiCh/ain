@@ -268,7 +268,6 @@ struct RewardInfo {
 
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
-    
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
             UniValue r(UniValue::VOBJ);
             r.pushKV("parenthash", uint256::FromByteArray(header.parent_hash).ToString());
@@ -284,45 +283,44 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
             return r;
     };
 
-        CustomTxType guess;
-        UniValue txResults(UniValue::VOBJ);
-        if (tx.IsCoinBase()) {
-            if (tx.vout.size() < 2) {
-                // TODO: Decode vout 0 to dvm
-                return {};
-            }
-            auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-            if (tx1ScriptPubKey.size() == 0) return {};
-            auto xvm = XVM::TryFrom(tx1ScriptPubKey);
-            if (!xvm) return {};
-            UniValue result(UniValue::VOBJ);
-            result.pushKV("vmtype", "coinbase");
-            result.pushKV("txtype", "coinbase");
-            result.pushKV("msg", xvm->ToUniValue());
-            CrossBoundaryResult res;
-            auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
-            if (!res.ok) return {};
-            result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
-            return result;
-        }
-        auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
-        if (guess == CustomTxType::None) {
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    if (tx.IsCoinBase()) {
+        if (tx.vout.size() < 2) {
+            // TODO: Decode vout 0 to dvm
             return {};
         }
+        auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
+        if (tx1ScriptPubKey.size() == 0) return {};
+        auto xvm = XVM::TryFrom(tx1ScriptPubKey);
+        if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
-        result.pushKV("vmtype", guess == CustomTxType::EvmTx ? "evm" : "dvm");
-        result.pushKV("txtype", ToString(guess));
-        if (!res.ok) {
-            result.pushKV("error", res.msg);
-        } else {
-            result.pushKV("msg", txResults);
-        }
+        result.pushKV("vmtype", "coinbase");
+        result.pushKV("txtype", "coinbase");
+        result.pushKV("msg", xvm->ToUniValue());
+        CrossBoundaryResult res;
+        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash.GetByteArray());
+        if (!res.ok) return {};
+        result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
+    }
+    auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
+    if (guess == CustomTxType::None) {
+        return {};
+    }
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("vmtype", guess == CustomTxType::EvmTx ? "evm" : "dvm");
+    result.pushKV("txtype", ToString(guess));
+    if (!res.ok) {
+        result.pushKV("error", res.msg);
+    } else {
+        result.pushKV("msg", txResults);
+    }
+    return result;
 }
 
 UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails) {
-
-        if (txDetails) {
+    if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
         if (version > 2) { 
@@ -344,8 +342,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     auto txsToUniValue = [](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
-        for(const auto& tx : block.vtx)
-        {
+        for(const auto& tx : block.vtx) {
             txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails));
         }
         return txs;
