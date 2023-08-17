@@ -636,19 +636,17 @@ fn create_deploy_contract_tx(
     block_number: U256,
     base_fee: &U256,
 ) -> Result<(SignedTx, ReceiptV3)> {
-    let tx = SignedTx {
-        sender: H160::zero(),
-        transaction: TransactionV2::Legacy(LegacyTransaction {
-            nonce: U256::from(idx),
-            gas_price: base_fee.clone(),
-            gas_limit: U256::from(u64::MAX),
-            action: TransactionAction::Create,
-            value: block_number,
-            input: Vec::new(),
-            signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
-                .ok_or(format_err!("Invalid transaction signature format"))?,
-        }),
-    };
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::from(idx),
+        gas_price: base_fee.clone(),
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Create,
+        value: block_number,
+        input: Vec::new(),
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+    .try_into()?;
 
     let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
         status_code: 1u8,
