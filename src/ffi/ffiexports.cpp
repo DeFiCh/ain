@@ -194,9 +194,15 @@ uint64_t getMinRelayTxFee() {
     return ::minRelayTxFee.GetFeePerK() * 10000000;
 }
 
-std::array<uint8_t, 32> getEthPrivKey(std::array<uint8_t, 20> keyID) {
+std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
+    const auto dest = DecodeDestination(std::string(key.begin(), key.length()));
+    if (dest.index() != WitV16KeyEthHashType) {
+        return {};
+    }
+    const auto keyID = std::get<WitnessV16EthHash>(dest);
+    const CKeyID ethKeyID{keyID};
+
     CKey ethPrivKey;
-    const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet: GetWallets()) {
         if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};

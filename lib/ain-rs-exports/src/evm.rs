@@ -66,7 +66,7 @@ pub fn evm_try_create_and_sign_tx(
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };
 
-    // Sign
+    // Sign with a big endian byte array
     match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),

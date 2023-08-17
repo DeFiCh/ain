@@ -1059,8 +1059,8 @@ fn sign(
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     debug!("sign address {:#x}", address);
-    let key_id = address.as_fixed_bytes().to_owned();
-    let priv_key = get_eth_priv_key(key_id).unwrap();
+    let key = format!("{:?}", address);
+    let priv_key = get_eth_priv_key(key).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
     match message {
