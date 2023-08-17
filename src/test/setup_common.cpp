@@ -34,6 +34,9 @@
 #ifdef __linux__
 #include <execinfo.h>
 
+// Use addr2line for symbols. Eg: 
+// addr2line --exe=$(pwd)/build/src/test/test_defi -afCp 0x3ce23a2
+
 void print_backtrace()
 {
     void* array[10];
