@@ -2,7 +2,7 @@ use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
 use ain_evm::{
-    core::{XHash, ValidateTxInfo},
+    core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
