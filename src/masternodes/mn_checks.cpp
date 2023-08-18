@@ -769,7 +769,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmQueueId;
-    bool prevalidateEvm;
+    bool evmSanityCheckOnly;
     bool isEvmEnabledForBlock;
 
 public:
@@ -781,14 +781,14 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmQueueId,
-                          const bool prevalidateEvm,
+                          const bool evmSanityCheckOnly,
                           const bool isEvmEnabledForBlock)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          prevalidateEvm(prevalidateEvm),
+          evmSanityCheckOnly(evmSanityCheckOnly),
           isEvmEnabledForBlock(isEvmEnabledForBlock) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
@@ -3988,32 +3988,31 @@ public:
 
         CrossBoundaryResult result;
         ValidateTxCompletion validateResults;
-        if (!prevalidateEvm) {
-            validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
-            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (!result.ok) {
-                LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
-                return Res::Err("evm tx failed to validate %s", result.reason);
-            }
 
-            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used);
-            if (!result.ok) {
-                LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
-                return Res::Err("evm tx failed to queue %s\n", result.reason);
-            }
-        }
-        else {
+        if (evmSanityCheckOnly) {
             validateResults = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
-        }
-
-        auto txHash = tx.GetHash().GetHex();
-        if (validateResults.tx_hash.length() < 2) {
             return Res::Ok();
         }
+
+        validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
+        // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
+        if (!result.ok) {
+            LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
+        }
+
+        evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used);
+        if (!result.ok) {
+            LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
+        }
+
+
+        auto txHash = tx.GetHash().GetHex();
         auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
@@ -4275,16 +4274,16 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     auto q = evmQueueId;
-    bool prevalidateEvm = false;
+    bool evmSanityCheckOnly = false;
     if (q == 0) {
-        prevalidateEvm = true;
+        evmSanityCheckOnly = true;
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (r) { q = *r; } else { return r; }
     }
 
     try {
         return std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm, isEvmEnabledForBlock),
+            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, evmSanityCheckOnly, isEvmEnabledForBlock),
             txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
