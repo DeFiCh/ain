@@ -94,7 +94,7 @@ mod tests {
 
 
     #[test]
-    fn test3() {
+    fn test_recover_test3() {
         // Tx: https://etherscan.io/getRawTx?tx=0x89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d
         // 
         // Hex: 
@@ -123,19 +123,19 @@ mod tests {
         // let h_vals = &[txhash_str, s_str, r_str].iter().map(|x| H256::).collect::<Vec<_>>();
         // let [hash, r, s ] = h_vals[..];
 
-        let to = H160::from_slice(&hex!("d9f61a4A96f66Afe09c6F55B72AeaF1590AC8495"));
-        let hash = H256::from_slice(&hex!("89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d"));
         let from = H160::from_slice(&hex!("3f1e01F65Cac6CDB60Ef5F7fC8F988f042949a2C"));
-        let s = H256::from_slice(&hex!("69bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f"));
+        let to = H160::from_slice(&hex!("d9f61a4A96f66Afe09c6F55B72AeaF1590AC8495"));
+
+        let hash = H256::from_slice(&hex!("89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d"));
         let r = H256::from_slice(&hex!("2fa2191f585d3f704d073dd19fd2dddc745612dacdd60fc27d4df53d2717a057"));
+        let s = H256::from_slice(&hex!("69bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f"));
 
         let recovery_id = 0;
         let pubkey = recover_public_key(&hash, &r, &s, recovery_id);
         assert!(pubkey.is_ok());
         let address = public_key_to_address(&pubkey.unwrap());
-        assert_eq!(
-            address,
-            from
-        );
+        println!("address: {:x}", address);
+        println!("from: {:x}", from);
+        assert_eq!(address,from);
     }
 }
