@@ -62,6 +62,10 @@ pub fn get_dst20_bytecode() -> Result<Vec<u8>> {
     get_bytecode(include_str!("../dst20/output/bytecode.json"))
 }
 
+pub fn get_dst20_input() -> Result<Vec<u8>> {
+    get_bytecode(include_str!("../dst20/input.json"))
+}
+
 pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
     get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
 }
