@@ -41,7 +41,7 @@
 #include <utility>
 
 struct EvmAddressWithNonce {
-    std::string address;
+    EvmAddressData address;
     uint64_t nonce;
 
     bool operator<(const EvmAddressWithNonce& item) const
@@ -54,7 +54,7 @@ struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
     std::map<EvmAddressWithNonce, uint64_t> feeMap;
     // Used to track EVM nonce and TXs by sender
-    std::map<std::string, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
+    std::map<EvmAddressData, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
@@ -132,7 +132,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const std::string& evmBeneficiary)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 

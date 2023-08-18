@@ -26,7 +26,7 @@ struct EVM {
     std::string blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    std::string beneficiary;
+    EvmAddressData beneficiary;
 
     ADD_SERIALIZE_METHODS;
 

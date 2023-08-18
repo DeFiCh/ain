@@ -15,6 +15,9 @@
 #include <stdexcept>
 #include <vector>
 
+// typedef std::array<uint8_t, 20> EvmAddressData;
+typedef std::string EvmAddressData;
+
 /**
  * secure_allocator is defined in allocators.h
  * CPrivKey is a serialized private key, with all parameters included

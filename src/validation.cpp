@@ -912,7 +912,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        std::string ethSender{};
+        std::optional<EvmAddressData> ethSender{};
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
