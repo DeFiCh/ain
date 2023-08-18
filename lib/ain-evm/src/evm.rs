@@ -505,7 +505,7 @@ impl EVMServices {
             None => {}
             Some(account) => {
                 if account.code_hash != ain_contracts::get_system_reserved_codehash()? {
-                    return Err(format_err!("Token address is already in use").into());
+                    debug!("Token address is already in use for {name} {symbol}");
                 }
             }
         }
