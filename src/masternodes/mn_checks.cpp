@@ -4126,6 +4126,11 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nTokenId != dst.amount.nTokenId)
         return DeFiErrors::TransferDomainDifferentTokens();
 
+    // We allow 0 here, just if we need to touch something
+    // on either sides or special case later.
+    if (src.amount.nValue < 0)
+        return DeFiErrors::TransferDomainInvalid();
+
     auto tokenId = src.amount.nTokenId;
 
     if (tokenId != DCT_ID{0}) {
