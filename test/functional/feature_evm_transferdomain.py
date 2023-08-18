@@ -10,40 +10,44 @@ from decimal import Decimal
 
 
 def transfer_domain(node, fromAddr, toAddr, amount, fromDomain, toDomain):
-    return node.transferdomain([
-        {
-                    "src": {"address": fromAddr, "amount": amount, "domain": fromDomain},
-                    "dst": {
-                        "address": toAddr,
-                        "amount": amount,
-                        "domain": toDomain,
-                    }
-        }])
+    return node.transferdomain(
+        [
+            {
+                "src": {"address": fromAddr, "amount": amount, "domain": fromDomain},
+                "dst": {
+                    "address": toAddr,
+                    "amount": amount,
+                    "domain": toDomain,
+                },
+            }
+        ]
+    )
+
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
         node_args = [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=150",
-                "-subsidytest=1",
-                "-txindex=1",
+            "-txordering=2",
+            "-dummypos=0",
+            "-txnotokens=0",
+            "-amkheight=50",
+            "-bayfrontheight=51",
+            "-eunosheight=80",
+            "-fortcanningheight=82",
+            "-fortcanninghillheight=84",
+            "-fortcanningroadheight=86",
+            "-fortcanningcrunchheight=88",
+            "-fortcanningspringheight=90",
+            "-fortcanninggreatworldheight=94",
+            "-fortcanningepilogueheight=96",
+            "-grandcentralheight=101",
+            "-nextnetworkupgradeheight=150",
+            "-subsidytest=1",
+            "-txindex=1",
         ]
-        self.extra_args = [ node_args, node_args ]
+        self.extra_args = [node_args, node_args]
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -148,7 +152,9 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "called before NextNetworkUpgrade height",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+            ),
         )
 
         # Move to fork height
@@ -157,7 +163,9 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Cannot create tx, transfer domain is not enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+            ),
         )
 
         # Activate EVM
@@ -170,7 +178,9 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Cannot create tx, transfer domain is not enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+            ),
         )
 
         # Activate transferdomain
@@ -193,12 +203,16 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "DVM to EVM is not currently enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+            ),
         )
         assert_raises_rpc_error(
             -32600,
             "EVM to DVM is not currently enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 3, 2)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 3, 2
+            ),
         )
 
         self.nodes[0].setgov(
@@ -214,12 +228,16 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "transferdomain for DST20 from DVM to EVM is not enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@BTC", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "1@BTC", 2, 3
+            ),
         )
         assert_raises_rpc_error(
             -32600,
             "transferdomain for DST20 from EVM to DVM is not enabled",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@BTC", 3, 2)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "1@BTC", 3, 2
+            ),
         )
 
         # Activate DAT transferdomain
@@ -377,12 +395,16 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             'Dst address must be an ERC55 address in case of "EVM" domain',
-            lambda: transfer_domain(self.nodes[0], self.address, self.address, "100@DFI", 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.address, "100@DFI", 2, 3
+            ),
         )
         assert_raises_rpc_error(
             -32600,
             "Cannot transfer inside same domain",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 2)
+            lambda: transfer_domain(
+                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 2
+            ),
         )
         assert_raises_rpc_error(
             -32600,
@@ -438,17 +460,33 @@ class EVMTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Non-DAT or LP tokens are not supported for transferdomain",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@" + self.symbolUSER, 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0],
+                self.address,
+                self.eth_address,
+                "1@" + self.symbolUSER,
+                2,
+                3,
+            ),
         )
         assert_raises_rpc_error(
             -32600,
             "Non-DAT or LP tokens are not supported for transferdomain",
-            lambda: transfer_domain(self.nodes[0], self.address, self.eth_address, "1@" + self.symbolBTCDFI, 2, 3)
+            lambda: transfer_domain(
+                self.nodes[0],
+                self.address,
+                self.eth_address,
+                "1@" + self.symbolBTCDFI,
+                2,
+                3,
+            ),
         )
 
     def valid_transfer_dvm_evm(self):
         # Transfer 100 DFI from DVM to EVM
-        tx1 = transfer_domain(self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3)
+        tx1 = transfer_domain(
+            self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+        )
         self.nodes[0].generate(1)
 
         # Check tx1 fields
@@ -633,7 +671,9 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_dvm_evm()
 
         # Transfer 100 DFI from EVM to DVM
-        tx = transfer_domain(self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2)
+        tx = transfer_domain(
+            self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2
+        )
         self.nodes[0].generate(1)
 
         # Check tx fields

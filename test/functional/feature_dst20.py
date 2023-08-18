@@ -113,65 +113,78 @@ class DST20(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         all_tokens = self.nodes[0].listtokens()
         # Keep only DAT non-DFI tokens
-        loanTokens = [token for token in all_tokens.values() if token['isDAT'] == True and token['symbol'] != 'DFI']
-        assert_equal(len(block['transactions']), len(loanTokens))
+        loanTokens = [
+            token
+            for token in all_tokens.values()
+            if token["isDAT"] == True and token["symbol"] != "DFI"
+        ]
+        assert_equal(len(block["transactions"]), len(loanTokens))
 
         # check USDT migration
-        usdt_tx = block['transactions'][0]
+        usdt_tx = block["transactions"][0]
         receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
         tx1 = self.nodes[0].eth_getTransactionByHash(usdt_tx)
-        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_usdt)
-        assert_equal(receipt['from'], tx1['from'])
-        assert_equal(receipt['gasUsed'], '0x0')
-        assert_equal(receipt['logs'], [])
-        assert_equal(receipt['status'], '0x1')
-        assert_equal(receipt['to'], None)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_usdt,
+        )
+        assert_equal(receipt["from"], tx1["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
 
         assert_equal(
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
-            )
-            , tx1['input']
+            ),
+            tx1["input"],
         )
 
         # check BTC migration
-        btc_tx = block['transactions'][1]
+        btc_tx = block["transactions"][1]
         receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
         tx2 = self.nodes[0].eth_getTransactionByHash(btc_tx)
-        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_btc)
-        assert_equal(receipt['from'], tx2['from'])
-        assert_equal(receipt['gasUsed'], '0x0')
-        assert_equal(receipt['logs'], [])
-        assert_equal(receipt['status'], '0x1')
-        assert_equal(receipt['to'], None)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx2["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
 
         assert_equal(
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_btc)
-            )
-            , tx2['input']
+            ),
+            tx2["input"],
         )
 
         # check ETH migration
-        eth_tx = block['transactions'][2]
+        eth_tx = block["transactions"][2]
         receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
         tx3 = self.nodes[0].eth_getTransactionByHash(eth_tx)
-        assert_equal(self.w0.to_checksum_address(receipt['contractAddress']), self.contract_address_eth)
-        assert_equal(receipt['from'], tx3['from'])
-        assert_equal(receipt['gasUsed'], '0x0')
-        assert_equal(receipt['logs'], [])
-        assert_equal(receipt['status'], '0x1')
-        assert_equal(receipt['to'], None)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_eth,
+        )
+        assert_equal(receipt["from"], tx3["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
 
         assert_equal(
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
-            )
-            , tx3['input']
+            ),
+            tx3["input"],
         )
 
-        assert_equal(tx1['input'], tx2['input'])
-        assert_equal(tx2['input'], tx3['input'])
+        assert_equal(tx1["input"], tx2["input"])
+        assert_equal(tx2["input"], tx3["input"])
 
         self.rollback_to(block_height)
 
@@ -189,7 +202,6 @@ class DST20(DefiTestFramework):
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
-
             )
             != self.reserved_bytecode
         )
@@ -845,6 +857,7 @@ class DST20(DefiTestFramework):
         self.test_negative_transfer()
         self.test_different_tokens()
         self.test_loan_token()
+
 
 if __name__ == "__main__":
     DST20().main()
