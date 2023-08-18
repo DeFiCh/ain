@@ -65,6 +65,8 @@ namespace BCLog {
         TOKENSPLIT    = (1UL << 28),
         RPCCACHE      = (1UL << 29),
         CUSTOMTXBENCH = (1UL << 30),
+        CONNECT       = (1UL << 31),
+        SIGN          = (1UL << 32),
         ALL           = ~(0UL),
     };
 
@@ -84,7 +86,7 @@ namespace BCLog {
         std::atomic_bool m_started_new_line{true};
 
         /** Log categories bitfield. */
-        std::atomic<uint32_t> m_categories{0};
+        std::atomic<uint64_t> m_categories{0};
 
         std::string LogTimestampStr(const std::string& str);
 

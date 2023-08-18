@@ -268,7 +268,6 @@ struct RewardInfo {
 
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
-    
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
             UniValue r(UniValue::VOBJ);
             r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
@@ -321,8 +320,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
 }
 
 UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails) {
-
-        if (txDetails) {
+    if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
         if (version > 2) { 
@@ -344,8 +342,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     auto txsToUniValue = [](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
-        for(const auto& tx : block.vtx)
-        {
+        for(const auto& tx : block.vtx) {
             txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails));
         }
         return txs;

@@ -3,7 +3,10 @@ use std::sync::Arc;
 
 use ain_contracts::{Contracts, CONTRACT_ADDRESSES};
 use anyhow::format_err;
-use ethereum::{Block, PartialHeader, ReceiptV3};
+use ethereum::{
+    Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
+    TransactionSignature, TransactionV2,
+};
 use ethereum_types::{Bloom, H160, H64, U256};
 use log::debug;
 use primitive_types::H256;
@@ -22,9 +25,9 @@ use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
 use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
-use crate::transaction::SignedTx;
+use crate::transaction::{SignedTx, LOWER_H256};
 use crate::trie::GENESIS_STATE_ROOT;
-use crate::txqueue::{BlockData, QueueTx};
+use crate::txqueue::{BlockData, QueueTx, QueueTxItem};
 use crate::Result;
 
 pub struct EVMServices {
@@ -55,6 +58,8 @@ pub struct DST20BridgeInfo {
     pub storage: Vec<(H256, H256)>,
 }
 
+pub type ReceiptAndOptionalContractAddress = (ReceiptV3, Option<H160>);
+
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -72,16 +77,26 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
-        if let Some(path) = ain_cpp_imports::get_state_input_json() {
+        let datadir = ain_cpp_imports::get_datadir();
+        let path = PathBuf::from(datadir).join("evm");
+        if !path.exists() {
+            std::fs::create_dir(&path)?
+        }
+
+        if let Some(state_input_path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
                 return Err(format_err!(
                     "Loading a genesis from JSON file is restricted to regtest network"
                 )
                 .into());
             }
-            let storage = Arc::new(Storage::new());
+            let storage = Arc::new(Storage::new(&path)?);
             Ok(Self {
-                core: EVMCoreService::new_from_json(Arc::clone(&storage), PathBuf::from(path))?,
+                core: EVMCoreService::new_from_json(
+                    Arc::clone(&storage),
+                    PathBuf::from(state_input_path),
+                    path,
+                )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
@@ -89,9 +104,9 @@ impl EVMServices {
                 storage,
             })
         } else {
-            let storage = Arc::new(Storage::restore());
+            let storage = Arc::new(Storage::restore(&path)?);
             Ok(Self {
-                core: EVMCoreService::restore(Arc::clone(&storage)),
+                core: EVMCoreService::restore(Arc::clone(&storage), path),
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
@@ -114,13 +129,22 @@ impl EVMServices {
         beneficiary: H160,
         timestamp: u64,
         dvm_block_number: u64,
+        mnview_ptr: usize,
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
+
+        let is_evm_genesis_block = queue.target_block == U256::zero();
+        if is_evm_genesis_block {
+            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
+            queue.transactions.extend(migration_txs.into_iter())
+        }
+
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
-        let mut receipts_v3: Vec<ReceiptV3> = Vec::with_capacity(queue_txs_len);
+        let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
+            Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
         let mut total_gas_fees = U256::zero();
         let mut logs_bloom: Bloom = Bloom::default();
@@ -188,8 +212,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
-
-        for queue_item in queue.transactions.clone() {
+        for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -208,11 +231,11 @@ impl EVMServices {
                         receipt,
                     ) = executor.exec(&signed_tx, prepay_gas);
                     debug!(
-                        "receipt : {:#?} for signed_tx : {:#x}",
+                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
                         receipt,
+                        exit_reason,
                         signed_tx.transaction.hash()
                     );
-
                     if !exit_reason.is_succeed() {
                         failed_transactions.push(queue_item.tx_hash);
                     }
@@ -223,7 +246,7 @@ impl EVMServices {
 
                     all_transactions.push(signed_tx.clone());
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push(receipt);
+                    receipts_v3.push((receipt, None));
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
@@ -250,6 +273,7 @@ impl EVMServices {
                     name,
                     symbol,
                     address,
+                    token_id,
                 })) => {
                     debug!(
                         "[construct_block] DeployContract for address {}, name {}, symbol {}",
@@ -262,9 +286,18 @@ impl EVMServices {
                         storage,
                     } = EVMServices::dst20_contract(&mut executor, address, name, symbol)?;
 
-                    if let Err(e) = executor.deploy_contract(address, bytecode, storage) {
+                    if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
+                    let (tx, receipt) = create_deploy_contract_tx(
+                        token_id,
+                        current_block_number,
+                        &base_fee,
+                        bytecode.into_vec(),
+                    )?;
+
+                    all_transactions.push(Box::new(tx));
+                    receipts_v3.push((receipt, Some(address)));
                 }
                 QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                     to,
@@ -335,20 +368,17 @@ impl EVMServices {
                 .collect(),
             Vec::new(),
         );
-
+        let block_hash = format!("{:?}", block.header.hash());
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3,
             block.header.hash(),
             block.header.number,
         );
-        queue.block_data = Some(BlockData {
-            block: block.clone(),
-            receipts,
-        });
+        queue.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
-            block_hash: format!("{:?}", block.header.hash()),
+            block_hash,
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
@@ -570,7 +600,7 @@ impl EVMServices {
         queue_id: u64,
         name: &str,
         symbol: &str,
-        token_id: &str,
+        token_id: u64,
     ) -> Result<bool> {
         let address = ain_contracts::dst20_address_from_token_id(token_id)?;
         debug!(
@@ -592,6 +622,7 @@ impl EVMServices {
         let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: String::from(name),
             symbol: String::from(symbol),
+            token_id,
             address,
         }));
 
@@ -603,9 +634,7 @@ impl EVMServices {
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
         let bytecode = ain_contracts::get_system_reserved_bytecode()?;
         let addresses = (1..=1024)
-            .map(|token_id| {
-                ain_contracts::dst20_address_from_token_id(&token_id.to_string()).unwrap()
-            })
+            .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
             .collect::<Vec<H160>>();
 
         for address in addresses {
@@ -615,4 +644,54 @@ impl EVMServices {
 
         Ok(())
     }
+}
+
+fn create_deploy_contract_tx(
+    token_id: u64,
+    _block_number: U256,
+    base_fee: &U256,
+    bytecode: Vec<u8>,
+) -> Result<(SignedTx, ReceiptV3)> {
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::from(token_id),
+        gas_price: *base_fee,
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Create,
+        value: U256::zero(),
+        input: bytecode,
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+    .try_into()?;
+
+    let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
+        status_code: 1u8,
+        used_gas: U256::zero(),
+        logs_bloom: Bloom::default(),
+        logs: Vec::new(),
+    });
+
+    Ok((tx, receipt))
+}
+
+fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
+    let mut txs = Vec::new();
+    for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
+        let address = ain_contracts::dst20_address_from_token_id(token.id)?;
+        debug!("Deploying to address {:#?}", address);
+
+        let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            name: token.name,
+            symbol: token.symbol,
+            token_id: token.id,
+            address,
+        }));
+        txs.push(QueueTxItem {
+            tx,
+            tx_hash: Default::default(),
+            tx_fee: U256::zero(),
+            gas_used: U256::zero(),
+        });
+    }
+    Ok(txs)
 }

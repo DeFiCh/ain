@@ -153,6 +153,7 @@ pub mod ffi {
             miner_address: &str,
             timestamp: u64,
             dvm_block_number: u64,
+            mnview_ptr: usize,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_set_attribute(
@@ -186,7 +187,7 @@ pub mod ffi {
             native_hash: &str,
             name: &str,
             symbol: &str,
-            token_id: &str,
+            token_id: u64,
         );
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
@@ -194,7 +195,7 @@ pub mod ffi {
             address: &str,
             amount: u64,
             native_hash: &str,
-            token_id: &str,
+            token_id: u64,
             out: bool,
         );
         fn evm_try_is_dst20_deployed_or_queued(
@@ -202,7 +203,7 @@ pub mod ffi {
             queue_id: u64,
             name: &str,
             symbol: &str,
-            token_id: &str,
+            token_id: u64,
         ) -> bool;
 
         fn evm_unsafe_try_get_target_block_in_q(

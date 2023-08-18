@@ -1017,7 +1017,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, FromOrDefaultDestinationTypeToKeyType(addressType), KeyType::MNRewardKeyType));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -1076,7 +1076,7 @@ public:
             evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetHex(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
-                             tokenId->ToString());
+                             tokenId->v);
 
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
@@ -3864,7 +3864,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, TxDestTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
@@ -3892,7 +3892,7 @@ public:
     Res operator()(const CTransferDomainMessage &obj) const {
         auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
         if (!res) { return res; }
-        
+
         auto attributes = mnview.GetAttributes();
         auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
@@ -3922,7 +3922,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.ToString(), false);
+                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3948,8 +3948,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.ToString(), true);
-
+                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -4531,7 +4530,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4616,9 +4615,9 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     CTxDestination destination;
     if (height < consensusParams.NextNetworkUpgradeHeight) {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
     }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
