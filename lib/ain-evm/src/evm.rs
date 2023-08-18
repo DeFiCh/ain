@@ -14,7 +14,7 @@ use primitive_types::H256;
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
 use crate::bytes::Bytes;
-use crate::core::EVMCoreService;
+use crate::core::{EVMCoreService, XHash};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
 use crate::filters::FilterService;
@@ -40,7 +40,7 @@ pub struct EVMServices {
 }
 
 pub struct FinalizedBlockInfo {
-    pub block_hash: String,
+    pub block_hash: XHash,
     pub failed_transactions: Vec<String>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
@@ -435,7 +435,7 @@ impl EVMServices {
         &self,
         queue_id: u64,
         tx: QueueTx,
-        hash: String,
+        hash: XHash,
         gas_used: U256,
     ) -> Result<()> {
         let parent_data = self.block.get_latest_block_hash_and_number()?;

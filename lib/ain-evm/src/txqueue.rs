@@ -7,6 +7,7 @@ use ethereum::{Block, TransactionV2};
 use ethereum_types::{H160, U256};
 use rand::Rng;
 
+use crate::core::XHash;
 use crate::fee::calculate_gas_fee;
 use crate::receipt::Receipt;
 use crate::transaction::{system::SystemTx, SignedTx};
@@ -118,7 +119,7 @@ impl TransactionQueueMap {
         &self,
         queue_id: u64,
         tx: QueueTx,
-        hash: String,
+        hash: XHash,
         gas_used: U256,
         base_fee: U256,
     ) -> Result<()> {
@@ -218,7 +219,7 @@ pub enum QueueTx {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueueTxItem {
     pub tx: QueueTx,
-    pub tx_hash: String,
+    pub tx_hash: XHash,
     pub tx_fee: U256,
     pub gas_used: U256,
 }
@@ -276,7 +277,7 @@ impl TransactionQueue {
     pub fn queue_tx(
         &self,
         tx: QueueTx,
-        tx_hash: String,
+        tx_hash: XHash,
         gas_used: U256,
         base_fee: U256,
     ) -> Result<()> {

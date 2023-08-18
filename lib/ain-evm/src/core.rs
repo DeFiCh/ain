@@ -27,6 +27,8 @@ use crate::{
     Result,
 };
 
+pub type XHash = String;
+
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
@@ -347,7 +349,7 @@ impl EVMCoreService {
         queue_id: u64,
         address: H160,
         amount: U256,
-        hash: String,
+        hash: XHash,
     ) -> Result<()> {
         let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
@@ -366,7 +368,7 @@ impl EVMCoreService {
         queue_id: u64,
         address: H160,
         amount: U256,
-        hash: String,
+        hash: XHash,
     ) -> Result<()> {
         let block_number = self
             .storage
