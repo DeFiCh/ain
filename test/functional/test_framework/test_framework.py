@@ -249,6 +249,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             [os.path.join(config["environment"]["BUILDDIR"], "src"), os.environ["PATH"]]
         )
 
+        os.environ["RUST_LOG"] = "debug"
+
         # Set up temp directory and start logging
         if self.options.tmpdir:
             self.options.tmpdir = os.path.abspath(self.options.tmpdir)
@@ -449,6 +451,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         if current_height == block:
             return
         blockhash = node.getblockhash(block + 1)
+        node.clearmempool()
         node.invalidateblock(blockhash)
         node.clearmempool()
 
