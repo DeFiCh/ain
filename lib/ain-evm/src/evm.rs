@@ -41,7 +41,7 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
-    pub failed_transactions: Vec<String>,
+    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,

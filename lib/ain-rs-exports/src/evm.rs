@@ -2,7 +2,7 @@ use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
 use ain_evm::{
-    core::ValidateTxInfo,
+    core::{XHash, ValidateTxInfo},
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
@@ -188,7 +188,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
         Ok(wei_amount) => wei_amount,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let native_hash = String::from(native_hash);
+    let native_hash = XHash::from(native_hash);
 
     unsafe {
         match SERVICES
@@ -235,7 +235,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
         Ok(wei_amount) => wei_amount,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let native_hash = String::from(native_hash);
+    let native_hash = XHash::from(native_hash);
 
     unsafe {
         match SERVICES
@@ -552,7 +552,7 @@ pub fn evm_try_set_attribute(
 pub fn evm_try_get_block_hash_by_number(
     result: &mut ffi::CrossBoundaryResult,
     height: u64,
-) -> String {
+) -> XHash {
     match SERVICES
         .evm
         .storage
@@ -751,7 +751,7 @@ pub fn evm_try_get_tx_by_hash(
                 },
                 to: match tx.to() {
                     Some(to) => format!("{:?}", to),
-                    None => String::new(),
+                    None => XHash::new(),
                 },
                 value,
                 data: tx.data().to_vec(),
@@ -771,7 +771,7 @@ pub fn evm_try_create_dst20(
     symbol: &str,
     token_id: u64,
 ) {
-    let native_hash = String::from(native_hash);
+    let native_hash = XHash::from(native_hash);
     let address = match ain_contracts::dst20_address_from_token_id(token_id) {
         Ok(address) => address,
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -812,7 +812,7 @@ pub fn evm_try_bridge_dst20(
         Ok(wei_amount) => wei_amount,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let native_hash = String::from(native_hash);
+    let native_hash = XHash::from(native_hash);
     let contract = ain_contracts::dst20_address_from_token_id(token_id)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
