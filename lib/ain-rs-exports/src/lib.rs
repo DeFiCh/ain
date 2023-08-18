@@ -175,6 +175,10 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: &str,
         ) -> EVMBlockHeader;
+        fn evm_try_get_dvm_block_number_by_number(
+            result: &mut CrossBoundaryResult,
+            height: u64,
+        ) -> u64;
         fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_get_tx_by_hash(
             result: &mut CrossBoundaryResult,

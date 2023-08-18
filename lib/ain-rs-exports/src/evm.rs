@@ -592,6 +592,27 @@ pub fn evm_try_get_block_number_by_hash(result: &mut ffi::CrossBoundaryResult, h
     }
 }
 
+pub fn evm_try_get_dvm_block_number_by_number(
+    result: &mut ffi::CrossBoundaryResult,
+    number: u64,
+) -> u64 {
+    match SERVICES.evm.storage.get_block_by_number(&U256::from(number)) {
+        Ok(Some(block)) => {
+            let extra_data = block.header.extra_data;
+            let data = String::from_utf8(extra_data.to_vec()).unwrap();
+            let Some(data) = data.split_whitespace().nth(1) else {
+                return cross_boundary_error_return(result, format!("Expected `DFI: <n>`, actual: {:?}", data));
+            };
+            let Ok(dvm_block_number) = data.parse::<u64>() else {
+                return cross_boundary_error_return(result, "Parse integer error");
+            };
+            cross_boundary_success_return(result, dvm_block_number)
+        }
+        Ok(None) => cross_boundary_error_return(result, "Invalid block number"),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 pub fn evm_try_get_block_header_by_hash(
     result: &mut ffi::CrossBoundaryResult,
     hash: &str,

@@ -316,15 +316,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg.c_str());
         }
         CrossBoundaryResult result;
-        auto evmHash = evm_try_get_block_hash_by_number(result, height);
-        auto evmBlockHash = std::string(evmHash.data(), evmHash.length());
+        uint64_t blockNumber = evm_try_get_dvm_block_number_by_number(result, height);
         crossBoundaryOkOrThrow(result);
-        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-        if (!dvm_block) {
-            throwInvalidParam(dvm_block.msg);
-        }
-        CBlockIndex *pindex  = LookupBlockIndex(*dvm_block.val);
-        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberEVMToDVM, height);
     };
 
@@ -383,9 +376,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
         case VMDomainRPCMapType::BlockNumberDVMToEVM: {
             return handleMapBlockNumberDVMToEVMRequest(input);
         }
-        // case VMDomainRPCMapType::BlockNumberEVMToDVM: {
-        //     return handleMapBlockNumberEVMToDVMRequest(input);
-        // }
+        case VMDomainRPCMapType::BlockNumberEVMToDVM: {
+            return handleMapBlockNumberEVMToDVMRequest(input);
+        }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }
