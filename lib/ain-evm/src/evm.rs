@@ -212,7 +212,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
-        for (idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
+        for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -649,13 +649,13 @@ impl EVMServices {
 
 fn create_deploy_contract_tx(
     token_id: u64,
-    block_number: U256,
+    _block_number: U256,
     base_fee: &U256,
     bytecode: Vec<u8>,
 ) -> Result<(SignedTx, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),
-        gas_price: base_fee.clone(),
+        gas_price: *base_fee,
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
