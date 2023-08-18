@@ -961,44 +961,26 @@ class EVMTest(DefiTestFramework):
         eth_block = self.nodes[0].eth_getBlockByNumber("latest")
         eth_hash = eth_block["hash"][2:]
         block = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount()), 3
         )
-        raw_tx = self.nodes[0].getrawtransaction(block["tx"][0], 1)
-        block_hash = raw_tx["vout"][1]["scriptPubKey"]["hex"][22:86]
+        coinbase_xvm = block["tx"][0]["vm"]
+        assert_equal(coinbase_xvm["vmtype"], "coinbase")
+        assert_equal(coinbase_xvm["txtype"], "coinbase")
+        block_hash = coinbase_xvm["msg"]["evm"]["blockHash"][2:]
         assert_equal(block_hash, eth_hash)
 
         # Check EVM burnt fee
-        opreturn_burnt_fee_amount = raw_tx["vout"][1]["scriptPubKey"]["hex"][86:]
-        opreturn_burnt_fee_sats = (
-            Decimal(
-                int(
-                    opreturn_burnt_fee_amount[4:6]
-                    + opreturn_burnt_fee_amount[2:4]
-                    + opreturn_burnt_fee_amount[0:2],
-                    16,
-                )
-            )
-            / 100000000
-        )
-        assert_equal(opreturn_burnt_fee_sats, self.burn)
+        opreturn_burnt_fee_sats = coinbase_xvm["msg"]["evm"]["burntFee"]
+        opreturn_burnt_fee_amount = Decimal(opreturn_burnt_fee_sats) / 100000000
+        assert_equal(opreturn_burnt_fee_amount, self.burn)
 
         # Check EVM miner fee
-        opreturn_priority_fee_amount = raw_tx["vout"][1]["scriptPubKey"]["hex"][102:]
-        opreturn_priority_fee_sats = (
-            Decimal(
-                int(
-                    opreturn_priority_fee_amount[4:6]
-                    + opreturn_priority_fee_amount[2:4]
-                    + opreturn_priority_fee_amount[0:2],
-                    16,
-                )
-            )
-            / 100000000
-        )
-        assert_equal(opreturn_priority_fee_sats, self.miner_fee)
+        opreturn_priority_fee_sats = coinbase_xvm["msg"]["evm"]["priorityFee"]
+        opreturn_priority_fee_amount = Decimal(opreturn_priority_fee_sats) / 100000000
+        assert_equal(opreturn_priority_fee_amount, self.miner_fee)
 
         # Check EVM beneficiary address
-        opreturn_miner_keyid = raw_tx["vout"][1]["scriptPubKey"]["hex"][120:]
+        opreturn_miner_keyid = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
         miner_eth_address = self.nodes[0].addressmap(
             self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
         )
