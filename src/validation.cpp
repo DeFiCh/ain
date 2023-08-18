@@ -2932,7 +2932,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Finalize items
-    
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_unsafe_try_commit_queue(result, evmQueueId));
     }
