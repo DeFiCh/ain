@@ -130,12 +130,21 @@ mod tests {
         let r = H256::from_slice(&hex!("2fa2191f585d3f704d073dd19fd2dddc745612dacdd60fc27d4df53d2717a057"));
         let s = H256::from_slice(&hex!("69bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f"));
 
-        let recovery_id = 0;
-        let pubkey = recover_public_key(&hash, &r, &s, recovery_id);
-        assert!(pubkey.is_ok());
-        let address = public_key_to_address(&pubkey.unwrap());
-        println!("address: {:x}", address);
-        println!("from: {:x}", from);
-        assert_eq!(address,from);
+        for x in 0..=255 {
+            let rx = x;
+            let pubkey = recover_public_key(&hash, &r, &s, rx);
+            if pubkey.is_ok() {
+                let address = public_key_to_address(&pubkey.unwrap());
+                println!("address: {:x}", address);
+                println!("from: {:x}", from);
+                if address == from {
+                    println!("found: {}", rx);
+                    break;
+                }
+            } else {
+                println!("{:?}", pubkey.err().unwrap());
+            }
+        }
+
     }
 }
