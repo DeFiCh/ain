@@ -541,6 +541,14 @@ public:
     static Res InvalidBlockNumberString(const std::string &number) {
         return Res::Err("Invalid block number: %s", number);
     }
+    
+    static Res VmmapScriptPubKeyNotFound() {
+        return Res::Err("ScriptPubKey not found");
+    }
+    
+    static Res VmmapScriptPubKeyInvalid() {
+        return Res::Err("ScriptPubKey is invalid");
+    }
 };
 
 #endif  // DEFI_MASTERNODES_ERRORS_H

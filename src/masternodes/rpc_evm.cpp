@@ -3,6 +3,8 @@
 #include <ain_rs_exports.h>
 #include <key_io.h>
 #include <masternodes/errors.h>
+#include <masternodes/mn_checks.h>
+#include <rpc/blockchain.h>
 #include <util/strencodings.h>
 
 enum class VMDomainRPCMapType {
@@ -234,13 +236,13 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         return VMDomainRPCMapType::Unknown;
     };
-/*
+
     auto crossBoundaryOkOrThrow = [&throwInvalidParam](CrossBoundaryResult &result) {
         if (!result.ok) {
             throwInvalidParam(result.reason.c_str());
         }
     };
-
+/*
     auto tryResolveBlockNumberType =
         [&throwUnsupportedAuto, &crossBoundaryOkOrThrow](const std::string input) {
             uint64_t height;
@@ -296,7 +298,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             return ret;
         }
     };
-/*
+
     auto finalizeBlockNumberResult = [&](uint64_t &number, const VMDomainRPCMapType type, const uint64_t input) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV("input", input);
@@ -336,17 +338,21 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
         }
         CBlockIndex *pindex = ::ChainActive()[height];
-        auto evmBlockHash =
-            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
-        if (!evmBlockHash.val.has_value()) {
-            throwInvalidParam(evmBlockHash.msg);
+        const CBlock block = GetBlockChecked(pindex);
+        CScript scriptPubKey = block.vtx[0]->vout[1].scriptPubKey;
+        if (scriptPubKey.size() == 0) {
+            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyNotFound());
+        }
+        auto xvm = XVM::TryFrom(scriptPubKey);
+        if (!xvm) {
+            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyInvalid());
         }
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, *evmBlockHash.val);
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, xvm->evm.blockHash);
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
-*/
+
     LOCK(cs_main);
 
     if (type == VMDomainRPCMapType::Auto) {
@@ -374,10 +380,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
             res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
-        // TODO(canonbrother): disable for release, more investigation needed
-        // case VMDomainRPCMapType::BlockNumberDVMToEVM: {
-        //     return handleMapBlockNumberDVMToEVMRequest(input);
-        // }
+        case VMDomainRPCMapType::BlockNumberDVMToEVM: {
+            return handleMapBlockNumberDVMToEVMRequest(input);
+        }
         // case VMDomainRPCMapType::BlockNumberEVMToDVM: {
         //     return handleMapBlockNumberEVMToDVMRequest(input);
         // }
