@@ -50,8 +50,6 @@ pub enum EVMError {
     StorageError(String),
     #[error("EVM: serde_json error")]
     JsonError(#[from] serde_json::Error),
-    #[error("EVM: rocksdb error")]
-    RocksDBError(#[from] rocksdb::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

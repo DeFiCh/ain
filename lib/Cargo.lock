@@ -134,7 +134,6 @@ dependencies = [
  "rand 0.8.5",
  "ripemd",
  "rlp",
- "rocksdb",
  "rustc-hex",
  "serde",
  "serde_json",
