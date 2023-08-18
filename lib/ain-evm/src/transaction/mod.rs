@@ -105,10 +105,20 @@ pub struct SignedTx {
 impl TryFrom<TransactionV2> for SignedTx {
     type Error = TransactionError;
 
-    fn try_from(transaction: TransactionV2) -> Result<Self, Self::Error> {
-        let pubkey = match &transaction {
+    fn try_from(src: TransactionV2) -> Result<Self, Self::Error> {
+        let pubkey = match &src {
             TransactionV2::Legacy(tx) => {
-                let hash = tx.hash();
+                let msg = ethereum::LegacyTransactionMessage {
+                    nonce: tx.nonce,
+                    gas_price: tx.gas_price,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    chain_id: tx.signature.chain_id(),
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
+                let hash = H256::from(signing_message.serialize());
                 recover_public_key(
                     &hash,
                     tx.signature.r(),
@@ -117,16 +127,39 @@ impl TryFrom<TransactionV2> for SignedTx {
                 )
             }
             TransactionV2::EIP2930(tx) => {
-                let hash = tx.hash();
+                let msg = ethereum::EIP2930TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    gas_price: tx.gas_price,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: tx.access_list.clone(),
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
+                let hash = H256::from(signing_message.serialize());
                 recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }
             TransactionV2::EIP1559(tx) => {
-                let hash = tx.hash();
+                let msg = ethereum::EIP1559TransactionMessage {
+                    chain_id: tx.chain_id,
+                    nonce: tx.nonce,
+                    max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+                    max_fee_per_gas: tx.max_fee_per_gas,
+                    gas_limit: tx.gas_limit,
+                    action: tx.action,
+                    value: tx.value,
+                    input: tx.input.clone(),
+                    access_list: tx.access_list.clone(),
+                };
+                let signing_message = libsecp256k1::Message::parse_slice(&msg.hash()[..])?;
+                let hash = H256::from(signing_message.serialize());
                 recover_public_key(&hash, &tx.r, &tx.s, u8::from(tx.odd_y_parity))
             }
         }?;
         Ok(SignedTx {
-            transaction,
+            transaction: src,
             sender: public_key_to_address(&pubkey),
         })
     }
