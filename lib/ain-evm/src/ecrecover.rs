@@ -58,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn test_recover_test2() {
+    fn _test_recover_test2() {
         // Tx hex: f86c808504e3b29200825208946c34cbb9219d8caa428835d2073e8ec88ba0a110880de0b6b3a76400008025a037f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376a05eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e
 
         // Decoded:
@@ -75,10 +75,10 @@ mod tests {
         //     "s": "5eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e"
         //  }
 
-        let from = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
-        let r = "37f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376";
-        let s = "5eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e";
-        let hash = "";
+        // let _from = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
+        // let _r = "37f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376";
+        // let _s = "5eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e";
+        // let hash = "";
 
         // let recovery_id = 0;
 
@@ -122,7 +122,7 @@ mod tests {
         // let [hash, r, s ] = h_vals[..];
 
         let from = H160::from_slice(&hex!("3f1e01F65Cac6CDB60Ef5F7fC8F988f042949a2C"));
-        let to = H160::from_slice(&hex!("d9f61a4A96f66Afe09c6F55B72AeaF1590AC8495"));
+        let _to = H160::from_slice(&hex!("d9f61a4A96f66Afe09c6F55B72AeaF1590AC8495"));
 
         let hash = H256::from_slice(&hex!(
             "89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d"
