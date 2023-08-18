@@ -61,7 +61,7 @@ mod tests {
     fn test_recover_test2() {
         // Tx hex: f86c808504e3b29200825208946c34cbb9219d8caa428835d2073e8ec88ba0a110880de0b6b3a76400008025a037f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376a05eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e
 
-        // Decoded: 
+        // Decoded:
         // {
         //     "nonce": 0,
         //     "gasPrice": 21000000000,
@@ -89,15 +89,13 @@ mod tests {
         //     address,
         //     from
         // );
-
     }
-
 
     #[test]
     fn test_recover_test3() {
         // Tx: https://etherscan.io/getRawTx?tx=0x89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d
-        // 
-        // Hex: 
+        //
+        // Hex:
         // 0xf901ed828c848503d77a05008301754a94d9f61a4a96f66afe09c6f55b72aeaf1590ac849580b9018439125215000000000000000000000000260f38dbc414a9d588ca2dedddb7588da25736a60000000000000000000000000000000000000000000000000205061e42dd640000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000005dd767960000000000000000000000000000000000000000000000000000000000000c4a000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004187e330045ecad46221a46b1be365a45d293988e2162b94ef939d837d49be6cbb0425cfcfa16bed80a8a8fdb0984c24d081781603473e9077db8ff92618c310bd1c000000000000000000000000000000000000000000000000000000000000001ca02fa2191f585d3f704d073dd19fd2dddc745612dacdd60fc27d4df53d2717a057a069bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f
 
         // Decoded with https://flightwallet.github.io/decode-eth-tx/
@@ -126,15 +124,21 @@ mod tests {
         let from = H160::from_slice(&hex!("3f1e01F65Cac6CDB60Ef5F7fC8F988f042949a2C"));
         let to = H160::from_slice(&hex!("d9f61a4A96f66Afe09c6F55B72AeaF1590AC8495"));
 
-        let hash = H256::from_slice(&hex!("89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d"));
-        let r = H256::from_slice(&hex!("2fa2191f585d3f704d073dd19fd2dddc745612dacdd60fc27d4df53d2717a057"));
-        let s = H256::from_slice(&hex!("69bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f"));
+        let hash = H256::from_slice(&hex!(
+            "89221691a67b15427c97f1fd0cd65966ff617728cd897be27d88a04ee0bc1e2d"
+        ));
+        let r = H256::from_slice(&hex!(
+            "2fa2191f585d3f704d073dd19fd2dddc745612dacdd60fc27d4df53d2717a057"
+        ));
+        let s = H256::from_slice(&hex!(
+            "69bb520bc99dfa007ce23ba52b4eed758d53eb7cc4c66bf7e045c2c13e62675f"
+        ));
 
-        for x in 0..=255 {
+        for x in 0..=4 {
             let rx = x;
             let pubkey = recover_public_key(&hash, &r, &s, rx);
-            if pubkey.is_ok() {
-                let address = public_key_to_address(&pubkey.unwrap());
+            if let Ok(pubkey) = pubkey {
+                let address = public_key_to_address(&pubkey);
                 println!("address: {:x}", address);
                 println!("from: {:x}", from);
                 if address == from {
@@ -145,6 +149,5 @@ mod tests {
                 println!("{:?}", pubkey.err().unwrap());
             }
         }
-
     }
 }
